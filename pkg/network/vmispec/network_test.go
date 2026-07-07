@@ -29,7 +29,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+const draClaimName = "claim1"
+
 var _ = Describe("Network", func() {
+	const vfRequest = "vf"
 	podNetwork := createPodNetwork("default")
 	draNetwork := *libvmi.DRANetwork("dra-net", "sriov", "vf1")
 	multusDefaultNetwork := createMultusDefaultNetwork("network0", "default/nad0")
@@ -113,8 +116,8 @@ var _ = Describe("Network", func() {
 						Name: "dra-1",
 						NetworkSource: v1.NetworkSource{
 							ResourceClaim: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "vf",
+								ClaimName:   draClaimName,
+								RequestName: vfRequest,
 							},
 						},
 					},
@@ -122,8 +125,8 @@ var _ = Describe("Network", func() {
 						Name: "dra-dup",
 						NetworkSource: v1.NetworkSource{
 							ResourceClaim: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "vf",
+								ClaimName:   draClaimName,
+								RequestName: vfRequest,
 							},
 						},
 					},
@@ -155,7 +158,7 @@ var _ = Describe("Network", func() {
 						Name: "dra-net",
 						NetworkSource: v1.NetworkSource{
 							ResourceClaim: &v1.ClaimRequest{
-								ClaimName: "claim1",
+								ClaimName: draClaimName,
 							},
 						},
 					},

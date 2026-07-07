@@ -33,6 +33,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
+const (
+	fieldValueRequired       = "FieldValueRequired"
+	badInterfaceName         = "bad.name"
+	fakeDomainPortField      = "fake.domain.devices.interfaces[0].ports[0].port"
+	unknownProtocolMsg       = "Unknown protocol, only TCP or UDP allowed"
+	testportName             = "testport"
+	fakeDomainPortRangeField = "fake.domain.devices.interfaces[0].portRanges[0].start"
+	fakeDomainField          = "fake"
+	ntpServersMsg            = "NTP servers must be a list of valid IPv4 addresses."
+)
+
 var _ = Describe("Validating VMI network spec", func() {
 	It("should reject network with missing interface", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
@@ -46,7 +57,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueRequired",
+			Type:    fieldValueRequired,
 			Message: "fake.networks[0].name 'not-the-default' not found.",
 			Field:   "fake.networks[0].name",
 		}))
@@ -61,9 +72,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: "fake.domain.devices.interfaces[0].name 'default' not found.",
-			Field:   "fake.domain.devices.interfaces[0].name",
+			Field:   fakePrimaryIfaceNameField,
 		}))
 	})
 
@@ -72,15 +83,15 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{
 			{
-				Name: "default",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
 					Pod: &v1.PodNetwork{},
 				},
 			},
 			{
-				Name: "default",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "test"},
+					Multus: &v1.MultusNetwork{NetworkName: testPortName},
 				},
 			},
 		}
@@ -89,7 +100,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueDuplicate",
+			Type:    fieldValueDuplicateType,
 			Message: "Network with name \"default\" already exists, every network must have a unique name",
 			Field:   "fake.networks[1].name",
 		}))
@@ -102,15 +113,15 @@ var _ = Describe("Validating VMI network spec", func() {
 			*v1.DefaultBridgeNetworkInterface(),
 		}
 		spec.Networks = []v1.Network{
-			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-			{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}}},
+			{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			{Name: net1Name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: testPortName}}},
 		}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ContainElements(metav1.StatusCause{
-			Type:    "FieldValueDuplicate",
+			Type:    fieldValueDuplicateType,
 			Message: "Only one interface can be connected to one specific network",
 			Field:   "fake.domain.devices.interfaces[1].name",
 		}))
@@ -119,16 +130,16 @@ var _ = Describe("Validating VMI network spec", func() {
 	It("should reject interface named with unsupported characters", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   "bad.name",
+			Name:                   badInterfaceName,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 		}}
-		spec.Networks = []v1.Network{{Name: "bad.name", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		spec.Networks = []v1.Network{{Name: badInterfaceName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
-			Field:   "fake.domain.devices.interfaces[0].name",
+			Field:   fakePrimaryIfaceNameField,
 		}))
 	})
 
@@ -164,9 +175,9 @@ var _ = Describe("Validating VMI network spec", func() {
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: expectedMessage,
-			Field:   "fake.domain.devices.interfaces[0].macAddress",
+			Field:   fakeDomainMACField,
 		}))
 	},
 		Entry(
@@ -209,7 +220,7 @@ var _ = Describe("Validating VMI network spec", func() {
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: fmt.Sprintf("interface fake.domain.devices.interfaces[0].name has malformed PCI address (%s).", pciAddress),
 			Field:   "fake.domain.devices.interfaces[0].pciAddress",
 		}))
@@ -236,30 +247,30 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should reject interface port with", func(ports []v1.Port, expectedCauses []metav1.StatusCause) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				Ports:                  ports,
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
 		},
 			Entry(
 				"only the port name",
-				[]v1.Port{{Name: "test"}},
+				[]v1.Port{{Name: testPortName}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueRequired",
+					Type:    fieldValueRequired,
 					Message: "Port field is mandatory.",
-					Field:   "fake.domain.devices.interfaces[0].ports[0].port",
+					Field:   fakeDomainPortField,
 				}},
 			),
 			Entry(
 				"bad protocol type",
 				[]v1.Port{{Protocol: "bad", Port: 80}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "Unknown protocol, only TCP or UDP allowed",
+					Type:    fieldValueInvalidType,
+					Message: unknownProtocolMsg,
 					Field:   "fake.domain.devices.interfaces[0].ports[0].protocol",
 				}},
 			),
@@ -267,16 +278,16 @@ var _ = Describe("Validating VMI network spec", func() {
 				"port out of range",
 				[]v1.Port{{Port: 80000}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "Port field must be in range 0 < x < 65536.",
-					Field:   "fake.domain.devices.interfaces[0].ports[0].port",
+					Field:   fakeDomainPortField,
 				}},
 			),
 			Entry(
 				"two ports that have the same name",
-				[]v1.Port{{Name: "testport", Port: 80}, {Name: "testport", Protocol: "UDP", Port: 80}},
+				[]v1.Port{{Name: testportName, Port: 80}, {Name: testportName, Protocol: udpProtocol, Port: 80}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueDuplicate",
+					Type:    fieldValueDuplicateType,
 					Message: "Duplicate name of the port: testport",
 					Field:   "fake.domain.devices.interfaces[0].ports[1].name",
 				}},
@@ -285,7 +296,7 @@ var _ = Describe("Validating VMI network spec", func() {
 				"bad port name",
 				[]v1.Port{{Name: "Test", Port: 80}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "Invalid name of the port: Test",
 					Field:   "fake.domain.devices.interfaces[0].ports[0].name",
 				}},
@@ -295,20 +306,20 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should accept interface with", func(ports []v1.Port) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				Ports:                  ports,
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
 			Entry("single minimal port", []v1.Port{{Port: 80}}),
-			Entry("multiple ports, same number, with protocol and without", []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}}),
+			Entry("multiple ports, same number, with protocol and without", []v1.Port{{Port: 80}, {Protocol: udpProtocol, Port: 80}}),
 			Entry(
 				"multiple ports, same number, different protocols",
-				[]v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 80}},
+				[]v1.Port{{Port: 80}, {Protocol: udpProtocol, Port: 80}, {Protocol: tcpProtocol, Port: 80}},
 			),
 		)
 	})
@@ -316,65 +327,65 @@ var _ = Describe("Validating VMI network spec", func() {
 		It("should reject portRanges when feature gate is disabled", func() {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				PortRanges:             []v1.PortRange{{Start: 80, End: 90}},
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: false})
 			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
+				Type:    fieldValueInvalidType,
 				Message: "portRanges is specified on interface but the PortRangesSpec feature gate is not enabled",
-				Field:   "fake.domain.devices.interfaces[0].name",
+				Field:   fakePrimaryIfaceNameField,
 			}))
 		})
 		It("should reject when binding method is not masquerade", func() {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
+				PortRanges:             []v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 90}},
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(
 				k8sfield.NewPath("fake"), spec,
 				stubClusterConfigChecker{portRangesSpecGateEnabled: true, bridgeBindingOnPodNetEnabled: true},
 			)
 			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
+				Type:    fieldValueInvalidType,
 				Message: "portRanges are only supported on masquerade interfaces",
-				Field:   "fake.domain.devices.interfaces[0].name",
+				Field:   fakePrimaryIfaceNameField,
 			}))
 		})
 
 		It("should reject when portRanges and ports are both set", func() {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				Ports:                  []v1.Port{{Port: 22}},
-				PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
+				PortRanges:             []v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 90}},
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
 			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
+				Type:    fieldValueInvalidType,
 				Message: "Cannot define both ports and portRanges on interface",
-				Field:   "fake.domain.devices.interfaces[0].name",
+				Field:   fakePrimaryIfaceNameField,
 			}))
 		})
 
 		DescribeTable("should reject portRanges with", func(portRanges []v1.PortRange, expectedCauses []metav1.StatusCause) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				PortRanges:             portRanges,
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
 			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
@@ -383,43 +394,43 @@ var _ = Describe("Validating VMI network spec", func() {
 				"bad protocol",
 				[]v1.PortRange{{Protocol: "SCTP", Start: 80, End: 90}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "Unknown protocol, only TCP or UDP allowed",
+					Type:    fieldValueInvalidType,
+					Message: unknownProtocolMsg,
 					Field:   "fake.domain.devices.interfaces[0].portRanges[0].protocol",
 				}},
 			),
 			Entry(
 				"start port out of range",
-				[]v1.PortRange{{Protocol: "TCP", Start: 0, End: 100}},
+				[]v1.PortRange{{Protocol: tcpProtocol, Start: 0, End: 100}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "Start must be a valid port number, 0 < x < 65536",
-					Field:   "fake.domain.devices.interfaces[0].portRanges[0].start",
+					Field:   fakeDomainPortRangeField,
 				}},
 			),
 			Entry(
 				"end port out of range",
-				[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 70000}},
+				[]v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 70000}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "End must be a valid port number, 0 < x < 65536",
 					Field:   "fake.domain.devices.interfaces[0].portRanges[0].end",
 				}},
 			),
 			Entry(
 				"start greater than end",
-				[]v1.PortRange{{Protocol: "TCP", Start: 100, End: 80}},
+				[]v1.PortRange{{Protocol: tcpProtocol, Start: 100, End: 80}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "Start must be less than or equal to end",
-					Field:   "fake.domain.devices.interfaces[0].portRanges[0].start",
+					Field:   fakeDomainPortRangeField,
 				}},
 			),
 			Entry(
 				"two TCP ranges overlapping",
-				[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 200}, {Protocol: "TCP", Start: 150, End: 300}},
+				[]v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 200}, {Protocol: tcpProtocol, Start: 150, End: 300}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "TCP portRanges [80-200] and [150-300] overlap",
 					Field:   "fake.domain.devices.interfaces[0].portRanges",
 				}},
@@ -429,21 +440,24 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should accept portRanges with", func(portRanges []v1.PortRange) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				PortRanges:             portRanges,
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
-			Entry("single range", []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}}),
-			Entry("single port (start == end)", []v1.PortRange{{Protocol: "TCP", Start: 22, End: 22}}),
-			Entry("two non-overlapping TCP ranges", []v1.PortRange{{Protocol: "TCP", Start: 80, End: 100}, {Protocol: "TCP", Start: 200, End: 300}}),
+			Entry("single range", []v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 90}}),
+			Entry("single port (start == end)", []v1.PortRange{{Protocol: tcpProtocol, Start: 22, End: 22}}),
+			Entry(
+				"two non-overlapping TCP ranges",
+				[]v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 100}, {Protocol: tcpProtocol, Start: 200, End: 300}},
+			),
 			Entry(
 				"TCP and UDP ranges that overlap (allowed)",
-				[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 200}, {Protocol: "UDP", Start: 150, End: 300}},
+				[]v1.PortRange{{Protocol: tcpProtocol, Start: 80, End: 200}, {Protocol: udpProtocol, Start: 150, End: 300}},
 			),
 		)
 	})
@@ -452,48 +466,48 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should reject interface DHCP options with", func(dhcpOpts v1.DHCPOptions, expectedCauses []metav1.StatusCause) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				DHCPOptions:            &dhcpOpts,
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
 		},
 			Entry(
 				"invalid DHCPPrivateOptions",
-				v1.DHCPOptions{PrivateOptions: []v1.DHCPPrivateOptions{{Option: 223, Value: "extra.options.kubevirt.io"}}},
+				v1.DHCPOptions{PrivateOptions: []v1.DHCPPrivateOptions{{Option: 223, Value: extraOptionsDomain}}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
-					Field:   "fake",
+					Field:   fakeDomainField,
 				}},
 			),
 			Entry(
 				"duplicate DHCPPrivateOptions",
 				v1.DHCPOptions{
 					PrivateOptions: []v1.DHCPPrivateOptions{
-						{Option: 240, Value: "extra.options.kubevirt.io"},
+						{Option: 240, Value: extraOptionsDomain},
 						{Option: 240, Value: "sameextra.options.kubevirt.io"},
 					},
 				},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
-					Field:   "fake",
+					Field:   fakeDomainField,
 				}},
 			),
 			Entry(
 				"non-IPv4 NTP servers",
 				v1.DHCPOptions{NTPServers: []string{"::1", "hostname"}},
 				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
+					Type:    fieldValueInvalidType,
+					Message: ntpServersMsg,
 					Field:   "fake.domain.devices.interfaces[0].dhcpOptions.ntpServers[0]",
 				}, {
-					Type:    "FieldValueInvalid",
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
+					Type:    fieldValueInvalidType,
+					Message: ntpServersMsg,
 					Field:   "fake.domain.devices.interfaces[0].dhcpOptions.ntpServers[1]",
 				}},
 			),
@@ -502,25 +516,25 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should accept interface DHCP options with", func(dhcpOpts v1.DHCPOptions) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				DHCPOptions:            &dhcpOpts,
 			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			spec.Networks = []v1.Network{{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
 			Entry("  valid DHCPPrivateOptions", v1.DHCPOptions{
-				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "extra.options.kubevirt.io"}},
+				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: extraOptionsDomain}},
 			}),
 			Entry(" valid NTP servers", v1.DHCPOptions{NTPServers: []string{"127.0.0.1", "127.0.0.2"}}),
 			Entry(
 				"unique DHCPPrivateOptions",
 				v1.DHCPOptions{
 					PrivateOptions: []v1.DHCPPrivateOptions{
-						{Option: 240, Value: "extra.options.kubevirt.io"},
-						{Option: 241, Value: "extra.options.kubevirt.io"},
+						{Option: 240, Value: extraOptionsDomain},
+						{Option: 241, Value: extraOptionsDomain},
 					},
 				},
 			),

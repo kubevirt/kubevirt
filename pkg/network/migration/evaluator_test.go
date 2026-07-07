@@ -39,8 +39,10 @@ import (
 
 var _ = Describe("Evaluator", func() {
 	const (
+		defaultNetworkName   = "default"
 		secondaryNetworkName = "secondary-network"
 		nadName              = "my-nad"
+		networkStatusAnnot   = "k8s.v1.cni.cncf.io/network-status"
 	)
 
 	multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
@@ -61,7 +63,7 @@ var _ = Describe("Evaluator", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       defaultNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -87,7 +89,7 @@ var _ = Describe("Evaluator", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       defaultNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -113,7 +115,7 @@ var _ = Describe("Evaluator", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       defaultNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 					),
@@ -135,7 +137,7 @@ var _ = Describe("Evaluator", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       defaultNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -157,7 +159,7 @@ var _ = Describe("Evaluator", func() {
 			libvmistatus.WithStatus(
 				libvmistatus.New(
 					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-						Name:       "default",
+						Name:       defaultNetworkName,
 						InfoSource: vmispec.InfoSourceDomain,
 					}),
 				),
@@ -186,7 +188,7 @@ var _ = Describe("Evaluator", func() {
 							Reason:             v1.VirtualMachineInstanceReasonAutoMigrationPending,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       defaultNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 					),
@@ -213,7 +215,7 @@ var _ = Describe("Evaluator", func() {
 
 	Context("NAD name change", func() {
 		const (
-			testNamespace  = "default"
+			testNamespace  = defaultNetworkName
 			otherNamespace = "other-namespace"
 
 			secondaryNetworkName1 = "secondary-network"
@@ -245,7 +247,7 @@ var _ = Describe("Evaluator", func() {
 					)),
 				),
 				newPod(map[string]string{
-					"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
+					networkStatusAnnot: fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
 						secondaryPodIfaceName1, testNamespace, nadName1),
 				}),
 				k8scorev1.ConditionUnknown,
@@ -264,7 +266,7 @@ var _ = Describe("Evaluator", func() {
 					)),
 				),
 				newPod(map[string]string{
-					"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
+					networkStatusAnnot: fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
 						secondaryPodIfaceName1, testNamespace, nadName1),
 				}),
 				k8scorev1.ConditionTrue,
@@ -291,7 +293,7 @@ var _ = Describe("Evaluator", func() {
 					)),
 				),
 				newPod(map[string]string{
-					"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(
+					networkStatusAnnot: fmt.Sprintf(
 						`[{"interface": %q, "name": "%s/%s"}, {"interface": %q, "name": "%s/%s"}]`,
 						secondaryPodIfaceName1, testNamespace, nadName2,
 						secondaryPodIfaceName2, otherNamespace, nadName1,

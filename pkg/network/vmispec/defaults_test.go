@@ -30,6 +30,7 @@ import (
 )
 
 var _ = Describe("Default pod network", func() {
+	const mynetName = "mynet"
 	DescribeTable("It should not automatically add the pod network to the VMI", func(vmi *v1.VirtualMachineInstance) {
 		origSpec := vmi.Spec.DeepCopy()
 
@@ -40,8 +41,8 @@ var _ = Describe("Default pod network", func() {
 		Entry("when AutoattachPodInterface is false", libvmi.New(libvmi.WithAutoAttachPodInterface(false))),
 		Entry("when at least one network and one interface are specified",
 			libvmi.New(
-				libvmi.WithInterface(v1.Interface{Name: "mynet"}),
-				libvmi.WithNetwork(&v1.Network{Name: "mynet"}),
+				libvmi.WithInterface(v1.Interface{Name: mynetName}),
+				libvmi.WithNetwork(&v1.Network{Name: mynetName}),
 			),
 		),
 	)

@@ -35,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const primaryIfaceName = "eth0"
+
 var _ = Describe("netstat", func() {
 	var setup testSetup
 
@@ -338,7 +340,7 @@ var _ = Describe("netstat", func() {
 			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 				{
 					Name:          primaryNetworkName,
-					InterfaceName: "eth0",
+					InterfaceName: primaryIfaceName,
 					IP:            primaryPodIPv4,
 					IPs:           []string{primaryPodIPv4, primaryPodIPv6},
 					MAC:           primaryMAC,
@@ -622,7 +624,7 @@ var _ = Describe("netstat", func() {
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 			{
 				Name:          primaryNetworkName,
-				InterfaceName: "eth0",
+				InterfaceName: primaryIfaceName,
 				IP:            primaryPodIPv4,
 				IPs:           []string{primaryPodIPv4, primaryGaIPv6},
 				MAC:           primaryMAC,
@@ -668,7 +670,7 @@ var _ = Describe("netstat", func() {
 		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 			{
 				Name:          secondaryNetworkName,
-				InterfaceName: "eth0",
+				InterfaceName: primaryIfaceName,
 				IP:            secondaryGaIPv4,
 				IPs:           []string{secondaryGaIPv4, secondaryGaIPv4LLA, secondaryGaIPv6, secondaryGaLLAIPv6},
 				MAC:           secondaryMAC,

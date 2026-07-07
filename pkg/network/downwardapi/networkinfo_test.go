@@ -30,18 +30,35 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 )
 
+const (
+	netAMacAddress = "0c:42:a1:22:a3:52"
+	netBMacAddress = "0c:42:a1:22:a3:53"
+	netCMacAddress = "0c:42:a1:22:a3:54"
+	netAName       = "netA"
+	netBName       = "netB"
+	netCName       = "netC"
+	fooNetworkName = "foo"
+	booNetworkName = "boo"
+	deviceType1    = "type1"
+	deviceType2    = "type2"
+	deviceType3    = "type3"
+	podAInterface  = "pod33219a16a42"
+	podBInterface  = "pod034d3d19642"
+	podCInterface  = "pod01783857d47"
+)
+
 var _ = Describe("Network info", func() {
 	It("should create network info annotation value", func() {
 		deviceInfoFoo := &networkv1.DeviceInfo{Type: "fooType"}
 
 		networkStatusByNetworkName := map[string]networkv1.NetworkStatus{
-			"foo": {Interface: "pod2c26b46b68f", DeviceInfo: deviceInfoFoo, Mtu: 1500},
-			"boo": {Interface: "pod6446d58d6df"},
+			fooNetworkName: {Interface: "pod2c26b46b68f", DeviceInfo: deviceInfoFoo, Mtu: 1500},
+			booNetworkName: {Interface: "pod6446d58d6df"},
 		}
 
 		expectedInterfaces := []downwardapi.Interface{
-			{Network: "foo", DeviceInfo: deviceInfoFoo, Mtu: 1500},
-			{Network: "boo"},
+			{Network: fooNetworkName, DeviceInfo: deviceInfoFoo, Mtu: 1500},
+			{Network: booNetworkName},
 		}
 
 		annotation := downwardapi.CreateNetworkInfoAnnotationValue(networkStatusByNetworkName)
@@ -58,20 +75,20 @@ var _ = Describe("Network info", func() {
 	})
 
 	It("should produce a deterministic and output sorted by network name regardless of the map key order", func() {
-		deviceInfo1 := &networkv1.DeviceInfo{Type: "type1"}
-		deviceInfo2 := &networkv1.DeviceInfo{Type: "type2"}
-		deviceInfo3 := &networkv1.DeviceInfo{Type: "type3"}
+		deviceInfo1 := &networkv1.DeviceInfo{Type: deviceType1}
+		deviceInfo2 := &networkv1.DeviceInfo{Type: deviceType2}
+		deviceInfo3 := &networkv1.DeviceInfo{Type: deviceType3}
 
 		networkStatusByNetworkName1 := map[string]networkv1.NetworkStatus{
-			"netA": {Interface: "pod33219a16a42", Mac: "0c:42:a1:22:a3:52", DeviceInfo: deviceInfo1, Mtu: 1500},
-			"netB": {Interface: "pod034d3d19642", Mac: "0c:42:a1:22:a3:53", DeviceInfo: deviceInfo2, Mtu: 9000},
-			"netC": {Interface: "pod01783857d47", Mac: "0c:42:a1:22:a3:54", DeviceInfo: deviceInfo3},
+			netAName: {Interface: podAInterface, Mac: netAMacAddress, DeviceInfo: deviceInfo1, Mtu: 1500},
+			netBName: {Interface: podBInterface, Mac: netBMacAddress, DeviceInfo: deviceInfo2, Mtu: 9000},
+			netCName: {Interface: podCInterface, Mac: netCMacAddress, DeviceInfo: deviceInfo3},
 		}
 
 		networkStatusByNetworkName2 := map[string]networkv1.NetworkStatus{
-			"netC": {Interface: "pod01783857d47", Mac: "0c:42:a1:22:a3:54", DeviceInfo: deviceInfo3},
-			"netB": {Interface: "pod034d3d19642", Mac: "0c:42:a1:22:a3:53", DeviceInfo: deviceInfo2, Mtu: 9000},
-			"netA": {Interface: "pod33219a16a42", Mac: "0c:42:a1:22:a3:52", DeviceInfo: deviceInfo1, Mtu: 1500},
+			netCName: {Interface: podCInterface, Mac: netCMacAddress, DeviceInfo: deviceInfo3},
+			netBName: {Interface: podBInterface, Mac: netBMacAddress, DeviceInfo: deviceInfo2, Mtu: 9000},
+			netAName: {Interface: podAInterface, Mac: netAMacAddress, DeviceInfo: deviceInfo1, Mtu: 1500},
 		}
 
 		annotationValue1 := downwardapi.CreateNetworkInfoAnnotationValue(networkStatusByNetworkName1)
@@ -84,9 +101,9 @@ var _ = Describe("Network info", func() {
 
 		expectedNetworkInfo := downwardapi.NetworkInfo{
 			Interfaces: []downwardapi.Interface{
-				{Network: "netA", Mac: "0c:42:a1:22:a3:52", DeviceInfo: &networkv1.DeviceInfo{Type: "type1"}, Mtu: 1500},
-				{Network: "netB", Mac: "0c:42:a1:22:a3:53", DeviceInfo: &networkv1.DeviceInfo{Type: "type2"}, Mtu: 9000},
-				{Network: "netC", Mac: "0c:42:a1:22:a3:54", DeviceInfo: &networkv1.DeviceInfo{Type: "type3"}},
+				{Network: netAName, Mac: netAMacAddress, DeviceInfo: &networkv1.DeviceInfo{Type: deviceType1}, Mtu: 1500},
+				{Network: netBName, Mac: netBMacAddress, DeviceInfo: &networkv1.DeviceInfo{Type: deviceType2}, Mtu: 9000},
+				{Network: netCName, Mac: netCMacAddress, DeviceInfo: &networkv1.DeviceInfo{Type: deviceType3}},
 			},
 		}
 

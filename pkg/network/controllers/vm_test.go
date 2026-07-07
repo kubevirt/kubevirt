@@ -53,6 +53,7 @@ var _ = Describe("VM Network Controller", func() {
 		nadName3          = "foonet-nad3"
 		updatedNADName1   = "new-nad1"
 		updatedNADName2   = "new-nad2"
+		net1PodIface      = "net1"
 	)
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 		c := controllers.NewVMController(fake.NewSimpleClientset())
@@ -518,7 +519,7 @@ var _ = Describe("VM Network Controller", func() {
 						v1.VirtualMachineInstanceNetworkInterface{Name: defaultNetName, PodInterfaceName: namescheme.PrimaryPodInterfaceName},
 					),
 					libvmistatus.WithInterfaceStatus(
-						v1.VirtualMachineInstanceNetworkInterface{Name: "foonet", PodInterfaceName: "net1"},
+						v1.VirtualMachineInstanceNetworkInterface{Name: "foonet", PodInterfaceName: net1PodIface},
 					),
 				),
 			),

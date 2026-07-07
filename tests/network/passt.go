@@ -51,6 +51,8 @@ import (
 
 const (
 	vmiReadyTimeout = 180
+	tcpProtocol     = "TCP"
+	httpPortName    = "http"
 )
 
 var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func() {
@@ -59,11 +61,12 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 	It("should apply the interface configuration", func() {
 		const testMACAddr = "02:02:02:02:02:02"
 		const testPCIAddr = "0000:01:00.0"
+
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 				libvmi.WithPasstBinding(),
 				libvmi.WithMac(testMACAddr),
-				libvmi.WithPorts(v1.Port{Port: 1234, Protocol: "TCP"}),
+libvmi.WithPorts(v1.Port{Port: 1234, Protocol: tcpProtocol}),
 				libvmi.WithPciAddress(testPCIAddr),
 			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -317,10 +320,9 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 )
 
 func withPasstInterfaceWithPort() libvmi.Option {
-	return libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
-		libvmi.WithPasstBinding(),
-		libvmi.WithPorts(v1.Port{Port: 1234, Protocol: "TCP"}),
-	))
+	iface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+	iface.Ports = []v1.Port{{Port: 1234, Protocol: tcpProtocol}}
+	return libvmi.WithInterface(iface)
 }
 
 func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
@@ -371,7 +373,7 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 			libvmi.WithPasstBinding(),
-			libvmi.WithPorts(v1.Port{Name: "http", Port: int32(tcpPort), Protocol: "TCP"}), //nolint:gosec // tcpPort is a test constant
+			libvmi.WithPorts(v1.Port{Name: "http", Port: int32(tcpPort), Protocol: tcpProtocol}), //nolint:gosec // tcpPort is a test constant
 		)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)

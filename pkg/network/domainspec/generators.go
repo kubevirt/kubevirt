@@ -33,7 +33,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const linkIfaceFailFmt = "failed to get a link for interface: %s"
+const (
+	linkIfaceFailFmt = "failed to get a link for interface: %s"
+	managedNo        = "no"
+)
 
 type LibvirtSpecGenerator interface {
 	Generate() error
@@ -103,7 +106,7 @@ func (b *TapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, err
 		MTU: &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
 			Device:  targetName,
-			Managed: "no",
+			Managed: managedNo,
 		},
 	}, nil
 }

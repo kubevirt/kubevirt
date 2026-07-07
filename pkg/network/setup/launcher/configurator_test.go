@@ -37,8 +37,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const managedNo = "no"
+
 var _ = Describe("SetupPodNetworkPhase2", func() {
-	const podIfaceName = "eth0"
+	const (
+		podIfaceName = "eth0"
+	)
 
 	DescribeTable("should skip non-tap-based interfaces",
 		func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -79,7 +83,7 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			expectedDomain := domainWithDefaultInterface()
 			expectedDomain.Spec.Devices.Interfaces[0].MTU = &api.MTU{Size: "1500"}
 			expectedDomain.Spec.Devices.Interfaces[0].MAC = &api.MAC{MAC: "aa:bb:cc:dd:ee:ff"}
-			expectedDomain.Spec.Devices.Interfaces[0].Target = &api.InterfaceTarget{Device: podIfaceName, Managed: "no"}
+			expectedDomain.Spec.Devices.Interfaces[0].Target = &api.InterfaceTarget{Device: podIfaceName, Managed: managedNo}
 			Expect(domain).To(Equal(expectedDomain))
 		},
 		Entry("bridge", libvmi.New(
@@ -143,7 +147,7 @@ func domainWithSRIOVHostDevice() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.HostDevices = []api.HostDevice{{
 		Type:    "pci",
-		Managed: "no",
+		Managed: managedNo,
 		Alias:   api.NewUserDefinedAlias("sriov"),
 	}}
 	return domain
