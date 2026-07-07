@@ -283,7 +283,7 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 	panicInfo, err := util.ReadPanicInfoFromLog(logPath)
 
 	var eventMessage string
-	if panicInfo == nil || err != nil {
+	if panicInfo == nil || err != nil || panicInfo.Type == "" {
 		if err != nil {
 			log.Log.Reason(err).Warning("Failed to read panic info from log")
 		}
@@ -315,6 +315,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	if isGuestPanicEvent(libvirtEvent.Event) {
 		if panicInfo := e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail, nonRoot); panicInfo != nil {
 			domain.Status.GuestPanicInfo = panicInfo
+			domain.Status.PanicCount++
 		}
 	}
 
@@ -469,11 +470,14 @@ func (n *Notifier) StartDomainNotifier(
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				prevPanicInfo := (*api.GuestPanicInfo)(nil)
+				var prevPanicCount int
 				if domainCache != nil {
 					prevPanicInfo = domainCache.Status.GuestPanicInfo
+					prevPanicCount = domainCache.Status.PanicCount
 				}
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
 				domainCache.Status.GuestPanicInfo = prevPanicInfo
+				domainCache.Status.PanicCount = prevPanicCount
 				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
@@ -493,11 +497,13 @@ func (n *Notifier) StartDomainNotifier(
 				// libvirt event arrived (which creates the first domainCache).
 				if domainCache != nil {
 					prevPanicInfo := domainCache.Status.GuestPanicInfo
+					prevPanicCount := domainCache.Status.PanicCount
 					domainCache = util.NewDomainFromName(
 						util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
 						vmi.UID,
 					)
 					domainCache.Status.GuestPanicInfo = prevPanicInfo
+					domainCache.Status.PanicCount = prevPanicCount
 					eventCaller.eventCallback(
 						domainConn,
 						domainCache,
