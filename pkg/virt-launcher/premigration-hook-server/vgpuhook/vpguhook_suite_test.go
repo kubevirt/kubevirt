@@ -3,11 +3,9 @@ package vgpuhook_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestVGPUHook(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "vGPUHook Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
