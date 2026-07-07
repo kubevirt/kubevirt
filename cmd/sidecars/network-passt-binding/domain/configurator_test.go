@@ -33,6 +33,19 @@ import (
 const (
 	ifaceTypeVhostUser = "vhostuser"
 
+	defaultNetworkName        = "default"
+	passtPluginBindingName    = "passt-plugin"
+	passtBindingName          = "passt"
+	tcpProtocol               = "tcp"
+	udpProtocol               = "udp"
+	virtioNonTransitionalMode = "virtio-non-transitional"
+	e1000Model                = "e1000"
+	secondaryNetworkName      = "secondary"
+	optionalPodIfaceName      = "ovn-udn1"
+	sharedAccessMode          = "shared"
+	testMACAddress            = "02:02:02:02:02:02"
+	excludedPort              = "yes"
+
 	defaultPrimaryPodIfaceName = "eth0"
 )
 
@@ -52,43 +65,57 @@ var _ = Describe("pod network configurator", func() {
 			},
 			Entry("no pod network",
 				nil,
-				[]vmschema.Network{{Name: "default", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}}},
+				[]vmschema.Network{{Name: defaultNetworkName, NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}}},
 				nil,
 			),
 			Entry("no corresponding iface",
-				[]vmschema.Interface{{Name: "not-default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}},
+				[]vmschema.Interface{{Name: "not-default", Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
 				nil,
 			),
 			Entry("interface with no passt binding method",
-				[]vmschema.Interface{{Name: "default", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}}},
+				[]vmschema.Interface{{
+					Name: defaultNetworkName,
+					InterfaceBindingMethod: vmschema.InterfaceBindingMethod{
+						Bridge: &vmschema.InterfaceBridge{},
+					},
+				}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
-				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}},
+				[]vmschema.VirtualMachineInstanceNetworkInterface{{
+					Name:             defaultNetworkName,
+					PodInterfaceName: defaultPrimaryPodIfaceName,
+				}},
 			),
 			Entry("interface with no passt binding plugin",
-				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "no-passt"}}},
+				[]vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: "no-passt"}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
-				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}},
+				[]vmschema.VirtualMachineInstanceNetworkInterface{{
+					Name:             defaultNetworkName,
+					PodInterfaceName: defaultPrimaryPodIfaceName,
+				}},
 			),
 			Entry("Interface with no matching status entry",
-				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}},
+				[]vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
 				nil,
 			),
 			Entry("Interface with an empty PodInterfaceName",
-				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}},
+				[]vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
-				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: ""}},
+				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: defaultNetworkName, PodInterfaceName: ""}},
 			),
 		)
 
 		It("should fail given interface with invalid PCI address", func() {
 			ifaces := []vmschema.Interface{{
-				Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
+				Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName},
 				PciAddress: "invalid-pci-address",
 			}}
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{
+				Name:             defaultNetworkName,
+				PodInterfaceName: defaultPrimaryPodIfaceName,
+			}}
 
 			testMutator, err := domain.NewPasstNetworkConfigurator(
 				ifaces,
@@ -107,7 +134,10 @@ var _ = Describe("pod network configurator", func() {
 			func(iface *vmschema.Interface, expectedDomainIface *domainschema.Interface) {
 				ifaces := []vmschema.Interface{*iface}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{
+					Name:             defaultNetworkName,
+					PodInterfaceName: defaultPrimaryPodIfaceName,
+				}}
 
 				testMutator, err := domain.NewPasstNetworkConfigurator(
 					ifaces,
@@ -123,91 +153,91 @@ var _ = Describe("pod network configurator", func() {
 				Expect(mutatedDomSpec.Devices.Interfaces).To(Equal([]domainschema.Interface{*expectedDomainIface}))
 			},
 			Entry("passt binding plugin",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}},
+				&vmschema.Interface{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}},
 				&domainschema.Interface{
-					Alias:       domainschema.NewUserDefinedAlias("default"),
+					Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:        ifaceTypeVhostUser,
-					Source:      domainschema.InterfaceSource{Device: "eth0"},
-					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+					Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
 				},
 			),
 			Entry("PCI address",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
+					Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName},
 					PciAddress: "0000:02:02.0",
 				},
 				&domainschema.Interface{
-					Alias:       domainschema.NewUserDefinedAlias("default"),
+					Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:        ifaceTypeVhostUser,
-					Source:      domainschema.InterfaceSource{Device: "eth0"},
-					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+					Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
 					Address:     &domainschema.Address{Type: "pci", Domain: "0x0000", Bus: "0x02", Slot: "0x02", Function: "0x0"},
 				},
 			),
 			Entry("MAC address",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
-					MacAddress: "02:02:02:02:02:02",
+					Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName},
+					MacAddress: testMACAddress,
 				},
 				&domainschema.Interface{
-					Alias:       domainschema.NewUserDefinedAlias("default"),
+					Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:        ifaceTypeVhostUser,
-					Source:      domainschema.InterfaceSource{Device: "eth0"},
-					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
-					MAC:         &domainschema.MAC{MAC: "02:02:02:02:02:02"},
+					Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+					Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
+					MAC:         &domainschema.MAC{MAC: testMACAddress},
 				},
 			),
 			Entry("ACPI address",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
+					Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName},
 					ACPIIndex: 2,
 				},
 				&domainschema.Interface{
-					Alias:       domainschema.NewUserDefinedAlias("default"),
+					Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:        ifaceTypeVhostUser,
-					Source:      domainschema.InterfaceSource{Device: "eth0"},
-					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+					Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
 					ACPI:        &domainschema.ACPI{Index: uint(2)},
 				},
 			),
 			Entry("non virtio model",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
-					Model: "e1000",
+					Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName},
+					Model: e1000Model,
 				},
 				&domainschema.Interface{
-					Alias:       domainschema.NewUserDefinedAlias("default"),
+					Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:        ifaceTypeVhostUser,
-					Source:      domainschema.InterfaceSource{Device: "eth0"},
-					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-					Model:       &domainschema.Model{Type: "e1000"},
+					Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+					Model:       &domainschema.Model{Type: e1000Model},
 				},
 			),
 			Entry("tcp ports (should forward tcp ports only)",
 				newInterface(
-					"default",
+					defaultNetworkName,
 					withPasstBindingPlugin(),
 					withOpenPort("TCP", 1),
 					withOpenPort("TCP", 4),
 				),
 				&domainschema.Interface{
-					Alias:   domainschema.NewUserDefinedAlias("default"),
+					Alias:   domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:    ifaceTypeVhostUser,
-					Source:  domainschema.InterfaceSource{Device: "eth0"},
-					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:  domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend: &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					Model:   &domainschema.Model{Type: virtioNonTransitionalMode},
 					PortForward: []domainschema.InterfacePortForward{
 						{
-							Proto: "tcp",
+							Proto: tcpProtocol,
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 1}, {Start: 4},
 							},
@@ -217,20 +247,20 @@ var _ = Describe("pod network configurator", func() {
 			),
 			Entry("udp ports (should forward udp ports only)",
 				newInterface(
-					"default",
+					defaultNetworkName,
 					withPasstBindingPlugin(),
 					withOpenPort("UDP", 2),
 					withOpenPort("UDP", 3),
 				),
 				&domainschema.Interface{
-					Alias:   domainschema.NewUserDefinedAlias("default"),
+					Alias:   domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:    ifaceTypeVhostUser,
-					Source:  domainschema.InterfaceSource{Device: "eth0"},
-					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:  domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend: &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					Model:   &domainschema.Model{Type: virtioNonTransitionalMode},
 					PortForward: []domainschema.InterfacePortForward{
 						{
-							Proto: "udp",
+							Proto: udpProtocol,
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 2}, {Start: 3},
 							},
@@ -240,7 +270,7 @@ var _ = Describe("pod network configurator", func() {
 			),
 			Entry("both tcp and udp ports",
 				newInterface(
-					"default",
+					defaultNetworkName,
 					withPasstBindingPlugin(),
 					withOpenPort("", 1),
 					withOpenPort("UDP", 2),
@@ -248,20 +278,20 @@ var _ = Describe("pod network configurator", func() {
 					withOpenPort("TCP", 4),
 				),
 				&domainschema.Interface{
-					Alias:   domainschema.NewUserDefinedAlias("default"),
+					Alias:   domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:    ifaceTypeVhostUser,
-					Source:  domainschema.InterfaceSource{Device: "eth0"},
-					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:  domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend: &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					Model:   &domainschema.Model{Type: virtioNonTransitionalMode},
 					PortForward: []domainschema.InterfacePortForward{
 						{
-							Proto: "tcp",
+							Proto: tcpProtocol,
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 1}, {Start: 4},
 							},
 						},
 						{
-							Proto: "udp",
+							Proto: udpProtocol,
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 2}, {Start: 3},
 							},
@@ -273,9 +303,12 @@ var _ = Describe("pod network configurator", func() {
 
 		DescribeTable("should add interface to domain spec given iface given the option",
 			func(opts *domain.NetworkConfiguratorOptions, expectedDomainIface *domainschema.Interface) {
-				ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
+				ifaces := []vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{
+					Name:             defaultNetworkName,
+					PodInterfaceName: defaultPrimaryPodIfaceName,
+				}}
 
 				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, ifaceStatuses, "passt-plugin", *opts)
 				Expect(err).ToNot(HaveOccurred())
@@ -287,34 +320,34 @@ var _ = Describe("pod network configurator", func() {
 			Entry("virtio transitional enabled",
 				&domain.NetworkConfiguratorOptions{UseVirtioTransitional: true},
 				&domainschema.Interface{
-					Alias:       domainschema.NewUserDefinedAlias("default"),
+					Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:        ifaceTypeVhostUser,
-					Source:      domainschema.InterfaceSource{Device: "eth0"},
-					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
 					Model:       &domainschema.Model{Type: "virtio-transitional"},
 				},
 			),
 			Entry("isitio proxy injection enabled",
 				&domain.NetworkConfiguratorOptions{IstioProxyInjectionEnabled: true},
 				&domainschema.Interface{
-					Alias:   domainschema.NewUserDefinedAlias("default"),
+					Alias:   domainschema.NewUserDefinedAlias(defaultNetworkName),
 					Type:    ifaceTypeVhostUser,
-					Source:  domainschema.InterfaceSource{Device: "eth0"},
-					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
+					Source:  domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+					Backend: &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+					Model:   &domainschema.Model{Type: virtioNonTransitionalMode},
 					PortForward: []domainschema.InterfacePortForward{
-						{Proto: "tcp", Ranges: []domainschema.InterfacePortForwardRange{
-							{Start: 15000, Exclude: "yes"},
-							{Start: 15001, Exclude: "yes"},
-							{Start: 15004, Exclude: "yes"},
-							{Start: 15006, Exclude: "yes"},
-							{Start: 15008, Exclude: "yes"},
-							{Start: 15009, Exclude: "yes"},
-							{Start: 15020, Exclude: "yes"},
-							{Start: 15021, Exclude: "yes"},
-							{Start: 15053, Exclude: "yes"},
-							{Start: 15090, Exclude: "yes"},
+						{Proto: tcpProtocol, Ranges: []domainschema.InterfacePortForwardRange{
+							{Start: 15000, Exclude: excludedPort},
+							{Start: 15001, Exclude: excludedPort},
+							{Start: 15004, Exclude: excludedPort},
+							{Start: 15006, Exclude: excludedPort},
+							{Start: 15008, Exclude: excludedPort},
+							{Start: 15009, Exclude: excludedPort},
+							{Start: 15020, Exclude: excludedPort},
+							{Start: 15021, Exclude: excludedPort},
+							{Start: 15053, Exclude: excludedPort},
+							{Start: 15090, Exclude: excludedPort},
 						}},
 					},
 				},
@@ -324,22 +357,25 @@ var _ = Describe("pod network configurator", func() {
 		It("should not override other interfaces", func() {
 			networks := []vmschema.Network{
 				*vmschema.DefaultPodNetwork(),
-				{Name: "secondary", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{NetworkName: "sec"}}},
+				{Name: secondaryNetworkName, NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{NetworkName: "sec"}}},
 			}
 			ifaces := []vmschema.Interface{
-				{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}},
-				{Name: "secondary", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}},
+				{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}},
+				{Name: secondaryNetworkName, InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}},
 			}
 
-			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{
+				Name:             defaultNetworkName,
+				PodInterfaceName: defaultPrimaryPodIfaceName,
+			}}
 
 			expectedDomainIface := &domainschema.Interface{
-				Alias:       domainschema.NewUserDefinedAlias("default"),
+				Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 				Type:        ifaceTypeVhostUser,
-				Source:      domainschema.InterfaceSource{Device: "eth0"},
-				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
+				Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+				Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+				PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+				Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
 			}
 
 			testMutator, err := domain.NewPasstNetworkConfigurator(
@@ -363,18 +399,22 @@ var _ = Describe("pod network configurator", func() {
 			Expect(mutatedDomSpec.Devices.Interfaces).To(Equal([]domainschema.Interface{*existingIface, *expectedDomainIface}))
 		})
 
+		//nolint:dupl
 		It("should set domain interface correctly when executed more than once", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
-			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+			ifaces := []vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{
+				Name:             defaultNetworkName,
+				PodInterfaceName: defaultPrimaryPodIfaceName,
+			}}
 
 			expectedDomainIface := &domainschema.Interface{
-				Alias:       domainschema.NewUserDefinedAlias("default"),
+				Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 				Type:        ifaceTypeVhostUser,
-				Source:      domainschema.InterfaceSource{Device: "eth0"},
-				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
+				Source:      domainschema.InterfaceSource{Device: defaultPrimaryPodIfaceName},
+				Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+				PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+				Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
 			}
 
 			testMutator, err := domain.NewPasstNetworkConfigurator(
@@ -394,18 +434,19 @@ var _ = Describe("pod network configurator", func() {
 
 			Expect(testMutator.Mutate(mutatedDomSpec)).To(Equal(mutatedDomSpec))
 		})
+		//nolint:dupl
 		It("should set domain interface source link to the optional one if exists", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
-			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: "ovn-udn1"}}
+			ifaces := []vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: defaultNetworkName, PodInterfaceName: optionalPodIfaceName}}
 
 			expectedDomainIface := &domainschema.Interface{
-				Alias:       domainschema.NewUserDefinedAlias("default"),
+				Alias:       domainschema.NewUserDefinedAlias(defaultNetworkName),
 				Type:        ifaceTypeVhostUser,
-				Source:      domainschema.InterfaceSource{Device: "ovn-udn1"},
-				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
-				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
+				Source:      domainschema.InterfaceSource{Device: optionalPodIfaceName},
+				Backend:     &domainschema.InterfaceBackend{Type: passtBindingName, LogFile: domain.PasstLogFilePath},
+				PortForward: []domainschema.InterfacePortForward{{Proto: tcpProtocol}, {Proto: udpProtocol}},
+				Model:       &domainschema.Model{Type: virtioNonTransitionalMode},
 			}
 			testMutator, err := domain.NewPasstNetworkConfigurator(
 				ifaces,
@@ -429,8 +470,11 @@ var _ = Describe("pod network configurator", func() {
 		var testMutator *domain.PasstNetworkConfigurator
 		BeforeEach(func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
-			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+			ifaces := []vmschema.Interface{{Name: defaultNetworkName, Binding: &vmschema.PluginBinding{Name: passtPluginBindingName}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{
+				Name:             defaultNetworkName,
+				PodInterfaceName: defaultPrimaryPodIfaceName,
+			}}
 
 			var err error
 			testMutator, err = domain.NewPasstNetworkConfigurator(
@@ -446,7 +490,7 @@ var _ = Describe("pod network configurator", func() {
 		It("should set shared memfd when clean domain", func() {
 			expectedMemoryBacking := &domainschema.MemoryBacking{
 				Access: &domainschema.MemoryBackingAccess{
-					Mode: "shared",
+					Mode: sharedAccessMode,
 				},
 				Source: &domainschema.MemoryBackingSource{
 					Type: "memfd",
@@ -470,7 +514,7 @@ var _ = Describe("pod network configurator", func() {
 		It("should use other configs of backing memory as long as they are shared", func() {
 			domainWithOtherSharedMem := &domainschema.DomainSpec{
 				MemoryBacking: &domainschema.MemoryBacking{
-					Access: &domainschema.MemoryBackingAccess{Mode: "shared"},
+					Access: &domainschema.MemoryBackingAccess{Mode: sharedAccessMode},
 					Source: &domainschema.MemoryBackingSource{Type: "file"},
 				},
 			}
@@ -498,7 +542,7 @@ func newInterface(name string, options ...option) *vmschema.Interface {
 func withPasstBindingPlugin() option {
 	return func(iface *vmschema.Interface) {
 		iface.Binding = &vmschema.PluginBinding{
-			Name: "passt-plugin",
+			Name: passtPluginBindingName,
 		}
 	}
 }
