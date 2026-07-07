@@ -113,7 +113,7 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: command + "\n"},
 		&expect.BExp{R: PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: EchoLastReturnValue},
 		&expect.BCas{C: []expect.Caser{
 			&expect.Case{
 				R: ShellSuccessRegexp,

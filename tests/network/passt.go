@@ -52,6 +52,7 @@ import (
 const (
 	vmiReadyTimeout = 180
 	tcpProtocol     = "TCP"
+	udpProtocol     = "UDP"
 	httpPortName    = "http"
 )
 
@@ -66,7 +67,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 				libvmi.WithPasstBinding(),
 				libvmi.WithMac(testMACAddr),
-libvmi.WithPorts(v1.Port{Port: 1234, Protocol: tcpProtocol}),
+				libvmi.WithPorts(v1.Port{Port: 1234, Protocol: tcpProtocol}),
 				libvmi.WithPciAddress(testPCIAddr),
 			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -166,13 +167,20 @@ libvmi.WithPorts(v1.Port{Port: 1234, Protocol: tcpProtocol}),
 		BeforeAll(func() {
 			namespace := testsuite.GetTestNamespace(nil)
 
+			ports := []v1.Port{
+				{Port: udpPortForIPv4, Protocol: udpProtocol},
+				{Port: udpPortForIPv6, Protocol: udpProtocol},
+			}
+			passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+			passtIface.Ports = ports
+
 			By("Starting server VMI")
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 					libvmi.WithPasstBinding(),
 					libvmi.WithPorts(
-						v1.Port{Port: udpPortForIPv4, Protocol: "UDP"},
-						v1.Port{Port: udpPortForIPv6, Protocol: "UDP"},
+						v1.Port{Port: udpPortForIPv4, Protocol: udpProtocol},
+						v1.Port{Port: udpPortForIPv6, Protocol: udpProtocol},
 					),
 				)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -373,7 +381,7 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 			libvmi.WithPasstBinding(),
-			libvmi.WithPorts(v1.Port{Name: "http", Port: int32(tcpPort), Protocol: tcpProtocol}), //nolint:gosec // tcpPort is a test constant
+			libvmi.WithPorts(v1.Port{Name: httpPortName, Port: int32(tcpPort), Protocol: tcpProtocol}), //nolint:gosec // tcpPort is a test constant
 		)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)

@@ -77,7 +77,7 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 			pod,
 			"virt-handler",
 			[]string{
-				"cat",
+				shellCatCommand,
 				"/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 		)
