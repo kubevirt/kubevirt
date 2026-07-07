@@ -19,6 +19,8 @@
 
 package process_test
 
+const subresourceProcess = "process"
+
 import (
 	"context"
 	"encoding/json"
@@ -51,9 +53,15 @@ import (
 )
 
 const (
+	subresourceProcessCmd = "template"
+	subresourceProcess    = "process"
+	testNamespace         = "test-ns"
+	testVMName            = "test-vm"
+)
+
+const (
 	param1Name        = "NAME"
 	param1Placeholder = "${NAME}"
-	param1Val         = "test-vm"
 	param2Name        = "PREFERENCE"
 	param2Placeholder = "${PREFERENCE}"
 	param2Val         = "fedora"
@@ -114,7 +122,7 @@ var _ = Describe("Process command", func() {
 
 			out, err := runCmd(
 				setFlag(fileFlag, file),
-				setParamFlag(param1Name, param1Val),
+				setParamFlag(param1Name, testVMName),
 				setParamFlag(param2Name, param2Val),
 				setFlag(outputFlag, output),
 			)
@@ -122,7 +130,7 @@ var _ = Describe("Process command", func() {
 
 			var vm virtv1.VirtualMachine
 			Expect(unmarshalFn(out, &vm)).To(Succeed())
-			Expect(vm.Name).To(Equal(param1Val))
+			Expect(vm.Name).To(Equal(testVMName))
 			Expect(vm.Spec.Preference.Name).To(Equal(param2Val))
 		},
 			Entry("when template is JSON and output format is JSON", marshalJSON, json.Unmarshal, formatJSON),
@@ -139,7 +147,7 @@ var _ = Describe("Process command", func() {
 			Expect(os.WriteFile(file, marshalFn(newVirtualMachineTemplate()), 0o600)).To(Succeed())
 
 			params := map[string]string{
-				param1Name: param1Val,
+				param1Name: testVMName,
 				param2Name: param2Val,
 			}
 			paramsFile := filepath.Join(GinkgoT().TempDir(), "params")
@@ -154,7 +162,7 @@ var _ = Describe("Process command", func() {
 
 			var vm virtv1.VirtualMachine
 			Expect(unmarshalFn(out, &vm)).To(Succeed())
-			Expect(vm.Name).To(Equal(param1Val))
+			Expect(vm.Name).To(Equal(testVMName))
 			Expect(vm.Spec.Preference.Name).To(Equal(param2Val))
 		},
 			Entry("when input format is JSON and output format is JSON", marshalJSON, json.Unmarshal, formatJSON),
@@ -197,7 +205,7 @@ var _ = Describe("Process command", func() {
 
 			_, err := runCmd(
 				setFlag(fileFlag, file),
-				setParamFlag(param1Name, param1Val),
+				setParamFlag(param1Name, testVMName),
 			)
 			Expect(err).To(MatchError(ContainSubstring("references undefined parameter PREFERENCE")))
 		})
@@ -222,7 +230,7 @@ var _ = Describe("Process command", func() {
 
 			out, errOut, err := runCmdWithErr(
 				setFlag(fileFlag, file),
-				setParamFlag(param1Name, param1Val),
+				setParamFlag(param1Name, testVMName),
 				setParamFlag(param2Name, param2Val),
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -230,7 +238,7 @@ var _ = Describe("Process command", func() {
 
 			var vm virtv1.VirtualMachine
 			Expect(yaml.Unmarshal(out, &vm)).To(Succeed())
-			Expect(vm.Name).To(Equal(param1Val))
+			Expect(vm.Name).To(Equal(testVMName))
 		})
 
 		It("should fail and warn when template contains both undefined and unused parameters", func() {
@@ -309,10 +317,7 @@ var _ = Describe("Process command", func() {
 		)
 
 		Context("should call subresource APIs", func() {
-			const (
-				subresourceCreate  = "create"
-				subresourceProcess = "process"
-			)
+			const subresourceCreate = "create"
 
 			var expectedSubresource string
 
@@ -327,7 +332,7 @@ var _ = Describe("Process command", func() {
 					opts, ok := c.GetObject().(*subresourcesv1beta1.ProcessOptions)
 					Expect(ok).To(BeTrue())
 					Expect(opts.Parameters).To(Equal(map[string]string{
-						param1Name: param1Val,
+						param1Name: testVMName,
 						param2Name: param2Val,
 					}))
 
@@ -353,7 +358,7 @@ var _ = Describe("Process command", func() {
 
 				args := []string{
 					setFlag(createFlag, strconv.FormatBool(create)),
-					setParamFlag(param1Name, param1Val),
+					setParamFlag(param1Name, testVMName),
 					setParamFlag(param2Name, param2Val),
 				}
 				if positional {
@@ -384,7 +389,7 @@ var _ = Describe("Process command", func() {
 				}
 
 				params := map[string]string{
-					param1Name: param1Val,
+					param1Name: testVMName,
 					param2Name: param2Val,
 				}
 				paramsFile := filepath.Join(GinkgoT().TempDir(), "params")
@@ -419,7 +424,7 @@ var _ = Describe("Process command", func() {
 		DescribeTable("should use local processing when --local flag is set", func(positional bool) {
 			args := []string{
 				setFlag(localFlag, "true"),
-				setParamFlag(param1Name, param1Val),
+				setParamFlag(param1Name, testVMName),
 				setParamFlag(param2Name, param2Val),
 			}
 			if positional {
@@ -432,7 +437,7 @@ var _ = Describe("Process command", func() {
 
 			var vm virtv1.VirtualMachine
 			Expect(yaml.Unmarshal(out, &vm)).To(Succeed())
-			Expect(vm.Name).To(Equal(param1Val))
+			Expect(vm.Name).To(Equal(testVMName))
 			Expect(vm.Spec.Preference.Name).To(Equal(param2Val))
 
 			Expect(kvtesting.FilterActions(&tplClient.Fake, "create", templateapi.PluralResourceName, "process")).To(BeEmpty())
@@ -559,12 +564,12 @@ func setParamFlag(k, v string) string {
 }
 
 func runCmd(extraArgs ...string) ([]byte, error) {
-	args := append([]string{"template", "process"}, extraArgs...)
+	args := append([]string{subresourceProcessCmd, subresourceProcess}, extraArgs...)
 	return testing.NewRepeatableVirtctlCommandWithOut(args...)()
 }
 
 func runCmdWithErr(extraArgs ...string) (out, errOut []byte, err error) {
-	args := append([]string{"template", "process"}, extraArgs...)
+	args := append([]string{subresourceProcessCmd, subresourceProcess}, extraArgs...)
 	return testing.NewRepeatableVirtctlCommandWithOutAndErr(args...)()
 }
 

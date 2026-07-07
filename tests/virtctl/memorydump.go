@@ -50,6 +50,8 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const memoryDumpCmd = "memory-dump"
+
 var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 	const (
 		randNameTail    = 5
@@ -170,24 +172,24 @@ var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 
 func runMemoryDumpGetCmd(name string, args ...string) error {
 	_args := append([]string{
-		"memory-dump", "get", name,
-		"--namespace", testsuite.GetTestNamespace(nil),
+		memoryDumpCmd, "get", name,
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }
 
 func runMemoryDumpDownloadCmd(name string, args ...string) error {
 	_args := append([]string{
-		"memory-dump", "download", name,
-		"--namespace", testsuite.GetTestNamespace(nil),
+		memoryDumpCmd, "download", name,
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }
 
 func runMemoryDumpRemoveCmd(name string, args ...string) error {
 	_args := append([]string{
-		"memory-dump", "remove", name,
-		"--namespace", testsuite.GetTestNamespace(nil),
+		memoryDumpCmd, "remove", name,
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }

@@ -130,7 +130,7 @@ func execCommandLibguestfsPod(podName, namespace string, args []string) (stdout,
 func guestfsCmd(pvcClaim, namespace string, setGroup bool, extraArgs ...string) func() error {
 	args := append([]string{
 		"guestfs", pvcClaim,
-		"--namespace", namespace,
+		namespaceFlag, namespace,
 	}, extraArgs...)
 	if setGroup {
 		const testGroup = "2000"

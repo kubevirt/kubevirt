@@ -125,7 +125,7 @@ func runSSHCommand(name, user, keyFile string) {
 	libssh.DisableSSHAgent()
 	args := []string{
 		"ssh",
-		"--namespace", testsuite.GetTestNamespace(nil),
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 		"--username", user,
 		"--identity-file", keyFile,
 		"-t", "-o StrictHostKeyChecking=no",
@@ -141,7 +141,7 @@ func runSCPCommand(src, dst, keyFile string, recursive bool) {
 	libssh.DisableSSHAgent()
 	args := []string{
 		"scp",
-		"--namespace", testsuite.GetTestNamespace(nil),
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 		"--username", "root",
 		"--identity-file", keyFile,
 		"-t", "-o StrictHostKeyChecking=no",
