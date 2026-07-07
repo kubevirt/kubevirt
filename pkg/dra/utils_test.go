@@ -38,11 +38,24 @@ import (
 )
 
 const (
-	pciAddr0300 = "0000:03:00.0"
-	pciAddr0400 = "0000:04:00.0"
+	claim1Name         = "claim1"
+	deviceMetadataKind = "DeviceMetadata"
+	gpuRequestName     = "gpu-req"
+	pciAddr0300        = "0000:03:00.0"
+	pciAddr0400        = "0000:04:00.0"
+	request1Name       = "req1"
+	testClaimName      = "my-claim"
+	vgpuRequestName    = "vgpu-req"
 )
 
 var _ = Describe("DownwardAPIAttributes", func() {
+	const (
+		gpuDriver        = "gpu.example.com"
+		gpuPool          = "default"
+		gpuDeviceName    = "gpu-0"
+		multiDriverClaim = "multi-driver-claim"
+		worker0Pool      = "worker-0"
+	)
 	var tempDir string
 
 	BeforeEach(func() {
@@ -60,7 +73,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 	writeMetadataJSON := func(dir, driverName string, md *metadata.DeviceMetadata) {
 		Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
 		md.APIVersion = metadata.APIVersionV1Alpha1
-		md.Kind = "DeviceMetadata"
+		md.Kind = deviceMetadataKind
 		data, err := json.Marshal(md)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(os.WriteFile(filepath.Join(dir, driverName+metadataFileSuffix), data, 0o600)).To(Succeed())
@@ -127,9 +140,9 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				Requests: []metadata.DeviceMetadataRequest{{
 					Name: "gpu-request",
 					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "default",
-						Name:   "gpu-0",
+						Driver: gpuDriver,
+						Pool:   gpuPool,
+						Name:   gpuDeviceName,
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
 						},
@@ -155,8 +168,8 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				Requests: []metadata.DeviceMetadataRequest{{
 					Name: "vgpu-request",
 					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "default",
+						Driver: gpuDriver,
+						Pool:   gpuPool,
 						Name:   "vgpu-0",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
@@ -181,7 +194,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				ResourceClaimName: ptr.To("nonexistent"),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "missing-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "missing-claim", request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to read metadata"))
 		})
@@ -190,10 +203,10 @@ var _ = Describe("DownwardAPIAttributes", func() {
 	Context("GetPCIAddressForClaim", func() {
 		It("should return the PCI address when present", func() {
 			pciAddr := pciAddr0300
-			createMetadataFile("pci-claim", "req1", &metadata.DeviceMetadata{
+			createMetadataFile("pci-claim", request1Name, &metadata.DeviceMetadata{
 				ObjectMeta: metav1.ObjectMeta{Name: "pci-claim"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
+					Name: request1Name,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
@@ -203,43 +216,43 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			})
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("pci-claim"),
 			}}
 
-			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(addr).To(Equal(pciAddr))
 		})
 
 		It("should return error when claim ref not found", func() {
-			_, err := GetPCIAddressForClaim(tempDir, nil, "nonexistent", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, nil, "nonexistent", request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("metadata not found"))
 		})
 
 		It("should return error when request not found in metadata file", func() {
-			createMetadataFile("claim1", "other-req", metadataWithoutAttributes("claim1", "other-req"))
+			createMetadataFile(claim1Name, "other-req", metadataWithoutAttributes(claim1Name, "other-req"))
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
-				ResourceClaimName: ptr.To("claim1"),
+				Name:              testClaimName,
+				ResourceClaimName: ptr.To(claim1Name),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "missing-req")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, "missing-req")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to read metadata for claim"))
 		})
 
 		It("should return error when pciBusID attribute not present", func() {
-			createMetadataFile("claim1", "req1", metadataWithoutAttributes("claim1", "req1"))
+			createMetadataFile(claim1Name, request1Name, metadataWithoutAttributes(claim1Name, request1Name))
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
-				ResourceClaimName: ptr.To("claim1"),
+				Name:              testClaimName,
+				ResourceClaimName: ptr.To(claim1Name),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("pciBusID not found"))
 		})
@@ -247,10 +260,10 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		It("should return error when request has multiple devices (count > 1)", func() {
 			pciAddr1 := pciAddr0300
 			pciAddr2 := pciAddr0400
-			createMetadataFile("claim1", "req1", &metadata.DeviceMetadata{
-				ObjectMeta: metav1.ObjectMeta{Name: "claim1"},
+			createMetadataFile(claim1Name, request1Name, &metadata.DeviceMetadata{
+				ObjectMeta: metav1.ObjectMeta{Name: claim1Name},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
+					Name: request1Name,
 					Devices: []metadata.Device{
 						{Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr1},
@@ -263,11 +276,11 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			})
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
-				ResourceClaimName: ptr.To("claim1"),
+				Name:              testClaimName,
+				ResourceClaimName: ptr.To(claim1Name),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("count > 1 is not supported"))
 		})
@@ -276,10 +289,10 @@ var _ = Describe("DownwardAPIAttributes", func() {
 	Context("GetMDevUUIDForClaim", func() {
 		It("should return the mdev UUID when present", func() {
 			uuid := "abcd1234-5678-90ab-cdef-1234567890ab"
-			createMetadataFile("mdev-claim", "vgpu-req", &metadata.DeviceMetadata{
+			createMetadataFile("mdev-claim", vgpuRequestName, &metadata.DeviceMetadata{
 				ObjectMeta: metav1.ObjectMeta{Name: "mdev-claim"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "vgpu-req",
+					Name: vgpuRequestName,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.MDevUUIDAttribute: {StringValue: &uuid},
@@ -293,23 +306,23 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				ResourceClaimName: ptr.To("mdev-claim"),
 			}}
 
-			result, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "my-vgpu", "vgpu-req")
+			result, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "my-vgpu", vgpuRequestName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(uuid))
 		})
 
 		It("should return error when claim ref not found", func() {
-			_, err := GetMDevUUIDForClaim(tempDir, nil, "nonexistent", "req1")
+			_, err := GetMDevUUIDForClaim(tempDir, nil, "nonexistent", request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("metadata not found"))
 		})
 
 		It("should return error when mdevUUID attribute not present", func() {
 			pciAddr := "0000:01:00.0"
-			createMetadataFile("pci-only", "req1", &metadata.DeviceMetadata{
+			createMetadataFile("pci-only", request1Name, &metadata.DeviceMetadata{
 				ObjectMeta: metav1.ObjectMeta{Name: "pci-only"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
+					Name: request1Name,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
@@ -319,11 +332,11 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			})
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("pci-only"),
 			}}
 
-			_, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err := GetMDevUUIDForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("mdevUUID not found"))
 		})
@@ -334,10 +347,10 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			pciAddr := pciAddr0400
 			mdevUUID := "11111111-2222-3333-4444-555555555555"
 
-			createMetadataFile("gpu-claim", "gpu-req", &metadata.DeviceMetadata{
+			createMetadataFile("gpu-claim", gpuRequestName, &metadata.DeviceMetadata{
 				ObjectMeta: metav1.ObjectMeta{Name: "gpu-claim"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "gpu-req",
+					Name: gpuRequestName,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
@@ -346,10 +359,10 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			createMetadataFile("vgpu-claim", "vgpu-req", &metadata.DeviceMetadata{
+			createMetadataFile("vgpu-claim", vgpuRequestName, &metadata.DeviceMetadata{
 				ObjectMeta: metav1.ObjectMeta{Name: "vgpu-claim"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "vgpu-req",
+					Name: vgpuRequestName,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
@@ -363,11 +376,11 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				{Name: "claim-vgpu", ResourceClaimName: ptr.To("vgpu-claim")},
 			}
 
-			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, "claim-gpu", "gpu-req")
+			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, "claim-gpu", gpuRequestName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(addr).To(Equal(pciAddr))
 
-			uuid, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "claim-vgpu", "vgpu-req")
+			uuid, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "claim-vgpu", vgpuRequestName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uuid).To(Equal(mdevUUID))
 		})
@@ -402,11 +415,11 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			mdevUUID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 			createTemplateMetadataFile(
 				"template-vgpu-claim",
-				"vgpu-req",
+				vgpuRequestName,
 				templateMetadataWithStringAttribute(
 					"generated-vgpu-claim-abc",
 					"template-vgpu-claim",
-					"vgpu-req",
+					vgpuRequestName,
 					metadata.MDevUUIDAttribute,
 					mdevUUID,
 				),
@@ -417,7 +430,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				ResourceClaimTemplateName: ptr.To("vgpu-template"),
 			}}
 
-			uuid, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "template-vgpu-claim", "vgpu-req")
+			uuid, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "template-vgpu-claim", vgpuRequestName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uuid).To(Equal(mdevUUID))
 		})
@@ -438,11 +451,11 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			createTemplateMetadataFile("my-template-claim", "vgpu-req", &metadata.DeviceMetadata{
+			createTemplateMetadataFile("my-template-claim", vgpuRequestName, &metadata.DeviceMetadata{
 				ObjectMeta:   metav1.ObjectMeta{Name: "generated-claim-def456"},
 				PodClaimName: ptr.To("my-template-claim"),
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "vgpu-req",
+					Name: vgpuRequestName,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
@@ -460,7 +473,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(addr).To(Equal(pciAddr))
 
-			uuid, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "my-template-claim", "vgpu-req")
+			uuid, err := GetMDevUUIDForClaim(tempDir, resourceClaims, "my-template-claim", vgpuRequestName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uuid).To(Equal(mdevUUID))
 		})
@@ -471,7 +484,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				ResourceClaimTemplateName: ptr.To("nonexistent-template"),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "missing-template-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "missing-template-claim", request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to read metadata"))
 		})
@@ -479,8 +492,8 @@ var _ = Describe("DownwardAPIAttributes", func() {
 
 	Context("request name mismatch in metadata content", func() {
 		It("should return error with available requests when request not found in metadata JSON", func() {
-			createMetadataFile("claim1", "req1", &metadata.DeviceMetadata{
-				ObjectMeta: metav1.ObjectMeta{Name: "claim1"},
+			createMetadataFile(claim1Name, request1Name, &metadata.DeviceMetadata{
+				ObjectMeta: metav1.ObjectMeta{Name: claim1Name},
 				Requests: []metadata.DeviceMetadataRequest{{
 					Name: "actual-req",
 					Devices: []metadata.Device{{
@@ -490,14 +503,14 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			})
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
-				ResourceClaimName: ptr.To("claim1"),
+				Name:              testClaimName,
+				ResourceClaimName: ptr.To(claim1Name),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not found in metadata for claim"))
-			Expect(err.Error()).To(ContainSubstring("claim1"))
+			Expect(err.Error()).To(ContainSubstring(claim1Name))
 			Expect(err.Error()).To(ContainSubstring("available requests: [actual-req]"))
 		})
 	})
@@ -507,15 +520,15 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			pciAddr1 := "0000:08:00.0"
 			pciAddr2 := "0000:09:00.0"
 
-			dir := filepath.Join(tempDir, resourceClaimsSubdir, "multi-driver-claim", "gpu-req")
+			dir := filepath.Join(tempDir, resourceClaimsSubdir, "multi-driver-claim", gpuRequestName)
 			writeMetadataJSON(dir, "gpu-a.example.com", &metadata.DeviceMetadata{
-				ObjectMeta: metav1.ObjectMeta{Name: "multi-driver-claim"},
+				ObjectMeta: metav1.ObjectMeta{Name: multiDriverClaim},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "gpu-req",
+					Name: gpuRequestName,
 					Devices: []metadata.Device{{
 						Driver: "gpu-a.example.com",
-						Pool:   "worker-0",
-						Name:   "gpu-0",
+						Pool:   worker0Pool,
+						Name:   gpuDeviceName,
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr1},
 						},
@@ -523,12 +536,12 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 			writeMetadataJSON(dir, "gpu-b.example.com", &metadata.DeviceMetadata{
-				ObjectMeta: metav1.ObjectMeta{Name: "multi-driver-claim"},
+				ObjectMeta: metav1.ObjectMeta{Name: multiDriverClaim},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "gpu-req",
+					Name: gpuRequestName,
 					Devices: []metadata.Device{{
 						Driver: "gpu-b.example.com",
-						Pool:   "worker-0",
+						Pool:   worker0Pool,
 						Name:   "gpu-1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr2},
@@ -538,11 +551,11 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			})
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("multi-driver-claim"),
 			}}
 
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "gpu-req")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, gpuRequestName)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("only supports exactly one driver per request"))
 		})
@@ -561,12 +574,14 @@ var _ = Describe("DownwardAPIAttributes", func() {
 
 		It("should skip unknown apiVersion and decode v1alpha1 from stream", func() {
 			pciAddr := "0000:07:00.0"
-			v2Obj := `{"apiVersion":"metadata.resource.k8s.io/v2beta1","kind":"DeviceMetadata","metadata":{"name":"claim1"},"newField":"ignored"}`
+			v2Obj := fmt.Sprintf(
+				`{"apiVersion":"metadata.resource.k8s.io/v2beta1","kind":%q,"metadata":{"name":%q},"newField":"ignored"}`,
+				deviceMetadataKind, claim1Name)
 			v1Obj, err := json.Marshal(&metadata.DeviceMetadata{
-				TypeMeta:   metav1.TypeMeta{APIVersion: metadata.APIVersionV1Alpha1, Kind: "DeviceMetadata"},
-				ObjectMeta: metav1.ObjectMeta{Name: "claim1"},
+				TypeMeta:   metav1.TypeMeta{APIVersion: metadata.APIVersionV1Alpha1, Kind: deviceMetadataKind},
+				ObjectMeta: metav1.ObjectMeta{Name: claim1Name},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
+					Name: request1Name,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
@@ -576,27 +591,27 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			writeRawStreamFile("claim1", "req1", "gpu.example.com", v2Obj, string(v1Obj))
+			writeRawStreamFile(claim1Name, request1Name, "gpu.example.com", v2Obj, string(v1Obj))
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
-				ResourceClaimName: ptr.To("claim1"),
+				Name:              testClaimName,
+				ResourceClaimName: ptr.To(claim1Name),
 			}}
-			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(addr).To(Equal(pciAddr))
 		})
 
 		It("should return error when stream contains only unsupported versions", func() {
-			writeRawStreamFile("claim2", "req1", "gpu.example.com",
-				`{"apiVersion":"metadata.resource.k8s.io/v99","kind":"DeviceMetadata"}`,
+			writeRawStreamFile("claim2", request1Name, "gpu.example.com",
+				fmt.Sprintf(`{"apiVersion":"metadata.resource.k8s.io/v99","kind":%q}`, deviceMetadataKind),
 			)
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("claim2"),
 			}}
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(
 				"no compatible metadata version found in stream (unknown versions: metadata.resource.k8s.io/v99)",
@@ -604,13 +619,13 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		})
 
 		It("should return error on empty stream", func() {
-			writeRawStreamFile("claim3", "req1", "gpu.example.com")
+			writeRawStreamFile("claim3", request1Name, "gpu.example.com")
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("claim3"),
 			}}
-			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no metadata objects"))
 		})
@@ -618,10 +633,10 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		It("should fail if an entry's apiVersion cannot be peeked even when a later entry is valid", func() {
 			pciAddr := "0000:0a:00.0"
 			v1Obj, err := json.Marshal(&metadata.DeviceMetadata{
-				TypeMeta:   metav1.TypeMeta{APIVersion: metadata.APIVersionV1Alpha1, Kind: "DeviceMetadata"},
+				TypeMeta:   metav1.TypeMeta{APIVersion: metadata.APIVersionV1Alpha1, Kind: deviceMetadataKind},
 				ObjectMeta: metav1.ObjectMeta{Name: "claim4"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
+					Name: request1Name,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
@@ -630,16 +645,16 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 			Expect(err).ToNot(HaveOccurred())
-			writeRawStreamFile("claim4", "req1", "gpu.example.com",
+			writeRawStreamFile("claim4", request1Name, "gpu.example.com",
 				`"not-an-object"`,
 				string(v1Obj),
 			)
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("claim4"),
 			}}
-			_, err = GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err = GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("decode metadata object"))
 		})
@@ -647,14 +662,15 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		It("should fail if a supported-version entry fails to unmarshal even when a later entry is valid", func() {
 			pciAddr := "0000:0b:00.0"
 			badV1 := fmt.Sprintf(
-				`{"apiVersion":%q,"kind":"DeviceMetadata","metadata":{"name":"claim5"},"requests":"this-should-be-an-array"}`,
+				`{"apiVersion":%q,"kind":%q,"metadata":{"name":"claim5"},"requests":"this-should-be-an-array"}`,
 				metadata.APIVersionV1Alpha1,
+				deviceMetadataKind,
 			)
 			goodV1, err := json.Marshal(&metadata.DeviceMetadata{
-				TypeMeta:   metav1.TypeMeta{APIVersion: metadata.APIVersionV1Alpha1, Kind: "DeviceMetadata"},
+				TypeMeta:   metav1.TypeMeta{APIVersion: metadata.APIVersionV1Alpha1, Kind: deviceMetadataKind},
 				ObjectMeta: metav1.ObjectMeta{Name: "claim5"},
 				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
+					Name: request1Name,
 					Devices: []metadata.Device{{
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
 							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
@@ -663,13 +679,13 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 			Expect(err).ToNot(HaveOccurred())
-			writeRawStreamFile("claim5", "req1", "gpu.example.com", badV1, string(goodV1))
+			writeRawStreamFile("claim5", request1Name, "gpu.example.com", badV1, string(goodV1))
 
 			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "my-claim",
+				Name:              testClaimName,
 				ResourceClaimName: ptr.To("claim5"),
 			}}
-			_, err = GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "req1")
+			_, err = GetPCIAddressForClaim(tempDir, resourceClaims, testClaimName, request1Name)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("decode %s", metadata.APIVersionV1Alpha1)))
 		})

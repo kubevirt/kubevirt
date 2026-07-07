@@ -40,9 +40,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	)
 
 	const (
-		inferFromVolumeName     = "volume"
-		dataVolumeTemplateName  = "datatemplate"
-		dvSuccessTimeoutSeconds = 180
+		inferFromVolumeName      = "volume"
+		dataVolumeTemplateName   = "datatemplate"
+		dvSuccessTimeoutSeconds  = 180
+		datasourceGeneratePrefix = "datasource-"
 	)
 
 	createAndValidateVirtualMachine := func() {
@@ -210,7 +211,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				// TODO - Replace with libds?
 				dataSource := &cdiv1beta1.DataSource{
 					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "datasource-",
+						GenerateName: datasourceGeneratePrefix,
 						Namespace:    namespace,
 					},
 					Spec: cdiv1beta1.DataSourceSpec{
@@ -252,7 +253,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				// TODO - Replace with libds?
 				dataSource := &cdiv1beta1.DataSource{
 					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "datasource-",
+						GenerateName: datasourceGeneratePrefix,
 						Namespace:    namespace,
 						Labels: map[string]string{
 							instancetypeapi.DefaultInstancetypeLabel:     instancetype.Name,

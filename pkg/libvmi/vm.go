@@ -28,6 +28,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
+const unused = "unused"
+
 type VMOption func(vm *v1.VirtualMachine)
 
 func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.VirtualMachine {
@@ -182,7 +184,7 @@ func WithInstancetypeRevision(revisionName string) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		resourcesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-			Name:         "unused",
+			Name:         unused,
 			RevisionName: revisionName,
 		}
 	}
@@ -192,7 +194,7 @@ func WithPreferenceRevision(revisionName string) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		preferencesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Preference = &v1.PreferenceMatcher{
-			Name:         "unused",
+			Name:         unused,
 			RevisionName: revisionName,
 		}
 	}

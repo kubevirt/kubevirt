@@ -34,6 +34,11 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const (
+	atMostOneClaimMsg = "at most one of resourceClaimName or resourceClaimTemplateName may be specified"
+	mustSpecifyOneMsg = "must specify one of: resourceClaimName, resourceClaimTemplateName"
+)
+
 type Validator struct {
 	field         *k8sfield.Path
 	vmiSpec       *v1.VirtualMachineInstanceSpec
@@ -145,14 +150,14 @@ func validateResourceClaims(field *k8sfield.Path, resourceClaims []v1.VirtualMac
 		if claim.ResourceClaimName != nil && claim.ResourceClaimTemplateName != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "at most one of resourceClaimName or resourceClaimTemplateName may be specified",
+				Message: atMostOneClaimMsg,
 				Field:   claimField.String(),
 			})
 		}
 		if claim.ResourceClaimName == nil && claim.ResourceClaimTemplateName == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "must specify one of: resourceClaimName, resourceClaimTemplateName",
+				Message: mustSpecifyOneMsg,
 				Field:   claimField.String(),
 			})
 		}
