@@ -93,7 +93,7 @@ go-test: go-build
 test: bazel-test
 
 test-envtest:
-	KUBEBUILDER_ASSETS=$$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest use --print path) go test ./tests/envtest/... -count=1 -v
+	KUBEBUILDER_ASSETS=$$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest use --print path) ginkgo --procs=$$(nproc) -v ./tests/envtest/...
 
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
