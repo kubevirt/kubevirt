@@ -107,6 +107,7 @@ const (
 	accessCredUserInvalidError           = "user cannot be specified with selected access credential type and method"
 	accessCredMethodFlagMismatchErrorFmt = "method param and value passed to --%s have to match: %s vs %s"
 	randSuffixLength                     = 5
+	dataSourceKind                       = "DataSource"
 )
 
 type createVM struct {
@@ -366,7 +367,7 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 			if dvt.Spec.Source != nil && (dvt.Spec.Source.PVC != nil || dvt.Spec.Source.Registry != nil || dvt.Spec.Source.Snapshot != nil) {
 				return nil
 			}
-			if dvt.Spec.SourceRef != nil && dvt.Spec.SourceRef.Kind == "DataSource" {
+			if dvt.Spec.SourceRef != nil && dvt.Spec.SourceRef.Kind == dataSourceKind {
 				return nil
 			}
 			return fmt.Errorf(
@@ -1350,7 +1351,7 @@ func withVolumeSourceRefDataSource(paramStr string) (*cdiv1.DataVolumeSpec, *uin
 
 	spec := &cdiv1.DataVolumeSpec{
 		SourceRef: &cdiv1.DataVolumeSourceRef{
-			Kind: "DataSource",
+			Kind: dataSourceKind,
 			Name: name,
 		},
 	}

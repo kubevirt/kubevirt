@@ -21,9 +21,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+const (
+	virtAPIComponent        = "virt-api"
+	virtControllerComponent = "virt-controller"
+	virtHandlerComponent    = "virt-handler"
+	virtLauncherComponent   = "virt-launcher"
+	virtOperatorComponent   = "virt-operator"
+	virtAPIJSON             = "virtAPI"
+	virtControllerJSON      = "virtController"
+	virtHandlerJSON         = "virtHandler"
+	virtLauncherJSON        = "virtLauncher"
+	virtOperatorJSON        = "virtOperator"
+)
+
 type Command struct{}
 
-// for command parsing
 const (
 	// Verbosity must be 0-9.
 	// https://kubernetes.io/docs/reference/kubectl/cheatsheet/#kubectl-output-verbosity-and-debugging
@@ -46,12 +58,12 @@ var isReset bool
 // https://kubevirt.io/user-guide/operations/debug/#setting-verbosity-per-kubevirt-component
 // TODO: set verbosity per nodes
 var virtComponents = map[string]*uint{
-	"virt-api":        new(uint),
-	"virt-controller": new(uint),
-	"virt-handler":    new(uint),
-	"virt-launcher":   new(uint),
-	"virt-operator":   new(uint),
-	allComponents:     new(uint),
+	virtAPIComponent:        new(uint),
+	virtControllerComponent: new(uint),
+	virtHandlerComponent:    new(uint),
+	virtLauncherComponent:   new(uint),
+	virtOperatorComponent:   new(uint),
+	allComponents:           new(uint),
 }
 
 // operation type of log-verbosity command
@@ -90,7 +102,7 @@ func NewCommand() *cobra.Command {
 		RunE:    c.RunE,
 	}
 
-	cmd.Flags().UintVar(virtComponents["virt-api"], "virt-api", NoFlag, "show/set virt-api log verbosity (0-9)")
+	cmd.Flags().UintVar(virtComponents[virtAPIComponent], virtAPIComponent, NoFlag, "show/set virt-api log verbosity (0-9)")
 	// A flag without an argument should only be used for boolean flags.
 	// However, we want to use a flag without an argument (e.g. --virt-api) to show verbosity.
 	// To do this, we set the default value (NoOptDefVal=noArg) when the flag has no argument.
@@ -98,19 +110,20 @@ func NewCommand() *cobra.Command {
 	// The caveat is that there is no way to distinguish between user-specified 10 and NoOptDefVal=noArg after the following point.
 	// https://github.com/kubevirt/kubevirt/blob/main/vendor/github.com/spf13/pflag/flag.go#L989
 	// So, we accept "flag=10" but the operation is "show" instead of "set".
-	cmd.Flags().Lookup("virt-api").NoOptDefVal = strconv.FormatUint(noArg, 10)
+	cmd.Flags().Lookup(virtAPIComponent).NoOptDefVal = strconv.FormatUint(noArg, 10)
 
-	cmd.Flags().UintVar(virtComponents["virt-controller"], "virt-controller", NoFlag, "show/set virt-controller log verbosity (0-9)")
-	cmd.Flags().Lookup("virt-controller").NoOptDefVal = strconv.FormatUint(noArg, 10)
+	cmd.Flags().UintVar(virtComponents[virtControllerComponent], virtControllerComponent, NoFlag,
+		"show/set virt-controller log verbosity (0-9)")
+	cmd.Flags().Lookup(virtControllerComponent).NoOptDefVal = strconv.FormatUint(noArg, 10)
 
-	cmd.Flags().UintVar(virtComponents["virt-handler"], "virt-handler", NoFlag, "show/set virt-handler log verbosity (0-9)")
-	cmd.Flags().Lookup("virt-handler").NoOptDefVal = strconv.FormatUint(noArg, 10)
+	cmd.Flags().UintVar(virtComponents[virtHandlerComponent], virtHandlerComponent, NoFlag, "show/set virt-handler log verbosity (0-9)")
+	cmd.Flags().Lookup(virtHandlerComponent).NoOptDefVal = strconv.FormatUint(noArg, 10)
 
-	cmd.Flags().UintVar(virtComponents["virt-launcher"], "virt-launcher", NoFlag, "show/set virt-launcher log verbosity (0-9)")
-	cmd.Flags().Lookup("virt-launcher").NoOptDefVal = strconv.FormatUint(noArg, 10)
+	cmd.Flags().UintVar(virtComponents[virtLauncherComponent], virtLauncherComponent, NoFlag, "show/set virt-launcher log verbosity (0-9)")
+	cmd.Flags().Lookup(virtLauncherComponent).NoOptDefVal = strconv.FormatUint(noArg, 10)
 
-	cmd.Flags().UintVar(virtComponents["virt-operator"], "virt-operator", NoFlag, "show/set virt-operator log verbosity (0-9)")
-	cmd.Flags().Lookup("virt-operator").NoOptDefVal = strconv.FormatUint(noArg, 10)
+	cmd.Flags().UintVar(virtComponents[virtOperatorComponent], virtOperatorComponent, NoFlag, "show/set virt-operator log verbosity (0-9)")
+	cmd.Flags().Lookup(virtOperatorComponent).NoOptDefVal = strconv.FormatUint(noArg, 10)
 
 	cmd.Flags().UintVar(virtComponents[allComponents], allComponents, NoFlag, "show/set all component log verbosity (0-9)")
 	cmd.Flags().Lookup(allComponents).NoOptDefVal = strconv.FormatUint(noArg, 10)
@@ -161,12 +174,12 @@ func usage() string {
 // component name to JSON name
 func getJSONNameByComponentName(componentName string) string {
 	componentNameToJSONName := map[string]string{
-		"virt-api":        "virtAPI",
-		"virt-controller": "virtController",
-		"virt-handler":    "virtHandler",
-		"virt-launcher":   "virtLauncher",
-		"virt-operator":   "virtOperator",
-		allComponents:     allComponents,
+		virtAPIComponent:        virtAPIJSON,
+		virtControllerComponent: virtControllerJSON,
+		virtHandlerComponent:    virtHandlerJSON,
+		virtLauncherComponent:   virtLauncherJSON,
+		virtOperatorComponent:   virtOperatorJSON,
+		allComponents:           allComponents,
 	}
 	return componentNameToJSONName[componentName]
 }
@@ -236,11 +249,11 @@ func createShowMessage(currentLv map[string]uint) []string {
 	// fill the unattended verbosity with default verbosity
 	// key: JSONName, value: verbosity
 	verbosityVal := map[string]uint{
-		"virtAPI":        virtconfig.DefaultVirtAPILogVerbosity,
-		"virtController": virtconfig.DefaultVirtControllerLogVerbosity,
-		"virtHandler":    virtconfig.DefaultVirtHandlerLogVerbosity,
-		"virtLauncher":   virtconfig.DefaultVirtLauncherLogVerbosity,
-		"virtOperator":   virtconfig.DefaultVirtOperatorLogVerbosity,
+		virtAPIJSON:        virtconfig.DefaultVirtAPILogVerbosity,
+		virtControllerJSON: virtconfig.DefaultVirtControllerLogVerbosity,
+		virtHandlerJSON:    virtconfig.DefaultVirtHandlerLogVerbosity,
+		virtLauncherJSON:   virtconfig.DefaultVirtLauncherLogVerbosity,
+		virtOperatorJSON:   virtconfig.DefaultVirtOperatorLogVerbosity,
 	}
 
 	// update the verbosity based on the existing verbosity in the KubeVirt CR
