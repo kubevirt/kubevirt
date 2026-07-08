@@ -335,9 +335,7 @@ func ifacesStatusFromGuestAgent(
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
 			vmiIfaceSpec := vmiInterfacesSpecByName[vmiIfaceStatus.Name]
 
-			// When using masquerade binding, guest-defined Link-Local Addresses (LLAs) are unreachable from the pod network.
-			// These addresses remain internal to the guest and are outside the scope of KubeVirt's NAT translation rules.
-			if vmiIfaceSpec.Masquerade != nil {
+			if shouldFilterLinkLocalAddresses(vmiIfaceSpec, vmiIfaceStatus) {
 				guestAgentInterface.IPs = filterOutLinkLocalAddresses(guestAgentInterface.IPs)
 			}
 
@@ -401,6 +399,27 @@ func filterOutLinkLocalAddresses(ipv6Addresses []string) []string {
 		addr, err := netip.ParseAddr(s)
 		return err != nil || addr.IsLinkLocalUnicast()
 	})
+}
+
+func shouldFilterLinkLocalAddresses(vmiIfaceSpec v1.Interface, vmiIfaceStatus *v1.VirtualMachineInstanceNetworkInterface) bool {
+	if vmiIfaceSpec.Masquerade != nil {
+		return true
+	}
+
+	if !strings.HasPrefix(vmiIfaceStatus.PodInterfaceName, "eth") {
+		for _, ipRaw := range vmiIfaceStatus.IPs {
+			ip := net.ParseIP(ipRaw)
+			if ip != nil && netutils.IsIPv6(ip) {
+				addr, err := netip.ParseAddr(ipRaw)
+				if err == nil && !addr.IsLinkLocalUnicast() {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	return false
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
