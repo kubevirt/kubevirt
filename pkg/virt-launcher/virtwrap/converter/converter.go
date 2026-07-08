@@ -1041,7 +1041,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithVirtioSerialModel(virtioModel),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
-		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation(), c.AllowCrossArchEmulation),
+		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation(), c.AllowCrossArchEmulation, c.Architecture.IsMemfdSupported()),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
 		compute.MemoryConfigurator{},
 		compute.RebootPolicyDomainConfigurator{},
@@ -1083,21 +1083,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		// Set memfd as memory backend to solve SELinux restrictions
 		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
 		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
-
-		// NUMA is required in order to use memfd
-		if domain.Spec.CPU.NUMA == nil {
-			memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
-			domain.Spec.CPU.NUMA = &api.NUMA{
-				Cells: []api.NUMACell{
-					{
-						ID:     "0",
-						CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-						Memory: &memKiB,
-						Unit:   "KiB",
-					},
-				},
-			}
-		}
 	}
 
 	volumeIndices := map[string]int{}
