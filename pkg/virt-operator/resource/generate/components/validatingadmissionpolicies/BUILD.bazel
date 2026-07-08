@@ -28,6 +28,7 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/plugin/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/google/cel-go/cel:go_default_library",
