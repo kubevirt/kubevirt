@@ -505,7 +505,7 @@ var _ = Describe(SIG("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
+		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", decorators.RequiresFeatureGate(featuregate.HostDiskGate), func() {
 
 			BeforeEach(func() {
 				if !checks.HasFeature(featuregate.HostDiskGate) {

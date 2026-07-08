@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
+var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, decorators.RequiresFeatureGate(featuregate.VSOCKGate), func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

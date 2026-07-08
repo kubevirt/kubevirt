@@ -91,7 +91,7 @@ const (
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
 
-var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, decorators.RequiresFeatureGate(featuregate.ExternalNetResourceInjection), func() {
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := readSRIOVResourceName()

@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, decorators.SigCompute, decorators.RequiresCrossArchEmulation, func() {
+var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, decorators.SigCompute, decorators.RequiresCrossArchEmulation, decorators.RequiresFeatureGate(featuregate.CrossArchitectureVirtualization), func() {
 
 	BeforeEach(func() {
 		config.EnableFeatureGate(featuregate.CrossArchitectureVirtualization)

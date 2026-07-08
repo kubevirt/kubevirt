@@ -59,7 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, decorators.RequiresFeatureGate(featuregate.PluginsGate), func() {
 
 	BeforeEach(func() {
 		config.EnableFeatureGate(featuregate.PluginsGate)
@@ -489,7 +489,7 @@ const (
 	pluginMarkerDir  = "/var/run/kubevirt/plugin-test-markers"
 )
 
-var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute, decorators.RequiresFeatureGate(featuregate.PluginsGate), func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

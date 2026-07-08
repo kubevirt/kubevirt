@@ -49,7 +49,7 @@ const (
 	vmAPIGroup = "kubevirt.io"
 )
 
-var _ = Describe("VirtualMachineClone Tests", func() {
+var _ = Describe("VirtualMachineClone Tests", decorators.RequiresFeatureGate(featuregate.SnapshotGate), func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

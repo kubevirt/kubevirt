@@ -507,7 +507,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			),
 		)
 
-		It("[test_id:6869]should report an error status when image pull error occurs", Serial, decorators.Conformance, decorators.WgS390x, func() {
+		It("[test_id:6869]should report an error status when image pull error occurs", Serial, decorators.Conformance, decorators.WgS390x, decorators.RequiresFeatureGate(featuregate.ImageVolume), func() {
 			if checks.HasFeature(featuregate.ImageVolume) {
 				config.DisableFeatureGate(featuregate.ImageVolume)
 				DeferCleanup(config.EnableFeatureGate, featuregate.ImageVolume)

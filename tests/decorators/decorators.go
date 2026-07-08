@@ -100,8 +100,6 @@ var (
 	StorageCritical = Label("StorageCritical")
 	// RequiresVolumeExpansion requires a storage class with volume expansion support
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
-	// RequiresDecentralizedLiveMigration request the feature gate is enabled
-	RequiresDecentralizedLiveMigration = Label("RequiresDecentralizedLiveMigration")
 
 	/* Provisioner */
 
@@ -159,3 +157,7 @@ var (
 	// (e.g., tests requiring SecurityContextConstraints, Routes)
 	OpenShift = Label("OpenShift")
 )
+
+func RequiresFeatureGate(gate string) Labels {
+	return Label("Requires" + gate)
+}

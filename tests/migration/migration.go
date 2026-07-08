@@ -1114,7 +1114,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			return dv
 		}
 
-		Context(" migration to nonroot", Serial, func() {
+		Context(" migration to nonroot", Serial, decorators.RequiresFeatureGate(featuregate.Root), func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
 			var clusterIsRoot bool
@@ -1198,7 +1198,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, console.LoginToAlpine),
 			)
 		})
-		Context(" migration to root", Serial, func() {
+		Context(" migration to root", Serial, decorators.RequiresFeatureGate(featuregate.Root), func() {
 			var dv *cdiv1.DataVolume
 			var clusterIsRoot bool
 			size := "256Mi"
