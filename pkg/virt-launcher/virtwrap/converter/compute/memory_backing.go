@@ -36,24 +36,24 @@ func NewMemoryBackingConfigurator(isMemfdSupported bool) MemoryBackingConfigurat
 }
 
 func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-		domain.Spec.MemoryBacking = &api.MemoryBacking{
-			HugePages: &api.HugePages{},
-		}
+	hasHugepages := vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
+	needsSharedAccess := util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi)
+
+	if !hasHugepages && !needsSharedAccess {
+		return nil
 	}
 
-	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
-		if domain.Spec.MemoryBacking == nil {
-			domain.Spec.MemoryBacking = &api.MemoryBacking{}
-		}
-		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
-			Mode: "shared",
-		}
+	mb := &api.MemoryBacking{}
+	if hasHugepages {
+		mb.HugePages = &api.HugePages{}
 	}
-
+	if needsSharedAccess {
+		mb.Access = &api.MemoryBackingAccess{Mode: "shared"}
+	}
 	if c.isMemfdSupported && IsMemfdRequired(vmi) {
-		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
+		mb.Source = &api.MemoryBackingSource{Type: "memfd"}
 	}
+	domain.Spec.MemoryBacking = mb
 
 	return nil
 }
