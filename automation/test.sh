@@ -617,7 +617,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   fi
 
   if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
-    add_to_label_filter "(!ImageVolume)" "&&"
+    add_to_label_filter "(!RequiresImageVolume)" "&&"
   fi
 
   rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
