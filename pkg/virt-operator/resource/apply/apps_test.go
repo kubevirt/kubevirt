@@ -1377,6 +1377,77 @@ var _ = Describe("Apply Apps", func() {
 			Entry("large cluster with 10 schedulable nodes", 10, 990, 2),
 		)
 
+		Context("virt-exportproxy replica management", func() {
+			var reconciler *Reconciler
+			var exportProxyDeployment *appsv1.Deployment
+
+			BeforeEach(func() {
+				virtControllerConfig := &util.KubeVirtDeploymentConfig{
+					Registry:        Registry,
+					KubeVirtVersion: Version,
+					Namespace:       Namespace,
+				}
+				exportProxyDeployment = components.NewExportProxyDeployment(virtControllerConfig, "", "", "")
+
+				reconciler = &Reconciler{
+					virtClient: virtClient,
+					k8sClient:  k8sClient,
+					kv:         kv,
+					expectations: &util.Expectations{
+						Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
+					},
+					stores: stores,
+				}
+			})
+
+			It("should preserve existing replica count on sync", func() {
+				scaledReplicas := int32(5)
+				cachedExportProxy := exportProxyDeployment.DeepCopy()
+				cachedExportProxy.Spec.Replicas = &scaledReplicas
+				cachedExportProxy.Generation = 2
+				_, err := k8sClient.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedExportProxy, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: cachedExportProxy}}
+				kv.Status.Generations = []v1.GenerationStatus{{
+					Group:          "apps",
+					Resource:       "deployments",
+					Namespace:      exportProxyDeployment.Namespace,
+					Name:           exportProxyDeployment.Name,
+					LastGeneration: cachedExportProxy.Generation - 1,
+				}}
+
+				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(Equal(scaledReplicas))
+			})
+
+			It("should not apply infra replicas override", func() {
+				infraReplicas := uint8(7)
+				kv.Spec.Infra = &v1.ComponentConfig{Replicas: &infraReplicas}
+
+				clusterReplicas := int32(3)
+				cachedExportProxy := exportProxyDeployment.DeepCopy()
+				cachedExportProxy.Spec.Replicas = &clusterReplicas
+				cachedExportProxy.Generation = 2
+				_, err := k8sClient.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedExportProxy, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: cachedExportProxy}}
+				kv.Status.Generations = []v1.GenerationStatus{{
+					Group:          "apps",
+					Resource:       "deployments",
+					Namespace:      exportProxyDeployment.Namespace,
+					Name:           exportProxyDeployment.Name,
+					LastGeneration: cachedExportProxy.Generation,
+				}}
+
+				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(Equal(clusterReplicas))
+			})
+		})
+
 		Context("virt-template TLS injection", func() {
 			const (
 				tlsCipherSuitesArg = "--tls-cipher-suites"
