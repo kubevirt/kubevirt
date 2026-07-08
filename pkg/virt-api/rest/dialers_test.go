@@ -31,7 +31,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -62,12 +64,35 @@ var _ = Describe("NetDialer", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      vmName,
 				Namespace: vmNamespace,
+				UID:       "1234",
 			},
 			Spec: v1.VirtualMachineInstanceSpec{},
 			Status: v1.VirtualMachineInstanceStatus{
 				Interfaces: interfaces,
 			},
 		}
+	}
+
+	launcherPodForVMI := func(vmi *v1.VirtualMachineInstance, node, podIP string) *k8sv1.Pod {
+		return &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            vmi.Name + "-launcher",
+				Namespace:       vmi.Namespace,
+				Labels:          map[string]string{v1.AppLabel: "virt-launcher"},
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
+			},
+			Spec:   k8sv1.PodSpec{NodeName: node},
+			Status: k8sv1.PodStatus{PodIP: podIP},
+		}
+	}
+
+	newAppWithObjects := func(objs ...runtime.Object) *SubresourceAPIApp {
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		k8sfakeClient := fake.NewSimpleClientset(objs...)
+		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
+		config, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{})
+		return NewSubresourceAPIApp(virtClient, 0, nil, config)
 	}
 
 	It("Should fail if vmi has no network interfaces", func() {
@@ -150,4 +175,58 @@ var _ = Describe("NetDialer", func() {
 		Entry("with ipv4 ip address", "127.0.0.1"),
 		Entry("with ipv6 ip address", "[::1]"),
 	)
+
+	It("Should prefer the launcher pod IP over the guest interface IP", func() {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		defer ln.Close()
+		tcpAddr := ln.Addr().(*net.TCPAddr)
+		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
+
+		// The guest interface IP is not routable; dialing it would fail.
+		vmi := makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{{IP: "192.0.2.1"}})
+		vmi.Status.NodeName = "node1"
+		pod := launcherPodForVMI(vmi, "node1", tcpAddr.IP.String())
+
+		dialer := netDial{request: request, app: newAppWithObjects(pod)}
+		conn, statusErr := dialer.DialUnderlying(vmi)
+		Expect(statusErr).NotTo(HaveOccurred())
+		Expect(conn).NotTo(BeNil())
+	})
+
+	It("Should fall back to the interface IP when no launcher pod is found", func() {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		defer ln.Close()
+		tcpAddr := ln.Addr().(*net.TCPAddr)
+		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
+
+		vmi := makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{{IP: tcpAddr.IP.String()}})
+		vmi.Status.NodeName = "node1"
+
+		// Client is present but has no launcher pod for the VMI.
+		dialer := netDial{request: request, app: newAppWithObjects()}
+		conn, statusErr := dialer.DialUnderlying(vmi)
+		Expect(statusErr).NotTo(HaveOccurred())
+		Expect(conn).NotTo(BeNil())
+	})
+
+	It("Should not select a launcher pod scheduled to a different node", func() {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		defer ln.Close()
+		tcpAddr := ln.Addr().(*net.TCPAddr)
+		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
+
+		// The VMI runs on node1 (reachable listener), but a stale pod on node2
+		// carries a non-routable IP. The node filter must skip the node2 pod.
+		vmi := makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{{IP: tcpAddr.IP.String()}})
+		vmi.Status.NodeName = "node1"
+		stalePod := launcherPodForVMI(vmi, "node2", "192.0.2.1")
+
+		dialer := netDial{request: request, app: newAppWithObjects(stalePod)}
+		conn, statusErr := dialer.DialUnderlying(vmi)
+		Expect(statusErr).NotTo(HaveOccurred())
+		Expect(conn).NotTo(BeNil())
+	})
 })
