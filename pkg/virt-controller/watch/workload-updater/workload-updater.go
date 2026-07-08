@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -60,12 +61,15 @@ const defaultThrottleInterval = 5 * time.Second
 const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
 
+const virtHandlerDaemonSetName = "virt-handler"
+
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
 	queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiStore              cache.Store
 	podIndexer            cache.Indexer
 	migrationIndexer      cache.Indexer
+	daemonSetStore        cache.Store
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	kubeVirtStore         cache.Store
@@ -92,6 +96,7 @@ func NewWorkloadUpdateController(
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
+	daemonSetInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -110,6 +115,7 @@ func NewWorkloadUpdateController(
 		vmiStore:              vmiInformer.GetStore(),
 		podIndexer:            podInformer.GetIndexer(),
 		migrationIndexer:      migrationInformer.GetIndexer(),
+		daemonSetStore:        daemonSetInformer.GetStore(),
 		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
 		clientset:             clientset,
@@ -117,7 +123,7 @@ func NewWorkloadUpdateController(
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
 		hasSynced: func() bool {
-			return migrationInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && kubeVirtInformer.HasSynced()
+			return migrationInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && kubeVirtInformer.HasSynced() && daemonSetInformer.HasSynced()
 		},
 	}
 
@@ -141,6 +147,14 @@ func NewWorkloadUpdateController(
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = daemonSetInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addDaemonSet,
+		UpdateFunc: c.updateDaemonSet,
 	})
 	if err != nil {
 		return nil, err
@@ -195,6 +209,30 @@ func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
 }
 
 func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
+	key, err := c.getKubeVirtKey()
+	if key == "" || err != nil {
+		return
+	}
+
+	c.queue.AddAfter(key, defaultThrottleInterval)
+}
+
+func (c *WorkloadUpdateController) addDaemonSet(obj interface{}) {
+	if ds, ok := obj.(*appsv1.DaemonSet); !ok || ds.Name != virtHandlerDaemonSetName {
+		return
+	}
+	key, err := c.getKubeVirtKey()
+	if key == "" || err != nil {
+		return
+	}
+
+	c.queue.AddAfter(key, defaultThrottleInterval)
+}
+
+func (c *WorkloadUpdateController) updateDaemonSet(_, obj interface{}) {
+	if ds, ok := obj.(*appsv1.DaemonSet); !ok || ds.Name != virtHandlerDaemonSetName {
+		return
+	}
 	key, err := c.getKubeVirtKey()
 	if key == "" || err != nil {
 		return
@@ -454,7 +492,31 @@ func (c *WorkloadUpdateController) execute(key string) error {
 		return nil
 	}
 
+	ready, err := c.isVirtHandlerReady(kv.Namespace)
+	if err != nil {
+		return err
+	}
+	if !ready {
+		log.Log.V(3).Infof("skipping workload update: virt-handler daemonset is not fully rolled out")
+		return nil
+	}
+
 	return c.sync(kv)
+}
+
+func (c *WorkloadUpdateController) isVirtHandlerReady(namespace string) (bool, error) {
+	key := namespace + "/" + virtHandlerDaemonSetName
+	obj, exists, err := c.daemonSetStore.GetByKey(key)
+	if err != nil {
+		return false, fmt.Errorf("failed to get virt-handler daemonset: %w", err)
+	}
+	if !exists {
+		return false, nil
+	}
+	ds := obj.(*appsv1.DaemonSet)
+	return ds.Status.DesiredNumberScheduled > 0 &&
+		ds.Status.DesiredNumberScheduled == ds.Status.UpdatedNumberScheduled &&
+		ds.Status.DesiredNumberScheduled == ds.Status.NumberReady, nil
 }
 
 func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {

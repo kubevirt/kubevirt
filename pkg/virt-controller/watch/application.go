@@ -193,6 +193,7 @@ type VirtControllerApp struct {
 	migrationInformer   cache.SharedIndexInformer
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
+	daemonSetInformer        cache.SharedIndexInformer
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
 	caBackupConfigMapInformer    cache.SharedIndexInformer
@@ -398,6 +399,7 @@ func Execute() {
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
 	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1().PodDisruptionBudgets().Informer()
+	app.daemonSetInformer = app.informerFactory.K8SInformerFactory().Apps().V1().DaemonSets().Informer()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -877,6 +879,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 		vca.kvPodInformer,
 		vca.migrationInformer,
 		vca.kubeVirtInformer,
+		vca.daemonSetInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)
