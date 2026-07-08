@@ -50,6 +50,11 @@ func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.Valid
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 			FailurePolicy: pointer.P(admissionregistrationv1.Fail),
 			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						v1.AppLabel: "virt-launcher",
+					},
+				},
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
 						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -64,12 +69,6 @@ func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.Valid
 							},
 						},
 					},
-				},
-			},
-			MatchConditions: []admissionregistrationv1.MatchCondition{
-				{
-					Name:       "is-virt-launcher-pod",
-					Expression: `has(object.metadata.labels) && "kubevirt.io" in object.metadata.labels && object.metadata.labels["kubevirt.io"] == "virt-launcher"`,
 				},
 			},
 			Variables: []admissionregistrationv1.Variable{

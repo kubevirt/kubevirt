@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
@@ -71,6 +72,14 @@ func pluginVolumeMount(subPath string) corev1.VolumeMount {
 
 var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 	Context("SidecarSubPath policy", func() {
+		It("should use objectSelector to match virt-launcher pods", func() {
+			policy := vap.NewSidecarSubPathValidatingAdmissionPolicy()
+			Expect(policy.Spec.MatchConstraints).ToNot(BeNil())
+			Expect(policy.Spec.MatchConstraints.ObjectSelector).ToNot(BeNil())
+			Expect(policy.Spec.MatchConstraints.ObjectSelector.MatchLabels).To(HaveKeyWithValue(v1.AppLabel, "virt-launcher"))
+			Expect(policy.Spec.MatchConditions).To(BeEmpty())
+		})
+
 		It("should allow compute container without subPath", func() {
 			pod := launcherPod(corev1.Container{
 				Name:         "compute",
