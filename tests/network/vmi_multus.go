@@ -104,8 +104,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	var nodes *k8sv1.NodeList
 
-	linuxBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName)
-	linuxBridgeInterfaceWithIPAM := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithIPAMIfaceName)
+	linuxBridgeInterface := libvmi.NewInterface(linuxBridgeIfaceName, libvmi.WithBridgeBinding())
+	linuxBridgeInterfaceWithIPAM := libvmi.NewInterface(linuxBridgeWithIPAMIfaceName, libvmi.WithBridgeBinding())
 
 	linuxBridgeNetwork := v1.Network{
 		Name: linuxBridgeIfaceName,
@@ -167,7 +167,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("ptp")),
+					libvmi.WithInterface(libvmi.NewInterface("ptp", libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(libvmi.MultusNetwork("ptp", fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, ptpConf2))),
 				)
 
@@ -182,8 +182,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				const secondaryNetName = "ptp"
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface(secondaryNetName, libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, ptpConf1)),
 				)
@@ -223,7 +224,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(err).NotTo(HaveOccurred())
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("ptp")),
+					libvmi.WithInterface(libvmi.NewInterface("ptp", libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(&v1.Network{
 						Name: "ptp",
 						NetworkSource: v1.NetworkSource{
@@ -373,7 +374,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				vmiTwo := libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
@@ -387,7 +389,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", decorators.WgS390x, func() {
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
-				linuxBridgeInterfaceWithCustomMac := libvmi.InterfaceWithMac(linuxBridgeInterface, customMacAddress)
+				linuxBridgeInterfaceWithCustomMac := libvmi.NewInterface(
+					linuxBridgeIfaceName, libvmi.WithBridgeBinding(), libvmi.WithMac(customMacAddress))
 
 				networkData, err := cloudinit.NewNetworkData(
 					cloudinit.WithEthernet("eth1",
@@ -398,7 +401,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				vmi := libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
@@ -539,10 +543,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					Expect(err).NotTo(HaveOccurred())
 					spoofedMacAddressStr := spoofedMacAddress.String()
 
-					linuxBridgeInterfaceWithMACSpoofCheck := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithMACSpoofCheckNetwork)
-
 					By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
-					linuxBridgeInterfaceWithCustomMac := libvmi.InterfaceWithMac(linuxBridgeInterfaceWithMACSpoofCheck, initialMacAddressStr)
+					linuxBridgeInterfaceWithCustomMac := libvmi.NewInterface(
+						linuxBridgeWithMACSpoofCheckNetwork, libvmi.WithBridgeBinding(), libvmi.WithMac(initialMacAddressStr))
 
 					networkData, err := cloudinit.NewNetworkData(
 						cloudinit.WithEthernet(linuxBridgeInterfaceWithCustomMac.Name,
@@ -570,7 +573,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					targetVmi := libvmifact.NewFedora(
-						libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
+						libvmi.WithInterface(libvmi.NewInterface(
+							linuxBridgeWithMACSpoofCheckNetwork, libvmi.WithBridgeBinding())),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(targetNetworkData)),
 						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),

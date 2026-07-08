@@ -50,7 +50,11 @@ var _ = Describe(SIG("MultiQueue VMI", func() {
 			)
 
 			vmi := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceWithModel(libvmi.InterfaceDeviceWithMasqueradeBinding(), interfaceModel)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					v1.DefaultPodNetwork().Name,
+					libvmi.WithMasqueradeBinding(),
+					libvmi.WithModel(interfaceModel),
+				)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetworkInterfaceMultiQueue(true),
 				libvmi.WithCPUCount(numCpus, 1, 1),

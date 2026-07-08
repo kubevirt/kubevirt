@@ -71,7 +71,7 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 					libnet.SkipWhenClusterNotSupportIpv4()
 					var err error
 
-					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name))
+					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding()))
 					Expect(err).NotTo(HaveOccurred())
 
 					vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -100,7 +100,8 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
+					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(
+						libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding()))
 					Expect(err).NotTo(HaveOccurred())
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), tmpVmi, metav1.CreateOptions{})

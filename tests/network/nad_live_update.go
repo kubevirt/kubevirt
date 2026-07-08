@@ -236,7 +236,7 @@ func newVMIWithAffinity(name, nad, ip, node string) (*v1.VirtualMachineInstance,
 	}
 	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithName(name),
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(ifaceName)),
+		libvmi.WithInterface(libvmi.NewInterface(ifaceName, libvmi.WithBridgeBinding())),
 		libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, nad)),
 		libvmi.WithNodeAffinityFor(node),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData1)),

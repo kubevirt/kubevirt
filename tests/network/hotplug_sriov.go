@@ -165,29 +165,14 @@ func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourc
 	return err
 }
 
-func newSRIOVNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
-	network := v1.Network{
-		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: netAttachDefName,
-			},
-		},
-	}
-	iface := v1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
-	}
-	return network, iface
-}
-
 func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
-	newNetwork, newIface := newSRIOVNetworkInterface(name, netAttachDefName)
 	mac, err := libnet.GenerateRandomMac()
 	if err != nil {
 		return err
 	}
-	return libnet.PatchVMWithNewInterface(vm, newNetwork, libvmi.InterfaceWithMac(newIface, mac.String()))
+	newNetwork := *libvmi.MultusNetwork(name, netAttachDefName)
+	newIface := libvmi.NewInterface(name, libvmi.WithSRIOVBinding(), libvmi.WithMac(mac.String()))
+	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
 }
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
