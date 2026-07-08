@@ -150,6 +150,20 @@ func CleanNamespaces() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
+		// Remove all ResourceClaims
+		err = virtCli.ResourceV1().ResourceClaims(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
+		Expect(err).To(Or(
+			Not(HaveOccurred()),
+			MatchError(errors.IsNotFound, "errors.IsNotFound"),
+		))
+
+		// Remove all ResourceClaimTemplates
+		err = virtCli.ResourceV1().ResourceClaimTemplates(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
+		Expect(err).To(Or(
+			Not(HaveOccurred()),
+			MatchError(errors.IsNotFound, "errors.IsNotFound"),
+		))
+
 		// Remove all Services
 		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
