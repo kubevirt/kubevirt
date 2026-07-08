@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -1044,6 +1043,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation(), c.AllowCrossArchEmulation, c.Architecture.IsMemfdSupported()),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
 		compute.MemoryConfigurator{},
+		compute.NewMemoryBackingConfigurator(c.Architecture.IsMemfdSupported()),
 		compute.RebootPolicyDomainConfigurator{},
 		compute.NewIOMMUFDConfigurator(c.IOMMUFDEnabled),
 	}
@@ -1062,27 +1062,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	builder := convertertypes.NewDomainBuilder(configurators...)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
-	}
-
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-		domain.Spec.MemoryBacking = &api.MemoryBacking{
-			HugePages: &api.HugePages{},
-		}
-	}
-	// virtiofs require shared access
-	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
-		if domain.Spec.MemoryBacking == nil {
-			domain.Spec.MemoryBacking = &api.MemoryBacking{}
-		}
-		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
-			Mode: "shared",
-		}
-	}
-
-	if c.Architecture.IsMemfdSupported() && compute.IsMemfdRequired(vmi) {
-		// Set memfd as memory backend to solve SELinux restrictions
-		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
-		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
 	}
 
 	volumeIndices := map[string]int{}

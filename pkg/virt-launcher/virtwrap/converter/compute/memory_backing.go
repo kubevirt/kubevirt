@@ -24,7 +24,39 @@ import (
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+type MemoryBackingConfigurator struct {
+	isMemfdSupported bool
+}
+
+func NewMemoryBackingConfigurator(isMemfdSupported bool) MemoryBackingConfigurator {
+	return MemoryBackingConfigurator{isMemfdSupported: isMemfdSupported}
+}
+
+func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+		domain.Spec.MemoryBacking = &api.MemoryBacking{
+			HugePages: &api.HugePages{},
+		}
+	}
+
+	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
+		if domain.Spec.MemoryBacking == nil {
+			domain.Spec.MemoryBacking = &api.MemoryBacking{}
+		}
+		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
+			Mode: "shared",
+		}
+	}
+
+	if c.isMemfdSupported && IsMemfdRequired(vmi) {
+		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
+	}
+
+	return nil
+}
 
 func IsMemfdRequired(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
