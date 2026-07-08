@@ -11,6 +11,7 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -18,6 +19,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -55,7 +58,9 @@ var _ = Describe("Apply PDBs", func() {
 		stores.PodDisruptionBudgetCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
 
-		expectations = &util.Expectations{}
+		expectations = &util.Expectations{
+			PodDisruptionBudget: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
+		}
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
@@ -63,6 +68,7 @@ var _ = Describe("Apply PDBs", func() {
 
 		r = &Reconciler{
 			kv:             kv,
+			kvKey:          Namespace + "/test",
 			targetStrategy: nil,
 			stores:         stores,
 			virtClient:     virtClient,
@@ -145,4 +151,101 @@ var _ = Describe("Apply PDBs", func() {
 		})
 	})
 
+	Context("export-proxy PDB", func() {
+		It("should keep minAvailable at 1 when more than one replica is running", func() {
+			exportProxyConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
+			scaledReplicas := int32(5)
+			exportProxy.Spec.Replicas = &scaledReplicas
+
+			pdb := components.NewExportProxyPodDisruptionBudget(exportProxy)
+			Expect(pdb.Spec.MinAvailable.IntValue()).To(Equal(1))
+			Expect(pdb.Name).To(Equal("virt-exportproxy-pdb"))
+
+			k8sClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				createAction := action.(testing.CreateActionImpl)
+				createdPDB := createAction.Object.(*policyv1.PodDisruptionBudget)
+				Expect(createdPDB.Spec.MinAvailable.IntValue()).To(Equal(1))
+				return true, createdPDB, nil
+			})
+
+			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy)).To(Succeed())
+		})
+
+		DescribeTable("should delete the PDB when replica count does not allow it",
+			func(replicas *int32) {
+				exportProxyConfig := &util.KubeVirtDeploymentConfig{
+					Registry:        Registry,
+					KubeVirtVersion: Version,
+					Namespace:       Namespace,
+				}
+				exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
+				exportProxy.Spec.Replicas = replicas
+
+				cachedPDB := components.NewExportProxyPodDisruptionBudget(exportProxy)
+				injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
+				Expect(stores.PodDisruptionBudgetCache.Add(cachedPDB)).To(Succeed())
+
+				deleted := false
+				k8sClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					Expect(action.(testing.DeleteActionImpl).Name).To(Equal("virt-exportproxy-pdb"))
+					deleted = true
+					return true, nil, nil
+				})
+
+				Expect(r.syncExportProxyPodDisruptionBudget(exportProxy)).To(Succeed())
+				Expect(deleted).To(BeTrue())
+			},
+			Entry("single replica", pointer.P(int32(1))),
+			Entry("nil replicas", (*int32)(nil)),
+		)
+
+		It("should patch stale minAvailable down to 1", func() {
+			exportProxyConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
+			scaledReplicas := int32(5)
+			exportProxy.Spec.Replicas = &scaledReplicas
+
+			staleMinAvailable := intstr.FromInt(4)
+			cachedPDB := components.NewExportProxyPodDisruptionBudget(exportProxy)
+			cachedPDB.Spec.MinAvailable = &staleMinAvailable
+			cachedPDB.Annotations = make(map[string]string)
+			cachedPDB.SetGeneration(mockGeneration)
+			SetGeneration(&kv.Status.Generations, cachedPDB)
+			injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
+			Expect(stores.PodDisruptionBudgetCache.Add(cachedPDB)).To(Succeed())
+
+			patched := false
+			k8sClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				a := action.(testing.PatchActionImpl)
+
+				patchOps, err := jsonpatch.DecodePatch(a.Patch)
+				Expect(err).ToNot(HaveOccurred())
+
+				obj, err := json.Marshal(cachedPDB)
+				Expect(err).ToNot(HaveOccurred())
+
+				obj, err = patchOps.Apply(obj)
+				Expect(err).ToNot(HaveOccurred())
+
+				pdb := &policyv1.PodDisruptionBudget{}
+				Expect(json.Unmarshal(obj, pdb)).To(Succeed())
+				Expect(pdb.Spec.MinAvailable.IntValue()).To(Equal(1))
+
+				patched = true
+				return true, pdb, nil
+			})
+
+			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy)).To(Succeed())
+			Expect(patched).To(BeTrue())
+		})
+	})
 })
