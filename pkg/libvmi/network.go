@@ -136,62 +136,63 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 	}
 }
 
-// InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
+// Deprecated: Use NewInterface with WithMasqueradeBinding instead.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPorts(ports...))
 }
 
-// InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
+// Deprecated: Use NewInterface with WithBridgeBinding instead.
 func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithBridgeBinding())
 }
 
-// InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
+// Deprecated: Use NewInterface with WithSRIOVBinding instead.
 func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithSRIOVBinding())
 }
 
-// InterfaceDeviceWithPasstBinding returns an Interface with passtBinding.
+// Deprecated: Use NewInterface with WithPasstBinding instead.
 func InterfaceDeviceWithPasstBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithPasstBinding())
 }
 
-// InterfaceWithPasstBinding returns an Interface named "default" with passt binding plugin.
+// Deprecated: Use NewInterface with WithBindingPlugin instead.
 func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
 	const passtBindingName = "passt"
 	return NewInterface(kvirtv1.DefaultPodNetwork().Name,
 		WithBindingPlugin(kvirtv1.PluginBinding{Name: passtBindingName}), WithPorts(ports...))
 }
 
-// InterfaceWithMacvtapBindingPlugin returns an Interface named "default" with "macvtap" binding plugin.
+// Deprecated: Use NewInterface with WithBindingPlugin instead.
 func InterfaceWithMacvtapBindingPlugin(name string) kvirtv1.Interface {
 	const macvtapBindingName = "macvtap"
 	return NewInterface(name, WithBindingPlugin(kvirtv1.PluginBinding{Name: macvtapBindingName}))
 }
 
+// Deprecated: Use NewInterface with WithBindingPlugin instead.
 func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
 	return NewInterface(name, WithBindingPlugin(binding), WithPorts(ports...))
 }
 
-// InterfaceWithMac decorates an existing Interface with a MAC address.
+// Deprecated: Use NewInterface with WithMac instead.
 func InterfaceWithMac(iface kvirtv1.Interface, macAddress string) kvirtv1.Interface {
 	WithMac(macAddress)(&iface)
 	return iface
 }
 
-// InterfaceWithPciAddress decorates an existing Interface with a guest PCI address.
+// Deprecated: Use NewInterface with WithPciAddress instead.
 func InterfaceWithPciAddress(iface kvirtv1.Interface, pciAddress string) kvirtv1.Interface {
 	WithPciAddress(pciAddress)(&iface)
 	return iface
 }
 
-// InterfaceWithTag decorates an existing Interface with a tag.
+// Deprecated: Use NewInterface with WithTag instead.
 func InterfaceWithTag(iface kvirtv1.Interface, tag string) kvirtv1.Interface {
 	WithTag(tag)(&iface)
 	return iface
 }
 
-// InterfaceWithModel decorates an existing Interface with a model.
+// Deprecated: Use NewInterface with WithModel instead.
 func InterfaceWithModel(iface kvirtv1.Interface, model string) kvirtv1.Interface {
 	WithModel(model)(&iface)
 	return iface
