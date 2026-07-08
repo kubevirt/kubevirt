@@ -33,14 +33,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
+	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 const (
-	testNodeName  = "functional-node"
-	testNamespace = "kubevirt"
+	testNodeName         = "functional-node"
+	testNamespace        = "kubevirt"
+	defaultLauncherImage = "virt-launcher:latest"
 )
 
 type Option func(*Framework)
@@ -57,6 +59,12 @@ func WithFakeLibvirt() Option {
 	}
 }
 
+func WithWorkloadUpdateController() Option {
+	return func(f *Framework) {
+		f.workloadUpdateEnabled = true
+	}
+}
+
 type Framework struct {
 	env        *envtest.Environment
 	virtClient kubecli.KubevirtClient
@@ -65,12 +73,14 @@ type Framework struct {
 	vmController  *vm.Controller
 	vmiController *vmi.Controller
 
-	podSimulator  *PodSimulator
-	webhookServer *http.Server
-	fakeLibvirt   *FakeLibvirt
+	podSimulator             *PodSimulator
+	webhookServer            *http.Server
+	fakeLibvirt              *FakeLibvirt
+	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
-	webhooksEnabled  bool
-	fakeLibvirtEnabled bool
+	webhooksEnabled       bool
+	fakeLibvirtEnabled    bool
+	workloadUpdateEnabled bool
 
 	stopCh chan struct{}
 }
@@ -145,7 +155,7 @@ func (f *Framework) Start() {
 	recorder := record.NewFakeRecorder(1000)
 
 	templateService := services.NewTemplateService(
-		"virt-launcher:latest",
+		defaultLauncherImage,
 		240,
 		"/var/run/kubevirt",
 		"/var/run/kubevirt-ephemeral-disks",
@@ -229,6 +239,22 @@ func (f *Framework) Start() {
 
 	f.podSimulator.Start()
 
+	if f.workloadUpdateEnabled {
+		wuc, err := workloadupdater.NewWorkloadUpdateController(
+			defaultLauncherImage,
+			vmiInformer,
+			podInformer,
+			migrationInformer,
+			kubeVirtInformer,
+			recorder,
+			f.virtClient,
+			clusterConfig,
+		)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create workload update controller")
+		f.workloadUpdateController = wuc
+		go f.workloadUpdateController.Run(f.stopCh)
+	}
+
 	if f.fakeLibvirtEnabled {
 		tmpDir, err := os.MkdirTemp("", "envtest-fakelibvirt-")
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create temp dir for fake libvirt")
@@ -269,6 +295,10 @@ func (f *Framework) K8sClient() kubernetes.Interface {
 
 func (f *Framework) FakeLibvirt() *FakeLibvirt {
 	return f.fakeLibvirt
+}
+
+func (f *Framework) LauncherImage() string {
+	return defaultLauncherImage
 }
 
 func (f *Framework) createSeedData(ctx context.Context) {
