@@ -8,6 +8,7 @@ go_library(
         "bindingplugin_slirp.go",
         "dual_stack_cluster.go",
         "framework.go",
+        "guest_shutdown_masquerade.go",
         "hotplug_bridge.go",
         "hotplug_sriov.go",
         "link_state.go",
