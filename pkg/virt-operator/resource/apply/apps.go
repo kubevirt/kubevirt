@@ -456,13 +456,26 @@ func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	return r.syncPodDisruptionBudget(deployment.Namespace, components.NewPodDisruptionBudgetForDeployment(deployment))
+}
+
+func (r *Reconciler) syncExportProxyPodDisruptionBudget(deployment *appsv1.Deployment) error {
+	pdb := components.NewExportProxyPodDisruptionBudget(deployment)
+	// Kubernetes defaults nil replicas to 1; omit the PDB so voluntary disruption is not blocked.
+	if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas <= 1 {
+		minAvailable := intstr.FromInt(0)
+		pdb.Spec.MinAvailable = &minAvailable
+	}
+	return r.syncPodDisruptionBudget(deployment.Namespace, pdb)
+}
+
+func (r *Reconciler) syncPodDisruptionBudget(namespace string, podDisruptionBudget *policyv1.PodDisruptionBudget) error {
 	kv := r.kv
-	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(namespace)
 
 	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
