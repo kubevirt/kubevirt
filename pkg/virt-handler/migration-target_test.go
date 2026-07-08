@@ -745,85 +745,99 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 	})
 
-	DescribeTable("should mark migration failed when abort is requested on target",
-		func(withDomain bool) {
-			const (
-				targetMigrationUID  = types.UID("target-migration-uid")
-				domainFailureReason = "target domain reported migration abort via libvirt"
-			)
+	It("should wait for source abort completion before marking migration failed on target", func() {
+		const targetMigrationUID = types.UID("target-migration-uid")
 
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Scheduled
-			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = host
-			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
-			start := metav1.Now()
-			vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
-			vmi = addActivePods(vmi, podTestUUID, host)
+		start := metav1.Now()
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Scheduled
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+		vmi = addActivePods(vmi, podTestUUID, host)
+		createVMI(vmi)
 
-			var domainEnd *metav1.Time
-			if withDomain {
-				domainEnd = pointer.P(metav1.Now())
-				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-				domain.Status.Status = api.Shutoff
-				domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
-					UID:            targetMigrationUID,
-					StartTimestamp: &start,
-					EndTimestamp:   domainEnd,
-					Failed:         true,
-					AbortStatus:    string(v1.MigrationAbortSucceeded),
-					FailureReason:  domainFailureReason,
-				}
-				addVMI(vmi, domain)
-			} else {
-				createVMI(vmi)
+		controller.Execute()
 
-				controller.Execute()
+		inProgressVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(inProgressVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+		Expect(inProgressVMI.Status.MigrationState.Completed).To(BeFalse())
 
-				inProgressVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(inProgressVMI.Status.MigrationState.EndTimestamp).To(BeNil())
-				Expect(inProgressVMI.Status.MigrationState.Completed).To(BeFalse())
+		// Simulate the sync controller copying source abort completion onto the target VMI.
+		sourceEnd := metav1.Now()
+		inProgressVMI.Status.MigrationState.EndTimestamp = &sourceEnd
+		_, err = virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Update(context.TODO(), inProgressVMI, metav1.UpdateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(controller.vmiStore.Update(inProgressVMI)).To(Succeed())
+		key, err := virtcontroller.KeyFunc(inProgressVMI)
+		Expect(err).NotTo(HaveOccurred())
+		// Re-enqueue the VMI as the informer would after the status patch. The first
+		// Execute() returned early and only scheduled a delayed retry via AddAfter;
+		// without this the queue would be empty until that timer fires.
+		controller.queue.Add(key)
 
-				sourceEnd := metav1.Now()
-				inProgressVMI.Status.MigrationState.EndTimestamp = &sourceEnd
-				_, err = virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Update(context.TODO(), inProgressVMI, metav1.UpdateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(controller.vmiStore.Update(inProgressVMI)).To(Succeed())
-				key, err := virtcontroller.KeyFunc(inProgressVMI)
-				Expect(err).NotTo(HaveOccurred())
-				controller.queue.Add(key)
-			}
+		client.EXPECT().SignalTargetPodCleanup(gomock.Any())
+		controller.Execute()
 
-			client.EXPECT().SignalTargetPodCleanup(gomock.Any())
-			controller.Execute()
+		testutils.ExpectEvent(recorder, VMIAbortingMigration)
 
-			expectedFailureReason := "Live migration has been aborted"
-			if withDomain {
-				testutils.ExpectEvent(recorder, domainFailureReason)
-				Expect(recorder.Events).NotTo(Receive(ContainSubstring(VMIAbortingMigration)))
-				expectedFailureReason = domainFailureReason
-			} else {
-				testutils.ExpectEvent(recorder, VMIAbortingMigration)
-			}
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Status.MigrationState.Failed).To(BeTrue())
+		Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+		Expect(updatedVMI.Status.MigrationState.EndTimestamp).NotTo(BeNil())
+		Expect(updatedVMI.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
+		Expect(updatedVMI.Status.MigrationState.FailureReason).To(Equal("Live migration has been aborted"))
+	})
 
-			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationState.Failed).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
-			if withDomain {
-				Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(domainEnd))
-			} else {
-				Expect(updatedVMI.Status.MigrationState.EndTimestamp).NotTo(BeNil())
-			}
-			Expect(updatedVMI.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
-			Expect(updatedVMI.Status.MigrationState.FailureReason).To(Equal(expectedFailureReason))
-		},
-		Entry("when domain is not active on target yet", false),
-		Entry("when abort status is synced from domain metadata", true),
-	)
+	It("should mark migration failed from domain metadata when abort is requested on target", func() {
+		const (
+			targetMigrationUID  = types.UID("target-migration-uid")
+			domainFailureReason = "target domain reported migration abort via libvirt"
+		)
+
+		start := metav1.Now()
+		domainEnd := metav1.Now()
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Scheduled
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Shutoff
+		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+			UID:            targetMigrationUID,
+			StartTimestamp: &start,
+			EndTimestamp:   &domainEnd,
+			Failed:         true,
+			AbortStatus:    string(v1.MigrationAbortSucceeded),
+			FailureReason:  domainFailureReason,
+		}
+		addVMI(vmi, domain)
+
+		client.EXPECT().SignalTargetPodCleanup(gomock.Any())
+		controller.Execute()
+
+		testutils.ExpectEvent(recorder, domainFailureReason)
+		Expect(recorder.Events).NotTo(Receive(ContainSubstring(VMIAbortingMigration)))
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Status.MigrationState.Failed).To(BeTrue())
+		Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+		Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(&domainEnd))
+		Expect(updatedVMI.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
+		Expect(updatedVMI.Status.MigrationState.FailureReason).To(Equal(domainFailureReason))
+	})
 
 	It("should not mark migration failed while domain is still active on target", func() {
 		const targetMigrationUID = types.UID("target-migration-uid")
