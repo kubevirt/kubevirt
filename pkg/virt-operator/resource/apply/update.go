@@ -44,7 +44,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 		if err != nil {
 			return false, err
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
+		err = r.syncExportProxyPodDisruptionBudget(deployment)
 		if err != nil {
 			return false, err
 		}
