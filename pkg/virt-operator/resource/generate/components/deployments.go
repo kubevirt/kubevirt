@@ -870,21 +870,30 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 	if deployment.Spec.Replicas != nil {
 		minAvailable = intstr.FromInt(int(*deployment.Spec.Replicas - 1))
 	}
-	selector := deployment.Spec.Selector.DeepCopy()
-	podDisruptionBudget := &policyv1.PodDisruptionBudget{
+	return newPodDisruptionBudget(deployment.Namespace, pdbName, minAvailable, deployment.Spec.Selector)
+}
+
+// NewExportProxyPodDisruptionBudget returns a PDB for virt-exportproxy with a fixed
+// minAvailable of 1 so voluntary disruptions cannot take down every proxy pod during
+// cluster maintenance, independent of HPA-managed replica count.
+func NewExportProxyPodDisruptionBudget(deployment *appsv1.Deployment) *policyv1.PodDisruptionBudget {
+	return newPodDisruptionBudget(deployment.Namespace, deployment.Name+"-pdb", intstr.FromInt(1), deployment.Spec.Selector)
+}
+
+func newPodDisruptionBudget(namespace, name string, minAvailable intstr.IntOrString, selector *metav1.LabelSelector) *policyv1.PodDisruptionBudget {
+	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: deployment.Namespace,
-			Name:      pdbName,
+			Namespace: namespace,
+			Name:      name,
 			Labels: map[string]string{
-				virtv1.AppLabel: pdbName,
+				virtv1.AppLabel: name,
 			},
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
-			Selector:     selector,
+			Selector:     selector.DeepCopy(),
 		},
 	}
-	return podDisruptionBudget
 }
 
 func generateVirtOperatorEnvVars(runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,

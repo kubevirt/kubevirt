@@ -1295,7 +1295,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 	exportProxy := components.NewExportProxyDeployment(config, "", "", "")
-	exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
+	exportProxyPdb := components.NewExportProxyPodDisruptionBudget(exportProxy)
 	route := components.NewExportProxyRoute(NAMESPACE)
 	all = append(all, exportProxy, exportProxyPdb, route)
 
@@ -1698,7 +1698,7 @@ func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentCon
 func (k *KubeVirtTestData) addPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, deployments []*appsv1.Deployment, kv *v1.KubeVirt) {
 	for _, deployment := range deployments {
 		minAvailable := intstr.FromInt32(1)
-		if deployment.Spec.Replicas != nil {
+		if deployment.Name != components.VirtExportProxyName && deployment.Spec.Replicas != nil {
 			minAvailable = intstr.FromInt32(*deployment.Spec.Replicas - 1)
 		}
 		if minAvailable.IntValue() < 1 {
