@@ -4664,10 +4664,11 @@ var _ = Describe("Template", func() {
 		It("should render owner VMI annotations on hotplug attachment pod", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "fake-vmi-uid"
-			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
+			// Hotplug pod rendering requires an SELinux context; the value is not relevant to this annotation test.
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, map[string]*k8sv1.PersistentVolumeClaim{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4678,10 +4679,11 @@ var _ = Describe("Template", func() {
 		It("should render owner VMI annotations on hotplug attachment trigger pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "fake-vmi-uid"
-			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
+			// Hotplug pod rendering requires an SELinux context; the value is not relevant to this annotation test.
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", true, false)
 			Expect(err).ToNot(HaveOccurred())
 

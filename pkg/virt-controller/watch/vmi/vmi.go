@@ -501,6 +501,7 @@ func (c *Controller) recoverVMIFromPodAnnotations(pod *k8sv1.Pod) *virtv1.Virtua
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	if string(vmi.UID) != uid {
+		log.Log.Object(pod).Warningf("owner VMI UID mismatch while recovering from pod annotations: expected %s, got %s", uid, vmi.UID)
 		return nil
 	}
 	return vmi
