@@ -122,7 +122,7 @@ func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 		}
 	}
 
-	if c.isMemfdSupported && IsMemfdRequired(vmi) && (vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.NUMA == nil) {
+	if c.isMemfdSupported && isMemfdRequired(vmi) && (vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.NUMA == nil) {
 		memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
 		domain.Spec.CPU.NUMA = &api.NUMA{
 			Cells: []api.NUMACell{

@@ -50,7 +50,7 @@ func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	if needsSharedAccess {
 		mb.Access = &api.MemoryBackingAccess{Mode: "shared"}
 	}
-	if c.isMemfdSupported && IsMemfdRequired(vmi) {
+	if c.isMemfdSupported && isMemfdRequired(vmi) {
 		mb.Source = &api.MemoryBackingSource{Type: "memfd"}
 	}
 	domain.Spec.MemoryBacking = mb
@@ -58,7 +58,7 @@ func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	return nil
 }
 
-func IsMemfdRequired(vmi *v1.VirtualMachineInstance) bool {
+func isMemfdRequired(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		if vmi.Annotations[v1.MemfdMemoryBackend] != "false" {
 			return true
