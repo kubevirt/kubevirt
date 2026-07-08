@@ -1064,15 +1064,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	var isMemfdRequired = false
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &api.MemoryBacking{
 			HugePages: &api.HugePages{},
-		}
-		if c.Architecture.IsMemfdSupported() {
-			if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
-				isMemfdRequired = true
-			}
 		}
 	}
 	// virtiofs require shared access
@@ -1083,10 +1077,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
 			Mode: "shared",
 		}
-		isMemfdRequired = true
 	}
 
-	if isMemfdRequired {
+	if c.Architecture.IsMemfdSupported() && compute.IsMemfdRequired(vmi) {
 		// Set memfd as memory backend to solve SELinux restrictions
 		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
 		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
