@@ -605,7 +605,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 		if err != nil {
 			return false, err
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
+		err = r.syncExportProxyPodDisruptionBudget(deployment)
 		if err != nil {
 			return false, err
 		}
