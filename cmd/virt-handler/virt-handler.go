@@ -41,6 +41,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -166,8 +167,9 @@ type virtHandlerApp struct {
 	migrationKeyFilePath    string
 	externallyManaged       bool
 
-	virtCli   kubecli.KubevirtClient
-	namespace string
+	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
+	namespace  string
 
 	migrationServerTLSConfig    *tls.Config
 	serverTLSConfig             *tls.Config
@@ -202,7 +204,7 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
-	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	_, err := app.k8sClient.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Unable to mark node as unschedulable")
 	}
@@ -233,7 +235,11 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 	clientConfig.RateLimiter = app.reloadableRateLimiter
-	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	app.virtClient, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		panic(err)
+	}
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -259,12 +265,12 @@ func (app *virtHandlerApp) Run() {
 
 	// Create event recorder
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.k8sClient.CoreV1().Events(k8sv1.NamespaceAll)})
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
 	// Wire VirtualMachineInstance controller
-	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.virtCli, nil, app.namespace)
+	factory := controller.NewKubeInformerFactory(app.virtClient.RestClient(), app.virtClient, app.k8sClient, nil, app.namespace)
 
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
@@ -327,7 +333,7 @@ func (app *virtHandlerApp) Run() {
 
 	// Create a ListWatch filtered to only the local node
 	listWatch := cache.NewListWatchFromClient(
-		app.virtCli.CoreV1().RESTClient(),
+		app.k8sClient.CoreV1().RESTClient(),
 		"nodes",
 		metav1.NamespaceAll,
 		fields.OneTermEqualSelector("metadata.name", app.HostOverride),
@@ -335,7 +341,7 @@ func (app *virtHandlerApp) Run() {
 
 	nodeInformer := cache.NewSharedInformer(listWatch, &k8sv1.Node{}, controller.ResyncPeriod(12*time.Hour))
 
-	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), nodeInformer.GetStore(), app.clusterConfig)
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.k8sClient.CoreV1(), nodeInformer.GetStore(), app.clusterConfig)
 
 	var capabilities libvirtxml.Caps
 	var hostCpuModel string
@@ -353,7 +359,7 @@ func (app *virtHandlerApp) Run() {
 
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
-		app.virtCli.CoreV1().Nodes(),
+		app.k8sClient.CoreV1().Nodes(),
 		nodeInformer.GetStore(),
 		app.HostOverride,
 		nodeLabellerrecorder,
@@ -409,7 +415,7 @@ func (app *virtHandlerApp) Run() {
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
-		app.virtCli,
+		app.virtClient,
 		app.HostOverride,
 		launcherClientsManager,
 		vmiSourceInformer,
@@ -429,7 +435,7 @@ func (app *virtHandlerApp) Run() {
 
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
-		app.virtCli,
+		app.virtClient,
 		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
@@ -453,11 +459,12 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	cbtHandler := virthandler.NewCBTHandler(app.virtCli, backupTrackerInformer)
+	cbtHandler := virthandler.NewCBTHandler(app.virtClient, backupTrackerInformer)
 
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
-		app.virtCli,
+		app.virtClient,
+		app.k8sClient,
 		nodeInformer.GetStore(),
 		app.HostOverride,
 		app.VirtPrivateDir,

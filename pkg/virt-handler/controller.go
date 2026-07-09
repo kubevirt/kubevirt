@@ -102,7 +102,7 @@ type netconf interface {
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
-	clientset                   kubecli.KubevirtClient
+	virtClient                  kubecli.KubevirtClient
 	queue                       workqueue.TypedRateLimitingInterface[string]
 	vmiStore                    cache.Store
 	domainStore                 cache.Store
@@ -124,7 +124,7 @@ func NewBaseController(
 	logger *log.FilteredLogger,
 	host string,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	queue workqueue.TypedRateLimitingInterface[string],
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -143,7 +143,7 @@ func NewBaseController(
 		logger:                      logger,
 		host:                        host,
 		recorder:                    recorder,
-		clientset:                   clientset,
+		virtClient:                  virtClient,
 		queue:                       queue,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
