@@ -65,7 +65,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	return libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigComputeRealtime, func() {
+var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigComputeRealtime, decorators.RequiresNodeWithCPUManager, func() {
 
 	var virtClient kubecli.KubevirtClient
 
