@@ -104,7 +104,12 @@ var _ = Describe("Apply HPAs", func() {
 				Expect(*createdHPA.Spec.MinReplicas).To(Equal(int32(2)))
 				Expect(createdHPA.Spec.MaxReplicas).To(Equal(int32(20)))
 				Expect(createdHPA.Spec.ScaleTargetRef.Name).To(Equal(components.VirtExportProxyName))
-				Expect(createdHPA.Spec.Metrics).To(HaveLen(2))
+				Expect(createdHPA.Spec.Metrics).To(HaveLen(1))
+				Expect(createdHPA.Spec.Metrics[0].Type).To(Equal(autoscalingv2.PodsMetricSourceType))
+				Expect(createdHPA.Spec.Metrics[0].Pods).NotTo(BeNil())
+				Expect(createdHPA.Spec.Metrics[0].Pods.Metric.Name).To(Equal(components.ExportProxyActiveTransfersMetricName))
+				Expect(createdHPA.Spec.Metrics[0].Pods.Target.Type).To(Equal(autoscalingv2.AverageValueMetricType))
+				Expect(createdHPA.Spec.Metrics[0].Pods.Target.AverageValue.String()).To(Equal("50"))
 				return true, createdHPA, nil
 			})
 

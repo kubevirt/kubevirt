@@ -22,7 +22,7 @@ package components
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -33,15 +33,28 @@ import (
 const (
 	VirtExportProxyHPAName = "virt-exportproxy-hpa"
 
-	exportProxyHPAMinReplicas             int32 = 2
-	exportProxyHPAMaxReplicas             int32 = 20
-	exportProxyHPACPUTargetUtilization    int32 = 70
-	exportProxyHPAMemoryTargetUtilization int32 = 80
+	// ExportProxyActiveTransfersMetricName is the Prometheus/custom-metrics name used by
+	// the export-proxy HPA. Must match the metric name in
+	// pkg/monitoring/metrics/virt-exportproxy/transfer_metrics.go.
+	ExportProxyActiveTransfersMetricName = "kubevirt_exportproxy_active_transfers"
+
+	exportProxyHPAMinReplicas int32 = 2
+	exportProxyHPAMaxReplicas int32 = 20
 )
 
+// Target average concurrent export transfers per pod before the HPA scales out.
+var exportProxyHPATargetActiveTransfersPerPod = resource.MustParse("50")
+
 // NewExportProxyHorizontalPodAutoscaler returns an HPA for virt-exportproxy that scales
-// between 2 and 20 replicas based on CPU and memory utilization.
+// between 2 and 20 replicas based on average active export transfers per pod.
+//
+// The HPA uses a Pods custom metric (not CPU/memory from metrics-server). Clusters must
+// expose kubevirt_exportproxy_active_transfers on custom.metrics.k8s.io, which requires
+// Prometheus to scrape virt-exportproxy metrics and a prometheus-adapter (or platform
+// equivalent) configured with a matching rule for this metric name.
 func NewExportProxyHorizontalPodAutoscaler(deployment *appsv1.Deployment) *autoscalingv2.HorizontalPodAutoscaler {
+	targetAverageTransfers := exportProxyHPATargetActiveTransfersPerPod.DeepCopy()
+
 	return &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: deployment.Namespace,
@@ -60,22 +73,14 @@ func NewExportProxyHorizontalPodAutoscaler(deployment *appsv1.Deployment) *autos
 			MaxReplicas: exportProxyHPAMaxReplicas,
 			Metrics: []autoscalingv2.MetricSpec{
 				{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: pointer.P(exportProxyHPACPUTargetUtilization),
+					Type: autoscalingv2.PodsMetricSourceType,
+					Pods: &autoscalingv2.PodsMetricSource{
+						Metric: autoscalingv2.MetricIdentifier{
+							Name: ExportProxyActiveTransfersMetricName,
 						},
-					},
-				},
-				{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceMemory,
 						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: pointer.P(exportProxyHPAMemoryTargetUtilization),
+							Type:         autoscalingv2.AverageValueMetricType,
+							AverageValue: &targetAverageTransfers,
 						},
 					},
 				},
