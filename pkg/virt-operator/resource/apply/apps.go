@@ -50,6 +50,16 @@ const (
 	failed     canaryUpgradeStatus = "failed"
 )
 
+// deploymentNodePlacement selects component config and default placement; export-proxy
+// uses spec.workloads so HPA scale-out can schedule on worker nodes.
+func deploymentNodePlacement(kv *v1.KubeVirt, deploymentName string) (*v1.ComponentConfig, placement.DefaultInfraComponentsNodePlacement) {
+	if deploymentName == components.VirtExportProxyName {
+		return kv.Spec.Workloads, placement.AnyNode
+	}
+
+	return kv.Spec.Infra, placement.RequireControlPlanePreferNonWorker
+}
+
 // applyExportProxyReplicaPolicy sets Spec.Replicas before syncDeployment.
 // Single-node clusters force one replica; otherwise the cached count is kept so HPA can scale.
 func (r *Reconciler) applyExportProxyReplicaPolicy(deployment *appsv1.Deployment, desiredReplicas int32) {
@@ -80,7 +90,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	placement.InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
+	componentConfig, placementOption := deploymentNodePlacement(kv, deployment.Name)
+	placement.InjectPlacementMetadata(componentConfig, &deployment.Spec.Template.Spec, placementOption)
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)

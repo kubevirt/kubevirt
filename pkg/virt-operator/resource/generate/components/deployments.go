@@ -664,7 +664,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 }
 
 func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.Deployment {
-	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
+	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtExportProxyName})
 	deploymentName := VirtExportProxyName
 	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
 	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
