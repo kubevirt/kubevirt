@@ -51,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
@@ -828,7 +827,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var supportedCPUs []string
 			var supportedFeatures []string
 			var nodes *k8sv1.NodeList
-			var supportedKVMInfoFeature []string
 
 			BeforeEach(func() {
 				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
@@ -842,18 +840,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				supportedFeatures = libnode.GetSupportedCPUFeatures(*nodes)
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
-
-				for key := range node.Labels {
-					if strings.Contains(key, v1.HypervLabel) &&
-						!strings.Contains(key, "tlbflush") &&
-						!strings.Contains(key, "ipi") &&
-						!strings.Contains(key, "synictimer") {
-						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
-					}
-
-				}
-
-				kvconfig.EnableFeatureGate(featuregate.HypervStrictCheckGate)
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
