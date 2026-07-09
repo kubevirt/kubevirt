@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -66,7 +67,7 @@ func getKubevirtControllerClient(virtCli kubecli.KubevirtClient, namespace strin
 	return client
 }
 
-var _ = Describe(SIG("Utility Volumes", func() {
+var _ = Describe(SIG("Utility Volumes", decorators.RequiresFeatureGate(featuregate.UtilityVolumesGate), func() {
 	var (
 		virtClient        kubecli.KubevirtClient
 		controllerClient  kubecli.KubevirtClient

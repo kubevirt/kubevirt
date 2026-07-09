@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -119,7 +120,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Entry("with unresponsive empty-disk VMI", libvmifact.NewGuestless),
 	)
 
-	Context("with reboot policy", func() {
+	Context("with reboot policy", decorators.RequiresFeatureGate(featuregate.RebootPolicy), func() {
 		It("should recreate VMI on guest reboot with runStrategy Always", decorators.RebootPolicy, func() {
 			By("Creating a VM with runStrategy Always and rebootPolicy Terminate")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(

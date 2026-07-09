@@ -909,7 +909,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				)
 			})
 
-			Context("with declarative hotplug", func() {
+			Context("with declarative hotplug", decorators.RequiresFeatureGate(featuregate.DeclarativeHotplugVolumesGate), func() {
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
 					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, v1.DiskBusSCSI, waitToStart)
 				},

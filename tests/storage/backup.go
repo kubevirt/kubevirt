@@ -57,6 +57,7 @@ import (
 	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -73,7 +74,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Backup", func() {
+var _ = Describe(SIG("Backup", decorators.RequiresFeatureGate(featuregate.IncrementalBackupGate), func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
@@ -1232,7 +1233,7 @@ func getPodByVMI(vmi *v1.VirtualMachineInstance) *corev1.Pod {
 	return pod
 }
 
-var _ = Describe("Backup with migration", func() {
+var _ = Describe("Backup with migration", decorators.RequiresFeatureGate(featuregate.IncrementalBackupGate), func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient

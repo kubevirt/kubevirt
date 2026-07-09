@@ -19,6 +19,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -37,7 +38,7 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated",
-		decorators.RequiresNodeWithCPUManager, decorators.RequiresHugepages2Mi, func() {
+		decorators.RequiresNodeWithCPUManager, decorators.RequiresHugepages2Mi, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 			var err error
 			cpuVMI := libvmifact.NewAlpine()
 			cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
