@@ -1,0 +1,44 @@
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  auto_review:
+    enabled: false
+  path_filters:
+    - "!vendor/**"
+  path_instructions:
+    - path: "{pkg,cmd,staging,tests}/**/*.go"
+      instructions: >
+        See docs/coding-conventions.md, docs/reviewer-guide.md, docs/architecture.md,
+        docs/gosec.md, and docs/deprecation.md.
+    - path: "tests/**"
+      instructions: >
+        See tests/README.md, docs/conformance.md, and docs/quarantine.md.
+    - path: "pkg/libvmi/**"
+      instructions: "Follow the rules in pkg/libvmi/README.md."
+    - path: "tests/libvmifact/**"
+      instructions: "Follow the rules in tests/libvmifact/README.md."
+    - path: "pkg/network/**"
+      instructions: "See docs/network/network-binding-mechanisms.md."
+    - path: "pkg/monitoring/**"
+      instructions: "See docs/observability/monitoring-guidelines.md."
+  tools:
+    trufflehog:
+      enabled: true
+
+knowledge_base:
+  opt_out: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - CONTRIBUTING.md
+      - docs/commit-message-guidelines.md
+  linked_repositories:
+    - repository: "kubevirt/enhancements"
+      instructions: >
+        Contains VEP design documents and feature gate lifecycle rules
+        (docs/feature-lifecycle.md). When a PR references a VEP number, locate
+        the corresponding vep.md and verify the implementation aligns with the stated
+        API shape, phasing plan, and non-goals. For changes touching feature gates,
+        apply the lifecycle rules from docs/feature-lifecycle.md.
