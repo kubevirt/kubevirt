@@ -20,10 +20,13 @@ package main
  */
 
 import (
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
@@ -42,6 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	"kubevirt.io/kubevirt/pkg/service"
 )
 
@@ -86,6 +90,12 @@ func (app *exportProxyApp) Run() {
 	app.prepareCertManager()
 	go app.certManager.Start()
 
+	app.initReverseProxy()
+
+	if err := exportproxymetrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", app.proxyHandler)
@@ -124,6 +134,123 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	host := fmt.Sprintf("%s.%s.svc:443", serviceName, namespace)
+
+	ctx := context.WithValue(r.Context(), proxyTargetContextKeyVar, proxyTarget{
+		host: host,
+		path: targetPath,
+	})
+	activeTransfer := exportproxymetrics.RecordTransferStarted()
+	defer activeTransfer.Finish()
+	app.reverseProxy.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func (app *exportProxyApp) initReverseProxy() {
+	app.proxyTransport = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   backendDialTimeout,
+			KeepAlive: backendDialKeepAlive,
+		}).DialContext,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			// #nosec cause: InsecureSkipVerify: true
+			// resolution: Neither the client nor the server should validate anything itself, `VerifyConnection` is still executed
+			InsecureSkipVerify: true,
+			VerifyConnection:   app.verifyBackendConnection,
+		},
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       backendIdleConnTimeout,
+		ResponseHeaderTimeout: backendResponseHeaderTimeout,
+	}
+	app.reverseProxy = &httputil.ReverseProxy{
+		Transport:      app.proxyTransport,
+		Director:       app.proxyDirector,
+		ErrorHandler:   app.proxyErrorHandler,
+		ModifyResponse: app.modifyProxyResponse,
+	}
+}
+
+func (app *exportProxyApp) modifyProxyResponse(resp *http.Response) error {
+	resp.Body = exportproxymetrics.NewCountingReadCloser(resp.Body)
+	return nil
+}
+
+func (app *exportProxyApp) verifyBackendConnection(cs tls.ConnectionState) error {
+	if len(cs.PeerCertificates) == 0 {
+		return fmt.Errorf("backend presented no certificate")
+	}
+
+	certPool, err := app.caManager.GetCurrent()
+	if err != nil {
+		return err
+	}
+
+	peer := cs.PeerCertificates[0]
+	intermediates := x509.NewCertPool()
+	for _, intermediate := range cs.PeerCertificates[1:] {
+		intermediates.AddCert(intermediate)
+	}
+
+	opts := x509.VerifyOptions{
+		Roots:         certPool,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	if cs.ServerName == "" {
+		return fmt.Errorf("backend TLS ServerName is required")
+	}
+	opts.DNSName = cs.ServerName
+
+	_, err = peer.Verify(opts)
+	if err != nil {
+		return fmt.Errorf("could not verify backend certificate: %w", err)
+	}
+	return nil
+}
+
+func (app *exportProxyApp) proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	if r != nil && r.URL != nil && r.URL.Host == directorErrorHost {
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		return
+	}
+	log.Log.Reason(err).Error("failed to proxy export backend request")
+	http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+}
+
+func (app *exportProxyApp) proxyDirector(req *http.Request) {
+	target, ok := req.Context().Value(proxyTargetContextKeyVar).(proxyTarget)
+	if !ok {
+		log.Log.Error("proxyDirector: missing proxyTarget in request context")
+		req.URL.Scheme = "https"
+		req.URL.Host = directorErrorHost
+		req.URL.Path = "/"
+		return
+	}
+
+	req.URL.Scheme = "https"
+	req.URL.Host = target.host
+	req.URL.Path = target.path
+	log.Log.V(4).Infof("Proxying to %s", req.URL.String())
+	if _, ok := req.Header["User-Agent"]; !ok {
+		// explicitly disable User-Agent so it's not set to default value
+		req.Header.Set("User-Agent", "")
+	}
+}
+
+func (app *exportProxyApp) resolveServiceName(namespace, exportName string) (serviceName string, ready bool, err error) {
+	if app.loadtestRoutesConfigMap != "" {
+		if serviceName, ok := app.loadtestRoutes.Lookup(namespace, exportName); ok {
+			return serviceName, true, nil
+		}
+	}
+
+	key := fmt.Sprintf("%s/%s", namespace, exportName)
+	obj, exists, err := app.exportStore.GetByKey(key)
+	if err != nil {
+		return "", false, err
 	}
 
 	if !exists {
