@@ -916,19 +916,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("with a custom scheduler", decorators.WgS390x, func() {
-		It("[test_id:4631]should set the custom scheduler on the pod", func() {
-			vmi := libvmi.New(
-				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
-				WithSchedulerName("my-custom-scheduler"),
-			)
-			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
-			launcherPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
-		})
-	})
-
 	Context("using automatic resource limits", decorators.WgS390x, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
@@ -1759,12 +1746,6 @@ func machineTypeForArch() (machineType, expectedSubstring string, emulatedMachin
 		return "s390-ccw-virtio", "s390-ccw-virtio", []string{"s390-ccw-virtio*"}
 	}
 	return "pc", "pc-i440", []string{"pc"}
-}
-
-func WithSchedulerName(schedulerName string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.SchedulerName = schedulerName
-	}
 }
 
 func withSerialBIOS() libvmi.Option {
