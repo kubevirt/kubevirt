@@ -123,6 +123,7 @@ type DomainStatus struct {
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
 	GuestPanicInfo *GuestPanicInfo
+	PanicCount     int
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU
