@@ -159,7 +159,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{}
 		kv.NetworkConfiguration = &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
@@ -198,6 +197,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		controller, _ = NewVirtualMachineController(
 			recorder,
 			virtClient,
+			k8sfakeClient,
 			fakeNodeStore,
 			host,
 			privateDir,
@@ -718,19 +718,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 
 			addVMI(vmi, domain)
-
-			node := &k8sv1.Node{
-				Status: k8sv1.NodeStatus{
-					Addresses: []k8sv1.NodeAddress{
-						{
-							Type:    k8sv1.NodeInternalIP,
-							Address: "127.0.0.1",
-						},
-					},
-				},
-			}
-			fakeClient := fake.NewSimpleClientset(node).CoreV1()
-			virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
 
 			sanityExecute()
 
@@ -1975,9 +1962,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		var testBlockPvc *k8sv1.PersistentVolumeClaim
 
 		BeforeEach(func() {
-			kubeClient := fake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
 			// create a test block pvc
 			mode := k8sv1.PersistentVolumeBlock
 			testBlockPvc = &k8sv1.PersistentVolumeClaim{

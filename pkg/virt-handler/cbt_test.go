@@ -192,15 +192,15 @@ var _ = Describe("CBTHandler", func() {
 			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingInitializing}
 			err := handler.markTrackersForRedefinition(vmi)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("tracker informer or clientset is nil"))
+			Expect(err.Error()).To(ContainSubstring("tracker informer or virtClient is nil"))
 		})
 
-		It("should return error when clientset is nil", func() {
+		It("should return error when virtClient is nil", func() {
 			handler := NewCBTHandler(nil, trackerInformer)
 			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingInitializing}
 			err := handler.markTrackersForRedefinition(vmi)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("tracker informer or clientset is nil"))
+			Expect(err.Error()).To(ContainSubstring("tracker informer or virtClient is nil"))
 		})
 
 		DescribeTable("should skip trackers that don't need redefinition",
