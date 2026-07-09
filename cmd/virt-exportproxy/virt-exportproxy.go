@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	"kubevirt.io/kubevirt/pkg/service"
 )
 
@@ -103,6 +104,10 @@ func (app *exportProxyApp) Run() {
 	go app.certManager.Start()
 
 	app.initReverseProxy()
+
+	if err := exportproxymetrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
 
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
@@ -169,6 +174,8 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		pr.Out.URL.RawPath = ""
 		pr.Out.Host = ""
 	}
+	activeTransfer := exportproxymetrics.RecordTransferStarted()
+	defer activeTransfer.Finish()
 	proxy.ServeHTTP(w, r)
 }
 
@@ -181,9 +188,15 @@ func (app *exportProxyApp) initReverseProxy() {
 		ResponseHeaderTimeout: backendResponseHeaderTimeout,
 	}
 	app.reverseProxy = &httputil.ReverseProxy{
-		Transport:     transport,
-		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
+		Transport:      transport,
+		FlushInterval:  -1, // flush immediately; avoids proxy-side buffering of large export streams
+		ModifyResponse: app.modifyProxyResponse,
 	}
+}
+
+func (app *exportProxyApp) modifyProxyResponse(resp *http.Response) error {
+	resp.Body = exportproxymetrics.NewCountingReadCloser(resp.Body)
+	return nil
 }
 
 func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr string) (net.Conn, error) {

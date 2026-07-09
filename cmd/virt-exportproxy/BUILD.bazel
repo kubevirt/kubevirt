@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/monitoring/metrics/virt-exportproxy:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1:go_default_library",
