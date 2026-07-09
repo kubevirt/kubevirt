@@ -25,6 +25,7 @@ go_library(
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/pod/annotations:go_default_library",
+        "//pkg/storage/resources:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/cluster:go_default_library",

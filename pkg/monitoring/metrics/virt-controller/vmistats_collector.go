@@ -184,7 +184,9 @@ func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operato
 		// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between
 		// different hypervisors
 		launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
-		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
+		// Storage memory calculator requires PVC store and a VirtualMachineBackupTracker informer
+		// which are unavailable so don't include it in the fallback
+		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, nil, vmi, launcherHypervisorResources)
 		memoryOverheadValue = memoryOverhead.Value()
 	}
 
