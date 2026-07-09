@@ -564,16 +564,16 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,sig-compute-migrations,requires-two-worker-nodes-with-cpu-manager) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req,requires-two-worker-nodes-with-cpu-manager) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute-dra-gpu ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
     label_filter='(DRA-GPU)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage,DRA-GPU) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage,DRA-GPU,requires-two-worker-nodes-with-cpu-manager) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -637,7 +637,7 @@ fi
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes,requires-two-worker-nodes-with-cpu-manager))' '&&'
   add_to_label_filter '!(multi-replica)' '&&'
 else
   add_to_label_filter '!(single-replica)' '&&'
