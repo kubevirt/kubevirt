@@ -1461,6 +1461,22 @@ var _ = Describe("Apply Apps", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*updatedDeployment.Spec.Replicas).To(Equal(clusterReplicas))
 			})
+
+			It("should not require control-plane node affinity", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				affinity := updatedDeployment.Spec.Template.Spec.Affinity
+				Expect(affinity).NotTo(BeNil())
+				Expect(affinity.NodeAffinity).To(BeNil())
+				Expect(affinity.PodAntiAffinity).NotTo(BeNil())
+				Expect(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchExpressions[0].Values).
+					To(ConsistOf(components.VirtExportProxyName))
+			})
 		})
 
 		Context("virt-template TLS injection", func() {

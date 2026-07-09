@@ -50,6 +50,16 @@ const (
 	failed     canaryUpgradeStatus = "failed"
 )
 
+// deploymentNodePlacement selects component config and default placement; export-proxy
+// uses spec.workloads so HPA scale-out can schedule on worker nodes.
+func deploymentNodePlacement(kv *v1.KubeVirt, deploymentName string) (*v1.ComponentConfig, placement.DefaultInfraComponentsNodePlacement) {
+	if deploymentName == components.VirtExportProxyName {
+		return kv.Spec.Workloads, placement.AnyNode
+	}
+
+	return kv.Spec.Infra, placement.RequireControlPlanePreferNonWorker
+}
+
 // exportProxyReplicaHeuristic carries the node-list replica heuristic computed once
 // per export-proxy sync pass and shared across deployment, PDB, and HPA sync.
 type exportProxyReplicaHeuristic struct {
@@ -67,7 +77,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment, exportPro
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	placement.InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
+	componentConfig, placementOption := deploymentNodePlacement(kv, deployment.Name)
+	placement.InjectPlacementMetadata(componentConfig, &deployment.Spec.Template.Spec, placementOption)
 
 	var desiredExportProxyReplicas int32
 	if deployment.Name == components.VirtExportProxyName {
