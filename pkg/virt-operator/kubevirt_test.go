@@ -121,6 +121,11 @@ var (
 		components.NewVirtualMachineBackupTrackerCrd, components.NewPluginCrd,
 	}
 	numCRDs = len(crdFunctions) + numVirtTemplateCRDs
+
+	// installStrategyConfigMapCache caches the encoded install-strategy configmap by deployment ID.
+	// NewInstallStrategyConfigMap is expensive (gzip+base64 encoding of all manifests), and many
+	// tests call addInstallStrategy with the same config, so we reuse the result across test runs.
+	installStrategyConfigMapCache = map[string]*k8sv1.ConfigMap{}
 )
 
 type KubeVirtTestData struct {
@@ -1683,10 +1688,16 @@ func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.Vali
 }
 
 func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentConfig) {
-	// install strategy config
-	resource, err := install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
-	Expect(err).ToNot(HaveOccurred())
+	cached, ok := installStrategyConfigMapCache[config.GetDeploymentID()]
+	if !ok {
+		var err error
+		cached, err = install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
+		Expect(err).ToNot(HaveOccurred())
+		installStrategyConfigMapCache[config.GetDeploymentID()] = cached
+	}
 
+	// Each test needs a unique copy
+	resource := cached.DeepCopy()
 	resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 
 	injectMetadata(&resource.ObjectMeta, config)
