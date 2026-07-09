@@ -618,6 +618,22 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 					"get", "list", "watch", "delete", "update", "create", "patch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"autoscaling",
+				},
+				Resources: []string{
+					"horizontalpodautoscalers",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"delete",
+					"patch",
+				},
+			},
 		},
 	}
 	operatorRole.Rules = append(operatorRole.Rules, getKubeVirtComponentsRules()...)

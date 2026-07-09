@@ -7,11 +7,11 @@ import (
 
 	k6tv1 "kubevirt.io/api/core/v1"
 
-	appsv1 "k8s.io/api/apps/v1"
-
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	policyv1 "k8s.io/api/policy/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +33,9 @@ func getGroupResource(required runtime.Object) (group string, resource string, e
 	case *policyv1.PodDisruptionBudget:
 		group = "apps"
 		resource = "poddisruptionbudgets"
+	case *autoscalingv2.HorizontalPodAutoscaler:
+		group = "autoscaling"
+		resource = "horizontalpodautoscalers"
 	case *appsv1.Deployment:
 		group = "apps"
 		resource = "deployments"

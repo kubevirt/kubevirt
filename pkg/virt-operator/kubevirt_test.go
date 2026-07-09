@@ -39,6 +39,7 @@ import (
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -92,8 +93,9 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 96 + virtTemplateResourceCount
-	patchCount    = 64 + virtTemplatePatchCount
+	// +1 for virt-exportproxy HPA
+	resourceCount = 97 + virtTemplateResourceCount
+	patchCount    = 65 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -207,6 +209,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
 	informers.InfrastructurePod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 	informers.PodDisruptionBudget, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
+	informers.HorizontalPodAutoscaler, _ = testutils.NewFakeInformerFor(&autoscalingv2.HorizontalPodAutoscaler{})
 	informers.Namespace, _ = testutils.NewFakeInformerWithIndexersFor(
 		&k8sv1.Namespace{}, cache.Indexers{
 			"namespace_name": func(obj interface{}) ([]string, error) {
@@ -292,6 +295,14 @@ func (k *KubeVirtTestData) BeforeTest() {
 			return true, nil, nil
 		}
 
+		if action.GetVerb() == "patch" && action.GetResource().Resource == "horizontalpodautoscalers" {
+			return true, &autoscalingv2.HorizontalPodAutoscaler{}, nil
+		}
+
+		if action.GetVerb() == "patch" && action.GetResource().Resource == "nodes" {
+			return true, &k8sv1.Node{}, nil
+		}
+
 		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
 		}
@@ -299,8 +310,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, "whatever")
 		}
 		if action.GetVerb() == "list" && action.GetResource().Resource == "nodes" {
-			dummyNode := k8sv1.Node{}
-			nodeList := &k8sv1.NodeList{Items: []k8sv1.Node{dummyNode, *dummyNode.DeepCopy(), *dummyNode.DeepCopy()}}
+			nodeList := &k8sv1.NodeList{Items: defaultSchedulableTestNodes()}
 			return true, nodeList, nil
 		}
 		if action.GetVerb() != "get" || action.GetResource().Resource != "namespaces" {
@@ -335,6 +345,27 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	err = rules.SetupRules(k.defaultConfig.Namespace)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func defaultSchedulableTestNodes() []k8sv1.Node {
+	return []k8sv1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-node-0",
+				Labels: map[string]string{
+					v1.NodeSchedulable: "true",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-node-1",
+				Labels: map[string]string{
+					v1.NodeSchedulable: "true",
+				},
+			},
+		},
+	}
 }
 
 func (k *KubeVirtTestData) AfterTest() {
@@ -438,6 +469,7 @@ func (k *KubeVirtTestData) shouldExpectDeletions() {
 	k.kubeClient.Fake.PrependReactor("delete", "secrets", genericDeleteFunc)
 	k.kubeClient.Fake.PrependReactor("delete", "configmaps", genericDeleteFunc)
 	k.kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", genericDeleteFunc)
+	k.kubeClient.Fake.PrependReactor("delete", "horizontalpodautoscalers", genericDeleteFunc)
 	k.secClient.Fake.PrependReactor("delete", "securitycontextconstraints", genericDeleteFunc)
 	k.promClient.Fake.PrependReactor("delete", "servicemonitors", genericDeleteFunc)
 	k.promClient.Fake.PrependReactor("delete", "prometheusrules", genericDeleteFunc)
@@ -502,6 +534,8 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
 		k.deleteValidatingAdmissionPolicy(key)
 	case "poddisruptionbudgets":
 		k.deletePodDisruptionBudget(key)
+	case "horizontalpodautoscalers":
+		k.deleteHorizontalPodAutoscaler(key)
 	case "secrets":
 		k.deleteSecret(key)
 	case "securitycontextconstraints":
@@ -619,6 +653,13 @@ func (k *KubeVirtTestData) deletePodDisruptionBudget(key string) {
 	k.mockQueue.Add(key)
 }
 
+func (k *KubeVirtTestData) deleteHorizontalPodAutoscaler(key string) {
+	if obj, exists, _ := k.controller.stores.HorizontalPodAutoscalerCache.GetByKey(key); exists {
+		k.controller.stores.HorizontalPodAutoscalerCache.Delete(obj.(runtime.Object))
+	}
+	k.mockQueue.Add(key)
+}
+
 func (k *KubeVirtTestData) deleteSecret(key string) {
 	if obj, exists, _ := k.controller.stores.SecretCache.GetByKey(key); exists {
 		k.controller.stores.SecretCache.Delete(obj.(runtime.Object))
@@ -687,6 +728,7 @@ func (k *KubeVirtTestData) shouldExpectPatchesAndUpdates(kv *v1.KubeVirt) {
 	daemonsetPatchFunc := k.daemonsetPatchFunc()
 	deploymentPatchFunc := k.deploymentPatchFunc()
 	podDisruptionBudgetPatchFunc := k.podDisruptionBudgetPatchFunc()
+	horizontalPodAutoscalerPatchFunc := k.horizontalPodAutoscalerPatchFunc()
 	k.extClient.Fake.PrependReactor("patch", "customresourcedefinitions", k.crdPatchFunc())
 	k.kubeClient.Fake.PrependReactor("patch", "serviceaccounts", genericPatchFunc)
 	k.kubeClient.Fake.PrependReactor("update", "clusterroles", genericUpdateFunc)
@@ -702,6 +744,7 @@ func (k *KubeVirtTestData) shouldExpectPatchesAndUpdates(kv *v1.KubeVirt) {
 	k.kubeClient.Fake.PrependReactor("patch", "daemonsets", daemonsetPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "deployments", deploymentPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", podDisruptionBudgetPatchFunc)
+	k.kubeClient.Fake.PrependReactor("patch", "horizontalpodautoscalers", horizontalPodAutoscalerPatchFunc)
 	k.secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 	k.promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
 	k.promClient.Fake.PrependReactor("patch", "prometheusrules", genericPatchFunc)
@@ -811,6 +854,14 @@ func (k *KubeVirtTestData) podDisruptionBudgetPatchFunc() func(action testing.Ac
 	}
 }
 
+func (k *KubeVirtTestData) horizontalPodAutoscalerPatchFunc() func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+	return func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		k.genericPatchFunc()(action)
+
+		return true, &autoscalingv2.HorizontalPodAutoscaler{}, nil
+	}
+}
+
 func (k *KubeVirtTestData) crdPatchFunc() func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 	return func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		k.genericPatchFunc()(action)
@@ -835,6 +886,7 @@ func (k *KubeVirtTestData) shouldExpectCreations() {
 	k.kubeClient.Fake.PrependReactor("create", "secrets", genericCreateFunc)
 	k.kubeClient.Fake.PrependReactor("create", "configmaps", genericCreateFunc)
 	k.kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
+	k.kubeClient.Fake.PrependReactor("create", "horizontalpodautoscalers", genericCreateFunc)
 	k.secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 	k.promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
 	k.promClient.Fake.PrependReactor("create", "prometheusrules", genericCreateFunc)
@@ -909,6 +961,9 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 	case *policyv1.PodDisruptionBudget:
 		injectMetadata(&obj.(*policyv1.PodDisruptionBudget).ObjectMeta, config)
 		k.addPodDisruptionBudget(resource, kv)
+	case *autoscalingv2.HorizontalPodAutoscaler:
+		injectMetadata(&obj.(*autoscalingv2.HorizontalPodAutoscaler).ObjectMeta, config)
+		k.addHorizontalPodAutoscaler(resource, kv)
 	case *k8sv1.Secret:
 		injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config)
 		k.addSecret(resource)
@@ -1054,6 +1109,16 @@ func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1.
 	}
 	k.controller.stores.PodDisruptionBudgetCache.Add(podDisruptionBudget)
 	key, err := kubecontroller.KeyFunc(podDisruptionBudget)
+	Expect(err).To(Not(HaveOccurred()))
+	k.mockQueue.Add(key)
+}
+
+func (k *KubeVirtTestData) addHorizontalPodAutoscaler(horizontalPodAutoscaler *autoscalingv2.HorizontalPodAutoscaler, kv *v1.KubeVirt) {
+	if kv != nil {
+		apply.SetGeneration(&kv.Status.Generations, horizontalPodAutoscaler)
+	}
+	k.controller.stores.HorizontalPodAutoscalerCache.Add(horizontalPodAutoscaler)
+	key, err := kubecontroller.KeyFunc(horizontalPodAutoscaler)
 	Expect(err).To(Not(HaveOccurred()))
 	k.mockQueue.Add(key)
 }
@@ -1296,8 +1361,9 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 
 	exportProxy := components.NewExportProxyDeployment(config, "", "", "")
 	exportProxyPdb := components.NewExportProxyPodDisruptionBudget(exportProxy)
+	exportProxyHpa := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
 	route := components.NewExportProxyRoute(NAMESPACE)
-	all = append(all, exportProxy, exportProxyPdb, route)
+	all = append(all, exportProxy, exportProxyPdb, exportProxyHpa, route)
 
 	all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], config.GetMonitorServiceAccountName())...)
 	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], true))
@@ -1743,6 +1809,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	configExportProxy *util.KubeVirtDeploymentConfig,
 	configHandler *util.KubeVirtDeploymentConfig,
 	shouldAddPodDisruptionBudgets bool,
+	shouldAddExportProxyHorizontalPodAutoscaler bool,
 	kv *v1.KubeVirt) {
 	// we need at least one active pod for
 	// virt-api
@@ -1842,14 +1909,23 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	if shouldAddPodDisruptionBudgets {
 		k.addPodDisruptionBudgets(config, deployments, kv)
 	}
+	if shouldAddExportProxyHorizontalPodAutoscaler {
+		k.addExportProxyHorizontalPodAutoscaler(config, exportProxy, kv)
+	}
 }
 
-func (k *KubeVirtTestData) addPodsWithOptionalPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, shouldAddPodDisruptionBudgets bool, kv *v1.KubeVirt) {
-	k.addPodsWithIndividualConfigs(config, config, config, config, shouldAddPodDisruptionBudgets, kv)
+func (k *KubeVirtTestData) addExportProxyHorizontalPodAutoscaler(config *util.KubeVirtDeploymentConfig, exportProxy *appsv1.Deployment, kv *v1.KubeVirt) {
+	hpa := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
+	injectMetadata(&hpa.ObjectMeta, config)
+	k.addHorizontalPodAutoscaler(hpa, kv)
+}
+
+func (k *KubeVirtTestData) addPodsWithOptionalPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, shouldAddPodDisruptionBudgets bool, shouldAddExportProxyHorizontalPodAutoscaler bool, kv *v1.KubeVirt) {
+	k.addPodsWithIndividualConfigs(config, config, config, config, shouldAddPodDisruptionBudgets, shouldAddExportProxyHorizontalPodAutoscaler, kv)
 }
 
 func (k *KubeVirtTestData) addPodsAndPodDisruptionBudgets(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	k.addPodsWithOptionalPodDisruptionBudgets(config, true, kv)
+	k.addPodsWithOptionalPodDisruptionBudgets(config, true, true, kv)
 }
 
 func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
@@ -2203,7 +2279,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addKubeVirt(kv)
 			kvTestData.addInstallStrategy(newConfig)
 			kvTestData.addAll(newConfig, kv)
-			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kvNoTemplate)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, true, kvNoTemplate)
 			kvTestData.makeDeploymentsReady(kvNoTemplate)
 			kvTestData.makeHandlerReady()
 
@@ -2233,7 +2309,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.mockQueue.Done(key)
 			}
 			kvTestData.addKubeVirt(kv)
-			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kv)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, true, kv)
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
@@ -2762,9 +2838,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// 7 in total are yet missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
-			// also exportProxy + PDB
+			// also exportProxy + PDB + HPA
 			// also virt-template-apiserver and virt-template-controller
-			expectedUncreatedResources := 7
+			expectedUncreatedResources := 8
 
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
 
@@ -2887,9 +2963,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			// 8 because 2 for virt-controller service and deployment,
 			// 1 because of the pdb of virt-controller
 			// and another 1 because of the namespace was not patched yet.
-			// also virt-exportproxy and pdb (2)
+			// also virt-exportproxy, pdb, and hpa (3)
 			// also virt-template-apiserver and virt-template-controller (2)
-			Expect(kvTestData.totalPatches).To(Equal(patchCount - 8))
+			Expect(kvTestData.totalPatches).To(Equal(patchCount - 9))
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
@@ -2957,9 +3033,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			//   daemonsets and before controller and namespace
 
 			// 9 because virt-controller, virt-api, PDBs and the namespace are not patched
-			// also virt-exportproxy and pdb (2)
+			// also virt-exportproxy, pdb, and hpa (3)
 			// also virt-template-apiserver and virt-template-controller (2)
-			Expect(kvTestData.totalPatches).To(Equal(patchCount - 9))
+			Expect(kvTestData.totalPatches).To(Equal(patchCount - 10))
 
 			// Make sure the 5 unpatched are as expected
 			Expect(kvTestData.resourceChanges["deployments"][Patched]).To(Equal(0))          // virt-controller and virt-api unpatched
@@ -3008,7 +3084,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// add already updated virt-handler
 			kvTestData.addVirtHandler(updatedConfig, kv)
 
-			kvTestData.addPodsWithIndividualConfigs(kvTestData.defaultConfig, kvTestData.defaultConfig, kvTestData.defaultConfig, updatedConfig, true, kv)
+			kvTestData.addPodsWithIndividualConfigs(kvTestData.defaultConfig, kvTestData.defaultConfig, kvTestData.defaultConfig, updatedConfig, true, true, kv)
 
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
@@ -3031,9 +3107,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			// That will allow both daemonset and controller pods to get patched before the pause.
 
 			// 8 because virt-handler, virt-api, PDB and the namespace should not be patched
-			// also virt-exportproxy and pdb (2)
+			// also virt-exportproxy, pdb, and hpa (3)
 			// also virt-template-apiserver and virt-template-controller (2)
-			Expect(kvTestData.totalPatches).To(Equal(patchCount - 8))
+			Expect(kvTestData.totalPatches).To(Equal(patchCount - 9))
 
 			// Make sure the 4 unpatched are as expected
 			Expect(kvTestData.resourceChanges["deployments"][Patched]).To(Equal(1))          // virt-operator patched, virt-api unpatched
@@ -3529,7 +3605,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// also skip virt-handler as it takes more than 1 sync-loop execution
 			// to perform a canary-upgrade
 			kvTestData.addVirtHandler(updatedConfig, kv)
-			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, false, kv)
 
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
@@ -3600,7 +3676,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, false, kv)
 
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
@@ -3685,7 +3761,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, false, kv)
 
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
@@ -3742,7 +3818,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectStatusConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
 		})
 
-		It("should remove poddisruptionbudgets on deletion", func() {
+		It("should remove poddisruptionbudgets and export-proxy HPA on deletion", func() {
 
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -3776,6 +3852,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// 3 PDBs: virt-api, virt-controller, virt-exportproxy
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Deleted]).To(Equal(3))
+			Expect(kvTestData.resourceChanges["horizontalpodautoscalers"][Deleted]).To(Equal(1))
 		})
 	})
 
@@ -3838,9 +3915,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// 39 in total should be missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
-			// also exportProxy + PDB
+			// also exportProxy + PDB + HPA
 			// and all virt-template resources
-			expectedUncreatedResources := 5 + virtTemplateResourceCount
+			expectedUncreatedResources := 6 + virtTemplateResourceCount
 
 			// KV should be progressing, resources have been added, but they are not all ready yet
 			shouldExpectStatusConditions(kvTestData.getLatestKubeVirt(kv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)

@@ -571,7 +571,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update API Deployments
 	for _, deployment := range r.targetStrategy.ApiDeployments() {
-		deployment, err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment, nil)
 		if err != nil {
 			return false, err
 		}
@@ -589,7 +589,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
-		deployment, err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment, nil)
 		if err != nil {
 			return false, err
 		}
@@ -600,12 +600,21 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	}
 
 	// create/update ExportProxy Deployments
+	exportProxyReplicas := &exportProxyReplicaHeuristic{}
+	exportProxyReplicas.replicas, exportProxyReplicas.err = getDesiredApiReplicas(r.k8sClient)
+	if exportProxyReplicas.err != nil {
+		return false, fmt.Errorf("failed to determine export-proxy replicas: %w", exportProxyReplicas.err)
+	}
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		deployment, err := r.syncDeployment(deployment)
+		deployment, err := r.syncDeployment(deployment, exportProxyReplicas)
 		if err != nil {
 			return false, err
 		}
-		err = r.syncExportProxyPodDisruptionBudget(deployment)
+		err = r.syncExportProxyPodDisruptionBudget(deployment, exportProxyReplicas)
+		if err != nil {
+			return false, err
+		}
+		err = r.syncExportProxyHorizontalPodAutoscaler(deployment, exportProxyReplicas)
 		if err != nil {
 			return false, err
 		}
@@ -614,7 +623,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
 		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-			deployment, err := r.syncDeployment(deployment)
+			deployment, err := r.syncDeployment(deployment, nil)
 			if err != nil {
 				return false, err
 			}
@@ -630,7 +639,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// create/update virt-template Deployments
 	for _, deployment := range r.targetStrategy.VirtTemplateDeployments() {
 		if r.virtTemplateDeploymentEnabled() {
-			deployment, err := r.syncDeployment(deployment)
+			deployment, err := r.syncDeployment(deployment, nil)
 			if err != nil {
 				return false, err
 			}
