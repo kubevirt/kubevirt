@@ -92,10 +92,13 @@ func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventReq
 	}
 
 	involvedObj := event.InvolvedObject
+	key := involvedObj.Namespace + "/" + involvedObj.Name
 
-	if obj, exists, err := n.vmiStore.GetByKey(involvedObj.Namespace + "/" + involvedObj.Name); err != nil {
+	if obj, exists, err := n.vmiStore.GetByKey(key); err != nil {
+		log.Log.Errorf("Failed to get VMI from store for key %q: %v", key, err)
 		return nil, grpcstatus.Errorf(codes.Internal, "failed to get VMI: %v", err)
 	} else if !exists || obj.(*v1.VirtualMachineInstance).UID != involvedObj.UID {
+		log.Log.Warningf("VMI not found or UID mismatch for key %q (expected UID=%s)", key, involvedObj.UID)
 		return nil, grpcstatus.Errorf(codes.NotFound, "VMI not found")
 	} else {
 		vmi := obj.(*v1.VirtualMachineInstance)
