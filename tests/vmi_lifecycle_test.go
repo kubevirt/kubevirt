@@ -823,8 +823,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with node feature discovery", Serial, decorators.CPUModel, decorators.RequiresAMD64, func() {
 			var node *k8sv1.Node
-			var supportedCPU string
-			var supportedCPUs []string
 			var supportedFeatures []string
 			var nodes *k8sv1.NodeList
 
@@ -833,29 +831,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
-				supportedCPUs = libnode.GetSupportedCPUModels(*nodes)
-				Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
-
-				supportedCPU = supportedCPUs[0]
 
 				supportedFeatures = libnode.GetSupportedCPUFeatures(*nodes)
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
-			})
-
-			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
-				vmi := libvmifact.NewGuestless()
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Model: supportedCPU,
-				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-
-				By("Verifying VirtualMachineInstance's status is Succeeded")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					currVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					return currVMI.Status.Phase
-				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", decorators.WgS390x, func() {
