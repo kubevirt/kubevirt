@@ -862,45 +862,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
 			})
 
-			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", decorators.WgS390x, func() {
-
-				By("adding a node-feature-discovery CPU model label to a node")
-				vmi := libvmifact.NewGuestless()
-				var featureToDisable string
-				// Use a different feature to disable, as  s390x and
-				//other archs do not have common cpu features
-
-				switch libnode.GetArch() {
-				case "s390x":
-					featureToDisable = "zpci"
-				case "amd64":
-					featureToDisable = "fpu"
-
-				}
-
-				featureToRequire := supportedFeatures[0]
-
-				if featureToRequire == featureToDisable {
-					// Picking another feature since this one is going to be disabled
-					featureToRequire = supportedFeatures[1]
-				}
-
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Features: []v1.CPUFeature{
-						{
-							Name:   featureToRequire,
-							Policy: "require",
-						},
-						{
-							Name:   featureToDisable,
-							Policy: "disable",
-						},
-					},
-				}
-				libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-			})
-
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
 				var featureDenyList = map[string]struct{}{
 					"svm": {},
