@@ -9,6 +9,9 @@
 | kubevirt_decentralized_migration_proxy_errors_total | Metric | Counter | Total number of migration proxy errors |
 | kubevirt_decentralized_migration_proxy_migration_bytes | Metric | Gauge | State/disk bytes transferred for an active migration through the proxy |
 | kubevirt_decentralized_migration_proxy_throughput_bytes_per_second | Metric | Gauge | Approximate state/disk proxy throughput in bytes per second over a short window |
+| kubevirt_exportproxy_active_transfers | Metric | Gauge | Number of export transfers currently being proxied. |
+| kubevirt_exportproxy_transferred_bytes_total | Metric | Counter | Total number of bytes transferred by the export proxy since startup. |
+| kubevirt_exportproxy_transfers_total | Metric | Counter | Total number of export transfers handled by the proxy since startup, including active, completed, and failed transfers. |
 | kubevirt_info | Metric | Gauge | Version information. |
 | kubevirt_node_deprecated_machine_types | Metric | Gauge | List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. |
 | kubevirt_portforward_active_tunnels | Metric | Gauge | Amount of active portforward tunnels, broken down by namespace and vmi name. |
