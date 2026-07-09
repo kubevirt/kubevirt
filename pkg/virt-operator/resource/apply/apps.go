@@ -52,12 +52,17 @@ const (
 // injectDeploymentPlacement applies node placement once during reconciliation.
 // Synchronization controllers use SynchronizationPlacement when set; otherwise
 // they fall back to Infra, or the default control-plane placement when both are
-// unset. Placement is not applied at generation time so Infra node selectors
-// cannot stack on top of generated control-plane affinity.
+// unset. Export-proxy uses Workloads / AnyNode so HPA scale-out can schedule on
+// worker nodes. Placement is not applied at generation time so Infra node
+// selectors cannot stack on top of generated control-plane affinity.
 func injectDeploymentPlacement(kv *v1.KubeVirt, deployment *appsv1.Deployment) {
 	componentConfig := kv.Spec.Infra
 	nodePlacementOption := placement.RequireControlPlanePreferNonWorker
-	if deployment.Name == components.VirtSynchronizationControllerName {
+	switch deployment.Name {
+	case components.VirtExportProxyName:
+		componentConfig = kv.Spec.Workloads
+		nodePlacementOption = placement.AnyNode
+	case components.VirtSynchronizationControllerName:
 		if kv.Spec.SynchronizationPlacement != nil {
 			componentConfig = kv.Spec.SynchronizationPlacement
 			nodePlacementOption = placement.AnyNode
