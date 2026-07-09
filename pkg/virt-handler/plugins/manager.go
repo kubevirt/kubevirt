@@ -84,6 +84,17 @@ func (m *nodeHookManager) CallNodeHooks(hookPoint pluginv1alpha1.NodeHookPoint, 
 			continue
 		}
 
+		if plugin.Spec.Condition != "" {
+			match, err := m.celEvaluator.EvaluateCondition(plugin.Spec.Condition, map[string]any{"vmi": vmi})
+			if err != nil {
+				return fmt.Errorf("CEL evaluation failed for plugin %s condition: %w", plugin.Name, err)
+			}
+			if !match {
+				log.Log.Object(vmi).V(3).Infof("Plugin %s condition not met, skipping all node hooks", plugin.Name)
+				continue
+			}
+		}
+
 		for _, nh := range plugin.Spec.NodeHooks {
 			if !slices.Contains(nh.PermittedHooks, hookPoint) {
 				log.Log.Object(vmi).V(4).Infof("Hook point %s not permitted for plugin %s, skipping", hookPoint, plugin.Name)
