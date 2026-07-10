@@ -138,6 +138,32 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			}}
 			Expect(admitSidecarSubPath(pod)).To(Succeed())
 		})
+
+		It("should allow containers without volumeMounts", func() {
+			pod := launcherPod(
+				corev1.Container{Name: "compute"},
+				corev1.Container{Name: "sidecar-no-mounts"},
+			)
+			Expect(admitSidecarSubPath(pod)).To(Succeed())
+		})
+
+		It("should allow initContainer without volumeMounts", func() {
+			pod := launcherPod(corev1.Container{Name: "compute"})
+			pod.Spec.InitContainers = []corev1.Container{{
+				Name: "volumedisk0",
+			}}
+			Expect(admitSidecarSubPath(pod)).To(Succeed())
+		})
+
+		It("should allow ephemeralContainer without volumeMounts", func() {
+			pod := launcherPod(corev1.Container{Name: "compute"})
+			pod.Spec.EphemeralContainers = []corev1.EphemeralContainer{{
+				EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+					Name: "debug-no-mounts",
+				},
+			}}
+			Expect(admitSidecarSubPath(pod)).To(Succeed())
+		})
 	})
 
 	Context("PluginSocketPath policy", func() {
