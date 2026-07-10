@@ -1586,6 +1586,11 @@ func (in *DomainStatus) DeepCopyInto(out *DomainStatus) {
 	}
 	out.OSInfo = in.OSInfo
 	out.FSFreezeStatus = in.FSFreezeStatus
+	if in.GuestPanicInfo != nil {
+		in, out := &in.GuestPanicInfo, &out.GuestPanicInfo
+		*out = new(GuestPanicInfo)
+		**out = **in
+	}
 	return
 }
 

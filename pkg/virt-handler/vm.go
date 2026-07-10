@@ -56,6 +56,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -2141,7 +2142,32 @@ func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 	if err != nil {
 		return err
 	}
+	if phase == v1.Failed && vmi.Status.Phase != v1.Failed {
+		panicInfo := c.getGuestPanicInfo(domain, vmi)
+		if panicInfo != nil {
+			panicType := "unknown"
+			if panicInfo.Type != "" {
+				panicType = panicInfo.Type
+			}
+			bugcheckCode := panicInfo.Arg1
+			vhmetrics.IncGuestOSPanic(vmi.Namespace, vmi.Name, panicType, bugcheckCode)
+		}
+	}
 	vmi.Status.Phase = phase
+	return nil
+}
+
+func (c *VirtualMachineController) getGuestPanicInfo(domain *api.Domain, vmi *v1.VirtualMachineInstance) *api.GuestPanicInfo {
+	if domain != nil {
+		return domain.Status.GuestPanicInfo
+	}
+	obj, exists, err := c.domainStore.GetByKey(controller.VirtualMachineInstanceKey(vmi))
+	if err != nil || !exists {
+		return nil
+	}
+	if d, ok := obj.(*api.Domain); ok {
+		return d.Status.GuestPanicInfo
+	}
 	return nil
 }
 

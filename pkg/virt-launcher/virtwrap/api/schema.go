@@ -122,6 +122,7 @@ type DomainStatus struct {
 	Interfaces     []InterfaceStatus
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
+	GuestPanicInfo *GuestPanicInfo
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU
