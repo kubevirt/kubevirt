@@ -30,10 +30,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 
@@ -598,6 +601,301 @@ var _ = Describe("Virt remote commands", func() {
 					Consistently(recorder.Events).ShouldNot(Receive())
 				})
 			})
+		})
+	})
+
+	Describe("gRPC status errors", func() {
+		var server *Launcher
+		var domainMgr *virtwrap.MockDomainManager
+		var mockCtrl *gomock.Controller
+
+		validVMIRequest := func() *cmdv1.VMIRequest {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			vmiJSON, err := json.Marshal(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			return &cmdv1.VMIRequest{
+				Vmi: &cmdv1.VMI{VmiJson: vmiJSON},
+			}
+		}
+
+		cbtEnabledVMIRequest := func() *cmdv1.VMIRequest {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				State: v1.ChangedBlockTrackingEnabled,
+			}
+			vmiJSON, err := json.Marshal(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			return &cmdv1.VMIRequest{
+				Vmi: &cmdv1.VMI{VmiJson: vmiJSON},
+			}
+		}
+
+		BeforeEach(func() {
+			mockCtrl = gomock.NewController(GinkgoT())
+			domainMgr = virtwrap.NewMockDomainManager(mockCtrl)
+			server = &Launcher{
+				domainManager: domainMgr,
+				ServerOptions: NewServerOptions(true),
+			}
+		})
+
+		It("should return InvalidArgument when VMI JSON is invalid", func() {
+			request := &cmdv1.VMIRequest{
+				Vmi: &cmdv1.VMI{VmiJson: []byte("invalid-json")},
+			}
+			_, err := server.SyncVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		})
+
+		It("should return Internal when domainManager.SyncVMI fails", func() {
+			domainMgr.EXPECT().SyncVMI(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("sync error"))
+			_, err := server.SyncVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("sync error"))
+		})
+
+		It("should return Internal when domainManager.KillVMI fails", func() {
+			domainMgr.EXPECT().KillVMI(gomock.Any()).Return(errors.New("kill error"))
+			_, err := server.KillVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("kill error"))
+		})
+
+		It("should return Internal when domainManager.PauseVMI fails", func() {
+			domainMgr.EXPECT().PauseVMI(gomock.Any()).Return(errors.New("pause error"))
+			_, err := server.PauseVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("pause error"))
+		})
+
+		It("should return Internal when domainManager.UnpauseVMI fails", func() {
+			domainMgr.EXPECT().UnpauseVMI(gomock.Any()).Return(errors.New("unpause error"))
+			_, err := server.UnpauseVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("unpause error"))
+		})
+
+		It("should return Internal when domainManager.SignalShutdownVMI fails", func() {
+			domainMgr.EXPECT().SignalShutdownVMI(gomock.Any()).Return(errors.New("shutdown error"))
+			_, err := server.ShutdownVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("shutdown error"))
+		})
+
+		It("should return Internal when domainManager.DeleteVMI fails", func() {
+			domainMgr.EXPECT().DeleteVMI(gomock.Any()).Return(errors.New("delete error"))
+			_, err := server.DeleteVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("delete error"))
+		})
+
+		It("should return Internal when domainManager.ResetVMI fails", func() {
+			domainMgr.EXPECT().ResetVMI(gomock.Any()).Return(errors.New("reset error"))
+			_, err := server.ResetVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("reset error"))
+		})
+
+		It("should return Internal when domainManager.SoftRebootVMI fails", func() {
+			domainMgr.EXPECT().SoftRebootVMI(gomock.Any()).Return(errors.New("soft reboot error"))
+			_, err := server.SoftRebootVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("soft reboot error"))
+		})
+
+		It("should return Internal when domainManager.FreezeVMI fails", func() {
+			domainMgr.EXPECT().FreezeVMI(gomock.Any(), gomock.Any()).Return(errors.New("freeze error"))
+			request := &cmdv1.FreezeRequest{
+				Vmi:                    validVMIRequest().Vmi,
+				UnfreezeTimeoutSeconds: 30,
+			}
+			_, err := server.FreezeVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("freeze error"))
+		})
+
+		It("should return Internal when domainManager.UnfreezeVMI fails", func() {
+			domainMgr.EXPECT().UnfreezeVMI(gomock.Any()).Return(errors.New("unfreeze error"))
+			_, err := server.UnfreezeVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("unfreeze error"))
+		})
+
+		It("should return Internal when domainManager.MemoryDump fails", func() {
+			domainMgr.EXPECT().MemoryDump(gomock.Any(), gomock.Any()).Return(errors.New("memory dump error"))
+			request := &cmdv1.MemoryDumpRequest{
+				Vmi:      validVMIRequest().Vmi,
+				DumpPath: "/tmp/dump",
+			}
+			_, err := server.VirtualMachineMemoryDump(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("memory dump error"))
+		})
+
+		It("should return Internal when domainManager.CancelVMIMigration fails", func() {
+			domainMgr.EXPECT().CancelVMIMigration(gomock.Any()).Return(errors.New("cancel migration error"))
+			_, err := server.CancelVirtualMachineMigration(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("cancel migration error"))
+		})
+
+		It("should return InvalidArgument when migration options are missing", func() {
+			request := &cmdv1.MigrationRequest{
+				Vmi:     validVMIRequest().Vmi,
+				Options: nil,
+			}
+			_, err := server.MigrateVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		})
+
+		It("should return Internal when domainManager.MigrateVMI fails", func() {
+			migrationOptions, err := json.Marshal(&cmdclient.MigrationOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			request := &cmdv1.MigrationRequest{
+				Vmi:     validVMIRequest().Vmi,
+				Options: migrationOptions,
+			}
+			domainMgr.EXPECT().MigrateVMI(gomock.Any(), gomock.Any()).Return(errors.New("migrate error"))
+			_, err = server.MigrateVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("migrate error"))
+		})
+
+		It("should return Internal when domainManager.PrepareMigrationTarget fails", func() {
+			domainMgr.EXPECT().PrepareMigrationTarget(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("prepare target error"))
+			_, err := server.SyncMigrationTarget(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("prepare target error"))
+		})
+
+		It("should return Internal when domainManager.UpdateVCPUs fails", func() {
+			domainMgr.EXPECT().UpdateVCPUs(gomock.Any(), gomock.Any()).Return(errors.New("vcpu error"))
+			_, err := server.SyncVirtualMachineCPUs(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("vcpu error"))
+		})
+
+		It("should return Internal when domainManager.FinalizeVirtualMachineMigration fails", func() {
+			domainMgr.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any()).Return(errors.New("finalize error"))
+			_, err := server.FinalizeVirtualMachineMigration(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("finalize error"))
+		})
+
+		It("should return Internal when domainManager.HotplugHostDevices fails", func() {
+			domainMgr.EXPECT().HotplugHostDevices(gomock.Any()).Return(errors.New("hotplug error"))
+			_, err := server.HotplugHostDevices(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("hotplug error"))
+		})
+
+		It("should return InvalidArgument when InjectLaunchSecret options are invalid", func() {
+			request := &cmdv1.InjectLaunchSecretRequest{
+				Vmi:     validVMIRequest().Vmi,
+				Options: []byte("invalid-json"),
+			}
+			_, err := server.InjectLaunchSecret(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		})
+
+		It("should return Internal when domainManager.InjectLaunchSecret fails", func() {
+			sevOptions, err := json.Marshal(&v1.SEVSecretOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			request := &cmdv1.InjectLaunchSecretRequest{
+				Vmi:     validVMIRequest().Vmi,
+				Options: sevOptions,
+			}
+			domainMgr.EXPECT().InjectLaunchSecret(gomock.Any(), gomock.Any()).Return(errors.New("inject error"))
+			_, err = server.InjectLaunchSecret(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("inject error"))
+		})
+
+		It("should return Internal when FuncTestMemoryHotplugFailAnnotation is set", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			vmi.Annotations = map[string]string{
+				v1.FuncTestMemoryHotplugFailAnnotation: "",
+			}
+			vmiJSON, err := json.Marshal(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			request := &cmdv1.VMIRequest{
+				Vmi: &cmdv1.VMI{VmiJson: vmiJSON},
+			}
+			_, err = server.SyncVirtualMachineMemory(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+		})
+
+		It("should return Internal when domainManager.UpdateGuestMemory fails", func() {
+			domainMgr.EXPECT().UpdateGuestMemory(gomock.Any()).Return(errors.New("memory update error"))
+			_, err := server.SyncVirtualMachineMemory(context.TODO(), validVMIRequest())
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("memory update error"))
+		})
+
+		It("should return FailedPrecondition when BackupVirtualMachine is called without CBT enabled", func() {
+			request := &cmdv1.BackupRequest{
+				Vmi: validVMIRequest().Vmi,
+			}
+			_, err := server.BackupVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
+		})
+
+		It("should return InvalidArgument when BackupVirtualMachine options are missing", func() {
+			request := &cmdv1.BackupRequest{
+				Vmi:     cbtEnabledVMIRequest().Vmi,
+				Options: nil,
+			}
+			_, err := server.BackupVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		})
+
+		It("should return Internal when domainManager.BackupVirtualMachine fails", func() {
+			backupOptions, err := json.Marshal(&backupv1.BackupOptions{
+				Cmd:        backupv1.Abort,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			request := &cmdv1.BackupRequest{
+				Vmi:     cbtEnabledVMIRequest().Vmi,
+				Options: backupOptions,
+			}
+			domainMgr.EXPECT().BackupVirtualMachine(gomock.Any(), gomock.Any()).Return(errors.New("backup error"))
+			_, err = server.BackupVirtualMachine(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err.Error()).To(ContainSubstring("backup error"))
+		})
+
+		It("should return success with Response.Success=true when operation succeeds", func() {
+			domainMgr.EXPECT().KillVMI(gomock.Any()).Return(nil)
+			resp, err := server.KillVirtualMachine(context.TODO(), validVMIRequest())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp).ToNot(BeNil())
+			Expect(resp.Success).To(BeTrue())
 		})
 	})
 

@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,19 +111,13 @@ func setPluginsFromOptions(options *cmdv1.VirtualMachineOptions) error {
 	return nil
 }
 
-func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
-
-	response := &cmdv1.Response{
-		Success: true,
-	}
-
+func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, error) {
 	var vmi v1.VirtualMachineInstance
 	if err := json.Unmarshal(request.VmiJson, &vmi); err != nil {
-		response.Success = false
-		response.Message = "No valid vmi object present in command server request"
+		log.Log.Reason(err).Error("Failed to unmarshal VMI from request")
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "no valid vmi object present in request: %v", err)
 	}
-
-	return &vmi, response
+	return &vmi, nil
 }
 
 func getMigrationOptionsFromRequest(request *cmdv1.MigrationRequest) (*cmdclient.MigrationOptions, error) {
@@ -147,53 +143,47 @@ func getErrorMessage(err error) string {
 
 func (l *Launcher) MigrateVirtualMachine(_ context.Context, request *cmdv1.MigrationRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	options, err := getMigrationOptionsFromRequest(request)
 	if err != nil {
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "%s", err.Error())
 	}
 
 	if err := l.domainManager.MigrateVMI(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to migrate vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi migration")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) CancelVirtualMachineMigration(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.CancelVMIMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to abort live migration")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to abort live migration: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Live migration has been aborted")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 
 }
 
 func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	myPodName := os.Getenv("POD_NAME")
@@ -203,276 +193,242 @@ func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIR
 		log.Log.Object(vmi).Infof("Signaled target pod %s to cleanup", myPodName)
 	}
 
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 	if err := setPluginsFromOptions(request.Options); err != nil {
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "%s", err.Error())
 	}
 
 	if err := l.domainManager.PrepareMigrationTarget(vmi, l.allowEmulation, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to prepare migration target pod: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Prepared migration target pod")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 
 }
 
 func (l *Launcher) SyncVirtualMachineCPUs(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.UpdateVCPUs(vmi, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI vCPUs")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to update vmi vcpus: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("VMI vCPUs has been updated")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 	if err := setPluginsFromOptions(request.Options); err != nil {
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "%s", err.Error())
 	}
 
 	if _, err := l.domainManager.SyncVMI(vmi, l.allowEmulation, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to sync vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Synced vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) PauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.PauseVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to pause vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to pause vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Paused vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) UnpauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.UnpauseVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to unpause vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to unpause vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Unpaused vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) VirtualMachineMemoryDump(_ context.Context, request *cmdv1.MemoryDumpRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.MemoryDump(vmi, request.DumpPath); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to Dump vmi memory")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to dump vmi memory: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) FreezeVirtualMachine(_ context.Context, request *cmdv1.FreezeRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.FreezeVMI(vmi, request.UnfreezeTimeoutSeconds); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to freeze vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to freeze vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Freezed vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) UnfreezeVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.UnfreezeVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to unfreeze vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to unfreeze vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Unfreezed vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) ResetVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.ResetVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to reset vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to reset vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Reset vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) SoftRebootVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.SoftRebootVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to soft reboot vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to soft reboot vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Soft rebooted vmi")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) KillVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.KillVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to kill vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to kill vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi kill")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) ShutdownVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.SignalShutdownVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal shutdown for vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to signal shutdown for vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi shutdown")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) DeleteVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.DeleteVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal deletion for vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to signal deletion for vmi: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi deletion")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) FinalizeVirtualMachineMigration(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.FinalizeVirtualMachineMigration(vmi, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("failed to finalize migration")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to finalize migration: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("migration finalized successfully")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := l.domainManager.HotplugHostDevices(vmi); err != nil {
 		log.Log.Object(vmi).Errorf("%s", err.Error())
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to hotplug host devices: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
@@ -771,13 +727,13 @@ func (l *Launcher) GetSEVInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.
 }
 
 func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.LaunchMeasurementResponse, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	launchMeasurementResponse := &cmdv1.LaunchMeasurementResponse{
-		Response: response,
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
-	if !launchMeasurementResponse.Response.Success {
-		return launchMeasurementResponse, nil
+	launchMeasurementResponse := &cmdv1.LaunchMeasurementResponse{
+		Response: &cmdv1.Response{Success: true},
 	}
 
 	sevMeasurementInfo, err := l.domainManager.GetLaunchMeasurement(vmi)
@@ -801,59 +757,51 @@ func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIReq
 }
 
 func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLaunchSecretRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	var sevSecretOptions v1.SEVSecretOptions
 	if err := json.Unmarshal(request.Options, &sevSecretOptions); err != nil {
-		response.Success = false
-		response.Message = "No valid secret options present in command server request"
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "no valid secret options present in request: %v", err)
 	}
 
 	if err := l.domainManager.InjectLaunchSecret(vmi, &sevSecretOptions); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to inject SEV launch secret")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to inject SEV launch secret: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) SyncVirtualMachineMemory(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if _, exists := vmi.Annotations[v1.FuncTestMemoryHotplugFailAnnotation]; exists {
-		response.Success = false
-		response.Message = v1.FuncTestMemoryHotplugFailAnnotation
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "%s", v1.FuncTestMemoryHotplugFailAnnotation)
 	}
 
 	if err := l.domainManager.UpdateGuestMemory(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI guest memory")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to update vmi guest memory: %s", getErrorMessage(err))
 	}
 
 	log.Log.Object(vmi).Info("guest memory has been updated")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) GetScreenshot(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.ScreenshotResponse, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	screenshotResponse := &cmdv1.ScreenshotResponse{
-		Response: response,
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
-	if !screenshotResponse.Response.Success {
-		return screenshotResponse, nil
+	screenshotResponse := &cmdv1.ScreenshotResponse{
+		Response: &cmdv1.Response{Success: true},
 	}
 
 	domainScreenshot, err := l.domainManager.GetScreenshot(vmi)
@@ -936,40 +884,37 @@ func validateBackupExportRequest(options *backupv1.BackupOptions) error {
 }
 
 func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.BackupRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if !storage.IsChangedBlockTrackingEnabled(vmi) {
-		response.Success = false
-		response.Message = storage.ChangedBlockTrackingNotEnabledMsg
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.FailedPrecondition, "%s", storage.ChangedBlockTrackingNotEnabledMsg)
 	}
 
 	options, err := getBackupOptionsFromRequest(request)
 	if err != nil {
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "%s", err.Error())
 	}
 
 	if err := l.domainManager.BackupVirtualMachine(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to run backup job")
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to run backup job: %s", err.Error())
 	}
 
 	log.Log.Object(vmi).Info("VMI backup job initiated")
-	return response, nil
+	return &cmdv1.Response{Success: true}, nil
 }
 
 func (l *Launcher) RedefineCheckpoint(_ context.Context, request *cmdv1.RedefineCheckpointRequest) (*cmdv1.RedefineCheckpointResponse, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
+	vmi, err := getVMIFromRequest(request.Vmi)
+	if err != nil {
 		return &cmdv1.RedefineCheckpointResponse{
-			Response:          response,
+			Response: &cmdv1.Response{
+				Success: false,
+				Message: err.Error(),
+			},
 			CheckpointInvalid: false,
 		}, nil
 	}
