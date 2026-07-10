@@ -20,6 +20,8 @@
 package compute
 
 import (
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -30,13 +32,15 @@ type CPUDomainConfigurator struct {
 	isHotplugSupported       bool
 	requiresMPXCPUValidation bool
 	crossArchEmulation       bool
+	isMemfdSupported         bool
 }
 
-func NewCPUDomainConfigurator(isHotplugSupported, requiresMPXCPUValidation, crossArchEmulation bool) CPUDomainConfigurator {
+func NewCPUDomainConfigurator(isHotplugSupported, requiresMPXCPUValidation, crossArchEmulation, isMemfdSupported bool) CPUDomainConfigurator {
 	return CPUDomainConfigurator{
 		isHotplugSupported:       isHotplugSupported,
 		requiresMPXCPUValidation: requiresMPXCPUValidation,
 		crossArchEmulation:       crossArchEmulation,
+		isMemfdSupported:         isMemfdSupported,
 	}
 }
 
@@ -115,6 +119,20 @@ func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 			domain.Spec.CPU.Model = "max"
 		} else {
 			domain.Spec.CPU.Mode = v1.CPUModeHostModel
+		}
+	}
+
+	if c.isMemfdSupported && isMemfdRequired(vmi) && (vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.NUMA == nil) {
+		memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
+		domain.Spec.CPU.NUMA = &api.NUMA{
+			Cells: []api.NUMACell{
+				{
+					ID:     "0",
+					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+					Memory: &memKiB,
+					Unit:   "KiB",
+				},
+			},
 		}
 	}
 
