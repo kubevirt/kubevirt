@@ -51,6 +51,7 @@
 | Vendor | Spectro Cloud | 2022 | [link](https://www.spectrocloud.com/solutions/vms-on-kubernetes) | Spectro Cloud Palette's Virtual Machine Orchestrator (VMO) feature builds on KubeVirt. It gives enterprises an easy yet powerful way to bring their VM workloads into their Kubernetes clusters, on bare metal and at the edge — with full lifecycle management and unified policies and governance. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
 | Vendor | Swisscom | 2024 | [link](https://www.swisscom.ch/en/business/enterprise/offer/cloud/cloudnative/container-services.html) | Swisscom uses KubeVirt as a cloud-native infrastructure platform to enable VM workloads on bare-metal Kubernetes. On top, we offer Kubernetes as a service, additionally making use of the KubeVirt CSI driver to provide a storage solution to the end user clusters. |
+| Vendor | TrueFullstaq | 2024 | [link](https://www.truefullstaq.com/) | TrueFullstaq is a European cloud native consultancy and managed hosting provider. Our CNCF Kubestronaut-certified engineers help organizations design, implement, and operate KubeVirt-based virtualization on Kubernetes, backed by the 24/7 operations of our managed services. |
 
 ### Adopter Types
 
