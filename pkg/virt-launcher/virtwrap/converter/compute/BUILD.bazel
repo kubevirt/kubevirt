@@ -65,6 +65,7 @@ go_test(
         "cpu_test.go",
         "graphics_test.go",
         "host_device_test.go",
+        "hypervisor_features_test.go",
         "input_device_test.go",
         "iommufd_test.go",
         "iothreads_test.go",
