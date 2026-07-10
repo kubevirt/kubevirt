@@ -29,6 +29,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -66,7 +67,8 @@ type dynamicInformer struct {
 
 // VMSnapshotController is resonsible for snapshotting VMs
 type VMSnapshotController struct {
-	Client kubecli.KubevirtClient
+	VirtClient kubecli.KubevirtClient
+	K8sClient  kubernetes.Interface
 
 	VMSnapshotInformer        cache.SharedIndexInformer
 	VMSnapshotContentInformer cache.SharedIndexInformer
@@ -655,7 +657,7 @@ func (ctrl *VMSnapshotController) ensureDynamicInformer(name string) (time.Durat
 	}
 
 	di.stopCh = make(chan struct{})
-	di.informer = di.informerFunc(ctrl.Client, ctrl.ResyncPeriod)
+	di.informer = di.informerFunc(ctrl.VirtClient, ctrl.ResyncPeriod)
 	handlerFuncs, ok := ctrl.eventHandlerMap[name]
 	if ok {
 		di.informer.AddEventHandlerWithResyncPeriod(handlerFuncs, ctrl.ResyncPeriod)

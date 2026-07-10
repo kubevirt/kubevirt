@@ -60,7 +60,7 @@ const (
 	SuccessfulResumedReplicaSetReason = "SuccessfulResumed"
 )
 
-func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) (*Controller, error) {
+func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, virtClient kubecli.KubevirtClient, burstReplicas uint) (*Controller, error) {
 
 	c := &Controller{
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -70,7 +70,7 @@ func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.Sh
 		vmiIndexer:    vmiInformer.GetIndexer(),
 		vmiRSIndexer:  vmiRSInformer.GetIndexer(),
 		recorder:      recorder,
-		clientset:     clientset,
+		virtClient:    virtClient,
 		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		burstReplicas: burstReplicas,
 	}
@@ -103,7 +103,7 @@ func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.Sh
 }
 
 type Controller struct {
-	clientset     kubecli.KubevirtClient
+	virtClient    kubecli.KubevirtClient
 	Queue         workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer    cache.Indexer
 	vmiRSIndexer  cache.Indexer
@@ -171,7 +171,7 @@ func (c *Controller) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(rs) {
 		rs := rs.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(rs)
-		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(context.Background(), rs, metav1.UpdateOptions{})
+		_, err = c.virtClient.ReplicaSet(rs.Namespace).Update(context.Background(), rs, metav1.UpdateOptions{})
 		return err
 	}
 
@@ -205,7 +205,7 @@ func (c *Controller) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(context.Background(), rs.ObjectMeta.Name, metav1.GetOptions{})
+		fresh, err := c.virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Get(context.Background(), rs.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +214,7 @@ func (c *Controller) execute(key string) error {
 		}
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, rs, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.virtClient}, rs, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
 	vmis, err = cm.ClaimVirtualMachineInstances(vmis)
 	if err != nil {
 		return err
@@ -278,7 +278,7 @@ func (c *Controller) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*
 			go func(idx int) {
 				defer wg.Done()
 				deleteCandidate := vmis[idx]
-				err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, metav1.DeleteOptions{})
+				err := c.virtClient.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, metav1.DeleteOptions{})
 				// Don't log an error if it is already deleted
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
@@ -307,7 +307,7 @@ func (c *Controller) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*
 				// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 				vmi.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
 				vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := c.virtClient.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
 					c.recorder.Eventf(rs, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
@@ -644,7 +644,7 @@ func (c *Controller) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet, v
 	// Add/Remove Failure condition if necessary
 	c.checkFailure(rs, diff, scaleErr)
 
-	_, err = c.clientset.ReplicaSet(rs.Namespace).UpdateStatus(context.Background(), rs, metav1.UpdateOptions{})
+	_, err = c.virtClient.ReplicaSet(rs.Namespace).UpdateStatus(context.Background(), rs, metav1.UpdateOptions{})
 
 	if err != nil {
 		return err
@@ -781,7 +781,7 @@ func (c *Controller) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceReplicaS
 		go func(idx int) {
 			defer wg.Done()
 			deleteCandidate := vmis[idx]
-			err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, metav1.DeleteOptions{})
+			err := c.virtClient.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, metav1.DeleteOptions{})
 			// Don't log an error if it is already deleted
 			if err != nil {
 				// We can't observe a delete if it was not accepted by the server

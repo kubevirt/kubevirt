@@ -87,7 +87,7 @@ var (
 )
 
 type VMBackupController struct {
-	client                kubecli.KubevirtClient
+	virtClient            kubecli.KubevirtClient
 	backupInformer        cache.SharedIndexInformer
 	backupTrackerInformer cache.SharedIndexInformer
 	vmStore               cache.Store
@@ -102,7 +102,7 @@ type VMBackupController struct {
 	exportCaManager       kvtls.ClientCAManager
 }
 
-func NewVMBackupController(client kubecli.KubevirtClient,
+func NewVMBackupController(virtClient kubecli.KubevirtClient,
 	backupInformer cache.SharedIndexInformer,
 	backupTrackerInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -129,7 +129,7 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 		pvcStore:              pvcInformer.GetStore(),
 		vmExportStore:         vmExportInformer.GetStore(),
 		recorder:              recorder,
-		client:                client,
+		virtClient:            virtClient,
 		exportCaManager:       kvtls.NewCAManager(cmInformer.GetStore(), kubevirtNamespace, "kubevirt-export-ca"),
 	}
 
@@ -416,7 +416,7 @@ func (ctrl *VMBackupController) execute(key string) error {
 	syncErr := ctrl.sync(backupCopy)
 
 	if !equality.Semantic.DeepEqual(backup.Status, backupCopy.Status) {
-		if _, err := ctrl.client.VirtualMachineBackup(backupCopy.Namespace).UpdateStatus(
+		if _, err := ctrl.virtClient.VirtualMachineBackup(backupCopy.Namespace).UpdateStatus(
 			context.Background(), backupCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Reason(err).Errorf("Updating the VirtualMachineBackup status failed")
 			return err
@@ -658,7 +658,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 		log.Log.Object(backup).Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
 	}
 
-	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, &backupOptions); err != nil {
+	if err := ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, &backupOptions); err != nil {
 		return fmt.Errorf("failed to send Start backup command: %w", err)
 	}
 	log.Log.Object(backup).Infof("Started backup for VMI %s successfully", vmi.Name)
@@ -679,7 +679,7 @@ func (ctrl *VMBackupController) handleAbort(backup *backupv1.VirtualMachineBacku
 		BackupStartTime: &backup.CreationTimestamp,
 	}
 
-	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
+	if err := ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
 		return err
 	}
 	return nil
@@ -705,7 +705,7 @@ func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachi
 		return err
 	}
 
-	patched, err := ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	patched, err := ctrl.virtClient.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to add finalizer: %w", err)
 	}
@@ -726,7 +726,7 @@ func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMa
 		return fmt.Errorf("failed to generate finalizer patch: %w", err)
 	}
 
-	_, err = ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.virtClient.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to patch backup to remove finalizer: %w", err)
 	}
@@ -826,7 +826,7 @@ func (ctrl *VMBackupController) removeSourceBackupInProgress(vmi *v1.VirtualMach
 		return err
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to remove BackupInProgress from VMI %s/%s: %w", vmi.Namespace, vmi.Name, err)
 	}
@@ -865,7 +865,7 @@ func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMach
 		return err
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		log.Log.Errorf("Failed to update source backup in progress: %s", err)
 		return err
@@ -929,7 +929,7 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		return fmt.Errorf("failed to generate patch payload: %w", err)
 	}
 
-	_, err = ctrl.client.VirtualMachineBackupTracker(namespace).Patch(
+	_, err = ctrl.virtClient.VirtualMachineBackupTracker(namespace).Patch(
 		context.Background(),
 		tracker.Name,
 		types.JSONPatchType,

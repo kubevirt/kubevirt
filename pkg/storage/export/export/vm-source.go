@@ -163,7 +163,7 @@ func (ctrl *VMExportController) getPVCsFromVMI(vmi *virtv1.VirtualMachineInstanc
 	var pvcs []*corev1.PersistentVolumeClaim
 
 	// No need to handle error when using VMI to fetch volumes
-	volumes, _ := storageutils.GetVolumes(vmi, ctrl.Client, storageutils.WithAllVolumes)
+	volumes, _ := storageutils.GetVolumes(vmi, ctrl.K8sClient, storageutils.WithAllVolumes)
 
 	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
@@ -271,7 +271,7 @@ func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*cor
 	var pvcs []*corev1.PersistentVolumeClaim
 	allPopulated := true
 
-	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(vm, ctrl.K8sClient, storageutils.WithAllVolumes)
 	if err != nil {
 		if storageutils.IsErrNoBackendPVC(err) {
 			// No backend pvc when we should have one, lets wait

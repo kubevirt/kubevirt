@@ -26,7 +26,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -48,7 +48,7 @@ const EvictPodAnnotationKeyAlpha = "descheduler.alpha.kubernetes.io/evict"
 // The descheduler will only check the presence of the annotation and not its value.
 const EvictPodAnnotationKeyAlphaPreferNoEviction = "descheduler.alpha.kubernetes.io/prefer-no-eviction"
 
-func MarkEvictionInProgress(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
+func MarkEvictionInProgress(virtClient kubernetes.Interface, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	if _, exists := sourcePod.GetAnnotations()[EvictionInProgressAnnotation]; exists {
 		return sourcePod, nil
 	}
@@ -70,7 +70,7 @@ func MarkEvictionInProgress(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.
 	return pod, nil
 }
 
-func MarkEvictionCompleted(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
+func MarkEvictionCompleted(k8sClient kubernetes.Interface, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
 
 	if value, exists := sourcePod.GetAnnotations()[EvictionInProgressAnnotation]; exists {
 		patchSet := patch.New(
@@ -82,7 +82,7 @@ func MarkEvictionCompleted(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.P
 			return nil, err
 		}
 
-		pod, err := virtClient.CoreV1().Pods(sourcePod.Namespace).Patch(context.Background(), sourcePod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		pod, err := k8sClient.CoreV1().Pods(sourcePod.Namespace).Patch(context.Background(), sourcePod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			log.Log.Object(sourcePod).Errorf("failed to remove %s pod annotation : %v", EvictionInProgressAnnotation, err)
 			return nil, err

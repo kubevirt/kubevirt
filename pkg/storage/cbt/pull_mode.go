@@ -135,7 +135,7 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 		BackupCert:       pointer.P(string(cert.EncodeCertPEM(keyPair.Cert))),
 		CACert:           pointer.P(string(ca)),
 	}
-	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
+	if err := ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
 		return err
 	}
 	return nil
@@ -178,7 +178,7 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 		},
 	}
 
-	_, err := ctrl.client.VirtualMachineExport(backup.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+	_, err := ctrl.virtClient.VirtualMachineExport(backup.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf(failedExportCreate, err)
 	}
@@ -274,7 +274,7 @@ func (ctrl *VMBackupController) cleanupBackupExport(backup *backupv1.VirtualMach
 		return fmt.Errorf("error getting VMExport from store during TTL expiry: %w", err)
 	}
 	if exists {
-		if err := ctrl.client.VirtualMachineExport(backup.Namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		if err := ctrl.virtClient.VirtualMachineExport(backup.Namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete VMExport during TTL expiry: %w", err)
 		}
 	}
