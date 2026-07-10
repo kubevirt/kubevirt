@@ -1046,7 +1046,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
 			})
 
-			It("[QUARANTINE] should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.Quarantine, decorators.RequiresRWXBlock, func() {
+			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.RequiresRWXBlock, func() {
 				dvBlock := createDataVolumeAndWaitForImport(blockSC(), k8sv1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1925,7 +1925,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeNolongerAccessible(vmi, target)
 		},
 			Entry("without dedicated IO and shared policy", false),
-			Entry("[QUARANTINE]with dedicated IO and auto policy", decorators.Quarantine, true),
+			Entry("with dedicated IO and auto policy", true),
 		)
 	})
 
