@@ -325,7 +325,7 @@ var _ = Describe("Backup Controller", func() {
 		recorder.IncludeObject = true
 
 		controller = &VMBackupController{
-			client:                virtClient,
+			virtClient:            virtClient,
 			backupInformer:        backupInformer,
 			backupTrackerInformer: backupTrackerInformer,
 			vmStore:               vmInformer.GetStore(),
