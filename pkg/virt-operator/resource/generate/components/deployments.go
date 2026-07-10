@@ -717,6 +717,21 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 					Type:   intstr.Int,
 					IntVal: 8443,
 				},
+				Path: "/readyz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+	}
+
+	container.LivenessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
 				Path: "/healthz",
 			},
 		},

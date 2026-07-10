@@ -30,25 +30,31 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
+var _ = BeforeSuite(func() {
+	Expect(operatormetrics.CleanRegistry()).To(Succeed())
+	Expect(SetupMetrics()).To(Succeed())
+})
+
+var _ = AfterSuite(func() {
+	Expect(operatormetrics.CleanRegistry()).To(Succeed())
+})
+
 var _ = Describe("Export proxy transfer metrics", func() {
 	BeforeEach(func() {
-		Expect(SetupMetrics()).To(Succeed())
-		activeTransferCount = 0
-		resetThroughputWindow()
-	})
-
-	AfterEach(func() {
-		Expect(operatormetrics.CleanRegistry()).To(Succeed())
+		resetTransferMetricsState()
 	})
 
 	It("tracks active and total transfers", func() {
-		transfer := RecordTransferStarted()
+		totalBefore := getCounterValue(transfersTotal)
+		transfer, ok := TryRecordTransferStarted()
+		Expect(ok).To(BeTrue())
+		Expect(ActiveTransferCount()).To(Equal(int64(1)))
 		Expect(getGaugeValue(activeTransfers)).To(Equal(1.0))
-		Expect(getCounterValue(transfersTotal)).To(Equal(1.0))
+		Expect(getCounterValue(transfersTotal)).To(Equal(totalBefore + 1.0))
 
 		transfer.Finish()
 		Expect(getGaugeValue(activeTransfers)).To(Equal(0.0))
-		Expect(getCounterValue(transfersTotal)).To(Equal(1.0))
+		Expect(getCounterValue(transfersTotal)).To(Equal(totalBefore + 1.0))
 	})
 
 	It("accumulates transferred bytes", func() {
@@ -60,7 +66,8 @@ var _ = Describe("Export proxy transfer metrics", func() {
 	})
 
 	It("resets throughput when the last transfer finishes", func() {
-		transfer := RecordTransferStarted()
+		transfer, ok := TryRecordTransferStarted()
+		Expect(ok).To(BeTrue())
 		recordTransferredBytes(1024)
 		Expect(getGaugeValue(transferThroughputBytesPerSecond)).To(BeNumerically(">=", 0))
 
@@ -69,8 +76,10 @@ var _ = Describe("Export proxy transfer metrics", func() {
 	})
 
 	It("keeps throughput while other transfers remain active", func() {
-		first := RecordTransferStarted()
-		second := RecordTransferStarted()
+		first, ok := TryRecordTransferStarted()
+		Expect(ok).To(BeTrue())
+		second, ok := TryRecordTransferStarted()
+		Expect(ok).To(BeTrue())
 		recordTransferredBytes(2048)
 
 		first.Finish()
