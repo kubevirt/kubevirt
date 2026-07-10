@@ -41,6 +41,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -119,7 +120,8 @@ type networkAnnotationsGenerator interface {
 
 type Controller struct {
 	templateService                   templateService
-	clientset                         kubecli.KubevirtClient
+	virtClient                        kubecli.KubevirtClient
+	k8sClient                         kubernetes.Interface
 	Queue                             priorityqueue.PriorityQueue[string]
 	vmiStore                          cache.Store
 	podIndexer                        cache.Indexer
@@ -161,7 +163,8 @@ func NewController(templateService templateService,
 	resourceQuotaInformer cache.SharedIndexInformer,
 	kubevirtInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig,
 	netAnnotationsGenerator networkAnnotationsGenerator,
 ) (*Controller, error) {
@@ -183,7 +186,8 @@ func NewController(templateService templateService,
 		migrationPolicyStore:    migrationPolicyInformer.GetStore(),
 		kubevirtStore:           kubevirtInformer.GetStore(),
 		recorder:                recorder,
-		clientset:               clientset,
+		virtClient:              virtClient,
+		k8sClient:               k8sClient,
 		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		pvcExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationStartLock:      &sync.Mutex{},
@@ -359,7 +363,7 @@ func (c *Controller) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) er
 			return err
 		}
 		log.Log.Object(origVMI).V(4).Infof("patch VMI with %s", string(patchBytes))
-		if _, err = c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
+		if _, err = c.virtClient.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 			return err
 		}
 	}
@@ -391,7 +395,7 @@ func (c *Controller) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(migration)
 		// Ensure the migration contains our selector label
 		ensureSelectorLabelPresent(migration)
-		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
+		_, err = c.virtClient.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
 		return err
 	}
 
@@ -403,7 +407,7 @@ func (c *Controller) execute(key string) error {
 	if !vmiExists {
 		if migration.DeletionTimestamp == nil {
 			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
-			return c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, v1.DeleteOptions{})
+			return c.virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, v1.DeleteOptions{})
 		}
 		// nothing to process for a migration that has no VMI
 		return nil
@@ -508,7 +512,7 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 }
 
 func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigration) error {
-	err := backendstorage.MigrationAbort(c.clientset, migration)
+	err := backendstorage.MigrationAbort(c.k8sClient, migration)
 	if err != nil {
 		return err
 	}
@@ -522,7 +526,7 @@ func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstance
 		return c.failMigration(migration)
 	}
 
-	return backendstorage.RecoverFromBrokenMigration(c.clientset, migration, c.pvcStore, vmi, c.templateService.GetLauncherImage())
+	return backendstorage.RecoverFromBrokenMigration(c.k8sClient, migration, c.pvcStore, vmi, c.templateService.GetLauncherImage())
 }
 
 func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
@@ -661,13 +665,13 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		var err error
-		migration, err = c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).UpdateStatus(context.Background(), migrationCopy, v1.UpdateOptions{})
+		migration, err = c.virtClient.VirtualMachineInstanceMigration(migrationCopy.Namespace).UpdateStatus(context.Background(), migrationCopy, v1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
 	}
 	if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
-		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(context.Background(), migrationCopy, metav1.UpdateOptions{})
+		_, err := c.virtClient.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(context.Background(), migrationCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -825,7 +829,7 @@ func (c *Controller) processMigrationPhase(
 			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 				if backendstorage.IsBackendStorageNeeded(vmi) {
-					err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
+					err := backendstorage.MigrationHandoff(c.k8sClient, c.pvcStore, migration)
 					if err != nil {
 						return err
 					}
@@ -838,7 +842,7 @@ func (c *Controller) processMigrationPhase(
 					return err
 				}
 
-				if _, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
+				if _, err = c.k8sClient.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 					return err
 				}
 			}
@@ -1026,7 +1030,7 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
-	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
+	pod, err := c.k8sClient.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 	if err != nil {
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			err = fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
@@ -1142,7 +1146,7 @@ func (c *Controller) handleMarkMigrationFailedOnVMI(migration *virtv1.VirtualMac
 		return err
 	}
 	log.Log.Object(vmi).V(4).Infof("patch VMI with %s", string(patchBytes))
-	if _, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
+	if _, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 		log.Log.Reason(err).Object(vmi).Errorf("Failed to patch VMI status to indicate migration %s/%s failed.", migration.Namespace, migration.Name)
 		return err
 	}
@@ -1159,7 +1163,7 @@ func (c *Controller) handlePreHandoffMigrationCancel(migration *virtv1.VirtualMa
 	}
 
 	c.podExpectations.ExpectDeletions(controller.MigrationKey(migration), []string{controller.PodKey(pod)})
-	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+	err := c.k8sClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
@@ -1192,7 +1196,7 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 // updateTargetPodNetworkInfo generates the network-info annotation from the target pod's network-status
 func (c *Controller) updateTargetPodNetworkInfo(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	newAnnotations := c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod)
-	_, err := controller.SyncPodAnnotations(c.clientset, pod, newAnnotations)
+	_, err := controller.SyncPodAnnotations(c.k8sClient, pod, newAnnotations)
 	return err
 }
 
@@ -1277,7 +1281,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	}
 
 	if backendStoragePVC := backendstorage.PVCForMigrationTarget(c.pvcStore, migration); backendStoragePVC != nil {
-		bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+		bs := backendstorage.NewBackendStorage(c.k8sClient, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
 		bs.UpdateVolumeStatus(vmiCopy, backendStoragePVC)
 	}
 
@@ -1330,7 +1334,7 @@ func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMach
 			return err
 		}
 
-		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
 			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedAbortMigrationReason, msg)
@@ -1436,7 +1440,7 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 		// backend storage pvc has already been created or has ReadWriteMany access-mode
 		return nil
 	}
-	bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+	bs := backendstorage.NewBackendStorage(c.k8sClient, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
 	key := controller.MigrationKey(migration)
 	c.pvcExpectations.ExpectCreations(key, 1)
 	backendStoragePVC, err := bs.CreatePVCForMigrationTarget(vmi, migration.Name)
@@ -1488,7 +1492,7 @@ func (c *Controller) createAttachmentPod(migration *virtv1.VirtualMachineInstanc
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 
-	attachmentPod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
+	attachmentPod, err := c.k8sClient.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(key)
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
@@ -1535,7 +1539,7 @@ func (c *Controller) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineIns
 	}
 
 	c.podExpectations.ExpectDeletions(migrationKey, []string{controller.PodKey(pod)})
-	err = c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+	err = c.k8sClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleted migration target pod: %v", err)
@@ -1620,7 +1624,7 @@ func (c *Controller) abortBackupForCriticalMigration(migration *virtv1.VirtualMa
 		Cmd:             backupv1.Abort,
 		BackupStartTime: backupStatus.StartTimestamp,
 	}
-	err := c.clientset.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions)
+	err := c.virtClient.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("failed to abort backup for critical migration")
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, "BackupAbortFailed",
@@ -1846,7 +1850,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 				if err != nil {
 					return err
 				}
-				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+				vmi, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 				}
@@ -2273,7 +2277,7 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 	}
 
 	for i := range garbageCollectionCount {
-		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), finalizedMigrations[i], v1.DeleteOptions{})
+		err = c.virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), finalizedMigrations[i], v1.DeleteOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
 			// This is safe to ignore. It's possible in some
 			// scenarios that the migration we're trying to garbage
@@ -2574,7 +2578,7 @@ func getCPUVendorLabelKey(labels map[string]string) string {
 }
 
 func (c *Controller) resolveMigrationConfig(vmi *virtv1.VirtualMachineInstance) (*virtv1.VMIMConfigurationOptions, *v1alpha1.MigrationPolicy, error) {
-	vmiNamespace, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
+	vmiNamespace, err := c.k8sClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

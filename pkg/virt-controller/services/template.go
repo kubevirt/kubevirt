@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	v1 "kubevirt.io/api/core/v1"
@@ -145,6 +146,7 @@ type TemplateService struct {
 	imagePullSecret            string
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
+	k8sClient                  kubernetes.Interface
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
 	resourceQuotaStore         cache.Store
@@ -581,7 +583,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			sidecarContainerName(i), vmi, sidecarResources(vmi, t.clusterConfig), requestedHookSidecar, userId).Render(requestedHookSidecar.Command)
 
 		if requestedHookSidecar.ConfigMap != nil {
-			cm, err := t.virtClient.CoreV1().ConfigMaps(vmi.Namespace).Get(context.TODO(), requestedHookSidecar.ConfigMap.Name, metav1.GetOptions{})
+			cm, err := t.k8sClient.CoreV1().ConfigMaps(vmi.Namespace).Get(context.TODO(), requestedHookSidecar.ConfigMap.Name, metav1.GetOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -1395,6 +1397,7 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
 	exporterImage string,
@@ -1415,6 +1418,7 @@ func NewTemplateService(launcherImage string,
 		imagePullSecret:             imagePullSecret,
 		persistentVolumeClaimStore:  persistentVolumeClaimCache,
 		virtClient:                  virtClient,
+		k8sClient:                   k8sClient,
 		clusterConfig:               clusterConfig,
 		launcherSubGid:              launcherSubGid,
 		exporterImage:               exporterImage,

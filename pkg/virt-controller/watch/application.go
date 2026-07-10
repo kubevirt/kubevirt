@@ -53,6 +53,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -146,6 +147,7 @@ type VirtControllerApp struct {
 	service.ServiceListen
 
 	clientSet       kubecli.KubevirtClient
+	k8sClient       kubernetes.Interface
 	templateService *services.TemplateService
 	restClient      *clientrest.RESTClient
 	informerFactory controller.KubeInformerFactory
@@ -323,6 +325,10 @@ func Execute() {
 	if err != nil {
 		golog.Fatal(err)
 	}
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
+	if err != nil {
+		golog.Fatal(err)
+	}
 
 	app.restClient = app.clientSet.RestClient()
 
@@ -342,7 +348,7 @@ func Execute() {
 	stopChan := ctx.Done()
 	app.ctx = ctx
 
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.clientSet, nil, app.kubevirtNamespace)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.k8sClient, nil, app.kubevirtNamespace)
 
 	app.crdInformer = app.informerFactory.CRD()
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
@@ -679,7 +685,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 func (vca *VirtControllerApp) newRecorder(namespace string, componentName string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: vca.clientSet.CoreV1().Events(namespace)})
+	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: vca.k8sClient.CoreV1().Events(namespace)})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
 }
 
@@ -705,6 +711,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.imagePullSecret,
 		vca.persistentVolumeClaimCache,
 		virtClient,
+		vca.k8sClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,
 		vca.exporterImage,
@@ -731,6 +738,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.storageClassInformer,
 		vca.vmiRecorder,
 		vca.clientSet,
+		vca.k8sClient,
 		vca.dataVolumeInformer,
 		vca.storageProfileInformer,
 		vca.cdiInformer,
@@ -753,7 +761,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
-	vca.nodeController, err = node.NewController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.nodeController, err = node.NewController(vca.clientSet, vca.k8sClient, vca.nodeInformer, vca.vmiInformer, recorder)
 	if err != nil {
 		panic(err)
 	}
@@ -776,6 +784,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.kubeVirtInformer,
 		vca.vmiRecorder,
 		clientSet,
+		vca.k8sClient,
 		vca.clusterConfig,
 		netAnnotationsGenerator,
 	)
@@ -783,7 +792,7 @@ func (vca *VirtControllerApp) initCommon() {
 		panic(err)
 	}
 
-	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)
+	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.k8sClient, topologyHinter, vca.nodeInformer)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -799,6 +808,7 @@ func (vca *VirtControllerApp) initPool() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinepool-controller")
 	vca.poolController, err = pool.NewController(vca.clientSet,
+		vca.k8sClient,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
@@ -827,6 +837,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.controllerRevisionInformer,
 		recorder,
 		vca.clientSet,
+		vca.k8sClient,
 		vca.clusterConfig,
 		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
@@ -859,7 +870,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 		vca.allPodInformer,
 		vca.migrationInformer,
 		recorder,
-		vca.clientSet,
+		vca.k8sClient,
 	)
 	if err != nil {
 		panic(err)
@@ -877,6 +888,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 		vca.kubeVirtInformer,
 		recorder,
 		vca.clientSet,
+		vca.k8sClient,
 		vca.clusterConfig)
 	if err != nil {
 		panic(err)
@@ -903,7 +915,8 @@ func (vca *VirtControllerApp) initEvacuationController() {
 func (vca *VirtControllerApp) initSnapshotController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
 	vca.snapshotController = &snapshot.VMSnapshotController{
-		Client:                    vca.clientSet,
+		VirtClient:                vca.clientSet,
+		K8sClient:                 vca.k8sClient,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
 		VMInformer:                vca.vmInformer,
@@ -926,7 +939,8 @@ func (vca *VirtControllerApp) initSnapshotController() {
 func (vca *VirtControllerApp) initRestoreController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
 	vca.restoreController = &snapshot.VMRestoreController{
-		Client:                    vca.clientSet,
+		VirtClient:                vca.clientSet,
+		K8sClient:                 vca.k8sClient,
 		VMRestoreInformer:         vca.vmRestoreInformer,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
@@ -948,7 +962,8 @@ func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
 		ManifestRenderer:            vca.templateService,
-		Client:                      vca.clientSet,
+		VirtClient:                  vca.clientSet,
+		K8sClient:                   vca.k8sClient,
 		VMExportInformer:            vca.vmExportInformer,
 		PVCInformer:                 vca.persistentVolumeClaimInformer,
 		PodInformer:                 vca.allPodInformer,
@@ -1140,7 +1155,7 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 			virtconfig.DefaultVirtControllerQPS,
 			virtconfig.DefaultVirtControllerBurst)
 
-	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	k8sClient, err := kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		return
 	}
@@ -1148,8 +1163,8 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
 		vca.kubevirtNamespace,
 		leaderelectionconfig.DefaultLeaseName,
-		clientSet.CoreV1(),
-		clientSet.CoordinationV1(),
+		k8sClient.CoreV1(),
+		k8sClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      vca.host,
 			EventRecorder: vca.newRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultLeaseName),

@@ -39,6 +39,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -133,14 +134,15 @@ var _ = Describe("Application", func() {
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 
 		var qemuGid int64 = 107
+		k8sClient := k8sfake.NewSimpleClientset()
 
 		app.vmiInformer = vmiInformer
 		app.nodeTopologyUpdater = topologyUpdater
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, nil, "test")
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
-		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+		app.nodeController, _ = node.NewController(virtClient, k8sClient, nodeInformer, vmiInformer, recorder)
+		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, k8sClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -149,6 +151,7 @@ var _ = Describe("Application", func() {
 			storageClassInformer,
 			recorder,
 			virtClient,
+			k8sClient,
 			dataVolumeInformer,
 			storageProfileInformer,
 			cdiInformer,
@@ -177,6 +180,7 @@ var _ = Describe("Application", func() {
 			crInformer,
 			recorder,
 			virtClient,
+			k8sClient,
 			config,
 			nil,
 			nil,
@@ -184,7 +188,7 @@ var _ = Describe("Application", func() {
 			[]string{},
 			[]string{},
 		)
-		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, k8sClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -197,11 +201,13 @@ var _ = Describe("Application", func() {
 			kvInformer,
 			recorder,
 			virtClient,
+			k8sClient,
 			config,
 			stubNetworkAnnotationsGenerator{},
 		)
 		app.snapshotController = &snapshot.VMSnapshotController{
-			Client:                    virtClient,
+			VirtClient:                virtClient,
+			K8sClient:                 k8sClient,
 			VMSnapshotInformer:        vmSnapshotInformer,
 			VMSnapshotContentInformer: vmSnapshotContentInformer,
 			VMInformer:                vmInformer,
@@ -217,7 +223,8 @@ var _ = Describe("Application", func() {
 		}
 		_ = app.snapshotController.Init()
 		app.restoreController = &snapshot.VMRestoreController{
-			Client:                    virtClient,
+			VirtClient:                virtClient,
+			K8sClient:                 k8sClient,
 			VMRestoreInformer:         vmRestoreInformer,
 			VMSnapshotInformer:        vmSnapshotInformer,
 			VMSnapshotContentInformer: vmSnapshotContentInformer,
@@ -230,8 +237,9 @@ var _ = Describe("Application", func() {
 		}
 		_ = app.restoreController.Init()
 		app.exportController = &export.VMExportController{
-			Client:                      virtClient,
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			VirtClient:                  virtClient,
+			K8sClient:                   k8sClient,
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, k8sClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			VMExportInformer:            vmExportInformer,
 			PVCInformer:                 pvcInformer,
 			PodInformer:                 podInformer,

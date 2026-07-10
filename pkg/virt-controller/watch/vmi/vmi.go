@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -61,7 +62,8 @@ func NewController(templateService templateService,
 	migrationInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	dataVolumeInformer cache.SharedIndexInformer,
 	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
@@ -90,7 +92,8 @@ func NewController(templateService templateService,
 		pvcIndexer:                        pvcInformer.GetIndexer(),
 		migrationIndexer:                  migrationInformer.GetIndexer(),
 		recorder:                          recorder,
-		clientset:                         clientset,
+		virtClient:                        virtClient,
+		k8sClient:                         k8sClient,
 		podExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		pvcExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -100,7 +103,7 @@ func NewController(templateService templateService,
 		clusterConfig:                     clusterConfig,
 		topologyHinter:                    topologyHinter,
 		cidsMap:                           vsock.NewCIDsMap(),
-		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		backendStorage:                    backendstorage.NewBackendStorage(k8sClient, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
 		storageAnnotationsGenerator:       storageAnnotationsGenerator,
 		updateNetworkStatus:               netStatusUpdater,
@@ -212,7 +215,8 @@ type migrationEvaluator interface {
 
 type Controller struct {
 	templateService                   templateService
-	clientset                         kubecli.KubevirtClient
+	virtClient                        kubecli.KubevirtClient
+	k8sClient                         kubernetes.Interface
 	Queue                             workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer                        cache.Indexer
 	vmStore                           cache.Store
@@ -322,7 +326,7 @@ func (c *Controller) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(vmi)
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
+		_, err = c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
