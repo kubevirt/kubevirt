@@ -30,6 +30,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -106,6 +107,7 @@ type VirtualMachineController struct {
 	deviceManagerController  *deviceManager.DeviceController
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
+	lastSeenPanicCount       sync.Map
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
@@ -1072,6 +1074,8 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 		return err
 	}
 
+	c.emitPanicMetricIfNeeded(domain, vmi)
+
 	// Update conditions on VMI Status
 	err = c.updateVMIConditions(vmi, domain, condManager)
 	if err != nil {
@@ -1522,6 +1526,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	vmiId := string(vmi.UID)
 
 	c.logger.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
+	c.lastSeenPanicCount.Delete(vmiId)
 
 	c.migrationProxy.StopTargetListener(vmiId)
 	c.migrationProxy.StopSourceListener(vmiId)
@@ -2142,33 +2147,34 @@ func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 	if err != nil {
 		return err
 	}
-	if phase == v1.Failed && vmi.Status.Phase != v1.Failed {
-		panicInfo := c.getGuestPanicInfo(domain, vmi)
-		if panicInfo != nil {
-			panicType := "unknown"
-			if panicInfo.Type != "" {
-				panicType = panicInfo.Type
-			}
-			bugcheckCode := panicInfo.Arg1
-			vhmetrics.IncGuestOSPanic(vmi.Namespace, vmi.Name, panicType, bugcheckCode)
-		}
-	}
 	vmi.Status.Phase = phase
 	return nil
 }
 
-func (c *VirtualMachineController) getGuestPanicInfo(domain *api.Domain, vmi *v1.VirtualMachineInstance) *api.GuestPanicInfo {
-	if domain != nil {
-		return domain.Status.GuestPanicInfo
+// emitPanicMetricIfNeeded increments the panic metric once per new panic event.
+// We increment by 1 rather than by the delta (PanicCount - lastSeen) to avoid
+// over-counting on virt-handler restart: the Prometheus counter resets to 0 but
+// PanicCount persists, so a delta-based approach would re-count old panics.
+func (c *VirtualMachineController) emitPanicMetricIfNeeded(domain *api.Domain, vmi *v1.VirtualMachineInstance) {
+	if domain == nil || domain.Status.PanicCount == 0 {
+		return
 	}
-	obj, exists, err := c.domainStore.GetByKey(controller.VirtualMachineInstanceKey(vmi))
-	if err != nil || !exists {
-		return nil
+
+	key := string(vmi.UID)
+	if val, ok := c.lastSeenPanicCount.Load(key); ok && val.(int) >= domain.Status.PanicCount {
+		return
 	}
-	if d, ok := obj.(*api.Domain); ok {
-		return d.Status.GuestPanicInfo
+	c.lastSeenPanicCount.Store(key, domain.Status.PanicCount)
+
+	panicType := "unknown"
+	var bugcheckCode uint64
+	if info := domain.Status.GuestPanicInfo; info != nil {
+		if info.Type != "" {
+			panicType = info.Type
+		}
+		bugcheckCode = info.Arg1
 	}
-	return nil
+	vhmetrics.IncGuestOSPanic(vmi.Namespace, vmi.Name, panicType, bugcheckCode)
 }
 
 func vmiHasTerminationGracePeriod(vmi *v1.VirtualMachineInstance) bool {
