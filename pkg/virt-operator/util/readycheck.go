@@ -80,46 +80,50 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 	return podsReady >= daemonset.Status.DesiredNumberScheduled
 }
 
+// deploymentProgressingReasonComplete is the Reason the k8s deployment controller
+// sets on the Progressing condition when a rollout has reached its desired replica count.
+// It is not exported as a typed constant in k8s.io/api/apps/v1.
+const deploymentProgressingReasonComplete = "NewReplicaSetAvailable"
+
 func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
-	// ensure we're looking at the latest deployment from cache
 	obj, exists, _ := stores.DeploymentCache.Get(deployment)
-	if exists {
-		deployment = obj.(*appsv1.Deployment)
-	} else {
-		// not in cache yet
+	if !exists {
+		return false
+	}
+	deployment = obj.(*appsv1.Deployment)
+
+	// Conditions in Status reflect the state as of ObservedGeneration. If the spec
+	// has been updated (Generation incremented) but the controller hasn't reconciled
+	// yet, conditions are stale and must not be trusted.
+	if deployment.Status.ObservedGeneration < deployment.Generation {
+		log.Log.V(4).Infof("Deployment %v conditions are stale (generation mismatch)", deployment.Name)
 		return false
 	}
 
-	if deployment.Status.Replicas == 0 || deployment.Status.ReadyReplicas == 0 {
-		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
+	if deployment.Annotations[v1.InstallStrategyVersionAnnotation] != kv.Status.TargetKubeVirtVersion ||
+		deployment.Annotations[v1.InstallStrategyRegistryAnnotation] != kv.Status.TargetKubeVirtRegistry ||
+		deployment.Annotations[v1.InstallStrategyIdentifierAnnotation] != kv.Status.TargetDeploymentID {
+		log.Log.V(4).Infof("Deployment %v not at target version yet", deployment.Name)
 		return false
 	}
 
-	// cross check that we have 'deployment.Status.ReadyReplicas' pods with
-	// the desired version tag. This ensures we wait for rolling update to complete
-	// before marking the infrastructure as 100% ready.
-	var podsReady int32
-	for _, obj := range stores.InfrastructurePodCache.List() {
-		if pod, ok := obj.(*k8sv1.Pod); ok {
-			if !podIsRunning(pod) {
-				continue
-			} else if !podHasNamePrefix(pod, deployment.Name) {
-				continue
-			}
-
-			if !PodIsUpToDate(pod, kv) {
-				log.Log.Infof("Deployment %v waiting for out of date pods to terminate.", deployment.Name)
-				return false
-			}
-
-			if PodIsReady(pod) {
-				podsReady++
-			}
+	// Require both rollout completion and current availability. Progressing=True/NewReplicaSetAvailable
+	// is set once when the rollout finishes and never resets if pods subsequently crash-loop.
+	// Available=True confirms pods are currently healthy.
+	var rolloutComplete, currentlyAvailable bool
+	for _, c := range deployment.Status.Conditions {
+		switch {
+		case c.Type == appsv1.DeploymentProgressing &&
+			c.Status == k8sv1.ConditionTrue &&
+			c.Reason == deploymentProgressingReasonComplete:
+			rolloutComplete = true
+		case c.Type == appsv1.DeploymentAvailable &&
+			c.Status == k8sv1.ConditionTrue:
+			currentlyAvailable = true
 		}
 	}
-
-	if podsReady == 0 {
-		log.Log.Infof("Deployment %v not ready yet. Waiting for at least one pod to become ready", deployment.Name)
+	if !rolloutComplete || !currentlyAvailable {
+		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
 		return false
 	}
 	return true
