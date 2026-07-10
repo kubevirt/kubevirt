@@ -170,6 +170,11 @@ if [ -n "$ARTIFACTS" ]; then
     fi
 fi
 
+# mount bazel cache GCS credentials if available
+if [ -n "${BAZEL_CACHE_GOOGLE_CREDENTIALS-}" ] && [ -f "${BAZEL_CACHE_GOOGLE_CREDENTIALS}" ]; then
+    volumes="$volumes -v ${BAZEL_CACHE_GOOGLE_CREDENTIALS}:${BAZEL_CACHE_GOOGLE_CREDENTIALS}:ro${selinux_bind_options}"
+fi
+
 # Ensure that a bazel server which is running is the correct one
 if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
