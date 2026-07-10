@@ -85,6 +85,9 @@ var _ = Describe("VirtualMachine", func() {
 
 		BeforeEach(func() {
 			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+			k8sClient = k8sfake.NewSimpleClientset()
+			// instancetype package still accesses AppsV1 through virtClient
+			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtFakeClient = fake.NewSimpleClientset()
 			// enable /status, this assumes that no other reactor will be prepend.
 			// if you need to prepend reactor it need to not handle the object or use the
@@ -147,6 +150,7 @@ var _ = Describe("VirtualMachine", func() {
 				crInformer,
 				recorder,
 				virtClient,
+				k8sClient,
 				config,
 				nil,
 				nil,
@@ -176,11 +180,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(action).To(BeNil())
 				return true, nil, nil
 			})
-
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 		})
 
 		// TODO: We need to make sure the action was triggered
@@ -2065,7 +2064,7 @@ var _ = Describe("VirtualMachine", func() {
 					crName, err := controller.createVMRevision(vm)
 					Expect(err).ToNot(HaveOccurred())
 
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
+					_, err = k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					vmi.Status.VirtualMachineRevisionName = crName
@@ -4745,9 +4744,6 @@ var _ = Describe("VirtualMachine", func() {
 				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
-				k8sClient = k8sfake.NewSimpleClientset()
-				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-
 				instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 				instancetypeInformerStore = instancetypeInformer.GetStore()
 
@@ -4855,7 +4851,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
 
-				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				vmRevision, err := k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRevision).ToNot(BeNil())
@@ -4913,7 +4909,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
 
-				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				vmRevision, err := k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRevision).ToNot(BeNil())
@@ -7549,6 +7545,7 @@ var _ = Describe("VirtualMachine", func() {
 		var (
 			ctrl           *gomock.Controller
 			virtClient     *kubecli.MockKubevirtClient
+			k8sClient      *k8sfake.Clientset
 			fakeClientset  *fake.Clientset
 			pvcStore       cache.Store
 			testController *Controller
@@ -7558,6 +7555,9 @@ var _ = Describe("VirtualMachine", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			k8sClient = k8sfake.NewSimpleClientset()
+			// instancetype package still accesses AppsV1 through virtClient
+			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			fakeClientset = fake.NewSimpleClientset()
 			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -7584,6 +7584,7 @@ var _ = Describe("VirtualMachine", func() {
 				crInformer,
 				record.NewFakeRecorder(100),
 				virtClient,
+				k8sfake.NewSimpleClientset(),
 				config,
 				nil,
 				nil,

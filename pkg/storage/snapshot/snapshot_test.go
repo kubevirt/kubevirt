@@ -379,8 +379,11 @@ var _ = Describe("Snapshot controlleer", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
+			k8sClient = k8sfake.NewSimpleClientset()
+
 			controller = &VMSnapshotController{
-				Client:                    virtClient,
+				VirtClient:                virtClient,
+				K8sClient:                 k8sClient,
 				VMSnapshotInformer:        vmSnapshotInformer,
 				VMSnapshotContentInformer: vmSnapshotContentInformer,
 				VMInformer:                vmInformer,
@@ -422,10 +425,6 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			k8sSnapshotClient = k8ssnapshotfake.NewSimpleClientset()
 			virtClient.EXPECT().KubernetesSnapshotClient().Return(k8sSnapshotClient).AnyTimes()
-
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().StorageV1().Return(k8sClient.StorageV1()).AnyTimes()
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 			k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
