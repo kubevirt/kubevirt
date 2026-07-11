@@ -114,6 +114,10 @@ const (
 	// SourcePVCNotAvailabe is added in an event when the source PVC of a valid
 	// clone Datavolume doesn't exist
 	SourcePVCNotAvailabe = "SourcePVCNotAvailabe"
+
+	// DataVolumeNotOwnedByVM is added in an event when a VM's DVTemplate attempts to create
+	// a DataVolume that already exists and is not already owned by the VM.
+	DataVolumeNotOwnedByVM = "DataVolumeNotOwnedByVM"
 )
 
 const (
@@ -431,7 +435,16 @@ func (c *Controller) execute(key string) error {
 	}
 
 	if len(dataVolumes) != 0 {
-		dataVolumes, err = cm.ClaimMatchedDataVolumes(dataVolumes)
+		match := func(obj metav1.Object) bool {
+			if c.clusterConfig.DataVolumeOwnershipProtectionEnabled() {
+				dataVolume := obj.(*cdiv1.DataVolume)
+				_, ok := dataVolume.Labels[virtv1.CreatedByLabel]
+				return ok
+			} else {
+				return true
+			}
+		}
+		dataVolumes, err = cm.ClaimMatchedDataVolumes(dataVolumes, match)
 		if err != nil {
 			return err
 		}
@@ -509,6 +522,21 @@ func (c *Controller) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *
 	return nil
 }
 
+func (c *Controller) checkDataVolumeOwnership(vm *virtv1.VirtualMachine, curDataVolume *cdiv1.DataVolume) error {
+	if len(curDataVolume.OwnerReferences) == 0 {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, DataVolumeNotOwnedByVM, "Standalone DataVolume %s already exists", curDataVolume.Name)
+		return fmt.Errorf("requested DataVolume %s already exists as standalone one", curDataVolume.Name)
+	}
+
+	owner := curDataVolume.OwnerReferences[0]
+	if owner.Name != vm.Name {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, DataVolumeNotOwnedByVM, "DataVolume %s already exists and is not owned by another VM %s", curDataVolume.Name, owner.Name)
+		return fmt.Errorf("requested DataVolume %s is owned by another VM %s", curDataVolume.Name, owner.Name)
+	}
+
+	return nil
+}
+
 func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) {
 	ready := true
 	vmKey, err := controller.KeyFunc(vm)
@@ -554,6 +582,13 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
 		} else {
+			if c.clusterConfig.DataVolumeOwnershipProtectionEnabled() {
+				err := c.checkDataVolumeOwnership(vm, curDataVolume)
+				if err != nil {
+					return false, err
+				}
+			}
+
 			switch curDataVolume.Status.Phase {
 			case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
 				continue

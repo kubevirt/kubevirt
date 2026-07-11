@@ -2820,6 +2820,56 @@ var _ = Describe("VirtualMachine", func() {
 			sanityExecute(vm)
 		})
 
+		It("should not adopt a DataVolume that was not created from the VM's template", func() {
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv1",
+					Namespace: vm.Namespace,
+				},
+			})
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			standaloneDV := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv1",
+					Namespace: vm.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Succeeded,
+				},
+			}
+			Expect(controller.dataVolumeStore.Add(standaloneDV)).To(Succeed())
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+			Expect(cond).To(Not(BeNil()))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":    Equal(v1.VirtualMachineFailure),
+				"Reason":  Equal("FailedCreate"),
+				"Message": ContainSubstring("requested DataVolume dv1 already exists as standalone one"),
+				"Status":  Equal(k8sv1.ConditionTrue),
+			}))
+
+			testutils.ExpectEvent(recorder, DataVolumeNotOwnedByVM)
+		})
+
 		It("should detect that it has nothing to do beside updating the status", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 

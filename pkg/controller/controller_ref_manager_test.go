@@ -188,10 +188,12 @@ func newDataVolume(name string, owner metav1.Object) *cdiv1.DataVolume {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
+			Labels:    make(map[string]string),
 		},
 	}
 	if owner != nil {
 		dataVolume.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+		dataVolume.ObjectMeta.Labels[virtv1.CreatedByLabel] = string(owner.GetUID())
 	}
 
 	return dataVolume
@@ -273,6 +275,26 @@ func TestClaimDataVolume(t *testing.T) {
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{datavolumeToDelete1, datavolumeToDelete2},
 				claimed:     []*cdiv1.DataVolume{datavolumeToDelete1},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			standaloneDV := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "datavolume1",
+					Namespace: metav1.NamespaceDefault,
+				},
+			}
+			return test{
+				name: "Controller does not claim orphaned datavolumes without unknown creator",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{standaloneDV},
+				claimed:     nil,
 			}
 		}(),
 	}
