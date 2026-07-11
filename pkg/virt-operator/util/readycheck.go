@@ -20,8 +20,6 @@
 package util
 
 import (
-	"strings"
-
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -30,54 +28,33 @@ import (
 )
 
 func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Stores) bool {
-
-	// ensure we're looking at the latest daemonset from cache
 	obj, exists, _ := stores.DaemonSetCache.Get(daemonset)
-	if exists {
-		daemonset = obj.(*appsv1.DaemonSet)
-	} else {
-		// not in cache yet
+	if !exists {
+		return false
+	}
+	daemonset = obj.(*appsv1.DaemonSet)
+
+	if !DaemonSetIsUpToDate(kv, daemonset) {
+		log.Log.V(4).Infof("DaemonSet %v not at target version yet", daemonset.Name)
 		return false
 	}
 
-	if daemonset.Status.DesiredNumberScheduled == 0 ||
-		daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
+	// Status fields are only reliable once the controller has observed the current spec.
+	if daemonset.Status.ObservedGeneration < daemonset.Generation {
+		log.Log.V(4).Infof("DaemonSet %v controller has not observed current spec", daemonset.Name)
+		return false
+	}
 
+	// NumberAvailable and UpdatedNumberScheduled both exclude misscheduled pods (k8s API guarantee),
+	// so == is safe even when there are extra pods running on tainted nodes.
+	if daemonset.Status.DesiredNumberScheduled == 0 ||
+		daemonset.Status.UpdatedNumberScheduled != daemonset.Status.DesiredNumberScheduled ||
+		daemonset.Status.NumberAvailable != daemonset.Status.DesiredNumberScheduled {
 		log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
 		return false
 	}
 
-	// cross check that we have 'daemonset.Status.NumberReady' pods with
-	// the desired version tag. This ensures we wait for rolling update to complete
-	// before marking the infrastructure as 100% ready.
-	var podsReady int32
-	for _, obj := range stores.InfrastructurePodCache.List() {
-		if pod, ok := obj.(*k8sv1.Pod); ok {
-			if !podIsRunning(pod) {
-				continue
-			} else if !podHasNamePrefix(pod, daemonset.Name) {
-				continue
-			}
-
-			if !PodIsUpToDate(pod, kv) {
-				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate.", daemonset.Name)
-				return false
-			}
-
-			if PodIsReady(pod) {
-				podsReady++
-			}
-		}
-	}
-
-	if podsReady == 0 {
-		log.Log.Infof("DaemonSet %v not ready yet. Waiting for all pods to be ready", daemonset.Name)
-		return false
-	}
-
-	// Misscheduled but up to date daemonset pods will not be evicted unless manually deleted or the daemonset gets updated.
-	// Don't force the Available condition to false or block the upgrade on up-to-date misscheduled pods.
-	return podsReady >= daemonset.Status.DesiredNumberScheduled
+	return true
 }
 
 // deploymentProgressingReasonComplete is the Reason the k8s deployment controller
@@ -137,14 +114,6 @@ func DaemonSetIsUpToDate(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) bool {
 	return daemonSet.Annotations[v1.InstallStrategyVersionAnnotation] == version &&
 		daemonSet.Annotations[v1.InstallStrategyRegistryAnnotation] == registry &&
 		daemonSet.Annotations[v1.InstallStrategyIdentifierAnnotation] == id
-}
-
-func podIsRunning(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodRunning
-}
-
-func podHasNamePrefix(pod *k8sv1.Pod, namePrefix string) bool {
-	return strings.Contains(pod.Name, namePrefix)
 }
 
 func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {

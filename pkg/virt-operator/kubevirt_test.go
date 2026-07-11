@@ -1561,6 +1561,7 @@ func (k *KubeVirtTestData) makeDeploymentsReady(config *util.KubeVirtDeploymentC
 		deplNew.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
 		deplNew.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
 		deplNew.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
+		deplNew.Status.ObservedGeneration = deplNew.Generation
 		deplNew.Status.Conditions = []appsv1.DeploymentCondition{
 			{
 				Type:   appsv1.DeploymentProgressing,
@@ -1634,6 +1635,7 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew.Status.NumberReady = 1
 			handlerNew.Status.NumberAvailable = 1
 			handlerNew.Status.UpdatedNumberScheduled = 1
+			handlerNew.Status.ObservedGeneration = handlerNew.Generation
 			maxUnavailable := intstr.FromInt(1)
 			handlerNew.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 				MaxUnavailable: &maxUnavailable,
