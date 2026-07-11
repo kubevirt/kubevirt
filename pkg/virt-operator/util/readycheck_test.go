@@ -31,6 +31,98 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+var _ = Describe("DaemonsetIsReady", func() {
+	const (
+		targetVersion  = "1.0.0"
+		targetRegistry = "registry.example.com"
+		targetID       = "abc123"
+	)
+
+	var (
+		kv        *v1.KubeVirt
+		daemonset *appsv1.DaemonSet
+	)
+
+	targetAnnotations := map[string]string{
+		v1.InstallStrategyVersionAnnotation:    targetVersion,
+		v1.InstallStrategyRegistryAnnotation:   targetRegistry,
+		v1.InstallStrategyIdentifierAnnotation: targetID,
+	}
+
+	BeforeEach(func() {
+		kv = &v1.KubeVirt{
+			Status: v1.KubeVirtStatus{
+				TargetKubeVirtVersion:  targetVersion,
+				TargetKubeVirtRegistry: targetRegistry,
+				TargetDeploymentID:     targetID,
+			},
+		}
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "virt-handler",
+				Namespace:   "kubevirt",
+				Annotations: targetAnnotations,
+			},
+			Status: appsv1.DaemonSetStatus{
+				DesiredNumberScheduled: 3,
+				UpdatedNumberScheduled: 3,
+				NumberReady:            3,
+			},
+		}
+	})
+
+	storeWith := func(obj interface{}) cache.Store {
+		s := cache.NewStore(cache.MetaNamespaceKeyFunc)
+		if obj != nil {
+			Expect(s.Add(obj)).To(Succeed())
+		}
+		return s
+	}
+
+	stores := func(ds *appsv1.DaemonSet) Stores {
+		return Stores{DaemonSetCache: storeWith(ds)}
+	}
+
+	DescribeTable("status and version checks",
+		func(mutate func(*appsv1.DaemonSet), expectedReady bool) {
+			if mutate != nil {
+				mutate(daemonset)
+			}
+			Expect(DaemonsetIsReady(kv, daemonset, stores(daemonset))).To(Equal(expectedReady))
+		},
+		Entry("all conditions met",
+			nil, true),
+		Entry("annotations behind target version",
+			func(ds *appsv1.DaemonSet) {
+				ds.Annotations[v1.InstallStrategyVersionAnnotation] = "0.9.9"
+			}, false),
+		Entry("ObservedGeneration behind Generation (controller not yet reconciled)",
+			func(ds *appsv1.DaemonSet) {
+				ds.Generation = 5
+				ds.Status.ObservedGeneration = 4
+			}, false),
+		Entry("DesiredNumberScheduled is zero (no schedulable nodes)",
+			func(ds *appsv1.DaemonSet) {
+				ds.Status.DesiredNumberScheduled = 0
+				ds.Status.UpdatedNumberScheduled = 0
+				ds.Status.NumberReady = 0
+			}, false),
+		Entry("UpdatedNumberScheduled behind (rollout in progress)",
+			func(ds *appsv1.DaemonSet) {
+				ds.Status.UpdatedNumberScheduled = 2
+			}, false),
+		Entry("NumberReady behind (pods not yet ready)",
+			func(ds *appsv1.DaemonSet) {
+				ds.Status.NumberReady = 2
+			}, false),
+	)
+
+	It("returns false when DaemonSet is not in cache", func() {
+		emptyStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+		Expect(DaemonsetIsReady(kv, daemonset, Stores{DaemonSetCache: emptyStore})).To(BeFalse())
+	})
+})
+
 var _ = Describe("DeploymentIsReady", func() {
 	const (
 		targetVersion  = "1.0.0"
