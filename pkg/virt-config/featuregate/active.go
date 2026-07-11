@@ -271,6 +271,14 @@ const (
 	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
 	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
 	FirmwareAutoSelection = "FirmwareAutoSelection"
+
+	// Owner: sig-compute / @nhoriguchi
+	// Alpha: v1.10.0
+	//
+	// DataVolumeOwnershipProtection enables strict isolation of ownership handling
+	// for DataVolume, ensuring that existing DataVolumes are never reused by
+	// subsequent VM creation with dataVolumeTemplates.
+	DataVolumeOwnershipProtection = "DataVolumeOwnershipProtection"
 )
 
 func init() {
@@ -320,4 +328,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DataVolumeOwnershipProtection, State: Alpha})
 }

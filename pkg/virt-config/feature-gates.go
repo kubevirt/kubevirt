@@ -248,3 +248,7 @@ func (config *ClusterConfig) IOMMUFDEnabled() bool {
 func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
 }
+
+func (config *ClusterConfig) DataVolumeOwnershipProtectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DataVolumeOwnershipProtection)
+}
