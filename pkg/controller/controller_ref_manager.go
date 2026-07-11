@@ -340,8 +340,7 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 	var errlist []error
 
 	match := func(obj metav1.Object) bool {
-		return true
-
+		return m.MatchDataVolume(obj.(*cdiv1.DataVolume))
 	}
 	adopt := func(obj metav1.Object) error {
 		return m.AdoptDataVolume(obj.(*cdiv1.DataVolume))
@@ -501,6 +500,13 @@ func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vm *virtv1.Vi
 		}
 	}
 	return err
+}
+
+// MatchDataVolume chooses dataVolumes maintained by dataVolumeTemplates to exclude
+// statically created ones.
+func (m *VirtualMachineControllerRefManager) MatchDataVolume(dataVolume *cdiv1.DataVolume) bool {
+	_, ok := dataVolume.Labels[virtv1.CreatedByLabel]
+	return ok
 }
 
 // AdoptDataVolume sends a patch to take control of the dataVolume. It returns the error if
