@@ -2738,7 +2738,6 @@ const (
 	// Whether all resources were created and up-to-date
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 
-	// Conditions for HCO, see https://github.com/kubevirt/hyperconverged-cluster-operator/blob/master/docs/conditions.md
 	// Whether KubeVirt is functional and available in the cluster.
 	KubeVirtConditionAvailable KubeVirtConditionType = "Available"
 	// Whether the operator is actively making changes to KubeVirt

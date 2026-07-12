@@ -87,7 +87,7 @@ func UpdateConditionsAvailable(kv *virtv1.KubeVirt) {
 
 func UpdateConditionsFailedExists(kv *virtv1.KubeVirt) {
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
-	// don' t set any other conditions here, so HCO just ignores this KubeVirt CR
+	// don't set any other conditions here, so the managing operator just ignores this KubeVirt CR
 }
 
 func UpdateConditionsFailedError(kv *virtv1.KubeVirt, err error) {
