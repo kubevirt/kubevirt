@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	specs "tags.cncf.io/container-device-interface/specs-go"
 )
 
@@ -35,12 +36,20 @@ const (
 	cdiVendor     = "kubevirt.io"
 	cdiClass      = "hostpath"
 	containerPath = "/var/run/kubevirt/dra/hostpath"
+	qemuUID       = 107
+	qemuGID       = 107
 )
 
 func prepareHostpath(claimName string) (string, error) {
 	path := filepath.Join(baseDir, claimName)
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create directory %s: %w", path, err)
+	}
+	if err := os.Chown(path, qemuUID, qemuGID); err != nil {
+		return "", fmt.Errorf("failed to chown %s: %w", path, err)
+	}
+	if err := selinux.SetFileLabel(path, "system_u:object_r:container_file_t:s0"); err != nil {
+		return "", fmt.Errorf("failed to set SELinux label on %s: %w", path, err)
 	}
 	log.Printf("Created directory: %s", path)
 
