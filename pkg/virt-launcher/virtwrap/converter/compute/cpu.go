@@ -50,41 +50,7 @@ func NewCPUDomainConfigurator(options ...cpuOption) CPUDomainConfigurator {
 func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	c.configureCPUTopology(vmi, domain)
 	c.configureCPUModel(vmi, domain)
-
-	if vmi.Spec.Domain.CPU != nil {
-		// Set VM CPU features
-		existingFeatures := make(map[string]struct{})
-		if vmi.Spec.Domain.CPU.Features != nil {
-			for _, feature := range vmi.Spec.Domain.CPU.Features {
-				existingFeatures[feature.Name] = struct{}{}
-				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
-					Name:   feature.Name,
-					Policy: feature.Policy,
-				})
-			}
-		}
-
-		/*
-						Libvirt validation fails when a CPU model is usable
-						by QEMU but lacks features listed in
-						`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
-						To avoid the validation error mentioned above we can disable
-						deprecated features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files.
-						Examples of validation error:
-			    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283 - resolve by obsolete Opteron_G2
-						https://gitlab.com/libvirt/libvirt/-/issues/304 - resolve by disabling mpx which is deprecated
-						Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
-						once the issue is resolved we can remove mpx disablement
-		*/
-
-		_, exists := existingFeatures["mpx"]
-		if c.requiresMPXCPUValidation && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
-			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
-				Name:   "mpx",
-				Policy: "disable",
-			})
-		}
-	}
+	c.configureCPUFeatures(vmi, domain)
 
 	if c.isMemfdSupported && isMemfdRequired(vmi) && (vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.NUMA == nil) {
 		memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
@@ -155,6 +121,42 @@ func (c CPUDomainConfigurator) configureCPUModel(vmi *v1.VirtualMachineInstance,
 		domain.Spec.CPU.Model = "max"
 	} else {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
+	}
+}
+
+func (c CPUDomainConfigurator) configureCPUFeatures(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if vmi.Spec.Domain.CPU == nil {
+		return
+	}
+
+	existingFeatures := make(map[string]struct{})
+	for _, feature := range vmi.Spec.Domain.CPU.Features {
+		existingFeatures[feature.Name] = struct{}{}
+		domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+			Name:   feature.Name,
+			Policy: feature.Policy,
+		})
+	}
+
+	/*
+					Libvirt validation fails when a CPU model is usable
+					by QEMU but lacks features listed in
+					`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
+					To avoid the validation error mentioned above we can disable
+					deprecated features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files.
+					Examples of validation error:
+		    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283 - resolve by obsolete Opteron_G2
+					https://gitlab.com/libvirt/libvirt/-/issues/304 - resolve by disabling mpx which is deprecated
+					Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
+					once the issue is resolved we can remove mpx disablement
+	*/
+
+	_, exists := existingFeatures["mpx"]
+	if c.requiresMPXCPUValidation && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+		domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+			Name:   "mpx",
+			Policy: "disable",
+		})
 	}
 }
 
