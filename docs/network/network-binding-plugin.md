@@ -519,3 +519,12 @@ To avoid conflicts, place additional sockets in a subdirectory under `/var/run/k
 
 Note: Some plugins may need to know the path accessible from the compute container for a specific sidecar.
 In such case, use `/var/run/kubevirt-hooks/<sidecar container name>`. The sidecar's container name can be obtained from the `CONTAINER_NAME` environment variable.
+
+## Network Binding Plugin Name
+
+KubeVirt sets the `NETWORK_BINDING_PLUGIN_NAME` environment variable on sidecar containers.
+Its value is the name under which the binding plugin was registered in the KubeVirt CR.
+
+The sidecar can use this value to identify the VMI interface it should configure, by matching it against `iface.Binding.Name` in the VMI spec.
+
+This allows a single sidecar image to serve multiple binding plugin registrations that use different names.
