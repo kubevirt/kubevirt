@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	"k8s.io/apimachinery/pkg/types"
 	specs "tags.cncf.io/container-device-interface/specs-go"
 
@@ -39,6 +40,8 @@ const (
 	cdiVendor     = "kubevirt.io"
 	cdiClass      = "vhostuser"
 	containerPath = "/var/run/kubevirt/dra/vhostuser"
+	qemuUID       = 107
+	qemuGID       = 107
 )
 
 // cdiSpecPath returns the CDI spec file for a single claim. The claim UID is part
@@ -60,6 +63,12 @@ func prepareHostpath(claimUID types.UID) (string, error) {
 	hostPath := hostPathFor(claimUID)
 	if err := os.MkdirAll(hostPath, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create directory %s: %w", hostPath, err)
+	}
+	if err := os.Chown(hostPath, qemuUID, qemuGID); err != nil {
+		return "", fmt.Errorf("failed to chown %s: %w", hostPath, err)
+	}
+	if err := selinux.SetFileLabel(hostPath, "system_u:object_r:container_file_t:s0"); err != nil {
+		return "", fmt.Errorf("failed to set SELinux label on %s: %w", hostPath, err)
 	}
 
 	return hostPath, nil
