@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "driver.go",
+        "hostpath.go",
+        "registration.go",
+        "resourceslice.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/pkg/driver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/dra/v1:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/pluginregistration/v1:go_default_library",
+    ],
+)
