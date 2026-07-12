@@ -241,6 +241,8 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			_, err = fmt.Sscanf(fstatOutput, "%d %d", &freeBlocks, &ioBlockSize)
 			Expect(err).ToNot(HaveOccurred())
 			freeSize := freeBlocks * ioBlockSize
+			err = virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
