@@ -280,7 +280,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    50,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to send domain notify event\. closing connection\.","pos":"client.go.*"reason":"rpc error: code = (Unavailable desc = connection error:.*(connection reset by peer|connection refused)|Unavailable desc = error reading from server: read unix .*domain-notify-pipe\.sock: read: connection reset by peer|DeadlineExceeded desc = context deadline exceeded)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to send domain notify event|failed to notify domain event)\. closing connection\.","pos":"client.go.*"reason":"rpc error: code = (Unavailable desc = connection error:.*(connection reset by peer|connection refused)|Unavailable desc = error reading from server: read unix .*domain-notify-pipe\.sock: read: connection reset by peer|DeadlineExceeded desc = context deadline exceeded)`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
