@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "api.pb.go",
+        "api_grpc.pb.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kubelet/pkg/apis/dra-health/v1alpha1",
+    importpath = "k8s.io/kubelet/pkg/apis/dra-health/v1alpha1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
+        "//vendor/google.golang.org/grpc/status:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+    ],
+)
