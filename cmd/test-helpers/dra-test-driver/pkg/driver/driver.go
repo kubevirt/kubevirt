@@ -21,7 +21,7 @@ package driver
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	drav1 "k8s.io/kubelet/pkg/apis/dra/v1"
 )
@@ -35,18 +35,25 @@ func New() *Driver {
 }
 
 func (d *Driver) NodePrepareResources(ctx context.Context, req *drav1.NodePrepareResourcesRequest) (*drav1.NodePrepareResourcesResponse, error) {
-	log.Println("NodePrepareResources called")
 	resp := &drav1.NodePrepareResourcesResponse{Claims: make(map[string]*drav1.NodePrepareResourceResponse)}
 	for _, claim := range req.Claims {
-		resp.Claims[claim.UID] = &drav1.NodePrepareResourceResponse{}
+		cdiDeviceID, err := prepareHostpath(claim.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare claim %s: %w", claim.Name, err)
+		}
+		resp.Claims[claim.UID] = &drav1.NodePrepareResourceResponse{
+			Devices: []*drav1.Device{{
+				CDIDeviceIDs: []string{cdiDeviceID},
+			}},
+		}
 	}
 	return resp, nil
 }
 
 func (d *Driver) NodeUnprepareResources(ctx context.Context, req *drav1.NodeUnprepareResourcesRequest) (*drav1.NodeUnprepareResourcesResponse, error) {
-	log.Println("NodeUnprepareResources called")
 	resp := &drav1.NodeUnprepareResourcesResponse{Claims: make(map[string]*drav1.NodeUnprepareResourceResponse)}
 	for _, claim := range req.Claims {
+		unprepareHostpath(claim.Name)
 		resp.Claims[claim.UID] = &drav1.NodeUnprepareResourceResponse{}
 	}
 	return resp, nil
