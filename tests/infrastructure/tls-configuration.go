@@ -70,7 +70,7 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 			verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
 		})
 
-	It("[QUARANTINE]should enforce TLS configuration on virt-template components", decorators.Quarantine, func() {
+	It("should enforce TLS configuration on virt-template components", func() {
 		podsToTest := listPods(
 			"app.kubernetes.io/name=virt-template,control-plane=apiserver",
 			"app.kubernetes.io/name=virt-template,control-plane=controller-manager",
