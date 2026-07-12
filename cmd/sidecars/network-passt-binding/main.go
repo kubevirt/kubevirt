@@ -36,7 +36,10 @@ import (
 	srv "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/server"
 )
 
-const hookSocket = "passt.sock"
+const (
+	hookSocket               = "passt.sock"
+	defaultBindingPluginName = "passt"
+)
 
 func main() {
 	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, hookSocket)
@@ -52,7 +55,11 @@ func main() {
 	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha3"})
 
 	shutdownChan := make(chan struct{})
-	hooksV1alpha3.RegisterCallbacksServer(server, srv.V1alpha3Server{Done: shutdownChan})
+	bindingPluginName := os.Getenv(hooks.NetworkBindingPluginNameEnvVar)
+	if bindingPluginName == "" {
+		bindingPluginName = defaultBindingPluginName
+	}
+	hooksV1alpha3.RegisterCallbacksServer(server, srv.V1alpha3Server{Done: shutdownChan, BindingPluginName: bindingPluginName})
 	log.Log.Infof("passt sidecar is now exposing its services on socket %s using %q API version", socketPath, "v1alpha3")
 	srv.Serve(server, socket, shutdownChan)
 }
