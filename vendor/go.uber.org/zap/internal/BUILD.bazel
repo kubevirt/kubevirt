@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["level_enabler.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/go.uber.org/zap/internal",
+    importpath = "go.uber.org/zap/internal",
+    visibility = ["//vendor/go.uber.org/zap:__subpackages__"],
+    deps = ["//vendor/go.uber.org/zap/zapcore:go_default_library"],
+)

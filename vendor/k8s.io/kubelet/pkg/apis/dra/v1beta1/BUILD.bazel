@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "api.pb.go",
+        "api_grpc.pb.go",
+        "conversion.go",
+        "conversion_internal.go",
+        "doc.go",
+        "types.go",
+        "zz_generated.conversion.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kubelet/pkg/apis/dra/v1beta1",
+    importpath = "k8s.io/kubelet/pkg/apis/dra/v1beta1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
+        "//vendor/google.golang.org/grpc/status:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/conversion:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/dra/v1:go_default_library",
+    ],
+)
