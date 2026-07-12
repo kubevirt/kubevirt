@@ -1040,7 +1040,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithVirtioSerialModel(virtioModel),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
-		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation(), c.AllowCrossArchEmulation, c.Architecture.IsMemfdSupported()),
+		compute.NewCPUDomainConfigurator(
+			compute.CPUWithHotplugSupported(c.Architecture.SupportCPUHotplug()),
+			compute.CPUWithMPXCPUValidation(c.Architecture.RequiresMPXCPUValidation()),
+			compute.CPUWithCrossArchEmulation(c.AllowCrossArchEmulation),
+			compute.CPUWithMemfdSupported(c.Architecture.IsMemfdSupported()),
+		),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
 		compute.MemoryConfigurator{},
 		compute.NewMemoryBackingConfigurator(c.Architecture.IsMemfdSupported()),

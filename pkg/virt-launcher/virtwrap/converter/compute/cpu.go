@@ -35,13 +35,16 @@ type CPUDomainConfigurator struct {
 	isMemfdSupported         bool
 }
 
-func NewCPUDomainConfigurator(isHotplugSupported, requiresMPXCPUValidation, crossArchEmulation, isMemfdSupported bool) CPUDomainConfigurator {
-	return CPUDomainConfigurator{
-		isHotplugSupported:       isHotplugSupported,
-		requiresMPXCPUValidation: requiresMPXCPUValidation,
-		crossArchEmulation:       crossArchEmulation,
-		isMemfdSupported:         isMemfdSupported,
+type cpuOption func(*CPUDomainConfigurator)
+
+func NewCPUDomainConfigurator(options ...cpuOption) CPUDomainConfigurator {
+	var configurator CPUDomainConfigurator
+
+	for _, f := range options {
+		f(&configurator)
 	}
+
+	return configurator
 }
 
 func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -167,5 +170,29 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+func CPUWithHotplugSupported(isHotplugSupported bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.isHotplugSupported = isHotplugSupported
+	}
+}
+
+func CPUWithMPXCPUValidation(requiresMPXCPUValidation bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.requiresMPXCPUValidation = requiresMPXCPUValidation
+	}
+}
+
+func CPUWithCrossArchEmulation(crossArchEmulation bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.crossArchEmulation = crossArchEmulation
+	}
+}
+
+func CPUWithMemfdSupported(isMemfdSupported bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.isMemfdSupported = isMemfdSupported
 	}
 }
