@@ -238,10 +238,6 @@ func (n *Notifier) updateEvents(event watch.Event, domain *api.Domain, events ch
 	}
 }
 
-func newWatchEventError(err error) watch.Event {
-	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
-}
-
 type eventCaller struct {
 	domainStatus             api.LifeCycle
 	domainStatusChangeReason api.StateChangeReason
@@ -490,8 +486,11 @@ func (n *Notifier) StartDomainNotifier(
 				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 			case <-reconnectChan:
-				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
-
+				log.Log.Infof("Libvirt reconnected, domain %s. Event callbacks re-registered, triggering immediate reconciliation.", domainName)
+				if domainCache != nil {
+					eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
+						interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+				}
 			case <-metadataCache.Listen():
 				// Metadata cache updates should be processed only *after* at least one
 				// libvirt event arrived (which creates the first domainCache).
