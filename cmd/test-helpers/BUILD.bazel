@@ -8,10 +8,20 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
+pkg_tar(
+    name = "dra-test-driver-tar",
+    testonly = True,
+    srcs = ["//cmd/test-helpers/dra-test-driver/cmd:dra-test-driver"],
+    package_dir = "/usr/bin",
+)
+
 kubevirt_image(
     name = "test-helpers-image",
     testonly = True,
     base = "//:passwd-image",
-    tars = [":test-pod-mutator-tar"],
+    tars = [
+        ":test-pod-mutator-tar",
+        ":dra-test-driver-tar",
+    ],
     visibility = ["//visibility:public"],
 )
