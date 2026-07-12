@@ -49,24 +49,9 @@ func NewCPUDomainConfigurator(options ...cpuOption) CPUDomainConfigurator {
 
 func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	c.configureCPUTopology(vmi, domain)
+	c.configureCPUModel(vmi, domain)
 
 	if vmi.Spec.Domain.CPU != nil {
-		// Set VM CPU model and vendor
-		if vmi.Spec.Domain.CPU.Model != "" {
-			isHostCPUMode := vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough
-			if c.crossArchEmulation && isHostCPUMode {
-				// host-passthrough and host-model are incompatible with cross-architecture
-				// TCG emulation. Use "max" which exposes all features QEMU can emulate.
-				domain.Spec.CPU.Mode = "custom"
-				domain.Spec.CPU.Model = "max"
-			} else if isHostCPUMode {
-				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
-			} else {
-				domain.Spec.CPU.Mode = "custom"
-				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
-			}
-		}
-
 		// Set VM CPU features
 		existingFeatures := make(map[string]struct{})
 		if vmi.Spec.Domain.CPU.Features != nil {
@@ -98,15 +83,6 @@ func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 				Name:   "mpx",
 				Policy: "disable",
 			})
-		}
-	}
-
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		if c.crossArchEmulation {
-			domain.Spec.CPU.Mode = "custom"
-			domain.Spec.CPU.Model = "max"
-		} else {
-			domain.Spec.CPU.Mode = v1.CPUModeHostModel
 		}
 	}
 
@@ -154,6 +130,31 @@ func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstan
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+func (c CPUDomainConfigurator) configureCPUModel(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" {
+		isHostCPUMode := vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough
+		if c.crossArchEmulation && isHostCPUMode {
+			// host-passthrough and host-model are incompatible with cross-architecture
+			// TCG emulation. Use "max" which exposes all features QEMU can emulate.
+			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Model = "max"
+		} else if isHostCPUMode {
+			domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
+		} else {
+			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+		}
+		return
+	}
+
+	if c.crossArchEmulation {
+		domain.Spec.CPU.Mode = "custom"
+		domain.Spec.CPU.Model = "max"
+	} else {
+		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
 }
 
