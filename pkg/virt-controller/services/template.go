@@ -875,14 +875,23 @@ func initContainerVolumeMount() k8sv1.VolumeMount {
 }
 
 func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineInstance, resources k8sv1.ResourceRequirements, requestedHookSidecar hooks.HookSidecar, userId int64) *ContainerSpecRenderer {
+	envVars := []k8sv1.EnvVar{
+		{
+			Name:  hooks.ContainerNameEnvVar,
+			Value: sidecarName,
+		},
+	}
+	if requestedHookSidecar.NetworkBindingPluginName != "" {
+		envVars = append(envVars, k8sv1.EnvVar{
+			Name:  hooks.NetworkBindingPluginNameEnvVar,
+			Value: requestedHookSidecar.NetworkBindingPluginName,
+		})
+	}
+
 	sidecarOpts := []Option{
 		WithResourceRequirements(resources),
 		WithArgs(requestedHookSidecar.Args),
-		WithExtraEnvVars([]k8sv1.EnvVar{
-			k8sv1.EnvVar{
-				Name:  hooks.ContainerNameEnvVar,
-				Value: sidecarName,
-			}}),
+		WithExtraEnvVars(envVars),
 	}
 
 	var mounts []k8sv1.VolumeMount
