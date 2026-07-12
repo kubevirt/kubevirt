@@ -20,12 +20,16 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
 
 	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	drav1 "k8s.io/kubelet/pkg/apis/dra/v1"
+
 	"kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/pkg/driver"
 )
 
@@ -39,6 +43,22 @@ const (
 func main() {
 	os.RemoveAll(pluginPath)
 	os.MkdirAll(pluginPath, 0755)
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	nodeName := os.Getenv("NODE_NAME")
+
+	go func() {
+		if err := driver.PublishResourceSlice(context.Background(), clientset, nodeName, driverName); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	go func() {
 		reg := driver.NewRegistrationServer(driverName, socketPath)
