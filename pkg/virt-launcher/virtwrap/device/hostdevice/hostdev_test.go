@@ -333,6 +333,25 @@ var _ = Describe("HostDevice", func() {
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
 
+		It("makes sure that an unset RamFB.Enabled keeps display and ramfb on", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB:   &v1.FeatureState{}, // Enabled unset (nil): must not be dereferenced
+						},
+					}},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+			expectHostDevice1.Display = "on"
+			expectHostDevice1.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+
 		It("makes sure that only one ramfb is configured with 2 vGPU devices", func() {
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},

@@ -50,6 +50,53 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 		Expect(os.WriteFile(filepath.Join(dir, driver+"-metadata.json"), data, 0644)).To(Succeed())
 	}
 
+	// writeMDevClaim writes metadata for a single mdev (vGPU) device under
+	// claim1/req1, keyed by the given mdev UUID.
+	writeMDevClaim := func(uuid string) {
+		createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "DeviceMetadata",
+				APIVersion: metadata.APIVersionV1Alpha1,
+			},
+			ObjectMeta: metav1.ObjectMeta{Name: "claim1"},
+			Requests: []metadata.DeviceMetadataRequest{{
+				Name: "req1",
+				Devices: []metadata.Device{{
+					Driver: "gpu.example.com",
+					Pool:   "gpu-pool",
+					Name:   "device1",
+					Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+						metadata.MDevUUIDAttribute: {StringValue: &uuid},
+					},
+				}},
+			}},
+		})
+	}
+
+	// vgpuVMI builds a VMI with a single vGPU bound to claim1/req1. A nil display
+	// leaves VirtualGPUOptions unset; otherwise the given display options are used.
+	vgpuVMI := func(display *v1.VGPUDisplayOptions) *v1.VirtualMachineInstance {
+		gpu := v1.GPU{
+			Name:         "vgpu1",
+			ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
+		}
+		if display != nil {
+			gpu.VirtualGPUOptions = &v1.VGPUOptions{Display: display}
+		}
+		return &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
+			Spec: v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
+					Name:              "claim1",
+					ResourceClaimName: ptr.To("claim1"),
+				}},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{GPUs: []v1.GPU{gpu}},
+				},
+			},
+		}
+	}
+
 	Context("when the VMI has no GPUs with DRA", func() {
 		It("should return an empty slice without error", func() {
 			vmi := &v1.VirtualMachineInstance{
@@ -134,51 +181,9 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 	Context("when the VMI has a virtual GPU (mdev) allocated through DRA", func() {
 		It("should create exactly one mdev host device with display enabled", func() {
 			uuid := "123e4567-e89b-12d3-a456-426614174000"
+			writeMDevClaim(uuid)
 
-			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "gpu-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
-						},
-					}},
-				}},
-			})
-
-			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-						Name:              "claim1",
-						ResourceClaimName: ptr.To("claim1"),
-					}},
-					Domain: v1.DomainSpec{
-						Devices: v1.Devices{
-							GPUs: []v1.GPU{{
-								Name: "vgpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							}},
-						},
-					},
-				},
-			}
+			vmi := vgpuVMI(nil)
 
 			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
 			Expect(err).ToNot(HaveOccurred())
@@ -194,50 +199,42 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 		})
 
 		It("should not panic and should keep ramfb on when RamFB is present with Enabled unset", func() {
-			uuid := "223e4567-e89b-12d3-a456-426614174000"
+			writeMDevClaim("223e4567-e89b-12d3-a456-426614174000")
 
-			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{Name: "claim1"},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "gpu-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
-						},
-					}},
-				}},
+			vmi := vgpuVMI(&v1.VGPUDisplayOptions{
+				Enabled: ptr.To(true),
+				RamFB:   &v1.FeatureState{Enabled: nil}, // present but unset: used to panic
 			})
 
-			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
-				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-						Name:              "claim1",
-						ResourceClaimName: ptr.To("claim1"),
-					}},
-					Domain: v1.DomainSpec{
-						Devices: v1.Devices{
-							GPUs: []v1.GPU{{
-								Name:         "vgpu1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
-								VirtualGPUOptions: &v1.VGPUOptions{
-									Display: &v1.VGPUDisplayOptions{
-										Enabled: ptr.To(true),
-										RamFB:   &v1.FeatureState{Enabled: nil}, // present but unset: used to panic
-									},
-								},
-							}},
-						},
-					},
-				},
-			}
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevices).To(HaveLen(1))
+			Expect(hostDevices[0].Display).To(Equal("on"))
+			Expect(hostDevices[0].RamFB).To(Equal("on"))
+		})
+
+		It("should keep ramfb off when RamFB.Enabled is false and display is enabled", func() {
+			writeMDevClaim("323e4567-e89b-12d3-a456-426614174000")
+
+			vmi := vgpuVMI(&v1.VGPUDisplayOptions{
+				Enabled: ptr.To(true),
+				RamFB:   &v1.FeatureState{Enabled: ptr.To(false)},
+			})
+
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevices).To(HaveLen(1))
+			Expect(hostDevices[0].Display).To(Equal("on"))
+			Expect(hostDevices[0].RamFB).To(BeEmpty())
+		})
+
+		It("should default display and ramfb to on when both Enabled fields are unset", func() {
+			writeMDevClaim("423e4567-e89b-12d3-a456-426614174000")
+
+			vmi := vgpuVMI(&v1.VGPUDisplayOptions{
+				// Enabled unset (nil)
+				RamFB: &v1.FeatureState{}, // Enabled unset (nil)
+			})
 
 			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
 			Expect(err).ToNot(HaveOccurred())
