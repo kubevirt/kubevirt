@@ -36,10 +36,18 @@ func New() *Driver {
 
 func (d *Driver) NodePrepareResources(ctx context.Context, req *drav1.NodePrepareResourcesRequest) (*drav1.NodePrepareResourcesResponse, error) {
 	log.Println("NodePrepareResources called")
-	return &drav1.NodePrepareResourcesResponse{}, nil
+	resp := &drav1.NodePrepareResourcesResponse{Claims: make(map[string]*drav1.NodePrepareResourceResponse)}
+	for _, claim := range req.Claims {
+		resp.Claims[claim.UID] = &drav1.NodePrepareResourceResponse{}
+	}
+	return resp, nil
 }
 
 func (d *Driver) NodeUnprepareResources(ctx context.Context, req *drav1.NodeUnprepareResourcesRequest) (*drav1.NodeUnprepareResourcesResponse, error) {
 	log.Println("NodeUnprepareResources called")
-	return &drav1.NodeUnprepareResourcesResponse{}, nil
+	resp := &drav1.NodeUnprepareResourcesResponse{Claims: make(map[string]*drav1.NodeUnprepareResourceResponse)}
+	for _, claim := range req.Claims {
+		resp.Claims[claim.UID] = &drav1.NodeUnprepareResourceResponse{}
+	}
+	return resp, nil
 }
