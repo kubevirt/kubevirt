@@ -48,22 +48,7 @@ func NewCPUDomainConfigurator(options ...cpuOption) CPUDomainConfigurator {
 }
 
 func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	// Set VM CPU cores
-	// CPU topology will be created everytime, because user can specify
-	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
-	// in vmi.Spec.Domain.CPU
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
-	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
-		domainVCPUTopologyForHotplug(vmi, domain)
-	}
+	c.configureCPUTopology(vmi, domain)
 
 	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU model and vendor
@@ -140,6 +125,21 @@ func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	return nil
+}
+
+func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	domain.Spec.CPU.Topology = cpuTopology
+	domain.Spec.VCPU = &api.VCPU{
+		Placement: "static",
+		CPUs:      cpuCount,
+	}
+
+	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
+		domainVCPUTopologyForHotplug(vmi, domain)
+	}
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
