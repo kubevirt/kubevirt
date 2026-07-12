@@ -1401,6 +1401,10 @@ k8s.io/kube-openapi/pkg/validation/spec
 ## explicit; go 1.24.0
 k8s.io/kubectl/pkg/cmd/util/podcmd
 k8s.io/kubectl/pkg/util
+# k8s.io/kubelet v0.0.0-00010101000000-000000000000 => k8s.io/kubelet v0.34.2
+## explicit; go 1.24.0
+k8s.io/kubelet/pkg/apis/dra/v1
+k8s.io/kubelet/pkg/apis/pluginregistration/v1
 # k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 ## explicit; go 1.23
 k8s.io/utils/buffer
