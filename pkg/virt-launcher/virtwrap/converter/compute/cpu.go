@@ -51,20 +51,7 @@ func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 	c.configureCPUTopology(vmi, domain)
 	c.configureCPUModel(vmi, domain)
 	c.configureCPUFeatures(vmi, domain)
-
-	if c.isMemfdSupported && isMemfdRequired(vmi) && (vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.NUMA == nil) {
-		memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
-		domain.Spec.CPU.NUMA = &api.NUMA{
-			Cells: []api.NUMACell{
-				{
-					ID:     "0",
-					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-					Memory: &memKiB,
-					Unit:   "KiB",
-				},
-			},
-		}
-	}
+	c.configureSyntheticNUMA(vmi, domain)
 
 	return nil
 }
@@ -157,6 +144,27 @@ func (c CPUDomainConfigurator) configureCPUFeatures(vmi *v1.VirtualMachineInstan
 			Name:   "mpx",
 			Policy: "disable",
 		})
+	}
+}
+
+func (c CPUDomainConfigurator) configureSyntheticNUMA(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if !c.isMemfdSupported || !isMemfdRequired(vmi) {
+		return
+	}
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.NUMA != nil {
+		return
+	}
+
+	memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
+	domain.Spec.CPU.NUMA = &api.NUMA{
+		Cells: []api.NUMACell{
+			{
+				ID:     "0",
+				CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+				Memory: &memKiB,
+				Unit:   "KiB",
+			},
+		},
 	}
 }
 
