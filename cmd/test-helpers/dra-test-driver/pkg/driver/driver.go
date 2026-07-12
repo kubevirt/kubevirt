@@ -34,11 +34,20 @@ type Driver struct{}
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
 	results := make(map[types.UID]kubeletplugin.PrepareResult)
 	for _, claim := range claims {
+		cdiDeviceID, err := prepareHostpath(claim.Name)
+		if err != nil {
+			results[claim.UID] = kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to prepare claim %s: %w", claim.Name, err),
+			}
+			continue
+		}
+
 		var devices []kubeletplugin.Device
 		for _, result := range claim.Status.Allocation.Devices.Results {
 			devices = append(devices, kubeletplugin.Device{
-				PoolName:   result.Pool,
-				DeviceName: result.Device,
+				PoolName:     result.Pool,
+				DeviceName:   result.Device,
+				CDIDeviceIDs: []string{cdiDeviceID},
 			})
 		}
 		results[claim.UID] = kubeletplugin.PrepareResult{Devices: devices}
@@ -49,6 +58,7 @@ func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceap
 func (d *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[types.UID]error, error) {
 	results := make(map[types.UID]error)
 	for _, claim := range claims {
+		unprepareHostpath(claim.Name)
 		results[claim.UID] = nil
 	}
 	return results, nil
