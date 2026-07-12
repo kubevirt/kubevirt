@@ -57,12 +57,13 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 		}
 	}
 
-	for _, pluginInfo := range bindingByName {
+	for bindingName, pluginInfo := range bindingByName {
 		if pluginInfo.SidecarImage != "" {
 			pluginSidecars = append(pluginSidecars, hooks.HookSidecar{
-				Image:           pluginInfo.SidecarImage,
-				ImagePullPolicy: config.ImagePullPolicy,
-				DownwardAPI:     pluginInfo.DownwardAPI,
+				Image:                    pluginInfo.SidecarImage,
+				ImagePullPolicy:          config.ImagePullPolicy,
+				DownwardAPI:              pluginInfo.DownwardAPI,
+				NetworkBindingPluginName: bindingName,
 			})
 		}
 	}
