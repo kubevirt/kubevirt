@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -665,7 +666,7 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(originalVMI.Spec.Domain.Devices.Interfaces))
 	})
 
-	It("sync handles NAD reference updates by copying NAD reference to VMI", func() {
+	DescribeTable("sync handles NAD reference updates", func(migratableStatus k8sv1.ConditionStatus, expectedNADName string) {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 
@@ -674,7 +675,16 @@ var _ = Describe("VM Network Controller", func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: migratableStatus,
+					}),
+				),
+			),
 		)
+
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -691,8 +701,11 @@ var _ = Describe("VM Network Controller", func() {
 			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(updatedVMI.Spec.Networks[1].Multus.NetworkName).To(Equal(updatedNADName1))
-	})
+		Expect(updatedVMI.Spec.Networks[1].Multus.NetworkName).To(Equal(expectedNADName))
+	},
+		Entry("by copying NAD reference to VMI for migratable VM", k8sv1.ConditionTrue, updatedNADName1),
+		Entry("by not copying NAD reference to VMI for non-migratable VM", k8sv1.ConditionFalse, nadName),
+	)
 
 	It("sync handles multiple NAD reference updates", func() {
 		clientset := fake.NewSimpleClientset()
@@ -708,7 +721,16 @@ var _ = Describe("VM Network Controller", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName2, nadName2)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName3, nadName3)),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					}),
+				),
+			),
 		)
+
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})

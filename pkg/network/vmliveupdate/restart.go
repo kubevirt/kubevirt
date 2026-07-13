@@ -38,7 +38,12 @@ func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bo
 	desiredNets := vm.Spec.Template.Spec.Networks
 	currentNets := vmi.Spec.Networks
 
-	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved, haveNetsChangedIgnoringNADName}
+	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved}
+	if vmi.IsMigratable() {
+		netChangePredicates = append(netChangePredicates, haveNetsChangedIgnoringNADName)
+	} else {
+		netChangePredicates = append(netChangePredicates, haveCurrentNetsChanged)
+	}
 
 	return shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces) ||
 		shouldNetsChangeRequireRestart(desiredNets, currentNets, netChangePredicates...)
@@ -114,6 +119,17 @@ func haveCurrentNetsBeenRemoved(desiredNetsByName, currentNetsByName map[string]
 		}
 	}
 
+	return false
+}
+
+func haveCurrentNetsChanged(desiredNetsByName, currentNetsByName map[string]v1.Network) bool {
+	for currentNetName, currentNet := range currentNetsByName {
+		desiredNet := desiredNetsByName[currentNetName]
+
+		if !reflect.DeepEqual(desiredNet, currentNet) {
+			return true
+		}
+	}
 	return false
 }
 
