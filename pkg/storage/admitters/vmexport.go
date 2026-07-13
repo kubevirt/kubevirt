@@ -36,7 +36,6 @@ import (
 	templateapi "kubevirt.io/virt-template-api/core"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -47,13 +46,18 @@ const (
 	vmTemplateKind = "VirtualMachineTemplate"
 )
 
+type vmExportConfigChecker interface {
+	OCIExportEnabled() bool
+	VirtTemplateDeploymentEnabled() bool
+}
+
 // VMExportAdmitter validates VirtualMachineExports
 type VMExportAdmitter struct {
-	Config *virtconfig.ClusterConfig
+	Config vmExportConfigChecker
 }
 
 // NewVMExportAdmitter creates a VMExportAdmitter
-func NewVMExportAdmitter(config *virtconfig.ClusterConfig) *VMExportAdmitter {
+func NewVMExportAdmitter(config vmExportConfigChecker) *VMExportAdmitter {
 	return &VMExportAdmitter{
 		Config: config,
 	}
