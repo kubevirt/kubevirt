@@ -770,12 +770,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				)
 			}
 
-			// No external net resource injection controller in the test environment.
-			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
-				kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-				featuregate.ExternalNetResourceInjection,
-			)
-
 			// Now create the kubevirt CR
 			createKv(kv)
 
