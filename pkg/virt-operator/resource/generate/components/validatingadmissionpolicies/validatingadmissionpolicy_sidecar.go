@@ -76,6 +76,7 @@ func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.Valid
 					Name: "containersHaveSubPath",
 					Expression: `object.spec.containers.all(c,
     c.name == "compute" ||
+    !has(c.volumeMounts) ||
     !c.volumeMounts.exists(vm, vm.name == "kubevirt-plugin-sockets") ||
     c.volumeMounts.filter(vm, vm.name == "kubevirt-plugin-sockets")
         .all(vm, has(vm.subPath) && vm.subPath != ""))`,
@@ -84,6 +85,7 @@ func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.Valid
 					Name: "initContainersHaveSubPath",
 					Expression: `!has(object.spec.initContainers) ||
     object.spec.initContainers.all(c,
+        !has(c.volumeMounts) ||
         !c.volumeMounts.exists(vm, vm.name == "kubevirt-plugin-sockets") ||
         c.volumeMounts.filter(vm, vm.name == "kubevirt-plugin-sockets")
             .all(vm, has(vm.subPath) && vm.subPath != ""))`,
@@ -92,6 +94,7 @@ func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.Valid
 					Name: "ephemeralContainersHaveSubPath",
 					Expression: `!has(object.spec.ephemeralContainers) ||
     object.spec.ephemeralContainers.all(c,
+        !has(c.volumeMounts) ||
         !c.volumeMounts.exists(vm, vm.name == "kubevirt-plugin-sockets") ||
         c.volumeMounts.filter(vm, vm.name == "kubevirt-plugin-sockets")
             .all(vm, has(vm.subPath) && vm.subPath != ""))`,
