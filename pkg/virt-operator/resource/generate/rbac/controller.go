@@ -157,7 +157,7 @@ func newControllerRoleBinding(namespace string) *rbacv1.RoleBinding {
 	}
 }
 
-func baseControllerClusterRole() *rbacv1.ClusterRole {
+func newControllerClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
@@ -610,10 +610,6 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 	}
-}
-
-func newControllerClusterRole() *rbacv1.ClusterRole {
-	return baseControllerClusterRole()
 }
 
 func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
