@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dra-network-test-driver-allow-all
+  namespace: kubevirt
+spec:
+  podSelector:
+    matchLabels:
+      app: dra-network-test-driver
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - {}
+  egress:
+    - {}
