@@ -556,36 +556,23 @@ func (l *Launcher) GetFilesystems(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 
 // Exec the provided command and return it's success
 func (l *Launcher) Exec(ctx context.Context, request *cmdv1.ExecRequest) (*cmdv1.ExecResponse, error) {
-	resp := &cmdv1.ExecResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	stdOut, err := l.domainManager.Exec(request.DomainName, request.Command, request.Args, request.TimeoutSeconds)
-	resp.StdOut = stdOut
 
 	exitCode := agent.ExecExitCode{}
 	if err != nil && !errors.As(err, &exitCode) {
-		resp.Response.Success = false
-		resp.Response.Message = err.Error()
-		return resp, err
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to exec command: %s", err.Error())
 	}
-	resp.ExitCode = int32(exitCode.ExitCode)
 
-	return resp, nil
+	return &cmdv1.ExecResponse{
+		Response: &cmdv1.Response{Success: true},
+		ExitCode: int32(exitCode.ExitCode),
+		StdOut:   stdOut,
+	}, nil
 }
 
 func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingRequest) (*cmdv1.GuestPingResponse, error) {
-	resp := &cmdv1.GuestPingResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
 	err := l.domainManager.GuestPing(request.DomainName)
 	if err != nil {
-		resp.Response.Success = false
-		resp.Response.Message = err.Error()
 		log.Log.Reason(err).Warning("GuestAgentPing probe failed")
 		if l.notifier != nil && l.vmiName != "" {
 			eventMsg := fmt.Sprintf("GuestAgentPing probe failed for VMI %s", l.vmiName)
@@ -595,10 +582,11 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 				log.Log.Reason(sendErr).Warning("Failed to send GuestAgentPingFailed event")
 			}
 		}
-
-		return resp, err
+		return nil, grpcstatus.Errorf(codes.Internal, "guest agent ping failed: %s", err.Error())
 	}
-	return resp, nil
+	return &cmdv1.GuestPingResponse{
+		Response: &cmdv1.Response{Success: true},
+	}, nil
 }
 
 func RunServer(socketPath string,

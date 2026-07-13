@@ -467,12 +467,12 @@ var _ = Describe("Virt remote commands", func() {
 				expectExec().Times(1)
 				server.Exec(context.TODO(), execRequest())
 			})
-			It("returns exec errors in the response", func() {
+			It("returns exec errors as gRPC status", func() {
 				expectExec().Times(1).Return("", testExecErr)
-				resp, err := server.Exec(context.TODO(), execRequest())
+				_, err := server.Exec(context.TODO(), execRequest())
 				Expect(err).To(HaveOccurred())
-				Expect(resp.Response.Success).To(BeFalse())
-				Expect(resp.Response.Message).To(Equal(testExecErr.Error()))
+				Expect(status.Code(err)).To(Equal(codes.Internal))
+				Expect(err.Error()).To(ContainSubstring(testExecErr.Error()))
 			})
 			It("does not return exit code errors", func() {
 				expectExec().Times(1).Return("", agent.ExecExitCode{ExitCode: 1})
@@ -513,12 +513,12 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
-			It("returns errors in the response when notifier is nil", func() {
+			It("returns errors as gRPC status when notifier is nil", func() {
 				expectGuestPing().Times(1).Return(testGuestPingErr)
-				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+				_, err := server.GuestPing(context.TODO(), guestPingRequest())
 				Expect(err).To(HaveOccurred())
-				Expect(resp.Response.Success).To(BeFalse())
-				Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+				Expect(status.Code(err)).To(Equal(codes.Internal))
+				Expect(err.Error()).To(ContainSubstring(testGuestPingErr.Error()))
 			})
 			Context("event handling", func() {
 				var (
@@ -580,10 +580,10 @@ var _ = Describe("Virt remote commands", func() {
 
 				It("sends GuestAgentPingFailed event when guest ping fails", func() {
 					expectGuestPing().Times(1).Return(testGuestPingErr)
-					resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+					_, err := server.GuestPing(context.TODO(), guestPingRequest())
 					Expect(err).To(HaveOccurred())
-					Expect(resp.Response.Success).To(BeFalse())
-					Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+					Expect(status.Code(err)).To(Equal(codes.Internal))
+					Expect(err.Error()).To(ContainSubstring(testGuestPingErr.Error()))
 
 					var event string
 					Eventually(recorder.Events).Should(Receive(&event))
