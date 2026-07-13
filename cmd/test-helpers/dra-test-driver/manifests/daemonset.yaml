@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dra-test-driver
+  namespace: kubevirt
+spec:
+  selector:
+    matchLabels:
+      app: dra-test-driver
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: dra-test-driver
+    spec:
+      priorityClassName: system-node-critical
+      serviceAccountName: dra-test-driver
+      containers:
+      - name: plugin
+        image: registry:5000/kubevirt/test-helpers:devel
+        imagePullPolicy: Always
+        command: ["/usr/bin/dra-test-driver"]
+        securityContext:
+          privileged: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: kubelet-plugins
+          mountPath: /var/lib/kubelet/plugins
+        - name: kubelet-plugins-registry
+          mountPath: /var/lib/kubelet/plugins_registry
+        - name: dra-hostpath
+          mountPath: /var/run/kubevirt/dra
+        - name: cdi
+          mountPath: /var/run/cdi
+      volumes:
+      - name: kubelet-plugins
+        hostPath:
+          path: /var/lib/kubelet/plugins
+          type: DirectoryOrCreate
+      - name: kubelet-plugins-registry
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry
+          type: Directory
+      - name: dra-hostpath
+        hostPath:
+          path: /var/run/kubevirt/dra
+          type: DirectoryOrCreate
+      - name: cdi
+        hostPath:
+          path: /var/run/cdi
+          type: DirectoryOrCreate
