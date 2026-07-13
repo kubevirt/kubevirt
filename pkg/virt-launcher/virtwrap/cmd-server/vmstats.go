@@ -25,6 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
+
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -63,7 +66,7 @@ func AgentDataCommandKeys() []string {
 
 func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest) (*cmdv1.VMStatsResponse, error) {
 	if !l.vmStatsCollectorEnabled {
-		return nil, fmt.Errorf("VMStatsCollector feature gate is not enabled")
+		return nil, grpcstatus.Errorf(codes.FailedPrecondition, "VMStatsCollector feature gate is not enabled")
 	}
 
 	start := time.Now()
@@ -137,6 +140,14 @@ func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest
 	if len(errs) > 0 {
 		response.Response.Success = false
 		response.Response.Message = strings.Join(errs, "; ")
+
+		log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=%d", time.Since(start), len(errs))
+
+		st := grpcstatus.New(codes.Internal, response.Response.Message)
+		if detailed, err := st.WithDetails(response); err == nil {
+			return nil, detailed.Err()
+		}
+		return nil, st.Err()
 	}
 
 	log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=%d", time.Since(start), len(errs))
