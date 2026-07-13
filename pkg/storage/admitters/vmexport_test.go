@@ -348,7 +348,7 @@ func createExportUpdateAdmissionReview(old, current *exportv1.VirtualMachineExpo
 }
 
 func createTestVMExportAdmitter(config vmExportConfigChecker) *VMExportAdmitter {
-	return &VMExportAdmitter{Config: config}
+	return &VMExportAdmitter{config: config}
 }
 
 type stubVMExportConfigChecker struct {
