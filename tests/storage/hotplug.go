@@ -352,10 +352,8 @@ var _ = Describe(SIG("Hotplug", func() {
 	verifyVolumeAccessible := func(vmi *v1.VirtualMachineInstance, volumeName string) {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: fmt.Sprintf("ls %s\n", volumeName)},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: fmt.Sprintf("test -b %s > /dev/null 2>&1 && echo devicefound\n", volumeName)},
+				&expect.BExp{R: console.RetValue("devicefound")},
 			}, 10)
 		}, 40*time.Second, 2*time.Second).Should(Succeed(), "timed out waiting for volume %s to become accessible in VMI %s/%s", volumeName, vmi.Namespace, vmi.Name)
 	}
