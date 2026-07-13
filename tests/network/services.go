@@ -36,11 +36,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/dns"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
@@ -136,7 +138,7 @@ var _ = Describe(SIG("Services", func() {
 		})
 	})
 
-	Context("Masquerade interface binding", func() {
+	Context("interface binding to pod network", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 
 		const (
@@ -146,8 +148,11 @@ var _ = Describe(SIG("Services", func() {
 		)
 
 		BeforeEach(func() {
+			networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 			inboundVMI = libvmifact.NewFedora(
-				libnet.WithMasqueradeNetworking(),
+				libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
 				libvmi.WithSubdomain("vmi"),
 				libvmi.WithHostname("inbound"),
