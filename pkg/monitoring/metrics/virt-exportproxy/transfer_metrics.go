@@ -87,8 +87,13 @@ func ActiveTransferCount() int64 {
 }
 
 // TryRecordTransferStarted increments active and total transfer counters when the
-// pod is below SoftTransferLimit. Returns false without incrementing when at capacity.
+// pod is below SoftTransferLimit and soft CPU/memory utilization thresholds.
+// Returns false without incrementing when at capacity.
 func TryRecordTransferStarted() (activeTransfer, bool) {
+	if admission.OverSoftUtilizationLimit() {
+		return activeTransfer{}, false
+	}
+
 	for {
 		current := atomic.LoadInt64(&activeTransferCount)
 		if current >= admission.SoftTransferLimit {

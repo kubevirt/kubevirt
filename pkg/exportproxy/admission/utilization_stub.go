@@ -1,3 +1,5 @@
+//go:build !linux
+
 /*
  * This file is part of the KubeVirt project
  *
@@ -14,25 +16,17 @@
  * limitations under the License.
  *
  * Copyright The KubeVirt Authors.
+ *
  */
 
-package virtexportproxy
+package admission
 
-import (
-	"sync/atomic"
+type stubUtilizationReader struct{}
 
-	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
-)
-
-func resetTransferMetricsState() {
-	atomic.StoreInt64(&activeTransferCount, 0)
-	readinessShedding.Store(false)
-	resetThroughputWindow()
-	activeTransfers.Set(0)
-	admission.ResetUtilizationReaderForTest()
+func newPlatformUtilizationReader() UtilizationReader {
+	return stubUtilizationReader{}
 }
 
-func setActiveTransferCountForTest(count int64) {
-	atomic.StoreInt64(&activeTransferCount, count)
-	activeTransfers.Set(float64(count))
+func (stubUtilizationReader) Utilization() (cpuPercent, memoryPercent float64, ok bool) {
+	return 0, 0, false
 }

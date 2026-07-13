@@ -16,23 +16,14 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virtexportproxy
+package admission
 
 import (
-	"sync/atomic"
+	"testing"
 
-	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	"kubevirt.io/client-go/testutils"
 )
 
-func resetTransferMetricsState() {
-	atomic.StoreInt64(&activeTransferCount, 0)
-	readinessShedding.Store(false)
-	resetThroughputWindow()
-	activeTransfers.Set(0)
-	admission.ResetUtilizationReaderForTest()
-}
-
-func setActiveTransferCountForTest(count int64) {
-	atomic.StoreInt64(&activeTransferCount, count)
-	activeTransfers.Set(float64(count))
+func TestExportProxyAdmission(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
