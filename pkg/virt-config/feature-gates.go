@@ -189,10 +189,6 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
 
-func (config *ClusterConfig) ExternalNetResourceInjectionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ExternalNetResourceInjection)
-}
-
 func (config *ClusterConfig) RebootPolicyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.RebootPolicy)
 }
