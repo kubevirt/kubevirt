@@ -28,10 +28,19 @@ var readinessShedding atomic.Bool
 
 // ReadyForService reports whether the pod should receive new connections via
 // the Kubernetes Service (readiness probe). Uses hysteresis around
-// HardTransferLimit (== SoftTransferLimit) so endpoint state does not flap
-// under load. Soft admission 429s at the same cap; readiness shedding stops
-// Service routing while 429 covers races and non-Service hits.
+// HardTransferLimit (== SoftTransferLimit, above HPATargetMaxTransfers) so
+// endpoint state does not flap under load. Soft admission 429s at the same
+// transfer cap; readiness shedding stops Service routing while 429 covers
+// races and non-Service hits. Soft CPU admission also fails readiness so
+// traffic moves to other pods while the HPA scales out. Returning false while
+// draining removes the pod from endpoints during graceful shutdown.
 func ReadyForService() bool {
+	if IsDraining() {
+		return false
+	}
+	if admission.OverSoftUtilizationLimit() {
+		return false
+	}
 	active := ActiveTransferCount()
 	if active >= admission.HardTransferLimit {
 		readinessShedding.Store(true)
