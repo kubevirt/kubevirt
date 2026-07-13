@@ -95,6 +95,13 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 
 	memlockSize := k.CalculateMemlockSize(vmi, config)
 
+	// addedOverhead is included in GetMemoryOverhead for pod memory sizing,
+	// but should be excluded from the memlock rlimit when memLock is "NotRequired".
+	// See https://github.com/kubevirt/enhancements/issues/144
+	if util.RequiresMemoryOverheadReservation(vmi) && !util.RequiresLockingMemory(vmi) {
+		memlockSize.Sub(*vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead)
+	}
+
 	if err := common.SetProcessMemoryLockRLimit(targetProcessID, memlockSize.Value()); err != nil {
 		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", targetProcessID, memlockSize.Value(), err)
 	}
