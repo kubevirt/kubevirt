@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
@@ -35,6 +36,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virtoperator "kubevirt.io/kubevirt/pkg/virt-operator"
+	operatorinstall "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
@@ -65,6 +69,12 @@ func WithWorkloadUpdateController() Option {
 	}
 }
 
+func WithVirtOperator() Option {
+	return func(f *Framework) {
+		f.virtOperatorEnabled = true
+	}
+}
+
 type Framework struct {
 	env        *envtest.Environment
 	virtClient kubecli.KubevirtClient
@@ -74,13 +84,16 @@ type Framework struct {
 	vmiController *vmi.Controller
 
 	podSimulator             *PodSimulator
+	resourceSimulator        *ResourceSimulator
 	webhookServer            *http.Server
 	fakeLibvirt              *FakeLibvirt
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
+	virtOperatorController   *virtoperator.KubeVirtController
 
 	webhooksEnabled       bool
 	fakeLibvirtEnabled    bool
 	workloadUpdateEnabled bool
+	virtOperatorEnabled   bool
 
 	stopCh chan struct{}
 }
@@ -255,6 +268,93 @@ func (f *Framework) Start() {
 		go f.workloadUpdateController.Run(f.stopCh)
 	}
 
+	if f.virtOperatorEnabled {
+		operatorInformers := operatorutil.Informers{
+			KubeVirt:                         kubeVirtInformer,
+			CRD:                              informerFactory.CRD(),
+			ServiceAccount:                   informerFactory.OperatorServiceAccount(),
+			ClusterRole:                      informerFactory.OperatorClusterRole(),
+			ClusterRoleBinding:               informerFactory.OperatorClusterRoleBinding(),
+			Role:                             informerFactory.OperatorRole(),
+			RoleBinding:                      informerFactory.OperatorRoleBinding(),
+			OperatorCrd:                      informerFactory.OperatorCRD(),
+			Service:                          informerFactory.OperatorService(),
+			Deployment:                       informerFactory.OperatorDeployment(),
+			DaemonSet:                        informerFactory.OperatorDaemonSet(),
+			ValidationWebhook:                informerFactory.OperatorValidationWebhook(),
+			MutatingWebhook:                  informerFactory.OperatorMutatingWebhook(),
+			InstallStrategyConfigMap:         informerFactory.OperatorInstallStrategyConfigMaps(),
+			InstallStrategyJob:               informerFactory.OperatorInstallStrategyJob(),
+			InfrastructurePod:                informerFactory.OperatorPod(),
+			PodDisruptionBudget:              informerFactory.OperatorPodDisruptionBudget(),
+			Namespace:                        informerFactory.Namespace(),
+			Secrets:                          informerFactory.Secrets(),
+			ConfigMap:                        informerFactory.OperatorConfigMap(),
+			ClusterInstancetype:              informerFactory.VirtualMachineClusterInstancetype(),
+			ClusterPreference:                informerFactory.VirtualMachineClusterPreference(),
+			Leases:                           informerFactory.Leases(),
+			SCC:                              informerFactory.DummyOperatorSCC(),
+			Route:                            informerFactory.DummyOperatorRoute(),
+			ServiceMonitor:                   informerFactory.DummyOperatorServiceMonitor(),
+			PrometheusRule:                    informerFactory.DummyOperatorPrometheusRule(),
+			APIService:                       dummyInformer(),
+			ValidatingAdmissionPolicyBinding: informerFactory.DummyOperatorValidatingAdmissionPolicyBinding(),
+			ValidatingAdmissionPolicy:        informerFactory.DummyOperatorValidatingAdmissionPolicy(),
+		}
+
+		// Label existing CRDs so the operator's OperatorCrd informer picks them up
+		// instead of trying to create them (they were already loaded by envtest)
+		crdClient := f.virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions()
+		crdList, err := crdClient.List(ctx, metav1.ListOptions{})
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		for i := range crdList.Items {
+			crd := &crdList.Items[i]
+			if crd.Labels == nil {
+				crd.Labels = make(map[string]string)
+			}
+			crd.Labels[virtv1.ManagedByLabel] = virtv1.ManagedByLabelOperatorValue
+			_, err = crdClient.Update(ctx, crd, metav1.UpdateOptions{})
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		}
+
+		// Restart informer factory to pick up the new operator informers
+		informerFactory.Start(f.stopCh)
+		informerFactory.WaitForCacheSync(f.stopCh)
+
+		// Set up env var manager so GetTargetConfigFromKV can resolve image names
+		envVarManager := &operatorutil.EnvVarManagerMock{}
+		ExpectWithOffset(1, envVarManager.Setenv(operatorutil.OldOperatorImageEnvName, "registry/virt-operator:v1.0.0")).To(Succeed())
+		operatorutil.DefaultEnvVarManager = envVarManager
+
+		// Seed install strategy ConfigMap
+		seedKV := &virtv1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		}
+		deploymentConfig := operatorutil.GetTargetConfigFromKV(seedKV)
+		strategyCM, err := operatorinstall.NewInstallStrategyConfigMap(deploymentConfig, "", testNamespace)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to generate install strategy ConfigMap")
+		_, err = f.k8sClient.CoreV1().ConfigMaps(testNamespace).Create(ctx, strategyCM, metav1.CreateOptions{})
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create install strategy ConfigMap")
+
+		// Start resource simulator for Deployment/DaemonSet readiness
+		f.resourceSimulator = NewResourceSimulator(f.k8sClient, operatorInformers.Deployment, operatorInformers.DaemonSet, operatorInformers.ValidationWebhook, operatorInformers.MutatingWebhook)
+		f.resourceSimulator.Start()
+
+		operatorConfig := operatorutil.OperatorConfig{}
+		opCtrl, err := virtoperator.NewKubeVirtController(
+			f.virtClient,
+			f.k8sClient,
+			&noopAPIServiceClient{},
+			recorder,
+			operatorConfig,
+			operatorInformers,
+			testNamespace,
+		)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create virt-operator controller")
+		f.virtOperatorController = opCtrl
+		go f.virtOperatorController.Run(1, f.stopCh)
+	}
+
 	if f.fakeLibvirtEnabled {
 		tmpDir, err := os.MkdirTemp("", "envtest-fakelibvirt-")
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create temp dir for fake libvirt")
@@ -273,6 +373,9 @@ func (f *Framework) Stop() {
 	}
 	if f.webhookServer != nil {
 		f.webhookServer.Close()
+	}
+	if f.resourceSimulator != nil {
+		f.resourceSimulator.Stop()
 	}
 	if f.podSimulator != nil {
 		f.podSimulator.Stop()
@@ -299,6 +402,11 @@ func (f *Framework) FakeLibvirt() *FakeLibvirt {
 
 func (f *Framework) LauncherImage() string {
 	return defaultLauncherImage
+}
+
+func dummyInformer() cache.SharedIndexInformer {
+	informer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+	return informer
 }
 
 func (f *Framework) createSeedData(ctx context.Context) {
