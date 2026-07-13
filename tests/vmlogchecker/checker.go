@@ -450,7 +450,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    84,
-		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command '(query-command-line-options': JSON parse error, expecting value|query-qmp-schema': (JSON parse error, stray '-qm'|The command [a-z-]+ has not been found)|device-list-properties': JSON parse error, expecting value)","pos":"qemuMonitorJSONCheckErrorFull`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command '(query-command-line-options': JSON parse error, expecting value|query-qmp-schema': (JSON parse error, stray '-qm'|The command [a-z-]+ has not been found)|query-cpu-definitions': The command query-cpu-[a-z-]+ has not been found|device-list-properties': JSON parse error, expecting value)","pos":"qemuMonitorJSONCheckErrorFull`),
 		SIGs:  SIGPerformance | SIGStorage,
 	},
 	{
@@ -460,7 +460,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    86,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to get total usable space, using disk capacity instead","pos":"manager\.go.*"reason":"permission denied"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to get total usable space, using disk capacity instead","pos":"manager\.go.*"reason":"(permission denied|no such file or directory)"`),
 		SIGs:  SIGStorage,
 	},
 	{
@@ -562,6 +562,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		ID:    106,
 		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'block-job-cancel': Job '[^']+' in state 'concluded' cannot accept command verb 'cancel'"`),
 		SIGs:  SIGCompute | SIGStorage,
+	},
+	{
+		ID:    107,
+		Regex: regexp.MustCompile(`"level":"error".*("msg":"|"reason":"virError\([^"]*Message=')invalid argument: disk '/var/run/kubevirt-private/vmi-disks/[^/]+/disk\.img' was not found in the domain config("|'\)")`),
+		SIGs:  SIGStorage,
 	},
 }
 
