@@ -90,8 +90,15 @@ func listPods(labelSelectors ...string) []k8sv1.Pod {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(podList.Items).ToNot(BeEmpty())
-		pods = append(pods, podList.Items...)
+		for _, pod := range podList.Items {
+			// virt-template pods roll out on TLS config changes; skip
+			// terminating pods that haven't finished graceful shutdown yet.
+			if pod.DeletionTimestamp == nil {
+				pods = append(pods, pod)
+			}
+		}
 	}
+	Expect(pods).ToNot(BeEmpty())
 	return pods
 }
 
