@@ -470,7 +470,6 @@ func (c *Controller) onPodDelete(obj interface{}) {
 		// Not all pods can have VMI ref at annotations, this is ok.
 		vmi = c.recoverVMIFromPodAnnotations(pod)
 		if vmi == nil {
-			log.Log.Object(pod).Warning("failed to recover owner VMI from annotations for pod; deletion sync may be delayed")
 			return
 		}
 		log.Log.Object(pod).V(3).Infof("recovered owner VMI %s from pod annotations", vmi.Name)
