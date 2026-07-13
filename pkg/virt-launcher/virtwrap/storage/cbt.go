@@ -42,6 +42,10 @@ import (
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
+const (
+	overlayClusterSize = 1 << 18 // 256KiB
+)
+
 func DiskHasDataStore(disk *api.Disk) bool {
 	return disk != nil && disk.Source.DataStore != nil
 }
@@ -147,7 +151,7 @@ func runOverlayQMPSession(ctx context.Context, stdin io.WriteCloser, stdout io.R
 	overlaySize int64, overlayPath string) (string, error) {
 
 	qmpCapabilities := `{"execute": "qmp_capabilities"}`
-	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d}}}`, overlaySize)
+	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d, "cluster-size": %d}}}`, overlaySize, overlayClusterSize)
 	queryJobs := `{"execute": "query-jobs"}`
 	jobDismiss := `{"execute": "job-dismiss", "arguments": {"id": "create"}}`
 	quit := `{"execute": "quit"}`
