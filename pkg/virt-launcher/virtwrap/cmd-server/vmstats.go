@@ -89,16 +89,26 @@ func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest
 	var errs []string
 
 	if request.GetDomainStats() != nil {
-		response.DomainStats, _ = l.GetDomainStats(ctx, &cmdv1.EmptyRequest{})
-		if !response.GetDomainStats().GetResponse().GetSuccess() {
-			errs = append(errs, fmt.Sprintf("domain stats: %s", response.GetDomainStats().GetResponse().GetMessage()))
+		domainStatsResp, domainStatsErr := l.GetDomainStats(ctx, &cmdv1.EmptyRequest{})
+		if domainStatsErr != nil {
+			response.DomainStats = &cmdv1.DomainStatsResponse{
+				Response: &cmdv1.Response{Success: false, Message: domainStatsErr.Error()},
+			}
+			errs = append(errs, fmt.Sprintf("domain stats: %s", domainStatsErr.Error()))
+		} else {
+			response.DomainStats = domainStatsResp
 		}
 	}
 
 	if request.GetDirtyRate() != nil {
-		response.DirtyRateStats, _ = l.GetDomainDirtyRateStats(ctx, &cmdv1.EmptyRequest{})
-		if !response.GetDirtyRateStats().GetResponse().GetSuccess() {
-			errs = append(errs, fmt.Sprintf("dirty rate stats: %s", response.GetDirtyRateStats().GetResponse().GetMessage()))
+		dirtyRateResp, dirtyRateErr := l.GetDomainDirtyRateStats(ctx, &cmdv1.EmptyRequest{})
+		if dirtyRateErr != nil {
+			response.DirtyRateStats = &cmdv1.DirtyRateStatsResponse{
+				Response: &cmdv1.Response{Success: false, Message: dirtyRateErr.Error()},
+			}
+			errs = append(errs, fmt.Sprintf("dirty rate stats: %s", dirtyRateErr.Error()))
+		} else {
+			response.DirtyRateStats = dirtyRateResp
 		}
 	}
 

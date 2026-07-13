@@ -433,17 +433,13 @@ func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIReque
 
 func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
 
-	response := &cmdv1.DomainResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	list, err := l.domainManager.ListAllDomains()
 	if err != nil {
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to list domains: %s", getErrorMessage(err))
+	}
+
+	response := &cmdv1.DomainResponse{
+		Response: &cmdv1.Response{Success: true},
 	}
 
 	if len(list) > 0 {
@@ -454,146 +450,108 @@ func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.D
 		if interfaces := l.domainManager.InterfacesStatus(); interfaces != nil {
 			domainObj.Status.Interfaces = interfaces
 		}
-		if domain, err := json.Marshal(domainObj); err != nil {
+		domain, err := json.Marshal(domainObj)
+		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to marshal domain")
-			response.Response.Success = false
-			response.Response.Message = getErrorMessage(err)
-			return response, nil
-		} else {
-			response.Domain = string(domain)
+			return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal domain: %s", getErrorMessage(err))
 		}
+		response.Domain = string(domain)
 	}
 
 	return response, nil
 }
 
 func (l *Launcher) GetQemuVersion(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.QemuVersionResponse, error) {
-	response := &cmdv1.QemuVersionResponse{
-		Response: &cmdv1.Response{},
+	version, err := l.domainManager.GetQemuVersion()
+	if err != nil {
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get QEMU version: %s", getErrorMessage(err))
 	}
 
-	if version, err := l.domainManager.GetQemuVersion(); err != nil {
-		response.Response.Message = getErrorMessage(err)
-	} else {
-		response.Response.Success = true
-		response.Version = version
-	}
-
-	return response, nil
+	return &cmdv1.QemuVersionResponse{
+		Response: &cmdv1.Response{Success: true},
+		Version:  version,
+	}, nil
 }
 
 func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
 
-	response := &cmdv1.DomainStatsResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	stats, err := l.domainManager.GetDomainStats()
 	if err != nil {
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get domain stats: %s", getErrorMessage(err))
 	}
 
-	if domainStats, err := json.Marshal(stats); err != nil {
+	domainStats, err := json.Marshal(stats)
+	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal domain stats")
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-	} else {
-		response.DomainStats = string(domainStats)
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal domain stats: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.DomainStatsResponse{
+		Response:    &cmdv1.Response{Success: true},
+		DomainStats: string(domainStats),
+	}, nil
 }
 
 func (l *Launcher) GetDomainDirtyRateStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DirtyRateStatsResponse, error) {
-	response := &cmdv1.DirtyRateStatsResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	const dirtyRateCalculationTime = time.Second
 	stats, err := l.domainManager.GetDomainDirtyRateStats(dirtyRateCalculationTime)
 	if err != nil {
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get dirty rate stats: %s", getErrorMessage(err))
 	}
 
 	if !stats.MegabytesPerSecondSet {
-		response.Response.Success = false
-		response.Response.Message = "Dirty rate MegabytesPerSecondSet is false"
-		return response, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "dirty rate MegabytesPerSecondSet is false")
 	}
 
-	response.DirtyRateMbs = stats.MegabytesPerSecond
-	return response, nil
+	return &cmdv1.DirtyRateStatsResponse{
+		Response:     &cmdv1.Response{Success: true},
+		DirtyRateMbs: stats.MegabytesPerSecond,
+	}, nil
 }
 
 // GetGuestInfo collect guest info from the domain
 func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestInfoResponse, error) {
-	response := &cmdv1.GuestInfoResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	guestInfo := l.domainManager.GetGuestInfo()
-	if jGuestInfo, err := json.Marshal(guestInfo); err != nil {
+	jGuestInfo, err := json.Marshal(guestInfo)
+	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal agent info")
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
-	} else {
-		response.GuestInfoResponse = string(jGuestInfo)
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal guest info: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.GuestInfoResponse{
+		Response:          &cmdv1.Response{Success: true},
+		GuestInfoResponse: string(jGuestInfo),
+	}, nil
 }
 
 // GetUsers returns the list of active users on the guest machine
 func (l *Launcher) GetUsers(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestUserListResponse, error) {
-	response := &cmdv1.GuestUserListResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	users := l.domainManager.GetUsers()
-	if jUsers, err := json.Marshal(users); err != nil {
+	jUsers, err := json.Marshal(users)
+	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal guest user list")
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
-	} else {
-		response.GuestUserListResponse = string(jUsers)
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal guest user list: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.GuestUserListResponse{
+		Response:              &cmdv1.Response{Success: true},
+		GuestUserListResponse: string(jUsers),
+	}, nil
 }
 
 // GetFilesystems returns a full list of active filesystems on the guest machine
 func (l *Launcher) GetFilesystems(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestFilesystemsResponse, error) {
-	response := &cmdv1.GuestFilesystemsResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	fs := l.domainManager.GetFilesystems()
-	if jFS, err := json.Marshal(fs); err != nil {
-		log.Log.Reason(err).Errorf("Failed to marshal guest user list")
-		response.Response.Success = false
-		response.Response.Message = getErrorMessage(err)
-		return response, nil
-	} else {
-		response.GuestFilesystemsResponse = string(jFS)
+	jFS, err := json.Marshal(fs)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal guest filesystem list")
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal guest filesystem list: %s", getErrorMessage(err))
 	}
 
-	return response, nil
+	return &cmdv1.GuestFilesystemsResponse{
+		Response:                 &cmdv1.Response{Success: true},
+		GuestFilesystemsResponse: string(jFS),
+	}, nil
 }
 
 // Exec the provided command and return it's success
@@ -700,30 +658,22 @@ func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Respon
 }
 
 func (l *Launcher) GetSEVInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.SEVInfoResponse, error) {
-	sevInfoResponse := &cmdv1.SEVInfoResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}
-
 	sevPlatformInfo, err := l.domainManager.GetSEVInfo()
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to get SEV platform info")
-		sevInfoResponse.Response.Success = false
-		sevInfoResponse.Response.Message = getErrorMessage(err)
-		return sevInfoResponse, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get SEV platform info: %s", getErrorMessage(err))
 	}
 
-	if sevPlatformInfoJson, err := json.Marshal(sevPlatformInfo); err != nil {
+	sevPlatformInfoJson, err := json.Marshal(sevPlatformInfo)
+	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal SEV platform info")
-		sevInfoResponse.Response.Success = false
-		sevInfoResponse.Response.Message = getErrorMessage(err)
-		return sevInfoResponse, nil
-	} else {
-		sevInfoResponse.SevInfo = sevPlatformInfoJson
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal SEV platform info: %s", getErrorMessage(err))
 	}
 
-	return sevInfoResponse, nil
+	return &cmdv1.SEVInfoResponse{
+		Response: &cmdv1.Response{Success: true},
+		SevInfo:  sevPlatformInfoJson,
+	}, nil
 }
 
 func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.LaunchMeasurementResponse, error) {
@@ -732,28 +682,22 @@ func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIReq
 		return nil, err
 	}
 
-	launchMeasurementResponse := &cmdv1.LaunchMeasurementResponse{
-		Response: &cmdv1.Response{Success: true},
-	}
-
 	sevMeasurementInfo, err := l.domainManager.GetLaunchMeasurement(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to get launch measuement")
-		launchMeasurementResponse.Response.Success = false
-		launchMeasurementResponse.Response.Message = getErrorMessage(err)
-		return launchMeasurementResponse, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get launch measurement: %s", getErrorMessage(err))
 	}
 
-	if sevMeasurementInfoJson, err := json.Marshal(sevMeasurementInfo); err != nil {
+	sevMeasurementInfoJson, err := json.Marshal(sevMeasurementInfo)
+	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to marshal launch measuement info")
-		launchMeasurementResponse.Response.Success = false
-		launchMeasurementResponse.Response.Message = getErrorMessage(err)
-		return launchMeasurementResponse, nil
-	} else {
-		launchMeasurementResponse.LaunchMeasurement = sevMeasurementInfoJson
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to marshal launch measurement info: %s", getErrorMessage(err))
 	}
 
-	return launchMeasurementResponse, nil
+	return &cmdv1.LaunchMeasurementResponse{
+		Response:          &cmdv1.Response{Success: true},
+		LaunchMeasurement: sevMeasurementInfoJson,
+	}, nil
 }
 
 func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLaunchSecretRequest) (*cmdv1.Response, error) {
@@ -800,20 +744,17 @@ func (l *Launcher) GetScreenshot(_ context.Context, request *cmdv1.VMIRequest) (
 		return nil, err
 	}
 
-	screenshotResponse := &cmdv1.ScreenshotResponse{
-		Response: &cmdv1.Response{Success: true},
-	}
-
 	domainScreenshot, err := l.domainManager.GetScreenshot(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to screenshot")
-		screenshotResponse.Response.Success = false
-		screenshotResponse.Response.Message = getErrorMessage(err)
-		return screenshotResponse, nil
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get screenshot: %s", getErrorMessage(err))
 	}
-	screenshotResponse.Mime = domainScreenshot.Mime
-	screenshotResponse.Data = domainScreenshot.Data
-	return screenshotResponse, nil
+
+	return &cmdv1.ScreenshotResponse{
+		Response: &cmdv1.Response{Success: true},
+		Mime:     domainScreenshot.Mime,
+		Data:     domainScreenshot.Data,
+	}, nil
 }
 
 func ReceivedEarlyExitSignal() bool {
