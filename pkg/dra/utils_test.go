@@ -329,6 +329,46 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		})
 	})
 
+	Context("GetMDevModelForClaim", func() {
+		It("should return the model when the mdevModel attribute is present", func() {
+			model := "vfio-ap"
+			createMetadataFile("mdev-model-claim", "req1", metadataWithStringAttribute(
+				"mdev-model-claim", "req1", metadata.MDevModelAttribute, model,
+			))
+
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
+				Name:              "my-vgpu",
+				ResourceClaimName: ptr.To("mdev-model-claim"),
+			}}
+
+			result, err := GetMDevModelForClaim(tempDir, resourceClaims, "my-vgpu", "req1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(model))
+		})
+
+		It("should return empty string when the mdevModel attribute is absent", func() {
+			uuid := "abcd1234-0000-0000-0000-000000000000"
+			createMetadataFile("mdev-no-model", "req1", metadataWithStringAttribute(
+				"mdev-no-model", "req1", metadata.MDevUUIDAttribute, uuid,
+			))
+
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
+				Name:              "my-vgpu",
+				ResourceClaimName: ptr.To("mdev-no-model"),
+			}}
+
+			result, err := GetMDevModelForClaim(tempDir, resourceClaims, "my-vgpu", "req1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(""))
+		})
+
+		It("should return error when claim ref not found", func() {
+			_, err := GetMDevModelForClaim(tempDir, nil, "nonexistent", "req1")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("metadata not found"))
+		})
+	})
+
 	Context("multiple claims and requests", func() {
 		It("should handle multiple claims with different device types", func() {
 			pciAddr := pciAddr0400

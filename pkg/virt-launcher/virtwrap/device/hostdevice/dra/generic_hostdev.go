@@ -78,9 +78,15 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName)
 	if mdevErr == nil {
 		log.Log.V(2).Infof("Adding DRA MDEV HostDevice for %s", hd.Name)
-		model := "vfio-pci"
-		if vmiSpecs.Architecture == "s390x" {
-			model = "vfio-ap"
+		model, err := drautil.GetMDevModelForClaim(basePath, resourceClaims, claimName, requestName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mdev model for %s: %v", hd.Name, err)
+		}
+		if model == "" {
+			model = "vfio-pci"
+			if vmiSpecs.Architecture == "s390x" {
+				model = "vfio-ap"
+			}
 		}
 		return &api.HostDevice{
 			Alias: api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),

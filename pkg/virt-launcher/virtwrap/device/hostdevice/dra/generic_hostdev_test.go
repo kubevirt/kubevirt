@@ -226,6 +226,210 @@ var _ = Describe("CreateDRAHostDevices", func() {
 		})
 	})
 
+	Context("when the DRA driver provides an mdevModel attribute", func() {
+		It("should use the driver-provided model over the architecture default", func() {
+			uuid := "abcd1234-1111-2222-3333-444455556666"
+			driverModel := "vfio-ap"
+
+			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DeviceMetadata",
+					APIVersion: metadata.APIVersionV1Alpha1,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "claim1",
+				},
+				Requests: []metadata.DeviceMetadataRequest{{
+					Name: "req1",
+					Devices: []metadata.Device{{
+						Driver: "mdev.example.com",
+						Pool:   "mdev-pool",
+						Name:   "device1",
+						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+							metadata.MDevUUIDAttribute:  {StringValue: &uuid},
+							metadata.MDevModelAttribute: {StringValue: &driverModel},
+						},
+					}},
+				}},
+			})
+
+			// Architecture is amd64 (default "vfio-pci"), but driver says "vfio-ap".
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
+						Name:              "claim1",
+						ResourceClaimName: ptr.To("claim1"),
+					}},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							HostDevices: []v1.HostDevice{{
+								Name:         "vhd1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
+							}},
+						},
+					},
+					Architecture: "amd64",
+				},
+			}
+
+			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevs).To(HaveLen(1))
+			Expect(hostDevs[0].Model).To(Equal(driverModel))
+		})
+
+		It("should use the driver-provided model over the architecture default (s390x)", func() {
+			uuid := "abcd1234-1111-2222-3333-444455556666"
+			driverModel := "vfio-pci"
+
+			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DeviceMetadata",
+					APIVersion: metadata.APIVersionV1Alpha1,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "claim1",
+				},
+				Requests: []metadata.DeviceMetadataRequest{{
+					Name: "req1",
+					Devices: []metadata.Device{{
+						Driver: "mdev.example.com",
+						Pool:   "mdev-pool",
+						Name:   "device1",
+						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+							metadata.MDevUUIDAttribute:  {StringValue: &uuid},
+							metadata.MDevModelAttribute: {StringValue: &driverModel},
+						},
+					}},
+				}},
+			})
+
+			// Architecture is s390x (default "vfio-ap"), but driver says "vfio-pci".
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
+						Name:              "claim1",
+						ResourceClaimName: ptr.To("claim1"),
+					}},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							HostDevices: []v1.HostDevice{{
+								Name:         "vhd1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
+							}},
+						},
+					},
+					Architecture: "s390x",
+				},
+			}
+
+			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevs).To(HaveLen(1))
+			Expect(hostDevs[0].Model).To(Equal(driverModel))
+		})
+
+		It("should use vfio-pci arch default when mdevModel attribute is absent", func() {
+			uuid := "abcd1234-1111-2222-3333-000000000000"
+
+			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DeviceMetadata",
+					APIVersion: metadata.APIVersionV1Alpha1,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "claim1",
+				},
+				Requests: []metadata.DeviceMetadataRequest{{
+					Name: "req1",
+					Devices: []metadata.Device{{
+						Driver: "mdev.example.com",
+						Pool:   "mdev-pool",
+						Name:   "device1",
+						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+						},
+					}},
+				}},
+			})
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
+						Name:              "claim1",
+						ResourceClaimName: ptr.To("claim1"),
+					}},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							HostDevices: []v1.HostDevice{{
+								Name:         "vhd1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
+							}},
+						},
+					},
+					Architecture: "amd64",
+				},
+			}
+
+			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevs).To(HaveLen(1))
+			Expect(hostDevs[0].Model).To(Equal("vfio-pci"))
+		})
+
+		It("should use vfio-ap arch default when mdevModel attribute is absent (s390x)", func() {
+			uuid := "abcd1234-1111-2222-3333-000000000000"
+
+			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DeviceMetadata",
+					APIVersion: metadata.APIVersionV1Alpha1,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "claim1",
+				},
+				Requests: []metadata.DeviceMetadataRequest{{
+					Name: "req1",
+					Devices: []metadata.Device{{
+						Driver: "mdev.example.com",
+						Pool:   "mdev-pool",
+						Name:   "device1",
+						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+						},
+					}},
+				}},
+			})
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
+						Name:              "claim1",
+						ResourceClaimName: ptr.To("claim1"),
+					}},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							HostDevices: []v1.HostDevice{{
+								Name:         "vhd1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
+							}},
+						},
+					},
+					Architecture: "s390x",
+				},
+			}
+
+			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevs).To(HaveLen(1))
+			Expect(hostDevs[0].Model).To(Equal("vfio-ap"))
+		})
+	})
+
 	Context("validation mismatch", func() {
 		It("should error when metadata is missing for a DRA host device", func() {
 			pci := "0000:03:00.1"

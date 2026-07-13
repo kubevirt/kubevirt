@@ -58,6 +58,10 @@ const (
 	// MDevUUIDAttribute is the attribute for mediated device UUID (vGPUs)
 	// Note: This is not yet standardized under resource.kubernetes.io
 	MDevUUIDAttribute = resourcev1.QualifiedName("mdevUUID")
+	// MDevModelAttribute is an optional attribute set by the DRA driver to override the
+	// VFIO model used for mediated devices (e.g. "vfio-pci", "vfio-ap").
+	// When absent, KubeVirt falls back to an architecture-based default.
+	MDevModelAttribute = resourcev1.QualifiedName("mdevModel")
 )
 
 // APIVersionV1Alpha1 is the JSON apiVersion string for KEP-5304 DRA device

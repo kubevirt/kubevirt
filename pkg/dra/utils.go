@@ -94,6 +94,29 @@ func GetMDevUUIDForClaim(
 	return "", fmt.Errorf("mdevUUID not found for claim %q request %q", claimRefName, requestName)
 }
 
+// GetMDevModelForClaim returns the mdev model (e.g. "vfio-pci", "vfio-ap") set
+// by the DRA driver for a device in the given claim and request.
+// Returns ("", nil) when the attribute is absent — the caller should then apply
+// its own default (typically architecture-based).
+func GetMDevModelForClaim(
+	basePath string,
+	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+	claimRefName,
+	requestName string,
+) (string, error) {
+	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
+	if err != nil {
+		return "", err
+	}
+
+	if attr, ok := device.Attributes[metadata.MDevModelAttribute]; ok {
+		if attr.StringValue != nil && *attr.StringValue != "" {
+			return *attr.StringValue, nil
+		}
+	}
+	return "", nil
+}
+
 // resolveDevice finds and reads the metadata file for a specific claim ref and
 // request, returning the single device from that request.
 func resolveDevice(
