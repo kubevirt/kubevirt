@@ -333,6 +333,7 @@ build_images() {
 
 check_for_panics() {
     set +x
+    local ret=0
     if [ -d "${ARTIFACTS_PATH}" ]; then
         local panic_files=$(grep -rlE --color=never -i "\bpanic(ked)?\b" "${ARTIFACTS_PATH}" 2>/dev/null | \
             while IFS= read -r file; do
@@ -353,15 +354,17 @@ check_for_panics() {
                 echo "$panic_files"
             fi
             echo "================================"
+            ret=1
         fi
     fi
     set -x
+    return $ret
 }
 
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; check_for_panics || { [ "$ret" -eq 0 ] && ret=3; }; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
