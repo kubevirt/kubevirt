@@ -287,6 +287,14 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-compute / @jean-edouard
+	// Alpha: v1.10.0
+	//
+	// VhostThreadCPUIsolation enables the vhostThreadPolicy field on VMI CPU
+	// specs, allowing vhost-net kernel worker threads to be pinned to dedicated
+	// pCPU(s) via a cpuset sub-cgroup.
+	VhostThreadCPUIsolation = "VhostThreadCPUIsolation"
 )
 
 func init() {
@@ -337,4 +345,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VhostThreadCPUIsolation, State: Alpha})
 }

@@ -252,3 +252,7 @@ func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
 }
+
+func (config *ClusterConfig) VhostThreadCPUIsolationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VhostThreadCPUIsolation)
+}

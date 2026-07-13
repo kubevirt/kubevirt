@@ -129,3 +129,12 @@ func WithIsolateEmulatorThread() Option {
 		vmi.Spec.Domain.CPU.IsolateEmulatorThread = true
 	}
 }
+
+func WithVhostThreadPolicy(policy v1.VhostThreadPolicy) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+		vmi.Spec.Domain.CPU.VhostThreadPolicy = &policy
+	}
+}

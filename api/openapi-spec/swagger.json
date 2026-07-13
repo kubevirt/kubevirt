@@ -14053,6 +14053,10 @@
       "description": "Threads specifies the number of threads inside the vmi. Must be a value greater or equal 1.",
       "type": "integer",
       "format": "int64"
+     },
+     "vhostThreadPolicy": {
+      "description": "VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s). Omitting this field disables vhost thread isolation. Requires IsolateEmulatorThread to be enabled. One of: Shared",
+      "type": "string"
      }
     }
    },
@@ -20966,6 +20970,10 @@
      "realtime": {
       "description": "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
       "$ref": "#/definitions/v1.Realtime"
+     },
+     "vhostThreadPolicy": {
+      "description": "VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s). Omitting this field disables vhost thread isolation. Requires IsolateEmulatorThread to be enabled. One of: Shared",
+      "type": "string"
      }
     }
    },

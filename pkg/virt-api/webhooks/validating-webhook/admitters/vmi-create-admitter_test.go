@@ -1809,6 +1809,83 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.isolateEmulatorThread"))
 		})
 
+		It("should reject specs with VhostThreadPolicy when feature gate is disabled", func() {
+			policy := v1.VhostThreadPolicyShared
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+				VhostThreadPolicy:     &policy,
+				Cores:                 2,
+			}
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("feature gate"))
+		})
+
+		It("should reject specs with VhostThreadPolicy without IsolateEmulatorThread set", func() {
+			enableFeatureGates(featuregate.VhostThreadCPUIsolation)
+			policy := v1.VhostThreadPolicyShared
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				DedicatedCPUPlacement: false,
+				IsolateEmulatorThread: false,
+				VhostThreadPolicy:     &policy,
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.vhostThreadPolicy"))
+		})
+
+		It("should reject specs with invalid VhostThreadPolicy value", func() {
+			enableFeatureGates(featuregate.VhostThreadCPUIsolation)
+			policy := v1.VhostThreadPolicy("Invalid")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+				VhostThreadPolicy:     &policy,
+				Cores:                 2,
+			}
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.vhostThreadPolicy"))
+		})
+
+		It("should accept specs with VhostThreadPolicy Shared and IsolateEmulatorThread set", func() {
+			enableFeatureGates(featuregate.VhostThreadCPUIsolation)
+			policy := v1.VhostThreadPolicyShared
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+				VhostThreadPolicy:     &policy,
+				Cores:                 2,
+			}
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should reject specs without inconsistent cpu reqirements", func() {
 			vmi.Spec.Domain.CPU.Cores = 4
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{

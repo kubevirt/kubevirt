@@ -189,7 +189,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCpuRequestDoesNotExceedLimit(field, spec)...)
 	causes = append(causes, validateCpuPinning(field, spec, config)...)
 	causes = append(causes, validateNUMA(field, spec, config)...)
-	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
+	causes = append(causes, validateCPUIsolatorThread(field, spec, config)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateCPUHotplug(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
@@ -703,7 +703,7 @@ func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineIns
 	return causes
 }
 
-func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if spec.Domain.CPU != nil && spec.Domain.CPU.IsolateEmulatorThread && !spec.Domain.CPU.DedicatedCPUPlacement {
 		causes = append(causes, metav1.StatusCause{
@@ -711,6 +711,31 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 			Message: "IsolateEmulatorThread should be only set in combination with DedicatedCPUPlacement",
 			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
 		})
+	}
+	if spec.Domain.CPU != nil && spec.Domain.CPU.VhostThreadPolicy != nil {
+		if !config.VhostThreadCPUIsolationEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VhostThreadPolicy requires the VhostThreadCPUIsolation feature gate to be enabled",
+				Field:   field.Child("domain", "cpu", "vhostThreadPolicy").String(),
+			})
+			return causes
+		}
+		policy := *spec.Domain.CPU.VhostThreadPolicy
+		if policy != v1.VhostThreadPolicyShared {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("VhostThreadPolicy must be %q", v1.VhostThreadPolicyShared),
+				Field:   field.Child("domain", "cpu", "vhostThreadPolicy").String(),
+			})
+		}
+		if !spec.Domain.CPU.IsolateEmulatorThread {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VhostThreadPolicy requires IsolateEmulatorThread to be enabled",
+				Field:   field.Child("domain", "cpu", "vhostThreadPolicy").String(),
+			})
+		}
 	}
 	return causes
 }

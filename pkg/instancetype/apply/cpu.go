@@ -56,6 +56,10 @@ func applyCPU(
 		vmiSpec.Domain.CPU.IsolateEmulatorThread = *instancetypeSpec.CPU.IsolateEmulatorThread
 	}
 
+	if instancetypeSpec.CPU.VhostThreadPolicy != nil {
+		vmiSpec.Domain.CPU.VhostThreadPolicy = instancetypeSpec.CPU.VhostThreadPolicy
+	}
+
 	if instancetypeSpec.CPU.NUMA != nil {
 		vmiSpec.Domain.CPU.NUMA = instancetypeSpec.CPU.NUMA.DeepCopy()
 	}
@@ -143,6 +147,10 @@ func validateCPU(
 
 	if vmiSpec.Domain.CPU.IsolateEmulatorThread && instancetypeSpec.CPU.IsolateEmulatorThread != nil {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "isolateEmulatorThread"))
+	}
+
+	if vmiSpec.Domain.CPU.VhostThreadPolicy != nil && instancetypeSpec.CPU.VhostThreadPolicy != nil {
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "vhostThreadPolicy"))
 	}
 
 	if vmiSpec.Domain.CPU.NUMA != nil && instancetypeSpec.CPU.NUMA != nil {

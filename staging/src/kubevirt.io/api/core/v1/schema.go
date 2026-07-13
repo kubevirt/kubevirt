@@ -38,6 +38,15 @@ const (
 	DefaultCPUModel                                 = CPUModeHostModel
 )
 
+// VhostThreadPolicy controls how vhost-net kernel worker threads are pinned.
+// +k8s:openapi-gen=true
+type VhostThreadPolicy string
+
+const (
+	// VhostThreadPolicyShared pins all vhost-net worker threads to one shared dedicated pCPU.
+	VhostThreadPolicyShared VhostThreadPolicy = "Shared"
+)
+
 const HotplugDiskDir = "/var/run/kubevirt/hotplug-disks/"
 
 type DiskErrorPolicy string
@@ -384,6 +393,12 @@ type CPU struct {
 	// the emulator thread on it.
 	// +optional
 	IsolateEmulatorThread bool `json:"isolateEmulatorThread,omitempty"`
+	// VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+	// Omitting this field disables vhost thread isolation.
+	// Requires IsolateEmulatorThread to be enabled.
+	// One of: Shared
+	// +optional
+	VhostThreadPolicy *VhostThreadPolicy `json:"vhostThreadPolicy,omitempty"`
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *Realtime `json:"realtime,omitempty"`

@@ -427,6 +427,7 @@ spec:
             mask: maskValue
           sockets: 4294967289
           threads: 4294967289
+          vhostThreadPolicy: vhostThreadPolicyValue
         devices:
           autoattachGraphicsDevice: true
           autoattachInputDevice: true

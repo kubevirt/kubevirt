@@ -400,6 +400,16 @@ func formatDomainIOThreadSupplementalPin(cpuPool VCPUPool, vmi *v12.VirtualMachi
 	return supplementalThreads, nil
 }
 
+func FormatVhostThreadPin(cpuPool VCPUPool) (string, error) {
+	availableThread, err := cpuPool.FitThread()
+	if err != nil {
+		e := fmt.Errorf("no CPU allocated for the vhost thread: %v", err)
+		log.Log.Reason(e).Error("failed to format vhost thread pin")
+		return "", e
+	}
+	return fmt.Sprintf("%d", availableThread), nil
+}
+
 func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThreadsCPUSet string, cpuset []int) error {
 	if domain.Spec.IOThreads == nil {
 		return fmt.Errorf("domain is missing IOThreads")
@@ -533,6 +543,14 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 			return err
 		}
 		appendDomainEmulatorThreadPin(domain, emulatorThreadsCPUSet)
+	}
+	if vmi.Spec.Domain.CPU.VhostThreadPolicy != nil {
+		vhostCPUSet, err := FormatVhostThreadPin(cpuPool)
+		if err != nil {
+			log.Log.Reason(err).Error("failed to format vhost thread pin")
+			return err
+		}
+		domain.Spec.Metadata.KubeVirt.VhostCPUSet = vhostCPUSet
 	}
 	if iothreads.HasIOThreads(vmi) && iothreads.SupplementalPoolThreadCount(vmi) == 0 {
 		// Other IOThread pinning may share emulator thread, and must occur after emulator pin
