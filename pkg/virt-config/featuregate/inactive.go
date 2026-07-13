@@ -205,6 +205,13 @@ const (
 	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
 	// on the target before migration starts.
 	LibvirtHooksServerAndClient = "LibvirtHooksServerAndClient"
+
+	// ExternalNetResourceInjection disables the VMI controller query of NetworkAttachmentDefinition objects and
+	// the deployment of related RBAC rules by virt-operator.
+	// Owner: SIG network
+	// Beta: v1.8.0
+	// GA: v1.10.0
+	ExternalNetResourceInjection = "ExternalNetResourceInjection"
 )
 
 func init() {
@@ -251,4 +258,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: GA})
 }
