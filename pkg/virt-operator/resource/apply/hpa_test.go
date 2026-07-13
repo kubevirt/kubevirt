@@ -28,6 +28,7 @@ import (
 	"go.uber.org/mock/gomock"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -87,7 +88,7 @@ var _ = Describe("Apply HPAs", func() {
 	})
 
 	Context("export-proxy HPA", func() {
-		It("should create an HPA with min 2 and max 20 replicas", func() {
+		It("should create a resource CPU HPA by default when custom metrics are unavailable", func() {
 			createFakeNodes(k8sClient, 2, 0)
 
 			exportProxyConfig := &util.KubeVirtDeploymentConfig{
@@ -104,19 +105,47 @@ var _ = Describe("Apply HPAs", func() {
 				Expect(*createdHPA.Spec.MinReplicas).To(Equal(int32(2)))
 				Expect(createdHPA.Spec.MaxReplicas).To(Equal(int32(20)))
 				Expect(createdHPA.Spec.ScaleTargetRef.Name).To(Equal(components.VirtExportProxyName))
+				Expect(createdHPA.Annotations[components.ExportProxyHPAMetricsProfileAnnotation]).To(Equal(string(components.ExportProxyHPAMetricsProfileResource)))
+				Expect(createdHPA.Spec.Metrics).To(HaveLen(1))
+				Expect(createdHPA.Spec.Metrics[0].Type).To(Equal(autoscalingv2.ResourceMetricSourceType))
+				Expect(createdHPA.Spec.Metrics[0].Resource.Name).To(Equal(corev1.ResourceCPU))
+				Expect(*createdHPA.Spec.Metrics[0].Resource.Target.AverageUtilization).To(Equal(int32(70)))
+				return true, createdHPA, nil
+			})
+
+			Expect(r.syncExportProxyHorizontalPodAutoscaler(exportProxy, nil)).To(Succeed())
+		})
+
+		It("should create a custom metrics HPA when auto-detection is bypassed for tests", func() {
+			createFakeNodes(k8sClient, 2, 0)
+			r.exportProxyHPAProfileResolver = func(_ string) components.ExportProxyHPAMetricsProfile {
+				return components.ExportProxyHPAMetricsProfileCustomMetrics
+			}
+
+			exportProxyConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
+
+			k8sClient.Fake.PrependReactor("create", "horizontalpodautoscalers", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				createAction := action.(testing.CreateActionImpl)
+				createdHPA := createAction.Object.(*autoscalingv2.HorizontalPodAutoscaler)
+				Expect(createdHPA.Annotations[components.ExportProxyHPAMetricsProfileAnnotation]).To(Equal(string(components.ExportProxyHPAMetricsProfileCustomMetrics)))
 				Expect(createdHPA.Spec.Metrics).To(HaveLen(2))
 				Expect(createdHPA.Spec.Metrics[0].Type).To(Equal(autoscalingv2.PodsMetricSourceType))
 				Expect(createdHPA.Spec.Metrics[0].Pods).NotTo(BeNil())
 				Expect(createdHPA.Spec.Metrics[0].Pods.Metric.Name).To(Equal(components.ExportProxyActiveTransfersMetricName))
 				Expect(createdHPA.Spec.Metrics[0].Pods.Target.Type).To(Equal(autoscalingv2.AverageValueMetricType))
-				Expect(createdHPA.Spec.Metrics[0].Pods.Target.AverageValue.String()).To(Equal("50"))
+				Expect(createdHPA.Spec.Metrics[0].Pods.Target.AverageValue.String()).To(Equal("130"))
 				Expect(createdHPA.Spec.Metrics[1].Type).To(Equal(autoscalingv2.ObjectMetricSourceType))
 				Expect(createdHPA.Spec.Metrics[1].Object).NotTo(BeNil())
 				Expect(createdHPA.Spec.Metrics[1].Object.Metric.Name).To(Equal(components.ExportProxyActiveTransfersPodMaxMetricName))
 				Expect(createdHPA.Spec.Metrics[1].Object.DescribedObject.Kind).To(Equal("Namespace"))
 				Expect(createdHPA.Spec.Metrics[1].Object.DescribedObject.Name).To(Equal(Namespace))
 				Expect(createdHPA.Spec.Metrics[1].Object.Target.Type).To(Equal(autoscalingv2.ValueMetricType))
-				Expect(createdHPA.Spec.Metrics[1].Object.Target.Value.String()).To(Equal("70"))
+				Expect(createdHPA.Spec.Metrics[1].Object.Target.Value.String()).To(Equal("150"))
 				return true, createdHPA, nil
 			})
 
@@ -133,7 +162,7 @@ var _ = Describe("Apply HPAs", func() {
 			}
 			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
 
-			cachedHPA := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
+			cachedHPA := components.NewExportProxyHorizontalPodAutoscaler(exportProxy, components.ExportProxyHPAMetricsProfileResource)
 			injectOperatorMetadata(kv, &cachedHPA.ObjectMeta, Version, Registry, Id, true)
 			cachedHPA.SetGeneration(mockGeneration)
 			SetGeneration(&kv.Status.Generations, cachedHPA)
@@ -162,7 +191,7 @@ var _ = Describe("Apply HPAs", func() {
 			}
 			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
 
-			cachedHPA := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
+			cachedHPA := components.NewExportProxyHorizontalPodAutoscaler(exportProxy, components.ExportProxyHPAMetricsProfileResource)
 			cachedHPA.Spec.MaxReplicas = 10
 			cachedHPA.Annotations = make(map[string]string)
 			cachedHPA.SetGeneration(mockGeneration)
@@ -252,7 +281,7 @@ var _ = Describe("Apply HPAs", func() {
 			}
 			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
 
-			cachedHPA := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
+			cachedHPA := components.NewExportProxyHorizontalPodAutoscaler(exportProxy, components.ExportProxyHPAMetricsProfileResource)
 			injectOperatorMetadata(kv, &cachedHPA.ObjectMeta, Version, Registry, Id, true)
 			Expect(stores.HorizontalPodAutoscalerCache.Add(cachedHPA)).To(Succeed())
 

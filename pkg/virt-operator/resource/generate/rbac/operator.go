@@ -634,6 +634,21 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 					"patch",
 				},
 			},
+			{
+				// Probe custom.metrics.k8s.io when auto-detecting the virt-exportproxy HPA metrics profile.
+				// Resources must be "*" because prometheus-adapter exposes each metric as a dynamic
+				// custom.metrics.k8s.io resource name that cannot be enumerated at RBAC definition time.
+				APIGroups: []string{
+					"custom.metrics.k8s.io",
+				},
+				Resources: []string{
+					"*",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+				},
+			},
 		},
 	}
 	operatorRole.Rules = append(operatorRole.Rules, getKubeVirtComponentsRules()...)

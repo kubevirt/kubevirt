@@ -43,7 +43,8 @@ func (r *Reconciler) syncExportProxyHorizontalPodAutoscaler(deployment *appsv1.D
 		return fmt.Errorf("failed to determine export-proxy replicas for HPA: %w", err)
 	}
 
-	horizontalPodAutoscaler := components.NewExportProxyHorizontalPodAutoscaler(deployment)
+	profile := r.resolveExportProxyHPAMetricsProfile(deployment.Namespace)
+	horizontalPodAutoscaler := components.NewExportProxyHorizontalPodAutoscaler(deployment, profile)
 	if desiredReplicas <= 1 {
 		obj, exists, _ := r.stores.HorizontalPodAutoscalerCache.Get(horizontalPodAutoscaler)
 		if !exists {
