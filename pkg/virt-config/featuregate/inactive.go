@@ -187,6 +187,13 @@ const (
 	// Beta: v1.8.0
 	// GA: v1.9.0
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// ExternalNetResourceInjection disables the VMI controller query of NetworkAttachmentDefinition objects and
+	// the deployment of related RBAC rules by virt-operator.
+	// Owner: SIG network
+	// Beta: v1.8.0
+	// GA: v1.10.0
+	ExternalNetResourceInjection = "ExternalNetResourceInjection"
 )
 
 func init() {
@@ -231,4 +238,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: GA})
 }

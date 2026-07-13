@@ -360,19 +360,6 @@ func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]strin
 	}
 }
 
-func WithNetworkResources(networkToResourceMap map[string]string) ResourceRendererOption {
-	return func(renderer *ResourceRenderer) {
-		resources := renderer.ResourceRequirements()
-		for _, resourceName := range networkToResourceMap {
-			if resourceName != "" {
-				requestResource(&resources, resourceName)
-			}
-		}
-		copyResources(resources.Limits, renderer.calculatedLimits)
-		copyResources(resources.Requests, renderer.calculatedRequests)
-	}
-}
-
 func WithSEV() ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
