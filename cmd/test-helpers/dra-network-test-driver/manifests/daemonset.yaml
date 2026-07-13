@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dra-network-test-driver
+  namespace: kubevirt
+spec:
+  selector:
+    matchLabels:
+      app: dra-network-test-driver
+  updateStrategy:
+    rollingUpdate:
+      # The old pod must be gone before the new one starts: both bind the same
+      # host socket paths, and the old pod removes them on shutdown.
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: dra-network-test-driver
+    spec:
+      priorityClassName: system-node-critical
+      serviceAccountName: dra-network-test-driver
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: plugin
+        image: registry:5000/kubevirt/test-helpers:devel
+        imagePullPolicy: Always
+        command: ["/usr/bin/dra-network-test-driver"]
+        args:
+          - --target-interface=eth1
+          - --target-port=5201
+        securityContext:
+          privileged: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: kubelet-plugin
+          mountPath: /var/lib/kubelet/plugins/vhostuser.net.kubevirt.io
+        - name: kubelet-plugins-registry
+          mountPath: /var/lib/kubelet/plugins_registry
+        - name: dra-vhostuser
+          mountPath: /var/run/kubevirt/dra
+        - name: cdi
+          mountPath: /var/run/cdi
+      volumes:
+      # The kubeletplugin helper binds dra.sock inside this directory but does
+      # not create it, so the per-driver directory must exist beforehand.
+      - name: kubelet-plugin
+        hostPath:
+          path: /var/lib/kubelet/plugins/vhostuser.net.kubevirt.io
+          type: DirectoryOrCreate
+      - name: kubelet-plugins-registry
+        hostPath:
+          path: /var/lib/kubelet/plugins_registry
+          type: Directory
+      - name: dra-vhostuser
+        hostPath:
+          path: /var/run/kubevirt/dra
+          type: DirectoryOrCreate
+      - name: cdi
+        hostPath:
+          path: /var/run/cdi
+          type: DirectoryOrCreate
