@@ -25,10 +25,18 @@ const (
 	// 429 shedding start at the same per-pod load.
 	// Active transfers are CAS-capped here, so this is also the maximum reachable
 	// active count and the readiness shed threshold (HardTransferLimit).
-	SoftTransferLimit int64 = 70
+	SoftTransferLimit int64 = 150
+
+	// SoftCPUUtilizationPercent rejects new export transfers with HTTP 429 when
+	// smoothed cgroup CPU utilization exceeds this percentage of the pod CPU limit.
+	SoftCPUUtilizationPercent = 70
+
+	// SoftMemoryUtilizationPercent rejects new export transfers with HTTP 429 when
+	// cgroup memory usage exceeds this percentage of the pod memory limit.
+	SoftMemoryUtilizationPercent = 70
 
 	// HPATargetAverageTransfers is the HPA average active transfers per pod target.
-	HPATargetAverageTransfers = 50
+	HPATargetAverageTransfers = 130
 
 	// HPATargetMaxTransfers is the HPA gated per-pod max metric target.
 	// Intentionally equal to SoftTransferLimit (see above).
@@ -50,6 +58,6 @@ const (
 	RetryAfterSeconds = 1
 
 	// HPAMaxMetricAverageFloor suppresses the gated max HPA metric when fleet
-	// average active transfers is below this value.
-	HPAMaxMetricAverageFloor = 35
+	// average active transfers is below this value (70% of HPATargetAverageTransfers).
+	HPAMaxMetricAverageFloor = 91
 )
