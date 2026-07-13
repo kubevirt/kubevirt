@@ -189,11 +189,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		SIGs:  SIGCompute,
 	},
 	{
-		ID:    32,
-		Regex: regexp.MustCompile(`"level":"error","msg":"No disk capacity","pos":"manager.go`),
-		SIGs:  SIGCompute | SIGNetwork | SIGPerformance | SIGStorage | SIGMonitoring,
-	},
-	{
 		ID:    33,
 		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to get block info|invalid argument: invalid path.*not assigned to domain)`),
 		SIGs:  SIGCompute | SIGStorage,
