@@ -25,7 +25,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
 )
 
-var heldTransfers []activeTransfer
+var heldTransfers []*ActiveTransfer
+
+type testUtilizationReader struct {
+	cpuPercent float64
+	ok         bool
+}
+
+func (t testUtilizationReader) Utilization() (cpuPercent float64, ok bool) {
+	return t.cpuPercent, t.ok
+}
 
 var _ = Describe("ReadyForService", func() {
 	BeforeEach(func() {
@@ -50,6 +59,15 @@ var _ = Describe("ReadyForService", func() {
 		Expect(ReadyForService()).To(BeFalse())
 
 		setActiveTransferCountForTest(admission.HardTransferClear)
+		Expect(ReadyForService()).To(BeTrue())
+	})
+
+	It("is not ready when soft CPU admission is rejecting", func() {
+		setActiveTransferCountForTest(0)
+		admission.SetUtilizationReaderForTest(testUtilizationReader{cpuPercent: 71, ok: true})
+		Expect(ReadyForService()).To(BeFalse())
+
+		admission.SetUtilizationReaderForTest(testUtilizationReader{cpuPercent: 50, ok: true})
 		Expect(ReadyForService()).To(BeTrue())
 	})
 })
@@ -79,6 +97,22 @@ var _ = Describe("TryRecordTransferStarted admission", func() {
 		Expect(ok).To(BeFalse())
 		Expect(ActiveTransferCount()).To(Equal(admission.SoftTransferLimit))
 	})
+
+	DescribeTable("rejects new transfers based on soft utilization limits",
+		func(reader testUtilizationReader, expectOK bool) {
+			admission.SetUtilizationReaderForTest(reader)
+			transfer, ok := TryRecordTransferStarted()
+			Expect(ok).To(Equal(expectOK))
+			if expectOK {
+				heldTransfers = append(heldTransfers, transfer)
+			} else {
+				Expect(ActiveTransferCount()).To(Equal(int64(0)))
+			}
+		},
+		Entry("cpu over threshold", testUtilizationReader{cpuPercent: 71, ok: true}, false),
+		Entry("below threshold", testUtilizationReader{cpuPercent: 50, ok: true}, true),
+		Entry("unavailable metrics fail open", testUtilizationReader{cpuPercent: 100, ok: false}, true),
+	)
 
 	It("accepts transfers below the soft limit", func() {
 		for i := int64(0); i < admission.SoftTransferLimit-1; i++ {

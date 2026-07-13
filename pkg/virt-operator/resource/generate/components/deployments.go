@@ -759,7 +759,7 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 	// Burstable on purpose: low requests avoid reserving storm capacity while
 	// idle; higher limits contain transfer bursts. Soft CPU admission and the
 	// resource HPA CPU target align with ~70% of the CPU limit. Memory is not
-	// used as an HPA signal (Go RSS rarely shrinks).
+	// used as an HPA or soft-admission signal (RSS lags load after bursts).
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("350m"),
