@@ -855,12 +855,6 @@ spec:
           - watch
           - get
         - apiGroups:
-          - k8s.cni.cncf.io
-          resources:
-          - network-attachment-definitions
-          verbs:
-          - get
-        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances

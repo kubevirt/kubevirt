@@ -95,9 +95,6 @@ const (
 	AdditionalPropertiesHypervisorName = "HypervisorName"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesExternalNetResourceInjection = "ExternalNetResourceInjection"
-
-	// lookup key in AdditionalProperties
 	AdditionalPropertiesOptOutRoleAggregation = "OptOutRoleAggregation"
 
 	// lookup key in AdditionalProperties
@@ -200,10 +197,6 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		if virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || *virtTemplateDeployment.Enabled {
 			additionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled] = ""
 		}
-	}
-
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ExternalNetResourceInjection) {
-		additionalProperties[AdditionalPropertiesExternalNetResourceInjection] = ""
 	}
 
 	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
@@ -573,11 +566,6 @@ func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
 
 func (c *KubeVirtDeploymentConfig) VirtTemplateDeploymentEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled]
-	return enabled
-}
-
-func (c *KubeVirtDeploymentConfig) ExternalNetResourceInjectionEnabled() bool {
-	_, enabled := c.AdditionalProperties[AdditionalPropertiesExternalNetResourceInjection]
 	return enabled
 }
 

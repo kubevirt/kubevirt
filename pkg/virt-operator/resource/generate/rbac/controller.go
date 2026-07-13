@@ -35,10 +35,10 @@ import (
 	"kubevirt.io/api/migrations"
 )
 
-func GetAllController(namespace string, includeNADRules bool) []runtime.Object {
+func GetAllController(namespace string) []runtime.Object {
 	return []runtime.Object{
 		newControllerServiceAccount(namespace),
-		newControllerClusterRole(includeNADRules),
+		newControllerClusterRole(),
 		newControllerClusterRoleBinding(namespace),
 		newControllerRole(namespace),
 		newControllerRoleBinding(namespace),
@@ -612,20 +612,8 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 	}
 }
 
-func newControllerClusterRole(includeNADRules bool) *rbacv1.ClusterRole {
-	cr := baseControllerClusterRole()
-	if includeNADRules {
-		cr.Rules = append(cr.Rules, rbacv1.PolicyRule{
-			APIGroups: []string{
-				"k8s.cni.cncf.io",
-			},
-			Resources: []string{
-				"network-attachment-definitions",
-			},
-			Verbs: []string{"get"},
-		})
-	}
-	return cr
+func newControllerClusterRole() *rbacv1.ClusterRole {
+	return baseControllerClusterRole()
 }
 
 func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
