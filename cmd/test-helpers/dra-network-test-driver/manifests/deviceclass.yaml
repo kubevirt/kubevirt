@@ -1,0 +1,8 @@
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: vhostuser.net.kubevirt.io
+spec:
+  selectors:
+  - cel:
+      expression: "device.driver == 'vhostuser.net.kubevirt.io'"
