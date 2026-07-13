@@ -29,6 +29,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -535,22 +536,6 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	applyExperimentalMigrationDefaults(migrationConfiguration)
 
 	stallDetector := migrationConfiguration.ExperimentalMigrationOptions.StallDetector
-	ewmaAlpha, err := virtconfig.ParseFactor(*stallDetector.EwmaAlpha, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid ewmaAlpha: %w", err)
-	}
-	precopyPossibleFactor, err := virtconfig.ParseFactor(*stallDetector.PrecopyPossibleFactor, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid precopyPossibleFactor: %w", err)
-	}
-	patienceWindowDecayFactor, err := virtconfig.ParseFactor(*stallDetector.PatienceWindowDecayFactor, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid patienceWindowDecayFactor: %w", err)
-	}
-	completionTimeoutFactor, err := virtconfig.ParseFactor(*stallDetector.CompletionTimeoutFactor, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid completionTimeoutFactor: %w", err)
-	}
 
 	options := &cmdclient.MigrationOptions{
 		Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
@@ -563,14 +548,14 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
 		StallDetectionEnabled:   c.clusterConfig.MigrationStallDetectionEnabled(),
 		StallDetectorOptions: cmdclient.StallDetectorOptions{
-			StallMargin:               float64(*stallDetector.StallMargin) / 100,
+			StallMargin:               *stallDetector.StallMargin,
 			StallProgressTimeout:      *stallDetector.StallProgressTimeout,
 			SwitchoverTimeout:         *stallDetector.SwitchoverTimeout,
-			EwmaAlpha:                 ewmaAlpha,
-			PrecopyPossibleFactor:     precopyPossibleFactor,
-			PatienceWindowDecayFactor: patienceWindowDecayFactor,
+			EwmaAlpha:                 *stallDetector.EwmaAlpha,
+			PrecopyPossibleFactor:     *stallDetector.PrecopyPossibleFactor,
+			PatienceWindowDecayFactor: *stallDetector.PatienceWindowDecayFactor,
 			SearchLocalMinima:         *stallDetector.SearchLocalMinima,
-			CompletionTimeoutFactor:   completionTimeoutFactor,
+			CompletionTimeoutFactor:   *stallDetector.CompletionTimeoutFactor,
 		},
 	}
 
@@ -713,19 +698,19 @@ func applyStallDetectorDefaults(sd *v1.StallDetectorOptions) *v1.StallDetectorOp
 		sd.SwitchoverTimeout = pointer.P(virtconfig.DefaultSwitchoverTimeout)
 	}
 	if sd.EwmaAlpha == nil {
-		sd.EwmaAlpha = pointer.P(virtconfig.DefaultEwmaAlpha)
+		sd.EwmaAlpha = pointer.P(resource.MustParse(virtconfig.DefaultEwmaAlpha))
 	}
 	if sd.PrecopyPossibleFactor == nil {
-		sd.PrecopyPossibleFactor = pointer.P(virtconfig.DefaultPrecopyPossibleFactor)
+		sd.PrecopyPossibleFactor = pointer.P(resource.MustParse(virtconfig.DefaultPrecopyPossibleFactor))
 	}
 	if sd.PatienceWindowDecayFactor == nil {
-		sd.PatienceWindowDecayFactor = pointer.P(virtconfig.DefaultPatienceWindowDecayFactor)
+		sd.PatienceWindowDecayFactor = pointer.P(resource.MustParse(virtconfig.DefaultPatienceWindowDecayFactor))
 	}
 	if sd.SearchLocalMinima == nil {
 		sd.SearchLocalMinima = pointer.P(virtconfig.DefaultSearchLocalMinima)
 	}
 	if sd.CompletionTimeoutFactor == nil {
-		sd.CompletionTimeoutFactor = pointer.P(virtconfig.DefaultCompletionTimeoutFactor)
+		sd.CompletionTimeoutFactor = pointer.P(resource.MustParse(virtconfig.DefaultCompletionTimeoutFactor))
 	}
 	return sd
 }

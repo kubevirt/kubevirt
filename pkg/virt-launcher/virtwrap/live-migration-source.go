@@ -463,7 +463,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		}
 		monitor.logger.V(3).Infof(
 			"initialized migration monitor: stallDetection=%t progressTimeout=%ds completionTimeoutPerGiB=%d maxDowntimeMs=%d allowPostCopy=%t allowWorkloadDisruption=%t "+
-				"stallMargin=%.2f stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%.2f patienceWindowDecayFactor=%.2f bandwidthEWMAAlpha=%.2f searchLocalMinima=%t completionTimeoutFactor=%.2f",
+				"stallMargin=%d%% stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%g patienceWindowDecayFactor=%g bandwidthEWMAAlpha=%g searchLocalMinima=%t completionTimeoutFactor=%g",
 			options.StallDetectionEnabled,
 			options.ProgressTimeout,
 			options.CompletionTimeoutPerGiB,
@@ -473,11 +473,11 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 			options.StallDetectorOptions.StallMargin,
 			options.StallDetectorOptions.StallProgressTimeout,
 			options.StallDetectorOptions.SwitchoverTimeout,
-			options.StallDetectorOptions.PrecopyPossibleFactor,
-			options.StallDetectorOptions.PatienceWindowDecayFactor,
-			options.StallDetectorOptions.EwmaAlpha,
+			options.StallDetectorOptions.PrecopyPossibleFactor.AsApproximateFloat64(),
+			options.StallDetectorOptions.PatienceWindowDecayFactor.AsApproximateFloat64(),
+			options.StallDetectorOptions.EwmaAlpha.AsApproximateFloat64(),
 			options.StallDetectorOptions.SearchLocalMinima,
-			options.StallDetectorOptions.CompletionTimeoutFactor,
+			options.StallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64(),
 		)
 		// TODO: this limitation is actively being worked on; remove when resolved. ETA: QEMU 11.1
 		if vmitrait.HasVFIO(vmi) {
@@ -522,8 +522,9 @@ func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64, logg
 }
 
 func (m *migrationMonitor) scaledCompletionDeadlineSeconds(baseSeconds int64) int64 {
-	m.logger.V(4).Infof("scaledCompletionDeadlineSeconds: baseSeconds=%ds, completionTimeoutFactor=%f", baseSeconds, m.options.StallDetectorOptions.CompletionTimeoutFactor)
-	return int64(float64(baseSeconds) * m.options.StallDetectorOptions.CompletionTimeoutFactor)
+	completionTimeoutFactor := m.options.StallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64()
+	m.logger.V(4).Infof("scaledCompletionDeadlineSeconds: baseSeconds=%ds, completionTimeoutFactor=%g", baseSeconds, completionTimeoutFactor)
+	return int64(float64(baseSeconds) * completionTimeoutFactor)
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -587,7 +588,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 				return
 			}
 			m.acceptableCompletionTime = m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime)
-			m.switchOverDeadline = elapsedSeconds + int64(switchoverTimeout)
+			m.switchOverDeadline = elapsedSeconds + switchoverTimeout
 			sd.switchoverInitiated = true
 			return
 		}
@@ -639,7 +640,7 @@ func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action co
 		}
 
 		// since stop-and-copy is not guaranteed to start immediately (or ever), a "switch-over" deadline is needed
-		m.switchOverDeadline = elapsedSeconds + int64(switchoverTimeout)
+		m.switchOverDeadline = elapsedSeconds + switchoverTimeout
 
 	default:
 		logger.Error("unknown convergence action")
