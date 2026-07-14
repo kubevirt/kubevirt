@@ -280,14 +280,18 @@ func withStartStrategy(strategy v1.StartStrategy) libvmi.Option {
 	}
 }
 
+func ensureBootloader(vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.Firmware == nil {
+		vmi.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+	if vmi.Spec.Domain.Firmware.Bootloader == nil {
+		vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+	}
+}
+
 func withBIOSUseSerial(useSerial bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
+		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{
 			UseSerial: pointer.P(useSerial),
 		}
@@ -307,12 +311,7 @@ func withKernelArgs(args string) libvmi.Option {
 
 func withEFIBootloader(secureBoot bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
+		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{
 			SecureBoot: pointer.P(secureBoot),
 		}
