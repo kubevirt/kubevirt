@@ -322,6 +322,7 @@ var _ = Describe("Application", func() {
 			app.reInitChan = make(chan string, 10)
 			app.hasCDI = hasCDIAtInit
 			app.isVirtTemplateDeploymentEnabled = clusterConfig.VirtTemplateDeploymentEnabled()
+			app.isDRAEnabled = app.clusterConfig.AnyDeviceDRAGateEnabled()
 
 			app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
