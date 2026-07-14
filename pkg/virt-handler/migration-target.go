@@ -261,9 +261,15 @@ func (c *MigrationTargetController) handleDecentralizedMigrationAbort(vmi *v1.Vi
 			return nil
 		}
 
+		// The target migration proxy must stay up while the source migration is still
+		// running. Wait until the source reports completion (EndTimestamp synced onto
+		// the target VMI) before marking the target migration failed and cleaning up.
 		if migrationState.EndTimestamp == nil {
-			migrationState.EndTimestamp = pointer.P(metav1.Now())
+			c.logger.Object(vmi).V(5).Info("waiting for source migration abort to complete before finalizing target abort")
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
+			return nil
 		}
+
 		migrationState.Failed = true
 		migrationState.Completed = true
 		if migrationState.AbortStatus == "" {
@@ -866,13 +872,16 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	// Once the migration target has been fully prepared (indicated by the
 	// migration proxy listening), there is nothing left for processVMI to
-	// do until the migration completes. Return early to avoid re-running
-	// the full preparation while QEMU is actively migrating.
+	// do until the migration completes or abort finalization runs.
+	// Return early to avoid re-running the full preparation while QEMU is
+	// actively migrating or while waiting for a decentralized abort to finish
+	// on the source (handleDecentralizedMigrationAbort requeues via AddAfter).
+	// Centralized aborts still fall through so checkLauncherClient can run.
 	// Return skipExpectations=true so the caller does not block the
 	// controller from processing external events (domain updates, sync
 	// controller VMI patches).
 	if len(c.migrationProxy.GetTargetListenerPorts(migrationProxyKey(vmi))) > 0 {
-		if !abortInProgress(vmi) {
+		if !abortInProgress(vmi) || vmi.IsDecentralizedMigration() {
 			c.logger.Object(vmi).V(4).Info("migration target already prepared, nothing to do")
 			return nil, true
 		}
