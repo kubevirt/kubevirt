@@ -157,7 +157,8 @@ func (c CPUDomainConfigurator) configureSyntheticNUMA(vmi *v1.VirtualMachineInst
 		return
 	}
 
-	memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
+	const bytesPerKiB = 1024
+	memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(bytesPerKiB)) //nolint:gosec // G115: memory is always positive
 	domain.Spec.CPU.NUMA = &api.NUMA{
 		Cells: []api.NUMACell{
 			{
