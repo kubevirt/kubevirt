@@ -79,7 +79,7 @@ var _ = Describe("Memory Domain Configurator", func() {
 		var guestMemoryOption libvmi.Option = libvmi.WithGuestMemory(guestMemory.String())
 
 		DescribeTable("maxGuest and guest memory settings",
-			func(vmi *v1.VirtualMachineInstance, expectedGuestMemory *resource.Quantity, expectedMaxMemory *resource.Quantity) {
+			func(vmi *v1.VirtualMachineInstance, expectedGuestMemory, expectedMaxMemory *resource.Quantity) {
 				domain := &api.Domain{}
 				configurator := compute.MemoryConfigurator{}
 				Expect(configurator.Configure(vmi, domain)).To(Succeed())

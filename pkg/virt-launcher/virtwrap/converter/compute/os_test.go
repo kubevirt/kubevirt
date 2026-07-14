@@ -37,7 +37,6 @@ import (
 )
 
 var _ = Describe("OS Domain Configurator", func() {
-
 	const (
 		smbiosEnabled    = true
 		useSerialEnabled = true

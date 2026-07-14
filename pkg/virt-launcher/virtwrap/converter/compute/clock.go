@@ -102,7 +102,7 @@ func boolToYesNo(value *bool, defaultYes bool) string {
 	return boolToString(value, defaultYes, "yes", "no")
 }
 
-func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
+func boolToString(value *bool, defaultPositive bool, positive, negative string) string {
 	toString := func(value bool) string {
 		if value {
 			return positive

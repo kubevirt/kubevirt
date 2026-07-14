@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Controllers Domain Configurator", func() {
-
 	const (
 		usbNeeded                   = true
 		pciHole64DisablingSupported = true
