@@ -36,7 +36,7 @@ var _ = Describe("Network setup filters", func() {
 	Context("FilterNetsForVMStartup", func() {
 		It("Should return a list non-absent networks", func() {
 			const absentNetName = "absent-net"
-			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(absentNetName)
+			absentIface := libvmi.NewInterface(absentNetName, libvmi.WithBridgeBinding())
 			absentIface.State = v1.InterfaceStateAbsent
 
 			vmi := libvmi.New(
@@ -68,7 +68,7 @@ var _ = Describe("Network setup filters", func() {
 		It("Should return an empty list when interface status is not reported", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net1Name)),
+				libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
 			)
@@ -79,8 +79,8 @@ var _ = Describe("Network setup filters", func() {
 		It("Should return an empty list when there are no networks to hot plug/unplug", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net1Name)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
@@ -109,8 +109,8 @@ var _ = Describe("Network setup filters", func() {
 			multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net1Name)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
@@ -136,10 +136,10 @@ var _ = Describe("Network setup filters", func() {
 		})
 
 		It("Should return a network to hotunplug when its interface is marked as absent and not in the domain", func() {
-			absentIface1 := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
+			absentIface1 := libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())
 			absentIface1.State = v1.InterfaceStateAbsent
 
-			absentIface2 := libvmi.InterfaceDeviceWithBridgeBinding(net2Name)
+			absentIface2 := libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())
 			absentIface2.State = v1.InterfaceStateAbsent
 
 			vmi := libvmi.New(
@@ -171,13 +171,13 @@ var _ = Describe("Network setup filters", func() {
 		})
 
 		It("Should return networks to hotplug and hotunplug", func() {
-			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
+			absentIface := libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())
 			absentIface.State = v1.InterfaceStateAbsent
 
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithInterface(absentIface),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
@@ -209,7 +209,7 @@ var _ = Describe("Network setup filters", func() {
 	Context("FilterNetsForMigrationTarget", func() {
 		It("Should return a list of all networks - no matter their interface state", func() {
 			const absentNetName = "absent-net"
-			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(absentNetName)
+			absentIface := libvmi.NewInterface(absentNetName, libvmi.WithBridgeBinding())
 			absentIface.State = v1.InterfaceStateAbsent
 
 			vmi := libvmi.New(
