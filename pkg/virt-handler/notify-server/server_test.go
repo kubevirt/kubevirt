@@ -122,7 +122,7 @@ var _ = Describe("HandleDomainEvent", func() {
 
 	BeforeEach(func() {
 		eventChan = make(chan watch.Event, 10)
-		notifyServer = &Notify{EventChan: eventChan}
+		notifyServer = &Notify{eventChan: eventChan}
 	})
 
 	DescribeTable("should push the correct event type to the channel",
@@ -149,7 +149,7 @@ var _ = Describe("HandleDomainEvent", func() {
 		Entry("Deleted", string(watch.Deleted), watch.Deleted),
 	)
 
-	It("should handle Error event type with status", func() {
+	It("should acknowledge Error events without forwarding them", func() {
 		domain := &api.Domain{}
 		domainJSON, err := json.Marshal(domain)
 		Expect(err).ToNot(HaveOccurred())
@@ -166,10 +166,7 @@ var _ = Describe("HandleDomainEvent", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.Success).To(BeTrue())
 
-		var ev watch.Event
-		Eventually(eventChan).Should(Receive(&ev))
-		Expect(ev.Type).To(Equal(watch.Error))
-		Expect(ev.Object.(*metav1.Status).Message).To(Equal("domain crashed"))
+		Expect(eventChan).ShouldNot(Receive())
 	})
 
 	It("should succeed with empty DomainJSON and StatusJSON", func() {
@@ -244,7 +241,7 @@ var _ = Describe("HandleK8SEvent", func() {
 		fakeRecorder = record.NewFakeRecorder(10)
 		vmiStore = cache.NewStore(cache.MetaNamespaceKeyFunc)
 		notifyServer = &Notify{
-			EventChan: eventChan,
+			eventChan: eventChan,
 			recorder:  fakeRecorder,
 			vmiStore:  vmiStore,
 		}
