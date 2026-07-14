@@ -139,7 +139,9 @@ func (c CPUDomainConfigurator) configureCPUFeatures(vmi *v1.VirtualMachineInstan
 	*/
 
 	_, exists := existingFeatures["mpx"]
-	if c.requiresMPXCPUValidation && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+	if c.requiresMPXCPUValidation && !exists &&
+		vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel &&
+		vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 		domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 			Name:   "mpx",
 			Policy: "disable",

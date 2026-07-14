@@ -49,7 +49,10 @@ func (q QemuCmdDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 		initializeQEMUCmdAndQEMUArg(domain)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-fw_cfg"})
 		ignitionpath := fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(vmi.Name, vmi.Namespace), ignition.IgnitionFile)
-		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
+		domain.Spec.QEMUCmd.QEMUArg = append(
+			domain.Spec.QEMUCmd.QEMUArg,
+			api.Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)},
+		)
 	}
 
 	if q.verboseLogEnabled {
