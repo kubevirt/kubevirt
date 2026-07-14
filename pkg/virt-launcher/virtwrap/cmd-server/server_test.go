@@ -876,7 +876,7 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should return Internal when domainManager.BackupVirtualMachine fails", func() {
 			backupOptions, err := json.Marshal(&backupv1.BackupOptions{
-				Cmd:        backupv1.Abort,
+				Cmd: backupv1.Abort,
 			})
 			Expect(err).ToNot(HaveOccurred())
 			request := &cmdv1.BackupRequest{
