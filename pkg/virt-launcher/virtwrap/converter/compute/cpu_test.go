@@ -33,18 +33,17 @@ import (
 )
 
 var _ = Describe("CPU Domain Configurator", func() {
-	const (
-		hotplugSupported         = true
-		requiresMPXCPUValidation = true
-		memfdSupported           = true
-	)
-
 	Context("CPU topology", func() {
 		DescribeTable("should set topology and VCPU count from VMI CPU spec",
 			func(vmi *v1.VirtualMachineInstance, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+				configurator := compute.NewCPUDomainConfigurator(
+					compute.CPUWithHotplugSupported(false),
+					compute.CPUWithMPXCPUValidation(false),
+					compute.CPUWithCrossArchEmulation(false),
+					compute.CPUWithMemfdSupported(true),
+				)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
@@ -85,7 +84,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			func(vmi *v1.VirtualMachineInstance, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+				configurator := compute.NewCPUDomainConfigurator(
+					compute.CPUWithHotplugSupported(false),
+					compute.CPUWithMPXCPUValidation(false),
+					compute.CPUWithCrossArchEmulation(false),
+					compute.CPUWithMemfdSupported(true),
+				)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
@@ -130,7 +134,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(false),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -154,14 +163,19 @@ var _ = Describe("CPU Domain Configurator", func() {
 			func(vmi *v1.VirtualMachineInstance, requiresMPX bool, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, requiresMPX, false, memfdSupported)
+				configurator := compute.NewCPUDomainConfigurator(
+					compute.CPUWithHotplugSupported(false),
+					compute.CPUWithMPXCPUValidation(requiresMPX),
+					compute.CPUWithCrossArchEmulation(false),
+					compute.CPUWithMemfdSupported(true),
+				)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
 			},
 			Entry("adds mpx disable for custom model when MPX validation is required",
 				libvmi.New(libvmi.WithCPUModel("Skylake-Server")),
-				requiresMPXCPUValidation,
+				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU: api.CPU{
 						Mode:     "custom",
@@ -174,7 +188,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			),
 			Entry("does not add mpx for host-model",
 				libvmi.New(libvmi.WithCPUModel(v1.CPUModeHostModel)),
-				requiresMPXCPUValidation,
+				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
 					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
@@ -182,7 +196,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			),
 			Entry("does not add mpx for host-passthrough",
 				libvmi.New(libvmi.WithCPUModel(v1.CPUModeHostPassthrough)),
-				requiresMPXCPUValidation,
+				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostPassthrough, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
 					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
@@ -193,7 +207,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 					libvmi.WithCPUModel("Skylake-Server"),
 					libvmi.WithCPUFeature("mpx", "require"),
 				),
-				requiresMPXCPUValidation,
+				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU: api.CPU{
 						Mode:     "custom",
@@ -208,13 +222,16 @@ var _ = Describe("CPU Domain Configurator", func() {
 	})
 
 	Context("Cross-architecture emulation", func() {
-		const crossArchEmulation = true
-
 		DescribeTable("should use CPU model max for cross-arch emulation",
 			func(vmi *v1.VirtualMachineInstance, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, crossArchEmulation, memfdSupported)
+				configurator := compute.NewCPUDomainConfigurator(
+					compute.CPUWithHotplugSupported(false),
+					compute.CPUWithMPXCPUValidation(false),
+					compute.CPUWithCrossArchEmulation(true),
+					compute.CPUWithMemfdSupported(true),
+				)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
@@ -255,7 +272,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			func(vmi *v1.VirtualMachineInstance, topology *api.CPUTopology, expectedNUMA *api.NUMA) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+				configurator := compute.NewCPUDomainConfigurator(
+					compute.CPUWithHotplugSupported(false),
+					compute.CPUWithMPXCPUValidation(false),
+					compute.CPUWithCrossArchEmulation(false),
+					compute.CPUWithMemfdSupported(true),
+				)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				cpuCount := topology.Sockets * topology.Cores * topology.Threads
@@ -332,7 +354,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -359,7 +386,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false, !memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(false),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(false),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -378,7 +410,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -401,7 +438,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(false),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -415,7 +457,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			vmi := libvmi.New(libvmi.WithCPUCount(1, 1, 2))
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -432,7 +479,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false, memfdSupported)
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{

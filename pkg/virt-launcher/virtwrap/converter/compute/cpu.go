@@ -35,137 +35,159 @@ type CPUDomainConfigurator struct {
 	isMemfdSupported         bool
 }
 
-func NewCPUDomainConfigurator(isHotplugSupported, requiresMPXCPUValidation, crossArchEmulation, isMemfdSupported bool) CPUDomainConfigurator {
-	return CPUDomainConfigurator{
-		isHotplugSupported:       isHotplugSupported,
-		requiresMPXCPUValidation: requiresMPXCPUValidation,
-		crossArchEmulation:       crossArchEmulation,
-		isMemfdSupported:         isMemfdSupported,
+type cpuOption func(*CPUDomainConfigurator)
+
+func NewCPUDomainConfigurator(options ...cpuOption) CPUDomainConfigurator {
+	var configurator CPUDomainConfigurator
+
+	for _, f := range options {
+		f(&configurator)
 	}
+
+	return configurator
 }
 
 func (c CPUDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	// Set VM CPU cores
-	// CPU topology will be created everytime, because user can specify
-	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
-	// in vmi.Spec.Domain.CPU
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
-	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
-		domainVCPUTopologyForHotplug(vmi, domain)
-	}
-
-	if vmi.Spec.Domain.CPU != nil {
-		// Set VM CPU model and vendor
-		if vmi.Spec.Domain.CPU.Model != "" {
-			isHostCPUMode := vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough
-			if c.crossArchEmulation && isHostCPUMode {
-				// host-passthrough and host-model are incompatible with cross-architecture
-				// TCG emulation. Use "max" which exposes all features QEMU can emulate.
-				domain.Spec.CPU.Mode = "custom"
-				domain.Spec.CPU.Model = "max"
-			} else if isHostCPUMode {
-				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
-			} else {
-				domain.Spec.CPU.Mode = "custom"
-				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
-			}
-		}
-
-		// Set VM CPU features
-		existingFeatures := make(map[string]struct{})
-		if vmi.Spec.Domain.CPU.Features != nil {
-			for _, feature := range vmi.Spec.Domain.CPU.Features {
-				existingFeatures[feature.Name] = struct{}{}
-				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
-					Name:   feature.Name,
-					Policy: feature.Policy,
-				})
-			}
-		}
-
-		/*
-						Libvirt validation fails when a CPU model is usable
-						by QEMU but lacks features listed in
-						`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
-						To avoid the validation error mentioned above we can disable
-						deprecated features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files.
-						Examples of validation error:
-			    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283 - resolve by obsolete Opteron_G2
-						https://gitlab.com/libvirt/libvirt/-/issues/304 - resolve by disabling mpx which is deprecated
-						Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
-						once the issue is resolved we can remove mpx disablement
-		*/
-
-		_, exists := existingFeatures["mpx"]
-		if c.requiresMPXCPUValidation && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
-			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
-				Name:   "mpx",
-				Policy: "disable",
-			})
-		}
-	}
-
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		if c.crossArchEmulation {
-			domain.Spec.CPU.Mode = "custom"
-			domain.Spec.CPU.Model = "max"
-		} else {
-			domain.Spec.CPU.Mode = v1.CPUModeHostModel
-		}
-	}
-
-	if c.isMemfdSupported && isMemfdRequired(vmi) && (vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.NUMA == nil) {
-		memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
-		domain.Spec.CPU.NUMA = &api.NUMA{
-			Cells: []api.NUMACell{
-				{
-					ID:     "0",
-					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-					Memory: &memKiB,
-					Unit:   "KiB",
-				},
-			},
-		}
-	}
+	c.configureCPUTopology(vmi, domain)
+	c.configureCPUModel(vmi, domain)
+	c.configureCPUFeatures(vmi, domain)
+	c.configureSyntheticNUMA(vmi, domain)
 
 	return nil
 }
 
-func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-	// Always allow to hotplug to minimum of 1 socket
-	minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
-	// Total vCPU count
-	enabledCpuCount := cpuCount
-	cpuTopology.Sockets = vmi.Spec.Domain.CPU.MaxSockets
-	cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
-	VCPUs := &api.VCPUs{}
-	for id := uint32(0); id < cpuCount; id++ {
-		// Enable all requestd vCPUs
-		isEnabled := id < enabledCpuCount
-		// There should not be fewer vCPU than cores and threads within a single socket
-		isHotpluggable := id >= minEnabledCpuCount
-		vcpu := api.VCPUsVCPU{
-			ID:           id,
-			Enabled:      boolToYesNo(&isEnabled, true),
-			Hotpluggable: boolToYesNo(&isHotpluggable, false),
+
+	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
+		minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
+		enabledCpuCount := cpuCount
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+		VCPUs := &api.VCPUs{}
+		for id := uint32(0); id < cpuCount; id++ {
+			isEnabled := id < enabledCpuCount
+			isHotpluggable := id >= minEnabledCpuCount
+			VCPUs.VCPU = append(VCPUs.VCPU, api.VCPUsVCPU{
+				ID:           id,
+				Enabled:      boolToYesNo(&isEnabled, true),
+				Hotpluggable: boolToYesNo(&isHotpluggable, false),
+			})
 		}
-		VCPUs.VCPU = append(VCPUs.VCPU, vcpu)
+		domain.Spec.VCPUs = VCPUs
 	}
 
-	domain.Spec.VCPUs = VCPUs
 	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+func (c CPUDomainConfigurator) configureCPUModel(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" {
+		isHostCPUMode := vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough
+		if c.crossArchEmulation && isHostCPUMode {
+			// host-passthrough and host-model are incompatible with cross-architecture
+			// TCG emulation. Use "max" which exposes all features QEMU can emulate.
+			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Model = "max"
+		} else if isHostCPUMode {
+			domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
+		} else {
+			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+		}
+		return
+	}
+
+	if c.crossArchEmulation {
+		domain.Spec.CPU.Mode = "custom"
+		domain.Spec.CPU.Model = "max"
+	} else {
+		domain.Spec.CPU.Mode = v1.CPUModeHostModel
+	}
+}
+
+func (c CPUDomainConfigurator) configureCPUFeatures(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if vmi.Spec.Domain.CPU == nil {
+		return
+	}
+
+	existingFeatures := make(map[string]struct{})
+	for _, feature := range vmi.Spec.Domain.CPU.Features {
+		existingFeatures[feature.Name] = struct{}{}
+		domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+			Name:   feature.Name,
+			Policy: feature.Policy,
+		})
+	}
+
+	/*
+					Libvirt validation fails when a CPU model is usable
+					by QEMU but lacks features listed in
+					`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
+					To avoid the validation error mentioned above we can disable
+					deprecated features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files.
+					Examples of validation error:
+		    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283 - resolve by obsolete Opteron_G2
+					https://gitlab.com/libvirt/libvirt/-/issues/304 - resolve by disabling mpx which is deprecated
+					Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
+					once the issue is resolved we can remove mpx disablement
+	*/
+
+	_, exists := existingFeatures["mpx"]
+	if c.requiresMPXCPUValidation && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+		domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+			Name:   "mpx",
+			Policy: "disable",
+		})
+	}
+}
+
+func (c CPUDomainConfigurator) configureSyntheticNUMA(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if !c.isMemfdSupported || !isMemfdRequired(vmi) {
+		return
+	}
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.NUMA != nil {
+		return
+	}
+
+	memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
+	domain.Spec.CPU.NUMA = &api.NUMA{
+		Cells: []api.NUMACell{
+			{
+				ID:     "0",
+				CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+				Memory: &memKiB,
+				Unit:   "KiB",
+			},
+		},
+	}
+}
+
+func CPUWithHotplugSupported(isHotplugSupported bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.isHotplugSupported = isHotplugSupported
+	}
+}
+
+func CPUWithMPXCPUValidation(requiresMPXCPUValidation bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.requiresMPXCPUValidation = requiresMPXCPUValidation
+	}
+}
+
+func CPUWithCrossArchEmulation(crossArchEmulation bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.crossArchEmulation = crossArchEmulation
+	}
+}
+
+func CPUWithMemfdSupported(isMemfdSupported bool) cpuOption {
+	return func(c *CPUDomainConfigurator) {
+		c.isMemfdSupported = isMemfdSupported
 	}
 }
