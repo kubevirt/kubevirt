@@ -34,6 +34,8 @@ import (
 
 var _ = Describe("IsRestartRequired", func() {
 	const (
+		defaultNetworkName = "default"
+
 		secondaryNetName1 = "foo"
 		secondaryNADName1 = "foo-nad"
 
@@ -50,8 +52,8 @@ var _ = Describe("IsRestartRequired", func() {
 			libvmi.New(libvmi.WithAutoAttachPodInterface(false))),
 		Entry("With interfaces and networks",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
 			),
@@ -60,14 +62,14 @@ var _ = Describe("IsRestartRequired", func() {
 
 	It("should not require restart when networks are added", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
 
 		vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
 			vm.Spec.Template.Spec.Domain.Devices.Interfaces,
-			libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1),
+			libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()),
 		)
 
 		vm.Spec.Template.Spec.Networks = append(
@@ -78,7 +80,7 @@ var _ = Describe("IsRestartRequired", func() {
 	})
 
 	DescribeTable("should not require restart when interface state changes", func(current, desired v1.InterfaceState) {
-		iface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)
+		iface := libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())
 		iface.State = current
 
 		vmi := libvmi.New(
@@ -107,15 +109,15 @@ var _ = Describe("IsRestartRequired", func() {
 
 	It("should not require restart when secondary NICs are hotplugged", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
 		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
 
 		ifacesToHotplug := []v1.Interface{
-			libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1),
-			libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetName2),
+			libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()),
+			libvmi.NewInterface(secondaryNetName2, libvmi.WithSRIOVBinding()),
 		}
 
 		netsToHotplug := []v1.Network{
@@ -135,9 +137,9 @@ var _ = Describe("IsRestartRequired", func() {
 
 	It("should not require restart when interfaces or networks order is changed", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName2)),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName2, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName2, secondaryNADName2)),
@@ -152,7 +154,7 @@ var _ = Describe("IsRestartRequired", func() {
 	})
 
 	It("should require restart when interface binding changes", func() {
-		iface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)
+		iface := libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())
 
 		vmi := libvmi.New(
 			libvmi.WithInterface(iface),
@@ -160,7 +162,7 @@ var _ = Describe("IsRestartRequired", func() {
 		)
 
 		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
-		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0] = libvmi.InterfaceDeviceWithMasqueradeBinding()
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0] = libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())
 
 		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
 	})
@@ -170,7 +172,7 @@ var _ = Describe("IsRestartRequired", func() {
 		desired v1.Network,
 	) {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(&current),
 		)
 
@@ -188,7 +190,7 @@ var _ = Describe("IsRestartRequired", func() {
 	DescribeTable("should set restart requirement for NAD name changes based on migratability",
 		func(conditions []v1.VirtualMachineInstanceCondition, expectedRestart bool) {
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
 			)
 			vmi.Status.Conditions = conditions
@@ -209,8 +211,8 @@ var _ = Describe("IsRestartRequired", func() {
 
 	It("Should require restart when interfaces and networks are removed", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
 		)
@@ -227,7 +229,7 @@ var _ = Describe("IsRestartRequired", func() {
 
 		vm := libvmi.NewVirtualMachine(
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 		)

@@ -34,12 +34,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/passt"
 )
 
+const defaultNetworkName = "default"
+
 var _ = Describe("Passt Repair Handler", func() {
 	Context("should not run passt repair", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi = libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 		})
@@ -80,15 +82,15 @@ var _ = Describe("Passt Repair Handler", func() {
 	},
 		Entry("When an iface is connected to pod network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 		),
 		Entry("When an iface is connected to Multus default network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(&v1.Network{
-					Name: "default",
+					Name: defaultNetworkName,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
 							NetworkName: "alternative",
@@ -117,15 +119,15 @@ var _ = Describe("Passt Repair Handler", func() {
 	},
 		Entry("When an iface is connected to pod network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 		),
 		Entry("When an iface is connected to Multus default network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(&v1.Network{
-					Name: "default",
+					Name: defaultNetworkName,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
 							NetworkName: "alternative",
@@ -138,7 +140,7 @@ var _ = Describe("Passt Repair Handler", func() {
 	)
 
 	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+		libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 
@@ -185,7 +187,7 @@ var _ = Describe("Passt Repair Handler", func() {
 
 	It("Should not run HandleMigrationSource because it is already running", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
@@ -214,7 +216,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetworkName, libvmi.WithPasstBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
