@@ -68,10 +68,11 @@ type DomainStats struct {
 	Block []DomainStatsBlock
 	// omitted from libvirt-go: Perf
 	// extra stats
-	CPUMapSet bool
-	CPUMap    [][]bool
-	DirtyRate *DomainStatsDirtyRate
-	Load      *DomainStatsLoad
+	CPUMapSet    bool
+	CPUMap       [][]bool
+	DirtyRate    *DomainStatsDirtyRate
+	Load         *DomainStatsLoad
+	CgroupMemory *CgroupMemoryStats
 }
 
 type DomainStatsLoad struct {
@@ -211,6 +212,18 @@ type DomainStatsDirtyRate struct {
 	CalcPeriod            int
 	MegabytesPerSecondSet bool
 	MegabytesPerSecond    int64
+}
+
+// CgroupMemoryStats holds cgroup v2 memory.stat fields (values in bytes).
+type CgroupMemoryStats struct {
+	AnonSet         bool
+	Anon            uint64
+	AnonTHPSet      bool
+	AnonTHP         uint64
+	InactiveAnonSet bool
+	InactiveAnon    uint64
+	ActiveAnonSet   bool
+	ActiveAnon      uint64
 }
 
 type VMStats struct {
