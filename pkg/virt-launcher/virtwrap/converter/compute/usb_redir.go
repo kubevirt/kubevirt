@@ -29,7 +29,7 @@ import (
 
 type UsbRedirectDeviceDomainConfigurator struct{}
 
-func (_ UsbRedirectDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (UsbRedirectDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	clientDevices := vmi.Spec.Domain.Devices.ClientPassthrough
 
 	// Default is to have USB Redirection disabled

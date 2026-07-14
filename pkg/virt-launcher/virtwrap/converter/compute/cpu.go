@@ -61,15 +61,15 @@ func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstan
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
-		minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
-		enabledCpuCount := cpuCount
+		minEnabledCPUCount := cpuTopology.Cores * cpuTopology.Threads
+		enabledCPUCount := cpuCount
 		cpuTopology.Sockets = vmiCPU.MaxSockets
 		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 		VCPUs := &api.VCPUs{}
 		for id := uint32(0); id < cpuCount; id++ {
-			isEnabled := id < enabledCpuCount
-			isHotpluggable := id >= minEnabledCpuCount
+			isEnabled := id < enabledCPUCount
+			isHotpluggable := id >= minEnabledCPUCount
 			VCPUs.VCPU = append(VCPUs.VCPU, api.VCPUsVCPU{
 				ID:           id,
 				Enabled:      boolToYesNo(&isEnabled, true),

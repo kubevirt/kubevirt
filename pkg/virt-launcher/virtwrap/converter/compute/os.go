@@ -58,7 +58,7 @@ func NewOSDomainConfigurator(isSMBiosNeeded bool, efiConfiguration *EFIConfigura
 }
 
 func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if err := o.convert_v1_Firmware_To_related_apis(vmi, domain); err != nil {
+	if err := o.convertFirmwareToRelatedAPIs(vmi, domain); err != nil {
 		return err
 	}
 
@@ -94,7 +94,7 @@ func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	}
 }
 
-func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (o OSDomainConfigurator) convertFirmwareToRelatedAPIs(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	firmware := vmi.Spec.Domain.Firmware
 	if firmware == nil {
 		return nil
