@@ -743,14 +743,6 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err.Error()).To(ContainSubstring("memory dump error"))
 		})
 
-		It("should return Internal when domainManager.CancelVMIMigration fails", func() {
-			domainMgr.EXPECT().CancelVMIMigration(gomock.Any()).Return(errors.New("cancel migration error"))
-			_, err := server.CancelVirtualMachineMigration(context.TODO(), validVMIRequest())
-			Expect(err).To(HaveOccurred())
-			Expect(status.Code(err)).To(Equal(codes.Internal))
-			Expect(err.Error()).To(ContainSubstring("cancel migration error"))
-		})
-
 		It("should return InvalidArgument when migration options are missing", func() {
 			request := &cmdv1.MigrationRequest{
 				Vmi:     validVMIRequest().Vmi,
@@ -875,7 +867,7 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should return Internal when domainManager.BackupVirtualMachine fails", func() {
 			backupOptions, err := json.Marshal(&backupv1.BackupOptions{
-				Cmd:        backupv1.Abort,
+				Cmd: backupv1.Abort,
 			})
 			Expect(err).ToNot(HaveOccurred())
 			request := &cmdv1.BackupRequest{

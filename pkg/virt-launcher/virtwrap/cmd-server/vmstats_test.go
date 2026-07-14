@@ -205,12 +205,14 @@ var _ = Describe("GetVMStats", func() {
 			}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.GuestGetFsInfo.Success).To(BeFalse())
-			Expect(response.GuestGetFsInfo.Message).To(ContainSubstring("agent not responding"))
-			Expect(response.GuestGetLoad.Success).To(BeTrue())
-			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.GuestGetFsInfo.Success).To(BeFalse())
+			Expect(partialResp.GuestGetFsInfo.Message).To(ContainSubstring("agent not responding"))
+			Expect(partialResp.GuestGetLoad.Success).To(BeTrue())
+			Expect(partialResp.GuestGetLoad.Message).To(Equal("load-data"))
 		})
 
 		It("should not call GetGuestAgentVersion when no agent data is requested", func() {
