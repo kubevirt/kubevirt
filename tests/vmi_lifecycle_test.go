@@ -51,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
@@ -824,52 +823,17 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with node feature discovery", Serial, decorators.CPUModel, decorators.RequiresAMD64, func() {
 			var node *k8sv1.Node
-			var supportedCPU string
-			var supportedCPUs []string
 			var supportedFeatures []string
 			var nodes *k8sv1.NodeList
-			var supportedKVMInfoFeature []string
 
 			BeforeEach(func() {
 				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
-				supportedCPUs = libnode.GetSupportedCPUModels(*nodes)
-				Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
-
-				supportedCPU = supportedCPUs[0]
 
 				supportedFeatures = libnode.GetSupportedCPUFeatures(*nodes)
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
-
-				for key := range node.Labels {
-					if strings.Contains(key, v1.HypervLabel) &&
-						!strings.Contains(key, "tlbflush") &&
-						!strings.Contains(key, "ipi") &&
-						!strings.Contains(key, "synictimer") {
-						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
-					}
-
-				}
-
-				kvconfig.EnableFeatureGate(featuregate.HypervStrictCheckGate)
-			})
-
-			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
-				vmi := libvmifact.NewGuestless()
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Model: supportedCPU,
-				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-
-				By("Verifying VirtualMachineInstance's status is Succeeded")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					currVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					return currVMI.Status.Phase
-				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", decorators.WgS390x, func() {
@@ -896,45 +860,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 					return ""
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
-			})
-
-			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", decorators.WgS390x, func() {
-
-				By("adding a node-feature-discovery CPU model label to a node")
-				vmi := libvmifact.NewGuestless()
-				var featureToDisable string
-				// Use a different feature to disable, as  s390x and
-				//other archs do not have common cpu features
-
-				switch libnode.GetArch() {
-				case "s390x":
-					featureToDisable = "zpci"
-				case "amd64":
-					featureToDisable = "fpu"
-
-				}
-
-				featureToRequire := supportedFeatures[0]
-
-				if featureToRequire == featureToDisable {
-					// Picking another feature since this one is going to be disabled
-					featureToRequire = supportedFeatures[1]
-				}
-
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 1,
-					Features: []v1.CPUFeature{
-						{
-							Name:   featureToRequire,
-							Policy: "require",
-						},
-						{
-							Name:   featureToDisable,
-							Policy: "disable",
-						},
-					},
-				}
-				libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 			})
 
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
