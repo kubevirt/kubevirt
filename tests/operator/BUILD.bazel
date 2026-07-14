@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["operator.go"],
+    srcs = [
+        "export_proxy_hpa.go",
+        "operator.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/operator",
     visibility = ["//visibility:public"],
     deps = [
@@ -53,6 +56,7 @@ go_library(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/gopkg.in/evanphx/json-patch.v4:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
+        "//vendor/k8s.io/api/autoscaling/v2:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1:go_default_library",
         "//vendor/k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset:go_default_library",
