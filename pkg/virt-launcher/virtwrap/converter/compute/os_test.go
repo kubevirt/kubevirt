@@ -255,13 +255,13 @@ var _ = Describe("OS Domain Configurator", func() {
 		},
 			Entry("when ACPI volume is not found",
 				libvmi.New(withACPISlic("missing-volume")),
-				"Firmware's volume for slic was not found"),
+				"firmware's volume for slic was not found"),
 			Entry("when ACPI is set but no tables are specified",
 				libvmi.New(withEmptyACPI()),
-				"No ACPI tables were set. Expecting at least one."),
+				"no ACPI tables were set, expecting at least one"),
 			Entry("when ACPI volume is not a secret",
 				libvmi.New(withACPISlic("config-volume"), withConfigMapVolume("config-volume")),
-				"Firmware's volume type is unsupported for slic"),
+				"firmware's volume type is unsupported for slic"),
 		)
 	})
 })

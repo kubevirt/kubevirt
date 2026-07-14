@@ -74,9 +74,9 @@ var _ = Describe("Memory Domain Configurator", func() {
 	})
 
 	Context("configure multiple memory fields", func() {
-		var guestMemory resource.Quantity = resource.MustParse("32Mi")
-		var maxGuestMemory resource.Quantity = resource.MustParse("128Mi")
-		var guestMemoryOption libvmi.Option = libvmi.WithGuestMemory(guestMemory.String())
+		guestMemory := resource.MustParse("32Mi")
+		maxGuestMemory := resource.MustParse("128Mi")
+		guestMemoryOption := libvmi.WithGuestMemory(guestMemory.String())
 
 		DescribeTable("maxGuest and guest memory settings",
 			func(vmi *v1.VirtualMachineInstance, expectedGuestMemory, expectedMaxMemory *resource.Quantity) {

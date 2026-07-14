@@ -68,7 +68,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, uint(c.autoThreads), controllerDriver.DeepCopy())
+		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.autoThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 

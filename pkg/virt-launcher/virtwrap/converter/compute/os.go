@@ -200,7 +200,7 @@ func configureACPI(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volum
 	}
 
 	if firmware.ACPI.SlicNameRef == "" && firmware.ACPI.MsdmNameRef == "" {
-		return fmt.Errorf("No ACPI tables were set. Expecting at least one.")
+		return fmt.Errorf("no ACPI tables were set, expecting at least one")
 	}
 
 	if domain.Spec.OS.ACPI == nil {
@@ -237,7 +237,7 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 
 		if volume.Secret == nil {
 			// Unsupported. This should have been blocked by webhook, so warn user.
-			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", tableType)
+			return nil, fmt.Errorf("firmware's volume type is unsupported for %s", tableType)
 		}
 
 		// Return path to table's binary data
@@ -249,5 +249,5 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Firmware's volume for %s was not found", tableType)
+	return nil, fmt.Errorf("firmware's volume for %s was not found", tableType)
 }
