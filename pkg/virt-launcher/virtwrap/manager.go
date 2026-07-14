@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/pci"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 
 	"libvirt.org/go/libvirt"
@@ -1685,17 +1686,31 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 		return nil, err
 	}
 
+	// When placeholderCount == 0, WithNetworkIfacesResources skips the
+	// read-back, so domainSpec lacks libvirt-assigned Target.BusNr values
+	// needed by DisableHotplugOnOccupiedRootPorts.
+	if placeholderCount == 0 {
+		readBack, readErr := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+		if readErr != nil {
+			return nil, readErr
+		}
+		readBack.Devices.DeepCopyInto(&domainSpec.Devices)
+	}
+
 	// Extra controllers must be added AFTER WithNetworkIfacesResources so
 	// that libvirt has already assigned devices to root ports. Controllers
 	// appended here get indices above the occupied ports and remain empty,
 	// providing genuine hotplug capacity.
 	if extraControllers > 0 {
 		appendPCIeRootPortControllers(domainSpec, extraControllers)
-		dom.Free()
-		dom, err = l.setDomainSpecWithHooks(vmi, domainSpec)
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	pci.DisableHotplugOnOccupiedRootPorts(domainSpec)
+
+	dom.Free()
+	dom, err = l.setDomainSpecWithHooks(vmi, domainSpec)
+	if err != nil {
+		return nil, err
 	}
 
 	return dom, nil
