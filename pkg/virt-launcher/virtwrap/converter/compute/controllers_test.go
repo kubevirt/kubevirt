@@ -155,7 +155,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when VMI has multiple SCSI disks with dedicatedIOThread, VMI has 4 shared IO threads",
 			libvmi.New(
 				libvmi.WithDisk("scsi-disk1", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
-				libvmi.WithDisk("scsi-disk1", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithDisk("scsi-disk2", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
 			),
 			!usbNeeded,
 			4,
