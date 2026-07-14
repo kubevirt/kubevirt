@@ -82,16 +82,12 @@ var _ = Describe("Validate network DRA", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "dra-net-1",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
+				Name:    "dra-net-1",
+				Binding: &v1.PluginBinding{Name: "netbinding"},
 			},
 			{
-				Name: "dra-net-2",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
+				Name:    "dra-net-2",
+				Binding: &v1.PluginBinding{Name: "netbinding"},
 			},
 		}
 		spec.Networks = []v1.Network{
@@ -125,16 +121,12 @@ var _ = Describe("Validate network DRA", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "multus-net",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
+				Name:    "multus-net",
+				Binding: &v1.PluginBinding{Name: "netbinding"},
 			},
 			{
-				Name: "dra-net",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
+				Name:    "dra-net",
+				Binding: &v1.PluginBinding{Name: "netbinding"},
 			},
 		}
 		spec.Networks = []v1.Network{
@@ -151,16 +143,20 @@ var _ = Describe("Validate network DRA", func() {
 		Expect(causes[0].Field).To(Equal("fake.networks"))
 	})
 
-	It("should reject DRA network with non-SRIOV interface binding", func() {
-		spec := newDRASpec()
-		spec.Domain.Devices.Interfaces[0] = *v1.DefaultBridgeNetworkInterface()
-		spec.Domain.Devices.Interfaces[0].Name = "dra-net"
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal(`DRA network "dra-net" requires an SR-IOV or binding plugin interface`))
-		Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces"))
-	})
+	DescribeTable("should reject DRA network with core interface binding",
+		func(iface v1.Interface) {
+			spec := newDRASpec()
+			iface.Name = "dra-net"
+			spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+			causes := validator.Validate()
+			Expect(causes).To(ContainElement(HaveField("Message", `DRA network "dra-net" requires a binding plugin interface`)))
+		},
+		Entry("bridge", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}),
+		Entry("masquerade", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}),
+		Entry("SR-IOV", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
+		Entry("passtBinding", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}}}),
+	)
 
 	It("should accept DRA network with plugin interface binding", func() {
 		spec := newDRASpec()
@@ -205,10 +201,8 @@ func newDRASpec() *v1.VirtualMachineInstanceSpec {
 			Devices: v1.Devices{
 				Interfaces: []v1.Interface{
 					{
-						Name: "dra-net",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							SRIOV: &v1.InterfaceSRIOV{},
-						},
+						Name:    "dra-net",
+						Binding: &v1.PluginBinding{Name: "netbinding"},
 					},
 				},
 			},
