@@ -1992,7 +1992,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectInstallStrategyDeletion()
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 		})
 
 		It("delete temporary validation webhook once virt-api is deployed", func() {
@@ -2217,7 +2217,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// be called once isReady() returns true (virt-template pods are still starting).
 			Expect(kv.Status.ObservedDeploymentID).To(Equal(initialObservedID))
 			// isUpdating() stayed true throughout, so Available remains True.
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
 			// Second cycle: mark all pods ready (including virt-template) and verify
 			// that ObservedDeploymentID is now advanced to the new config's ID.
@@ -2756,7 +2756,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(kv.Status.Conditions).To(HaveLen(3))
 			Expect(kv.ObjectMeta.Finalizers).To(HaveLen(1))
-			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 
 			// 7 in total are yet missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
@@ -2874,7 +2874,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			// conditions should reflect an ongoing update
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
 			// on rollback or create, api server must be online first before controllers and daemonset.
 			// On rollback this prevents someone from posting invalid specs to
@@ -2945,7 +2945,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			// conditions should reflect an ongoing update
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
@@ -3021,7 +3021,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			// conditions should reflect an ongoing update
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
@@ -3542,7 +3542,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			// conditions should reflect a successful update
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
 			// -1 for virt-handler which is already updated
 			Expect(kvTestData.totalPatches).To(Equal(patchCount - 1))
@@ -3613,7 +3613,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			// conditions should reflect a successful update
-			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
 			o, exists, err := kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, "virt-exportproxy"))
 			Expect(err).ToNot(HaveOccurred())
@@ -3737,7 +3737,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
 			Expect(kv.Status.Conditions).To(HaveLen(3))
-			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
+			shouldExpectStatusConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
 		})
 
 		It("should remove poddisruptionbudgets on deletion", func() {
@@ -3841,7 +3841,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			expectedUncreatedResources := 5 + virtTemplateResourceCount
 
 			// KV should be progressing, resources have been added, but they are not all ready yet
-			shouldExpectHCOConditions(kvTestData.getLatestKubeVirt(kv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kvTestData.getLatestKubeVirt(kv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
 			Expect(virtTemplateResourcesFound()).To(BeFalse())
 		},
@@ -3931,7 +3931,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			// KV should be available, resources have been deleted and all others are already ready
-			shouldExpectHCOConditions(kvTestData.getLatestKubeVirt(newKv), k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kvTestData.getLatestKubeVirt(newKv), k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 			Expect(kvTestData.totalDeletions).To(Equal(virtTemplateResourceCount))
 			Expect(virtTemplateResourcesFound()).To(BeFalse())
 		})
@@ -3992,7 +3992,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			// KV should be progressing, resources have been added, but they are not all ready yet
-			shouldExpectHCOConditions(kvTestData.getLatestKubeVirt(newKv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
+			shouldExpectStatusConditions(kvTestData.getLatestKubeVirt(newKv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 			Expect(kvTestData.totalAdds).To(Equal(virtTemplateResourceCount + externalCAConfigMapCount))
 		})
 	})
@@ -4270,7 +4270,7 @@ func injectMetadata(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeployme
 	}
 }
 
-func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus, progressing k8sv1.ConditionStatus, degraded k8sv1.ConditionStatus) {
+func shouldExpectStatusConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus, progressing k8sv1.ConditionStatus, degraded k8sv1.ConditionStatus) {
 	getType := func(c v1.KubeVirtCondition) v1.KubeVirtConditionType { return c.Type }
 	getStatus := func(c v1.KubeVirtCondition) k8sv1.ConditionStatus { return c.Status }
 	Expect(kv.Status.Conditions).To(ContainElement(
