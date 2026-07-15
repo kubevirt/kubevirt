@@ -28,7 +28,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
+
+var _ RenderConfig = (*virtconfig.ClusterConfig)(nil)
+var _ ManifestRenderer = (*services.TemplateService)(nil)
 
 var _ = Describe("Render", func() {
 

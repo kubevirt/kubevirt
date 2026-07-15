@@ -106,8 +106,9 @@ func PodFromVM(vm *virtv1.VirtualMachine, opts Options) (*k8sv1.Pod, error) {
 	defaults.SetVirtualMachineDefaults(vmCopy, config, nil)
 
 	vmi := setupVMIFromVM(vmCopy)
+	renderer := newManifestRenderer(vmi, config, opts)
 
-	return renderPod(vmi, config, opts)
+	return renderPod(vmi, config, renderer, opts)
 }
 
 // PodFromVMI renders a Pod spec from a VirtualMachineInstance definition.
@@ -121,10 +122,13 @@ func PodFromVMI(vmi *virtv1.VirtualMachineInstance, opts Options) (*k8sv1.Pod, e
 		return nil, fmt.Errorf("failed to create cluster config: %w", err)
 	}
 
-	return renderPod(vmi.DeepCopy(), config, opts)
+	vmiCopy := vmi.DeepCopy()
+	renderer := newManifestRenderer(vmiCopy, config, opts)
+
+	return renderPod(vmiCopy, config, renderer, opts)
 }
 
-func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterConfig, opts Options) (*k8sv1.Pod, error) {
+func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterConfig, renderer ManifestRenderer, opts Options) (*k8sv1.Pod, error) {
 	if vmi.Namespace == "" {
 		vmi.Namespace = "default"
 	}
@@ -140,30 +144,7 @@ func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterCon
 	util.SetDefaultVolumeDisk(&vmi.Spec)
 	autoAttachInputDevice(vmi)
 
-	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	stubPVCs(pvcCache, vmi)
-
-	resourceQuotaStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	namespaceStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
-	templateSvc := services.NewTemplateService(
-		opts.LauncherImage,
-		opts.LauncherQemuTimeout,
-		"/var/run/kubevirt",
-		"/var/run/kubevirt-ephemeral-disks",
-		"/var/run/kubevirt/container-disks",
-		virtv1.HotplugDiskDir,
-		"",
-		pvcCache,
-		nil,
-		config,
-		opts.LauncherSubGid,
-		opts.ExporterImage,
-		resourceQuotaStore,
-		namespaceStore,
-	)
-
-	pod, err := templateSvc.RenderLaunchManifest(vmi)
+	pod, err := renderer.RenderLaunchManifest(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +160,31 @@ func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterCon
 	}
 
 	return pod, nil
+}
+
+func newManifestRenderer(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterConfig, opts Options) ManifestRenderer {
+	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	stubPVCs(pvcCache, vmi)
+
+	resourceQuotaStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	namespaceStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+
+	return services.NewTemplateService(
+		opts.LauncherImage,
+		opts.LauncherQemuTimeout,
+		"/var/run/kubevirt",
+		"/var/run/kubevirt-ephemeral-disks",
+		"/var/run/kubevirt/container-disks",
+		virtv1.HotplugDiskDir,
+		"",
+		pvcCache,
+		nil,
+		config,
+		opts.LauncherSubGid,
+		opts.ExporterImage,
+		resourceQuotaStore,
+		namespaceStore,
+	)
 }
 
 var firmwareUUIDns = uuid.MustParse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
