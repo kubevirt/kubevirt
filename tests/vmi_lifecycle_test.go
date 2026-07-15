@@ -1068,31 +1068,25 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					namespace = testsuite.NamespaceTestAlternative
 				}
 
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				node := nodes.Items[0].Name
-
 				By("Creating a VirtualMachineInstance with different namespace")
 				vmi := libvmi.New(
 					libvmi.WithMemoryRequest("1Mi"),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				)
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), node)
+
+				var err error
+				vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+				vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), vmi.Status.NodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
 				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
 				seconds := int64(120)
 				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
-
-				// Make sure we schedule the VirtualMachineInstance to master
-				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
-
-				// Start the VirtualMachineInstance and wait for the confirmation of the start
-				vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				// Check if the start event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance creation")
