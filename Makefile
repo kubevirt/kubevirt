@@ -222,6 +222,9 @@ olm-push:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} \
 	    QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} PACKAGE_NAME=${PACKAGE_NAME} ./hack/olm.sh push"
 
+bump-apitesting:
+	./hack/bump-apitesting.sh
+
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
@@ -302,6 +305,7 @@ vmlog-checker:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	bump-apitesting \
 	feature-gate-report \
 	vmlog-checker \
 	$(NULL)
