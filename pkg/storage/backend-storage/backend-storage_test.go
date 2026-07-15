@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
@@ -269,7 +270,10 @@ var _ = Describe("Backend Storage", func() {
 	})
 
 	Context("createPVC", func() {
-		var k8sClient *k8sfake.Clientset
+		var (
+			k8sClient *k8sfake.Clientset
+			sc        storagev1.StorageClass
+		)
 		const (
 			nsName  = "testns"
 			vmiName = "testvmi"
@@ -279,6 +283,14 @@ var _ = Describe("Backend Storage", func() {
 		BeforeEach(func() {
 			k8sClient = k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			sc = storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "sc",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+				},
+			}
+			err := storageClassStore.Add(&sc)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should create a PVC with the correct labels", func() {
@@ -289,19 +301,31 @@ var _ = Describe("Backend Storage", func() {
 				},
 			}
 
-			sc := storagev1.StorageClass{
-				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:        "sc",
-					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
-				},
-			}
-			err := storageClassStore.Add(&sc)
-			Expect(err).NotTo(HaveOccurred())
-
 			pvc, err := backendStorage.createPVC(vmi, map[string]string{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc).NotTo(BeNil())
 			Expect(pvc.Labels).To(HaveKeyWithValue(storagetypes.LabelApplyStorageProfile, "true"))
+		})
+
+		It("Should create a PVC with overhead if CBT is enabled for the VM", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmiName,
+					Namespace: nsName,
+				},
+				Status: virtv1.VirtualMachineInstanceStatus{
+					ChangedBlockTracking: &virtv1.ChangedBlockTrackingStatus{
+						State: virtv1.ChangedBlockTrackingInitializing,
+					},
+				},
+			}
+
+			pvc, err := backendStorage.createPVC(vmi, map[string]string{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc).NotTo(BeNil())
+			pvcSize := resource.MustParse(PVCSize)
+			pvcSize.Add(resource.MustParse(cbt.CBTBackendStateOverhead))
+			Expect(pvc.Spec.Resources.Requests.Storage().Cmp(pvcSize)).To(Equal(0))
 		})
 	})
 
