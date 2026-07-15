@@ -3258,10 +3258,36 @@ var _ = Describe("Manager", func() {
 		})
 
 		It("should set Grace conversion flags and expected aliases from options", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+			iommuFDFile, err := os.CreateTemp(GinkgoT().TempDir(), "iommufd-test")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(iommuFDFile.Close)
+
 			options := &cmdv1.VirtualMachineOptions{
 				VirtualMachineSMBios: &cmdv1.SMBios{},
 				ClusterConfig: &cmdv1.ClusterConfig{
 					GraceIOVirtualizationEnabled: true,
+					PCINUMAAwareTopologyEnabled:  true,
+				},
+				GraceHostDeviceAliases: []string{"gpu-gpu0"},
+			}
+
+			libvirtManager := manager.(*LibvirtDomainManager)
+			libvirtManager.iommuFD = int(iommuFDFile.Fd())
+			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(converterContext.GraceIOVirtualizationEnabled).To(BeTrue())
+			Expect(converterContext.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
+		})
+
+		It("should reject Grace conversion when the IOMMUFD file descriptor is unavailable", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+			options := &cmdv1.VirtualMachineOptions{
+				VirtualMachineSMBios: &cmdv1.SMBios{},
+				ClusterConfig: &cmdv1.ClusterConfig{
+					GraceIOVirtualizationEnabled: true,
+					PCINUMAAwareTopologyEnabled:  true,
 				},
 				GraceHostDeviceAliases: []string{"gpu-gpu0"},
 			}
@@ -3269,9 +3295,8 @@ var _ = Describe("Manager", func() {
 			libvirtManager := manager.(*LibvirtDomainManager)
 			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(converterContext.GraceIOVirtualizationEnabled).To(BeTrue())
-			Expect(converterContext.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
+			Expect(err).To(MatchError(ContainSubstring("requires an IOMMUFD file descriptor")))
+			Expect(converterContext).To(BeNil())
 		})
 	})
 
