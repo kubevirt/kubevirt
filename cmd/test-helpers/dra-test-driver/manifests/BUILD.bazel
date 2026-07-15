@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["manifests.go"],
+    embedsrcs = [
+        "daemonset.yaml",
+        "deviceclass.yaml",
+        "rbac.yaml",
+        "serviceaccount.yaml",
+    ],
+    importpath = "kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/manifests",
+    visibility = ["//visibility:public"],
+)
