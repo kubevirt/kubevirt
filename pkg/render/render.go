@@ -21,16 +21,12 @@ package render
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
 	k8sv1 "k8s.io/api/core/v1"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -39,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -103,11 +98,7 @@ func PodFromVM(vm *virtv1.VirtualMachine, opts Options) (*k8sv1.Pod, error) {
 	defaults.SetVirtualMachineDefaults(vmCopy, config, nil)
 
 	vmi := setupVMIFromVM(vmCopy)
-
-	renderer, err := newOfflineRenderer(vmi, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create renderer: %w", err)
-	}
+	renderer := newOfflineRenderer(vmi, config, opts)
 
 	return renderPod(vmi, config, renderer, opts)
 }
@@ -120,11 +111,7 @@ func PodFromVMI(vmi *virtv1.VirtualMachineInstance, opts Options) (*k8sv1.Pod, e
 
 	config := newOfflineRenderConfig(opts)
 	vmiCopy := vmi.DeepCopy()
-
-	renderer, err := newOfflineRenderer(vmiCopy, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create renderer: %w", err)
-	}
+	renderer := newOfflineRenderer(vmiCopy, config, opts)
 
 	return renderPod(vmiCopy, config, renderer, opts)
 }
@@ -163,12 +150,7 @@ func renderPod(vmi *virtv1.VirtualMachineInstance, config RenderConfig, renderer
 	return pod, nil
 }
 
-func newOfflineRenderer(vmi *virtv1.VirtualMachineInstance, opts Options) (ManifestRenderer, error) {
-	config, err := newClusterConfig(opts.FeatureGates)
-	if err != nil {
-		return nil, err
-	}
-
+func newOfflineRenderer(vmi *virtv1.VirtualMachineInstance, config RenderConfig, opts Options) ManifestRenderer {
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	stubPVCs(pvcCache, vmi)
 
@@ -190,7 +172,7 @@ func newOfflineRenderer(vmi *virtv1.VirtualMachineInstance, opts Options) (Manif
 		opts.ExporterImage,
 		resourceQuotaStore,
 		namespaceStore,
-	), nil
+	)
 }
 
 var firmwareUUIDns = uuid.MustParse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
@@ -258,59 +240,4 @@ func stubPVCs(pvcCache cache.Indexer, vmi *virtv1.VirtualMachineInstance) {
 		}
 		_ = pvcCache.Add(pvc)
 	}
-}
-
-type noopListerWatcher struct{}
-
-func (noopListerWatcher) List(_ metav1.ListOptions) (k8sruntime.Object, error) {
-	return &virtv1.KubeVirtList{}, nil
-}
-
-func (noopListerWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
-	return watch.NewFake(), nil
-}
-
-func newClusterConfig(featureGates []string) (*virtconfig.ClusterConfig, error) {
-	kv := &virtv1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "kubevirt",
-			Namespace:       "kubevirt",
-			ResourceVersion: "1",
-		},
-		Spec: virtv1.KubeVirtSpec{
-			Configuration: virtv1.KubeVirtConfiguration{
-				DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-					FeatureGates: featureGates,
-				},
-				VirtualMachineOptions: &virtv1.VirtualMachineOptions{
-					DisableSerialConsoleLog: &virtv1.DisableSerialConsoleLog{},
-				},
-			},
-		},
-		Status: virtv1.KubeVirtStatus{
-			Phase: virtv1.KubeVirtPhaseDeployed,
-		},
-	}
-
-	crdInformer := cache.NewSharedIndexInformer(noopListerWatcher{}, &extv1.CustomResourceDefinition{}, 0, cache.Indexers{})
-	kvInformer := cache.NewSharedIndexInformer(noopListerWatcher{}, &virtv1.KubeVirt{}, 0, cache.Indexers{})
-
-	// Start informers so they sync, then populate stores before creating
-	// ClusterConfig (which adds event handlers that require running informers).
-	stopCh := make(chan struct{})
-	go crdInformer.Run(stopCh)
-	go kvInformer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, crdInformer.HasSynced, kvInformer.HasSynced)
-
-	kvInformer.GetStore().Add(kv)
-	crdInformer.GetStore().Add(&extv1.CustomResourceDefinition{
-		Spec: extv1.CustomResourceDefinitionSpec{
-			Group: "cdi.kubevirt.io",
-			Names: extv1.CustomResourceDefinitionNames{Kind: "DataVolume"},
-		},
-	})
-
-	cfg, err := virtconfig.NewClusterConfigWithCPUArch(crdInformer, kvInformer, "kubevirt", runtime.GOARCH)
-	close(stopCh)
-	return cfg, err
 }
