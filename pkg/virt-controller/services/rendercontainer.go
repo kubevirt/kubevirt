@@ -34,6 +34,7 @@ type ContainerSpecRenderer struct {
 	readinessProbe    *k8sv1.Probe
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
+	command           []string
 	args              []string
 	extraEnvVars      []k8sv1.EnvVar
 }
@@ -52,13 +53,13 @@ func NewContainerSpecRenderer(containerName string, launcherImg string, imgPullP
 	return computeContainerSpec
 }
 
-func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
+func (csr *ContainerSpecRenderer) Render() k8sv1.Container {
 	return k8sv1.Container{
 		Name:                     csr.name,
 		Image:                    csr.launcherImg,
 		ImagePullPolicy:          csr.imgPullPolicy,
 		SecurityContext:          securityContext(csr.userID, csr.capabilities),
-		Command:                  cmd,
+		Command:                  csr.command,
 		VolumeDevices:            csr.volumeDevices,
 		VolumeMounts:             csr.volumeMounts,
 		Resources:                csr.resources,
@@ -155,6 +156,12 @@ func WithResourceRequirements(resources k8sv1.ResourceRequirements) Option {
 func WithPorts(vmi *v1.VirtualMachineInstance) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.ports = containerPortsFromVMI(vmi)
+	}
+}
+
+func WithCommand(command []string) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.command = command
 	}
 }
 
