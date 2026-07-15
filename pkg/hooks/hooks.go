@@ -21,6 +21,8 @@ package hooks
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -32,7 +34,89 @@ const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
 
 const ContainerNameEnvVar = "CONTAINER_NAME"
 
+const (
+	PodInfoVolumeName      = "podinfo"
+	PodInfoMountPath       = "/var/run/kubevirt-private/downwardapi/podinfo"
+	PodInfoLabelsFile      = "labels"
+	PodInfoAnnotationsFile = "annotations"
+)
+
+type DownwardAPI []v1.NetworkBindingDownwardAPIType
+
+func NewDownwardAPI(api v1.NetworkBindingDownwardAPIType) DownwardAPI {
+	if api == "" {
+		return nil
+	}
+	return DownwardAPI{api}
+}
+
+func (d DownwardAPI) Has(api v1.NetworkBindingDownwardAPIType) bool {
+	for _, requestedAPI := range d {
+		if requestedAPI == api {
+			return true
+		}
+	}
+	return false
+}
+
+func (d DownwardAPI) Validate() error {
+	for _, api := range d {
+		switch api {
+		case v1.DeviceInfo, v1.PodInfo:
+		default:
+			return fmt.Errorf("unsupported downwardAPI value %q", api)
+		}
+	}
+	return nil
+}
+
+func (d *DownwardAPI) UnmarshalJSON(data []byte) error {
+	raw := strings.TrimSpace(string(data))
+	if raw == "" || raw == "null" {
+		*d = nil
+		return nil
+	}
+
+	if strings.HasPrefix(raw, "[") {
+		type downwardAPIList []v1.NetworkBindingDownwardAPIType
+		var apis downwardAPIList
+		if err := json.Unmarshal(data, &apis); err != nil {
+			return err
+		}
+
+		downwardAPIs := DownwardAPI(apis)
+		if err := downwardAPIs.Validate(); err != nil {
+			return err
+		}
+
+		*d = downwardAPIs
+		return nil
+	}
+
+	var api v1.NetworkBindingDownwardAPIType
+	if err := json.Unmarshal(data, &api); err != nil {
+		return err
+	}
+
+	downwardAPIs := DownwardAPI{api}
+	if err := downwardAPIs.Validate(); err != nil {
+		return err
+	}
+
+	*d = downwardAPIs
+	return nil
+}
+
 type HookSidecarList []HookSidecar
+
+func (h HookSidecarList) HasDownwardAPI(api v1.NetworkBindingDownwardAPIType) bool {
+	for _, sidecar := range h {
+		if sidecar.DownwardAPI.Has(api) {
+			return true
+		}
+	}
+	return false
+}
 
 type ConfigMap struct {
 	Name     string `json:"name"`
@@ -47,13 +131,13 @@ type PVC struct {
 }
 
 type HookSidecar struct {
-	Image           string                           `json:"image,omitempty"`
-	ImagePullPolicy k8sv1.PullPolicy                 `json:"imagePullPolicy"`
-	Command         []string                         `json:"command,omitempty"`
-	Args            []string                         `json:"args,omitempty"`
-	ConfigMap       *ConfigMap                       `json:"configMap,omitempty"`
-	PVC             *PVC                             `json:"pvc,omitempty"`
-	DownwardAPI     v1.NetworkBindingDownwardAPIType `json:"-"`
+	Image           string           `json:"image,omitempty"`
+	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy"`
+	Command         []string         `json:"command,omitempty"`
+	Args            []string         `json:"args,omitempty"`
+	ConfigMap       *ConfigMap       `json:"configMap,omitempty"`
+	PVC             *PVC             `json:"pvc,omitempty"`
+	DownwardAPI     DownwardAPI      `json:"downwardAPI,omitempty"`
 }
 
 func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {

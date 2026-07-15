@@ -887,8 +887,11 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	var mounts []k8sv1.VolumeMount
 	mounts = append(mounts, sidecarVolumeMount(sidecarName))
-	if requestedHookSidecar.DownwardAPI == v1.DeviceInfo {
+	if requestedHookSidecar.DownwardAPI.Has(v1.DeviceInfo) {
 		mounts = append(mounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+	}
+	if requestedHookSidecar.DownwardAPI.Has(v1.PodInfo) {
+		mounts = append(mounts, mountPath(hooks.PodInfoVolumeName, hooks.PodInfoMountPath))
 	}
 	if requestedHookSidecar.ConfigMap != nil {
 		mounts = append(mounts, configMapVolumeMount(*requestedHookSidecar.ConfigMap))
@@ -981,13 +984,20 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		volumeOpts = append(volumeOpts, withHotplugSupport(t.hotplugDiskDir))
 	}
 
-	if vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) ||
-		vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+	networkDeviceInfoRequired := vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) ||
+		vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces)
+	if networkDeviceInfoRequired {
 		volumeOpts = append(volumeOpts, func(renderer *VolumeRenderer) error {
 			renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
 			return nil
 		})
+	}
+	if networkDeviceInfoRequired || requestedHookSidecarList.HasDownwardAPI(v1.DeviceInfo) {
 		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
+	}
+
+	if requestedHookSidecarList.HasDownwardAPI(v1.PodInfo) {
+		volumeOpts = append(volumeOpts, withPodInfoVolume())
 	}
 
 	if util.IsVMIVirtiofsEnabled(vmi) {

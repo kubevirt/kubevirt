@@ -3792,7 +3792,7 @@ type InterfaceBindingPlugin struct {
 	// version: 1alphav1
 	Migration *InterfaceBindingMigration `json:"migration,omitempty"`
 	// DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.
-	// Supported values: "device-info"
+	// Supported values: "device-info", "pod-info"
 	// version: v1alphav1
 	// +optional
 	DownwardAPI NetworkBindingDownwardAPIType `json:"downwardAPI,omitempty"`
@@ -3836,6 +3836,10 @@ const (
 	// should be exposed to the binding plugin sidecar
 	// version: v1alphav1
 	DeviceInfo NetworkBindingDownwardAPIType = "device-info"
+	// PodInfo network binding API type specifies that pod labels and annotations should be
+	// exposed to the sidecar through a downward API volume
+	// version: v1alphav1
+	PodInfo NetworkBindingDownwardAPIType = "pod-info"
 )
 
 type InterfaceBindingMigration struct {
