@@ -41,6 +41,7 @@ function build_release_artifacts() {
     make manifests
     make olm-verify
     make prom-rules-verify
+    make feature-gate-report FEATURE_GATE_REPORT_ARGS="--output-format=json --output-file=_out/manifests/release/feature-gates.json"
 
     BUILD_ARCH="${BUILD_ARCH}" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
 
@@ -67,6 +68,7 @@ function update_github_release() {
         _out/manifests/release/kubevirt-network-policies.yaml \
         _out/manifests/release/olm/kubevirt-operatorsource.yaml \
         "_out/manifests/release/olm/bundle/kubevirtoperator.$DOCKER_TAG.clusterserviceversion.yaml" \
+        _out/manifests/release/feature-gates.json \
         _out/tests/tests.test \
         _out/manifests/release/conformance.yaml \
         _out/manifests/testing/* \
