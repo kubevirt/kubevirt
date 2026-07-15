@@ -532,6 +532,11 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	// This helps avoid issues with provisioners that reject the hardcoded 10Mi PVC size used here.
 	labels[storagetypes.LabelApplyStorageProfile] = "true"
 
+	pvcSize := resource.MustParse(PVCSize)
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		pvcSize.Add(resource.MustParse(cbt.CBTBackendStateOverhead))
+	}
+
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    basePVC(vmi) + "-",
@@ -541,7 +546,7 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
 			Resources: v1.VolumeResourceRequirements{
-				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
+				Requests: v1.ResourceList{v1.ResourceStorage: pvcSize},
 			},
 			StorageClassName: &storageClass,
 			VolumeMode:       &mode,

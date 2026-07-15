@@ -37,6 +37,24 @@ import (
 var (
 	CBTKey   = "changedBlockTracking"
 	CBTLabel = map[string]string{"changedBlockTracking": "true"}
+
+	// The backend state PVC overhead is sized for a high-end scenario:
+	// 5 disks x 500GiB, 256KiB clusters, 10 bitmaps each, 64KiB bitmap granularity.
+	//
+	// Per qcow2 overlay (data-file-raw forces PREALLOC_MODE_METADATA):
+	//   V = virtual disk size (500 GiB)
+	//   S = qcow2 cluster size (256 KiB)
+	//   G = bitmap granularity (64 KiB)
+	//   N = number of bitmaps per disk (10)
+	//
+	//   L2 tables: V x 8 / S = 500GiB x 8 / 256KiB ~= 15.75 MiB
+	//   Bitmap data: N x [V/G/8 / S] x S = 10 x 4 x 256KiB = 10 MiB
+	//   Bitmap tables: N x S = 10 x 256KiB = 2.5 MiB
+	//   Fixed (header, L1, refcount): ~= 1.25 MiB
+	//   Total ~= 29.5  MiB
+	//
+	//   5 overlays (1 per disk) ~= 148 MiB.
+	CBTBackendStateOverhead = "1Gi"
 )
 
 func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingState {
