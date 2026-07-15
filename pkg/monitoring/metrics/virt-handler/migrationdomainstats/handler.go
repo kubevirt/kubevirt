@@ -61,12 +61,17 @@ func newHandler(vmiInformer cache.SharedIndexInformer, domainInformer cache.Shar
 
 	if domainInformer != nil {
 		_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    h.handleDomainAdd,
-			UpdateFunc: h.handleDomainUpdate,
+			AddFunc: h.handleDomainCompletedMigrationStats,
+			UpdateFunc: func(_oldObj, newObj interface{}) {
+				h.handleDomainCompletedMigrationStats(newObj)
+			},
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &h, err
+	return &h, nil
 }
 
 func (h *handler) Collect() []result {
@@ -108,11 +113,7 @@ func (h *handler) handleVmiAdd(obj interface{}) {
 	h.addMigration(vmi)
 }
 
-func (h *handler) handleDomainUpdate(_oldObj, newObj interface{}) {
-	h.handleDomainAdd(newObj)
-}
-
-func (h *handler) handleDomainAdd(obj interface{}) {
+func (h *handler) handleDomainCompletedMigrationStats(obj interface{}) {
 	domain := obj.(*api.Domain)
 	if domain.Status.MigrationStats == nil || !hasCompletedDowntimeStats(*domain.Status.MigrationStats) {
 		return
@@ -130,15 +131,15 @@ func (h *handler) handleDomainAdd(obj interface{}) {
 			return
 		}
 
-		q = newQueue(h.vmiStore, vmi)
+		h.addMigration(vmi)
 
 		h.Lock()
-		if existingQueue, exists := h.vmiStats[key]; exists {
-			q = existingQueue
-		} else {
-			h.vmiStats[key] = q
-		}
+		q, ok = h.vmiStats[key]
 		h.Unlock()
+		if !ok {
+			log.Log.V(logVerbosityInfo).Infof("dropping completed migration stats for VMI %s: migration queue not found", key)
+			return
+		}
 	}
 
 	q.addCompletedStats(*domain.Status.MigrationStats)

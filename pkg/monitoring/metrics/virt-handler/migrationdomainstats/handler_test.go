@@ -97,7 +97,7 @@ var _ = Describe("Handler", func() {
 			q := &possiblyFinishedQueue{}
 			h.vmiStats["default/test-vmi"] = q
 
-			h.handleDomainAdd(&api.Domain{
+			h.handleDomainCompletedMigrationStats(&api.Domain{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-vmi", Namespace: "default"},
 				Status: api.DomainStatus{
 					MigrationStats: &stats.DomainJobInfo{DowntimeSet: true, Downtime: 70},
@@ -115,7 +115,7 @@ var _ = Describe("Handler", func() {
 			Expect(vmiStore.Add(vmi)).To(Succeed())
 			h.vmiStore = vmiStore
 
-			h.handleDomainAdd(&api.Domain{
+			h.handleDomainCompletedMigrationStats(&api.Domain{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-vmi", Namespace: "default"},
 				Status: api.DomainStatus{
 					MigrationStats: &stats.DomainJobInfo{DowntimeSet: true, Downtime: 70},

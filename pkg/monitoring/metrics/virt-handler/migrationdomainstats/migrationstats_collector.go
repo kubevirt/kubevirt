@@ -22,6 +22,8 @@ package migrationdomainstats
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
 )
 
 var (
@@ -90,8 +92,6 @@ var (
 	)
 )
 
-const millisecondsPerSecond = 1000
-
 func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer, domainInformer cache.SharedInformer) error {
 	if vmiInformer == nil {
 		return nil
@@ -139,18 +139,14 @@ func parse(r *result) []operatormetrics.CollectorResult {
 	}
 
 	if jobInfo.DowntimeSet {
-		crs = append(crs, newCR(r, migrateVmiDowntime, millisecondsToSeconds(jobInfo.Downtime)))
+		crs = append(crs, newCR(r, migrateVmiDowntime, domainstats.MillisecondsToSeconds(jobInfo.Downtime)))
 	}
 
 	if jobInfo.DowntimeNetSet {
-		crs = append(crs, newCR(r, migrateVmiDowntimeNet, millisecondsToSeconds(jobInfo.DowntimeNet)))
+		crs = append(crs, newCR(r, migrateVmiDowntimeNet, domainstats.MillisecondsToSeconds(jobInfo.DowntimeNet)))
 	}
 
 	return crs
-}
-
-func millisecondsToSeconds(milliseconds uint64) float64 {
-	return float64(milliseconds) / millisecondsPerSecond
 }
 
 func newCR(r *result, metric operatormetrics.Metric, value float64) operatormetrics.CollectorResult {
