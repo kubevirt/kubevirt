@@ -317,6 +317,10 @@ spec:
         passt: {}
         passtBinding: {}
         pciAddress: pciAddressValue
+        portRanges:
+        - end: -3
+          protocol: protocolValue
+          start: -5
         ports:
         - name: nameValue
           port: -4
@@ -476,6 +480,9 @@ spec:
     pod:
       vmIPv6NetworkCIDR: vmIPv6NetworkCIDRValue
       vmNetworkCIDR: vmNetworkCIDRValue
+    resourceClaim:
+      claimName: claimNameValue
+      requestName: requestNameValue
   nodeSelector:
     nodeSelectorKey: nodeSelectorValue
   priorityClassName: priorityClassNameValue
@@ -505,6 +512,7 @@ spec:
     resourceClaimName: resourceClaimNameValue
     resourceClaimTemplateName: resourceClaimTemplateNameValue
   schedulerName: schedulerNameValue
+  serviceAccountName: serviceAccountNameValue
   startStrategy: startStrategyValue
   subdomain: subdomainValue
   terminationGracePeriodSeconds: -29
@@ -626,6 +634,7 @@ status:
       completed: true
       endTimestamp: "1988-01-01T01:01:01Z"
       failed: true
+      quiesceStatus: quiesceStatusValue
       startTimestamp: "1986-01-01T01:01:01Z"
       volumes:
       - dataEndpoint: dataEndpointValue
@@ -718,7 +727,19 @@ status:
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
+      experimental:
+        compression: compressionValue
+        stallDetector:
+          completionTimeoutFactor: completionTimeoutFactorValue
+          ewmaAlpha: ewmaAlphaValue
+          patienceWindowDecayFactor: patienceWindowDecayFactorValue
+          precopyPossibleFactor: precopyPossibleFactorValue
+          searchLocalMinima: true
+          stallMargin: -11
+          stallProgressTimeout: 18446744073709551596
+          switchoverTimeout: 18446744073709551599
       matchSELinuxLevelOnMigration: true
+      maxDowntimeMs: 18446744073709551603
       network: networkValue
       nodeDrainTaintKey: nodeDrainTaintKeyValue
       parallelMigrationsPerCluster: 4294967268
