@@ -64,7 +64,7 @@ var _ = Describe("Network Binding", func() {
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 				),
 				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
-				hooks.HookSidecarList{{Image: testSidecarImage1}}),
+				hooks.HookSidecarList{{Image: testSidecarImage1, NetworkBindingPluginName: testBindingName1}}),
 			Entry("VMI has multiple plugin bindings",
 				libvmi.New(libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
@@ -80,7 +80,10 @@ var _ = Describe("Network Binding", func() {
 					testBindingName1: {SidecarImage: testSidecarImage1, DownwardAPI: v1.DeviceInfo},
 					testBindingName2: {SidecarImage: testSidecarImage2},
 				},
-				hooks.HookSidecarList{{Image: testSidecarImage1, DownwardAPI: v1.DeviceInfo}, {Image: testSidecarImage2}}),
+				hooks.HookSidecarList{
+					{Image: testSidecarImage1, DownwardAPI: v1.DeviceInfo, NetworkBindingPluginName: testBindingName1},
+					{Image: testSidecarImage2, NetworkBindingPluginName: testBindingName2},
+				}),
 			Entry("VMI has no plugin bindings",
 				libvmi.New(libvmi.WithInterface(v1.Interface{
 					Name:                   testNetworkName1,
@@ -97,7 +100,7 @@ var _ = Describe("Network Binding", func() {
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
 				),
 				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
-				hooks.HookSidecarList{{Image: testSidecarImage1}}),
+				hooks.HookSidecarList{{Image: testSidecarImage1, NetworkBindingPluginName: testBindingName1}}),
 		)
 
 		It("should retrun an error when VMI has binding plugin but config doesn't exist", func() {

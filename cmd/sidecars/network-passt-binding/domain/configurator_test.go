@@ -44,6 +44,7 @@ var _ = Describe("pod network configurator", func() {
 					ifaces,
 					networks,
 					ifaceStatuses,
+					"passt-plugin",
 					domain.NetworkConfiguratorOptions{},
 				)
 
@@ -55,7 +56,7 @@ var _ = Describe("pod network configurator", func() {
 				nil,
 			),
 			Entry("no corresponding iface",
-				[]vmschema.Interface{{Name: "not-default", Binding: &vmschema.PluginBinding{Name: "passt"}}},
+				[]vmschema.Interface{{Name: "not-default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
 				nil,
 			),
@@ -70,12 +71,12 @@ var _ = Describe("pod network configurator", func() {
 				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}},
 			),
 			Entry("Interface with no matching status entry",
-				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}},
+				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
 				nil,
 			),
 			Entry("Interface with an empty PodInterfaceName",
-				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}},
+				[]vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}},
 				[]vmschema.Network{*vmschema.DefaultPodNetwork()},
 				[]vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: ""}},
 			),
@@ -83,7 +84,7 @@ var _ = Describe("pod network configurator", func() {
 
 		It("should fail given interface with invalid PCI address", func() {
 			ifaces := []vmschema.Interface{{
-				Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+				Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
 				PciAddress: "invalid-pci-address",
 			}}
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
@@ -93,6 +94,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces,
 				networks,
 				ifaceStatuses,
+				"passt-plugin",
 				domain.NetworkConfiguratorOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -111,6 +113,7 @@ var _ = Describe("pod network configurator", func() {
 					ifaces,
 					networks,
 					ifaceStatuses,
+					"passt-plugin",
 					domain.NetworkConfiguratorOptions{},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -120,7 +123,7 @@ var _ = Describe("pod network configurator", func() {
 				Expect(mutatedDomSpec.Devices.Interfaces).To(Equal([]domainschema.Interface{*expectedDomainIface}))
 			},
 			Entry("passt binding plugin",
-				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}},
+				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
 					Type:        ifaceTypeVhostUser,
@@ -132,7 +135,7 @@ var _ = Describe("pod network configurator", func() {
 			),
 			Entry("PCI address",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
 					PciAddress: "0000:02:02.0",
 				},
 				&domainschema.Interface{
@@ -147,7 +150,7 @@ var _ = Describe("pod network configurator", func() {
 			),
 			Entry("MAC address",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
 					MacAddress: "02:02:02:02:02:02",
 				},
 				&domainschema.Interface{
@@ -162,7 +165,7 @@ var _ = Describe("pod network configurator", func() {
 			),
 			Entry("ACPI address",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
 					ACPIIndex: 2,
 				},
 				&domainschema.Interface{
@@ -177,7 +180,7 @@ var _ = Describe("pod network configurator", func() {
 			),
 			Entry("non virtio model",
 				&vmschema.Interface{
-					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"},
+					Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"},
 					Model: "e1000",
 				},
 				&domainschema.Interface{
@@ -270,11 +273,11 @@ var _ = Describe("pod network configurator", func() {
 
 		DescribeTable("should add interface to domain spec given iface given the option",
 			func(opts *domain.NetworkConfiguratorOptions, expectedDomainIface *domainschema.Interface) {
-				ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+				ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 				ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
-				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, ifaceStatuses, *opts)
+				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, ifaceStatuses, "passt-plugin", *opts)
 				Expect(err).ToNot(HaveOccurred())
 
 				mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
@@ -324,7 +327,7 @@ var _ = Describe("pod network configurator", func() {
 				{Name: "secondary", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{NetworkName: "sec"}}},
 			}
 			ifaces := []vmschema.Interface{
-				{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}},
+				{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}},
 				{Name: "secondary", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}},
 			}
 
@@ -343,6 +346,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces,
 				networks,
 				ifaceStatuses,
+				"passt-plugin",
 				domain.NetworkConfiguratorOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -361,7 +365,7 @@ var _ = Describe("pod network configurator", func() {
 
 		It("should set domain interface correctly when executed more than once", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
 			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
 			expectedDomainIface := &domainschema.Interface{
@@ -377,6 +381,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces,
 				networks,
 				ifaceStatuses,
+				"passt-plugin",
 				domain.NetworkConfiguratorOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -391,7 +396,7 @@ var _ = Describe("pod network configurator", func() {
 		})
 		It("should set domain interface source link to the optional one if exists", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
 			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: "ovn-udn1"}}
 
 			expectedDomainIface := &domainschema.Interface{
@@ -406,6 +411,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces,
 				networks,
 				ifaceStatuses,
+				"passt-plugin",
 				domain.NetworkConfiguratorOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -423,7 +429,7 @@ var _ = Describe("pod network configurator", func() {
 		var testMutator *domain.PasstNetworkConfigurator
 		BeforeEach(func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
-			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
+			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
 			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
 
 			var err error
@@ -431,6 +437,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces,
 				networks,
 				ifaceStatuses,
+				"passt-plugin",
 				domain.NetworkConfiguratorOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -491,7 +498,7 @@ func newInterface(name string, options ...option) *vmschema.Interface {
 func withPasstBindingPlugin() option {
 	return func(iface *vmschema.Interface) {
 		iface.Binding = &vmschema.PluginBinding{
-			Name: "passt",
+			Name: "passt-plugin",
 		}
 	}
 }
