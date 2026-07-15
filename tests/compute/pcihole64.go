@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -43,7 +44,7 @@ var _ = Describe(SIG("64-Bit PCI hole", func() {
 
 	It("should not exceed maximum size when annotation was set to true", func() {
 		vmi := libvmops.RunVMIAndExpectLaunch(
-			libvmifact.NewAlpine(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")), libvmops.StartupTimeoutSecondsSmall,
+			libvmifact.NewAlpine(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")), flags.StartupTimeoutSecondsSmall(),
 		)
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 

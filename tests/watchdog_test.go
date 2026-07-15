@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
@@ -45,7 +46,7 @@ var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 
 		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(
-				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch())), libvmops.StartupTimeoutSecondsXHuge)
+				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch())), flags.StartupTimeoutSecondsXHuge())
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())

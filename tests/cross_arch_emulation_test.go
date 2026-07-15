@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -58,7 +59,7 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 			)
 
 			By("Creating a VMI with " + guestArch + " architecture on a cross-architecture host")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 			By("Verifying the VMI has the SoftwareEmulation condition")
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceSoftwareEmulation))
@@ -102,7 +103,7 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 			)
 
 			By("Creating a VMI with " + guestArch + " architecture on a same-architecture host")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 			By("Verifying the VMI does not have the SoftwareEmulation condition")
 			Consistently(matcher.ThisVMI(vmi), 10*time.Second, 2*time.Second).ShouldNot(matcher.HaveConditionTrue(v1.VirtualMachineInstanceSoftwareEmulation))

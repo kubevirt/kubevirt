@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -57,7 +58,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeAll(func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
+				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), flags.StartupTimeoutSecondsSmall())
 			})
 
 			It("[test_id:1588]should return OS login", func() {
@@ -128,7 +129,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 		Context("without a serial console", func() {
 			It("[test_id:4118]should run but not be connectable via the serial console", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpine(libvmi.WithAutoattachSerialConsole(false))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("failing to connect to serial console")
 				_, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{})

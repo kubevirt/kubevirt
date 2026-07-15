@@ -90,7 +90,7 @@ var _ = Describe("[sig-monitoring]Monitoring", decorators.SigMonitoring, func() 
 		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("2Mi"))
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Migrating the VMI 13 times")
 			for i := 0; i < 13; i++ {
