@@ -20,10 +20,15 @@
 package render
 
 import (
+	"runtime"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 // RenderConfig abstracts the cluster configuration needed by the rendering
@@ -88,4 +93,119 @@ type RenderConfig interface {
 // internally with stub caches and nil client.
 type ManifestRenderer interface {
 	RenderLaunchManifest(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error)
+}
+
+const defaultQGSSocketPath = "/var/run/tdx-qgs/qgs.socket"
+
+type offlineRenderConfig struct {
+	config *virtv1.KubeVirtConfiguration
+}
+
+func newOfflineRenderConfig(opts Options) *offlineRenderConfig {
+	cpuRequest := resource.MustParse("100m")
+
+	config := &virtv1.KubeVirtConfiguration{
+		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+			FeatureGates: opts.FeatureGates,
+		},
+		CPURequest: &cpuRequest,
+		ArchitectureConfiguration: &virtv1.ArchConfiguration{
+			DefaultArchitecture: runtime.GOARCH,
+			Amd64:               &virtv1.ArchSpecificConfiguration{MachineType: "q35"},
+			Arm64:               &virtv1.ArchSpecificConfiguration{MachineType: "virt"},
+			S390x:               &virtv1.ArchSpecificConfiguration{MachineType: "s390-ccw-virtio"},
+		},
+		NetworkConfiguration: &virtv1.NetworkConfiguration{
+			NetworkInterface:                  "bridge",
+			PermitBridgeInterfaceOnPodNetwork: pointer.P(true),
+		},
+		LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
+			MaxHotplugRatio: 4,
+		},
+		VMRolloutStrategy: pointer.P(virtv1.VMRolloutStrategyLiveUpdate),
+		VirtualMachineOptions: &virtv1.VirtualMachineOptions{
+			DisableSerialConsoleLog: &virtv1.DisableSerialConsoleLog{},
+		},
+	}
+
+	return &offlineRenderConfig{config: config}
+}
+
+func (c *offlineRenderConfig) IsFeatureGateEnabled(gate string) bool {
+	return featuregate.IsEnabled(gate, c.config.DeveloperConfiguration)
+}
+
+func (c *offlineRenderConfig) GetMachineType(arch string) string {
+	if c.config.MachineType != "" {
+		return c.config.MachineType
+	}
+	switch arch {
+	case "arm64":
+		return c.config.ArchitectureConfiguration.Arm64.MachineType
+	case "s390x":
+		return c.config.ArchitectureConfiguration.S390x.MachineType
+	default:
+		return c.config.ArchitectureConfiguration.Amd64.MachineType
+	}
+}
+
+func (c *offlineRenderConfig) GetDefaultArchitecture() string {
+	return c.config.ArchitectureConfiguration.DefaultArchitecture
+}
+
+func (c *offlineRenderConfig) GetCPUModel() string {
+	return c.config.CPUModel
+}
+
+func (c *offlineRenderConfig) GetCPURequest() *resource.Quantity {
+	return c.config.CPURequest
+}
+
+func (c *offlineRenderConfig) IsVMRolloutStrategyLiveUpdate() bool {
+	return c.config.VMRolloutStrategy == nil || *c.config.VMRolloutStrategy == virtv1.VMRolloutStrategyLiveUpdate
+}
+
+func (c *offlineRenderConfig) GetMaximumCpuSockets() uint32 {
+	if c.config.LiveUpdateConfiguration != nil && c.config.LiveUpdateConfiguration.MaxCpuSockets != nil {
+		return *c.config.LiveUpdateConfiguration.MaxCpuSockets
+	}
+	return 0
+}
+
+func (c *offlineRenderConfig) GetMaxHotplugRatio() uint32 {
+	if c.config.LiveUpdateConfiguration == nil {
+		return 1
+	}
+	return c.config.LiveUpdateConfiguration.MaxHotplugRatio
+}
+
+func (c *offlineRenderConfig) GetMaximumGuestMemory() *resource.Quantity {
+	if c.config.LiveUpdateConfiguration != nil {
+		return c.config.LiveUpdateConfiguration.MaxGuest
+	}
+	return nil
+}
+
+func (c *offlineRenderConfig) GetDefaultNetworkInterface() string {
+	return c.config.NetworkConfiguration.NetworkInterface
+}
+
+func (c *offlineRenderConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
+	return *c.config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork
+}
+
+func (c *offlineRenderConfig) GetConfigFromKubeVirtCR() *virtv1.KubeVirt {
+	return nil
+}
+
+func (c *offlineRenderConfig) GetQGSSocketPath() string {
+	cfg := c.config.ConfidentialCompute
+	if cfg == nil || cfg.TDX == nil || cfg.TDX.Attestation == nil || cfg.TDX.Attestation.QgsSocketPath == nil {
+		return defaultQGSSocketPath
+	}
+	return *cfg.TDX.Attestation.QgsSocketPath
+}
+
+func (c *offlineRenderConfig) GetConfig() *virtv1.KubeVirtConfiguration {
+	return c.config
 }

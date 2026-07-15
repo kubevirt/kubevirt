@@ -93,10 +93,7 @@ func PodFromVM(vm *virtv1.VirtualMachine, opts Options) (*k8sv1.Pod, error) {
 		return nil, fmt.Errorf("VM %q has no template spec", vm.Name)
 	}
 
-	config, err := newClusterConfig(opts.FeatureGates)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cluster config: %w", err)
-	}
+	config := newOfflineRenderConfig(opts)
 
 	vmCopy := vm.DeepCopy()
 	if vmCopy.Namespace == "" {
@@ -106,7 +103,11 @@ func PodFromVM(vm *virtv1.VirtualMachine, opts Options) (*k8sv1.Pod, error) {
 	defaults.SetVirtualMachineDefaults(vmCopy, config, nil)
 
 	vmi := setupVMIFromVM(vmCopy)
-	renderer := newManifestRenderer(vmi, config, opts)
+
+	renderer, err := newOfflineRenderer(vmi, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create renderer: %w", err)
+	}
 
 	return renderPod(vmi, config, renderer, opts)
 }
@@ -117,13 +118,13 @@ func PodFromVM(vm *virtv1.VirtualMachine, opts Options) (*k8sv1.Pod, error) {
 func PodFromVMI(vmi *virtv1.VirtualMachineInstance, opts Options) (*k8sv1.Pod, error) {
 	opts = opts.withDefaults()
 
-	config, err := newClusterConfig(opts.FeatureGates)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cluster config: %w", err)
-	}
-
+	config := newOfflineRenderConfig(opts)
 	vmiCopy := vmi.DeepCopy()
-	renderer := newManifestRenderer(vmiCopy, config, opts)
+
+	renderer, err := newOfflineRenderer(vmiCopy, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create renderer: %w", err)
+	}
 
 	return renderPod(vmiCopy, config, renderer, opts)
 }
@@ -162,7 +163,12 @@ func renderPod(vmi *virtv1.VirtualMachineInstance, config RenderConfig, renderer
 	return pod, nil
 }
 
-func newManifestRenderer(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterConfig, opts Options) ManifestRenderer {
+func newOfflineRenderer(vmi *virtv1.VirtualMachineInstance, opts Options) (ManifestRenderer, error) {
+	config, err := newClusterConfig(opts.FeatureGates)
+	if err != nil {
+		return nil, err
+	}
+
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	stubPVCs(pvcCache, vmi)
 
@@ -184,7 +190,7 @@ func newManifestRenderer(vmi *virtv1.VirtualMachineInstance, config *virtconfig.
 		opts.ExporterImage,
 		resourceQuotaStore,
 		namespaceStore,
-	)
+	), nil
 }
 
 var firmwareUUIDns = uuid.MustParse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
