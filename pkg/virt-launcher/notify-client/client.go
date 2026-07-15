@@ -12,6 +12,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/runtime"
 	"libvirt.org/go/libvirt"
 
@@ -168,6 +170,22 @@ func (n *Notifier) connect() error {
 	return nil
 }
 
+func isTransientError(err error) bool {
+	st, ok := grpcstatus.FromError(err)
+	if !ok {
+		// Non-gRPC errors are typically network-level issues which are transient and should be retried
+		return true
+	}
+	//nolint:exhaustive
+	switch st.Code() {
+	case codes.Unavailable, codes.DeadlineExceeded, codes.Aborted:
+		return true
+	default:
+		return false
+	}
+}
+
+//nolint:dupl
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
 
 	var domainJSON []byte
@@ -210,9 +228,14 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 		defer cancel()
 		response, err = n.v1client.HandleDomainEvent(ctx, &request)
 		if err != nil {
-			log.Log.Reason(err).Errorf("Failed to send domain notify event. closing connection.")
-			n._close()
-			return false, nil
+			// Retry transient errors (connection issues), propagate other errors immediately
+			if isTransientError(err) {
+				log.Log.Reason(err).Errorf("failed to notify domain event. closing connection.")
+				n._close()
+				return false, nil
+			}
+			log.Log.Reason(err).Errorf("failed to notify domain event")
+			return false, err
 		}
 
 		return true, nil
@@ -220,11 +243,18 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	})
 
 	if err != nil {
-		log.Log.Reason(err).Infof("Failed to send domain notify event")
+		if st, ok := grpcstatus.FromError(err); ok {
+			return fmt.Errorf("failed to send domain notify event with %s: %w", st.Code(), err)
+		}
 		return err
-	} else if response.Success != true {
-		msg := fmt.Sprintf("failed to notify domain event: %s", response.Message)
-		return fmt.Errorf("%s", msg)
+	}
+
+	// Fallback for old servers that embed errors in Response instead of using gRPC status codes.
+	// The additional response.Message != "" check handles the case where a fully migrated server
+	// no longer sets the Success field - in the legacy server, every
+	// error response always includes a non-empty Message, so this condition is safe
+	if response != nil && !response.Success && response.Message != "" {
+		return fmt.Errorf("failed to notify domain event: %s", response.Message)
 	}
 
 	return nil
@@ -639,6 +669,7 @@ func (n *Notifier) StartDomainNotifier(
 	return nil
 }
 
+//nolint:dupl
 func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 	vmiRef, err := reference.GetReference(scheme, vmi)
 	if err != nil {
@@ -676,19 +707,32 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 		defer cancel()
 		response, err = n.v1client.HandleK8SEvent(ctx, &request)
 		if err != nil {
-			log.Log.Reason(err).Errorf("Failed to send k8s notify event. closing connection.")
-			n._close()
-			return false, nil
+			// Retry transient errors (connection issues), propagate business errors immediately
+			if isTransientError(err) {
+				log.Log.Reason(err).Errorf("failed to send k8s notify event. closing connection.")
+				n._close()
+				return false, nil
+			}
+			log.Log.Reason(err).Errorf("failed to send k8s notify event")
+			return false, err
 		}
 
 		return true, nil
 	})
 
 	if err != nil {
+		if st, ok := grpcstatus.FromError(err); ok {
+			return fmt.Errorf("failed to notify k8s event with %s: %w", st.Code(), err)
+		}
 		return err
-	} else if response.Success != true {
-		msg := fmt.Sprintf("failed to notify k8s event: %s", response.Message)
-		return fmt.Errorf("%s", msg)
+	}
+
+	// Fallback for old servers that embed errors in Response instead of using gRPC status codes.
+	// The additional response.Message != "" check handles the case where a fully migrated server
+	// no longer sets the Success field - in the legacy server, every
+	// error response always includes a non-empty Message, so this condition is safe
+	if response != nil && !response.Success && response.Message != "" {
+		return fmt.Errorf("failed to notify k8s event: %s", response.Message)
 	}
 
 	return nil
