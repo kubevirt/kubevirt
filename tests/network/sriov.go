@@ -765,7 +765,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 		// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
 		// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
 		// see https://github.com/kubevirt/kubevirt/issues/5027
-		"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded",
+		"command SyncVMI failed with DeadlineExceeded: rpc error: code = DeadlineExceeded desc = context deadline exceeded",
 
 		// SR-IOV tests run on Kind cluster in a docker-in-docker CI environment which is resource extensive,
 		// causing general slowness in the cluster.
