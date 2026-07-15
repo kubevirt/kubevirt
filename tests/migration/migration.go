@@ -2018,18 +2018,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				var nodesSetUnschedulable []string
 
-				BeforeEach(func() {
-					By("Keeping only one schedulable node")
-					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
-					Expect(schedulableNodes).NotTo(And(BeEmpty(), HaveLen(1)))
-
-					// Iterate on all schedulable nodes but one
-					for _, schedulableNode := range schedulableNodes[:len(schedulableNodes)-1] {
-						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
-						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
-					}
-				})
-
 				AfterEach(func() {
 					By("Restoring nodes to be schedulable")
 					for _, schedulableNodeName := range nodesSetUnschedulable {
@@ -2044,6 +2032,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+					By("Making all other nodes unschedulable so migration target cannot be placed")
+					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
+					for _, schedulableNode := range schedulableNodes {
+						if schedulableNode.Name == vmi.Status.NodeName {
+							continue
+						}
+						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
+						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
+					}
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
