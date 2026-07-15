@@ -40,7 +40,18 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
+
+// ClusterConfigProvider abstracts the cluster configuration needed by the
+// VMI mutation pipeline. It embeds defaults.ClusterConfigProvider and adds
+// methods specific to mutations.
+type ClusterConfigProvider interface {
+	defaults.ClusterConfigProvider
+	IsFeatureGateEnabled(gate string) bool
+	GetConfigFromKubeVirtCR() *v1.KubeVirt
+	GetQGSSocketPath() string
+}
 
 type VMIsMutator struct {
 	ClusterConfig           *virtconfig.ClusterConfig
@@ -51,10 +62,9 @@ type VMIsMutator struct {
 const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
 
 // ApplyNewVMIMutations applies all VMI mutations to a VMI object.
-func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
-	// Set VirtualMachineInstance defaults
+func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, config ClusterConfigProvider) error {
 	log.Log.Object(newVMI).V(4).Info("Apply defaults")
-	if err := defaults.SetDefaultVirtualMachineInstance(clusterConfig, newVMI); err != nil {
+	if err := defaults.SetDefaultVirtualMachineInstance(config, newVMI); err != nil {
 		return err
 	}
 
@@ -63,8 +73,8 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 	}
 
 	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
-		_, emulatorThreadCompleteToEvenParityAnnotationExists := clusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
-		if emulatorThreadCompleteToEvenParityAnnotationExists && clusterConfig.AlignCPUsEnabled() {
+		_, emulatorThreadCompleteToEvenParityAnnotationExists := config.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
+		if emulatorThreadCompleteToEvenParityAnnotationExists && config.IsFeatureGateEnabled(featuregate.AlignCPUsGate) {
 			log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
 			if newVMI.Annotations == nil {
 				newVMI.Annotations = map[string]string{}
@@ -74,7 +84,7 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 	}
 
 	if util.IsTDXVMI(newVMI) {
-		qgsSocketPath := clusterConfig.GetQGSSocketPath()
+		qgsSocketPath := config.GetQGSSocketPath()
 		if qgsSocketPath != "" {
 			if newVMI.Annotations == nil {
 				newVMI.Annotations = map[string]string{}
@@ -83,7 +93,7 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 		}
 	}
 
-	if !clusterConfig.RootEnabled() {
+	if !config.IsFeatureGateEnabled(featuregate.Root) {
 		markAsNonroot(newVMI)
 	}
 
