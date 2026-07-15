@@ -46,7 +46,7 @@ import (
 )
 
 // TODO: remove the Serial once VmiMemoryOverheadReport is enabled by default
-var _ = Describe(SIG("VMI Memory Overhead Reporting", decorators.RequiresTwoSchedulableNodes, Serial, func() {
+var _ = Describe(SIG("VMI Memory Overhead Reporting", decorators.RequiresTwoSchedulableNodes, decorators.RequiresFeatureGate(featuregate.VmiMemoryOverheadReport), Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

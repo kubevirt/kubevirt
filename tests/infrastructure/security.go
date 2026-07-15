@@ -42,66 +42,69 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulableNodes, func() {
-	var virtClient kubecli.KubevirtClient
-	const minNodesWithVirtHandler = 2
+var _ = Describe(SIGSerial("Node Restriction",
+	decorators.RequiresTwoSchedulableNodes,
+	decorators.RequiresFeatureGate(featuregate.NodeRestrictionGate),
+	func() {
+		var virtClient kubecli.KubevirtClient
+		const minNodesWithVirtHandler = 2
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-		config.EnableFeatureGate(featuregate.NodeRestrictionGate)
-	})
-
-	It("Should disallow to modify VMs on different node", func() {
-		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-		if len(nodes) < minNodesWithVirtHandler {
-			Fail("Requires multiple nodes with virt-handler running")
-		}
-
-		vmi := libvmifact.NewGuestless()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-
-		node := vmi.Status.NodeName
-
-		differentNode := ""
-		for _, n := range nodes {
-			if node != n.Name {
-				differentNode = n.Name
-				break
-			}
-		}
-		pod, err := libnode.GetVirtHandlerPod(virtClient, differentNode)
-		Expect(err).ToNot(HaveOccurred())
-
-		token, err := exec.ExecuteCommandOnPod(
-			pod,
-			"virt-handler",
-			[]string{
-				"cat",
-				"/var/run/secrets/kubernetes.io/serviceaccount/token",
-			},
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
-			Host: virtClient.Config().Host,
-			TLSClientConfig: rest.TLSClientConfig{
-				Insecure: true,
-			},
-			BearerToken: token,
+		BeforeEach(func() {
+			virtClient = kubevirt.Client()
+			config.EnableFeatureGate(featuregate.NodeRestrictionGate)
 		})
-		Expect(err).ToNot(HaveOccurred())
 
-		// We cannot use patch as handler doesn't have RBAC
-		// Therefore we need to use Eventually with Update
-		Eventually(func(g Gomega) error {
-			vmiScoped, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
+		It("Should disallow to modify VMs on different node", func() {
+			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
+			if len(nodes) < minNodesWithVirtHandler {
+				Fail("Requires multiple nodes with virt-handler running")
+			}
 
-			vmiScoped.Labels["allowed.io"] = "value"
-			_, err = handlerClient.VirtualMachineInstance(vmi.Namespace).Update(context.TODO(), vmiScoped, metav1.UpdateOptions{})
-			return err
-		}, 10*time.Second, time.Second).Should(MatchError(
-			ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),
-		))
-	})
-}))
+			vmi := libvmifact.NewGuestless()
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+
+			node := vmi.Status.NodeName
+
+			differentNode := ""
+			for _, n := range nodes {
+				if node != n.Name {
+					differentNode = n.Name
+					break
+				}
+			}
+			pod, err := libnode.GetVirtHandlerPod(virtClient, differentNode)
+			Expect(err).ToNot(HaveOccurred())
+
+			token, err := exec.ExecuteCommandOnPod(
+				pod,
+				"virt-handler",
+				[]string{
+					"cat",
+					"/var/run/secrets/kubernetes.io/serviceaccount/token",
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
+				Host: virtClient.Config().Host,
+				TLSClientConfig: rest.TLSClientConfig{
+					Insecure: true,
+				},
+				BearerToken: token,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			// We cannot use patch as handler doesn't have RBAC
+			// Therefore we need to use Eventually with Update
+			Eventually(func(g Gomega) error {
+				vmiScoped, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				vmiScoped.Labels["allowed.io"] = "value"
+				_, err = handlerClient.VirtualMachineInstance(vmi.Namespace).Update(context.TODO(), vmiScoped, metav1.UpdateOptions{})
+				return err
+			}, 10*time.Second, time.Second).Should(MatchError(
+				ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),
+			))
+		})
+	}))

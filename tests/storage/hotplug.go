@@ -887,7 +887,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				return sc
 			}
 
-			Context("with legacy hotplug", Serial, func() {
+			Context("with legacy hotplug", Serial, decorators.RequiresFeatureGate(featuregate.HotplugVolumesGate), func() {
 				BeforeEach(func() {
 					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
@@ -909,7 +909,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				)
 			})
 
-			Context("with declarative hotplug", func() {
+			Context("with declarative hotplug", decorators.RequiresFeatureGate(featuregate.DeclarativeHotplugVolumesGate), func() {
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
 					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, v1.DiskBusSCSI, waitToStart)
 				},
@@ -2084,7 +2084,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
-	Context("with PCI HostDevices", Serial, func() {
+	Context("with PCI HostDevices", Serial, decorators.RequiresFeatureGate(featuregate.HostDevicesGate), func() {
 		const deviceName = "example.org/soundcard"
 
 		BeforeEach(func() {

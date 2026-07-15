@@ -41,6 +41,7 @@ import (
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -66,7 +67,7 @@ const (
 //go:embed testdata/sidecar-hook-configmap.sh
 var configMapData string
 
-var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, decorators.RequiresFeatureGate(featuregate.SidecarGate), func() {
 
 	var (
 		err        error

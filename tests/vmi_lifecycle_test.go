@@ -821,7 +821,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node feature discovery", Serial, decorators.CPUModel, decorators.RequiresAMD64, func() {
+		Context("with node feature discovery", Serial, decorators.CPUModel, decorators.RequiresAMD64, decorators.RequiresFeatureGate(featuregate.HypervStrictCheckGate), func() {
 			var node *k8sv1.Node
 			var supportedFeatures []string
 			var nodes *k8sv1.NodeList

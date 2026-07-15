@@ -91,7 +91,7 @@ const (
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
 
-var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, decorators.RequiresFeatureGate(featuregate.ExternalNetResourceInjection), func() {
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := readSRIOVResourceName()
@@ -113,7 +113,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 		})
 
-		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
+		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
 				libvmi.WithCPUCount(4, 0, 0),
@@ -216,7 +216,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			}
 		})
 
-		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
+		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", decorators.RequiresNodeWithCPUManager, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
 			vmi := newSRIOVVmi([]string{sriovnet1},

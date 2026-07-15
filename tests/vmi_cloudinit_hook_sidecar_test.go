@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -48,7 +49,7 @@ import (
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
-var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, decorators.RequiresFeatureGate(featuregate.SidecarGate), func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

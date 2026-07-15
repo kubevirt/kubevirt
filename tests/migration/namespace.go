@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -62,7 +63,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDecentralizedLiveMigration, func() {
+var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresFeatureGate(featuregate.DecentralizedLiveMigration), func() {
 	var (
 		virtClient    kubecli.KubevirtClient
 		connectionURL string
@@ -531,7 +532,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			// TODO: Remove the RequiresRWOFsVMStateStorageClass once libvirt allows us to tell it to ignore the check
 			// for shared storage.
-			It("should decentralized migrate a VMI with persistent TPM+EFI enabled", decorators.RequiresDecentralizedLiveMigration, decorators.RequiresRWOFsVMStateStorageClass, Serial, func() {
+			It("should decentralized migrate a VMI with persistent TPM+EFI enabled", decorators.RequiresFeatureGate(featuregate.DecentralizedLiveMigration), decorators.RequiresRWOFsVMStateStorageClass, Serial, func() {
 				migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 				By("Creating a VMI with TPM+EFI enabled")
 				sourceVMI := libvmifact.NewFedora(

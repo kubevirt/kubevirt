@@ -33,7 +33,7 @@ const (
 )
 
 var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
-	decorators.Quarantine, decorators.SigCompute, decorators.USB, func() {
+	decorators.Quarantine, decorators.SigCompute, decorators.USB, decorators.RequiresFeatureGate(featuregate.HostDevicesGate), func() {
 		var virtClient kubecli.KubevirtClient
 		var config v1.KubeVirtConfiguration
 		var vmi *v1.VirtualMachineInstance

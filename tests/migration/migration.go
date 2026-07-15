@@ -414,7 +414,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(vmi.Status.MigrationMethod).To(Equal(v1.LiveMigration), "migration method is expected to be Live Migration")
 			})
 
-			DescribeTable("should migrate with a downwardMetrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
+			DescribeTable("should migrate with a downwardMetrics", decorators.RequiresFeatureGate(featuregate.DownwardMetricsFeatureGate), func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 				vmi := libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -1114,7 +1114,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			return dv
 		}
 
-		Context(" migration to nonroot", Serial, func() {
+		Context(" migration to nonroot", Serial, decorators.RequiresFeatureGate(featuregate.Root), func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
 			var clusterIsRoot bool
@@ -1198,7 +1198,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, console.LoginToAlpine),
 			)
 		})
-		Context(" migration to root", Serial, func() {
+		Context(" migration to root", Serial, decorators.RequiresFeatureGate(featuregate.Root), func() {
 			var dv *cdiv1.DataVolume
 			var clusterIsRoot bool
 			size := "256Mi"
@@ -2413,7 +2413,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		)
 	})
 
-	Context(" with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
+	Context(" with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 		It("should not make migrations fail", func() {
 			var err error
 			cpuVMI := libvmifact.NewAlpine(
@@ -2458,7 +2458,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 	})
 
-	Context("with dedicated CPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+	Context("with dedicated CPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 		var (
 			nodes         []k8sv1.Node
 			pausePod      *k8sv1.Pod

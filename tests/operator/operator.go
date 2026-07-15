@@ -1894,7 +1894,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("with ContainerPathVolumes feature gate toggled", func() {
+	Context("with ContainerPathVolumes feature gate toggled", decorators.RequiresFeatureGate(featuregate.ContainerPathVolumesGate), func() {
 
 		AfterEach(func() {
 			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
@@ -1930,7 +1930,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context(" Seccomp configuration", Serial, func() {
+	Context(" Seccomp configuration", Serial, decorators.RequiresFeatureGate(featuregate.KubevirtSeccompProfile), func() {
 
 		Context("Kubevirt profile", func() {
 			var nodeName string
@@ -2349,7 +2349,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("virt-template deployment", func() {
+	Context("virt-template deployment", decorators.RequiresFeatureGate(featuregate.Template), func() {
 		var fgDisabled bool
 
 		BeforeEach(func() {
@@ -2547,7 +2547,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("RoleAggregationStrategy", func() {
+	Context("RoleAggregationStrategy", decorators.RequiresFeatureGate(featuregate.OptOutRoleAggregation), func() {
 		It("should disable aggregate labels when set to Manual and restore them when set to AggregateToDefault", func() {
 			By("Verifying aggregate labels are present by default")
 			verifyAggregateLabels(kubevirt.Client(), "true")

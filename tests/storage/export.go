@@ -2360,7 +2360,7 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, func() {
+	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, decorators.RequiresFeatureGate(featuregate.OCIExport), func() {
 		const (
 			reasonDigestsComputed = "DigestsComputed"
 		)
@@ -2485,7 +2485,7 @@ var _ = Describe(SIG("Export", func() {
 			Expect(ociUrl).To(BeEmpty(), "OCI manifest URL should not be present when feature gate is disabled")
 		})
 
-		It("should export VirtualMachineTemplate as OCI artifact", func() {
+		It("should export VirtualMachineTemplate as OCI artifact", decorators.RequiresFeatureGate(featuregate.Template), func() {
 			if !checks.HasFeature(featuregate.Template) {
 				kvconfig.EnableFeatureGate(featuregate.Template)
 				defer kvconfig.DisableFeatureGate(featuregate.Template)

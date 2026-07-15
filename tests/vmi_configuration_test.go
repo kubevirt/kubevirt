@@ -348,7 +348,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		},
 			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled", false),
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
-			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
+			Entry("should enable EFI secure boot with firmware auto-selection", Serial, decorators.RequiresFeatureGate(featuregate.FirmwareAutoSelection), true, "SecureBoot enabled", true),
 		)
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
@@ -1067,7 +1067,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(vmiCondition.Reason).To(Equal("Synchronizing with the Domain failed."))
 		})
 	})
-	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
 
 			nodeObject, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})

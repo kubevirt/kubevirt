@@ -34,7 +34,7 @@ const (
 	failedDeleteVMI = "Failed to delete VMI"
 )
 
-var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, decorators.RequiresFeatureGate(featuregate.HostDevicesGate), func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		config     v1.KubeVirtConfiguration

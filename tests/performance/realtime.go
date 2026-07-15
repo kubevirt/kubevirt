@@ -18,6 +18,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -42,7 +43,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = Describe(SIG("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
+var _ = Describe(SIG("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, decorators.RequiresFeatureGate(featuregate.CPUManager), func() {
 
 	var (
 		vmi        *v1.VirtualMachineInstance

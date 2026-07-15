@@ -75,7 +75,6 @@ var (
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 	GuestAgentProbes                     = Label("guest-agent-probes")
-	ImageVolume                          = Label("ImageVolume")
 	RebootPolicy                         = Label("RebootPolicy")
 
 	/* Storage classes */
@@ -103,8 +102,6 @@ var (
 	StorageCritical = Label("StorageCritical")
 	// RequiresVolumeExpansion requires a storage class with volume expansion support
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
-	// RequiresDecentralizedLiveMigration request the feature gate is enabled
-	RequiresDecentralizedLiveMigration = Label("RequiresDecentralizedLiveMigration")
 
 	/* Provisioner */
 
@@ -162,3 +159,7 @@ var (
 	// (e.g., tests requiring SecurityContextConstraints, Routes)
 	OpenShift = Label("OpenShift")
 )
+
+func RequiresFeatureGate(gate string) Labels {
+	return Label("Requires" + gate)
+}

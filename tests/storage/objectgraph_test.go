@@ -35,6 +35,7 @@ import (
 
 	libdv "kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -45,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
+var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, decorators.RequiresFeatureGate(featuregate.ObjectGraph), func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
