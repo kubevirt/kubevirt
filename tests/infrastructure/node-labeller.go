@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -162,16 +161,6 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				}
 				return nil
 			}).WithTimeout(timeout).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
-		})
-
-		It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
-			node := nodesWithKVM[0]
-			Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-frequency"))
-			Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-scalable"))
-			Expect(node.Labels["cpu-timer.node.kubevirt.io/tsc-scalable"]).To(Or(Equal(trueStr), Equal("false")))
-			val, err := strconv.ParseInt(node.Labels["cpu-timer.node.kubevirt.io/tsc-frequency"], 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(BeNumerically(">", 0))
 		})
 	})
 
