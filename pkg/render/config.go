@@ -85,6 +85,25 @@ type RenderConfig interface {
 	// EvictionStrategy, SeccompConfiguration). Prefer specific methods
 	// when available.
 	GetConfig() *virtv1.KubeVirtConfiguration
+
+	// Methods needed by the TemplateService rendering pipeline.
+	AllowEmulation() bool
+	GetOVMFPath(arch string) string
+	GetDiskVerification() *virtv1.DiskVerification
+	GetHypervisor() *virtv1.HypervisorConfiguration
+	GetVirtLauncherVerbosity() uint
+	GetSELinuxLauncherType() string
+	GetDefaultRuntimeClass() string
+	GetNodeSelectors() map[string]string
+	GetImagePullPolicy() k8sv1.PullPolicy
+	GetNetworkBindings() map[string]virtv1.InterfaceBindingPlugin
+	GetMemoryOvercommit() int
+	GetCPUAllocationRatio() int
+	GetClusterCPUArch() string
+	GetSupportContainerRequest(typeName virtv1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity
+	GetSupportContainerLimit(typeName virtv1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity
+	GetPermittedHostDevices() *virtv1.PermittedHostDevices
+	IsSerialConsoleLogDisabled() bool
 }
 
 // ManifestRenderer renders a Pod manifest from a VirtualMachineInstance.
@@ -103,17 +122,35 @@ type offlineRenderConfig struct {
 
 func newOfflineRenderConfig(opts Options) *offlineRenderConfig {
 	cpuRequest := resource.MustParse("100m")
+	diskVerifLimit := resource.NewQuantity(2000*1024*1024, resource.BinarySI)
 
 	config := &virtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-			FeatureGates: opts.FeatureGates,
+			FeatureGates:       opts.FeatureGates,
+			MemoryOvercommit:   100,
+			CPUAllocationRatio: 10,
+			DiskVerification: &virtv1.DiskVerification{
+				MemoryLimit: diskVerifLimit,
+			},
+			LogVerbosity: &virtv1.LogVerbosity{
+				VirtLauncher: 2,
+			},
 		},
-		CPURequest: &cpuRequest,
+		CPURequest:      &cpuRequest,
+		ImagePullPolicy: k8sv1.PullIfNotPresent,
 		ArchitectureConfiguration: &virtv1.ArchConfiguration{
 			DefaultArchitecture: runtime.GOARCH,
-			Amd64:               &virtv1.ArchSpecificConfiguration{MachineType: "q35"},
-			Arm64:               &virtv1.ArchSpecificConfiguration{MachineType: "virt"},
-			S390x:               &virtv1.ArchSpecificConfiguration{MachineType: "s390-ccw-virtio"},
+			Amd64: &virtv1.ArchSpecificConfiguration{
+				MachineType: "q35",
+				OVMFPath:    "/usr/share/edk2/ovmf",
+			},
+			Arm64: &virtv1.ArchSpecificConfiguration{
+				MachineType: "virt",
+				OVMFPath:    "/usr/share/AAVMF",
+			},
+			S390x: &virtv1.ArchSpecificConfiguration{
+				MachineType: "s390-ccw-virtio",
+			},
 		},
 		NetworkConfiguration: &virtv1.NetworkConfiguration{
 			NetworkInterface:                  "bridge",
@@ -208,4 +245,94 @@ func (c *offlineRenderConfig) GetQGSSocketPath() string {
 
 func (c *offlineRenderConfig) GetConfig() *virtv1.KubeVirtConfiguration {
 	return c.config
+}
+
+func (c *offlineRenderConfig) AllowEmulation() bool {
+	return c.config.DeveloperConfiguration != nil && c.config.DeveloperConfiguration.UseEmulation
+}
+
+func (c *offlineRenderConfig) GetOVMFPath(arch string) string {
+	if c.config.OVMFPath != "" {
+		return c.config.OVMFPath
+	}
+	switch arch {
+	case "arm64":
+		return c.config.ArchitectureConfiguration.Arm64.OVMFPath
+	case "s390x":
+		return c.config.ArchitectureConfiguration.S390x.OVMFPath
+	default:
+		return c.config.ArchitectureConfiguration.Amd64.OVMFPath
+	}
+}
+
+func (c *offlineRenderConfig) GetDiskVerification() *virtv1.DiskVerification {
+	return c.config.DeveloperConfiguration.DiskVerification
+}
+
+func (c *offlineRenderConfig) GetHypervisor() *virtv1.HypervisorConfiguration {
+	if c.IsFeatureGateEnabled("ConfigurableHypervisor") && len(c.config.Hypervisors) > 0 {
+		return &c.config.Hypervisors[0]
+	}
+	return &virtv1.HypervisorConfiguration{Name: virtv1.KvmHypervisorName}
+}
+
+func (c *offlineRenderConfig) GetVirtLauncherVerbosity() uint {
+	if c.config.DeveloperConfiguration != nil && c.config.DeveloperConfiguration.LogVerbosity != nil {
+		return c.config.DeveloperConfiguration.LogVerbosity.VirtLauncher
+	}
+	return 2
+}
+
+func (c *offlineRenderConfig) GetSELinuxLauncherType() string {
+	return c.config.SELinuxLauncherType
+}
+
+func (c *offlineRenderConfig) GetDefaultRuntimeClass() string {
+	return c.config.DefaultRuntimeClass
+}
+
+func (c *offlineRenderConfig) GetNodeSelectors() map[string]string {
+	if c.config.DeveloperConfiguration != nil {
+		return c.config.DeveloperConfiguration.NodeSelectors
+	}
+	return nil
+}
+
+func (c *offlineRenderConfig) GetImagePullPolicy() k8sv1.PullPolicy {
+	return c.config.ImagePullPolicy
+}
+
+func (c *offlineRenderConfig) GetNetworkBindings() map[string]virtv1.InterfaceBindingPlugin {
+	if c.config.NetworkConfiguration != nil {
+		return c.config.NetworkConfiguration.Binding
+	}
+	return nil
+}
+
+func (c *offlineRenderConfig) GetMemoryOvercommit() int {
+	return c.config.DeveloperConfiguration.MemoryOvercommit
+}
+
+func (c *offlineRenderConfig) GetCPUAllocationRatio() int {
+	return c.config.DeveloperConfiguration.CPUAllocationRatio
+}
+
+func (c *offlineRenderConfig) GetClusterCPUArch() string {
+	return runtime.GOARCH
+}
+
+func (c *offlineRenderConfig) GetSupportContainerRequest(_ virtv1.SupportContainerType, _ k8sv1.ResourceName) *resource.Quantity {
+	return nil
+}
+
+func (c *offlineRenderConfig) GetSupportContainerLimit(_ virtv1.SupportContainerType, _ k8sv1.ResourceName) *resource.Quantity {
+	return nil
+}
+
+func (c *offlineRenderConfig) GetPermittedHostDevices() *virtv1.PermittedHostDevices {
+	return c.config.PermittedHostDevices
+}
+
+func (c *offlineRenderConfig) IsSerialConsoleLogDisabled() bool {
+	return c.config.VirtualMachineOptions != nil && c.config.VirtualMachineOptions.DisableSerialConsoleLog != nil
 }
