@@ -99,7 +99,7 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 			g.Expect(err).ToNot(HaveOccurred())
 
 			vmiScoped.Labels["allowed.io"] = "value"
-			_, err = handlerClient.VirtualMachineInstance(vmi.Namespace).Update(context.TODO(), vmiScoped, metav1.UpdateOptions{})
+			_, err = handlerClient.VirtualMachineInstance(vmi.Namespace).Update(context.TODO(), vmiScoped, metav1.UpdateOptions{}) //nolint:forbidigo
 			return err
 		}, 10*time.Second, time.Second).Should(MatchError(
 			ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),

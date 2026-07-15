@@ -889,7 +889,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				// zero out the times to be able to compare after
 				clearConditionsTimestamps(origStatus.Conditions)
 				ss.Status = nil
-				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).UpdateStatus(context.Background(), ss, metav1.UpdateOptions{})
+				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).UpdateStatus(context.Background(), ss, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ss.Status).To(BeNil())
 

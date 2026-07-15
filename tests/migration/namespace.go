@@ -168,7 +168,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 	updateRunStrategy := func(vm *virtv1.VirtualMachine, strategy *virtv1.VirtualMachineRunStrategy) {
 		Eventually(func() error {
 			vm.Spec.RunStrategy = strategy
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{}) //nolint:forbidigo
 			if err != nil {
 				// Ignore the error from the get.
 				vm, _ = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
