@@ -27,152 +27,152 @@ import (
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
-func (config *ClusterConfig) isFeatureGateEnabled(fg string) bool {
+func (config *ClusterConfig) IsFeatureGateEnabled(fg string) bool {
 	return featuregate.IsEnabled(fg, config.GetConfig().DeveloperConfiguration)
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.CPUManager)
+	return config.IsFeatureGateEnabled(featuregate.CPUManager)
 }
 
 func (config *ClusterConfig) NUMAEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.NUMAFeatureGate)
+	return config.IsFeatureGateEnabled(featuregate.NUMAFeatureGate)
 }
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.DownwardMetricsFeatureGate)
+	return config.IsFeatureGateEnabled(featuregate.DownwardMetricsFeatureGate)
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.IgnitionGate)
+	return config.IsFeatureGateEnabled(featuregate.IgnitionGate)
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.LiveMigrationGate)
+	return config.IsFeatureGateEnabled(featuregate.LiveMigrationGate)
 }
 
 func (config *ClusterConfig) UtilityVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.UtilityVolumesGate)
+	return config.IsFeatureGateEnabled(featuregate.UtilityVolumesGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HypervStrictCheckGate)
+	return config.IsFeatureGateEnabled(featuregate.HypervStrictCheckGate)
 }
 
 func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.CPUNodeDiscoveryGate)
+	return config.IsFeatureGateEnabled(featuregate.CPUNodeDiscoveryGate)
 }
 
 func (config *ClusterConfig) SidecarEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SidecarGate)
+	return config.IsFeatureGateEnabled(featuregate.SidecarGate)
 }
 
 func (config *ClusterConfig) GPUPassthroughEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.GPUGate)
+	return config.IsFeatureGateEnabled(featuregate.GPUGate)
 }
 
 func (config *ClusterConfig) SnapshotEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SnapshotGate)
+	return config.IsFeatureGateEnabled(featuregate.SnapshotGate)
 }
 
 func (config *ClusterConfig) PluginsEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PluginsGate)
+	return config.IsFeatureGateEnabled(featuregate.PluginsGate)
 }
 
 func (config *ClusterConfig) HotplugVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HotplugVolumesGate)
+	return config.IsFeatureGateEnabled(featuregate.HotplugVolumesGate)
 }
 
 func (config *ClusterConfig) HostDiskEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HostDiskGate)
+	return config.IsFeatureGateEnabled(featuregate.HostDiskGate)
 }
 
 func (config *ClusterConfig) VirtiofsStorageEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VirtIOFSStorageVolumeGate)
+	return config.IsFeatureGateEnabled(featuregate.VirtIOFSStorageVolumeGate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HostDevicesGate)
+	return config.IsFeatureGateEnabled(featuregate.HostDevicesGate)
 }
 
 func (config *ClusterConfig) RootEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.Root)
+	return config.IsFeatureGateEnabled(featuregate.Root)
 }
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionSEV)
+	return config.IsFeatureGateEnabled(featuregate.WorkloadEncryptionSEV)
 }
 
 func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
+	return config.IsFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
 }
 
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
+	return config.IsFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
 }
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VSOCKGate)
+	return config.IsFeatureGateEnabled(featuregate.VSOCKGate)
 }
 
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
+	return config.IsFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
 }
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
+	return config.IsFeatureGateEnabled(featuregate.MultiArchitecture)
 }
 
 func (config *ClusterConfig) CrossArchitectureVirtualizationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.CrossArchitectureVirtualization)
+	return config.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization)
 }
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.AlignCPUsGate)
+	return config.IsFeatureGateEnabled(featuregate.AlignCPUsGate)
 }
 
 func (config *ClusterConfig) ImageVolumeEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ImageVolume)
+	return config.IsFeatureGateEnabled(featuregate.ImageVolume)
 }
 
 func (config *ClusterConfig) LibvirtHooksServerAndClientEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.LibvirtHooksServerAndClient)
+	return config.IsFeatureGateEnabled(featuregate.LibvirtHooksServerAndClient)
 }
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
+	return config.IsFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
 
 func (config *ClusterConfig) ObjectGraphEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ObjectGraph)
+	return config.IsFeatureGateEnabled(featuregate.ObjectGraph)
 }
 
 func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
+	return config.IsFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
 }
 
 func (config *ClusterConfig) PasstBindingEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PasstBinding)
+	return config.IsFeatureGateEnabled(featuregate.PasstBinding)
 }
 
 func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	return config.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 }
 
 func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.GPUsWithDRAGate)
+	return config.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate)
 }
 
 func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
+	return config.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
 }
 
 func (config *ClusterConfig) ConfigurableHypervisorEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ConfigurableHypervisor)
+	return config.IsFeatureGateEnabled(featuregate.ConfigurableHypervisor)
 }
 
 func (config *ClusterConfig) NetworkDevicesWithDRAGateEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate)
+	return config.IsFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate)
 }
 
 func (config *ClusterConfig) AnyDeviceDRAGateEnabled() bool {
@@ -182,73 +182,73 @@ func (config *ClusterConfig) AnyDeviceDRAGateEnabled() bool {
 }
 
 func (config *ClusterConfig) PortRangesSpecGateEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PortRangesSpec)
+	return config.IsFeatureGateEnabled(featuregate.PortRangesSpec)
 }
 
 func (config *ClusterConfig) PCINUMAAwareTopologyEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PCINUMAAwareTopologyEnabled)
+	return config.IsFeatureGateEnabled(featuregate.PCINUMAAwareTopologyEnabled)
 }
 
 func (config *ClusterConfig) IncrementalBackupEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
+	return config.IsFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
 
 func (config *ClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PodSecondaryInterfaceNamingUpgrade)
+	return config.IsFeatureGateEnabled(featuregate.PodSecondaryInterfaceNamingUpgrade)
 }
 
 func (config *ClusterConfig) ExternalNetResourceInjectionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ExternalNetResourceInjection)
+	return config.IsFeatureGateEnabled(featuregate.ExternalNetResourceInjection)
 }
 
 func (config *ClusterConfig) RebootPolicyEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.RebootPolicy)
+	return config.IsFeatureGateEnabled(featuregate.RebootPolicy)
 }
 
 func (config *ClusterConfig) VmiMemoryOverheadReportEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VmiMemoryOverheadReport)
+	return config.IsFeatureGateEnabled(featuregate.VmiMemoryOverheadReport)
 }
 
 func (config *ClusterConfig) TemplateEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.Template)
+	return config.IsFeatureGateEnabled(featuregate.Template)
 }
 
 func (config *ClusterConfig) ContainerPathVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ContainerPathVolumesGate)
+	return config.IsFeatureGateEnabled(featuregate.ContainerPathVolumesGate)
 }
 
 func (config *ClusterConfig) ReservedOverheadMemlockEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ReservedOverheadMemlock)
+	return config.IsFeatureGateEnabled(featuregate.ReservedOverheadMemlock)
 }
 
 func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.OptOutRoleAggregation)
+	return config.IsFeatureGateEnabled(featuregate.OptOutRoleAggregation)
 }
 
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
+	return config.IsFeatureGateEnabled(featuregate.VGPULiveMigration)
 }
 
 func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VMStatsCollector)
+	return config.IsFeatureGateEnabled(featuregate.VMStatsCollector)
 }
 
 func (config *ClusterConfig) OCIExportEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.OCIExport)
+	return config.IsFeatureGateEnabled(featuregate.OCIExport)
 }
 
 func (config *ClusterConfig) GraceIOVirtualizationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.GraceIOVirtualization)
+	return config.IsFeatureGateEnabled(featuregate.GraceIOVirtualization)
 }
 
 func (config *ClusterConfig) IOMMUFDEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.IOMMUFDGate)
+	return config.IsFeatureGateEnabled(featuregate.IOMMUFDGate)
 }
 
 func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
+	return config.IsFeatureGateEnabled(featuregate.FirmwareAutoSelection)
 }
 
 func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
+	return config.IsFeatureGateEnabled(featuregate.MigrationStallDetection)
 }
