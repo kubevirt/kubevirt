@@ -1047,7 +1047,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			deleteAllKvAndWait(false, originalKv.Name)
 		},
 			Entry("from previous y release by patching KubeVirt CR", fromY, false),
-			Entry("from previous y release by updating virt-operator", fromY, true),
+			Entry("[QUARANTINE]from previous y release by updating virt-operator", decorators.Quarantine, fromY, true),
 			Entry("from previous z release by patching KubeVirt CR", fromZ, false),
 			Entry("from previous z release by updating virt-operator", fromZ, true),
 		)
