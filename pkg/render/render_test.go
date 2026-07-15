@@ -20,15 +20,19 @@
 package render
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -250,6 +254,107 @@ var _ = Describe("Render", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod).ToNot(BeNil())
 			Expect(pod.Spec.Containers).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("Equivalence with traditional TemplateService path", func() {
+		It("should produce the same Pod as the direct ClusterConfig + TemplateService path", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "equiv-vmi", Namespace: "default",
+				},
+				Spec: virtv1.VirtualMachineInstanceSpec{
+					Domain: virtv1.DomainSpec{
+						Resources: virtv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+						},
+						Devices: virtv1.Devices{
+							Disks: []virtv1.Disk{
+								{Name: "disk0", DiskDevice: virtv1.DiskDevice{Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusVirtio}}},
+							},
+						},
+					},
+					Volumes: []virtv1.Volume{
+						{
+							Name: "disk0",
+							VolumeSource: virtv1.VolumeSource{
+								ContainerDisk: &virtv1.ContainerDiskSource{
+									Image: "test:latest",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			opts := Options{
+				LauncherImage: "quay.io/kubevirt/virt-launcher:latest",
+			}
+
+			// Offline path: PodFromVMI with offlineRenderConfig
+			offlinePod, err := PodFromVMI(vmi.DeepCopy(), opts)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Traditional path: real ClusterConfig + TemplateService
+			kv := &virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "kubevirt",
+					Namespace:       "kubevirt",
+					ResourceVersion: "1",
+				},
+				Spec: virtv1.KubeVirtSpec{
+					Configuration: virtv1.KubeVirtConfiguration{
+						VirtualMachineOptions: &virtv1.VirtualMachineOptions{
+							DisableSerialConsoleLog: &virtv1.DisableSerialConsoleLog{},
+						},
+					},
+				},
+				Status: virtv1.KubeVirtStatus{
+					Phase: virtv1.KubeVirtPhaseDeployed,
+				},
+			}
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, runtime.GOARCH)
+
+			pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			stubPVCs(pvcCache, vmi)
+			resourceQuotaStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			namespaceStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+
+			templateSvc := services.NewTemplateService(
+				opts.LauncherImage,
+				240,
+				"/var/run/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				virtv1.HotplugDiskDir,
+				"",
+				pvcCache,
+				nil,
+				clusterConfig,
+				107,
+				"quay.io/kubevirt/vm-export:latest",
+				resourceQuotaStore,
+				namespaceStore,
+			)
+
+			traditionalPod, err := templateSvc.RenderLaunchManifest(vmi.DeepCopy())
+			Expect(err).ToNot(HaveOccurred())
+
+			// Compare key properties
+			Expect(offlinePod.Spec.Containers).To(HaveLen(len(traditionalPod.Spec.Containers)),
+				"container count should match")
+
+			for i, c := range offlinePod.Spec.Containers {
+				Expect(c.Name).To(Equal(traditionalPod.Spec.Containers[i].Name),
+					"container name mismatch at index %d", i)
+				Expect(c.Image).To(Equal(traditionalPod.Spec.Containers[i].Image),
+					"container image mismatch for %s", c.Name)
+			}
+
+			Expect(offlinePod.Spec.Volumes).To(HaveLen(len(traditionalPod.Spec.Volumes)),
+				"volume count should match")
 		})
 	})
 })
