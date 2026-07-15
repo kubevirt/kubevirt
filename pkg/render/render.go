@@ -128,7 +128,7 @@ func PodFromVMI(vmi *virtv1.VirtualMachineInstance, opts Options) (*k8sv1.Pod, e
 	return renderPod(vmiCopy, config, renderer, opts)
 }
 
-func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterConfig, renderer ManifestRenderer, opts Options) (*k8sv1.Pod, error) {
+func renderPod(vmi *virtv1.VirtualMachineInstance, config RenderConfig, renderer ManifestRenderer, opts Options) (*k8sv1.Pod, error) {
 	if vmi.Namespace == "" {
 		vmi.Namespace = "default"
 	}
