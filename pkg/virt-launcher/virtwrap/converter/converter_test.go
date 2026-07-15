@@ -3874,17 +3874,17 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{},
 					},
-				}, "", nil, "Firmware's volume type is unsupported for slic"),
+				}, "", nil, "firmware's volume type is unsupported for slic"),
 			Entry("msdm with configmap", "", nil,
 				"vol-msdm", &v1.Volume{
 					Name: "vol-msdm",
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{},
 					},
-				}, "Firmware's volume type is unsupported for msdm"),
+				}, "firmware's volume type is unsupported for msdm"),
 			// without matching volume source
-			Entry("slic without volume", "vol-slic", &v1.Volume{}, "", &v1.Volume{}, "Firmware's volume for slic was not found"),
-			Entry("msdm without volume", "", &v1.Volume{}, "vol-msdm", &v1.Volume{}, "Firmware's volume for msdm was not found"),
+			Entry("slic without volume", "vol-slic", &v1.Volume{}, "", &v1.Volume{}, "firmware's volume for slic was not found"),
+			Entry("msdm without volume", "", &v1.Volume{}, "vol-msdm", &v1.Volume{}, "firmware's volume for msdm was not found"),
 			// try both togeter, correct input
 			Entry("slic and msdm with secret",
 				"vol-slic", &v1.Volume{

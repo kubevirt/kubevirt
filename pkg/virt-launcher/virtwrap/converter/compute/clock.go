@@ -34,7 +34,7 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
-		convert_v1_Clock_To_api_Clock(clock, newClock)
+		convertClockToAPIClock(clock, newClock)
 		domain.Spec.Clock = newClock
 	}
 
@@ -52,7 +52,7 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	return nil
 }
 
-func convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) {
+func convertClockToAPIClock(source *v1.Clock, clock *api.Clock) {
 	if source.UTC != nil {
 		clock.Offset = "utc"
 		if source.UTC.OffsetSeconds != nil {
@@ -102,7 +102,7 @@ func boolToYesNo(value *bool, defaultYes bool) string {
 	return boolToString(value, defaultYes, "yes", "no")
 }
 
-func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
+func boolToString(value *bool, defaultPositive bool, positive, negative string) string {
 	toString := func(value bool) string {
 		if value {
 			return positive

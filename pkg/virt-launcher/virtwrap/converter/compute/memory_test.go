@@ -74,12 +74,12 @@ var _ = Describe("Memory Domain Configurator", func() {
 	})
 
 	Context("configure multiple memory fields", func() {
-		var guestMemory resource.Quantity = resource.MustParse("32Mi")
-		var maxGuestMemory resource.Quantity = resource.MustParse("128Mi")
-		var guestMemoryOption libvmi.Option = libvmi.WithGuestMemory(guestMemory.String())
+		guestMemory := resource.MustParse("32Mi")
+		maxGuestMemory := resource.MustParse("128Mi")
+		guestMemoryOption := libvmi.WithGuestMemory(guestMemory.String())
 
 		DescribeTable("maxGuest and guest memory settings",
-			func(vmi *v1.VirtualMachineInstance, expectedGuestMemory *resource.Quantity, expectedMaxMemory *resource.Quantity) {
+			func(vmi *v1.VirtualMachineInstance, expectedGuestMemory, expectedMaxMemory *resource.Quantity) {
 				domain := &api.Domain{}
 				configurator := compute.MemoryConfigurator{}
 				Expect(configurator.Configure(vmi, domain)).To(Succeed())
@@ -106,7 +106,11 @@ var _ = Describe("Memory Domain Configurator", func() {
 			},
 			Entry("maxGuest is missing", libvmi.New(guestMemoryOption), &guestMemory, nil),
 			Entry("maxGuest equal to guest memory", libvmi.New(guestMemoryOption, libvmi.WithMaxGuest(guestMemory.String())), &guestMemory, nil),
-			Entry("maxGuest greater than guest memory", libvmi.New(guestMemoryOption, libvmi.WithMaxGuest(maxGuestMemory.String())), &guestMemory, &maxGuestMemory),
+			Entry("maxGuest greater than guest memory",
+				libvmi.New(guestMemoryOption, libvmi.WithMaxGuest(maxGuestMemory.String())),
+				&guestMemory,
+				&maxGuestMemory,
+			),
 		)
 
 		DescribeTable("guest memory and resource requests/limits settings",

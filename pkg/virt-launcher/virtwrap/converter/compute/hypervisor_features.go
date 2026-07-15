@@ -44,7 +44,7 @@ func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineIn
 		return nil
 	}
 
-	convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+	convertFeaturesToAPIFeatures(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
 
 	if h.hasVMPort {
 		domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
@@ -53,7 +53,7 @@ func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineIn
 	return nil
 }
 
-func convert_v1_Features_To_api_Features(source *v1.Features, features *api.Features, useLaunchSecurityTDX bool) {
+func convertFeaturesToAPIFeatures(source *v1.Features, features *api.Features, useLaunchSecurityTDX bool) {
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &api.FeatureEnabled{}
 	}
@@ -69,7 +69,7 @@ func convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 	}
 	if source.Hyperv != nil {
 		features.Hyperv = &api.FeatureHyperv{}
-		convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv)
+		convertFeatureHypervToAPIFeatureHyperv(source.Hyperv, features.Hyperv)
 	} else if source.HypervPassthrough != nil && *source.HypervPassthrough.Enabled {
 		features.Hyperv = &api.FeatureHyperv{
 			Mode: api.HypervModePassthrough,
@@ -95,7 +95,7 @@ func convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 	}
 }
 
-func convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) {
+func convertFeatureHypervToAPIFeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) {
 	if source.Spinlocks != nil {
 		hyperv.Spinlocks = &api.FeatureSpinlocks{
 			State:   boolToOnOff(source.Spinlocks.Enabled, true),

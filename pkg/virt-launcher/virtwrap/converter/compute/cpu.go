@@ -61,15 +61,15 @@ func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstan
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
-		minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
-		enabledCpuCount := cpuCount
+		minEnabledCPUCount := cpuTopology.Cores * cpuTopology.Threads
+		enabledCPUCount := cpuCount
 		cpuTopology.Sockets = vmiCPU.MaxSockets
 		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 		VCPUs := &api.VCPUs{}
 		for id := uint32(0); id < cpuCount; id++ {
-			isEnabled := id < enabledCpuCount
-			isHotpluggable := id >= minEnabledCpuCount
+			isEnabled := id < enabledCPUCount
+			isHotpluggable := id >= minEnabledCPUCount
 			VCPUs.VCPU = append(VCPUs.VCPU, api.VCPUsVCPU{
 				ID:           id,
 				Enabled:      boolToYesNo(&isEnabled, true),
@@ -139,7 +139,9 @@ func (c CPUDomainConfigurator) configureCPUFeatures(vmi *v1.VirtualMachineInstan
 	*/
 
 	_, exists := existingFeatures["mpx"]
-	if c.requiresMPXCPUValidation && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+	if c.requiresMPXCPUValidation && !exists &&
+		vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel &&
+		vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 		domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 			Name:   "mpx",
 			Policy: "disable",
@@ -155,7 +157,8 @@ func (c CPUDomainConfigurator) configureSyntheticNUMA(vmi *v1.VirtualMachineInst
 		return
 	}
 
-	memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
+	const bytesPerKiB = 1024
+	memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(bytesPerKiB)) //nolint:gosec // G115: memory is always positive
 	domain.Spec.CPU.NUMA = &api.NUMA{
 		Cells: []api.NUMACell{
 			{

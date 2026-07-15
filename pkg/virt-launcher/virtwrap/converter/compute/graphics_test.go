@@ -35,7 +35,6 @@ import (
 
 var _ = Describe("Graphics Domain Configurator", func() {
 	Context("AutoattachGraphicsDevice", func() {
-
 		DescribeTable("should not configure video and VNC when AutoattachGraphicsDevice is false", func(arch string) {
 			vmi := libvmi.New(libvmi.WithAutoattachGraphicsDevice(false))
 

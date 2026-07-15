@@ -68,7 +68,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, uint(c.autoThreads), controllerDriver.DeepCopy())
+		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.autoThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -77,7 +77,10 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresVirtioSerialController(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newVirtioSerialController(c.virtioSerialModel, controllerDriver))
+		domain.Spec.Devices.Controllers = append(
+			domain.Spec.Devices.Controllers,
+			newVirtioSerialController(c.virtioSerialModel, controllerDriver),
+		)
 	}
 
 	return nil
@@ -213,7 +216,11 @@ func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
 	})
 }
 
-func assignSCSIControllerIOThread(vmi *v1.VirtualMachineInstance, autoThreads uint, scsiControllerDriver *api.ControllerDriver) *api.ControllerDriver {
+func assignSCSIControllerIOThread(
+	vmi *v1.VirtualMachineInstance,
+	autoThreads uint,
+	scsiControllerDriver *api.ControllerDriver,
+) *api.ControllerDriver {
 	if autoThreads == 0 || !shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
 	}
