@@ -410,8 +410,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				kvconfig.EnableFeatureGate(featuregate.PanicDevicesGate)
 			})
 
-			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(device v1.PanicDeviceModel) {
-				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(device))
+			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(arch string, device v1.PanicDeviceModel) {
+				vmi := libvmifact.NewFedora(
+					libvmi.WithPanicDevice(device),
+					libvmi.WithArchitecture(arch),
+				)
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -437,8 +440,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Checking that a GuestPanicked event was emitted")
 				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, "GuestPanicked")
 			},
-				Entry("amd64", v1.Isa, decorators.RequiresAMD64),
-				Entry("arm64", v1.Pvpanic, decorators.RequiresARM64),
+				Entry("amd64", "amd64", v1.Isa, decorators.RequiresAMD64),
+				Entry("arm64", "arm64", v1.Pvpanic, decorators.RequiresARM64),
 			)
 		})
 
