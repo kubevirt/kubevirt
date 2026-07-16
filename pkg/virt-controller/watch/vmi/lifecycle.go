@@ -170,6 +170,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
+		log.Log.Object(vmi).Infof("RACE-DEBUG createPod: about to create launcher pod for VMI %v", vmiKey)
 		pod, err := c.createPod(vmiKey, vmi.Namespace, templatePod)
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			psaErr := fmt.Errorf("failed to create pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
@@ -600,6 +601,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy, v1.UpdateOptions{})
 		if err != nil {
+			log.Log.Object(vmi).Infof("RACE-DEBUG updateStatus: VMI Update failed for %v isConflict=%v err=%v", key, k8serrors.IsConflict(err), err)
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
