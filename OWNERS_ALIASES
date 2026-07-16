@@ -115,6 +115,7 @@ aliases:
   # And everything on the cluster level such as RBAC, controller, …
   #
   sig-compute-approvers:
+    - Barakmor1
     - jean-edouard
     - iholder101
     - fossedihelm
