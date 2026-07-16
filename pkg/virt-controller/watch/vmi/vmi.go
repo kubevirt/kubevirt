@@ -340,12 +340,6 @@ func (c *Controller) execute(key string) error {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
 	logger := log.Log.Object(vmi)
-	if podExp, exists, _ := c.podExpectations.GetExpectations(key); !exists {
-		logger.Infof("RACE-DEBUG execute entry: podExpectations for %v = never-recorded", key)
-	} else {
-		add, del := podExp.GetExpectations()
-		logger.Infof("RACE-DEBUG execute entry: podExpectations for %v = {add:%d del:%d}", key, add, del)
-	}
 
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
@@ -363,19 +357,9 @@ func (c *Controller) execute(key string) error {
 	}
 
 	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
-	podSatisfied := c.podExpectations.SatisfiedExpectations(key)
-	vmiSatisfied := c.vmiExpectations.SatisfiedExpectations(key)
-	pvcSatisfied := c.pvcExpectations.SatisfiedExpectations(key)
-
-	if podExp, exists, _ := c.podExpectations.GetExpectations(key); !exists {
-		logger.Infof("RACE-DEBUG needsSync check: podExpectations for %v = never-recorded (key absent) satisfied=%v", key, podSatisfied)
-	} else {
-		add, del := podExp.GetExpectations()
-		logger.Infof("RACE-DEBUG needsSync check: podExpectations for %v = {add:%d del:%d fulfilled:%v} satisfied=%v", key, add, del, podExp.Fulfilled(), podSatisfied)
-	}
-
-	needsSync := podSatisfied && vmiSatisfied && pvcSatisfied
-	logger.Infof("RACE-DEBUG needsSync=%v for %v (pod=%v vmi=%v pvc=%v)", needsSync, key, podSatisfied, vmiSatisfied, pvcSatisfied)
+	needsSync := c.podExpectations.SatisfiedExpectations(key) &&
+		c.vmiExpectations.SatisfiedExpectations(key) &&
+		c.pvcExpectations.SatisfiedExpectations(key)
 
 	if !needsSync {
 		return nil
