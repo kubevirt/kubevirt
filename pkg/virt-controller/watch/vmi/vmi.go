@@ -313,6 +313,7 @@ func (c *Controller) execute(key string) error {
 
 	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations
 	if !exists {
+		log.Log.Infof("RACE-DEBUG execute: key %v not found in vmiIndexer, calling DeleteExpectations", key)
 		c.podExpectations.DeleteExpectations(key)
 		c.vmiExpectations.DeleteExpectations(key)
 		c.cidsMap.Remove(key)
@@ -321,6 +322,12 @@ func (c *Controller) execute(key string) error {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
 	logger := log.Log.Object(vmi)
+	if podExp, exists, _ := c.podExpectations.GetExpectations(key); !exists {
+		logger.Infof("RACE-DEBUG execute entry: podExpectations for %v = never-recorded", key)
+	} else {
+		add, del := podExp.GetExpectations()
+		logger.Infof("RACE-DEBUG execute entry: podExpectations for %v = {add:%d del:%d}", key, add, del)
+	}
 
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
