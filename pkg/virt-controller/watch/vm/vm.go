@@ -398,8 +398,8 @@ func (c *Controller) execute(key string) error {
 
 	// Synchronizer contract for Spec/Status modifications:
 	// - Synchronizers (instancetype, network) modify the local VM object and return it
-	// - sync() persists Spec/ObjectMeta changes via Update()
-	// - updateStatus() persists Status changes via UpdateStatus()
+	// - sync() runs synchronizers in sequence and persists Spec/ObjectMeta changes via Update()
+	// - updateStatus() persists the accumulated Status changes via UpdateStatus()
 	// - This separation follows Kubernetes subresource pattern and avoids intermediate API calls
 
 	// this must be first step in execution. Writing the object
@@ -485,7 +485,38 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	// Replaced snapshots must remain available until their new references are durable.
+	c.cleanupReplacedControllerRevisions(originalVM, vm)
+
 	return syncErr
+}
+
+func (c *Controller) cleanupReplacedControllerRevisions(originalVM, vm *virtv1.VirtualMachine) {
+	refs := [][2]*virtv1.InstancetypeStatusRef{
+		{originalVM.Status.InstancetypeRef, vm.Status.InstancetypeRef},
+		{originalVM.Status.PreferenceRef, vm.Status.PreferenceRef},
+	}
+	for _, pair := range refs {
+		oldRef, newRef := pair[0], pair[1]
+		if !revision.HasControllerRevisionRef(oldRef) || !revision.HasControllerRevisionRef(newRef) ||
+			oldRef.ControllerRevisionRef.Name == newRef.ControllerRevisionRef.Name {
+			continue
+		}
+		// Only clean up upgrades of the same matcher, and retain snapshots that
+		// the persisted spec still references explicitly.
+		oldRefCopy := oldRef.DeepCopy()
+		oldRefCopy.ControllerRevisionRef = newRef.ControllerRevisionRef
+		if !equality.Semantic.DeepEqual(oldRefCopy, newRef) ||
+			(vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName == oldRef.ControllerRevisionRef.Name) ||
+			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName == oldRef.ControllerRevisionRef.Name) {
+			continue
+		}
+		if err := c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			context.Background(), oldRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+		); err != nil && !apiErrors.IsNotFound(err) {
+			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete replaced instancetype.kubevirt.io ControllerRevision")
+		}
+	}
 }
 
 func (c *Controller) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv1.DataVolume) error {
@@ -3278,6 +3309,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
+	originalSpec := vm.Spec.DeepCopy()
+	originalMeta := vm.ObjectMeta.DeepCopy()
 	if c.instancetypeController != nil {
 		syncedVM, syncerErr := c.instancetypeController.Sync(vm, vmi)
 		if syncerErr != nil {
@@ -3286,6 +3319,12 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		vm.ObjectMeta = syncedVM.ObjectMeta
 		vm.Spec = syncedVM.Spec
 		vm.Status = syncedVM.Status
+		// Expand still persists its own changes. A new resource version means
+		// its returned spec and metadata are already durable.
+		if vm.ResourceVersion != originalMeta.ResourceVersion {
+			originalSpec = vm.Spec.DeepCopy()
+			originalMeta = vm.ObjectMeta.DeepCopy()
+		}
 	}
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
@@ -3384,7 +3423,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	// Persist Spec/ObjectMeta changes via Update() if synchronizers or handlers modified them.
 	// Status changes are persisted separately via UpdateStatus() in updateStatus() function.
-	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
+	if !equality.Semantic.DeepEqual(originalSpec, &vmCopy.Spec) || !equality.Semantic.DeepEqual(originalMeta, &vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil

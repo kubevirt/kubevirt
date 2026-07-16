@@ -66,6 +66,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		virtClient   *kubecli.MockKubevirtClient
 		fakeVMClient *fakeclientset.Clientset
+		fakeCRClient *k8sfake.Clientset
 
 		upgradeHandler                  upgrader
 		controllerrevisionInformerStore cache.Store
@@ -79,7 +80,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
 		}
 
+		fakeVMClient.ClearActions()
 		err := upgradeHandler.Upgrade(vm)
+		ExpectWithOffset(1, fakeVMClient.Actions()).To(BeEmpty())
 
 		for i, objects := range listOfObjects {
 			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
@@ -97,7 +100,8 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		// Create a single fake clientset to be reused across all calls
 		fakeVMClient = fakeclientset.NewSimpleClientset()
 
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+		fakeCRClient = k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().AppsV1().Return(fakeCRClient.AppsV1()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
 			fakeVMClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
@@ -127,6 +131,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	) {
 		originalInstancetypeCR := createInstancetypeCR()
 		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
+		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			context.Background(), originalInstancetypeCR, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
 			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
 				Name: originalInstancetypeCR.Name,
@@ -135,27 +142,26 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		originalPreferenceCR := createPreferenceCR()
 		Expect(controllerrevisionInformerStore.Add(originalPreferenceCR)).To(Succeed())
+		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			context.Background(), originalPreferenceCR, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
 			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
 				Name: originalPreferenceCR.Name,
 			},
 		}
 
-		var err error
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		// Upgrade() now modifies vm.Status locally instead of calling PatchStatus
-		// VM controller is responsible for persisting via UpdateStatus()
 		Expect(sanityUpgrade(vm)).To(Succeed())
 
-		// Verify local VM object Status was updated (not persisted to API)
 		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
-		// Verify old CR was deleted (side effect is OK per architectural decision)
+		// The caller has not persisted the replacement refs, so retain the old CRs.
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
-		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+		Expect(err).ToNot(HaveOccurred())
 
 		// Verify new CR was created and has correct version
 		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -171,7 +177,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalPreferenceCR.Name, metav1.GetOptions{})
-		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+		Expect(err).ToNot(HaveOccurred())
 
 		newPreferenceCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
@@ -308,6 +314,236 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	},
 		Entry("with the common-instancetypes version label", "v1.7.0"),
 		Entry("without the common-instancetypes version label", ""),
+	)
+
+	DescribeTable("should handle retry when status update was not persisted after upgrade of", func(
+		createInstancetypeCR func() *appsv1.ControllerRevision,
+		createPreferenceCR func() *appsv1.ControllerRevision,
+	) {
+		originalInstancetypeCR := createInstancetypeCR()
+		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
+		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			context.Background(), originalInstancetypeCR, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
+				Name: originalInstancetypeCR.Name,
+			},
+		}
+
+		originalPreferenceCR := createPreferenceCR()
+		Expect(controllerrevisionInformerStore.Add(originalPreferenceCR)).To(Succeed())
+		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			context.Background(), originalPreferenceCR, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
+				Name: originalPreferenceCR.Name,
+			},
+		}
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(sanityUpgrade(vm)).To(Succeed())
+
+		// Capture the new CR names from the successful upgrade
+		newInstancetypeCRName := vm.Status.InstancetypeRef.ControllerRevisionRef.Name
+		newPreferenceCRName := vm.Status.PreferenceRef.ControllerRevisionRef.Name
+		Expect(newInstancetypeCRName).ToNot(Equal(originalInstancetypeCR.Name))
+		Expect(newPreferenceCRName).ToNot(Equal(originalPreferenceCR.Name))
+
+		decoyCR := createControllerRevisionFromObject(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+			ObjectMeta: metav1.ObjectMeta{Name: "another-snapshot"},
+			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1beta1.CPUInstancetype{Guest: 8},
+			},
+		})
+		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), decoyCR, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		// Simulate a failed UpdateStatus by resetting status refs back to
+		// the original CR names. Both snapshots remain in the API.
+		vm.Status.InstancetypeRef.ControllerRevisionRef.Name = originalInstancetypeCR.Name
+		vm.Status.PreferenceRef.ControllerRevisionRef.Name = originalPreferenceCR.Name
+
+		// Retry with a fresh cache. The retained snapshots are found through the API.
+		Expect(controllerrevisionInformerStore.Delete(originalInstancetypeCR)).To(Succeed())
+		Expect(controllerrevisionInformerStore.Delete(originalPreferenceCR)).To(Succeed())
+
+		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
+
+		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(newInstancetypeCRName))
+		Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(newPreferenceCRName))
+	},
+		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype without version label",
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineClusterInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "instancetype",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				)
+				cr.Name = "legacy-clusterinstancetype-cr-name"
+				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+				return cr
+			},
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineClusterPreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "preference",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+							},
+						},
+					},
+				)
+				cr.Name = "legacy-clusterpreference-cr-name"
+				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+				return cr
+			},
+		),
+		Entry("v1beta1 VirtualMachinePreference & VirtualMachineInstancetype without version label",
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "instancetype",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				)
+				cr.Name = "legacy-instancetype-cr-name"
+				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+				return cr
+			},
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "preference",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+							},
+						},
+					},
+				)
+				cr.Name = "legacy-preference-cr-name"
+				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+				return cr
+			},
+		),
+	)
+
+	DescribeTable("should reuse an existing replacement", func(cached bool) {
+		vm.UID = "vm-uid"
+		newCR := createControllerRevisionFromObject(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+			ObjectMeta: metav1.ObjectMeta{Name: "snapshot"},
+		})
+		oldCR := newCR.DeepCopy()
+		oldCR.Name = "legacy-revision"
+		delete(oldCR.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+		Expect(controllerrevisionInformerStore.Add(oldCR)).To(Succeed())
+		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{Name: oldCR.Name},
+		}
+		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		if cached {
+			Expect(controllerrevisionInformerStore.Add(newCR)).To(Succeed())
+		}
+		fakeCRClient.ClearActions()
+
+		Expect(sanityUpgrade(vm)).To(Succeed())
+		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(newCR.Name))
+		getCount := 0
+		for _, action := range fakeCRClient.Actions() {
+			if action.GetVerb() == "get" {
+				getCount++
+			}
+		}
+		if cached {
+			Expect(getCount).To(BeZero())
+		} else {
+			Expect(getCount).To(Equal(1))
+		}
+	},
+		Entry("from the informer cache", true),
+		Entry("from the API when the cache misses", false),
+	)
+
+	It("should fail for a missing snapshot even when same-kind upgraded revisions exist", func() {
+		vm.UID = "vm-uid"
+		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{Name: "missing-revision"},
+		}
+		for _, name := range []string{"snapshot-a", "snapshot-b"} {
+			cr := createControllerRevisionFromObject(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{Name: name},
+			})
+			_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+		originalVM := vm.DeepCopy()
+		Expect(sanityUpgrade(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+		Expect(vm).To(Equal(originalVM))
+	})
+
+	DescribeTable(
+		"should reject an existing replacement with", func(change func(*appsv1.ControllerRevision)) {
+			vm.UID = "vm-uid"
+			newCR := createControllerRevisionFromObject(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{Name: "snapshot"},
+			})
+			oldCR := newCR.DeepCopy()
+			oldCR.Name = "legacy-revision"
+			delete(oldCR.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+			Expect(controllerrevisionInformerStore.Add(oldCR)).To(Succeed())
+			vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+				ControllerRevisionRef: &virtv1.ControllerRevisionRef{Name: oldCR.Name},
+			}
+			change(newCR)
+			_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			originalVM := vm.DeepCopy()
+			Expect(sanityUpgrade(vm)).To(HaveOccurred())
+			Expect(vm).To(Equal(originalVM))
+		},
+		Entry("another owner", func(cr *appsv1.ControllerRevision) { cr.OwnerReferences[0].UID = "other-vm" }),
+		Entry("another source", func(cr *appsv1.ControllerRevision) {
+			cr.Labels[instancetypeapi.ControllerRevisionObjectUIDLabel] = "other-source"
+		}),
+		Entry("different data", func(cr *appsv1.ControllerRevision) {
+			cr.Data.Object.(*instancetypev1beta1.VirtualMachineClusterInstancetype).Spec.CPU.Guest = 4
+			var err error
+			cr.Data.Raw, err = json.Marshal(cr.Data.Object)
+			Expect(err).ToNot(HaveOccurred())
+		}),
 	)
 
 	DescribeTable("should not upgrade ControllerRevisions containing", func(
