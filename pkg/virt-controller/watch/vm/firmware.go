@@ -21,17 +21,12 @@ import (
 
 	"github.com/google/uuid"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubevirt"
 )
 
-type FirmwareController struct {
-	clientset kubevirt.Interface
-}
+type FirmwareController struct{}
 
-func NewFirmwareController(clientset kubevirt.Interface) *FirmwareController {
-	return &FirmwareController{
-		clientset: clientset,
-	}
+func NewFirmwareController() *FirmwareController {
+	return &FirmwareController{}
 }
 
 func (fc *FirmwareController) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
@@ -44,7 +39,6 @@ func (fc *FirmwareController) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineIn
 		return vm, nil
 	}
 
-	// Local modification only - VM controller will detect Spec change and persist via Update()
 	vmCopy := vm.DeepCopy()
 	if vmCopy.Spec.Template.Spec.Domain.Firmware == nil {
 		vmCopy.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
