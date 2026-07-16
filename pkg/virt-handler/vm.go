@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/cgroups"
+	goselinux "github.com/opencontainers/selinux/go-selinux"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -1031,6 +1032,10 @@ func (c *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 }
 
 func (c *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineInstance) error {
+	if selinuxContextHasCategories(vmi.Status.SelinuxContext) {
+		return nil
+	}
+
 	_, present, err := selinux.NewSELinux()
 	if err != nil {
 		return err
@@ -1046,6 +1051,24 @@ func (c *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineIn
 	}
 
 	return nil
+}
+
+// selinuxContextHasCategories returns true when the context contains an MCS
+// level with categories (e.g. "s0:c1,c2"). A container's SELinux context is
+// immutable for its lifetime, so once we have observed categories there is no
+// reason to re-read from the filesystem.
+func selinuxContextHasCategories(ctx string) bool {
+	if ctx == "" || ctx == "none" {
+		return false
+	}
+	parsed, err := goselinux.NewContext(ctx)
+	if err != nil {
+		return false
+	}
+	level := parsed["level"]
+	// The ":c" check mirrors the upstream go-selinux mcsAdd function,
+	// which uses the same pattern to detect MCS categories in a level.
+	return strings.Contains(level, ":c")
 }
 
 func (c *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
