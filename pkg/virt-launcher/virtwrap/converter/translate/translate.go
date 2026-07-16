@@ -22,8 +22,12 @@ package translate
 import (
 	"encoding/xml"
 	"fmt"
+	"io"
+	"strings"
 
 	libvirtxml "libvirt.org/go/libvirtxml"
+
+	"kubevirt.io/client-go/log"
 
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -63,29 +67,104 @@ func FromLibvirtDomain(domain *libvirtxml.Domain) (*api.DomainSpec, error) {
 	if err := xml.Unmarshal([]byte(xmlStr), spec); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal XML into DomainSpec: %w", err)
 	}
-	transferQEMUCommandline(domain, spec)
+	TransferQEMUCommandline(xmlStr, spec)
 	return spec, nil
 }
 
 const qemuNamespace = "http://libvirt.org/schemas/domain/qemu/1.0"
 
-// transferQEMUCommandline copies QEMU commandline args and envs from the
-// libvirtxml Domain to the KubeVirt DomainSpec. Go's encoding/xml cannot
-// unmarshal elements with namespace-prefixed struct tags (e.g. xml:"qemu:commandline"),
-// so this transfer must be done at the struct level.
-func transferQEMUCommandline(domain *libvirtxml.Domain, spec *api.DomainSpec) {
-	if domain.QEMUCommandline == nil {
+// TransferQEMUCommandline extracts qemu:commandline args and envs from raw
+// domain XML and applies them to the KubeVirt DomainSpec. Go's encoding/xml
+// cannot unmarshal namespace-prefixed struct tags (e.g. xml:"qemu:commandline"),
+// so this function uses token-level parsing via xml.Decoder, which resolves
+// namespace URIs correctly. Only elements in the QEMU namespace are inspected;
+// the rest of the domain XML is skipped, so this works with any well-formed
+// XML regardless of schema strictness.
+func TransferQEMUCommandline(domainXML string, spec *api.DomainSpec) {
+	args, envs, hasCommandline := parseQEMUCommandline(domainXML)
+
+	if hasCommandline {
+		spec.XmlNS = qemuNamespace
+	}
+	if len(args) == 0 && len(envs) == 0 {
 		return
 	}
-	spec.XmlNS = qemuNamespace
-	if len(domain.QEMUCommandline.Args) == 0 && len(domain.QEMUCommandline.Envs) == 0 {
-		return
+	spec.QEMUCmd = &api.Commandline{
+		QEMUArg: args,
+		QEMUEnv: envs,
 	}
-	spec.QEMUCmd = &api.Commandline{}
-	for _, arg := range domain.QEMUCommandline.Args {
-		spec.QEMUCmd.QEMUArg = append(spec.QEMUCmd.QEMUArg, api.Arg{Value: arg.Value})
+}
+
+func parseQEMUCommandline(domainXML string) ([]api.Arg, []api.Env, bool) {
+	decoder := xml.NewDecoder(strings.NewReader(domainXML))
+
+	var (
+		args           []api.Arg
+		envs           []api.Env
+		inCommandline  bool
+		hasCommandline bool
+	)
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			if err != io.EOF {
+				log.Log.Warningf("unexpected error parsing domain XML for QEMUCmd: %v", err)
+			}
+			break
+		}
+
+		switch t := token.(type) {
+		case xml.StartElement:
+			if t.Name.Space != qemuNamespace {
+				continue
+			}
+			switch t.Name.Local {
+			case "commandline":
+				inCommandline = true
+				hasCommandline = true
+			case "arg":
+				if inCommandline {
+					args = append(args, parseArgAttrs(t))
+				}
+			case "env":
+				if inCommandline {
+					if env, ok := parseEnvAttrs(t); ok {
+						envs = append(envs, env)
+					}
+				}
+			}
+		case xml.EndElement:
+			if t.Name.Space == qemuNamespace && t.Name.Local == "commandline" {
+				inCommandline = false
+			}
+		}
 	}
-	for _, env := range domain.QEMUCommandline.Envs {
-		spec.QEMUCmd.QEMUEnv = append(spec.QEMUCmd.QEMUEnv, api.Env{Name: env.Name, Value: env.Value})
+
+	return args, envs, hasCommandline
+}
+
+func parseArgAttrs(t xml.StartElement) api.Arg {
+	for _, attr := range t.Attr {
+		if attr.Name.Local == "value" {
+			return api.Arg{Value: attr.Value}
+		}
 	}
+	return api.Arg{}
+}
+
+func parseEnvAttrs(t xml.StartElement) (api.Env, bool) {
+	var env api.Env
+	for _, attr := range t.Attr {
+		switch attr.Name.Local {
+		case "name":
+			env.Name = attr.Value
+		case "value":
+			env.Value = attr.Value
+		}
+	}
+	if env.Name == "" {
+		return api.Env{}, false
+	}
+	return env, true
 }
