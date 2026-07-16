@@ -36,6 +36,8 @@ import (
 	srv "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/server"
 )
 
+const defaultBindingPluginName = "slirp"
+
 func main() {
 	searchDomains, err := dns.ReadResolvConfSearchDomains()
 	if err != nil {
@@ -54,7 +56,11 @@ func main() {
 
 	server := grpc.NewServer([]grpc.ServerOption{}...)
 	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha2"})
-	hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{SearchDomains: searchDomains})
+	bindingPluginName := os.Getenv(hooks.NetworkBindingPluginNameEnvVar)
+	if bindingPluginName == "" {
+		bindingPluginName = defaultBindingPluginName
+	}
+	hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{SearchDomains: searchDomains, BindingPluginName: bindingPluginName})
 
 	log.Log.Infof("Starting hook server exposing 'info' and '%s' services on socket %q", socketPath, "v1alpha2")
 	server.Serve(socket)

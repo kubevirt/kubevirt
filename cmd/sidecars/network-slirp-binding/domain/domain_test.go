@@ -36,7 +36,7 @@ var _ = Describe("QEMU slirp networking", func() {
 
 		DescribeTable("should fail, given",
 			func(iface vmschema.Interface, network vmschema.Network) {
-				_, err := domain.NewSlirpNetworkConfigurator(nil, []vmschema.Network{network}, nil)
+				_, err := domain.NewSlirpNetworkConfigurator(nil, []vmschema.Network{network}, nil, "slirp-plugin")
 				Expect(err).To(HaveOccurred())
 			},
 			Entry("no pod network",
@@ -72,12 +72,12 @@ var _ = Describe("QEMU slirp networking", func() {
 				expectedDomainSpec := &domainschema.NewMinimalDomain("test").Spec
 				expectedDomainSpec.QEMUCmd = &domainschema.Commandline{QEMUArg: expectedQEMUCmdArgs}
 
-				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
+				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain, "slirp-plugin")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(testMutator.Mutate(testDomainSpec)).To(Equal(expectedDomainSpec))
 			},
 			Entry("custom CIDR",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName}},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{
 					VMNetworkCIDR: "192.168.100.0/24",
 				}}},
@@ -87,7 +87,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("ports",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"},
 					Ports: []vmschema.Port{
 						{Name: "http", Protocol: "TCP", Port: 80},
 						{Port: 8080},
@@ -100,7 +100,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("slirp interface with virtio model type - should be changed to e1000",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"},
 					Model: "virtio",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
@@ -110,7 +110,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("custom MAC address",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"},
 					MacAddress: "02:02:02:02:02:02",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
@@ -120,7 +120,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("iface model 'rtl8139'",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"},
 					Model: "rtl8139",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
@@ -133,7 +133,7 @@ var _ = Describe("QEMU slirp networking", func() {
 
 		DescribeTable("should not override existing QEMU cmd args, given",
 			func(iface vmschema.Interface, network vmschema.Network, existingArgs, expectedArgs []domainschema.Arg) {
-				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
+				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain, "slirp-plugin")
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec := &domainschema.DomainSpec{
@@ -181,7 +181,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				{Value: "-M"},
 			}
 
-			testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
+			testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain, "slirp-plugin")
 			Expect(err).ToNot(HaveOccurred())
 
 			domSpec := &domainschema.DomainSpec{
@@ -207,9 +207,9 @@ var _ = Describe("QEMU slirp networking", func() {
 			network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{
 				VMNetworkCIDR: "592.468.300.0/24",
 			}}}
-			iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName}}
+			iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"}}
 
-			testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
+			testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain, "slirp-plugin")
 			Expect(err).ToNot(HaveOccurred())
 			_, err = testMutator.Mutate(&domainschema.DomainSpec{})
 			Expect(err).To(HaveOccurred())
@@ -217,12 +217,12 @@ var _ = Describe("QEMU slirp networking", func() {
 
 		DescribeTable("should fail given invalid port",
 			func(port int32) {
-				iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: "slirp-plugin"},
 					Ports: []vmschema.Port{{Port: port}},
 				}
 				network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}
 
-				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
+				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain, "slirp-plugin")
 				Expect(err).ToNot(HaveOccurred())
 				_, err = testMutator.Mutate(&domainschema.DomainSpec{})
 				Expect(err).To(HaveOccurred())
