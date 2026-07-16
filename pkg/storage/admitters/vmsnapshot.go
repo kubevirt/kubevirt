@@ -43,14 +43,14 @@ type vmSnapshotConfigChecker interface {
 
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
 type VMSnapshotAdmitter struct {
-	Config vmSnapshotConfigChecker
+	config vmSnapshotConfigChecker
 	Client kubecli.KubevirtClient
 }
 
 // NewVMSnapshotAdmitter creates a VMSnapshotAdmitter
 func NewVMSnapshotAdmitter(config vmSnapshotConfigChecker, client kubecli.KubevirtClient) *VMSnapshotAdmitter {
 	return &VMSnapshotAdmitter{
-		Config: config,
+		config: config,
 		Client: client,
 	}
 }
@@ -62,7 +62,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
+	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate not enabled"))
 	}
 

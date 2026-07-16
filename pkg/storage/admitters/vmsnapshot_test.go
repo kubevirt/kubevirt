@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
@@ -323,7 +324,7 @@ func createSnapshotUpdateAdmissionReview(old, current *snapshotv1.VirtualMachine
 	return ar
 }
 
-func createTestVMSnapshotAdmitter(config vmSnapshotConfigChecker, vm *v1.VirtualMachine) *VMSnapshotAdmitter {
+func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.VirtualMachine) *admitters.VMSnapshotAdmitter {
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
@@ -334,7 +335,7 @@ func createTestVMSnapshotAdmitter(config vmSnapshotConfigChecker, vm *v1.Virtual
 	} else {
 		vmInterface.EXPECT().Get(gomock.Any(), vm.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 	}
-	return &VMSnapshotAdmitter{Config: config, Client: virtClient}
+	return admitters.NewVMSnapshotAdmitter(config, virtClient)
 }
 
 type stubVMSnapshotConfigChecker struct {
