@@ -336,9 +336,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		It("[QUARANTINE] should ensure a stress VM has high dirty rate than a stale VM", decorators.Quarantine, func() {
 			const (
-				agentConnTimeout  = 3 * time.Minute
-				stressTestTimeout = 15
-				randStrLen        = 5
+				agentConnTimeout = 3 * time.Minute
+				randStrLen       = 5
 			)
 
 			staleVM := createRunningVM(
@@ -364,17 +363,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(console.LoginToFedora(stressedVMI)).To(Succeed())
 
 			By("Stressing the VM")
-			const stressCmd = "stress-ng --vm 1 --vm-bytes 250M --vm-keep &\n"
-			Expect(console.SafeExpectBatch(stressedVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "command -v stress-ng\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: stressCmd},
-				&expect.BExp{R: ""},
-			}, stressTestTimeout)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
+			libmigration.RunStressTest(stressedVMI, "250M")
 
 			By("Validating that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
 			const consistencyTimeout = 30 * time.Second
