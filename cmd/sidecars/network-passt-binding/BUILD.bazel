@@ -39,6 +39,7 @@ oci_image(
     name = "version-container",
     base = "//:passwd-image",
     tars = [
+        "//rpm:sidecar-shim_x86_64",
         ":get-version",
     ],
 )
