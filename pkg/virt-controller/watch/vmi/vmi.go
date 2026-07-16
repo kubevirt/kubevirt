@@ -25,6 +25,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -311,9 +312,26 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
-	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations
+	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations.
+	// Guard against spurious cache misses (e.g. informer watch reconnect generating a tombstone
+	// DELETE for a VMI that still exists): verify with a live API GET before clearing expectations.
+	// Clearing expectations prematurely causes "never-recorded" on the next sync, allowing a
+	// second virt-launcher pod to be created for the same VMI.
 	if !exists {
-		log.Log.Infof("RACE-DEBUG execute: key %v not found in vmiIndexer, calling DeleteExpectations", key)
+		ns, name, splitErr := cache.SplitMetaNamespaceKey(key)
+		if splitErr != nil {
+			return splitErr
+		}
+		_, apiErr := c.clientset.VirtualMachineInstance(ns).Get(context.Background(), name, v1.GetOptions{})
+		if apiErr == nil {
+			// VMI still exists in the API server; local cache is transiently stale.
+			// Requeue without clearing expectations so the next sync sees the correct state.
+			log.Log.Infof("VMI %s not in local cache but exists in API server (stale cache), requeueing", key)
+			return fmt.Errorf("VMI %s not in local cache but exists in API server, requeueing", key)
+		}
+		if !k8serrors.IsNotFound(apiErr) {
+			return apiErr
+		}
 		c.podExpectations.DeleteExpectations(key)
 		c.vmiExpectations.DeleteExpectations(key)
 		c.cidsMap.Remove(key)
