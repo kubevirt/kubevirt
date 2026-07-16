@@ -106,6 +106,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/operator/resourcefiles"
 	"kubevirt.io/kubevirt/tests/operator/version"
+	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -3000,6 +3001,11 @@ func deleteVMIs(vmis []*v1.VirtualMachineInstance) {
 
 func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 	GinkgoHelper()
+
+	if p := reporter.ActiveEtcdProfiler; p != nil {
+		p.MonitorRanges("deleteAllKvAndWait", 5*time.Second)
+		defer p.StopMonitor()
+	}
 
 	virtClient := kubevirt.Client()
 	Eventually(func(g Gomega) {

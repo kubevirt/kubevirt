@@ -103,6 +103,7 @@ func TestTests(t *testing.T) {
 			etcdProfilerPath = filepath.Join(etcdProfilerPath, strconv.Itoa(GinkgoParallelProcess()))
 		}
 		etcdProfiler = reporter.NewEtcdProfiler(etcdProfilerPath)
+		reporter.ActiveEtcdProfiler = etcdProfiler
 	}
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix

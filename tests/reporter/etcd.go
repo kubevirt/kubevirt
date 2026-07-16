@@ -27,16 +27,25 @@ const (
 	etcdKey           = "/etc/kubernetes/pki/etcd/server.key"
 )
 
+type EtcdRangeProbe struct {
+	Prefix     string  `json:"prefix"`
+	KeyCount   int64   `json:"keyCount"`
+	DurationMs float64 `json:"durationMs"`
+	SizeBytes  int64   `json:"sizeBytes"`
+	Error      string  `json:"error,omitempty"`
+}
+
 type EtcdSnapshot struct {
-	DBSizeBytes      int64  `json:"dbSizeBytes"`
-	DBSizeInUseBytes int64  `json:"dbSizeInUseBytes"`
-	Revision         int64  `json:"revision"`
-	TmpfsUsedBytes   int64  `json:"tmpfsUsedBytes"`
-	TmpfsTotalBytes  int64  `json:"tmpfsTotalBytes"`
-	TmpfsAvailBytes  int64  `json:"tmpfsAvailBytes"`
-	WALSizeBytes     int64  `json:"walSizeBytes"`
-	SnapSizeBytes    int64  `json:"snapSizeBytes"`
-	Error            string `json:"error,omitempty"`
+	DBSizeBytes      int64            `json:"dbSizeBytes"`
+	DBSizeInUseBytes int64            `json:"dbSizeInUseBytes"`
+	Revision         int64            `json:"revision"`
+	TmpfsUsedBytes   int64            `json:"tmpfsUsedBytes"`
+	TmpfsTotalBytes  int64            `json:"tmpfsTotalBytes"`
+	TmpfsAvailBytes  int64            `json:"tmpfsAvailBytes"`
+	WALSizeBytes     int64            `json:"walSizeBytes"`
+	SnapSizeBytes    int64            `json:"snapSizeBytes"`
+	RangeProbes      []EtcdRangeProbe `json:"rangeProbes,omitempty"`
+	Error            string           `json:"error,omitempty"`
 }
 
 type EtcdSpecRecord struct {
@@ -50,14 +59,32 @@ type EtcdSpecRecord struct {
 	DurationSeconds float64      `json:"durationSeconds"`
 }
 
+type EtcdRangeMonitorSample struct {
+	Timestamp string           `json:"timestamp"`
+	ElapsedMs float64          `json:"elapsedMs"`
+	Probes    []EtcdRangeProbe `json:"probes"`
+}
+
+type EtcdRangeMonitorRecord struct {
+	Label   string                   `json:"label"`
+	Samples []EtcdRangeMonitorSample `json:"samples"`
+}
+
 type EtcdProfiler struct {
 	artifactsDir   string
 	mu             sync.Mutex
 	records        []EtcdSpecRecord
+	monitorRecords []EtcdRangeMonitorRecord
 	currentSnap    *EtcdSnapshot
 	etcdPod        *v1.Pod
 	virtHandlerPod *v1.Pod
+	monitorStop    chan struct{}
+	monitorDone    chan struct{}
 }
+
+// ActiveEtcdProfiler holds the current profiler instance so that test
+// helpers outside the suite file can access it for live monitoring.
+var ActiveEtcdProfiler *EtcdProfiler
 
 func NewEtcdProfiler(artifactsDir string) *EtcdProfiler {
 	return &EtcdProfiler{
@@ -85,6 +112,25 @@ func (p *EtcdProfiler) getEtcdPod() (*v1.Pod, error) {
 	return p.etcdPod, nil
 }
 
+var kubevirtEtcdPrefixes = []string{
+	"/registry/kubevirt.io/virtualmachineinstances/",
+	"/registry/kubevirt.io/virtualmachines/",
+	"/registry/kubevirt.io/virtualmachineinstancemigrations/",
+	"/registry/kubevirt.io/virtualmachineinstancereplicasets/",
+	"/registry/kubevirt.io/virtualmachineinstancepresets/",
+	"/registry/clone.kubevirt.io/virtualmachineclones/",
+	"/registry/snapshot.kubevirt.io/virtualmachinesnapshots/",
+	"/registry/snapshot.kubevirt.io/virtualmachinesnapshotcontents/",
+	"/registry/snapshot.kubevirt.io/virtualmachinerestores/",
+	"/registry/export.kubevirt.io/virtualmachineexports/",
+	"/registry/pool.kubevirt.io/virtualmachinepools/",
+	"/registry/migrations.kubevirt.io/migrationpolicies/",
+	"/registry/instancetype.kubevirt.io/virtualmachineinstancetypes/",
+	"/registry/instancetype.kubevirt.io/virtualmachineclusterinstancetypes/",
+	"/registry/instancetype.kubevirt.io/virtualmachinepreferences/",
+	"/registry/instancetype.kubevirt.io/virtualmachineclusterpreferences/",
+}
+
 func (p *EtcdProfiler) collectSnapshot() EtcdSnapshot {
 	snap := EtcdSnapshot{}
 
@@ -97,6 +143,7 @@ func (p *EtcdProfiler) collectSnapshot() EtcdSnapshot {
 	p.collectEndpointStatus(pod, &snap)
 	p.collectDfOutput(pod, &snap)
 	p.collectDirSizes(pod, &snap)
+	p.collectRangeProbes(pod, &snap)
 
 	return snap
 }
@@ -217,6 +264,140 @@ func (p *EtcdProfiler) collectDirSizes(etcdPod *v1.Pod, snap *EtcdSnapshot) {
 	}
 }
 
+func (p *EtcdProfiler) collectRangeProbes(pod *v1.Pod, snap *EtcdSnapshot) {
+	for _, prefix := range kubevirtEtcdPrefixes {
+		snap.RangeProbes = append(snap.RangeProbes, p.probeRange(pod, prefix))
+	}
+}
+
+// MonitorRanges starts a background goroutine that samples Range durations
+// for all KubeVirt CRD prefixes at the given interval. Call StopMonitor to
+// stop sampling and store the results. This is intended to capture Range
+// latency during active CRD deletion when the CRD finalizer is running.
+func (p *EtcdProfiler) MonitorRanges(label string, interval time.Duration) {
+	p.mu.Lock()
+	if p.monitorStop != nil {
+		p.mu.Unlock()
+		return
+	}
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	p.monitorStop = stop
+	p.monitorDone = done
+	p.mu.Unlock()
+
+	pod, err := p.getEtcdPod()
+	if err != nil {
+		printError("etcd monitor: failed to get etcd pod: %v", err)
+		close(done)
+		return
+	}
+
+	go func() {
+		defer close(done)
+		start := time.Now()
+		var samples []EtcdRangeMonitorSample
+
+		for {
+			select {
+			case <-stop:
+				p.mu.Lock()
+				p.monitorRecords = append(p.monitorRecords, EtcdRangeMonitorRecord{
+					Label:   label,
+					Samples: samples,
+				})
+				p.mu.Unlock()
+				printInfo("etcd monitor [%s]: stopped after %d samples", label, len(samples))
+				return
+			default:
+			}
+
+			var probes []EtcdRangeProbe
+			for _, prefix := range kubevirtEtcdPrefixes {
+				probe := p.probeRange(pod, prefix)
+				probes = append(probes, probe)
+			}
+
+			sample := EtcdRangeMonitorSample{
+				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+				ElapsedMs: float64(time.Since(start).Milliseconds()),
+				Probes:    probes,
+			}
+			samples = append(samples, sample)
+
+			for _, probe := range probes {
+				if probe.KeyCount > 0 || probe.DurationMs > 100 {
+					printInfo("etcd monitor [%s]: %s keys=%d duration=%.1fms size=%d elapsed=%.0fms",
+						label, probe.Prefix, probe.KeyCount, probe.DurationMs, probe.SizeBytes, sample.ElapsedMs)
+				}
+			}
+
+			time.Sleep(interval)
+		}
+	}()
+}
+
+// StopMonitor stops the background Range monitor and waits for it to finish.
+func (p *EtcdProfiler) StopMonitor() {
+	p.mu.Lock()
+	stop := p.monitorStop
+	done := p.monitorDone
+	p.monitorStop = nil
+	p.monitorDone = nil
+	p.mu.Unlock()
+
+	if stop != nil {
+		close(stop)
+	}
+	if done != nil {
+		<-done
+	}
+}
+
+func (p *EtcdProfiler) probeRange(pod *v1.Pod, prefix string) EtcdRangeProbe {
+	probe := EtcdRangeProbe{Prefix: prefix}
+
+	cmd := []string{
+		"etcdctl",
+		"get", prefix,
+		"--prefix",
+		"--keys-only",
+		"--write-out=json",
+		"--cacert=" + etcdCACert,
+		"--cert=" + etcdCert,
+		"--key=" + etcdKey,
+	}
+
+	start := time.Now()
+	stdout, err := exec.ExecuteCommandOnPod(pod, etcdContainerName, cmd)
+	probe.DurationMs = float64(time.Since(start).Microseconds()) / 1000.0
+
+	if err != nil {
+		probe.Error = fmt.Sprintf("etcdctl get: %v", err)
+		return probe
+	}
+
+	var result struct {
+		Header struct {
+			Revision int64 `json:"revision"`
+		} `json:"header"`
+		Kvs   []json.RawMessage `json:"kvs"`
+		Count int64             `json:"count"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		probe.Error = fmt.Sprintf("parse: %v", err)
+		return probe
+	}
+
+	if result.Count > 0 {
+		probe.KeyCount = result.Count
+	} else {
+		probe.KeyCount = int64(len(result.Kvs))
+	}
+	probe.SizeBytes = int64(len(stdout))
+	return probe
+}
+
 // RecordBeforeSpec captures etcd state before a spec runs.
 func (p *EtcdProfiler) RecordBeforeSpec() {
 	snap := p.collectSnapshot()
@@ -251,7 +432,13 @@ func (p *EtcdProfiler) RecordSpec(specReport types.SpecReport) {
 
 	p.records = append(p.records, record)
 
-	printInfo("etcd profiler: spec=%q dbSize=%d tmpfsUsed=%d/%d deltaDB=%d deltaTmpfs=%d rev=%d walSize=%d snapSize=%d",
+	rangeInfo := ""
+	for _, probe := range after.RangeProbes {
+		if probe.KeyCount > 0 || probe.Error != "" {
+			rangeInfo += fmt.Sprintf(" %s(keys=%d, %.1fms)", probe.Prefix, probe.KeyCount, probe.DurationMs)
+		}
+	}
+	printInfo("etcd profiler: spec=%q dbSize=%d tmpfsUsed=%d/%d deltaDB=%d deltaTmpfs=%d rev=%d walSize=%d snapSize=%d%s",
 		specReport.FullText(),
 		after.DBSizeBytes,
 		after.TmpfsUsedBytes,
@@ -261,15 +448,19 @@ func (p *EtcdProfiler) RecordSpec(specReport types.SpecReport) {
 		after.Revision,
 		after.WALSizeBytes,
 		after.SnapSizeBytes,
+		rangeInfo,
 	)
 }
 
 // Finalize writes the collected records to the artifacts directory.
 func (p *EtcdProfiler) Finalize() {
+	// Stop any running monitor so its samples are flushed to monitorRecords
+	p.StopMonitor()
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if len(p.records) == 0 {
+	if len(p.records) == 0 && len(p.monitorRecords) == 0 {
 		return
 	}
 
@@ -296,16 +487,17 @@ func (p *EtcdProfiler) Finalize() {
 }
 
 type etcdProfileSummary struct {
-	CollectedAt     string           `json:"collectedAt"`
-	TotalSpecs      int              `json:"totalSpecs"`
-	FinalDBSize     int64            `json:"finalDBSizeBytes"`
-	FinalTmpfsUsed  int64            `json:"finalTmpfsUsedBytes"`
-	FinalTmpfsTotal int64            `json:"finalTmpfsTotalBytes"`
-	FinalWALSize    int64            `json:"finalWALSizeBytes"`
-	FinalSnapSize   int64            `json:"finalSnapSizeBytes"`
-	PeakTmpfsUsed   int64            `json:"peakTmpfsUsedBytes"`
-	PeakDBSize      int64            `json:"peakDBSizeBytes"`
-	Records         []EtcdSpecRecord `json:"records"`
+	CollectedAt     string                   `json:"collectedAt"`
+	TotalSpecs      int                      `json:"totalSpecs"`
+	FinalDBSize     int64                    `json:"finalDBSizeBytes"`
+	FinalTmpfsUsed  int64                    `json:"finalTmpfsUsedBytes"`
+	FinalTmpfsTotal int64                    `json:"finalTmpfsTotalBytes"`
+	FinalWALSize    int64                    `json:"finalWALSizeBytes"`
+	FinalSnapSize   int64                    `json:"finalSnapSizeBytes"`
+	PeakTmpfsUsed   int64                    `json:"peakTmpfsUsedBytes"`
+	PeakDBSize      int64                    `json:"peakDBSizeBytes"`
+	Records         []EtcdSpecRecord         `json:"records"`
+	MonitorRecords  []EtcdRangeMonitorRecord `json:"monitorRecords,omitempty"`
 }
 
 func (p *EtcdProfiler) buildSummary() etcdProfileSummary {
@@ -332,6 +524,8 @@ func (p *EtcdProfiler) buildSummary() etcdProfileSummary {
 		s.FinalWALSize = last.WALSizeBytes
 		s.FinalSnapSize = last.SnapSizeBytes
 	}
+
+	s.MonitorRecords = p.monitorRecords
 
 	return s
 }
