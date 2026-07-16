@@ -21,8 +21,11 @@ package upgrade
 
 import (
 	"context"
+	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -58,16 +61,6 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 		return nil
 	}
 
-	oldInstancetypeCRName := ""
-	if revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
-		oldInstancetypeCRName = vm.Status.InstancetypeRef.ControllerRevisionRef.Name
-	}
-
-	oldPreferenceCRName := ""
-	if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
-		oldPreferenceCRName = vm.Status.PreferenceRef.ControllerRevisionRef.Name
-	}
-
 	newInstancetypeCR, err := u.upgradeInstancetypeCR(vm)
 	if err != nil {
 		return err
@@ -79,15 +72,10 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	}
 
 	if newInstancetypeCR == nil && newPreferenceCR == nil {
-		// No upgrades needed
 		return nil
 	}
 
-	// Update Status locally - VM controller will detect Status change and persist via UpdateStatus()
 	u.updateStatusRefs(vm, newInstancetypeCR, newPreferenceCR)
-
-	// Delete old ControllerRevisions after updating Status refs
-	u.cleanupOldControllerRevisions(vm, newInstancetypeCR, oldInstancetypeCRName, newPreferenceCR, oldPreferenceCRName)
 
 	log.Log.Object(vm).Info("instancetype.kubevirt.io ControllerRevisions upgrade successful")
 
@@ -101,26 +89,6 @@ func (u *upgrader) updateStatusRefs(vm *virtv1.VirtualMachine, newInstancetypeCR
 
 	if newPreferenceCR != nil {
 		vm.Status.PreferenceRef.ControllerRevisionRef.Name = newPreferenceCR.Name
-	}
-}
-
-func (u *upgrader) cleanupOldControllerRevisions(
-	vm *virtv1.VirtualMachine,
-	newInstancetypeCR *appsv1.ControllerRevision, oldInstancetypeCRName string,
-	newPreferenceCR *appsv1.ControllerRevision, oldPreferenceCRName string,
-) {
-	if newInstancetypeCR != nil && oldInstancetypeCRName != "" {
-		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), oldInstancetypeCRName, metav1.DeleteOptions{}); err != nil {
-			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed instance type object upgrade")
-		}
-	}
-
-	if newPreferenceCR != nil && oldPreferenceCRName != "" {
-		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), oldPreferenceCRName, metav1.DeleteOptions{}); err != nil {
-			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
-		}
 	}
 }
 
@@ -147,7 +115,6 @@ func (u *upgrader) upgradeControllerRevision(
 		return nil, err
 	}
 
-	// If the CR is already labeled with the latest version then skip
 	if IsObjectLatestVersion(original) {
 		return nil, nil
 	}
@@ -155,7 +122,6 @@ func (u *upgrader) upgradeControllerRevision(
 	log.Log.Object(vm).Infof("upgrading instancetype.kubevirt.io ControllerRevision %s", crName)
 
 	upgradedCR := original.DeepCopy()
-	// Upgrade the stashed object to the latest version
 	err = compatibility.Decode(upgradedCR)
 	if err != nil {
 		return nil, err
@@ -166,13 +132,33 @@ func (u *upgrader) upgradeControllerRevision(
 		return nil, err
 	}
 
-	// Recreate the CR with the now upgraded runtime.Object
-	newCR, err = u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
-	if err != nil {
+	createdCR, err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
+	if err == nil {
+		return createdCR, nil
+	}
+	if !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
 
-	return newCR, nil
+	// A previous reconcile may have created the replacement without persisting
+	// its status reference. Use the deterministic name derived from the original
+	// snapshot, and verify the existing revision before adopting it.
+	existingCR, err := u.controllerRevisionFinder.Find(types.NamespacedName{Namespace: vm.Namespace, Name: newCR.Name})
+	if err != nil {
+		return nil, err
+	}
+	if !metav1.IsControlledBy(existingCR, vm) || !equality.Semantic.DeepEqual(newCR.Labels, existingCR.Labels) {
+		return nil, fmt.Errorf("existing ControllerRevision %s does not match the expected upgrade", newCR.Name)
+	}
+	equal, err := revision.Compare(newCR, existingCR.DeepCopy())
+	if err != nil {
+		return nil, err
+	}
+	if !equal {
+		return nil, fmt.Errorf("existing ControllerRevision %s contains unexpected data", newCR.Name)
+	}
+
+	return existingCR, nil
 }
 
 func IsObjectLatestVersion(cr *appsv1.ControllerRevision) bool {

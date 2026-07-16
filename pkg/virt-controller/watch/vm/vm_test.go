@@ -4814,6 +4814,83 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
+			DescribeTable(
+				"should retry revision upgrades through a fresh controller reconcile after a failed status write", func(statusError error) {
+					vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+					vm.Spec.Running = nil
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{Name: instancetypeObj.Name, Kind: instancetypeapi.SingularResourceName}
+					vm.Spec.Preference = &v1.PreferenceMatcher{Name: preference.Name, Kind: instancetypeapi.SingularPreferenceResourceName}
+
+					originalInstancetypeCR, err := revision.CreateControllerRevision(vm, instancetypeObj.DeepCopy())
+					Expect(err).ToNot(HaveOccurred())
+					originalPreferenceCR, err := revision.CreateControllerRevision(vm, preference.DeepCopy())
+					Expect(err).ToNot(HaveOccurred())
+					expectedInstancetypeName, expectedPreferenceName := originalInstancetypeCR.Name, originalPreferenceCR.Name
+					for _, cr := range []*appsv1.ControllerRevision{originalInstancetypeCR, originalPreferenceCR} {
+						cr.Name = "legacy-" + cr.Name
+						delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+						_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(controllerrevisionInformerStore.Add(cr)).To(Succeed())
+					}
+					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+						Name: instancetypeObj.Name, Kind: instancetypeapi.SingularResourceName,
+						ControllerRevisionRef: &v1.ControllerRevisionRef{Name: originalInstancetypeCR.Name},
+					}
+					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+						Name: preference.Name, Kind: instancetypeapi.SingularPreferenceResourceName,
+						ControllerRevisionRef: &v1.ControllerRevisionRef{Name: originalPreferenceCR.Name},
+					}
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(controller.vmIndexer.Add(vm)).To(Succeed())
+
+					failStatusWrite := true
+					virtFakeClient.PrependReactor("update", "virtualmachines", func(action testing.Action) (bool, runtime.Object, error) {
+						if action.GetSubresource() == "status" && failStatusWrite {
+							return true, nil, statusError
+						}
+						return false, nil, nil
+					})
+					key := virtcontroller.VirtualMachineKey(vm)
+					Expect(controller.execute(key)).To(MatchError(statusError))
+
+					// Refresh both caches from the API, including deletion events. Failed
+					// persistence must leave the old snapshots available for checkResourcesExist.
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(originalInstancetypeCR.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(originalPreferenceCR.Name))
+					Expect(controller.vmIndexer.Update(vm)).To(Succeed())
+					crs, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(crs.Items).To(HaveLen(4))
+					Expect(controllerrevisionInformerStore.Replace(nil, "")).To(Succeed())
+					for i := range crs.Items {
+						Expect(controllerrevisionInformerStore.Add(&crs.Items[i])).To(Succeed())
+					}
+
+					failStatusWrite = false
+					Expect(controller.execute(key)).To(Succeed())
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedInstancetypeName))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceName))
+					for _, cr := range []*appsv1.ControllerRevision{originalInstancetypeCR, originalPreferenceCR} {
+						_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), cr.Name, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+						Expect(controllerrevisionInformerStore.Delete(cr)).To(Succeed())
+					}
+
+					Expect(controller.vmIndexer.Update(vm)).To(Succeed())
+					virtFakeClient.ClearActions()
+					Expect(controller.execute(key)).To(Succeed())
+					Expect(virtFakeClient.Actions()).To(BeEmpty(), "a converged reconcile should not write the VM")
+				},
+				Entry("ResourceVersion conflict", k8serrors.NewConflict(v1.Resource("virtualmachines"), "vm", fmt.Errorf("conflict"))),
+				Entry("transient API failure", fmt.Errorf("temporary status failure")),
+			)
+
 			It("should capture instance type and preference RevisionNames in VirtualMachine ControllerRevision", func() {
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetypeObj.Name,
@@ -5270,6 +5347,70 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("interfaces is non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{}),
 			Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
 		)
+
+		DescribeTable(
+			"should retain snapshots still needed after status persistence", func(change func(*v1.VirtualMachine)) {
+				vm, _ := watchtesting.DefaultVirtualMachine(false)
+				oldCR := &appsv1.ControllerRevision{ObjectMeta: metav1.ObjectMeta{Name: "old-snapshot", Namespace: vm.Namespace}}
+				_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), oldCR, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+					Name: "source", ControllerRevisionRef: &v1.ControllerRevisionRef{Name: oldCR.Name},
+				}
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(controller.vmIndexer.Add(vm)).To(Succeed())
+				controller.netSynchronizer = testSynchronizer{mutate: func(vm *v1.VirtualMachine) {
+					vm.Status.InstancetypeRef.ControllerRevisionRef.Name = "replacement"
+					change(vm)
+				}}
+				Expect(controller.execute(virtcontroller.VirtualMachineKey(vm))).To(Succeed())
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldCR.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			},
+			Entry("an explicitly referenced instancetype snapshot", func(vm *v1.VirtualMachine) {
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{RevisionName: "old-snapshot"}
+			}),
+			Entry("an explicitly referenced preference snapshot", func(vm *v1.VirtualMachine) {
+				vm.Spec.Preference = &v1.PreferenceMatcher{RevisionName: "old-snapshot"}
+			}),
+			Entry("a changed matcher", func(vm *v1.VirtualMachine) {
+				vm.Status.InstancetypeRef.Name = "another-source"
+			}),
+		)
+
+		It("should persist combined synchronizer spec metadata and status changes and converge without writes", func() {
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.vmIndexer.Add(vm)).To(Succeed())
+			controller.instancetypeController = testSynchronizer{
+				instancetypeHandler: controller.instancetypeController,
+				mutate: func(vm *v1.VirtualMachine) {
+					vm.Annotations["instancetype-sync"] = "done"
+					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{Name: "instancetype-status"}
+				},
+			}
+			controller.netSynchronizer = testSynchronizer{mutate: func(vm *v1.VirtualMachine) {
+				Expect(vm.Annotations).To(HaveKeyWithValue("instancetype-sync", "done"))
+				Expect(vm.Status.InstancetypeRef.Name).To(Equal("instancetype-status"))
+				vm.Spec.Template.ObjectMeta.Labels = map[string]string{"network-sync": "done"}
+				vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{Name: "network-status"}
+			}}
+			key := virtcontroller.VirtualMachineKey(vm)
+			Expect(controller.execute(key)).To(Succeed())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Annotations).To(HaveKeyWithValue("instancetype-sync", "done"))
+			Expect(vm.Spec.Template.ObjectMeta.Labels).To(HaveKeyWithValue("network-sync", "done"))
+			Expect(vm.Status.InstancetypeRef.Name).To(Equal("instancetype-status"))
+			Expect(vm.Status.PreferenceRef.Name).To(Equal("network-status"))
+
+			Expect(controller.vmIndexer.Update(vm)).To(Succeed())
+			virtFakeClient.ClearActions()
+			Expect(controller.execute(key)).To(Succeed())
+			Expect(virtFakeClient.Actions()).To(BeEmpty())
+		})
 
 		DescribeTable("call to synchronizer", func(syncer testSynchronizer, expectCond v1.VirtualMachineCondition, expectCondCount int) {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
@@ -7760,9 +7901,15 @@ func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 }
 
 type testSynchronizer struct {
-	err error
+	instancetypeHandler
+	err    error
+	mutate func(*v1.VirtualMachine)
 }
 
 func (t testSynchronizer) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+	if t.mutate != nil {
+		vm = vm.DeepCopy()
+		t.mutate(vm)
+	}
 	return vm, t.err
 }
