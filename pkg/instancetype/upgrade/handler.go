@@ -21,8 +21,10 @@ package upgrade
 
 import (
 	"context"
+	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -79,14 +81,16 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	}
 
 	if newInstancetypeCR == nil && newPreferenceCR == nil {
-		// No upgrades needed
 		return nil
 	}
 
-	// Update Status locally - VM controller will detect Status change and persist via UpdateStatus()
 	u.updateStatusRefs(vm, newInstancetypeCR, newPreferenceCR)
 
-	// Delete old ControllerRevisions after updating Status refs
+	// Delete old ControllerRevisions only after status refs have been updated
+	// locally to point to the new CRs. If the caller fails to persist the
+	// status update and Upgrade is called again, upgradeControllerRevision
+	// handles the retry by tolerating AlreadyExists on Create and NotFound
+	// on the old CR cleanup.
 	u.cleanupOldControllerRevisions(vm, newInstancetypeCR, oldInstancetypeCRName, newPreferenceCR, oldPreferenceCRName)
 
 	log.Log.Object(vm).Info("instancetype.kubevirt.io ControllerRevisions upgrade successful")
@@ -111,43 +115,59 @@ func (u *upgrader) cleanupOldControllerRevisions(
 ) {
 	if newInstancetypeCR != nil && oldInstancetypeCRName != "" {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), oldInstancetypeCRName, metav1.DeleteOptions{}); err != nil {
+			context.Background(), oldInstancetypeCRName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed instance type object upgrade")
 		}
 	}
 
 	if newPreferenceCR != nil && oldPreferenceCRName != "" {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), oldPreferenceCRName, metav1.DeleteOptions{}); err != nil {
+			context.Background(), oldPreferenceCRName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
 		}
 	}
+}
+
+var instancetypeKinds = map[string]bool{
+	"VirtualMachineInstancetype":        true,
+	"VirtualMachineClusterInstancetype": true,
+}
+
+var preferenceKinds = map[string]bool{
+	"VirtualMachinePreference":        true,
+	"VirtualMachineClusterPreference": true,
 }
 
 func (u *upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Instancetype == nil || !revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
 		return nil, nil
 	}
-	return u.upgradeControllerRevision(vm, vm.Status.InstancetypeRef.ControllerRevisionRef.Name)
+	return u.upgradeControllerRevision(vm, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, instancetypeKinds)
 }
 
 func (u *upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Preference == nil || !revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
 		return nil, nil
 	}
-	return u.upgradeControllerRevision(vm, vm.Status.PreferenceRef.ControllerRevisionRef.Name)
+	return u.upgradeControllerRevision(vm, vm.Status.PreferenceRef.ControllerRevisionRef.Name, preferenceKinds)
 }
 
 func (u *upgrader) upgradeControllerRevision(
 	vm *virtv1.VirtualMachine,
 	crName string,
+	validKinds map[string]bool,
 ) (*appsv1.ControllerRevision, error) {
 	original, err := u.controllerRevisionFinder.Find(types.NamespacedName{Namespace: vm.Namespace, Name: crName})
 	if err != nil {
-		return nil, err
+		if !k8serrors.IsNotFound(err) {
+			return nil, err
+		}
+		// The old CR was already deleted by a previous upgrade attempt
+		// whose status update was not persisted. Look up the new CR that
+		// was already created so the status refs can be updated.
+		return u.findUpgradedControllerRevision(vm, validKinds)
 	}
 
-	// If the CR is already labeled with the latest version then skip
 	if IsObjectLatestVersion(original) {
 		return nil, nil
 	}
@@ -155,7 +175,6 @@ func (u *upgrader) upgradeControllerRevision(
 	log.Log.Object(vm).Infof("upgrading instancetype.kubevirt.io ControllerRevision %s", crName)
 
 	upgradedCR := original.DeepCopy()
-	// Upgrade the stashed object to the latest version
 	err = compatibility.Decode(upgradedCR)
 	if err != nil {
 		return nil, err
@@ -166,13 +185,45 @@ func (u *upgrader) upgradeControllerRevision(
 		return nil, err
 	}
 
-	// Recreate the CR with the now upgraded runtime.Object
 	newCR, err = u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
+	if err != nil {
+		if !k8serrors.IsAlreadyExists(err) {
+			return nil, err
+		}
+		newCR, err = u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+			context.Background(), newCR.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return newCR, nil
+}
+
+func (u *upgrader) findUpgradedControllerRevision(
+	vm *virtv1.VirtualMachine, validKinds map[string]bool,
+) (*appsv1.ControllerRevision, error) {
+	log.Log.Object(vm).Info("looking for previously upgraded ControllerRevision")
+
+	crList, err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(
+		context.Background(), metav1.ListOptions{
+			LabelSelector: instancetypeapi.ControllerRevisionObjectVersionLabel + "=" + instancetypeapi.LatestVersion,
+		})
 	if err != nil {
 		return nil, err
 	}
 
-	return newCR, nil
+	for i := range crList.Items {
+		cr := &crList.Items[i]
+		if !metav1.IsControlledBy(cr, vm) {
+			continue
+		}
+		if kind, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; ok && validKinds[kind] {
+			return cr, nil
+		}
+	}
+
+	return nil, fmt.Errorf("ControllerRevision not found and no upgraded replacement exists for VM %s/%s", vm.Namespace, vm.Name)
 }
 
 func IsObjectLatestVersion(cr *appsv1.ControllerRevision) bool {
