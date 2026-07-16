@@ -116,7 +116,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
-				libvmi.WithCPUCount(4, 0, 0),
+				libvmi.WithCPUCount(5, 0, 0),
 				libvmi.WithDedicatedCPUPlacement(),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),

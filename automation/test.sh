@@ -85,6 +85,7 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     if [[ "${KUBEVIRT_PROVIDER}" == "${SIG_NETWORK_SRIOV_PROVIDER}" ]]; then
+      export KUBEVIRT_NUM_VCPU=8
       export KUBEVIRT_WITH_SRIOV=true
       export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
       export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
@@ -92,6 +93,7 @@ case "$TARGET" in
     fi
     ;;
   *emulated-igb*)
+    export KUBEVIRT_NUM_VCPU=8
     export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
     export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
     export KUBEVIRT_WITH_SRIOV=true
