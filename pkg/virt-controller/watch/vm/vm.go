@@ -400,8 +400,8 @@ func (c *Controller) execute(key string) error {
 
 	// Synchronizer contract for Spec/Status modifications:
 	// - Synchronizers (instancetype, firmware, network) modify local VM object and return it
-	// - If sync() detects Spec changes, it returns early and we call Update() below
-	// - If sync() detects Status changes, it returns early and updateStatus() persists via UpdateStatus()
+	// - sync() runs synchronizers in sequence and persists Spec/ObjectMeta changes via Update()
+	// - updateStatus() persists the accumulated Status changes via UpdateStatus()
 	// - This separation follows Kubernetes subresource pattern and avoids intermediate API calls
 
 	// this must be first step in execution. Writing the object
@@ -487,7 +487,38 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	// Replaced snapshots must remain available until their new references are durable.
+	c.cleanupReplacedControllerRevisions(originalVM, vm)
+
 	return syncErr
+}
+
+func (c *Controller) cleanupReplacedControllerRevisions(originalVM, vm *virtv1.VirtualMachine) {
+	refs := [][2]*virtv1.InstancetypeStatusRef{
+		{originalVM.Status.InstancetypeRef, vm.Status.InstancetypeRef},
+		{originalVM.Status.PreferenceRef, vm.Status.PreferenceRef},
+	}
+	for _, pair := range refs {
+		oldRef, newRef := pair[0], pair[1]
+		if !revision.HasControllerRevisionRef(oldRef) || !revision.HasControllerRevisionRef(newRef) ||
+			oldRef.ControllerRevisionRef.Name == newRef.ControllerRevisionRef.Name {
+			continue
+		}
+		// Only clean up upgrades of the same matcher, and retain snapshots that
+		// the persisted spec still references explicitly.
+		oldRefCopy := oldRef.DeepCopy()
+		oldRefCopy.ControllerRevisionRef = newRef.ControllerRevisionRef
+		if !equality.Semantic.DeepEqual(oldRefCopy, newRef) ||
+			(vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName == oldRef.ControllerRevisionRef.Name) ||
+			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName == oldRef.ControllerRevisionRef.Name) {
+			continue
+		}
+		if err := c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			context.Background(), oldRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+		); err != nil && !apiErrors.IsNotFound(err) {
+			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete replaced instancetype.kubevirt.io ControllerRevision")
+		}
+	}
 }
 
 func (c *Controller) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv1.DataVolume) error {
