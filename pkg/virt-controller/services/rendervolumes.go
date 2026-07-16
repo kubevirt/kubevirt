@@ -525,6 +525,31 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 	}
 }
 
+// withHostSysCPU mounts the host's /sys/devices/system read-only into the compute
+// container so libvirt can access /sys/devices/system/cpu/online (needed by
+// virHostCPUGetOnlineBitmap for vCPU affinity setup). Required because Pelagos CRI
+// does not mount sysfs in non-privileged containers; tracked as Pelagos issue #XXX.
+func withHostSysCPU() VolumeRendererOption {
+	hostPathDir := k8sv1.HostPathDirectory
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+			Name: "host-sys-devices-system",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: "/sys/devices/system",
+					Type: &hostPathDir,
+				},
+			},
+		})
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      "host-sys-devices-system",
+			MountPath: "/sys/devices/system",
+			ReadOnly:  true,
+		})
+		return nil
+	}
+}
+
 func withNetworkDeviceInfoMapAnnotation() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		renderer.podVolumes = append(renderer.podVolumes,

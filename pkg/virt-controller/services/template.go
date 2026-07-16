@@ -891,6 +891,8 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		volumeOpts = append(volumeOpts, withVirioFS())
 	}
 
+	volumeOpts = append(volumeOpts, withHostSysCPU())
+
 	volumeRenderer, err := NewVolumeRenderer(
 		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
