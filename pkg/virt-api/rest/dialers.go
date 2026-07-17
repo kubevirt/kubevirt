@@ -20,7 +20,6 @@
 package rest
 
 import (
-	"errors"
 	"fmt"
 	"net"
 
@@ -126,7 +125,7 @@ func (app *SubresourceAPIApp) getVirtHandlerFor(vmi *v1.VirtualMachineInstance, 
 
 func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
 	if !vmi.IsRunning() && !vmi.IsScheduled() {
-		return nil, errors.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled))
+		return nil, fmt.Errorf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled)
 	}
 	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
