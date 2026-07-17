@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -102,8 +101,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	var nodes *k8sv1.NodeList
-
 	linuxBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName)
 	linuxBridgeInterfaceWithIPAM := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithIPAMIfaceName)
 
@@ -127,9 +124,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		nodes = libnode.GetAllSchedulableNodes(virtClient)
-		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100
 		Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100Network,
@@ -378,7 +372,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+					withCoLocationAffinity("custom-mac"),
 				)
 				vmiTwo, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -403,7 +397,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+					withCoLocationAffinity("custom-mac"),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -556,7 +550,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+						withCoLocationAffinity("mac-spoof-check"),
 					)
 					vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -573,7 +567,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(targetNetworkData)),
-						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+						withCoLocationAffinity("mac-spoof-check"),
 					)
 					targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())

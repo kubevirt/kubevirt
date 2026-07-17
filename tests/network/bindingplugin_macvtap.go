@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -84,18 +83,26 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 			serverIPAddr   = "192.0.2.102"
 			serverCIDR     = serverIPAddr + "/24"
 			clientCIDR     = "192.0.2.101/24"
+			serverLabel    = "macvtap-server"
 		)
-		nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
-		Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
-		nodeName := nodeList.Items[0].Name
 
-		opts := []libvmi.Option{
+		commonOpts := []libvmi.Option{
 			libvmi.WithInterface(libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
-			libvmi.WithNodeAffinityFor(nodeName),
 		}
-		serverVMI := libvmifact.NewAlpineWithTestTooling(opts...)
-		clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+		serverVMI := libvmifact.NewAlpineWithTestTooling(append(commonOpts,
+			libvmi.WithLabel(serverLabel, ""),
+		)...)
+		clientVMI := libvmifact.NewAlpineWithTestTooling(append(commonOpts,
+			libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: serverLabel, Operator: metav1.LabelSelectorOpExists},
+					},
+				},
+				TopologyKey: k8sv1.LabelHostname,
+			}),
+		)...)
 
 		var err error
 		ns := testsuite.GetTestNamespace(nil)
