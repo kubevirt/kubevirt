@@ -383,10 +383,8 @@ func (m *migrationProxy) createTcpListener() error {
 
 	laddr := net.JoinHostPort(m.tcpBindAddress, strconv.Itoa(m.tcpBindPort))
 	if m.serverTLSConfig != nil {
-		m.logger.Infof("Creating TLS listener on %s", laddr)
 		listener, err = tls.Listen("tcp", laddr, m.serverTLSConfig)
 	} else {
-		m.logger.Infof("Creating plain TCP listener on %s", laddr)
 		listener, err = net.Listen("tcp", laddr)
 	}
 	if err != nil {
@@ -447,18 +445,17 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 	var conn net.Conn
 	var err error
 	if m.targetProtocol == "tcp" && m.clientTLSConfig != nil {
-		log.Log.Infof("dialing with TLS %s, %s, %v", m.targetProtocol, m.targetAddress, m.clientTLSConfig)
 		conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.migrationTLSConfig)
 		// Check for specific error (CN missmatch), fallback to old client TLS
 		if err != nil {
 			m.logger.Reason(err).Info("fallback to old tls config")
 			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
 		} else if tlsErr := conn.(*tls.Conn).Handshake(); tlsErr != nil {
-			m.logger.Reason(err).Info("handshake failed, fallback to old tls config")
+			m.logger.Reason(tlsErr).Info("handshake failed, fallback to old tls config")
+			_ = conn.Close()
 			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
 		}
 	} else {
-		log.Log.Infof("dialing with plain TCP %s, %s", m.targetProtocol, m.targetAddress)
 		conn, err = net.Dial(m.targetProtocol, m.targetAddress)
 	}
 	if err != nil {
@@ -494,7 +491,7 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 }
 
 func (m *migrationProxy) Start() error {
-	m.logger.Info("starting proxy")
+
 	if m.unixSocketPath != "" {
 		err := m.createUnixListener()
 		if err != nil {
@@ -522,24 +519,6 @@ func (m *migrationProxy) Start() error {
 				}
 				break
 			} else {
-				// Log incoming connection details
-				remoteAddr := fd.RemoteAddr().String()
-				if tlsConn, ok := fd.(*tls.Conn); ok {
-					// Perform TLS handshake explicitly to get connection state
-					if handshakeErr := tlsConn.Handshake(); handshakeErr != nil {
-						m.logger.Reason(handshakeErr).Errorf("TLS handshake failed from %s", remoteAddr)
-						fd.Close()
-						continue
-					}
-					state := tlsConn.ConnectionState()
-					peerCN := ""
-					if len(state.PeerCertificates) > 0 {
-						peerCN = state.PeerCertificates[0].Subject.CommonName
-					}
-					m.logger.Infof("Accepted TLS connection from %s - peer CN: %s, TLS version: %d", remoteAddr, peerCN, state.Version)
-				} else {
-					m.logger.Infof("Accepted plain TCP connection from %s", remoteAddr)
-				}
 				fdChan <- fd
 			}
 		}

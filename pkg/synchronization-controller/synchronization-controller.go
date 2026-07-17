@@ -273,7 +273,7 @@ func (s *SynchronizationController) setupTargetProxiesForOutbound(
 		return err
 	}
 
-	log.Log.Object(migration).Infof("Started target tunnel forwarding to virt-handler %s ports %v (source will open per-channel gRPC streams)",
+	log.Log.Object(migration).V(3).Infof("Started target tunnel forwarding to virt-handler %s ports %v",
 		targetVirtHandlerIP, targetVirtHandlerPorts)
 
 	// Keep real virt-handler ports in the status so the source knows which protocol
@@ -306,7 +306,7 @@ func (s *SynchronizationController) setupTargetProxiesFromSource(
 	}
 
 	sourceSyncCrossclusterAddress := *remoteStatus.MigrationState.SourceState.SyncAddress
-	log.Log.Object(migration).Infof("Received source sync crosscluster0 address: %s", sourceSyncCrossclusterAddress)
+	log.Log.Object(migration).V(3).Infof("Received source sync crosscluster0 address: %s", sourceSyncCrossclusterAddress)
 
 	// Get target virt-handler address from local TargetState (set by target virt-handler)
 	if vmi.Status.MigrationState.TargetState == nil ||
@@ -337,7 +337,7 @@ func (s *SynchronizationController) setupTargetProxiesFromSource(
 		return err
 	}
 
-	log.Log.Object(migration).Infof("Started target tunnel forwarding to virt-handler %s", targetVirtHandlerIP)
+	log.Log.Object(migration).V(3).Infof("Started target tunnel forwarding to virt-handler %s", targetVirtHandlerIP)
 
 	return nil
 }
@@ -374,7 +374,7 @@ func (s *SynchronizationController) setupSourceProxiesFromTarget(
 	targetVirtHandlerIP := *remoteStatus.MigrationState.TargetState.NodeAddress
 	targetVirtHandlerPorts := remoteStatus.MigrationState.TargetState.DirectMigrationNodePorts
 
-	log.Log.Object(migration).Infof("Received target virt-handler address: %s, ports: %v",
+	log.Log.Object(migration).V(3).Infof("Received target virt-handler address: %s, ports: %v",
 		targetVirtHandlerIP, targetVirtHandlerPorts)
 
 	// Convert from API format (map[string]int) to internal format (map[int]int)
@@ -403,14 +403,14 @@ func (s *SynchronizationController) setupSourceProxiesFromTarget(
 	sourceTunnelPorts := tunnel.GetListenerPorts()
 	migrationIP := s.tunnelManager.MigrationIP()
 
-	log.Log.Object(migration).Infof("Started source tunnel on migration0 (%s) with per-channel gRPC streams, ports: %v",
+	log.Log.Object(migration).V(3).Infof("Started source tunnel on internal migration network (%s) ports: %v",
 		migrationIP, sourceTunnelPorts)
 
 	// Rewrite local VMI so source virt-handler dials the source sync controller listeners
 	vmi.Status.MigrationState.TargetNodeAddress = migrationIP
 	vmi.Status.MigrationState.TargetDirectMigrationNodePorts = portMapToString(sourceTunnelPorts)
 
-	log.Log.Object(migration).Infof("Writing source sync migration0 address to local VMI: %s, ports: %v",
+	log.Log.Object(migration).V(3).Infof("Writing source sync internal migration network address to local VMI: %s, ports: %v",
 		migrationIP, sourceTunnelPorts)
 
 	return nil
@@ -1929,15 +1929,13 @@ func (s *SynchronizationController) CancelMigration(ctx context.Context, request
 func (s *SynchronizationController) MigrationTunnel(stream syncv1.Synchronize_MigrationTunnelServer) error {
 	// Source opens one bidi stream per migration channel on the shared control-plane
 	// connection. The first frame is OPEN and identifies migration + channel.
-	log.Log.Info("MigrationTunnel RPC handler invoked - waiting for OPEN frame")
-
 	openFrame, err := stream.Recv()
 	if err != nil {
 		log.Log.Reason(err).Error("MigrationTunnel RPC failed to receive OPEN frame")
 		return err
 	}
 
-	log.Log.Infof("Received migration tunnel stream for migration %s channel %d",
+	log.Log.V(4).Infof("Received migration tunnel stream for migration %s channel %d",
 		openFrame.MigrationId, openFrame.ChannelId)
 
 	if s.tunnelManager == nil {
