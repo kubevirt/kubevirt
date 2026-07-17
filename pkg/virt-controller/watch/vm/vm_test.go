@@ -6101,6 +6101,41 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 
+				It("should propagate VMI migratedVolumes to VM when VM status update previously failed", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+
+					// VMI and VM both point to "dv1" (volumes already match, so PersistentVolumesUpdated will be false)
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, "dv1"))
+					vm := libvmi.NewVirtualMachine(
+						libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, "dv1")),
+						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration),
+					)
+
+					// Simulate: VMI has migratedVolumes from a previous successful patch
+					vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{{
+						VolumeName:         diskName,
+						SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "dv0"},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dv1"},
+					}}
+
+					// VM has NO VolumeUpdateState (simulates failed status update)
+
+					controller.handleVolumeUpdateRequest(vm, vmi)
+
+					// Assert: VM should now have the migratedVolumes propagated
+					Expect(vm.Status.VolumeUpdateState).ToNot(BeNil())
+					Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).ToNot(BeNil())
+					Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes).To(HaveLen(1))
+					Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes[0].SourcePVCInfo.ClaimName).To(Equal("dv0"))
+					Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes[0].DestinationPVCInfo.ClaimName).To(Equal("dv1"))
+				})
+
 				DescribeTable("should return an error", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
