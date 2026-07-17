@@ -2002,8 +2002,14 @@ func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance
 
 // handleRunningVMI contains the logic specifically for running VMs (hotplugging in running state, metrics, network updates)
 func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) error {
-	if err := c.hotplugSriovInterfaces(vmi); err != nil {
+	sriovPending, err := c.hotplugSriovInterfaces(vmi)
+	if err != nil {
 		c.logger.Object(vmi).Error(err.Error())
+	}
+	if sriovPending {
+		// SR-IOV hotplug retries are rate-limited by sriovHotplugExecutorPool.
+		// Requeue ensures we keep reconciling until domain+multus statuses converge.
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
@@ -2152,7 +2158,7 @@ func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachine
 	return preallocatedVolumes
 }
 
-func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
+func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) (bool, error) {
 	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
 
 	sriovSpecIfacesNames := netvmispec.IndexInterfaceSpecByName(sriovSpecInterfaces)
@@ -2169,11 +2175,11 @@ func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachine
 
 	if len(desiredSriovMultusPluggedIfaces) == len(attachedSriovStatusIfaces) {
 		c.sriovHotplugExecutorPool.Delete(vmi.UID)
-		return nil
+		return false, nil
 	}
 
 	rateLimitedExecutor := c.sriovHotplugExecutorPool.LoadOrStore(vmi.UID)
-	return rateLimitedExecutor.Exec(func() error {
+	return true, rateLimitedExecutor.Exec(func() error {
 		return c.hotplugSriovInterfacesCommand(vmi)
 	})
 }
