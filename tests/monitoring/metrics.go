@@ -108,6 +108,14 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 			// needs GPU - tested in MediatedDevices
 			"kubevirt_vmi_gpu_info": true,
+
+			// sync-controller migration proxy metrics — only registered when
+			// CrossClusterMigrationProxy + Proxy datapath is active
+			"kubevirt_decentralized_migration_proxy_active_connections":          true,
+			"kubevirt_decentralized_migration_proxy_bytes_transferred_total":     true,
+			"kubevirt_decentralized_migration_proxy_errors_total":                true,
+			"kubevirt_decentralized_migration_proxy_migration_bytes":             true,
+			"kubevirt_decentralized_migration_proxy_throughput_bytes_per_second": true,
 		}
 
 		BeforeAll(func() {

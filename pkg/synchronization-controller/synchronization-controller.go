@@ -46,7 +46,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -87,13 +90,15 @@ type SynchronizationController struct {
 	vmiInformer       cache.SharedIndexInformer
 	migrationInformer cache.SharedIndexInformer
 
-	listener        net.Listener
-	bindAddress     string
-	bindPort        int
-	ip              string
-	clientTLSConfig *tls.Config
-	serverTLSConfig *tls.Config
-	timeout         int
+	listener                 net.Listener
+	bindAddress              string
+	bindPort                 int
+	ip                       string
+	clientTLSConfig          *tls.Config
+	serverTLSConfig          *tls.Config
+	migrationClientTLSConfig *tls.Config
+	migrationServerTLSConfig *tls.Config
+	timeout                  int
 
 	queue     workqueue.TypedRateLimitingInterface[string]
 	hasSynced func() bool
@@ -103,8 +108,7 @@ type SynchronizationController struct {
 	failedCloseConnections     *sync.Map
 	grpcServer                 *grpc.Server
 
-	proxyManager *SyncProxyManager
-	runCtx       context.Context
+	tunnelManager *MigrationTunnelManager
 }
 
 func NewSynchronizationController(
@@ -112,21 +116,25 @@ func NewSynchronizationController(
 	vmiInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	clientTLSConfig,
-	serverTLSConfig *tls.Config,
+	serverTLSConfig,
+	migrationClientTLSConfig,
+	migrationServerTLSConfig *tls.Config,
 	bindAddress string,
 	bindPort int,
 	ip string,
 ) (*SynchronizationController, error) {
 	syncController := &SynchronizationController{
-		vmiInformer:       vmiInformer,
-		migrationInformer: migrationInformer,
-		clientTLSConfig:   clientTLSConfig,
-		serverTLSConfig:   serverTLSConfig,
-		timeout:           defaultTimeout,
-		bindAddress:       bindAddress,
-		bindPort:          bindPort,
-		client:            client,
-		ip:                ip,
+		vmiInformer:              vmiInformer,
+		migrationInformer:        migrationInformer,
+		clientTLSConfig:          clientTLSConfig,
+		serverTLSConfig:          serverTLSConfig,
+		migrationClientTLSConfig: migrationClientTLSConfig,
+		migrationServerTLSConfig: migrationServerTLSConfig,
+		timeout:                  defaultTimeout,
+		bindAddress:              bindAddress,
+		bindPort:                 bindPort,
+		client:                   client,
+		ip:                       ip,
 	}
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -171,8 +179,8 @@ func NewSynchronizationController(
 	syncController.grpcServer = grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLSConfig)))
 	syncv1.RegisterSynchronizeServer(syncController.grpcServer, syncController)
 
-	// Initialize migration proxy manager
-	syncController.proxyManager = NewSyncProxyManager()
+	// Initialize migration tunnel manager for terminating TLS with virt-handlers
+	syncController.tunnelManager = NewMigrationTunnelManager(migrationClientTLSConfig, migrationServerTLSConfig)
 
 	// Try to initialize proxy if crossClusterNetwork is configured
 	// Proxy requires BOTH migrationIP and crossClusterIP to function
@@ -187,9 +195,11 @@ func NewSynchronizationController(
 		return nil, fmt.Errorf("synchronization controller requires a migration network or pod IP, but neither is available: migrationErr=%v, podIP=%q", migrationErr, ip)
 	}
 
-	if err == nil && crossClusterIP != "" && migrationIP != "" {
-		syncController.proxyManager.Initialize(migrationIP, crossClusterIP)
-		log.Log.Infof("Migration proxy manager initialized with migration0=%s, crosscluster0=%s", migrationIP, crossClusterIP)
+	// migrationErr != nil means migration0 exists but has no usable address; do not
+	// fall back to pod IP for tunnel listeners (wrong interface).
+	if err == nil && migrationErr == nil && crossClusterIP != "" && migrationIP != "" {
+		syncController.tunnelManager.Initialize(migrationIP, crossClusterIP)
+		log.Log.Infof("Migration tunnel manager initialized with migration0=%s, crosscluster0=%s", migrationIP, crossClusterIP)
 
 		// Security: Bind gRPC server only to crosscluster network when available
 		// This prevents unauthorized access from other networks
@@ -199,6 +209,8 @@ func NewSynchronizationController(
 		// Proxy requires both migrationIP and crossClusterIP
 		if err != nil || crossClusterIP == "" {
 			log.Log.V(2).Infof("Cross-cluster network not available (proxy disabled): migrationIP=%s, crossClusterIP=%s, err=%v", migrationIP, crossClusterIP, err)
+		} else if migrationErr != nil {
+			log.Log.V(2).Infof("Migration network not ready (proxy disabled): migrationErr=%v, crossClusterIP=%s", migrationErr, crossClusterIP)
 		} else if migrationIP == "" {
 			log.Log.V(2).Infof("Migration network not available (proxy disabled): migrationIP empty, crossClusterIP=%s", crossClusterIP)
 		}
@@ -216,114 +228,94 @@ func NewSynchronizationController(
 	return syncController, nil
 }
 
-// IsProxyInitialized checks if the migration proxy has been initialized with network IPs
-func (s *SynchronizationController) IsProxyInitialized() bool {
-	// Proxy is only functional when both migration0 and crosscluster0 IPs are set
-	return s.proxyManager != nil && s.proxyManager.migrationIP != "" && s.proxyManager.crossClusterIP != ""
+// IsTunnelInitialized checks if the migration proxy has been initialized with network IPs
+func (s *SynchronizationController) IsTunnelInitialized() bool {
+	return s.tunnelManager != nil && s.tunnelManager.IsInitialized()
 }
 
-// setupTargetProxiesForOutbound starts target proxies and rewrites the status to send to source
-// Returns the modified status with proxy addresses, or error if proxy setup fails
+// setupTargetProxiesForOutbound starts the target tunnel so inbound per-channel streams
+// can be forwarded to virt-handler. The status sent to the source keeps the real
+// virt-handler ports (protocol mapping); the source sync controller rewrites its local
+// VMI to point virt-handler at source-side listeners.
 func (s *SynchronizationController) setupTargetProxiesForOutbound(
 	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
-	statusToSend *virtv1.VirtualMachineInstanceStatus,
 ) error {
-	if !s.IsProxyInitialized() || statusToSend.MigrationState == nil || statusToSend.MigrationState.TargetState == nil {
+	if !s.IsTunnelInitialized() || vmi.Status.MigrationState == nil || vmi.Status.MigrationState.TargetState == nil {
 		return nil
 	}
-
-	// Start target proxies if they haven't been started yet
-	// Target proxies listen on crosscluster0 and forward to target virt-handler
 	if vmi.Status.MigrationState.TargetState.NodeAddress == nil ||
 		vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts == nil {
 		return nil
 	}
-
-	migrationUID := string(migration.UID)
-	targetVirtHandlerIP := *vmi.Status.MigrationState.TargetState.NodeAddress
-	targetVirtHandlerPorts := vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts
-
-	// Convert from API format (map[string]int) to internal format (map[int]int)
-	targetVirtHandlerPortsInt, err := portMapToInt(targetVirtHandlerPorts)
-	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to convert target virt-handler ports")
-		return err
+	if migration.Spec.Receive == nil {
+		return fmt.Errorf("did not find receiving migration when setting up target proxy")
 	}
-
-	targetProxyPortMap, err := s.proxyManager.StartTargetProxies(ctx, migrationUID, targetVirtHandlerIP, targetVirtHandlerPortsInt)
-	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to start target proxies")
-		return err
-	}
-
-	log.Log.Object(migration).Infof("Started target proxies on crosscluster0 (%s) forwarding to target virt-handler (%s), ports: %v",
-		s.proxyManager.crossClusterIP, targetVirtHandlerIP, targetProxyPortMap)
-
-	// Replace TargetState with target sync controller crosscluster0 addresses
-	statusToSend.MigrationState.TargetState.NodeAddress = &s.proxyManager.crossClusterIP
-	// Convert from internal format (map[int]int) to API format (map[string]int)
-	statusToSend.MigrationState.TargetState.DirectMigrationNodePorts = portMapToString(targetProxyPortMap)
-
-	log.Log.Object(migration).Infof("Sending TargetState with target sync crosscluster0 address: %s, ports: %v",
-		s.proxyManager.crossClusterIP, targetProxyPortMap)
-
-	return nil
+	return s.startTargetTunnel(ctx, migration, vmi)
 }
 
-// setupTargetProxiesFromSource starts target proxies based on received source sync address
-// This is called on the target side when receiving source migration status
+// setupTargetProxiesFromSource starts target tunnel based on received source sync address.
+// This is called on the target side when receiving source migration status.
 func (s *SynchronizationController) setupTargetProxiesFromSource(
 	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
 	remoteStatus *virtv1.VirtualMachineInstanceStatus,
 ) error {
-	if !s.IsProxyInitialized() || remoteStatus.MigrationState.SourceState == nil {
+	if s.tunnelManager == nil || remoteStatus.MigrationState == nil || remoteStatus.MigrationState.SourceState == nil {
 		return nil
 	}
-
-	// Extract source sync controller crosscluster0 address from received SourceState
+	if !s.tunnelManager.IsInitialized() {
+		return nil
+	}
 	if remoteStatus.MigrationState.SourceState.SyncAddress == nil {
 		return nil
 	}
+	log.Log.Object(migration).V(3).Infof("Received source sync address: %s",
+		*remoteStatus.MigrationState.SourceState.SyncAddress)
 
-	sourceSyncCrossclusterAddress := *remoteStatus.MigrationState.SourceState.SyncAddress
-	log.Log.Object(migration).Infof("Received source sync crosscluster0 address: %s", sourceSyncCrossclusterAddress)
-
-	// Get target virt-handler address from local TargetState (set by target virt-handler)
-	if vmi.Status.MigrationState.TargetState == nil ||
+	if vmi.Status.MigrationState == nil ||
+		vmi.Status.MigrationState.TargetState == nil ||
 		vmi.Status.MigrationState.TargetState.NodeAddress == nil ||
 		vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts == nil {
 		return nil
 	}
+	if migration.Spec.Receive == nil {
+		return nil
+	}
+	return s.startTargetTunnel(ctx, migration, vmi)
+}
 
-	targetVirtHandlerIP := *vmi.Status.MigrationState.TargetState.NodeAddress
-	targetVirtHandlerPorts := vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts
-	migrationUID := string(migration.UID)
+// startTargetTunnel starts (or refreshes) the target-side tunnel that dials local
+// virt-handler. Callers must ensure Spec.Receive and TargetState dial coordinates
+// are present.
+func (s *SynchronizationController) startTargetTunnel(
+	ctx context.Context,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	vmi *virtv1.VirtualMachineInstance,
+) error {
+	migrationID := migration.Spec.Receive.MigrationID
+	targetIP := *vmi.Status.MigrationState.TargetState.NodeAddress
+	targetPorts := vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts
 
-	// Convert from API format (map[string]int) to internal format (map[int]int)
-	targetVirtHandlerPortsInt, err := portMapToInt(targetVirtHandlerPorts)
+	ports, err := portMapToInt(targetPorts)
 	if err != nil {
 		log.Log.Object(migration).Reason(err).Error("Failed to convert target virt-handler ports")
 		return err
 	}
 
-	// Start target proxies (listening on target sync crosscluster0, forwarding to target virt-handler)
-	_, err = s.proxyManager.StartTargetProxies(ctx, migrationUID, targetVirtHandlerIP, targetVirtHandlerPortsInt)
-	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to start target proxies")
+	if _, err := s.tunnelManager.StartTargetTunnel(ctx, migrationID, targetIP, ports); err != nil {
+		log.Log.Object(migration).Reason(err).Error("Failed to start target tunnel")
 		return err
 	}
 
-	log.Log.Object(migration).Infof("Started target proxies on crosscluster0 (%s) forwarding to target virt-handler (%s)",
-		s.proxyManager.crossClusterIP, targetVirtHandlerIP)
-
+	log.Log.Object(migration).V(3).Infof("Started target tunnel forwarding to virt-handler %s ports %v",
+		targetIP, targetPorts)
 	return nil
 }
 
-// setupSourceProxiesFromTarget starts source proxies based on received target state
+// setupSourceProxiesFromTarget starts source tunnel based on received target state
 // This is called on the source side when receiving target migration status
 func (s *SynchronizationController) setupSourceProxiesFromTarget(
 	ctx context.Context,
@@ -331,47 +323,81 @@ func (s *SynchronizationController) setupSourceProxiesFromTarget(
 	vmi *virtv1.VirtualMachineInstance,
 	remoteStatus *virtv1.VirtualMachineInstanceStatus,
 ) error {
-	if !s.IsProxyInitialized() || remoteStatus.MigrationState.TargetState == nil {
+	if s.tunnelManager == nil || remoteStatus.MigrationState.TargetState == nil {
 		return nil
 	}
 
-	// Extract target sync controller crosscluster0 address from received TargetState
+	// Check if tunnel manager is initialized
+	if !s.tunnelManager.IsInitialized() {
+		return nil
+	}
+
+	// Extract target virt-handler port map (protocol channels) from received TargetState
 	if remoteStatus.MigrationState.TargetState.NodeAddress == nil ||
 		remoteStatus.MigrationState.TargetState.DirectMigrationNodePorts == nil {
 		return nil
 	}
 
-	targetSyncCrossclusterIP := *remoteStatus.MigrationState.TargetState.NodeAddress
-	targetSyncCrossclusterPorts := remoteStatus.MigrationState.TargetState.DirectMigrationNodePorts
-	migrationUID := string(migration.UID)
+	// Extract migrationID from spec.sendTo.migrationID (source side)
+	if migration.Spec.SendTo == nil {
+		return nil
+	}
+	migrationID := migration.Spec.SendTo.MigrationID
 
-	log.Log.Object(migration).Infof("Received target sync crosscluster0 address: %s, ports: %v",
-		targetSyncCrossclusterIP, targetSyncCrossclusterPorts)
+	targetVirtHandlerIP := *remoteStatus.MigrationState.TargetState.NodeAddress
+	targetVirtHandlerPorts := remoteStatus.MigrationState.TargetState.DirectMigrationNodePorts
+
+	log.Log.Object(migration).V(3).Infof("Received target virt-handler address: %s, ports: %v",
+		targetVirtHandlerIP, targetVirtHandlerPorts)
 
 	// Convert from API format (map[string]int) to internal format (map[int]int)
-	targetSyncCrossclusterPortsInt, err := portMapToInt(targetSyncCrossclusterPorts)
+	targetVirtHandlerPortsInt, err := portMapToInt(targetVirtHandlerPorts)
 	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to convert target sync crosscluster ports - target sent proxy addresses but source cannot parse them")
+		log.Log.Object(migration).Reason(err).Error("Failed to convert target virt-handler ports")
 		return err
 	}
 
-	// Create/update source proxies (listening on source sync migration0, forwarding to target sync crosscluster0)
-	sourceProxyPortMap, err := s.proxyManager.StartSourceProxies(ctx, migrationUID, targetSyncCrossclusterIP, targetSyncCrossclusterPortsInt)
+	// Prefer the remote SyncAddress when dialing — local status may still be stale
+	// because TargetState is copied onto the VMI only after this setup completes.
+	migrationState := vmi.Status.MigrationState.DeepCopy()
+	if remoteStatus.MigrationState.TargetState.SyncAddress != nil &&
+		*remoteStatus.MigrationState.TargetState.SyncAddress != "" {
+		if migrationState.TargetState == nil {
+			migrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
+		}
+		migrationState.TargetState.SyncAddress = remoteStatus.MigrationState.TargetState.SyncAddress
+	}
+
+	conn, err := s.getOutboundSourceConnection(vmi, migrationState)
 	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to start source proxies - target has proxies but source cannot start them")
+		log.Log.Object(migration).Reason(err).Error("Failed to get gRPC connection to target sync controller")
+		return err
+	}
+	if conn == nil {
+		return fmt.Errorf("no outbound gRPC connection to target sync controller yet")
+	}
+
+	// Start source tunnel: listeners on the internal migration network (Multus or
+	// pod IP); each accepted connection opens its own MigrationTunnel stream on
+	// the shared control-plane gRPC connection.
+	tunnel, err := s.tunnelManager.StartSourceTunnel(ctx, migrationID, conn.grpcClientConnection, targetVirtHandlerPortsInt)
+	if err != nil {
+		log.Log.Object(migration).Reason(err).Error("Failed to start source tunnel")
 		return err
 	}
 
-	log.Log.Object(migration).Infof("Started source proxies on migration0 (%s) forwarding to target sync crosscluster0 (%s)",
-		s.proxyManager.migrationIP, targetSyncCrossclusterIP)
+	sourceTunnelPorts := tunnel.GetListenerPorts()
+	migrationIP := s.tunnelManager.MigrationIP()
 
-	// Write source sync controller migration0 address to local VMI for source virt-handler to read
-	vmi.Status.MigrationState.TargetNodeAddress = s.proxyManager.migrationIP
-	// Convert from internal format (map[int]int) to API format (map[string]int)
-	vmi.Status.MigrationState.TargetDirectMigrationNodePorts = portMapToString(sourceProxyPortMap)
+	log.Log.Object(migration).V(3).Infof("Started source tunnel on internal migration network (%s) ports: %v",
+		migrationIP, sourceTunnelPorts)
 
-	log.Log.Object(migration).Infof("Writing source sync migration0 address to local VMI: %s, ports: %v",
-		s.proxyManager.migrationIP, sourceProxyPortMap)
+	// Rewrite local VMI so source virt-handler dials the source sync controller listeners
+	vmi.Status.MigrationState.TargetNodeAddress = migrationIP
+	vmi.Status.MigrationState.TargetDirectMigrationNodePorts = portMapToString(sourceTunnelPorts)
+
+	log.Log.Object(migration).V(3).Infof("Writing source sync internal migration network address to local VMI: %s, ports: %v",
+		migrationIP, sourceTunnelPorts)
 
 	return nil
 }
@@ -414,33 +440,31 @@ func (s *SynchronizationController) deleteMigrationFunc(delObj interface{}) {
 			return
 		}
 
-		migrationUID := string(migration.UID)
-
 		if migration.Spec.Receive != nil {
-			log.Log.V(4).Object(migration).Infof("closing receiving connection for migrationID %s", migration.Spec.Receive.MigrationID)
-			if err := s.closeConnectionForMigrationID(s.syncReceivingConnectionMap, migration.Spec.Receive.MigrationID); err != nil {
-				log.Log.Reason(err).Infof("unable to close connection for migrationID %s, possibly leaked connection", migration.Spec.Receive.MigrationID)
+			migrationID := migration.Spec.Receive.MigrationID
+			log.Log.V(4).Object(migration).Infof("closing receiving connection for migrationID %s", migrationID)
+			if err := s.closeConnectionForMigrationID(s.syncReceivingConnectionMap, migrationID); err != nil {
+				log.Log.Reason(err).Infof("unable to close connection for migrationID %s, possibly leaked connection", migrationID)
 			}
 
-			// Clean up target proxy to prevent listener leak
-			// Proxies may not be stopped via normal IsFinal() path if migration is force-deleted,
-			// controller crashes, or migration is removed before reaching final state
-			if s.IsProxyInitialized() {
-				log.Log.V(4).Object(migration).Infof("stopping target proxy for migration %s", migrationUID)
-				s.proxyManager.StopTargetProxy(migrationUID)
+			// Clean up target tunnel only if migration is actually being deleted (not just temporarily gone from cache)
+			// DeletionTimestamp is set when the object is truly being deleted
+			if s.tunnelManager != nil && migration.DeletionTimestamp != nil {
+				log.Log.V(4).Object(migration).Infof("stopping target tunnel for migration %s", migrationID)
+				s.tunnelManager.StopTunnel(migrationID)
 			}
 		} else if migration.Spec.SendTo != nil {
-			log.Log.V(4).Object(migration).Infof("closing outbound connection for migrationID %s", migration.Spec.SendTo.MigrationID)
-			if err := s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migration.Spec.SendTo.MigrationID); err != nil {
-				log.Log.Reason(err).Infof("unable to close connection for migrationID %s, possibly leaked connection", migration.Spec.SendTo.MigrationID)
+			migrationID := migration.Spec.SendTo.MigrationID
+			log.Log.V(4).Object(migration).Infof("closing outbound connection for migrationID %s", migrationID)
+			if err := s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migrationID); err != nil {
+				log.Log.Reason(err).Infof("unable to close connection for migrationID %s, possibly leaked connection", migrationID)
 			}
 
-			// Clean up source proxy to prevent listener leak
-			// Proxies may not be stopped via normal IsFinal() path if migration is force-deleted,
-			// controller crashes, or migration is removed before reaching final state
-			if s.IsProxyInitialized() {
-				log.Log.V(4).Object(migration).Infof("stopping source proxy for migration %s", migrationUID)
-				s.proxyManager.StopSourceProxy(migrationUID)
+			// Clean up source tunnel only if migration is actually being deleted (not just temporarily gone from cache)
+			// DeletionTimestamp is set when the object is truly being deleted
+			if s.tunnelManager != nil && migration.DeletionTimestamp != nil {
+				log.Log.V(4).Object(migration).Infof("stopping source tunnel for migration %s", migrationID)
+				s.tunnelManager.StopTunnel(migrationID)
 			}
 		}
 	}
@@ -484,8 +508,8 @@ func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{})
 
 	log.Log.Info("starting vmi status synchronization controller.")
 
-	// Derive a root context once from stopCh so workers cancel without spawning
-	// a watcher goroutine on every reconciliation.
+	// Derive a root context once from stopCh and pass it into workers so cancel
+	// is synchronized without a shared runCtx field.
 	runCtx, runCancel := context.WithCancel(context.Background())
 	defer runCancel()
 	go func() {
@@ -495,14 +519,13 @@ func (s *SynchronizationController) Run(threadiness int, stopCh <-chan struct{})
 		case <-runCtx.Done():
 		}
 	}()
-	s.runCtx = runCtx
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, s.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(s.runWorker, time.Second, stopCh)
+		go wait.Until(func() { s.runWorker(runCtx) }, time.Second, stopCh)
 	}
 	go wait.Until(s.runConnectionCleanup, 5*time.Second, stopCh)
 
@@ -537,9 +560,9 @@ func (s *SynchronizationController) closeConnections() {
 	s.syncOutboundConnectionMap.Range(closeMapConnections)
 	log.Log.V(1).Infof("closing inbound connections")
 	s.syncReceivingConnectionMap.Range(closeMapConnections)
-	log.Log.V(1).Infof("shutting down proxy manager")
-	if s.proxyManager != nil {
-		s.proxyManager.Shutdown()
+	log.Log.V(1).Infof("shutting down tunnel manager")
+	if s.tunnelManager != nil {
+		s.tunnelManager.Shutdown()
 	}
 }
 
@@ -556,19 +579,23 @@ func closeMapConnections(k, obj interface{}) bool {
 	return true
 }
 
-func (s *SynchronizationController) runWorker() {
-	for s.Execute() {
+func (s *SynchronizationController) runWorker(ctx context.Context) {
+	for s.processNextWorkItem(ctx) {
 	}
 }
 
 func (s *SynchronizationController) Execute() bool {
+	return s.processNextWorkItem(context.Background())
+}
+
+func (s *SynchronizationController) processNextWorkItem(parent context.Context) bool {
 	key, quit := s.queue.Get()
 	if quit {
 		return false
 	}
 
 	defer s.queue.Done(key)
-	err := s.execute(key)
+	err := s.execute(parent, key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
@@ -580,11 +607,7 @@ func (s *SynchronizationController) Execute() bool {
 	return true
 }
 
-func (s *SynchronizationController) execute(key string) error {
-	parent := context.Background()
-	if s.runCtx != nil {
-		parent = s.runCtx
-	}
+func (s *SynchronizationController) execute(parent context.Context, key string) error {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
@@ -828,7 +851,8 @@ func (s *SynchronizationController) cancelSourceRemoteMigration(vmi *virtv1.Virt
 		return fmt.Errorf("source migration UID %s is the same as the VMI's migration UID %s", migration.UID, vmi.Status.MigrationState.SourceState.MigrationUID)
 	}
 	log.Log.V(4).Object(migration).Infof("cancelling source remote migration for VMI %s/%s", vmi.Namespace, vmi.Name)
-	return s.cancelRemoteMigration(vmi.Status.MigrationState.SourceState.MigrationUID, migration.Spec.Receive.MigrationID, s.syncOutboundConnectionMap)
+	// Target dials the source and stores that conn in syncReceivingConnectionMap.
+	return s.cancelRemoteMigration(vmi.Status.MigrationState.SourceState.MigrationUID, migration.Spec.Receive.MigrationID, s.syncReceivingConnectionMap)
 }
 
 func (s *SynchronizationController) cancelTargetRemoteMigration(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
@@ -839,7 +863,8 @@ func (s *SynchronizationController) cancelTargetRemoteMigration(vmi *virtv1.Virt
 		return fmt.Errorf("target migration UID %s is the same as the VMI's migration UID %s", migration.UID, vmi.Status.MigrationState.TargetState.MigrationUID)
 	}
 	log.Log.V(4).Object(migration).Infof("cancelling target remote migration for VMI %s/%s", vmi.Namespace, vmi.Name)
-	return s.cancelRemoteMigration(vmi.Status.MigrationState.TargetState.MigrationUID, migration.Spec.SendTo.MigrationID, s.syncReceivingConnectionMap)
+	// Source dials the target and stores that conn in syncOutboundConnectionMap.
+	return s.cancelRemoteMigration(vmi.Status.MigrationState.TargetState.MigrationUID, migration.Spec.SendTo.MigrationID, s.syncOutboundConnectionMap)
 }
 
 func (s *SynchronizationController) cancelRemoteMigration(migrationUID types.UID, migrationID string, connectionMap *sync.Map) error {
@@ -942,23 +967,67 @@ func (s *SynchronizationController) getOutboundConnectionByMigrationID(vmi *virt
 	}
 	log.Log.Object(vmi).V(4).Infof("found migration ID %s", migrationID)
 	obj, ok := connectionMap.Load(migrationID)
-	if !ok {
+	if ok {
+		outboundSyncConnection, ok := obj.(*SynchronizationConnection)
+		if !ok {
+			return nil, fmt.Errorf("found unknown object in outbound connection cache %#v", obj)
+		}
+		if outboundSyncConnection.syncAddress == syncAddress && outboundSyncConnection.grpcClientConnection != nil {
+			return outboundSyncConnection, nil
+		}
+		// Peer address changed or conn is unusable — replace the cached connection.
+		log.Log.Object(vmi).V(3).Infof("replacing outbound sync connection for migration ID %s (address %q -> %q)",
+			migrationID, outboundSyncConnection.syncAddress, syncAddress)
+		connectionMap.Delete(migrationID)
+		_ = outboundSyncConnection.Close()
+	}
+
+	grpcClientConnection, err := s.createOutboundConnection(syncAddress)
+	if err != nil {
+		return nil, err
+	}
+	conn := &SynchronizationConnection{
+		migrationID:          migrationID,
+		syncAddress:          syncAddress,
+		grpcClientConnection: grpcClientConnection,
+	}
+	if existing, loaded := connectionMap.LoadOrStore(migrationID, conn); loaded {
+		// Another goroutine won the race; prefer theirs if it matches the address.
+		_ = conn.Close()
+		existingConn, ok := existing.(*SynchronizationConnection)
+		if !ok {
+			return nil, fmt.Errorf("found unknown object in outbound connection cache %#v", existing)
+		}
+		if existingConn.syncAddress == syncAddress && existingConn.grpcClientConnection != nil {
+			return existingConn, nil
+		}
+		// Winner is stale for this address — replace and return a fresh dial.
+		connectionMap.Delete(migrationID)
+		_ = existingConn.Close()
 		grpcClientConnection, err := s.createOutboundConnection(syncAddress)
 		if err != nil {
 			return nil, err
 		}
-		conn := &SynchronizationConnection{
+		conn = &SynchronizationConnection{
 			migrationID:          migrationID,
+			syncAddress:          syncAddress,
 			grpcClientConnection: grpcClientConnection,
 		}
-		connectionMap.Store(migrationID, conn)
+		if existing, loaded := connectionMap.LoadOrStore(migrationID, conn); loaded {
+			_ = conn.Close()
+			existingConn, ok := existing.(*SynchronizationConnection)
+			if !ok {
+				return nil, fmt.Errorf("found unknown object in outbound connection cache %#v", existing)
+			}
+			if existingConn.syncAddress == syncAddress && existingConn.grpcClientConnection != nil {
+				return existingConn, nil
+			}
+			return nil, fmt.Errorf("stale outbound sync connection for migration ID %s after replace race (have %q, want %q)",
+				migrationID, existingConn.syncAddress, syncAddress)
+		}
 		return conn, nil
 	}
-	outboundSyncConnection, ok := obj.(*SynchronizationConnection)
-	if !ok {
-		return nil, fmt.Errorf("found unknown object in outbound connection cache %#v", outboundSyncConnection)
-	}
-	return outboundSyncConnection, nil
+	return conn, nil
 }
 
 func (s *SynchronizationController) handleSourceState(ctx context.Context, vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
@@ -968,11 +1037,13 @@ func (s *SynchronizationController) handleSourceState(ctx context.Context, vmi *
 		// No migration state, don't do anything
 		return nil
 	}
-	if vmi.Status.MigrationState.SourceState == nil || vmi.Status.MigrationState.TargetState == nil {
-		// No migration state, don't do anything
+	if vmi.Status.MigrationState.SourceState == nil {
+		// No source state, don't do anything
 		return nil
 	}
 
+	// Keep original for patching later
+	origVMI := vmi
 	vmi = vmi.DeepCopy()
 	sourceState := vmi.Status.MigrationState.SourceState
 	// Always set SyncAddress to our current gRPC synchronization address
@@ -980,16 +1051,24 @@ func (s *SynchronizationController) handleSourceState(ctx context.Context, vmi *
 	if err != nil {
 		return err
 	}
+	syncAddressChanged := sourceState.SyncAddress == nil || *sourceState.SyncAddress != syncAddress
 	sourceState.SyncAddress = &syncAddress
 	targetState := vmi.Status.MigrationState.TargetState
 
-	if targetState.SyncAddress != nil && sourceState.MigrationUID != "" {
+	if targetState != nil && targetState.SyncAddress != nil && sourceState.MigrationUID != "" {
 		if outboundConnection, err = s.getOutboundSourceConnection(vmi, vmi.Status.MigrationState); err != nil {
 			return err
 		}
 	}
 	if outboundConnection == nil {
-		log.Log.Object(vmi).V(4).Info("no synchronization connection found for source, doing nothing")
+		if !syncAddressChanged {
+			log.Log.Object(vmi).V(4).Info("no synchronization connection found for source, doing nothing")
+			return nil
+		}
+		log.Log.Object(vmi).V(4).Infof("updating source SyncAddress to %s (no target connection yet)", *sourceState.SyncAddress)
+		if err := s.patchVMI(ctx, origVMI, vmi); err != nil {
+			return fmt.Errorf("failed to patch VMI with source sync address: %v", err)
+		}
 		return nil
 	}
 
@@ -998,13 +1077,13 @@ func (s *SynchronizationController) handleSourceState(ctx context.Context, vmi *
 
 	// If proxy is initialized, replace SourceState.SyncAddress with source sync controller address
 	// This tells target sync controller where to connect for synchronization
-	if s.IsProxyInitialized() && statusToSend.MigrationState != nil && statusToSend.MigrationState.SourceState != nil {
+	if s.IsTunnelInitialized() && statusToSend.MigrationState != nil && statusToSend.MigrationState.SourceState != nil {
 		sourceSyncAddress, err := s.getLocalSynchronizationAddress()
 		if err != nil {
 			return fmt.Errorf("failed to get local synchronization address: %w", err)
 		}
 		statusToSend.MigrationState.SourceState.SyncAddress = &sourceSyncAddress
-		log.Log.Object(migration).Infof("Sending SourceState with source sync address: %s", sourceSyncAddress)
+		log.Log.Object(vmi).Infof("Sending SourceState with source sync address: %s", sourceSyncAddress)
 	}
 
 	vmiStatusJson, err := json.Marshal(statusToSend)
@@ -1023,15 +1102,22 @@ func (s *SynchronizationController) handleSourceState(ctx context.Context, vmi *
 	}); err != nil {
 		return err
 	}
+
+	if syncAddressChanged {
+		if err := s.patchVMI(ctx, origVMI, vmi); err != nil {
+			return fmt.Errorf("failed to patch VMI with source sync address: %v", err)
+		}
+	}
+
 	if migration != nil && migration.IsFinal() {
 		if migration.Spec.SendTo != nil {
+			migrationID := migration.Spec.SendTo.MigrationID
 			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing outbound connections", migration.Namespace, migration.Spec.VMIName)
-			s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migration.Spec.SendTo.MigrationID)
+			s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migrationID)
 
-			// Clean up source proxy
-			if s.IsProxyInitialized() {
-				migrationUID := string(migration.UID)
-				s.proxyManager.StopSourceProxy(migrationUID)
+			// Clean up source tunnel
+			if s.tunnelManager != nil {
+				s.tunnelManager.StopTunnel(migrationID)
 			}
 		}
 	}
@@ -1090,7 +1176,7 @@ func (s *SynchronizationController) handleTargetState(ctx context.Context, vmi *
 	statusToSend := vmi.Status.DeepCopy()
 
 	// If proxy is initialized, start target proxies and rewrite addresses
-	if err := s.setupTargetProxiesForOutbound(ctx, migration, vmi, statusToSend); err != nil {
+	if err := s.setupTargetProxiesForOutbound(ctx, migration, vmi); err != nil {
 		return err
 	}
 
@@ -1111,15 +1197,24 @@ func (s *SynchronizationController) handleTargetState(ctx context.Context, vmi *
 	if err != nil {
 		return err
 	}
+
+	// Persist SyncAddress locally even when an outbound connection already exists
+	// (pod IP / listen address can change across restarts).
+	if syncAddressChanged {
+		if err := s.patchVMI(ctx, origVMI, vmi); err != nil {
+			return fmt.Errorf("failed to patch VMI with target sync address: %v", err)
+		}
+	}
+
 	if migration.IsFinal() {
 		if migration.Spec.Receive != nil {
+			migrationID := migration.Spec.Receive.MigrationID
 			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing receiving connections", migration.Namespace, migration.Spec.VMIName)
-			s.closeConnectionForMigrationID(s.syncReceivingConnectionMap, migration.Spec.Receive.MigrationID)
+			s.closeConnectionForMigrationID(s.syncReceivingConnectionMap, migrationID)
 
-			// Clean up target proxy
-			if s.IsProxyInitialized() {
-				migrationUID := string(migration.UID)
-				s.proxyManager.StopTargetProxy(migrationUID)
+			// Clean up target tunnel
+			if s.tunnelManager != nil {
+				s.tunnelManager.StopTunnel(migrationID)
 			}
 		}
 	}
@@ -1268,9 +1363,9 @@ func (s *SynchronizationController) getVMIFromMigration(migration *virtv1.Virtua
 }
 
 func (s *SynchronizationController) getLocalSynchronizationAddress() (string, error) {
-	// When proxy is initialized, use crosscluster IP for gRPC synchronization
-	if s.IsProxyInitialized() {
-		return net.JoinHostPort(s.proxyManager.crossClusterIP, strconv.Itoa(s.bindPort)), nil
+	// When tunnel is initialized, use crosscluster IP for gRPC synchronization
+	if s.IsTunnelInitialized() {
+		return net.JoinHostPort(s.tunnelManager.CrossClusterIP(), strconv.Itoa(s.bindPort)), nil
 	}
 
 	if s.ip != "" {
@@ -1384,6 +1479,19 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 		return &syncv1.VMIStatusResponse{
 			Message: successMessage,
 		}, nil
+	}
+
+	// Bind peer only after the update is accepted, and only when the tunnel proxy is active.
+	if s.IsTunnelInitialized() {
+		p, ok := peer.FromContext(ctx)
+		if !ok || p.Addr == nil {
+			err := status.Errorf(codes.Unauthenticated,
+				"missing peer identity for migration tunnel binding of %s", request.MigrationID)
+			return &syncv1.VMIStatusResponse{Message: err.Error()}, err
+		}
+		if err := s.tunnelManager.BindTunnelPeer(request.MigrationID, p.Addr.String()); err != nil {
+			return &syncv1.VMIStatusResponse{Message: err.Error()}, err
+		}
 	}
 
 	log.Log.Object(newVMI).V(5).Infof("vmi migration source state: %#v", newVMI.Status.MigrationState.SourceState)
@@ -1548,8 +1656,9 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	// Copy legacy fields
 	// When proxy is active, skip proxy-managed fields (TargetNodeAddress, TargetDirectMigrationNodePorts)
 	// to avoid overwriting addresses set by setupSourceProxiesFromTarget
-	copyLegacyTargetFields(newVMI, remoteStatus.MigrationState, s.IsProxyInitialized())
-	if !apiequality.Semantic.DeepEqual(vmi.Status.MigrationState, newVMI.Status.MigrationState) {
+	copyLegacyTargetFields(newVMI, remoteStatus.MigrationState, s.IsTunnelInitialized())
+	if !apiequality.Semantic.DeepEqual(vmi.Status.MigrationState, newVMI.Status.MigrationState) ||
+		!apiequality.Semantic.DeepEqual(vmi.Status.MigratedVolumes, newVMI.Status.MigratedVolumes) {
 		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
 				Message: fmt.Sprintf("unable to synchronize VMI for migrationID %s", request.MigrationID),
@@ -1886,6 +1995,35 @@ func (s *SynchronizationController) CancelMigration(ctx context.Context, request
 	return &syncv1.MigrationCancelResponse{
 		Message: "migration canceled",
 	}, nil
+}
+
+func (s *SynchronizationController) MigrationTunnel(stream syncv1.Synchronize_MigrationTunnelServer) error {
+	// Source opens one bidi stream per migration channel on the shared control-plane
+	// connection. The first frame is OPEN and identifies migration + channel.
+	openFrame, err := stream.Recv()
+	if err != nil {
+		log.Log.Reason(err).Error("MigrationTunnel RPC failed to receive OPEN frame")
+		return err
+	}
+
+	log.Log.V(4).Infof("Received migration tunnel stream for migration %s channel %d",
+		openFrame.MigrationId, openFrame.ChannelId)
+
+	if s.tunnelManager == nil {
+		return fmt.Errorf("tunnel manager not initialized")
+	}
+
+	peerAddr := ""
+	if p, ok := peer.FromContext(stream.Context()); ok && p.Addr != nil {
+		peerAddr = p.Addr.String()
+	}
+	if err := s.tunnelManager.AuthorizeTunnelPeer(openFrame.MigrationId, peerAddr); err != nil {
+		log.Log.Reason(err).Errorf("Rejecting MigrationTunnel for migration %s from peer %q",
+			openFrame.MigrationId, peerAddr)
+		return err
+	}
+
+	return s.tunnelManager.HandleInboundChannel(stream, openFrame)
 }
 
 // getMigrationIP returns the IP address on the migration network interface

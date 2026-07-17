@@ -6,6 +6,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
+	synccontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-synchronization-controller"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 )
 
@@ -30,7 +31,11 @@ func RegisterAllMetrics() error {
 		return err
 	}
 
-	if err := virthandler.SetupMetrics("", 0, nil, nil, false); err != nil {
+	if err := virthandler.SetupMetrics("", 0, nil, nil); err != nil {
+		return err
+	}
+
+	if err := synccontrollermetrics.SetupMetrics(); err != nil {
 		return err
 	}
 
