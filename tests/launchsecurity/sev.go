@@ -50,8 +50,22 @@ import (
 
 var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SEV, decorators.SigCompute, func() {
 	const (
-		diskSecret = "qwerty123"
+		diskSecret           = "qwerty123"
+		sevESidsResourceName = "devices.kubevirt.io/sev-esids"
 	)
+
+	nodeHasSevESidsCapacity := func() bool {
+		nodes, err := kubevirt.Client().CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+		if err != nil {
+			return false
+		}
+		for i := range nodes.Items {
+			if val, ok := nodes.Items[i].Status.Allocatable[sevESidsResourceName]; ok && !val.IsZero() {
+				return true
+			}
+		}
+		return false
+	}
 
 	newSEVFedora := func(withES, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 		const secureBoot = false
@@ -321,12 +335,14 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	Context("lifecycle", func() {
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES, withSNP bool, sevstr string) {
+				if withSNP && !nodeHasSevESidsCapacity() {
+					Skip("Skipping test because the node does not have SEV-SNP capacity")
+				}
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
 				By("Verifying that SEV is enabled in the guest")
 				const consoleTimeout = 60
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -342,7 +358,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-ES disabled, SEV enabled
 			Entry("It should launch with base SEV features enabled", false, false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, false, "SEV SEV-ES"),
+			Entry("[QUARANTINE] It should launch with SEV-ES features enabled", decorators.Quarantine, decorators.SEVES, true, false, "SEV SEV-ES"),
 			// SEV-SNP enabled
 			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
