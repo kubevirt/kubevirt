@@ -126,6 +126,15 @@ var _ = Describe("Handler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].domainJobInfo.DowntimeSet).To(BeTrue())
 			Expect(results[0].domainJobInfo.Downtime).To(Equal(uint64(70)))
+			Expect(h.vmiStats).To(HaveKey("default/test-vmi"))
+
+			results = h.Collect()
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].domainJobInfo.DowntimeSet).To(BeTrue())
+			Expect(results[0].domainJobInfo.Downtime).To(Equal(uint64(70)))
+
+			Expect(vmiStore.Delete(vmi)).To(Succeed())
+			h.Collect()
 			Expect(h.vmiStats).To(BeEmpty())
 		})
 

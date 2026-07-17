@@ -64,6 +64,8 @@ type queue struct {
 	finished    bool
 	completedAt *time.Time
 
+	completedResult *result
+
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 }
@@ -127,6 +129,8 @@ func (q *queue) collect() {
 		timestamp:     time.Now(),
 	}
 
+	hasCompletedStats := hasCompletedDowntimeStats(r.domainJobInfo)
+
 	q.Lock()
 	if q.finished {
 		q.Unlock()
@@ -134,6 +138,10 @@ func (q *queue) collect() {
 	}
 	q.results.Value = r
 	q.results = q.results.Next()
+	if hasCompletedStats {
+		completed := r
+		q.completedResult = &completed
+	}
 	q.Unlock()
 
 	if q.shouldStopPolling(finished, r.domainJobInfo) {
@@ -167,6 +175,7 @@ func (q *queue) addCompletedStats(domainJobInfo stats.DomainJobInfo) {
 	q.Lock()
 	q.results.Value = r
 	q.results = q.results.Next()
+	q.completedResult = &r
 	q.finished = true
 	if q.ctxCancel != nil {
 		q.ctxCancel()
@@ -220,18 +229,45 @@ func (q *queue) shouldStopPolling(finished bool, domainJobInfo stats.DomainJobIn
 
 func (q *queue) all() ([]result, bool) {
 	q.Lock()
-	defer q.Unlock()
 
 	var results []result
 
-	q.results.Do(func(r interface{}) {
-		if r != nil {
-			results = append(results, r.(result))
-		}
-	})
-	q.results = q.results.Unlink(q.results.Len())
+	if q.completedResult != nil {
+		// Keep completed migration stats visible across Prometheus scrapes until
+		// the migrated VMI is removed.
+		results = append(results, *q.completedResult)
+	} else {
+		q.results.Do(func(r interface{}) {
+			if r != nil {
+				results = append(results, r.(result))
+			}
+		})
+		q.results = q.results.Unlink(q.results.Len())
+	}
 
-	return results, q.finished
+	finished := q.finished
+	retainCompleted := q.completedResult != nil
+	q.Unlock()
+
+	if retainCompleted {
+		finished = !q.vmiExists()
+	}
+
+	return results, finished
+}
+
+func (q *queue) vmiExists() bool {
+	if q.vmiStore == nil {
+		return false
+	}
+
+	_, exists, err := q.vmiStore.Get(q.vmi)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+		return false
+	}
+
+	return exists
 }
 
 func (q *queue) isMigrationFinished() bool {
