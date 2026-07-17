@@ -722,14 +722,11 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string, tim
 	defer cancel()
 
 	resp, err := c.v1client.Exec(ctx, request)
-	if resp == nil {
-		return exitCode, stdOut, err
+	if resp != nil {
+		exitCode = int(resp.ExitCode)
+		stdOut = resp.StdOut
 	}
-
-	exitCode = int(resp.ExitCode)
-	stdOut = resp.StdOut
-
-	return exitCode, stdOut, err
+	return exitCode, stdOut, handleError(err, "Exec", resp.GetResponse())
 }
 
 func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) error {
@@ -745,8 +742,8 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 	)
 	defer cancel()
 
-	_, err := c.v1client.GuestPing(ctx, request)
-	return err
+	resp, err := c.v1client.GuestPing(ctx, request)
+	return handleError(err, "GuestPing", resp.GetResponse())
 }
 
 func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
@@ -764,7 +761,12 @@ func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmd
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
-	return c.v1client.GetScreenshot(ctx, request)
+	resp, err := c.v1client.GetScreenshot(ctx, request)
+	err = handleError(err, "GetScreenshot", resp.GetResponse())
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *VirtLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
@@ -892,13 +894,11 @@ func (c *VirtLauncherClient) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
 	response, err := c.v1client.RedefineCheckpoint(ctx, request)
-	if err != nil {
-		return false, fmt.Errorf("RedefineCheckpoint call failed: %v", err)
+	if err = handleError(err, "RedefineCheckpoint", response.GetResponse()); err != nil {
+		if response != nil {
+			return response.CheckpointInvalid, err
+		}
+		return false, err
 	}
-
-	if response.Response != nil && !response.Response.Success {
-		return response.CheckpointInvalid, fmt.Errorf("RedefineCheckpoint failed: %s", response.Response.Message)
-	}
-
 	return false, nil
 }

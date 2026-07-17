@@ -22,6 +22,7 @@ package cmdclient
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -30,6 +31,8 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/api"
@@ -220,8 +223,183 @@ var _ = Describe("Virt remote commands", func() {
 				err := client.GuestPing(testDomainName, testTimeoutSeconds)
 				Expect(err).ToNot(HaveOccurred())
 			})
+
+			It("Exec should propagate gRPC status errors", func() {
+				expectExec().Times(1).Return(
+					nil, status.Errorf(codes.InvalidArgument, "bad exec request"),
+				)
+				_, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				Expect(err).To(MatchError(ContainSubstring("InvalidArgument")))
+			})
+
+			It("Exec should return legacy Response.Success errors", func() {
+				expectExec().Times(1).Return(&cmdv1.ExecResponse{
+					Response: &cmdv1.Response{Success: false, Message: "legacy exec error"},
+				}, nil)
+				_, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				Expect(err).To(MatchError(ContainSubstring("legacy exec error")))
+			})
+
+			It("Exec should return exitCode and stdOut even on legacy error", func() {
+				expectExec().Times(1).Return(&cmdv1.ExecResponse{
+					ExitCode: 42,
+					StdOut:   "partial output",
+					Response: &cmdv1.Response{Success: false, Message: "exec failed"},
+				}, nil)
+				exitCode, stdOut, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				Expect(err).To(HaveOccurred())
+				Expect(exitCode).To(Equal(42))
+				Expect(stdOut).To(Equal("partial output"))
+			})
+
+			It("GuestPing should propagate gRPC status errors", func() {
+				expectGuestPing().Times(1).Return(
+					nil, status.Errorf(codes.Internal, "ping failed"),
+				)
+				err := client.GuestPing(testDomainName, testTimeoutSeconds)
+				Expect(err).To(MatchError(ContainSubstring("Internal")))
+			})
+
+			It("GuestPing should return legacy Response.Success errors", func() {
+				expectGuestPing().Times(1).Return(&cmdv1.GuestPingResponse{
+					Response: &cmdv1.Response{Success: false, Message: "not available"},
+				}, nil)
+				err := client.GuestPing(testDomainName, testTimeoutSeconds)
+				Expect(err).To(MatchError(ContainSubstring("not available")))
+			})
+
+			It("GetScreenshot should succeed", func() {
+				mockCmdClient.EXPECT().GetScreenshot(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.ScreenshotResponse{
+						Response: &cmdv1.Response{Success: true},
+						Data:     []byte("data"),
+					}, nil,
+				)
+				vmi := api.NewMinimalVMI("test")
+				resp, err := client.GetScreenshot(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.Data).To(Equal([]byte("data")))
+			})
+
+			It("GetScreenshot should propagate gRPC status errors", func() {
+				mockCmdClient.EXPECT().GetScreenshot(gomock.Any(), gomock.Any()).Return(
+					nil, status.Errorf(codes.Internal, "screenshot failed"),
+				)
+				vmi := api.NewMinimalVMI("test")
+				_, err := client.GetScreenshot(vmi)
+				Expect(err).To(MatchError(ContainSubstring("Internal")))
+			})
+
+			It("GetScreenshot should return legacy Response.Success errors", func() {
+				mockCmdClient.EXPECT().GetScreenshot(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.ScreenshotResponse{
+						Response: &cmdv1.Response{Success: false, Message: "no display"},
+					}, nil,
+				)
+				vmi := api.NewMinimalVMI("test")
+				_, err := client.GetScreenshot(vmi)
+				Expect(err).To(MatchError(ContainSubstring("no display")))
+			})
+
+			It("RedefineCheckpoint should succeed", func() {
+				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.RedefineCheckpointResponse{
+						Response: &cmdv1.Response{Success: true},
+					}, nil,
+				)
+				vmi := api.NewMinimalVMI("test")
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+
+			It("RedefineCheckpoint should propagate gRPC status errors", func() {
+				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
+					nil, status.Errorf(codes.Internal, "checkpoint error"),
+				)
+				vmi := api.NewMinimalVMI("test")
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
+				Expect(err).To(MatchError(ContainSubstring("Internal")))
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+
+			It("RedefineCheckpoint should return legacy error with CheckpointInvalid", func() {
+				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.RedefineCheckpointResponse{
+						Response:          &cmdv1.Response{Success: false, Message: "invalid checkpoint"},
+						CheckpointInvalid: true,
+					}, nil,
+				)
+				vmi := api.NewMinimalVMI("test")
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
+				Expect(err).To(MatchError(ContainSubstring("invalid checkpoint")))
+				Expect(checkpointInvalid).To(BeTrue())
+			})
 		})
 	})
+
+	Describe("handleError", func() {
+		DescribeTable("should handle errors correctly",
+			func(err error, response *cmdv1.Response, expectNil bool, expectSubstring string) {
+				result := handleError(err, "TestCommand", response)
+				if expectNil {
+					Expect(result).ToNot(HaveOccurred())
+				} else {
+					Expect(result).To(MatchError(ContainSubstring(expectSubstring)))
+				}
+			},
+			Entry("nil error and nil response",
+				nil, nil, true, ""),
+			Entry("nil error and successful response",
+				nil, &cmdv1.Response{Success: true}, true, ""),
+			Entry("legacy server error via Response.Success",
+				nil, &cmdv1.Response{Success: false, Message: "legacy failure"},
+				false, "legacy failure"),
+			Entry("response with Success false but empty Message should not error",
+				nil, &cmdv1.Response{Success: false, Message: ""},
+				true, ""),
+			Entry("gRPC InvalidArgument error",
+				status.Errorf(codes.InvalidArgument, "bad request"),
+				nil, false, "InvalidArgument"),
+			Entry("gRPC Internal error",
+				status.Errorf(codes.Internal, "server crashed"),
+				nil, false, "Internal"),
+			Entry("non-gRPC error",
+				errors.New("something went wrong"),
+				nil, false, "something went wrong"),
+		)
+
+		It("should pass through disconnected errors unchanged", func() {
+			err := handleError(io.EOF, "TestCommand", nil)
+			Expect(err).To(MatchError(io.EOF))
+		})
+
+		It("should pass through unimplemented errors unchanged", func() {
+			grpcErr := status.Errorf(codes.Unimplemented, "not implemented")
+			err := handleError(grpcErr, "TestCommand", nil)
+			Expect(err).To(Equal(grpcErr))
+		})
+
+		It("should include the command name in error messages", func() {
+			err := handleError(
+				status.Errorf(codes.Internal, "internal error"), "SyncVirtualMachine", nil,
+			)
+			Expect(err).To(MatchError(ContainSubstring("SyncVirtualMachine")))
+		})
+
+		It("should wrap gRPC errors preserving the error chain", func() {
+			grpcErr := status.Errorf(codes.InvalidArgument, "bad request")
+			err := handleError(grpcErr, "TestCommand", nil)
+			Expect(errors.Is(err, grpcErr)).To(BeTrue())
+		})
+
+		It("should wrap non-gRPC errors preserving the error chain", func() {
+			originalErr := errors.New("custom error")
+			err := handleError(originalErr, "TestCommand", nil)
+			Expect(errors.Is(err, originalErr)).To(BeTrue())
+		})
+	})
+
 	Describe("Version mismatch", func() {
 		It("Should report error when server version mismatches", func() {
 			infoClient := info.NewMockCmdInfoClient(gomock.NewController(GinkgoT()))
