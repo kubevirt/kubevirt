@@ -338,6 +338,31 @@ func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMa
 }
 
 func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) ([]virtv1.StorageMigratedVolumeInfo, error) {
+	// If the VMI already has migratedVolumes (from a previous successful patch),
+	// reuse them instead of recomputing from the diff. This handles the case
+	// where the VMI was patched but the VM status update failed on a previous
+	// sync attempt.
+	if len(vmi.Status.MigratedVolumes) > 0 {
+		vmVols := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+		var allMatch bool = true
+		// check if dest PVCs in the cached migratedVolumes match what the VM wants
+		for _, migVol := range vmi.Status.MigratedVolumes {
+			vmVol, exists := vmVols[migVol.VolumeName] // look up corresponding vol in VM's current spec
+			if !exists || migVol.DestinationPVCInfo == nil {
+				allMatch = false
+				break
+			}
+			vmClaim := storagetypes.PVCNameFromVirtVolume(vmVol)
+			if vmClaim != migVol.DestinationPVCInfo.ClaimName {
+				allMatch = false
+				break
+			}
+		}
+		if allMatch {
+			return vmi.Status.MigratedVolumes, nil
+		}
+	}
+
 	var migVolsInfo []virtv1.StorageMigratedVolumeInfo
 	oldVols := make(map[string]string)
 	for _, v := range vmi.Spec.Volumes {
