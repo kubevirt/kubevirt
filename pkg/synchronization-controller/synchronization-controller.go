@@ -177,8 +177,8 @@ func NewSynchronizationController(
 	syncController.grpcServer = grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLSConfig)))
 	syncv1.RegisterSynchronizeServer(syncController.grpcServer, syncController)
 
-	// Initialize migration tunnel manager with TLS config for dialing target virt-handler
-	syncController.tunnelManager = NewMigrationTunnelManager(migrationClientTLSConfig)
+	// Initialize migration tunnel manager for terminating TLS with virt-handlers
+	syncController.tunnelManager = NewMigrationTunnelManager(migrationClientTLSConfig, migrationServerTLSConfig)
 
 	// Try to initialize proxy if crossClusterNetwork is configured
 	// Proxy requires BOTH migrationIP and crossClusterIP to function
