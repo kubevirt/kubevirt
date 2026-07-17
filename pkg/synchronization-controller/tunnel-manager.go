@@ -63,8 +63,10 @@ type MigrationTunnelManager struct {
 	migrationIP    string
 	crossClusterIP string
 
-	// tlsConfig used to dial target virt-handler (migration client cert).
-	tlsConfig *tls.Config
+	// clientTLSConfig terminates TLS when dialing target virt-handler (migration client cert).
+	clientTLSConfig *tls.Config
+	// serverTLSConfig terminates TLS when accepting source virt-handler (virt-handler server cert).
+	serverTLSConfig *tls.Config
 
 	logger *log.FilteredLogger
 }
@@ -88,8 +90,9 @@ type migrationTunnel struct {
 	targetIP    string
 	targetPorts map[int]int // map[TCP port]protocol port
 
-	tlsConfig *tls.Config
-	logger    *log.FilteredLogger
+	clientTLSConfig *tls.Config
+	serverTLSConfig *tls.Config
+	logger          *log.FilteredLogger
 }
 
 // tunnelChannel is one migration protocol connection with its own gRPC stream.
@@ -109,11 +112,14 @@ type tunnelChannel struct {
 }
 
 // NewMigrationTunnelManager creates a new tunnel manager.
-func NewMigrationTunnelManager(tlsConfig *tls.Config) *MigrationTunnelManager {
+// clientTLSConfig is used to dial target virt-handlers; serverTLSConfig is used to
+// accept TLS from source virt-handlers.
+func NewMigrationTunnelManager(clientTLSConfig, serverTLSConfig *tls.Config) *MigrationTunnelManager {
 	return &MigrationTunnelManager{
-		tunnels:   make(map[string]*migrationTunnel),
-		tlsConfig: tlsConfig,
-		logger:    log.DefaultLogger(),
+		tunnels:         make(map[string]*migrationTunnel),
+		clientTLSConfig: clientTLSConfig,
+		serverTLSConfig: serverTLSConfig,
+		logger:          log.DefaultLogger(),
 	}
 }
 
@@ -175,8 +181,9 @@ func (m *MigrationTunnelManager) StartTargetTunnel(
 		listenerPorts:   make(map[int]int),
 		targetIP:        targetVirtHandlerIP,
 		targetPorts:     targetVirtHandlerPorts,
-		tlsConfig: m.tlsConfig,
-		logger:    m.logger,
+		clientTLSConfig: m.clientTLSConfig,
+		serverTLSConfig: m.serverTLSConfig,
+		logger:          m.logger,
 	}
 	m.tunnels[tunnelKey] = tunnel
 
@@ -209,9 +216,14 @@ func (m *MigrationTunnelManager) StartSourceTunnel(
 		channels:        make(map[int32]*tunnelChannel),
 		stopChan:        make(chan struct{}),
 		listenerPorts:   make(map[int]int),
-		grpcConn:  grpcConn,
-		tlsConfig: m.tlsConfig,
-		logger:    m.logger,
+		grpcConn:        grpcConn,
+		clientTLSConfig: m.clientTLSConfig,
+		serverTLSConfig: m.serverTLSConfig,
+		logger:          m.logger,
+	}
+
+	if m.serverTLSConfig == nil {
+		return nil, fmt.Errorf("migration server TLS config required for source tunnel listeners")
 	}
 
 	// Deduplicate protocol ports (map values) so we open one listener per channel.
@@ -223,10 +235,11 @@ func (m *MigrationTunnelManager) StartSourceTunnel(
 		seen[protocolPort] = struct{}{}
 
 		listenAddr := net.JoinHostPort(m.migrationIP, "0")
-		listener, err := net.Listen("tcp", listenAddr)
+		// Terminate TLS from source virt-handler (same as target virt-handler migration proxy).
+		listener, err := tls.Listen("tcp", listenAddr, m.serverTLSConfig)
 		if err != nil {
 			tunnel.closeListeners()
-			return nil, fmt.Errorf("failed to create listener for protocol %d: %v", protocolPort, err)
+			return nil, fmt.Errorf("failed to create TLS listener for protocol %d: %v", protocolPort, err)
 		}
 
 		listenerPort := listener.Addr().(*net.TCPAddr).Port
@@ -235,7 +248,7 @@ func (m *MigrationTunnelManager) StartSourceTunnel(
 
 		go tunnel.acceptConnections(listener, int32(protocolPort))
 
-		m.logger.Infof("Source tunnel listener for migration %s protocol %d: %s:%d",
+		m.logger.Infof("Source tunnel TLS listener for migration %s protocol %d: %s:%d",
 			migrationID, protocolPort, m.migrationIP, listenerPort)
 	}
 
@@ -272,8 +285,8 @@ func (m *MigrationTunnelManager) HandleInboundChannel(stream frameStream, openFr
 
 	targetAddr := net.JoinHostPort(tunnel.targetIP, fmt.Sprintf("%d", targetPort))
 	var conn net.Conn
-	if tunnel.tlsConfig != nil {
-		conn, err = tls.Dial("tcp", targetAddr, tunnel.tlsConfig)
+	if tunnel.clientTLSConfig != nil {
+		conn, err = tls.Dial("tcp", targetAddr, tunnel.clientTLSConfig)
 	} else {
 		conn, err = net.Dial("tcp", targetAddr)
 	}

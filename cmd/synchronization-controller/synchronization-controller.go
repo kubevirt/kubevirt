@@ -75,9 +75,11 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-sync-controller/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-sync-controller/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-sync-controller/servercertificates/tls.key"
-	// Reuse virt-handler migration certs (CN="kubevirt.io:system:client:migration")
-	defaultMigrationClientCertFilePath = "/etc/virt-sync-controller/migrationservercertificates/tls.crt"
-	defaultMigrationClientKeyFilePath  = "/etc/virt-sync-controller/migrationservercertificates/tls.key"
+	// Virt-handler migration certs for terminating TLS on the proxy data path
+	defaultMigrationClientCertFilePath = "/etc/virt-handler/migrationclientcertificates/tls.crt"
+	defaultMigrationClientKeyFilePath  = "/etc/virt-handler/migrationclientcertificates/tls.key"
+	defaultMigrationServerCertFilePath = "/etc/virt-handler/migrationservercertificates/tls.crt"
+	defaultMigrationServerKeyFilePath  = "/etc/virt-handler/migrationservercertificates/tls.key"
 
 	defaultGracefulShutdownSeconds = 30
 	maxRetryCount                  = 10
@@ -102,19 +104,22 @@ type synchronizationControllerApp struct {
 	serverKeyFilePath           string
 	migrationClientCertFilePath string
 	migrationClientKeyFilePath  string
+	migrationServerCertFilePath string
+	migrationServerKeyFilePath  string
 	externallyManaged           bool
 	ip                          string
 
-	serverTLSConfig          *tls.Config
-	clientTLSConfig          *tls.Config
-	migrationClientTLSConfig *tls.Config
-	migrationServerTLSConfig *tls.Config
-	clientcertmanager        certificate.Manager
-	servercertmanager        certificate.Manager
-	migrationcertmanager     certificate.Manager
-	clusterConfig            *virtconfig.ClusterConfig
-	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
-	caManager                kvtls.ClientCAManager
+	serverTLSConfig            *tls.Config
+	clientTLSConfig            *tls.Config
+	migrationClientTLSConfig   *tls.Config
+	migrationServerTLSConfig   *tls.Config
+	clientcertmanager          certificate.Manager
+	servercertmanager          certificate.Manager
+	migrationclientcertmanager certificate.Manager
+	migrationservercertmanager certificate.Manager
+	clusterConfig              *virtconfig.ClusterConfig
+	reloadableRateLimiter      *ratelimiter.ReloadableRateLimiter
+	caManager                  kvtls.ClientCAManager
 
 	ctx context.Context
 }
@@ -122,7 +127,8 @@ type synchronizationControllerApp struct {
 func (app *synchronizationControllerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
-	app.migrationcertmanager = bootstrap.NewFileCertificateManager(app.migrationClientCertFilePath, app.migrationClientKeyFilePath)
+	app.migrationclientcertmanager = bootstrap.NewFileCertificateManager(app.migrationClientCertFilePath, app.migrationClientKeyFilePath)
+	app.migrationservercertmanager = bootstrap.NewFileCertificateManager(app.migrationServerCertFilePath, app.migrationServerKeyFilePath)
 	return
 }
 
@@ -164,10 +170,11 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 	app.serverTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
 	app.clientTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
-	// Setup TLS configs for migration tunnel (CN="migration" to communicate with virt-handlers)
-	// Uses virt-handler TLS setup since we need to accept connections from and connect to virt-handlers
-	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationcertmanager, app.externallyManaged)
-	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler", "migration"})
+	// Terminating TLS for virt-handler ↔ proxy:
+	// - client config (migration client cert): dial target virt-handler
+	// - server config (virt-handler server cert): accept source virt-handler
+	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationclientcertmanager, app.externallyManaged)
+	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.migrationservercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler", "migration"})
 
 	return nil
 }
@@ -280,7 +287,8 @@ func (app *synchronizationControllerApp) Run() {
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
-	go app.migrationcertmanager.Start()
+	go app.migrationclientcertmanager.Start()
+	go app.migrationservercertmanager.Start()
 
 	factory.Start(stop)
 	app.runWithLeaderElection(synchronizationController, stop)
@@ -396,7 +404,8 @@ func (app *synchronizationControllerApp) close() {
 	// release resources associated with the application
 	app.clientcertmanager.Stop()
 	app.servercertmanager.Stop()
-	app.migrationcertmanager.Stop()
+	app.migrationclientcertmanager.Stop()
+	app.migrationservercertmanager.Stop()
 }
 
 func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, _ *http.Request) {
@@ -433,6 +442,12 @@ func (app *synchronizationControllerApp) AddFlags() {
 
 	flag.StringVar(&app.migrationClientKeyFilePath, "migration-client-key-file", defaultMigrationClientKeyFilePath,
 		"Private key for the migration client certificate")
+
+	flag.StringVar(&app.migrationServerCertFilePath, "migration-server-cert-file", defaultMigrationServerCertFilePath,
+		"Server certificate (virt-handler server cert) used to accept TLS from source virt-handlers")
+
+	flag.StringVar(&app.migrationServerKeyFilePath, "migration-server-key-file", defaultMigrationServerKeyFilePath,
+		"Private key for the migration server certificate")
 
 	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
