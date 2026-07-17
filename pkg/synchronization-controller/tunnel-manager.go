@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"google.golang.org/grpc"
@@ -41,93 +43,72 @@ const (
 	// frameDataSize is the size of data per frame (32KB)
 	frameDataSize = 32 * 1024
 
-	// channelBufferSize is the buffer size for channel queues
-	channelBufferSize = 16
-
 	// channelIdleTimeout is the maximum time a channel can be idle before being closed
 	channelIdleTimeout = 5 * time.Minute
-
-	// frameWriteTimeout is the timeout for writing a frame to the send queue
-	frameWriteTimeout = 30 * time.Second
 )
 
-// MigrationTunnelManager manages gRPC tunnels for cross-cluster migrations
-type MigrationTunnelManager struct {
-	// Tunnels keyed by migrationID
-	tunnels map[string]*migrationTunnel
-	mu      sync.RWMutex
-
-	// Network IPs
-	migrationIP    string
-	crossClusterIP string
-
-	// TLS configuration for connecting to virt-handler
-	tlsConfig *tls.Config
-
-	logger *log.FilteredLogger
-}
-
-// sendStream is an interface for sending frames
-type sendStream interface {
+// frameStream is a bidirectional MigrationTunnel stream (client or server side).
+type frameStream interface {
 	Send(*syncv1.MigrationFrame) error
-}
-
-// recvStream is an interface for receiving frames
-type recvStream interface {
 	Recv() (*syncv1.MigrationFrame, error)
 }
 
-// migrationTunnel represents dual unidirectional gRPC streams for a migration
-// Uses two streams: one for sending (on our outbound connection) and one for receiving (on peer's outbound connection)
-type migrationTunnel struct {
-	migrationID string
-	sendStream  sendStream // Stream we opened to send frames to peer
-	recvStream  recvStream // Stream peer opened to send frames to us
-	isSource    bool       // true if source tunnel, false if target tunnel
+// MigrationTunnelManager manages per-channel gRPC tunnels for cross-cluster migrations.
+// Each migration protocol port (channel) gets its own bidi MigrationTunnel stream on the
+// existing control-plane ClientConn, avoiding head-of-line blocking across channels.
+type MigrationTunnelManager struct {
+	tunnels map[string]*migrationTunnel
+	mu      sync.RWMutex
 
-	// Channels keyed by channel_id (protocol port: 0, 49152, 49153)
-	channels map[int32]*tunnelChannel
-	mu       sync.RWMutex
+	migrationIP    string
+	crossClusterIP string
 
-	// Communication channels
-	sendChan chan *syncv1.MigrationFrame
-	errChan  chan error
-	stopChan chan struct{}
-
-	// Context cancellation for send stream
-	cancelSendStream context.CancelFunc
-
-	// Listener ports (for virt-handler connections)
-	listenerPorts map[int]int // map[TCP port]protocol port
-
-	// Target virt-handler connection info (for target tunnel)
-	targetIP    string
-	targetPorts map[int]int // map[TCP port]protocol port
-
-	// TLS configuration for connecting to target virt-handler
+	// tlsConfig used to dial target virt-handler (migration client cert).
 	tlsConfig *tls.Config
 
 	logger *log.FilteredLogger
 }
 
-// tunnelChannel represents a single multiplexed channel within a tunnel
-type tunnelChannel struct {
-	channelID     int32
-	localConn     net.Conn // Incoming connection (from source virt-handler)
-	targetConn    net.Conn // Outgoing connection (to target virt-handler), only for target tunnel
-	sendQueue     chan []byte
-	recvQueue     chan []byte
-	sequence      uint64
-	lastActivity  atomic.Value // time.Time
-	stopChan      chan struct{}
-	stopped       atomic.Bool
-	mu            sync.Mutex
-	bytesSent     atomic.Uint64 // bytes sent to remote peer (source→target or target→source)
-	bytesReceived atomic.Uint64 // bytes received from remote peer
-	createdAt     time.Time
+// migrationTunnel holds source listeners or target dial info for one migration.
+type migrationTunnel struct {
+	migrationID string
+	isSource    bool
+
+	channels map[int32]*tunnelChannel
+	mu       sync.RWMutex
+
+	stopChan chan struct{}
+
+	// Source: listeners for virt-handler and the shared control-plane conn.
+	listenerPorts map[int]int // map[listen TCP port]protocol port
+	listeners     []net.Listener
+	grpcConn      *grpc.ClientConn
+
+	// Target: where to forward opened channels.
+	targetIP    string
+	targetPorts map[int]int // map[TCP port]protocol port
+
+	tlsConfig *tls.Config
+	logger    *log.FilteredLogger
 }
 
-// NewMigrationTunnelManager creates a new tunnel manager
+// tunnelChannel is one migration protocol connection with its own gRPC stream.
+type tunnelChannel struct {
+	channelID    int32
+	stream       frameStream
+	cancelStream context.CancelFunc // set for client-opened streams
+	conn         net.Conn           // virt-handler side (source local or target dial)
+	stopChan     chan struct{}
+	stopped      atomic.Bool
+	sequence     uint64
+	lastActivity atomic.Value // time.Time
+	bytesSent    atomic.Uint64
+	bytesReceived atomic.Uint64
+	createdAt    time.Time
+	logger       *log.FilteredLogger
+}
+
+// NewMigrationTunnelManager creates a new tunnel manager.
 func NewMigrationTunnelManager(tlsConfig *tls.Config) *MigrationTunnelManager {
 	return &MigrationTunnelManager{
 		tunnels:   make(map[string]*migrationTunnel),
@@ -172,136 +153,93 @@ func (m *MigrationTunnelManager) CrossClusterIP() string {
 // StartTargetTunnel prepares the target side to accept per-channel streams from the source
 // and forward them to the local virt-handler ports.
 func (m *MigrationTunnelManager) StartTargetTunnel(
-	ctx context.Context,
+	_ context.Context,
 	migrationID string,
 	targetVirtHandlerIP string,
-	targetVirtHandlerPorts map[int]int, // map[TCP port]protocol port
+	targetVirtHandlerPorts map[int]int,
 ) (*migrationTunnel, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Use "target:" prefix to distinguish from source tunnel
 	tunnelKey := "target:" + migrationID
-
-	// Check if tunnel already exists
 	if existing, exists := m.tunnels[tunnelKey]; exists {
 		m.logger.Infof("Target tunnel already exists for migration %s", migrationID)
 		return existing, nil
 	}
 
-	// Create tunnel structure
-	// sendStream and recvStream will be set when streams are established
 	tunnel := &migrationTunnel{
-		migrationID:   migrationID,
-		sendStream:    nil, // Will be set when we open stream on our outbound connection to target virt-handler
-		recvStream:    nil, // Will be set when source virt-handler opens stream on its connection to us
-		isSource:      false,
-		channels:      make(map[int32]*tunnelChannel),
-		sendChan:      make(chan *syncv1.MigrationFrame, channelBufferSize),
-		errChan:       make(chan error, 1),
-		stopChan:      make(chan struct{}),
-		listenerPorts: make(map[int]int), // only used for source tunnel, we open these when we have received the target virt-handler ports.
-		targetIP:      targetVirtHandlerIP,
-		targetPorts:   targetVirtHandlerPorts,
-		tlsConfig:     m.tlsConfig,
-		logger:        m.logger,
+		migrationID:     migrationID,
+		isSource:        false,
+		channels:        make(map[int32]*tunnelChannel),
+		stopChan:        make(chan struct{}),
+		listenerPorts:   make(map[int]int),
+		targetIP:        targetVirtHandlerIP,
+		targetPorts:     targetVirtHandlerPorts,
+		tlsConfig: m.tlsConfig,
+		logger:    m.logger,
 	}
-
-	// Store tunnel with "target:" prefix
 	m.tunnels[tunnelKey] = tunnel
 
-	// Start source receiving frames handler. (source -> target)
-	go tunnel.sourceToTarget()
-	// recvStream will be set later via SetReceiveStream, which starts runReceive
-
+	m.logger.Infof("Started target tunnel for migration %s → virt-handler %s ports %v",
+		migrationID, targetVirtHandlerIP, targetVirtHandlerPorts)
 	return tunnel, nil
 }
 
-// StartSourceTunnel creates a source-side tunnel for outbound migration
-// Connects to target sync controller's crosscluster0 via existing gRPC connection
-// Creates listeners on migration0 for source virt-handler to connect to
+// StartSourceTunnel creates listeners on the internal migration network for source
+// virt-handler and stores the control-plane gRPC connection used to open one
+// MigrationTunnel stream per channel.
 func (m *MigrationTunnelManager) StartSourceTunnel(
-	ctx context.Context,
+	_ context.Context,
 	migrationID string,
 	grpcConn *grpc.ClientConn,
-	targetProxyPorts map[int]int, // map[TCP port]protocol port from target sync controller
+	protocolPorts map[int]int, // map[any TCP port]protocol port — values are the channels to open
 ) (*migrationTunnel, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Use "source:" prefix to distinguish from target tunnel
 	tunnelKey := "source:" + migrationID
-
-	// Check if tunnel already exists
 	if existing, exists := m.tunnels[tunnelKey]; exists {
 		m.logger.Infof("Source tunnel already exists for migration %s", migrationID)
 		return existing, nil
 	}
 
-	// Create outbound gRPC stream for SENDING to target
-	// Use a cancellable context that lives until the tunnel is stopped
-	// Do NOT use a timeout - the stream must stay open for the entire migration
-	streamCtx, cancel := context.WithCancel(context.Background())
-	client := syncv1.NewSynchronizeClient(grpcConn)
-	sendStream, err := client.MigrationTunnel(streamCtx)
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed to create outbound migration tunnel stream: %v", err)
-	}
-
-	// Create tunnel structure
-	// recvStream will be set when target calls MigrationTunnel on its connection back to us
 	tunnel := &migrationTunnel{
-		migrationID:      migrationID,
-		sendStream:       sendStream,
-		cancelSendStream: cancel,
-		recvStream:       nil, // Will be set by SetReceiveStream when target opens its stream
-		isSource:         true,
-		channels:         make(map[int32]*tunnelChannel),
-		sendChan:         make(chan *syncv1.MigrationFrame, channelBufferSize),
-		errChan:          make(chan error, 1),
-		stopChan:         make(chan struct{}),
-		listenerPorts:    make(map[int]int),
-		tlsConfig:        m.tlsConfig,
-		logger:           m.logger,
+		migrationID:     migrationID,
+		isSource:        true,
+		channels:        make(map[int32]*tunnelChannel),
+		stopChan:        make(chan struct{}),
+		listenerPorts:   make(map[int]int),
+		grpcConn:  grpcConn,
+		tlsConfig: m.tlsConfig,
+		logger:    m.logger,
 	}
 
-	// Create listeners on migration0 for source virt-handler
-	for targetProxyPort, protocolPort := range targetProxyPorts {
-		listenAddr := net.JoinHostPort(m.migrationIP, "0") // OS-allocated port
+	// Deduplicate protocol ports (map values) so we open one listener per channel.
+	seen := make(map[int]struct{})
+	for _, protocolPort := range protocolPorts {
+		if _, ok := seen[protocolPort]; ok {
+			continue
+		}
+		seen[protocolPort] = struct{}{}
+
+		listenAddr := net.JoinHostPort(m.migrationIP, "0")
 		listener, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			// Clean up
-			if sendStream != nil {
-				sendStream.CloseSend()
-			}
-			for _, ch := range tunnel.channels {
-				if ch.localConn != nil {
-					ch.localConn.Close()
-				}
-			}
-			return nil, fmt.Errorf("failed to create listener: %v", err)
+			tunnel.closeListeners()
+			return nil, fmt.Errorf("failed to create listener for protocol %d: %v", protocolPort, err)
 		}
 
-		tcpAddr := listener.Addr().(*net.TCPAddr)
-		listenerPort := tcpAddr.Port
-
+		listenerPort := listener.Addr().(*net.TCPAddr).Port
 		tunnel.listenerPorts[listenerPort] = protocolPort
+		tunnel.listeners = append(tunnel.listeners, listener)
 
-		// Start accepting connections
-		go tunnel.acceptConnections(listener, int32(protocolPort), "", targetProxyPort)
+		go tunnel.acceptConnections(listener, int32(protocolPort))
 
-		m.logger.Infof("Source tunnel listener for migration %s protocol %d: %s:%d (target proxy port: %d)",
-			migrationID, protocolPort, m.migrationIP, listenerPort, targetProxyPort)
+		m.logger.Infof("Source tunnel listener for migration %s protocol %d: %s:%d",
+			migrationID, protocolPort, m.migrationIP, listenerPort)
 	}
 
-	// Store tunnel with "source:" prefix
 	m.tunnels[tunnelKey] = tunnel
-
-	// Start stream handlers
-	go tunnel.sourceToTarget()
-	// recvStream will be set via SetReceiveStream when target opens its stream to us
-
 	return tunnel, nil
 }
 
@@ -310,126 +248,101 @@ func (t *migrationTunnel) GetListenerPorts() map[int]int {
 	return t.listenerPorts
 }
 
-// SetReceiveStream sets the receive stream (called when peer opens their send stream to us)
-// isSource indicates if this is being called on the source side (true) or target side (false)
-func (m *MigrationTunnelManager) SetReceiveStream(migrationID string, stream recvStream, isSource bool) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Use appropriate prefix based on which side we're on
-	tunnelKey := "target:" + migrationID
-	if isSource {
-		tunnelKey = "source:" + migrationID
+// HandleInboundChannel serves a MigrationTunnel stream opened by the source for one channel.
+// Runs until the stream or underlying virt-handler connection closes.
+func (m *MigrationTunnelManager) HandleInboundChannel(stream frameStream, openFrame *syncv1.MigrationFrame) error {
+	if openFrame.FrameType != syncv1.FrameType_FRAME_TYPE_OPEN {
+		return fmt.Errorf("expected OPEN frame, got %v", openFrame.FrameType)
 	}
 
-	tunnel, exists := m.tunnels[tunnelKey]
-	if !exists {
-		return fmt.Errorf("tunnel not found for migration %s (key: %s)", migrationID, tunnelKey)
+	migrationID := openFrame.MigrationId
+	channelID := openFrame.ChannelId
+
+	m.mu.RLock()
+	tunnel := m.tunnels["target:"+migrationID]
+	m.mu.RUnlock()
+	if tunnel == nil {
+		return fmt.Errorf("target tunnel not found for migration %s", migrationID)
 	}
 
-	tunnel.recvStream = stream
-	m.logger.Infof("Set receive stream for migration %s (key: %s)", migrationID, tunnelKey)
-
-	// Note: We don't start runReceive() here because the gRPC handler
-	// will handle the receive loop itself by calling stream.Recv() in a loop
-	// and forwarding frames to handleIncomingFrame()
-
-	return nil
-}
-
-// OpenSendStream opens the send stream on the provided connection
-// This is called by target to open its send stream back to source
-func (m *MigrationTunnelManager) OpenSendStream(ctx context.Context, migrationID string, grpcConn *grpc.ClientConn) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Target opens send stream, so use "target:" prefix
-	tunnelKey := "target:" + migrationID
-
-	tunnel, exists := m.tunnels[tunnelKey]
-	if !exists {
-		return fmt.Errorf("tunnel not found for migration %s (key: %s)", migrationID, tunnelKey)
-	}
-
-	// Check if send stream already exists
-	if tunnel.sendStream != nil {
-		m.logger.V(2).Infof("Send stream already exists for migration %s, skipping", migrationID)
-		return nil
-	}
-
-	// Create outbound gRPC stream for SENDING
-	// Use a cancellable context that lives until the tunnel is stopped
-	// Do NOT use a timeout - the stream must stay open for the entire migration
-	streamCtx, cancel := context.WithCancel(context.Background())
-	client := syncv1.NewSynchronizeClient(grpcConn)
-	sendStream, err := client.MigrationTunnel(streamCtx)
+	targetPort, err := tunnel.lookupTargetPort(channelID)
 	if err != nil {
-		cancel()
-		return fmt.Errorf("failed to create send migration tunnel stream: %v", err)
+		return err
 	}
 
-	tunnel.sendStream = sendStream
-	tunnel.cancelSendStream = cancel
-	m.logger.Infof("Opened send stream for migration %s", migrationID)
+	targetAddr := net.JoinHostPort(tunnel.targetIP, fmt.Sprintf("%d", targetPort))
+	var conn net.Conn
+	if tunnel.tlsConfig != nil {
+		conn, err = tls.Dial("tcp", targetAddr, tunnel.tlsConfig)
+	} else {
+		conn, err = net.Dial("tcp", targetAddr)
+	}
+	if err != nil {
+		virthandler.DecentralizedMigrationProxyErrorsInc("target", "connect_error")
+		_ = stream.Send(&syncv1.MigrationFrame{
+			MigrationId:  migrationID,
+			ChannelId:    channelID,
+			FrameType:    syncv1.FrameType_FRAME_TYPE_ERROR,
+			ErrorMessage: fmt.Sprintf("connection to target virt-handler refused: %v", err),
+		})
+		return fmt.Errorf("failed to connect to target virt-handler at %s: %v", targetAddr, err)
+	}
 
-	// Start send loop
-	go tunnel.sourceToTarget()
+	tunnel.logger.Infof("Target channel %d connected to virt-handler %s for migration %s",
+		channelID, targetAddr, migrationID)
 
-	return nil
+	return tunnel.runChannel("target", channelID, stream, nil, conn)
 }
 
-// StopTunnel stops a tunnel and cleans up all resources
-// Stops both source and target tunnels for this migration
+func (t *migrationTunnel) lookupTargetPort(channelID int32) (int, error) {
+	for tcpPort, protocolPort := range t.targetPorts {
+		if int32(protocolPort) == channelID {
+			return tcpPort, nil
+		}
+	}
+	return 0, fmt.Errorf("no target virt-handler port for channel %d", channelID)
+}
+
+// StopTunnel stops source and target tunnels for this migration
 func (m *MigrationTunnelManager) StopTunnel(migrationID string) {
 	m.mu.Lock()
-
-	// Stop both source and target tunnels if they exist
 	sourceTunnel, sourceExists := m.tunnels["source:"+migrationID]
 	targetTunnel, targetExists := m.tunnels["target:"+migrationID]
-
 	if sourceExists {
 		delete(m.tunnels, "source:"+migrationID)
 	}
 	if targetExists {
 		delete(m.tunnels, "target:"+migrationID)
 	}
-
 	m.mu.Unlock()
 
-	// Clean up source tunnel
 	if sourceExists {
 		m.stopTunnelInternal(sourceTunnel, migrationID, "source")
 	}
-
-	// Clean up target tunnel
 	if targetExists {
 		m.stopTunnelInternal(targetTunnel, migrationID, "target")
 	}
 }
 
-// stopTunnelInternal performs the actual cleanup of a tunnel
 func (m *MigrationTunnelManager) stopTunnelInternal(tunnel *migrationTunnel, migrationID, tunnelType string) {
+	select {
+	case <-tunnel.stopChan:
+		// already stopped
+	default:
+		close(tunnel.stopChan)
+	}
 
-	// Signal shutdown
-	close(tunnel.stopChan)
+	tunnel.closeListeners()
 
-	// Close all channels
 	tunnel.mu.Lock()
+	channels := make([]*tunnelChannel, 0, len(tunnel.channels))
 	for _, ch := range tunnel.channels {
-		ch.close()
+		channels = append(channels, ch)
 	}
 	tunnel.mu.Unlock()
 
-	// Cancel send stream context
-	if tunnel.cancelSendStream != nil {
-		tunnel.cancelSendStream()
-	}
-
-	// Close send stream (client streams have CloseSend)
-	if tunnel.sendStream != nil {
-		if clientStream, ok := tunnel.sendStream.(syncv1.Synchronize_MigrationTunnelClient); ok {
-			clientStream.CloseSend()
-		}
+	for _, ch := range channels {
+		ch.close()
 	}
 
 	m.logger.Infof("Stopped %s tunnel for migration %s", tunnelType, migrationID)
@@ -438,547 +351,325 @@ func (m *MigrationTunnelManager) stopTunnelInternal(tunnel *migrationTunnel, mig
 // Shutdown stops all tunnels
 func (m *MigrationTunnelManager) Shutdown() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for migrationID, tunnel := range m.tunnels {
-		close(tunnel.stopChan)
-
-		tunnel.mu.Lock()
-		for _, ch := range tunnel.channels {
-			ch.close()
+	migrationIDs := make(map[string]struct{})
+	for key := range m.tunnels {
+		id := key
+		if after, ok := stripTunnelKeyPrefix(key); ok {
+			id = after
 		}
-		tunnel.mu.Unlock()
+		migrationIDs[id] = struct{}{}
+	}
+	m.mu.Unlock()
 
-		if tunnel.cancelSendStream != nil {
-			tunnel.cancelSendStream()
-		}
-
-		if tunnel.sendStream != nil {
-			if clientStream, ok := tunnel.sendStream.(syncv1.Synchronize_MigrationTunnelClient); ok {
-				clientStream.CloseSend()
-			}
-		}
-
-		delete(m.tunnels, migrationID)
+	for migrationID := range migrationIDs {
+		m.StopTunnel(migrationID)
 	}
 
 	m.logger.Info("Migration tunnel manager shutdown complete")
 }
 
-// acceptConnections accepts incoming connections on a listener
-func (t *migrationTunnel) acceptConnections(listener net.Listener, protocolPort int32, targetIP string, targetPort int) {
+func stripTunnelKeyPrefix(key string) (string, bool) {
+	switch {
+	case strings.HasPrefix(key, "source:"):
+		return strings.TrimPrefix(key, "source:"), true
+	case strings.HasPrefix(key, "target:"):
+		return strings.TrimPrefix(key, "target:"), true
+	default:
+		return key, false
+	}
+}
+
+func (t *migrationTunnel) closeListeners() {
+	t.mu.Lock()
+	listeners := t.listeners
+	t.listeners = nil
+	t.listenerPorts = make(map[int]int)
+	t.mu.Unlock()
+
+	for _, l := range listeners {
+		_ = l.Close()
+	}
+}
+
+func (t *migrationTunnel) acceptConnections(listener net.Listener, protocolPort int32) {
 	defer listener.Close()
 
+	var tempDelay time.Duration
 	for {
-		select {
-		case <-t.stopChan:
-			return
-		default:
-		}
-
 		conn, err := listener.Accept()
 		if err != nil {
 			select {
 			case <-t.stopChan:
 				return
 			default:
-				t.logger.Reason(err).Errorf("Error accepting connection for migration %s", t.migrationID)
+			}
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			if isTransientAcceptError(err) {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+					if tempDelay > time.Second {
+						tempDelay = time.Second
+					}
+				}
+				t.logger.Reason(err).Warningf("Transient accept error for migration %s channel %d; retrying in %v",
+					t.migrationID, protocolPort, tempDelay)
+				timer := time.NewTimer(tempDelay)
+				select {
+				case <-timer.C:
+				case <-t.stopChan:
+					timer.Stop()
+					return
+				}
 				continue
 			}
+			t.logger.Reason(err).Errorf("Error accepting connection for migration %s channel %d",
+				t.migrationID, protocolPort)
+			return
+		}
+		tempDelay = 0
+
+		select {
+		case <-t.stopChan:
+			conn.Close()
+			return
+		default:
 		}
 
-		// Handle connection in new goroutine
-		go t.handleNewConnection(conn, protocolPort, targetIP, targetPort)
+		go t.handleSourceConnection(conn, protocolPort)
 	}
 }
 
-// handleNewConnection handles a new virt-handler connection
-func (t *migrationTunnel) handleNewConnection(conn net.Conn, protocolPort int32, targetIP string, targetPort int) {
-	t.logger.Infof("New connection for migration %s channel %d", t.migrationID, protocolPort)
-
-	var targetConn net.Conn
-
-	// For target tunnel: connect to target virt-handler NOW (lazy connection)
-	// For source tunnel: targetIP is empty, so we skip this
-	if !t.isSource && targetIP != "" {
-		targetAddr := net.JoinHostPort(targetIP, fmt.Sprintf("%d", targetPort))
-		t.logger.Infof("Connecting to target virt-handler at %s for channel %d", targetAddr, protocolPort)
-
-		var err error
-		// Use TLS to connect to target virt-handler
-		if t.tlsConfig != nil {
-			targetConn, err = tls.Dial("tcp", targetAddr, t.tlsConfig)
-		} else {
-			targetConn, err = net.Dial("tcp", targetAddr)
+// isTransientAcceptError reports OS/net errors that can clear without replacing
+// the listener (EMFILE, temporary unavailability, etc.).
+func isTransientAcceptError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if ne, ok := err.(interface{ Temporary() bool }); ok && ne.Temporary() {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		switch errno {
+		case syscall.EAGAIN, syscall.EINTR, syscall.EMFILE, syscall.ENFILE, syscall.ENOBUFS:
+			return true
 		}
-		if err != nil {
-			t.logger.Reason(err).Errorf("Failed to connect to target virt-handler at %s", targetAddr)
-			conn.Close()
-			return
+		// EWOULDBLOCK may alias EAGAIN (Linux); keep a separate check for other platforms.
+		if errno == syscall.EWOULDBLOCK {
+			return true
 		}
+	}
+	return false
+}
 
-		t.logger.Infof("Successfully connected to target virt-handler at %s for channel %d", targetAddr, protocolPort)
+func (t *migrationTunnel) handleSourceConnection(conn net.Conn, protocolPort int32) {
+	if t.grpcConn == nil {
+		t.logger.Errorf("No gRPC connection for source tunnel migration %s", t.migrationID)
+		conn.Close()
+		return
 	}
 
-	// Create channel
-	// For target: conn = source virt-handler connection, targetConn = target virt-handler connection
-	// For source: conn = source virt-handler connection, targetConn = nil
-	now := time.Now()
-	channel := &tunnelChannel{
-		channelID:  protocolPort,
-		localConn:  conn,       // Incoming connection (from source virt-handler)
-		targetConn: targetConn, // Outgoing connection (to target virt-handler), nil for source tunnel
-		sendQueue:  make(chan []byte, channelBufferSize),
-		recvQueue:  make(chan []byte, channelBufferSize),
-		stopChan:   make(chan struct{}),
-		createdAt:  now,
+	// Open the stream before registering the channel so StopTunnel can cancel it.
+	streamCtx, cancel := context.WithCancel(context.Background())
+	client := syncv1.NewSynchronizeClient(t.grpcConn)
+	stream, err := client.MigrationTunnel(streamCtx)
+	if err != nil {
+		cancel()
+		virthandler.DecentralizedMigrationProxyErrorsInc("source", "connect_error")
+		t.logger.Reason(err).Errorf("Failed to open MigrationTunnel stream for channel %d", protocolPort)
+		conn.Close()
+		return
 	}
-	channel.lastActivity.Store(now)
 
-	// Register channel
-	t.mu.Lock()
-	t.channels[protocolPort] = channel
-	t.mu.Unlock()
-
-	// Track active connection
-	proxyType := "source"
-	if !t.isSource {
-		proxyType = "target"
-	}
-	virthandler.DecentralizedMigrationProxyActiveConnectionsInc(proxyType)
-	defer virthandler.DecentralizedMigrationProxyActiveConnectionsDec(proxyType)
-
-	// Send OPEN frame
 	openFrame := &syncv1.MigrationFrame{
 		MigrationId: t.migrationID,
 		ChannelId:   protocolPort,
 		FrameType:   syncv1.FrameType_FRAME_TYPE_OPEN,
-		Sequence:    atomic.AddUint64(&channel.sequence, 1),
+		Sequence:    1,
 	}
-
-	select {
-	case t.sendChan <- openFrame:
-	case <-time.After(frameWriteTimeout):
-		t.logger.Errorf("Timeout sending OPEN frame for channel %d", protocolPort)
-		channel.close()
-		return
-	case <-t.stopChan:
-		channel.close()
+	if err := stream.Send(openFrame); err != nil {
+		cancel()
+		virthandler.DecentralizedMigrationProxyErrorsInc("source", "send_error")
+		t.logger.Reason(err).Errorf("Failed to send OPEN for channel %d", protocolPort)
+		conn.Close()
 		return
 	}
 
-	// Start I/O goroutines
-	t.logger.Infof("Starting sendLoop and recvLoop for migration=%s channel=%d isSource=%v", t.migrationID, protocolPort, t.isSource)
-	go channel.sendLoop(t.migrationID, t.sendChan, t.stopChan, t.isSource, t.logger)
-	go channel.recvLoop(t.isSource, t.logger)
+	t.logger.Infof("Opened per-channel stream for migration %s channel %d", t.migrationID, protocolPort)
 
-	// Monitor idle timeout
-	go channel.monitorIdle(t.migrationID, t.sendChan, t.logger)
-}
-
-// runSource runs the stream send/recv loops for source tunnel
-// sourceToTarget sends frames from sendChan to the peer via sendStream
-func (t *migrationTunnel) sourceToTarget() {
-	proxyType := "target"
-
-	for {
-		select {
-		case frame := <-t.sendChan: // received frame from source proxy. (source -> target)
-			if t.sendStream == nil {
-				// Have not connected to target virt-handler yet. Setup connections now.
-				for _, targetPort := range t.targetPorts {
-					if t.tlsConfig == nil {
-						t.logger.Errorf("TLS config is nil for migration %s", t.migrationID)
-						virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "connect_error")
-						continue
-					}
-					targetAddr := net.JoinHostPort(t.targetIP, fmt.Sprintf("%d", targetPort))
-					targetConn, err := tls.Dial("tcp", targetAddr, t.tlsConfig)
-					if err != nil {
-						t.logger.Reason(err).Errorf("Failed to connect to target virt-handler at %s", targetAddr)
-						virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "connect_error")
-						continue
-					}
-					t.sendStream = targetConn
-				}
-			}
-			if err := t.sendStream.Send(frame); err != nil {
-				if err != io.EOF {
-					t.logger.Reason(err).Errorf("Error sending frame for migration %s", t.migrationID)
-					virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
-				}
-				t.errChan <- err
-				return
-			}
-		case <-t.stopChan:
-			return
-		}
+	if err := t.runChannel("source", protocolPort, stream, cancel, conn); err != nil {
+		t.logger.Reason(err).Errorf("Channel %d ended with error", protocolPort)
 	}
 }
 
-// runReceive receives frames from peer via recvStream and routes them to channels
-// handleIncomingFrame routes an incoming frame to the appropriate channel
-func (t *migrationTunnel) handleIncomingFrame(frame *syncv1.MigrationFrame) {
-	t.logger.Infof("handleIncomingFrame: migration=%s channelId=%d frameType=%v isSource=%v",
-		t.migrationID, frame.ChannelId, frame.FrameType, t.isSource)
+// runChannel proxies bytes between conn and stream until either side closes.
+func (t *migrationTunnel) runChannel(
+	proxyType string,
+	channelID int32,
+	stream frameStream,
+	cancelStream context.CancelFunc,
+	conn net.Conn,
+) error {
+	now := time.Now()
+	ch := &tunnelChannel{
+		channelID:    channelID,
+		stream:       stream,
+		cancelStream: cancelStream,
+		conn:         conn,
+		stopChan:     make(chan struct{}),
+		createdAt:    now,
+		logger:       t.logger,
+	}
+	ch.lastActivity.Store(now)
+	ch.sequence = 1
 
 	t.mu.Lock()
-	channel := t.channels[frame.ChannelId]
-
-	// If channel doesn't exist and this is an OPEN frame, create it now
-	if channel == nil && frame.FrameType == syncv1.FrameType_FRAME_TYPE_OPEN {
-		t.logger.Infof("Creating new channel for OPEN frame: channelId=%d isSource=%v", frame.ChannelId, t.isSource)
-
-		now := time.Now()
-		channel = &tunnelChannel{
-			channelID:  frame.ChannelId,
-			localConn:  nil, // No local connection - this is a remote-initiated channel
-			targetConn: nil, // Will connect to target virt-handler below
-			sendQueue:  make(chan []byte, channelBufferSize),
-			recvQueue:  make(chan []byte, channelBufferSize),
-			stopChan:   make(chan struct{}),
-			createdAt:  now,
-		}
-		channel.lastActivity.Store(now)
-
-		t.channels[frame.ChannelId] = channel
-
-		// Start recvLoop for this channel (only recvLoop, no sendLoop since no localConn)
-		go channel.recvLoop(t.isSource, t.logger)
-
-		// Track active connection
-		proxyType := "source"
-		if !t.isSource {
-			proxyType = "target"
-		}
-		virthandler.DecentralizedMigrationProxyActiveConnectionsInc(proxyType)
+	if prev, ok := t.channels[channelID]; ok {
+		prev.close()
 	}
-
+	t.channels[channelID] = ch
 	t.mu.Unlock()
 
-	if channel == nil {
-		t.logger.Errorf("Received frame for unknown channel %d (frameType=%v, have %d channels)",
-			frame.ChannelId, frame.FrameType, len(t.channels))
-		return
-	}
-
-	// Handle frame based on type
-	switch frame.FrameType {
-	case syncv1.FrameType_FRAME_TYPE_OPEN:
-		// On target side: connect to target virt-handler NOW (lazy connection)
-		if !t.isSource && channel.targetConn == nil {
-			targetIP := t.targetIP
-			var targetPort int
-
-			// Find the target port for this channel (frame.ChannelId is the protocol port)
-			for tcpPort, protocolPort := range t.targetPorts {
-				if int32(protocolPort) == frame.ChannelId {
-					targetPort = tcpPort
-					break
-				}
-			}
-
-			if targetPort != 0 {
-				targetAddr := net.JoinHostPort(targetIP, fmt.Sprintf("%d", targetPort))
-				t.logger.Infof("Connecting to target virt-handler at %s for channel %d", targetAddr, frame.ChannelId)
-
-				var targetConn net.Conn
-				var err error
-				// Use TLS to connect to target virt-handler
-				if t.tlsConfig != nil {
-					targetConn, err = tls.Dial("tcp", targetAddr, t.tlsConfig)
-				} else {
-					targetConn, err = net.Dial("tcp", targetAddr)
-				}
-				if err != nil {
-					t.logger.Reason(err).Errorf("Failed to connect to target virt-handler at %s", targetAddr)
-					// Send ERROR frame back
-					errorFrame := &syncv1.MigrationFrame{
-						MigrationId:  t.migrationID,
-						ChannelId:    frame.ChannelId,
-						FrameType:    syncv1.FrameType_FRAME_TYPE_ERROR,
-						ErrorMessage: fmt.Sprintf("connection to target virt-handler refused: %v", err),
-						Sequence:     atomic.AddUint64(&channel.sequence, 1),
-					}
-					select {
-					case t.sendChan <- errorFrame:
-					case <-time.After(frameWriteTimeout):
-					case <-t.stopChan:
-					}
-					channel.close()
-					return
-				}
-
-				// Store the target connection
-				channel.targetConn = targetConn
-
-				// Start goroutine to read from target virt-handler and send to source
-				go func() {
-					buf := make([]byte, frameDataSize)
-					for {
-						select {
-						case <-channel.stopChan:
-							return
-						case <-t.stopChan:
-							return
-						default:
-						}
-
-						n, err := targetConn.Read(buf)
-						if err != nil {
-							if err != io.EOF {
-								t.logger.Reason(err).Errorf("Error reading from target virt-handler channel %d", frame.ChannelId)
-							}
-							// Send CLOSE frame
-							closeFrame := &syncv1.MigrationFrame{
-								MigrationId: t.migrationID,
-								ChannelId:   frame.ChannelId,
-								FrameType:   syncv1.FrameType_FRAME_TYPE_CLOSE,
-								Sequence:    atomic.AddUint64(&channel.sequence, 1),
-							}
-							select {
-							case t.sendChan <- closeFrame:
-							case <-time.After(frameWriteTimeout):
-							case <-t.stopChan:
-							}
-							channel.closeWithStats(t.migrationID, t.isSource, t.logger)
-							return
-						}
-
-						// Send DATA frame with data from target virt-handler
-						frame := &syncv1.MigrationFrame{
-							MigrationId: t.migrationID,
-							ChannelId:   frame.ChannelId,
-							FrameType:   syncv1.FrameType_FRAME_TYPE_DATA,
-							Data:        append([]byte(nil), buf[:n]...),
-							Sequence:    atomic.AddUint64(&channel.sequence, 1),
-						}
-
-						channel.lastActivity.Store(time.Now())
-
-						select {
-						case t.sendChan <- frame:
-						case <-time.After(frameWriteTimeout):
-							t.logger.Errorf("Timeout sending DATA frame from target virt-handler for channel %d", frame.ChannelId)
-							channel.close()
-							return
-						case <-t.stopChan:
-							channel.close()
-							return
-						}
-					}
-				}()
-			}
+	virthandler.DecentralizedMigrationProxyActiveConnectionsInc(proxyType)
+	defer virthandler.DecentralizedMigrationProxyActiveConnectionsDec(proxyType)
+	defer func() {
+		ch.closeWithStats(t.migrationID, proxyType)
+		t.mu.Lock()
+		if current, ok := t.channels[channelID]; ok && current == ch {
+			delete(t.channels, channelID)
 		}
+		t.mu.Unlock()
+	}()
 
-		t.logger.V(4).Infof("Channel %d opened", frame.ChannelId)
+	errChan := make(chan error, 2)
+	go func() {
+		errChan <- ch.proxyConnToStream(t.migrationID, proxyType)
+	}()
+	go func() {
+		errChan <- ch.proxyStreamToConn(t.migrationID, proxyType)
+	}()
+	go ch.monitorIdle(t.migrationID)
 
-	case syncv1.FrameType_FRAME_TYPE_DATA:
-		// Determine direction and protocol for logging
-		direction := "target→source"
-		if t.isSource {
-			direction = "target→source"
-		} else {
-			direction = "source→target"
-		}
-		protocol := "unknown"
-		switch frame.ChannelId {
-		case 0:
-			protocol = "virtqemud"
-		case 49152:
-			protocol = "libvirt"
-		case 49153:
-			protocol = "block-migration"
-		default:
-			protocol = fmt.Sprintf("port-%d", frame.ChannelId)
-		}
-
-		t.logger.V(4).Infof("Received %d bytes on migration tunnel: migration=%s protocol=%s direction=%s seq=%d",
-			len(frame.Data), t.migrationID, protocol, direction, frame.Sequence)
-
-		// Forward data to channel
+	select {
+	case <-t.stopChan:
+		ch.close()
+		return nil
+	case err := <-errChan:
+		ch.close()
+		// Drain the other side without blocking forever
 		select {
-		case channel.recvQueue <- frame.Data:
-			channel.lastActivity.Store(time.Now())
-		case <-channel.stopChan:
-		case <-t.stopChan:
+		case <-errChan:
+		case <-time.After(time.Second):
 		}
-
-	case syncv1.FrameType_FRAME_TYPE_CLOSE:
-		// Remote closed channel
-		t.logger.Infof("Channel %d closed by remote", frame.ChannelId)
-		channel.close()
-
-	case syncv1.FrameType_FRAME_TYPE_ERROR:
-		// Remote reported error
-		t.logger.Errorf("Channel %d error from remote: %s", frame.ChannelId, frame.ErrorMessage)
-		channel.close()
+		if err != nil && err != io.EOF {
+			return err
+		}
+		return nil
 	}
 }
 
-// tunnelChannel methods
-
-func (c *tunnelChannel) sendLoop(migrationID string, sendChan chan *syncv1.MigrationFrame, stopChan chan struct{}, isSource bool, logger *log.FilteredLogger) {
+func (c *tunnelChannel) proxyConnToStream(migrationID, proxyType string) error {
 	buf := make([]byte, frameDataSize)
-
-	proxyType := "source"
-	if !isSource {
-		proxyType = "target"
-	}
-
-	logger.Infof("sendLoop started for migration=%s channel=%d isSource=%v", migrationID, c.channelID, isSource)
-
 	for {
 		select {
 		case <-c.stopChan:
-			logger.Infof("sendLoop stopped via stopChan for migration=%s channel=%d", migrationID, c.channelID)
-			return
-		case <-stopChan:
-			logger.Infof("sendLoop stopped via tunnel stopChan for migration=%s channel=%d", migrationID, c.channelID)
-			return
+			return nil
 		default:
 		}
 
-		logger.V(4).Infof("sendLoop about to Read from localConn for migration=%s channel=%d", migrationID, c.channelID)
-		n, err := c.localConn.Read(buf)
+		n, err := c.conn.Read(buf)
 		if err != nil {
-			if err != io.EOF {
-				logger.Reason(err).Errorf("Error reading from local connection channel %d", c.channelID)
-			}
-			// Send CLOSE frame
 			closeFrame := &syncv1.MigrationFrame{
 				MigrationId: migrationID,
 				ChannelId:   c.channelID,
 				FrameType:   syncv1.FrameType_FRAME_TYPE_CLOSE,
 				Sequence:    atomic.AddUint64(&c.sequence, 1),
 			}
-			select {
-			case sendChan <- closeFrame:
-			case <-time.After(frameWriteTimeout):
-			case <-stopChan:
+			_ = c.stream.Send(closeFrame)
+			if err != io.EOF {
+				virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
+				return err
 			}
-			c.closeWithStats(migrationID, isSource, logger)
-			return
+			return io.EOF
 		}
 
-		// Determine direction and protocol for logging
-		direction := "source→target"
-		if !isSource {
-			direction = "target→source"
-		}
-		protocol := "unknown"
-		switch c.channelID {
-		case 0:
-			protocol = "virtqemud"
-		case 49152:
-			protocol = "libvirt"
-		case 49153:
-			protocol = "block-migration"
-		default:
-			protocol = fmt.Sprintf("port-%d", c.channelID)
-		}
-
-		logger.Infof("sendLoop READ %d bytes from localConn: migration=%s protocol=%s channel=%d direction=%s",
-			n, migrationID, protocol, c.channelID, direction)
-
-		// Track bytes read from virt-handler and sent to remote peer
-		virthandler.ProxyBytesTransferredAdd(proxyType, "receive", float64(n))
-		c.bytesSent.Add(uint64(n))
-
-		// Send DATA frame
 		frame := &syncv1.MigrationFrame{
 			MigrationId: migrationID,
 			ChannelId:   c.channelID,
 			FrameType:   syncv1.FrameType_FRAME_TYPE_DATA,
-			Data:        append([]byte(nil), buf[:n]...), // Copy data
-			Sequence:    atomic.AddUint64(&c.sequence, 1),
+			// gRPC/protobuf serializes Data before the next Read reuses buf.
+			Data:     buf[:n],
+			Sequence: atomic.AddUint64(&c.sequence, 1),
 		}
-
-		logger.Infof("sendLoop SENDING %d bytes to sendChan: migration=%s protocol=%s direction=%s seq=%d",
-			n, migrationID, protocol, direction, frame.Sequence)
+		if err := c.stream.Send(frame); err != nil {
+			virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
+			return err
+		}
 
 		c.lastActivity.Store(time.Now())
-
-		select {
-		case sendChan <- frame:
-			logger.Infof("sendLoop SENT frame to sendChan: migration=%s channel=%d seq=%d", migrationID, c.channelID, frame.Sequence)
-		case <-time.After(frameWriteTimeout):
-			logger.Errorf("Timeout sending DATA frame for channel %d", c.channelID)
-			c.close()
-			return
-		case <-stopChan:
-			c.close()
-			return
-		}
+		c.bytesSent.Add(uint64(n))
+		virthandler.DecentralizedMigrationProxyBytesTransferredAdd(proxyType, "receive", float64(n))
 	}
 }
 
-func (c *tunnelChannel) recvLoop(isSource bool, logger *log.FilteredLogger) {
-	proxyType := "source"
-	if !isSource {
-		proxyType = "target"
-	}
-
-	logger.Infof("recvLoop started for channel=%d isSource=%v", c.channelID, isSource)
-
+func (c *tunnelChannel) proxyStreamToConn(migrationID, proxyType string) error {
 	for {
 		select {
-		case data := <-c.recvQueue:
-			logger.Infof("recvLoop received %d bytes from recvQueue for channel=%d", len(data), c.channelID)
+		case <-c.stopChan:
+			return nil
+		default:
+		}
 
-			// For target tunnel: write data from source to target virt-handler
-			// For source tunnel: write data from target to source virt-handler
-			var writeConn net.Conn
-			if !isSource && c.targetConn != nil {
-				// Target tunnel: write to target virt-handler
-				writeConn = c.targetConn
-				logger.Infof("recvLoop writing to targetConn for channel=%d", c.channelID)
-			} else {
-				// Source tunnel or target tunnel before target connected
-				writeConn = c.localConn
-				logger.Infof("recvLoop writing to localConn for channel=%d", c.channelID)
+		frame, err := c.stream.Recv()
+		if err != nil {
+			if err != io.EOF {
+				virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
 			}
+			return err
+		}
 
-			n, err := writeConn.Write(data)
-			if err != nil {
-				logger.Reason(err).Errorf("Error writing to connection channel %d", c.channelID)
-				c.close()
-				return
+		switch frame.FrameType {
+		case syncv1.FrameType_FRAME_TYPE_DATA:
+			if _, err := c.conn.Write(frame.Data); err != nil {
+				virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
+				return err
 			}
 			c.lastActivity.Store(time.Now())
+			c.bytesReceived.Add(uint64(len(frame.Data)))
+			virthandler.DecentralizedMigrationProxyBytesTransferredAdd(proxyType, "send", float64(len(frame.Data)))
 
-			logger.Infof("recvLoop WROTE %d bytes to connection channel=%d", n, c.channelID)
+		case syncv1.FrameType_FRAME_TYPE_CLOSE, syncv1.FrameType_FRAME_TYPE_ERROR:
+			c.logger.Infof("Channel %d closed by remote (%v): %s", c.channelID, frame.FrameType, frame.ErrorMessage)
+			return io.EOF
 
-			// Track bytes received from remote peer and written to virt-handler
-			virthandler.ProxyBytesTransferredAdd(proxyType, "send", float64(n))
-			c.bytesReceived.Add(uint64(n))
-		case <-c.stopChan:
-			return
+		case syncv1.FrameType_FRAME_TYPE_OPEN:
+			// Already handled as the first frame on the target; ignore duplicates.
+			c.logger.V(4).Infof("Ignoring extra OPEN on channel %d migration %s", c.channelID, migrationID)
+
+		default:
+			c.logger.Infof("Ignoring frame type %v on channel %d", frame.FrameType, c.channelID)
 		}
 	}
 }
 
-func (c *tunnelChannel) monitorIdle(migrationID string, sendChan chan *syncv1.MigrationFrame, logger *log.FilteredLogger) {
+func (c *tunnelChannel) monitorIdle(migrationID string) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			lastActivity := c.lastActivity.Load().(time.Time)
-			if time.Since(lastActivity) > channelIdleTimeout {
-				logger.Infof("Channel %d idle timeout", c.channelID)
-				// Send CLOSE frame
-				closeFrame := &syncv1.MigrationFrame{
-					MigrationId: migrationID,
-					ChannelId:   c.channelID,
-					FrameType:   syncv1.FrameType_FRAME_TYPE_CLOSE,
-					Sequence:    atomic.AddUint64(&c.sequence, 1),
-				}
-				select {
-				case sendChan <- closeFrame:
-				case <-time.After(frameWriteTimeout):
-				}
+			lastActivity, _ := c.lastActivity.Load().(time.Time)
+			if !lastActivity.IsZero() && time.Since(lastActivity) > channelIdleTimeout {
+				c.logger.Infof("Channel %d idle timeout for migration %s", c.channelID, migrationID)
 				c.close()
 				return
 			}
@@ -989,42 +680,26 @@ func (c *tunnelChannel) monitorIdle(migrationID string, sendChan chan *syncv1.Mi
 }
 
 func (c *tunnelChannel) close() {
-	if c.stopped.CompareAndSwap(false, true) {
-		close(c.stopChan)
-		if c.localConn != nil {
-			c.localConn.Close()
-		}
+	if !c.stopped.CompareAndSwap(false, true) {
+		return
+	}
+	close(c.stopChan)
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
+	if c.cancelStream != nil {
+		c.cancelStream()
+	}
+	if clientStream, ok := c.stream.(syncv1.Synchronize_MigrationTunnelClient); ok {
+		_ = clientStream.CloseSend()
 	}
 }
 
-// closeWithStats closes the channel and logs transfer statistics
-func (c *tunnelChannel) closeWithStats(migrationID string, isSource bool, logger *log.FilteredLogger) {
+func (c *tunnelChannel) closeWithStats(migrationID, proxyType string) {
 	if !c.stopped.Load() {
 		duration := time.Since(c.createdAt)
-		sent := c.bytesSent.Load()
-		received := c.bytesReceived.Load()
-
-		// Determine direction for logging
-		direction := "source→target"
-		if !isSource {
-			direction = "target→source"
-		}
-
-		// Map channel ID to protocol name
-		protocol := "unknown"
-		switch c.channelID {
-		case 0:
-			protocol = "virtqemud"
-		case 49152:
-			protocol = "libvirt"
-		case 49153:
-			protocol = "block-migration"
-		default:
-			protocol = fmt.Sprintf("port-%d", c.channelID)
-		}
-
-		logger.Infof("Closed migration tunnel channel: migration=%s protocol=%s direction=%s duration=%v sent=%d bytes received=%d bytes",
-			migrationID, protocol, direction, duration.Round(time.Second), sent, received)
+		c.logger.Infof("Closed migration tunnel channel: migration=%s channel=%d proxy=%s duration=%v sent=%d received=%d",
+			migrationID, c.channelID, proxyType, duration.Round(time.Second), c.bytesSent.Load(), c.bytesReceived.Load())
 	}
 	c.close()
 }
