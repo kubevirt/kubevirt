@@ -329,7 +329,7 @@ func (app *virtHandlerApp) Run() {
 
 	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.migrationServerTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
+	migrationProxy := migrationproxy.NewMigrationProxyManager(app.migrationServerTLSConfig, app.migrationClientTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -579,8 +579,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	decentralizedMigrationProxyEnabled := app.clusterConfig != nil && app.clusterConfig.CrossClusterMigrationProxyEnabled()
-	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines, decentralizedMigrationProxyEnabled); err != nil {
+	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 

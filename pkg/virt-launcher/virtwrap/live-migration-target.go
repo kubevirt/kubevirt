@@ -261,7 +261,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 			unixSocketPath := migrationproxy.SourceUnixFile("/", key)
-			migrationProxy := migrationproxy.NewSourceProxy(mountRoot, unixSocketPath, curDirectAddress, nil, string(vmi.UID))
+			migrationProxy := migrationproxy.NewSourceProxy(mountRoot, unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
 
 			err := migrationProxy.Start()
 			if err != nil {
