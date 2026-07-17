@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -8,5 +8,17 @@ go_library(
     deps = [
         "//pkg/capabilities/core:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["capabilities_test.go"],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//pkg/capabilities/arch:go_default_library",
+        "//pkg/capabilities/core:go_default_library",
+        "//pkg/capabilities/hypervisor:go_default_library",
     ],
 )
