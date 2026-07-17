@@ -306,6 +306,69 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Expect(controller.dataVolumeIndexer.Add(dv)).To(Succeed())
 	}
 
+	Describe("recovering a VMI from pod owner annotations", func() {
+		It("should recover the VMI when the annotated owner identity matches", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "attachment-pod",
+					Namespace: vmi.Namespace,
+					Annotations: map[string]string{
+						virtv1.OwnerVMINameAnnotation: vmi.Name,
+						virtv1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+					},
+				},
+			}
+
+			Expect(controller.recoverVMIFromPodAnnotations(pod)).To(Equal(vmi))
+		})
+
+		It("should not recover the VMI when the annotated owner UID does not match", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "attachment-pod",
+					Namespace: vmi.Namespace,
+					Annotations: map[string]string{
+						virtv1.OwnerVMINameAnnotation: vmi.Name,
+						virtv1.OwnerVMIUIDAnnotation:  "other-uid",
+					},
+				},
+			}
+
+			Expect(controller.recoverVMIFromPodAnnotations(pod)).To(BeNil())
+		})
+
+		It("should observe an attachment pod deletion when the virt-launcher pod is gone from the cache", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+			vmiKey := kvcontroller.VirtualMachineInstanceKey(vmi)
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			attachmentPod := newPodForVirtlauncher(virtlauncherPod, "attachment-pod", "attachment-uid", k8sv1.PodRunning)
+			attachmentPod.Annotations = map[string]string{
+				virtv1.OwnerVMINameAnnotation: vmi.Name,
+				virtv1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+			}
+
+			controller.podExpectations.ExpectDeletions(vmiKey, []string{kvcontroller.PodKey(attachmentPod)})
+			Expect(controller.podExpectations.SatisfiedExpectations(vmiKey)).To(BeFalse())
+
+			controller.onPodDelete(attachmentPod)
+
+			Expect(controller.podExpectations.SatisfiedExpectations(vmiKey)).To(BeTrue())
+			Expect(mockQueue.Len()).To(Equal(1))
+			key, shutdown := mockQueue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(key).To(Equal(vmiKey))
+			mockQueue.Done(key)
+		})
+	})
+
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
 
 		dvVolumeSource := virtv1.VolumeSource{

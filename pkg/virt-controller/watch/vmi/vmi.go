@@ -460,7 +460,13 @@ func (c *Controller) onPodDelete(obj interface{}) {
 	controllerRef := v1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
-		return
+		// Recover the VMI from the owner annotations as a fallback strategy.
+		// Not all pods can have VMI ref at annotations, this is ok.
+		vmi = c.recoverVMIFromPodAnnotations(pod)
+		if vmi == nil {
+			return
+		}
+		log.Log.Object(pod).V(3).Infof("recovered owner VMI %s from pod annotations", vmi.Name)
 	}
 	vmiKey, err := controller.KeyFunc(vmi)
 	if err != nil {
@@ -468,6 +474,30 @@ func (c *Controller) onPodDelete(obj interface{}) {
 	}
 	c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
 	c.enqueueVirtualMachine(vmi)
+}
+
+// recoverVMIFromPodAnnotations is the fallback for when the owner chain cannot be
+// resolved; it recovers the VMI from the owner identity annotations on the pod.
+func (c *Controller) recoverVMIFromPodAnnotations(pod *k8sv1.Pod) *virtv1.VirtualMachineInstance {
+	name := pod.Annotations[virtv1.OwnerVMINameAnnotation]
+	uid := pod.Annotations[virtv1.OwnerVMIUIDAnnotation]
+	if name == "" || uid == "" {
+		return nil
+	}
+	obj, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(pod.Namespace, name))
+	if err != nil {
+		log.Log.Object(pod).Reason(err).Error("failed to look up owner VMI from indexer")
+		return nil
+	}
+	if !exists {
+		return nil
+	}
+	vmi := obj.(*virtv1.VirtualMachineInstance)
+	if string(vmi.UID) != uid {
+		log.Log.Object(pod).Warningf("owner VMI UID mismatch while recovering from pod annotations: expected %s, got %s", uid, vmi.UID)
+		return nil
+	}
+	return vmi
 }
 
 func (c *Controller) addVirtualMachineInstance(obj interface{}) {
