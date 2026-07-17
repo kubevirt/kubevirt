@@ -64,6 +64,7 @@ type migrationProxyManager struct {
 	targetProxies      map[string][]*migrationProxy
 	managerLock        sync.Mutex
 	serverTLSConfig    *tls.Config
+	clientTLSConfig    *tls.Config
 	migrationTLSConfig *tls.Config
 
 	isShuttingDown bool
@@ -87,6 +88,7 @@ type migrationProxy struct {
 
 	listener           net.Listener
 	serverTLSConfig    *tls.Config
+	clientTLSConfig    *tls.Config
 	migrationTLSConfig *tls.Config
 
 	logger *log.FilteredLogger
@@ -114,11 +116,12 @@ func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
 	return
 }
 
-func NewMigrationProxyManager(serverTLSConfig *tls.Config, migrationTLSConfig *tls.Config, config *virtconfig.ClusterConfig) ProxyManager {
+func NewMigrationProxyManager(serverTLSConfig *tls.Config, clientTLSConfig, migrationTLSConfig *tls.Config, config *virtconfig.ClusterConfig) ProxyManager {
 	return &migrationProxyManager{
 		sourceProxies:      make(map[string][]*migrationProxy),
 		targetProxies:      make(map[string][]*migrationProxy),
 		serverTLSConfig:    serverTLSConfig,
+		clientTLSConfig:    clientTLSConfig,
 		migrationTLSConfig: migrationTLSConfig,
 		config:             config,
 	}
@@ -294,8 +297,10 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 			}
 		}
 	}
+	clientTLSConfig := m.clientTLSConfig
 	migrationTLSConfig := m.migrationTLSConfig
 	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
+		clientTLSConfig = nil
 		migrationTLSConfig = nil
 	}
 	proxiesList := []*migrationProxy{}
@@ -306,7 +311,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 
 		os.RemoveAll(filePath)
 
-		proxy := NewSourceProxy(filePath, targetFullAddr, migrationTLSConfig, key)
+		proxy := NewSourceProxy(filePath, targetFullAddr, clientTLSConfig, migrationTLSConfig, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -342,7 +347,7 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (virtqemud unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
-func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, migrationTLSConfig *tls.Config, vmiUID string) *migrationProxy {
+func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, clientTLSConfig, migrationTLSConfig *tls.Config, vmiUID string) *migrationProxy {
 	return &migrationProxy{
 		unixSocketPath:     unixSocketPath,
 		targetAddress:      tcpTargetAddress,
@@ -350,6 +355,7 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, migrationTLS
 		stopChan:           make(chan struct{}),
 		fdChan:             make(chan net.Conn, 1),
 		listenErrChan:      make(chan error, 1),
+		clientTLSConfig:    clientTLSConfig,
 		migrationTLSConfig: migrationTLSConfig,
 		logger:             log.Log.With("uid", vmiUID).With("listening", filepath.Base(unixSocketPath)).With("outbound", tcpTargetAddress),
 	}
@@ -377,8 +383,10 @@ func (m *migrationProxy) createTcpListener() error {
 
 	laddr := net.JoinHostPort(m.tcpBindAddress, strconv.Itoa(m.tcpBindPort))
 	if m.serverTLSConfig != nil {
+		m.logger.Infof("Creating TLS listener on %s", laddr)
 		listener, err = tls.Listen("tcp", laddr, m.serverTLSConfig)
 	} else {
+		m.logger.Infof("Creating plain TCP listener on %s", laddr)
 		listener, err = net.Listen("tcp", laddr)
 	}
 	if err != nil {
@@ -438,9 +446,19 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 
 	var conn net.Conn
 	var err error
-	if m.targetProtocol == "tcp" && m.migrationTLSConfig != nil {
+	if m.targetProtocol == "tcp" && m.clientTLSConfig != nil {
+		log.Log.Infof("dialing with TLS %s, %s, %v", m.targetProtocol, m.targetAddress, m.clientTLSConfig)
 		conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.migrationTLSConfig)
+		// Check for specific error (CN missmatch), fallback to old client TLS
+		if err != nil {
+			m.logger.Reason(err).Info("fallback to old tls config")
+			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
+		} else if tlsErr := conn.(*tls.Conn).Handshake(); tlsErr != nil {
+			m.logger.Reason(err).Info("handshake failed, fallback to old tls config")
+			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
+		}
 	} else {
+		log.Log.Infof("dialing with plain TCP %s, %s", m.targetProtocol, m.targetAddress)
 		conn, err = net.Dial(m.targetProtocol, m.targetAddress)
 	}
 	if err != nil {
@@ -476,7 +494,7 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 }
 
 func (m *migrationProxy) Start() error {
-
+	m.logger.Info("starting proxy")
 	if m.unixSocketPath != "" {
 		err := m.createUnixListener()
 		if err != nil {
@@ -504,6 +522,24 @@ func (m *migrationProxy) Start() error {
 				}
 				break
 			} else {
+				// Log incoming connection details
+				remoteAddr := fd.RemoteAddr().String()
+				if tlsConn, ok := fd.(*tls.Conn); ok {
+					// Perform TLS handshake explicitly to get connection state
+					if handshakeErr := tlsConn.Handshake(); handshakeErr != nil {
+						m.logger.Reason(handshakeErr).Errorf("TLS handshake failed from %s", remoteAddr)
+						fd.Close()
+						continue
+					}
+					state := tlsConn.ConnectionState()
+					peerCN := ""
+					if len(state.PeerCertificates) > 0 {
+						peerCN = state.PeerCertificates[0].Subject.CommonName
+					}
+					m.logger.Infof("Accepted TLS connection from %s - peer CN: %s, TLS version: %d", remoteAddr, peerCN, state.Version)
+				} else {
+					m.logger.Infof("Accepted plain TCP connection from %s", remoteAddr)
+				}
 				fdChan <- fd
 			}
 		}

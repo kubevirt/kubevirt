@@ -3,9 +3,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "migration-proxy.go",
         "synchronization-connection.go",
         "synchronization-controller.go",
+        "tunnel-manager.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/synchronization-controller",
     visibility = ["//visibility:public"],
@@ -32,7 +32,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "migration-proxy_test.go",
         "synchronization-controller_suite_test.go",
         "synchronization-controller_test.go",
     ],

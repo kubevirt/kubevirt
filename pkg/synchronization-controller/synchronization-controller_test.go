@@ -108,7 +108,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			},
 		}
 
-		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9185, "127.0.0.1")
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1")
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -1062,7 +1062,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		BeforeEach(func() {
 			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186, "127.0.0.1")
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1")
 			Expect(err).ToNot(HaveOccurred())
 
 			remoteTCPConn, err := remoteController.createTcpListener()
