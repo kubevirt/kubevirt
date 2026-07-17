@@ -788,6 +788,8 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerCertSecretName, "/etc/virt-sync-controller/clientcertificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerServerCertSecretName, "/etc/virt-sync-controller/servercertificates")
+	// Mount virt-handler migration certs (CN="kubevirt.io:system:client:migration") for tunnel connections to virt-handlers
+	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerMigrationClientCertSecretName, "/etc/virt-sync-controller/migrationservercertificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
 
 	pod := &deployment.Spec.Template.Spec

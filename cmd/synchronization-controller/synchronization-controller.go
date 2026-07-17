@@ -75,6 +75,9 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-sync-controller/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-sync-controller/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-sync-controller/servercertificates/tls.key"
+	// Reuse virt-handler migration certs (CN="kubevirt.io:system:client:migration")
+	defaultMigrationClientCertFilePath = "/etc/virt-sync-controller/migrationservercertificates/tls.crt"
+	defaultMigrationClientKeyFilePath  = "/etc/virt-sync-controller/migrationservercertificates/tls.key"
 
 	defaultGracefulShutdownSeconds = 30
 	maxRetryCount                  = 10
@@ -92,21 +95,26 @@ type synchronizationControllerApp struct {
 	namespace      string
 	LeaderElection leaderelectionconfig.Configuration
 
-	caConfigMapName    string
-	clientCertFilePath string
-	clientKeyFilePath  string
-	serverCertFilePath string
-	serverKeyFilePath  string
-	externallyManaged  bool
-	ip                 string
+	caConfigMapName             string
+	clientCertFilePath          string
+	clientKeyFilePath           string
+	serverCertFilePath          string
+	serverKeyFilePath           string
+	migrationClientCertFilePath string
+	migrationClientKeyFilePath  string
+	externallyManaged           bool
+	ip                          string
 
-	serverTLSConfig       *tls.Config
-	clientTLSConfig       *tls.Config
-	clientcertmanager     certificate.Manager
-	servercertmanager     certificate.Manager
-	clusterConfig         *virtconfig.ClusterConfig
-	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
-	caManager             kvtls.ClientCAManager
+	serverTLSConfig          *tls.Config
+	clientTLSConfig          *tls.Config
+	migrationClientTLSConfig *tls.Config
+	migrationServerTLSConfig *tls.Config
+	clientcertmanager        certificate.Manager
+	servercertmanager        certificate.Manager
+	migrationcertmanager     certificate.Manager
+	clusterConfig            *virtconfig.ClusterConfig
+	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
+	caManager                kvtls.ClientCAManager
 
 	ctx context.Context
 }
@@ -114,6 +122,7 @@ type synchronizationControllerApp struct {
 func (app *synchronizationControllerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
+	app.migrationcertmanager = bootstrap.NewFileCertificateManager(app.migrationClientCertFilePath, app.migrationClientKeyFilePath)
 	return
 }
 
@@ -154,6 +163,12 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 
 	app.serverTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
 	app.clientTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+
+	// Setup TLS configs for migration tunnel (CN="migration" to communicate with virt-handlers)
+	// Uses virt-handler TLS setup since we need to accept connections from and connect to virt-handlers
+	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationcertmanager, app.externallyManaged)
+	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler", "migration"})
+
 	return nil
 }
 
@@ -253,6 +268,8 @@ func (app *synchronizationControllerApp) Run() {
 		migrationInformer,
 		app.clientTLSConfig,
 		app.serverTLSConfig,
+		app.migrationClientTLSConfig,
+		app.migrationServerTLSConfig,
 		app.BindAddress,
 		app.Port,
 		app.ip,
@@ -263,6 +280,7 @@ func (app *synchronizationControllerApp) Run() {
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
+	go app.migrationcertmanager.Start()
 
 	factory.Start(stop)
 	app.runWithLeaderElection(synchronizationController, stop)
@@ -378,6 +396,7 @@ func (app *synchronizationControllerApp) close() {
 	// release resources associated with the application
 	app.clientcertmanager.Stop()
 	app.servercertmanager.Stop()
+	app.migrationcertmanager.Stop()
 }
 
 func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, _ *http.Request) {
@@ -408,6 +427,12 @@ func (app *synchronizationControllerApp) AddFlags() {
 
 	flag.StringVar(&app.serverKeyFilePath, "tls-key-file", defaultTlsKeyFilePath,
 		"File containing the default x509 private key matching --tls-cert-file")
+
+	flag.StringVar(&app.migrationClientCertFilePath, "migration-client-cert-file", defaultMigrationClientCertFilePath,
+		"Client certificate with CN='migration' used to connect to virt-handler migration proxies")
+
+	flag.StringVar(&app.migrationClientKeyFilePath, "migration-client-key-file", defaultMigrationClientKeyFilePath,
+		"Private key for the migration client certificate")
 
 	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
