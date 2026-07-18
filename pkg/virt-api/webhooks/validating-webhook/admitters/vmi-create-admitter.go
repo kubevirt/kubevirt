@@ -1064,14 +1064,29 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 		})
 		return causes
 	}
+	// pageSize is used as an int64 divisor below, so reject any value that is not
+	// a positive whole byte equal to its Value(); CmpInt64 catches zero/negative/overflow/fractional.
+	pageSizeField := field.Child("domain", "memory", "hugepages", "pageSize").String()
+	pageSize := hugepagesSize.Value()
+	if pageSize <= 0 || hugepagesSize.CmpInt64(pageSize) != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' must be a positive whole-byte value representable as int64",
+				pageSizeField,
+				spec.Domain.Memory.Hugepages.PageSize,
+			),
+			Field: pageSizeField,
+		})
+		return causes
+	}
 	vmMemory := spec.Domain.Resources.Requests.Memory().Value()
-	if vmMemory == 0 && spec.Domain.Memory != nil {
+	if vmMemory == 0 && spec.Domain.Memory.Guest != nil {
 		vmMemory = spec.Domain.Memory.Guest.Value()
 	}
 	if vmMemory == 0 {
 		vmMemory = spec.Domain.Resources.Limits.Memory().Value()
 	}
-	if vmMemory != 0 && vmMemory < hugepagesSize.Value() {
+	if vmMemory != 0 && vmMemory < pageSize {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
@@ -1082,7 +1097,7 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 			),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
 		})
-	} else if vmMemory%hugepagesSize.Value() != 0 {
+	} else if vmMemory%pageSize != 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
