@@ -108,6 +108,60 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			"spec.selector",
 		}),
 	)
+	// The hugepage validator reads the memory sources in turn and used to dereference
+	// an unset guest on the way to the limit. Both operations reach it through Admit.
+	DescribeTable("validates hugepages in the template with no guest memory set", func(operation admissionv1.Operation, pageSize string, expectedField string) {
+		template := newVirtualMachineBuilder().
+			WithDisk(v1.Disk{
+				Name: "testdisk",
+			}).
+			WithVolume(v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			}).
+			WithLabel("match", "me").
+			BuildTemplate()
+		template.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: pageSize}}
+		template.Spec.Domain.Resources.Requests = nil
+
+		vmirs := &v1.VirtualMachineInstanceReplicaSet{
+			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				Template: template,
+			},
+		}
+		vmirsBytes, _ := json.Marshal(&vmirs)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: operation,
+				Resource:  webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: vmirsBytes,
+				},
+			},
+		}
+
+		resp := vmirsAdmitter.Admit(context.Background(), ar)
+
+		if expectedField == "" {
+			Expect(resp.Allowed).To(BeTrue())
+			return
+		}
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal(expectedField))
+	},
+		Entry("accepting a valid page size on create", admissionv1.Create, "2Mi", ""),
+		Entry("accepting a valid page size on update", admissionv1.Update, "2Mi", ""),
+		Entry("rejecting a zero page size on create", admissionv1.Create, "0", "spec.template.spec.domain.memory.hugepages.pageSize"),
+		Entry("rejecting a zero page size on update", admissionv1.Update, "0", "spec.template.spec.domain.memory.hugepages.pageSize"),
+	)
+
 	It("should accept valid vmi spec", func() {
 		vmirs := &v1.VirtualMachineInstanceReplicaSet{
 			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
