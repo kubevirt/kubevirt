@@ -214,9 +214,7 @@ else
 fi
 
 # Push virt-template images
-if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
-    ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/virt-template/push-images.sh"
-else
+if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
     source hack/virt-template/default.sh
     echo ""
     echo "Pushing virt-template images with tag ${virt_template_version}"
@@ -238,6 +236,8 @@ else
                 ${KUBEVIRT_CRI} push --tls-verify=false ${DOCKER_PREFIX}/${IMAGE_PREFIX_ALT}${target}:${virt_template_version}
         done
     fi
+else
+    ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/virt-template/push-images.sh"
 fi
 
 echo "Done $0"

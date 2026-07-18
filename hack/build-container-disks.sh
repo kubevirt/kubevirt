@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors
-#
+# Copyright 2025 Red Hat, Inc.
 
 set -e
 
@@ -31,7 +30,6 @@ BUILD_OUTPUT_DIR=${BUILD_OUTPUT_DIR:-_out}
 DIGESTS_DIR=${DIGESTS_DIR:-${BUILD_OUTPUT_DIR}/digests}
 CACHE_DIR=${CACHE_DIR:-${BUILD_OUTPUT_DIR}/container-disks}
 
-# Detect architecture
 PLATFORM=$(uname -m)
 case ${PLATFORM} in
 x86_64* | i?86_64* | amd64*) BUILD_ARCH=${BUILD_ARCH:-amd64} ;;
@@ -68,7 +66,6 @@ build_container_disk() {
     echo "URL: ${url}"
     echo "Package dir: ${package_dir}"
 
-    # Check if cached file exists and has correct checksum
     local needs_download=true
     if [[ -f "${cached_file}" && -f "${sha_file}" ]]; then
         local cached_sha=$(cat "${sha_file}")
@@ -99,13 +96,11 @@ build_container_disk() {
         echo "Downloaded successfully"
     fi
 
-    # Create Containerfile
     cat >"${CACHE_DIR}/Containerfile.${name}" <<DOCKERFILE
 FROM scratch
 COPY --chown=107:107 --chmod=0440 ${filename} ${package_dir}/${dest_filename}
 DOCKERFILE
 
-    # Build image
     local full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${name}:${DOCKER_TAG}"
     echo "Building image: ${full_tag}"
     ${KUBEVIRT_CRI} build \
@@ -157,7 +152,6 @@ s390x)
         "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/s390x/alpine-standard-3.18.8-s390x.iso" \
         "4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16"
 
-    # Cirros not available for s390x
     echo "Skipping cirros images (not available for s390x)"
     ;;
 esac

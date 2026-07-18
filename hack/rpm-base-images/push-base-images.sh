@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors
+# Copyright 2025 Red Hat, Inc.
 #
 # Push pre-built RPM base images to the registry and update
 # the BASE_IMAGE_VERSIONS file with their digests.
@@ -23,9 +23,6 @@ set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
-export KUBEVIRTCI_PATH=${KUBEVIRTCI_PATH:-"${REPO_ROOT}/kubevirtci/"}
-export KUBEVIRTCI_CONFIG_PATH=${KUBEVIRTCI_CONFIG_PATH:-"${REPO_ROOT}/_ci-configs"}
 
 source "${REPO_ROOT}/hack/common.sh"
 source "${REPO_ROOT}/hack/container-utils.sh"
@@ -43,8 +40,8 @@ s390x) BUILD_ARCH=${BUILD_ARCH:-s390x} ;;
     ;;
 esac
 
-DOCKER_PREFIX=${DOCKER_PREFIX:-quay.io/vamsi_siddu}
-BASE_IMAGE_TAG=${BASE_IMAGE_TAG:-latest}
+DOCKER_PREFIX=${DOCKER_PREFIX:-quay.io/kubevirt}
+BASE_IMAGE_TAG=${BASE_IMAGE_TAG:-bazeldnf}
 
 VERSIONS_FILE="${SCRIPT_DIR}/BASE_IMAGE_VERSIONS"
 
@@ -115,7 +112,6 @@ push_single_image() {
 }
 
 if [ "$build_count" -gt 1 ]; then
-    # Multi-arch: push each arch-tagged image, then create manifests
     for arch in ${BUILD_ARCH//,/ }; do
         arch_tag=$(format_archname ${arch} tag)
         local_images=()
@@ -139,7 +135,6 @@ if [ "$build_count" -gt 1 ]; then
     echo "Creating multi-arch manifests"
     echo "=========================================="
 
-    # Create manifests for images common to all architectures
     all_common_images=(
         "launcherbase"
         "libvirt-devel"
@@ -149,7 +144,6 @@ if [ "$build_count" -gt 1 ]; then
         "testimage"
     )
 
-    # Add arch-specific images with only the arches that have them
     for image in "${all_common_images[@]}" "pr-helper" "libguestfs-tools"; do
         manifest_tag="${DOCKER_PREFIX}/${image}:${BASE_IMAGE_TAG}"
         echo ""
@@ -158,7 +152,6 @@ if [ "$build_count" -gt 1 ]; then
         arch_tags=()
         for arch in ${BUILD_ARCH//,/ }; do
             arch_tag=$(format_archname ${arch} tag)
-            # Only include if this image exists for this arch
             local_images=()
             read -ra local_images <<<"$(get_base_images_for_arch ${arch})"
             for img in "${local_images[@]}"; do
@@ -188,7 +181,6 @@ if [ "$build_count" -gt 1 ]; then
         echo "Created and pushed manifest: ${manifest_tag}"
     done
 else
-    # Single-arch: push directly
     local_images=()
     read -ra local_images <<<"$(get_base_images_for_arch ${BUILD_ARCH})"
 

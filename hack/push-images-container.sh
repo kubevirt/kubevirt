@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors.
-#
+# Copyright 2025 Red Hat, Inc.
 
 set -e
 
@@ -28,8 +27,6 @@ echo "Using container engine: ${KUBEVIRT_CRI}"
 
 DOCKER_TAG=${DOCKER_TAG:-latest}
 
-# Prefer DOCKER_PREFIX env var, then fall back to docker_prefix,
-# then use default quay.io/kubevirt
 if [ -z "${DOCKER_PREFIX}" ]; then
     if [ -n "${docker_prefix}" ]; then
         DOCKER_PREFIX="${docker_prefix}"
@@ -44,7 +41,6 @@ fi
 
 IMAGE_PREFIX=${IMAGE_PREFIX:-}
 
-# Auto-detect architecture from platform if not set
 if [ -z "${BUILD_ARCH}" ]; then
     PLATFORM=$(uname -m)
     case ${PLATFORM} in
@@ -75,7 +71,6 @@ default_targets="
     disks-images-provider
 "
 
-# Add additional images for non-s390x architectures only
 if [[ "${BUILD_ARCH}" != "s390x" ]]; then
     default_targets+="
         conformance
@@ -88,6 +83,7 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
         virtio-container-disk
         alpine-ext-kernel-boot-demo
         alpine-with-test-tooling-container-disk
+        network-slirp-binding
         network-passt-binding
         network-passt-binding-cni
         example-node-hook-plugin
@@ -97,21 +93,18 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
     "
 fi
 
-# Add fedora-realtime-container-disk for x86_64/amd64 only
 if [[ "${BUILD_ARCH}" == "x86_64" || "${BUILD_ARCH}" == "amd64" ]]; then
     default_targets+="
         fedora-realtime-container-disk
     "
 fi
 
-# Add libguestfs-tools for x86_64 and s390x only (not arm64)
 if [[ "${BUILD_ARCH}" != "arm64" && "${BUILD_ARCH}" != "aarch64" && "${BUILD_ARCH}" != "crossbuild-aarch64" ]]; then
     default_targets+="
         libguestfs-tools
     "
 fi
 
-# Allow override via PUSH_TARGETS
 PUSH_TARGETS_ARRAY=(${PUSH_TARGETS:-${default_targets}})
 
 build_count=$(echo ${BUILD_ARCH//,/ } | wc -w)
@@ -126,11 +119,6 @@ echo "Registry: ${DOCKER_PREFIX}"
 echo "Tag: ${DOCKER_TAG}"
 echo "Architecture: ${BUILD_ARCH}"
 echo "Targets: ${PUSH_TARGETS_ARRAY[@]}"
-if [ "$build_count" -gt 1 ]; then
-    echo "Multi-arch build: YES (will add arch suffix to tags)"
-else
-    echo "Multi-arch build: NO (single tag)"
-fi
 echo "==============================================="
 
 check_image_exists() {
@@ -149,7 +137,6 @@ echo "Checking if images exist locally..."
 MISSING_IMAGES=()
 
 for image in ${PUSH_TARGETS_ARRAY[@]}; do
-    # Determine the tag to check
     if [ "$build_count" -gt 1 ]; then
         for arch in ${BUILD_ARCH//,/ }; do
             ARCH_TAG=$(format_archname ${arch} tag)
@@ -185,7 +172,6 @@ push_image() {
     local image_name=$1
     local arch=$2
 
-    # Determine tag
     if [ "$build_count" -gt 1 ]; then
         local arch_tag=$(format_archname ${arch} tag)
         local full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image_name}:${DOCKER_TAG}-${arch_tag}"
@@ -198,24 +184,17 @@ push_image() {
 
     local push_flags=""
     if [[ "${full_tag}" == localhost:* ]] || [[ "${full_tag}" == registry:* ]]; then
-        # Local registry - disable TLS verification
         if [[ "${KUBEVIRT_CRI}" == "podman" ]]; then
             push_flags="--tls-verify=false"
-        elif [[ "${KUBEVIRT_CRI}" == "docker" ]]; then
-            # Docker doesn't support --tls-verify, it uses daemon config
-            push_flags=""
         fi
-        echo "Using insecure registry flags: ${push_flags}"
     fi
 
     if ${KUBEVIRT_CRI} push ${push_flags} "${full_tag}"; then
         echo "Successfully pushed"
 
-        # Create digest marker file
         local digest_dir="${DIGESTS_DIR}/${arch}/${image_name}"
         mkdir -p "${digest_dir}"
         touch "${digest_dir}/${image_name}.image"
-        echo "- Created digest marker: ${digest_dir}/${image_name}.image"
 
         PUSH_SUCCESS+=("${image_name}:${full_tag}")
         return 0
@@ -254,3 +233,16 @@ echo "Successfully pushed: ${#PUSH_SUCCESS[@]} images"
 for img in "${PUSH_SUCCESS[@]}"; do
     echo "- ${img}"
 done
+
+if [ ${#PUSH_FAILED[@]} -gt 0 ]; then
+    echo ""
+    echo "Failed: ${#PUSH_FAILED[@]} images"
+    for img in "${PUSH_FAILED[@]}"; do
+        echo "- ${img}"
+    done
+    exit 1
+fi
+
+echo "==============================================="
+echo "Push completed successfully!"
+echo "==============================================="

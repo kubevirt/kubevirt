@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors
+# Copyright 2025 Red Hat, Inc.
 
 set -e
 
@@ -39,8 +39,6 @@ esac
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 
-# Prefer DOCKER_PREFIX env var, then fall back to docker_prefix,
-# then use default quay.io/kubevirt
 if [ -z "${DOCKER_PREFIX}" ]; then
     if [ -n "${docker_prefix}" ]; then
         DOCKER_PREFIX="${docker_prefix}"
@@ -57,13 +55,11 @@ IMAGE_PREFIX=${IMAGE_PREFIX:-}
 BUILD_OUTPUT_DIR=${BUILD_OUTPUT_DIR:-_out}
 DIGESTS_DIR=${DIGESTS_DIR:-${BUILD_OUTPUT_DIR}/digests}
 
-# Builder image configuration
 BUILDER_VERSION=$(grep 'kubevirt_builder_version=' hack/dockerized | cut -d'"' -f2)
 BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/builder:${BUILDER_VERSION}}
 
 PLATFORM_ARCH=$(format_archname ${BUILD_ARCH} tag)
 
-# Distroless base image digests per architecture - matches WORKSPACE
 case ${PLATFORM_ARCH} in
 amd64)
     DISTROLESS_DIGEST="sha256:0ba6aa6b538aeae3d0f716ea8837703eb147173cd673241662e89adb794da829"
@@ -85,9 +81,8 @@ DISTROLESS_BASE_IMAGE="gcr.io/distroless/base-debian12@${DISTROLESS_DIGEST}"
 kubevirt::version::get_version_vars
 KUBEVIRT_VERSION=${KUBEVIRT_GIT_VERSION:-"devel"}
 
-# RPM base image configuration
 BASE_IMAGE_PREFIX=${BASE_IMAGE_PREFIX:-quay.io/vamsi_siddu}
-BASE_IMAGE_TAG=${BASE_IMAGE_TAG:-latest}
+BASE_IMAGE_TAG=${BASE_IMAGE_TAG:-bazeldnf}
 LAUNCHERBASE_IMAGE=${LAUNCHERBASE_IMAGE:-${BASE_IMAGE_PREFIX}/launcherbase:${BASE_IMAGE_TAG}}
 LIBVIRT_DEVEL_IMAGE=${LIBVIRT_DEVEL_IMAGE:-${BASE_IMAGE_PREFIX}/libvirt-devel:${BASE_IMAGE_TAG}}
 HANDLERBASE_IMAGE=${HANDLERBASE_IMAGE:-${BASE_IMAGE_PREFIX}/handlerbase:${BASE_IMAGE_TAG}}
@@ -120,7 +115,6 @@ default_targets="
     disks-images-provider
 "
 
-# Add additional images for non-s390x architectures only
 if [[ "${BUILD_ARCH}" != "s390x" ]]; then
     default_targets+="
         conformance
@@ -134,6 +128,7 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
         alpine-ext-kernel-boot-demo
         alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
+        network-slirp-binding
         network-passt-binding
         network-passt-binding-cni
         example-node-hook-plugin
@@ -143,20 +138,17 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
     "
 fi
 
-# Add libguestfs-tools for x86_64 and s390x only (not arm64)
 if [[ "${BUILD_ARCH}" != "arm64" && "${BUILD_ARCH}" != "aarch64" && "${BUILD_ARCH}" != "crossbuild-aarch64" ]]; then
     default_targets+="
         libguestfs-tools
     "
 fi
 
-# Allow override via PUSH_TARGETS
 BUILD_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 
 get_containerfile_path() {
     local image_name=$1
 
-    # Map image names to their Containerfile locations
     case "$image_name" in
     virt-operator | virt-api | virt-controller | virt-handler | virt-launcher | virt-exportserver | virt-exportproxy)
         echo "cmd/${image_name}/Containerfile"
@@ -184,6 +176,9 @@ get_containerfile_path() {
         ;;
     sidecar-shim)
         echo "cmd/sidecars/Containerfile"
+        ;;
+    network-slirp-binding)
+        echo "cmd/sidecars/network-slirp-binding/Containerfile"
         ;;
     network-passt-binding)
         echo "cmd/sidecars/network-passt-binding/Containerfile"
@@ -241,7 +236,6 @@ build_image() {
     echo "Successfully built ${full_tag}"
 }
 
-# Check if an image should be retagged instead of built
 is_retagged_image() {
     local image_name=$1
     case "$image_name" in
@@ -254,7 +248,6 @@ is_retagged_image() {
     esac
 }
 
-# Check if an image is a container disk built by separate script
 is_container_disk_image() {
     local image_name=$1
     case "$image_name" in
@@ -267,7 +260,6 @@ is_container_disk_image() {
     esac
 }
 
-# Retag a single upstream image
 retag_single_image() {
     local image_name=$1
 
@@ -381,7 +373,6 @@ echo "Tag: ${DOCKER_TAG}"
 echo "Prefix: ${DOCKER_PREFIX}"
 echo "Targets: ${BUILD_TARGETS[@]}"
 
-# Separate container disk images from regular builds
 CONTAINER_DISK_IMAGES=""
 REGULAR_BUILD_IMAGES=""
 NEEDS_SIDECAR_SHIM=false
@@ -400,7 +391,6 @@ for image in ${BUILD_TARGETS[@]}; do
     fi
 done
 
-# Build sidecar-shim first if needed (only if NOT in main build targets)
 if [[ "${NEEDS_SIDECAR_SHIM}" == "true" ]]; then
     if [[ ! " ${BUILD_TARGETS[@]} " =~ " sidecar-shim " ]]; then
         containerfile=$(get_containerfile_path "sidecar-shim")
@@ -444,7 +434,7 @@ for image in ${REGULAR_BUILD_IMAGES}; do
     if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" || "${image}" == "vm-killer" ]]; then
         extra_args="--build-arg TESTING_BASE_IMAGE=${TESTIMAGE_BASE_IMAGE}"
     elif [[ "${image}" == "example-hook-sidecar" || "${image}" == "example-cloudinit-hook-sidecar" || "${image}" == "example-disk-mutation-hook-sidecar" ]]; then
-        extra_args="--build-arg SIDECAR_SHIM_IMAGE=${DOCKER_PREFIX}/sidecar-shim:${DOCKER_TAG}"
+        extra_args="--build-arg SIDECAR_SHIM_IMAGE=${DOCKER_PREFIX}/${IMAGE_PREFIX}sidecar-shim:${DOCKER_TAG}"
     elif [[ "${image}" == "virt-launcher" ]]; then
         extra_args="--build-arg LAUNCHERBASE_IMAGE=${LAUNCHERBASE_IMAGE}"
         extra_args+=" --build-arg LIBVIRT_DEVEL_IMAGE=${LIBVIRT_DEVEL_IMAGE}"
@@ -477,7 +467,6 @@ if [[ -n "${CONTAINER_DISK_IMAGES}" ]]; then
         ./hack/build-container-disks.sh
 fi
 
-# Cleanup .version file that was created during the build
 rm -f .version
 
 echo "==============================================="

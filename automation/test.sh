@@ -59,6 +59,10 @@ add_feature_gate() {
   fi
 }
 
+# TODO: Remove this once Prow job configs set KUBEVIRT_NO_BAZEL externally.
+# Hardcoded here temporarily to enable container build testing in CI.
+export KUBEVIRT_NO_BAZEL=true
+
 export KUBEVIRT_DEPLOY_CDI=true
 # TODO: Remove this once Prow job configs set KUBEVIRT_NO_BAZEL externally.
 # Hardcoded here temporarily to enable container build testing in CI.
@@ -354,6 +358,25 @@ collect_debug_logs() {
         "${cri_bin}" logs "$container"
     done
 }
+
+build_images() {
+    # build all images with the basic repeat logic
+    # probably because load on the node, possible situation when the bazel
+    # fails to download artifacts, to avoid job fails because of it,
+    # we repeat the build images action
+    local tries=3
+    for i in $(seq 1 $tries); do
+        if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
+            make container-build-images && return
+        else
+            make bazel-build-images && return
+        fi
+        rc=$?
+    done
+
+    return $rc
+}
+
 
 check_for_panics() {
     set +x

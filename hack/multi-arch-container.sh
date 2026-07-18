@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors.
-#
+# Copyright 2025 Red Hat, Inc.
 
 set -e
 
@@ -32,7 +31,6 @@ echo "Build count: ${build_count}"
 echo "Container engine: ${KUBEVIRT_CRI:-auto-detect}"
 echo "==============================================="
 
-# Build for each architecture
 if [ "$build_count" -gt 1 ]; then
     for arch in ${BUILD_ARCH//,/ }; do
         echo ""

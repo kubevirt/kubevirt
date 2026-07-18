@@ -9,13 +9,13 @@
 #   hack/rpm-base-images/push-base-images.sh
 
 DOCKER_PREFIX=quay.io/vamsi_siddu
-BASE_IMAGE_TAG=latest
+BASE_IMAGE_TAG=bazeldnf
 
-launcherbase=quay.io/vamsi_siddu/launcherbase:latest
-libvirt-devel=quay.io/vamsi_siddu/libvirt-devel:latest
-handlerbase=quay.io/vamsi_siddu/handlerbase:latest
-exportserverbase=quay.io/vamsi_siddu/exportserverbase:latest
-libguestfs-tools=quay.io/vamsi_siddu/libguestfs-tools:latest
-pr-helper=quay.io/vamsi_siddu/pr-helper:latest
-sidecar-shim=quay.io/vamsi_siddu/sidecar-shim:latest
-testimage=quay.io/vamsi_siddu/testimage:latest
+launcherbase=quay.io/vamsi_siddu/launcherbase:bazeldnf
+libvirt-devel=quay.io/vamsi_siddu/libvirt-devel:bazeldnf
+handlerbase=quay.io/vamsi_siddu/handlerbase:bazeldnf
+exportserverbase=quay.io/vamsi_siddu/exportserverbase:bazeldnf
+libguestfs-tools=quay.io/vamsi_siddu/libguestfs-tools:bazeldnf
+pr-helper=quay.io/vamsi_siddu/pr-helper:bazeldnf
+sidecar-shim=quay.io/vamsi_siddu/sidecar-shim:bazeldnf
+testimage=quay.io/vamsi_siddu/testimage:bazeldnf

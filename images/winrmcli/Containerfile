@@ -10,11 +10,9 @@ RUN source /etc/profile.d/gimme.sh && \
     cd winrm-cli && \
     go build -o /tmp/winrm-cli
 
-# Build winrmcp (no go.mod in upstream repo)
 RUN source /etc/profile.d/gimme.sh && \
     git clone https://github.com/packer-community/winrmcp.git && \
     cd winrmcp && \
-    git checkout c76d91c1e7db27b0868c5d09e292bb540616c9a2 && \
     go mod init github.com/packer-community/winrmcp && \
     go mod tidy && \
     go build -o /tmp/winrmcp

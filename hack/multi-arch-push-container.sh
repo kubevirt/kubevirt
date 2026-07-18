@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors.
-#
+# Copyright 2025 Red Hat, Inc.
 
 set -e
 
@@ -34,7 +33,6 @@ echo "Tag: ${DOCKER_TAG}"
 echo "==============================================="
 echo ""
 
-# Push for each architecture
 if [ "$build_count" -gt 1 ]; then
     for arch in ${BUILD_ARCH//,/ }; do
         echo ""
@@ -58,7 +56,6 @@ if [ "$build_count" -gt 1 ]; then
     echo "Creating multi-arch manifests"
     echo "=========================================="
 
-    # Create multi-arch manifests
     BUILD_ARCH=${BUILD_ARCH} \
         DOCKER_PREFIX=${DOCKER_PREFIX} \
         DOCKER_TAG=${DOCKER_TAG} \

@@ -1,5 +1,5 @@
 ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
-ARG SIDECAR_SHIM_BASE_IMAGE=quay.io/vamsi_siddu/sidecar-shim:latest
+ARG SIDECAR_SHIM_BASE_IMAGE=quay.io/vamsi_siddu/sidecar-shim:bazeldnf
 
 FROM ${BUILDER_IMAGE} AS builder
 

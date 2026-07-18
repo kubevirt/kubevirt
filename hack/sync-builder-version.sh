@@ -14,19 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors
+# Copyright 2025 Red Hat, Inc.
 #
-# This script synchronizes the builder image version from hack/dockerized
+# Synchronizes the builder image version from hack/dockerized
 # to all Containerfiles in the repository.
-#
-#
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Extract builder version from hack/dockerized
 DOCKERIZED_FILE="${SCRIPT_DIR}/dockerized"
 
 if [[ ! -f "${DOCKERIZED_FILE}" ]]; then
@@ -34,7 +31,6 @@ if [[ ! -f "${DOCKERIZED_FILE}" ]]; then
     exit 1
 fi
 
-# Extract the version from hack/dockerized
 BUILDER_VERSION=$(grep '^kubevirt_builder_version=' "${DOCKERIZED_FILE}" | cut -d'"' -f2)
 
 if [[ -z "${BUILDER_VERSION}" ]]; then
@@ -48,7 +44,7 @@ BUILDER_IMAGE="quay.io/kubevirt/builder:${BUILDER_VERSION}"
 
 echo "Target builder image: ${BUILDER_IMAGE}"
 
-CONTAINERFILES=$(find "${REPO_ROOT}" -name "Containerfile" -type f \
+CONTAINERFILES=$(find "${REPO_ROOT}" -name "Containerfile" -o -name "Containerfile.*" -type f \
     ! -path "*/vendor/*" \
     ! -path "*/_out/*" \
     ! -path "*/bazel-*/*" |
@@ -59,14 +55,12 @@ if [[ -z "${CONTAINERFILES}" ]]; then
     exit 0
 fi
 
-# Count of updated files
 UPDATED_COUNT=0
 SKIPPED_COUNT=0
 
 echo "Updating Containerfiles..."
 
 for containerfile in ${CONTAINERFILES}; do
-    # Get the current builder image from the Containerfile
     current_builder=$(grep '^ARG BUILDER_IMAGE=' "${containerfile}" 2>/dev/null | head -1 | cut -d'=' -f2 || echo "")
 
     if [[ -z "${current_builder}" ]]; then
@@ -75,14 +69,12 @@ for containerfile in ${CONTAINERFILES}; do
         continue
     fi
 
-    # Check if already up to date
     if [[ "${current_builder}" == "${BUILDER_IMAGE}" ]]; then
         echo "OK: ${containerfile}"
         SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
         continue
     fi
 
-    # Update the Containerfile
     sed -i "s|^ARG BUILDER_IMAGE=.*|ARG BUILDER_IMAGE=${BUILDER_IMAGE}|" "${containerfile}"
 
     echo "UPDATED: ${containerfile}"

@@ -10,7 +10,7 @@ WORKDIR /workspace
 COPY . .
 
 RUN source /etc/profile.d/gimme.sh && \
-    CGO_ENABLED=0 BIN_NAME=test-domain-hook-sidecar KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/plugin-sidecars/test-domain-hook
+    CGO_ENABLED=0 KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/plugin-sidecars/test-domain-hook
 
 RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
 

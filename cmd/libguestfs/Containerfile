@@ -1,5 +1,5 @@
 ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
-ARG LIBGUESTFS_BASE_IMAGE=quay.io/vamsi_siddu/libguestfs-tools:latest
+ARG LIBGUESTFS_BASE_IMAGE=quay.io/vamsi_siddu/libguestfs-tools:bazeldnf
 
 FROM ${BUILDER_IMAGE} AS builder
 

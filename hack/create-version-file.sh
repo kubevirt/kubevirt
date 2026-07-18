@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2026 The KubeVirt Authors
+# Copyright 2025 Red Hat, Inc.
 #
-# Create a version file for container images
-# This copies what Bazel does with get-version
+# Create a version file for container images.
+# This replicates what Bazel does with the get-version rule.
 
 set -e
 
@@ -28,7 +28,6 @@ else
     GIT_VERSION="unknown"
 fi
 
-# Create the version file
 echo "${GIT_VERSION}" >"${VERSION_FILE}"
 chmod 755 "${VERSION_FILE}"
 

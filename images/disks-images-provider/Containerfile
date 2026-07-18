@@ -7,7 +7,6 @@ ARG BUILD_ARCH
 
 WORKDIR /workspace
 
-# Download alpine ISO based on architecture
 RUN case ${BUILD_ARCH} in \
         amd64|x86_64) \
             curl -L -o /tmp/alpine.iso https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.1-x86_64.iso && \
