@@ -27,7 +27,11 @@ bazel-build:
 bazel-build-functests:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build-functests.sh"
 
+ifeq ($(KUBEVIRT_NO_BAZEL),true)
+build-functests: go-build-functests
+else
 build-functests: bazel-build-functests
+endif
 
 bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-fmt.sh"
@@ -37,6 +41,13 @@ bazel-build-verify: bazel-build
 
 bazel-build-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh build-images"
+
+container-build-images:
+	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch-container.sh
+
+container-push-images:
+	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/push-images-container.sh
+	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
 
 bazel-push-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch.sh push-images"
@@ -157,6 +168,12 @@ rpm-deps-all:
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
+
+rpm-base-build:
+	hack/rpm-base-images/build-base-images.sh
+
+rpm-base-push:
+	hack/rpm-base-images/push-base-images.sh
 
 verify-rpm-deps:
 	SYNC_VENDOR=true hack/dockerized " ./hack/verify-rpm-deps.sh"
@@ -302,6 +319,10 @@ vmlog-checker:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	rpm-base-build \
+	rpm-base-push \
+	container-build-images \
+	container-push-images \
 	feature-gate-report \
 	vmlog-checker \
 	$(NULL)

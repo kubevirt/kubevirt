@@ -56,6 +56,10 @@ add_feature_gate() {
   fi
 }
 
+# TODO: Remove this once Prow job configs set KUBEVIRT_NO_BAZEL externally.
+# Hardcoded here temporarily to enable container build testing in CI.
+export KUBEVIRT_NO_BAZEL=true
+
 export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
   add_feature_gate "NodeRestriction"
@@ -324,7 +328,11 @@ build_images() {
     # we repeat the build images action
     local tries=3
     for i in $(seq 1 $tries); do
-        make bazel-build-images && return
+        if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
+            make container-build-images && return
+        else
+            make bazel-build-images && return
+        fi
         rc=$?
     done
 
@@ -394,7 +402,13 @@ echo "=================="
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+# Pre-build images only for Bazel flow. Bazel's remote cache downloads are
+# flaky, so we retry here before cluster-up. For the container flow this is
+# unnecessary: podman builds are deterministic and don't depend on a remote
+# cache, and images are built+pushed together during cluster-sync.
+if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
+    build_images
+fi
 
 trap '{ collect_debug_logs; }' ERR
 make cluster-up
