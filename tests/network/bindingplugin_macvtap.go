@@ -90,7 +90,10 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 		nodeName := nodeList.Items[0].Name
 
 		opts := []libvmi.Option{
-			libvmi.WithInterface(libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				macvtapNetworkName,
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+			)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 			libvmi.WithNodeAffinityFor(nodeName),
 		}
@@ -118,8 +121,11 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 		BeforeEach(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceWithMac(
-					libvmi.InterfaceWithMacvtapBindingPlugin("test"), clientMAC)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					"test",
+					libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+					libvmi.WithMac(clientMAC),
+				)),
 				libvmi.WithNetwork(libvmi.MultusNetwork("test", macvtapNetworkName)),
 			)
 			var err error
@@ -148,9 +154,13 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 			BeforeEach(func() {
 				serverVMI = libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithInterface(libvmi.InterfaceWithMac(
-						libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName), serverMAC)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface(
+						macvtapNetworkName,
+						libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+						libvmi.WithMac(serverMAC),
+					)),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 				)

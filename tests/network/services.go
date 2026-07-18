@@ -73,7 +73,7 @@ var _ = Describe(SIG("Services", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 
 			inboundVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
 				libvmi.WithSubdomain("vmi"),

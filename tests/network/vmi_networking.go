@@ -209,16 +209,20 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
-			e1000ModelIface := libvmi.InterfaceWithModel(libvmi.InterfaceDeviceWithMasqueradeBinding(), "e1000")
-			e1000ModelIface.PciAddress = "0000:02:01.0"
-
-			const secondaryNetName = "secondary-net"
-			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
-			defaultModelIface.PciAddress = "0000:03:00.0"
+			const (
+				secondaryNetName  = "secondary-net"
+				e1000PciAddress   = "0000:02:01.0"
+				defaultPciAddress = "0000:03:00.0"
+			)
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithInterface(e1000ModelIface),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+					libvmi.WithMasqueradeBinding(), libvmi.WithModel("e1000"),
+					libvmi.WithPciAddress(e1000PciAddress),
+				)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(defaultModelIface),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetName,
+					libvmi.WithBridgeBinding(), libvmi.WithPciAddress(defaultPciAddress),
+				)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)
 
@@ -239,9 +243,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			err = console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
-				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000ModelIface.PciAddress)},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000PciAddress)},
 				&expect.BExp{R: intelVendorID},
-				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultModelIface.PciAddress)},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultPciAddress)},
 				&expect.BExp{R: redhatVendorID},
 			}, 40)
 			Expect(err).ToNot(HaveOccurred())
@@ -401,7 +405,11 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
 			}
 			return libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					v1.DefaultPodNetwork().Name,
+					libvmi.WithMasqueradeBinding(),
+					libvmi.WithPorts(ports...),
+				)),
 				libvmi.WithNetwork(net),
 			)
 		}
@@ -705,7 +713,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
@@ -796,7 +805,11 @@ func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.Vi
 	net := v1.DefaultPodNetwork()
 	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
 	vmi := libvmifact.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name,
+			libvmi.WithMasqueradeBinding(),
+			libvmi.WithPorts(ports...),
+		)),
 		libvmi.WithNetwork(net),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
@@ -855,7 +868,8 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithInterface(libvmi.InterfaceWithMac(*v1.DefaultBridgeNetworkInterface(), mac)),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding(), libvmi.WithMac(mac))),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 

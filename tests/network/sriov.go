@@ -118,9 +118,11 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
 				libvmi.WithCPUCount(4, 0, 0),
 				libvmi.WithDedicatedCPUPlacement(),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(
+					v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(libvmi.InterfaceWithTag(libvmi.InterfaceDeviceWithSRIOVBinding(sriovnet1), "specialNet")),
+				libvmi.WithInterface(libvmi.NewInterface(
+					sriovnet1, libvmi.WithSRIOVBinding(), libvmi.WithTag("specialNet"))),
 				libvmi.WithNetwork(libvmi.MultusNetwork(sriovnet1, sriovnet1)),
 			)
 			vmi, err := createVMIAndWait(vmi)
@@ -353,7 +355,8 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				)
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithGuestMemory(initialGuestMemory),
-					libvmi.WithInterface(libvmi.InterfaceWithMac(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName), mac)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						sriovNetworkLogicalName, libvmi.WithSRIOVBinding(), libvmi.WithMac(mac))),
 					libvmi.WithNetwork(libvmi.MultusNetwork(sriovNetworkLogicalName, sriovnet1)),
 				)
 				vmi.Spec.Domain.Resources.Requests = nil
@@ -426,11 +429,14 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(
+					v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(libvmi.InterfaceWithPciAddress(libvmi.InterfaceDeviceWithSRIOVBinding(sriovnet1), "0000:06:00.0")),
+				libvmi.WithInterface(libvmi.NewInterface(
+					sriovnet1, libvmi.WithSRIOVBinding(), libvmi.WithPciAddress("0000:06:00.0"))),
 				libvmi.WithNetwork(libvmi.MultusNetwork(sriovnet1, sriovnet1)),
-				libvmi.WithInterface(libvmi.InterfaceWithPciAddress(libvmi.InterfaceDeviceWithSRIOVBinding(sriovnet2), "0000:07:00.0")),
+				libvmi.WithInterface(libvmi.NewInterface(
+					sriovnet2, libvmi.WithSRIOVBinding(), libvmi.WithPciAddress("0000:07:00.0"))),
 				libvmi.WithNetwork(libvmi.MultusNetwork(sriovnet2, sriovnet2)),
 			)
 
@@ -682,13 +688,14 @@ func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIns
 
 func newSRIOVVmi(networks []string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	options := []libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	}
 
 	for _, name := range networks {
 		options = append(options,
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(name)),
+			libvmi.WithInterface(libvmi.NewInterface(name, libvmi.WithSRIOVBinding())),
 			libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 		)
 	}
