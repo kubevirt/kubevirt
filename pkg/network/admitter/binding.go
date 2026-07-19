@@ -46,21 +46,37 @@ func validateInterfaceBinding(
 }
 
 func validateInterfaceBindingExists(fieldPath *field.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if iface.Binding != nil && hasInterfaceBindingMethod(iface) {
+	count := countInterfaceBindings(iface)
+	ifacePath := fieldPath.Child("domain", "devices", "interfaces").Index(idx)
+
+	if count != 1 {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("logical %s interface cannot have both binding plugin and interface binding method", iface.Name),
-			Field:   fieldPath.Child("domain", "devices", "interfaces").Index(idx).Child("binding").String(),
+			Message: fmt.Sprintf("logical %s interface must have exactly one binding method or binding plugin", iface.Name),
+			Field:   ifacePath.String(),
 		}}
 	}
 	return nil
 }
 
-func hasInterfaceBindingMethod(iface v1.Interface) bool {
-	return iface.InterfaceBindingMethod.Bridge != nil ||
-		iface.InterfaceBindingMethod.Masquerade != nil ||
-		iface.InterfaceBindingMethod.SRIOV != nil ||
-		iface.InterfaceBindingMethod.PasstBinding != nil
+func countInterfaceBindings(iface v1.Interface) int {
+	count := 0
+	if iface.InterfaceBindingMethod.Bridge != nil {
+		count++
+	}
+	if iface.InterfaceBindingMethod.Masquerade != nil {
+		count++
+	}
+	if iface.InterfaceBindingMethod.SRIOV != nil {
+		count++
+	}
+	if iface.InterfaceBindingMethod.PasstBinding != nil {
+		count++
+	}
+	if iface.Binding != nil {
+		count++
+	}
+	return count
 }
 
 func validateMasqueradeBinding(fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network) []metav1.StatusCause {

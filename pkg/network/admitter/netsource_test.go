@@ -77,7 +77,7 @@ var _ = Describe("Validate network source", func() {
 			NetworkSource: v1.NetworkSource{},
 			Name:          "testnet1",
 		}
-		iface1 := v1.Interface{Name: net1.Name}
+		iface1 := v1.Interface{Name: net1.Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}
 		spec.Networks = []v1.Network{net1}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
