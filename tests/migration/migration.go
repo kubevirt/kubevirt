@@ -139,7 +139,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		configMapName := createConfigMap(namespace)
 		opts := []libvmi.Option{
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithLabel(downwardTestLabelKey, downwardTestLabelVal),
 			libvmi.WithDownwardAPIDisk("downwardapi-" + rand.String(5)),
 			libvmi.WithServiceAccountDisk("default"),
@@ -184,7 +184,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				withSubdomain(subdomain),
 				libvmi.WithLabel(labelKey, labelValue),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
@@ -387,7 +387,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithMemoryRequest("1Gi"),
@@ -416,7 +416,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			DescribeTable("should migrate with a downwardMetrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 				vmi := libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					via,
 				)
@@ -455,7 +455,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, decorators.TscFrequencies, func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCPUFeature("invtsc", "require"),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -529,7 +529,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithEmptyDisk("uniqueusbdisk", v1.DiskBusUSB, resource.MustParse("128Mi")),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 
@@ -863,7 +863,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dataVolume.Name),
 					libvmi.WithMemoryRequest("1Gi"),
@@ -1059,7 +1059,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				createDV(testsuite.GetTestNamespace(nil))
 				By("Creating the VMI")
 				vmi = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
 					libvmi.WithMemoryRequest(fedoraVMSize),
@@ -1167,7 +1167,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			},
 				Entry("[test_id:8609] with simple VMI", func() *v1.VirtualMachineInstance {
 					return libvmifact.NewAlpine(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
@@ -1175,7 +1175,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithDataVolume("disk0", dv.Name),
 						libvmi.WithMemoryRequest("1Gi"),
@@ -1190,7 +1190,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
 					return libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
 						libvmi.WithMemoryRequest("128Mi"),
@@ -1253,7 +1253,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			},
 				Entry("with simple VMI", func() *v1.VirtualMachineInstance {
 					return libvmifact.NewAlpine(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
@@ -1261,7 +1261,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithDataVolume("disk0", dv.Name),
 						libvmi.WithMemoryRequest("1Gi"),
@@ -1276,7 +1276,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
 					return libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
 						libvmi.WithMemoryRequest("128Mi"),
@@ -1724,7 +1724,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithConfigMapDisk(configMapName, configMapName),
 					libvmi.WithSecretDisk(secretName, secretName),
@@ -1845,7 +1845,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 600, Or(matcher.HaveSucceeded(), matcher.PendingPopulation()))
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithMemoryRequest("1Gi"),
@@ -2028,7 +2028,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				It("should be able to properly abort migration", func() {
 					By("Starting a VirtualMachineInstance")
 					vmi := libvmifact.NewGuestless(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
@@ -2108,7 +2108,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 
@@ -2392,7 +2392,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			hugepagesVmi := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest(memory),
 				libvmi.WithHugepages(hugepageSize),
@@ -2418,7 +2418,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var err error
 			cpuVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDedicatedCPUPlacement(),
@@ -2439,7 +2439,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			It("should not make migrations fail", func() {
 				cpuVMI := libvmifact.NewAlpine(
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDedicatedCPUPlacement(),
@@ -2596,7 +2596,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("creating a migratable VMI with 2 dedicated CPU cores")
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCPUCount(2, 1, 1),
 				libvmi.WithDedicatedCPUPlacement(),
@@ -2691,7 +2691,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		It("Should migrate over that network", func() {
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
@@ -2711,7 +2711,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	It("should update MigrationState's MigrationConfiguration of VMI status", func() {
 		By("Starting a VMI")
 		vmi := libvmifact.NewAlpine(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
@@ -2733,7 +2733,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		It("there should always be a single active migration per VMI", decorators.Conformance, func() {
 			By("Starting a VMI")
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
@@ -2809,7 +2809,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmiRequest := resource.MustParse("200Mi")
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithMemoryRequest(vmiRequest.String()),
 			)
 
@@ -2870,7 +2870,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithConfigMapFs(configMapName, configMapName),
 			)
@@ -2934,7 +2934,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommand)),
 				libvmi.WithFilesystemPVC(dataVolume.Name),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommand)),
 			)
