@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -43,6 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -724,9 +725,9 @@ func createRestoreUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineR
 }
 
 func createTestVMRestoreAdmitter(
-	config vmRestoreConfigChecker,
+	config stubVMRestoreConfigChecker,
 	objs ...runtime.Object,
-) *VMRestoreAdmitter {
+) *admitters.VMRestoreAdmitter {
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
@@ -759,7 +760,7 @@ func createTestVMRestoreAdmitter(
 		return nil, err
 	}).AnyTimes()
 
-	return &VMRestoreAdmitter{Config: config, Client: virtClient, VMRestoreInformer: restoreInformer}
+	return admitters.NewVMRestoreAdmitter(config, virtClient, restoreInformer)
 }
 
 type stubVMRestoreConfigChecker struct {
