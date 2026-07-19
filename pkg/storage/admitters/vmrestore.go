@@ -39,18 +39,21 @@ import (
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+type vmRestoreConfigChecker interface {
+	SnapshotEnabled() bool
+}
 
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
-	Config            *virtconfig.ClusterConfig
+	Config            vmRestoreConfigChecker
 	Client            kubecli.KubevirtClient
 	VMRestoreInformer cache.SharedIndexInformer
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(config vmRestoreConfigChecker, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
 		Config:            config,
 		Client:            client,

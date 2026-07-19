@@ -45,8 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
@@ -76,20 +74,8 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		},
 	}
 
-	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
 	Context("With a disabled feature gate", func() {
 		It("should reject anything", func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							DisabledFeatureGates: []string{featuregate.SnapshotGate},
-						},
-					},
-				},
-			})
-
 			restore := &snapshotv1.VirtualMachineRestore{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "restore",
@@ -99,44 +85,13 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config).Admit(context.Background(), ar)
+			resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("Snapshot/Restore feature gate not enabled"))
 		})
 	})
 
 	Context("With feature gate enabled", func() {
-		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featureGate},
-						},
-					},
-				},
-			})
-		}
-		disableFeatureGates := func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates:         make([]string, 0),
-							DisabledFeatureGates: []string{featuregate.SnapshotGate},
-						},
-					},
-				},
-			})
-		}
-
-		BeforeEach(func() {
-			enableFeatureGate("Snapshot")
-		})
-
-		AfterEach(func() {
-			disableFeatureGates()
-		})
 
 		It("should reject invalid request resource", func() {
 			ar := &admissionv1.AdmissionReview{
@@ -145,7 +100,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				},
 			}
 
-			resp := createTestVMRestoreAdmitter(config).Admit(context.Background(), ar)
+			resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
@@ -166,7 +121,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, snapshot).Admit(context.Background(), ar)
+			resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, snapshot).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
@@ -189,7 +144,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config).Admit(context.Background(), ar)
+			resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -225,7 +180,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
-			resp := createTestVMRestoreAdmitter(config).Admit(context.Background(), ar)
+			resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
@@ -262,7 +217,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
-			resp := createTestVMRestoreAdmitter(config).Admit(context.Background(), ar)
+			resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -297,7 +252,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -320,7 +275,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -343,7 +298,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.kind"))
@@ -369,7 +324,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
@@ -409,7 +364,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot, restoreInProcess).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot, restoreInProcess).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
@@ -434,7 +389,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -458,7 +413,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(2))
@@ -485,7 +440,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -507,7 +462,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -529,7 +484,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
@@ -555,7 +510,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -577,7 +532,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
@@ -641,7 +596,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, snapshot, vmSnapshotContent, targetVM).Admit(context.Background(), ar)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, snapshot, vmSnapshotContent, targetVM).Admit(context.Background(), ar)
 
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
@@ -679,7 +634,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					restore.Spec.Patches = []string{string(patchBytes)}
 
 					ar := createRestoreAdmissionReview(restore)
-					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+					resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeFalse())
 					Expect(resp.Result.Details.Causes).To(HaveLen(1))
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
@@ -698,7 +653,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					restore.Spec.Patches = []string{string(patchBytes)}
 
 					ar := createRestoreAdmissionReview(restore)
-					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+					resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeTrue())
 				},
 					Entry("patch to replace MAC", patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "some-value"))),
@@ -713,7 +668,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					restore.Spec.Patches = []string{invalidPatch}
 
 					ar := createRestoreAdmissionReview(restore)
-					resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
+					resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeFalse())
 					Expect(resp.Result.Details.Causes).To(HaveLen(1))
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
@@ -769,7 +724,7 @@ func createRestoreUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineR
 }
 
 func createTestVMRestoreAdmitter(
-	config *virtconfig.ClusterConfig,
+	config vmRestoreConfigChecker,
 	objs ...runtime.Object,
 ) *VMRestoreAdmitter {
 	ctrl := gomock.NewController(GinkgoT())
@@ -806,3 +761,9 @@ func createTestVMRestoreAdmitter(
 
 	return &VMRestoreAdmitter{Config: config, Client: virtClient, VMRestoreInformer: restoreInformer}
 }
+
+type stubVMRestoreConfigChecker struct {
+	snapshotEnabled bool
+}
+
+func (s stubVMRestoreConfigChecker) SnapshotEnabled() bool { return s.snapshotEnabled }
