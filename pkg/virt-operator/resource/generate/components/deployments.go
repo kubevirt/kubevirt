@@ -219,14 +219,21 @@ func attachProfileVolume(spec *corev1.PodSpec) {
 
 }
 
+func attachOptionalCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
+	attachCertificateSecretWithOptions(spec, secretName, mountPath, pointer.P(true))
+}
+
 func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
-	True := true
+	attachCertificateSecretWithOptions(spec, secretName, mountPath, nil)
+}
+
+func attachCertificateSecretWithOptions(spec *corev1.PodSpec, secretName string, mountPath string, optional *bool) {
 	secretVolume := corev1.Volume{
 		Name: secretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretName,
-				Optional:   &True,
+				Optional:   optional,
 			},
 		},
 	}
@@ -656,7 +663,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, envVars...)
 	}
 
-	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtOperatorCertSecretName, "/etc/virt-operator/certificates")
+	attachOptionalCertificateSecret(&deployment.Spec.Template.Spec, VirtOperatorCertSecretName, "/etc/virt-operator/certificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
 	placement.InjectPlacementMetadata(nil, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
 
