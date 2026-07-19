@@ -598,6 +598,53 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIStopping)
 		})
 
+		Context("when VMI has DeletionTimestamp and domain has grace period", func() {
+			var vmi *v1.VirtualMachineInstance
+			var domain *api.Domain
+
+			BeforeEach(func() {
+				vmi = api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				now := metav1.Now()
+				vmi.DeletionTimestamp = &now
+
+				domain = api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+			})
+
+			It("should attempt graceful shutdown", func() {
+				initGracePeriodHelper(5, vmi, domain)
+
+				client.EXPECT().ShutdownVirtualMachine(gomock.Any())
+				addVMI(vmi, domain)
+
+				sanityExecute()
+				testutils.ExpectEvent(recorder, VMIGracefulShutdown)
+			})
+
+			It("should force kill when grace period expired", func() {
+				initGracePeriodHelper(1, vmi, domain)
+				expired := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
+				domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &expired
+
+				client.EXPECT().KillVirtualMachine(gomock.Any())
+				addVMI(vmi, domain)
+
+				sanityExecute()
+				testutils.ExpectEvent(recorder, VMIStopping)
+			})
+
+			It("should skip shutdown signal when domain is already shutting down", func() {
+				domain.Status.Status = api.Shutdown
+				initGracePeriodHelper(5, vmi, domain)
+
+				addVMI(vmi, domain)
+
+				sanityExecute()
+			})
+		})
+
 		It("should re-enqueue if the Key is unparseable", func() {
 			Expect(mockQueue.Len()).Should(Equal(0))
 			mockQueue.Add("a/b/c/d/e")

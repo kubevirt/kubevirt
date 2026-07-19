@@ -1467,35 +1467,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Entry("[test_id:1654]with default grace period seconds", decorators.Conformance, withoutTerminationGracePeriodSeconds, v1.DefaultGracePeriodSeconds),
 			)
 		})
-		Context("with grace period greater than 0", func() {
-			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, decorators.WgS390x, func() {
-				By("Setting a VirtualMachineInstance termination grace period to 5")
-				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithTerminationGracePeriod(5))
-
-				By("Creating the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-
-				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
-				By("Deleting the VirtualMachineInstance")
-				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
-
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-
-				// Check if the graceful shutdown was logged
-				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")
-				event := watcher.New(vmi).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "ShuttingDown")
-				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
-
-				// Verify VirtualMachineInstance is killed after grace period expires
-				// 5 seconds is grace period, doubling to prevent flakiness
-				By("Checking that the VirtualMachineInstance does not exist after grace period")
-				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
-				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
-
-				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
-			})
-		})
 	})
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", Serial, decorators.WgS390x, func() {
