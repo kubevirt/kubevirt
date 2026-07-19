@@ -37,7 +37,7 @@ var _ = Describe("Validate discontinued bindings", func() {
 		func(interfaceBindingMethod v1.InterfaceBindingMethod, expectedMessage, expectedField string) {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
+					Name:                   net1Name,
 					InterfaceBindingMethod: interfaceBindingMethod,
 				}),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -47,7 +47,7 @@ var _ = Describe("Validate discontinued bindings", func() {
 			causes := validator.ValidateCreation()
 			Expect(causes).To(
 				ConsistOf(metav1.StatusCause{
-					Type:    "FieldValueInvalid",
+					Type:    fieldValueInvalidType,
 					Message: expectedMessage,
 					Field:   expectedField,
 				}),

@@ -95,12 +95,12 @@ func createVMISForPhaseTransitionTime(
 
 	vmi := &v1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "test-ns",
-			Name:              "testvmi",
+			Namespace:         testNamespace,
+			Name:              testVMIName,
 			CreationTimestamp: creation,
 		},
 		Status: v1.VirtualMachineInstanceStatus{
-			NodeName: "testNode",
+			NodeName: testNodeName,
 			Phase:    phase,
 		},
 	}

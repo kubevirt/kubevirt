@@ -61,6 +61,8 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const metricLabelVMI = "vmi"
+
 var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func() {
 	var (
 		err        error
@@ -128,7 +130,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)
 
 			By("Checking that the VM metrics are available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			metricLabels := map[string]string{metricLabelName: vm.Name, metricLabelNamespace: vm.Namespace}
 			for _, metric := range cpuMetrics {
 				checkMetricTo(
 					metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM",
@@ -152,7 +154,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			time.Sleep(prometheusScrapeWait)
 
 			By("Checking that the VM metrics are available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			metricLabels := map[string]string{metricLabelName: vm.Name, metricLabelNamespace: vm.Namespace}
 			for _, metric := range cpuMetrics {
 				checkMetricTo(
 					metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM",
@@ -167,7 +169,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)
 
 			By("Checking that the VM metrics are not available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			metricLabels := map[string]string{metricLabelName: vm.Name, metricLabelNamespace: vm.Namespace}
 			for _, metric := range cpuMetrics {
 				checkMetricTo(
 					metric, metricLabels, BeNumerically("==", -1), "VM metrics should not be available for a stopped VM",
@@ -237,9 +239,9 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 
 			labels := map[string]string{
-				"name":          snapshot.Spec.Source.Name,
-				"snapshot_name": snapshot.Name,
-				"namespace":     snapshot.Namespace,
+				metricLabelName:      snapshot.Spec.Source.Name,
+				"snapshot_name":      snapshot.Name,
+				metricLabelNamespace: snapshot.Namespace,
 			}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(
 				virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0,
@@ -314,7 +316,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 	Context("VM dirty rate metrics", func() {
 		getDirtyRateMetricValue := func(vm *v1.VirtualMachine) float64 {
 			const dirtyRateMetric = "kubevirt_vmi_dirty_rate_bytes_per_second"
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			metricLabels := map[string]string{metricLabelName: vm.Name, metricLabelNamespace: vm.Namespace}
 
 			var metricValue float64
 			EventuallyWithOffset(1, func() (err error) {
@@ -408,7 +410,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			nsLabels := map[string]string{"namespace": testsuite.GetTestNamespace(nil)}
+			nsLabels := map[string]string{metricLabelNamespace: testsuite.GetTestNamespace(nil)}
 			libmonitoring.WaitForMetricValueWithLabels(
 				virtClient, "namespace:kubevirt_vm:sum", expectedVMCount, nsLabels, 1,
 			)
@@ -440,8 +442,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
 
 			labels := map[string]string{
-				"vmi":       vmi.Name,
-				"namespace": vmi.Namespace,
+				metricLabelVMI:       vmi.Name,
+				metricLabelNamespace: vmi.Namespace,
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
@@ -466,8 +468,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 			labels := map[string]string{
-				"vmi":       vmi.Name,
-				"namespace": vmi.Namespace,
+				metricLabelVMI:       vmi.Name,
+				metricLabelNamespace: vmi.Namespace,
 			}
 
 			By("Starting the Migration")
@@ -655,8 +657,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 			By("verifying the guest OS panic metric was incremented")
 			labels := map[string]string{
-				"namespace": vmi.Namespace,
-				"name":      vmi.Name,
+				metricLabelNamespace: vmi.Namespace,
+				metricLabelName:      vmi.Name,
 			}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_guest_os_panic_total", labels, 1, ">=", 1)
 		})
@@ -708,7 +710,7 @@ func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerVal
 	var err error
 	var metricValue float64
 	virtClient := kubevirt.Client()
-	labels := map[string]string{"vmi": vmi.Name, "namespace": vmi.Namespace}
+	labels := map[string]string{metricLabelVMI: vmi.Name, metricLabelNamespace: vmi.Namespace}
 
 	EventuallyWithOffset(1, func() float64 {
 		metricValue, err = libmonitoring.GetMetricValueWithLabels(

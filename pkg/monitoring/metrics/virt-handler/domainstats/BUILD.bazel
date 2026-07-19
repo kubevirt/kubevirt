@@ -44,6 +44,7 @@ go_test(
         "memory_metrics_test.go",
         "network_metrics_test.go",
         "node_cpu_affinity_metrics_test.go",
+        "test_constants_test.go",
         "vcpu_metrics_test.go",
     ],
     embed = [":go_default_library"],

@@ -51,7 +51,10 @@ import (
 )
 
 var _ = Describe(SIGSerial("Node-labeller", func() {
-	const trueStr = "true"
+	const (
+		trueStr = "true"
+		addOp   = "add"
+	)
 
 	var (
 		virtClient               kubecli.KubevirtClient
@@ -109,7 +112,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				node.Labels[nonExistingCPUModelLabel] = trueStr
 				p := []patch{
 					{
-						Op:    "add",
+						Op:    addOp,
 						Path:  "/metadata/labels",
 						Value: node.Labels,
 					},
@@ -118,7 +121,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 					node.Annotations[v1.LabellerSkipNodeAnnotation] = trueStr
 
 					p = append(p, patch{
-						Op:    "add",
+						Op:    addOp,
 						Path:  "/metadata/annotations",
 						Value: node.Annotations,
 					})

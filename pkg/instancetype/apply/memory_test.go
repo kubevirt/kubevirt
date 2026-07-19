@@ -34,6 +34,8 @@ import (
 )
 
 var _ = Describe("instancetype.Spec.Memory", func() {
+	const hugepagesPageSize = "1Gi"
+
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
@@ -50,7 +52,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 			Memory: v1beta1.MemoryInstancetype{
 				Guest: resource.MustParse("512M"),
 				Hugepages: &virtv1.Hugepages{
-					PageSize: "1Gi",
+					PageSize: hugepagesPageSize,
 				},
 				MaxGuest: &maxGuest,
 			},
@@ -98,7 +100,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 		func() {
 			vmi.Spec.Domain.Memory = &virtv1.Memory{
 				Hugepages: &virtv1.Hugepages{
-					PageSize: "1Gi",
+					PageSize: hugepagesPageSize,
 				},
 			}
 
@@ -112,7 +114,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 			instancetypeSpec.Memory.Hugepages = nil
 			vmi.Spec.Domain.Memory = &virtv1.Memory{
 				Hugepages: &virtv1.Hugepages{
-					PageSize: "1Gi",
+					PageSize: hugepagesPageSize,
 				},
 			}
 

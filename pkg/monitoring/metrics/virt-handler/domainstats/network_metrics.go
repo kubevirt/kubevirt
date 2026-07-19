@@ -21,6 +21,11 @@ package domainstats
 
 import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
+const (
+	networkInterfaceLabel = "interface"
+	networkTypeLabel      = "type"
+)
+
 var (
 	networkTrafficBytesDeprecated = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
@@ -118,10 +123,10 @@ func (networkMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operato
 		if net.AliasSet {
 			iface = net.Alias
 		}
-		netLabels := map[string]string{"interface": iface}
+		netLabels := map[string]string{networkInterfaceLabel: iface}
 
 		if net.RxBytesSet {
-			deprecatedLabels := map[string]string{"interface": iface, "type": "rx"}
+			deprecatedLabels := map[string]string{networkInterfaceLabel: iface, networkTypeLabel: "rx"}
 			crs = append(crs,
 				vmiReport.newCollectorResultWithLabels(networkTrafficBytesDeprecated, float64(net.RxBytes), deprecatedLabels),
 				vmiReport.newCollectorResultWithLabels(networkReceiveBytes, float64(net.RxBytes), netLabels),
@@ -129,7 +134,7 @@ func (networkMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operato
 		}
 
 		if net.TxBytesSet {
-			deprecatedLabels := map[string]string{"interface": iface, "type": "tx"}
+			deprecatedLabels := map[string]string{networkInterfaceLabel: iface, networkTypeLabel: "tx"}
 			crs = append(crs,
 				vmiReport.newCollectorResultWithLabels(networkTrafficBytesDeprecated, float64(net.TxBytes), deprecatedLabels),
 				vmiReport.newCollectorResultWithLabels(networkTransmitBytes, float64(net.TxBytes), netLabels),

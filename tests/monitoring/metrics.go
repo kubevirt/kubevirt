@@ -28,6 +28,7 @@ import (
 
 	"github.com/onsi/gomega/types"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,13 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	metricLabelName                          = "name"
+	metricLabelNamespace                     = "namespace"
+	vmiPhaseTransitionTimeFromDeletionMetric = "kubevirt_vmi_phase_transition_time_from_deletion_seconds"
+	testVMPVC                                = "test-vm-pvc"
 )
 
 var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
@@ -95,7 +103,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
 
 			// Verify separately after deletion
-			"kubevirt_vmi_phase_transition_time_from_deletion_seconds": true,
+			vmiPhaseTransitionTimeFromDeletionMetric: true,
 
 			// Needs a guest crash - tested in VM Monitoring, guest panic metrics
 			"kubevirt_vmi_guest_os_panic_total": true,
@@ -131,11 +139,11 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 		It("should contain VNIC metrics", func() {
 			labels := map[string]string{
-				"namespace":    vm.Namespace,
-				"name":         vm.Name,
-				"binding_type": "core",
-				"network":      "pod networking",
-				"binding_name": "masquerade",
+				metricLabelNamespace: vm.Namespace,
+				metricLabelName:      vm.Name,
+				"binding_type":       "core",
+				"network":            "pod networking",
+				"binding_name":       "masquerade",
 			}
 
 			By("Verifying VM vnic info metric")
@@ -157,9 +165,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 				Name: "kubevirt_vm_disk_allocated_size_bytes",
 			})
 			labels := map[string]string{
-				"namespace":             vm.Namespace,
-				"name":                  vm.Name,
-				"persistentvolumeclaim": "test-vm-pvc",
+				metricLabelNamespace:    vm.Namespace,
+				metricLabelName:         vm.Name,
+				"persistentvolumeclaim": testVMPVC,
 				"volume_mode":           "Filesystem",
 				"device":                "testdisk",
 			}
@@ -172,8 +180,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 				Name: "kubevirt_vm_labels",
 			})
 			labels := map[string]string{
-				"namespace":                 vm.Namespace,
-				"name":                      vm.Name,
+				metricLabelNamespace:        vm.Namespace,
+				metricLabelName:             vm.Name,
 				"label_vm_kubevirt_io_test": "test-vm-labels",
 			}
 			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
@@ -187,7 +195,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			}
 
 			metric := operatormetrics.NewHistogram(operatormetrics.MetricOpts{
-				Name: "kubevirt_vmi_phase_transition_time_from_deletion_seconds",
+				Name: vmiPhaseTransitionTimeFromDeletionMetric,
 			}, prometheus.HistogramOpts{})
 
 			By("Waiting for the VMI to terminate")
@@ -210,8 +218,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			By("Waiting until vmi sync metrics are removed")
 			Eventually(func() error {
 				_, err := libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_sync_total", map[string]string{
-					"namespace": vmiRef.Namespace,
-					"name":      vmiRef.Name,
+					metricLabelNamespace: vmiRef.Namespace,
+					metricLabelName:      vmiRef.Name,
 				})
 				return err
 			}, 3*time.Minute, 10*time.Second).Should(HaveOccurred())
@@ -228,7 +236,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 		It("kubevirt workqueue metrics should include controllers names", func() {
 			names := []string{
-				"virt-operator",
+				virtOperatorDeploymentName,
 				"virt-handler-node-labeller",
 				"virt-handler-source",
 				"virt-handler-target",
@@ -288,7 +296,7 @@ func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *li
 }
 
 func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
-	vmDiskPVC := "test-vm-pvc"
+	vmDiskPVC := testVMPVC
 	dv := libstorage.CreateBlankFSDataVolume(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
 	iface := *v1.DefaultMasqueradeNetworkInterface()
 
@@ -304,17 +312,18 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vm := createRunningVM(virtClient, vmi, v1.RunStrategyAlways, true)
 
 	By("Waiting for the VM to be reported")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "namespace:kubevirt_vm:sum", 1, map[string]string{"namespace": vm.Namespace}, 1)
+	libmonitoring.WaitForMetricValueWithLabels(virtClient,
+		"namespace:kubevirt_vm:sum", 1, map[string]string{metricLabelNamespace: vm.Namespace}, 1)
 
 	By("Waiting for the VMI to be reported")
 	labels := map[string]string{
-		"namespace": vm.Namespace,
-		"name":      vm.Name,
+		metricLabelNamespace: vm.Namespace,
+		metricLabelName:      vm.Name,
 	}
 	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 
 	By("Waiting for the VM domainstats metrics to be reported")
-	fsLabels := map[string]string{"namespace": vm.Namespace, "name": vm.Name}
+	fsLabels := map[string]string{metricLabelNamespace: vm.Namespace, metricLabelName: vm.Name}
 	libmonitoring.WaitForMetricValueWithLabelsToBe(
 		virtClient, "kubevirt_vmi_filesystem_capacity_bytes", fsLabels, 0, ">", 0,
 	)

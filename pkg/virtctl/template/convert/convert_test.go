@@ -52,6 +52,9 @@ const (
 
 	formatYAML = "yaml"
 	formatJSON = "json"
+
+	vmKind         = "VirtualMachine"
+	testLabelValue = "test-value"
 )
 
 var _ = Describe("Convert command", func() {
@@ -109,7 +112,7 @@ var _ = Describe("Convert command", func() {
 				Object: &virtv1.VirtualMachine{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "kubevirt.io/v1",
-						Kind:       "VirtualMachine",
+						Kind:       vmKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "another-vm",
@@ -269,10 +272,10 @@ func newOpenShiftTemplate() *ocpv1.Template {
 			Name:      "test-template",
 			Namespace: metav1.NamespaceDefault,
 			Labels: map[string]string{
-				"test-label": "test-value",
+				"test-label": testLabelValue,
 			},
 			Annotations: map[string]string{
-				"test-annotation": "test-value",
+				"test-annotation": testLabelValue,
 			},
 		},
 		Message: "This is a test template",
@@ -295,7 +298,7 @@ func newOpenShiftTemplate() *ocpv1.Template {
 				Object: &virtv1.VirtualMachine{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: virtv1.GroupVersion.String(),
-						Kind:       "VirtualMachine",
+						Kind:       vmKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "${NAME}",

@@ -20,6 +20,7 @@ import (
 const (
 	connectionTimeout = 10 * time.Second
 	promptTimeout     = 5 * time.Second
+	fedoraUser        = "fedora\n"
 )
 
 // LoginToFunction represents any of the LoginTo* functions
@@ -165,13 +166,13 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
 				// and in case the VM's did not get hostname form DHCP server try the default hostname
 				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s|%s) login: `, vmi.Name, hostName)),
-				S:  "fedora\n",
+				S:  fedoraUser,
 				T:  expect.Next(),
 				Rt: 10,
 			},
 			&expect.Case{
 				R:  regexp.MustCompile(`Password:`),
-				S:  "fedora\n",
+				S:  fedoraUser,
 				T:  expect.Next(),
 				Rt: 10,
 			},
@@ -240,11 +241,11 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 	batch := []expect.Batcher{
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: EchoLastReturnValue},
 		&expect.BExp{R: RetValueWithPrompt("0")},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: EchoLastReturnValue},
 		&expect.BExp{R: RetValueWithPrompt("0")},
 	}
 	const configureConsoleTimeout = 60 * time.Second

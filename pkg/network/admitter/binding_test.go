@@ -32,16 +32,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
+const (
+	booBindingName     = "boo"
+	fakeDomainMACField = "fake.domain.devices.interfaces[0].macAddress"
+)
+
 var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has both binding plugin and interface binding method", func() {
 		vm := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
+				Name:                   fooIfaceName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				Binding:                &v1.PluginBinding{Name: "boo"},
+				Binding:                &v1.PluginBinding{Name: booBindingName},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
@@ -49,7 +54,7 @@ var _ = Describe("Validating network binding combinations", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
+				Type:    fieldValueInvalidType,
 				Message: "logical foo interface cannot have both binding plugin and interface binding method",
 				Field:   "fake.domain.devices.interfaces[0].binding",
 			}))
@@ -58,11 +63,11 @@ var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has only plugin binding", func() {
 		vm := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:    "foo",
-				Binding: &v1.PluginBinding{Name: "boo"},
+				Name:    fooIfaceName,
+				Binding: &v1.PluginBinding{Name: booBindingName},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
@@ -74,11 +79,11 @@ var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has only binding method", func() {
 		vm := libvmi.New(
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
+				Name:                   fooIfaceName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}),
 		)
@@ -92,13 +97,13 @@ var _ = Describe("Validating core binding", func() {
 	It("should reject a masquerade interface on a network different than pod", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  []v1.Port{{Name: "test"}},
+				Ports:                  []v1.Port{{Name: testPortName}},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "default",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
+				Name:          net1Name,
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: testPortName}},
 			}),
 		)
 
@@ -106,9 +111,9 @@ var _ = Describe("Validating core binding", func() {
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: "Masquerade interface only implemented with pod network",
-			Field:   "fake.domain.devices.interfaces[0].name",
+			Field:   fakePrimaryIfaceNameField,
 		}))
 	})
 
@@ -116,7 +121,7 @@ var _ = Describe("Validating core binding", func() {
 		vmi := libvmi.New(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
+				Name:                   net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				MacAddress:             "02:00:00:00:00:00",
 			}),
@@ -126,9 +131,9 @@ var _ = Describe("Validating core binding", func() {
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
-			Field:   "fake.domain.devices.interfaces[0].macAddress",
+			Field:   fakeDomainMACField,
 		}))
 	})
 
@@ -142,9 +147,9 @@ var _ = Describe("Validating core binding", func() {
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
+			Type:    fieldValueInvalidType,
 			Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
-			Field:   "fake.domain.devices.interfaces[0].name",
+			Field:   fakePrimaryIfaceNameField,
 		}))
 	})
 })

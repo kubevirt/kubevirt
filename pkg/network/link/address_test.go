@@ -31,6 +31,8 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
+const testIfaceName = "abcd"
+
 var _ = Describe("Common Methods", func() {
 	createNetwork := func(cidr string, ipv6Cidr string) *v1.Network {
 		return &v1.Network{
@@ -85,7 +87,7 @@ var _ = Describe("Common Methods", func() {
 		})
 		It("Should return an error if the spec contain MAC address with wrong format", func() {
 			iface := &v1.Interface{
-				MacAddress: "abcd",
+				MacAddress: testIfaceName,
 			}
 			mac, err := RetrieveMacAddressFromVMISpecIface(iface)
 			Expect(err).To(HaveOccurred())
@@ -109,15 +111,15 @@ var _ = Describe("Common Methods", func() {
 	})
 	Context("GetFakeBridgeIP function", func() {
 		It("Should return empty string when interface name is not in the interface list", func() {
-			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}}, &v1.Interface{Name: "abcd"})
+			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}}, &v1.Interface{Name: testIfaceName})
 			Expect(ip).To(Equal(""))
 		})
 		It("Should return the correct ip when the interface is the first in the list", func() {
-			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "abcd"}}, &v1.Interface{Name: "abcd"})
+			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: testIfaceName}}, &v1.Interface{Name: testIfaceName})
 			Expect(ip).To(Equal(fmt.Sprintf(bridgeFakeIP, 0)))
 		})
 		It("Should return the correct ip when the interface is not the first in the list", func() {
-			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}, v1.Interface{Name: "abcd"}}, &v1.Interface{Name: "abcd"})
+			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}, v1.Interface{Name: testIfaceName}}, &v1.Interface{Name: testIfaceName})
 			Expect(ip).To(Equal(fmt.Sprintf(bridgeFakeIP, 1)))
 		})
 	})

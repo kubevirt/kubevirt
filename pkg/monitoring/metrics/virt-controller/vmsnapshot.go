@@ -36,7 +36,7 @@ var (
 			Name: "kubevirt_vmsnapshot_succeeded_timestamp_seconds",
 			Help: "Returns the timestamp of successful virtual machine snapshot.",
 		},
-		[]string{"name", "snapshot_name", "namespace"},
+		[]string{metricLabelName, "snapshot_name", metricLabelNamespace},
 	)
 )
 

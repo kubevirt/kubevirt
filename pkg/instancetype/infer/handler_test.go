@@ -65,6 +65,8 @@ var _ = Describe("InferFromVolume", func() {
 	)
 
 	const (
+		dataVolumeName                 = "dataVolume"
+		dataVolumeWithSourceRef        = "dvWithSourceRef"
 		inferVolumeName                = "inferVolumeName"
 		defaultInferedNameFromPVC      = "defaultInferedNameFromPVC"
 		defaultInferedKindFromPVC      = "defaultInferedKindFromPVC"
@@ -83,12 +85,14 @@ var _ = Describe("InferFromVolume", func() {
 		dsWithLabelsName               = "dsWithLabelsName"
 		unknownPVCName                 = "unknownPVCName"
 		unknownDVName                  = "unknownDVName"
+		testLabel                      = "test"
+		dataSourceKind                 = "DataSource"
 	)
 
 	BeforeEach(func() {
 		vm = &v1.VirtualMachine{
 			ObjectMeta: k8smetav1.ObjectMeta{
-				Labels: map[string]string{"test": "test"},
+				Labels: map[string]string{testLabel: testLabel},
 			},
 		}
 		vm.Namespace = k8sv1.NamespaceDefault
@@ -356,13 +360,13 @@ var _ = Describe("InferFromVolume", func() {
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: "dataVolume",
+						Name: dataVolumeName,
 					},
 				},
 			}}
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "dataVolume",
+					Name: dataVolumeName,
 				},
 				Spec: cdiv1.DataVolumeSpec{
 					Source: dvSource,
@@ -453,7 +457,7 @@ var _ = Describe("InferFromVolume", func() {
 				Spec: cdiv1.DataVolumeSpec{
 					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Name:      dsWithSourceSnapshotName,
-						Kind:      "DataSource",
+						Kind:      dataSourceKind,
 						Namespace: &dsWithSourceSnapshot.Namespace,
 					},
 				},
@@ -575,7 +579,7 @@ var _ = Describe("InferFromVolume", func() {
 			}
 			dvWithSourceRef := &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      "dvWithSourceRef",
+					Name:      dataVolumeWithSourceRef,
 					Namespace: vm.Namespace,
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -699,12 +703,12 @@ var _ = Describe("InferFromVolume", func() {
 			vm.Spec.Preference = preferenceMatcher
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "dataVolume",
+					Name: dataVolumeName,
 				},
 				Spec: cdiv1.DataVolumeSpec{
 					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Name:      sourceRefName,
-						Kind:      "DataSource",
+						Kind:      dataSourceKind,
 						Namespace: &sourceRefNamespace,
 					},
 				},
@@ -713,7 +717,7 @@ var _ = Describe("InferFromVolume", func() {
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: "dataVolume",
+						Name: dataVolumeName,
 					},
 				},
 			}}
@@ -1057,7 +1061,7 @@ var _ = Describe("InferFromVolume", func() {
 			vm.Spec.Preference = preferenceMatcher
 			dvWithUnsupportedSource := &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      "dvWithSourceRef",
+					Name:      dataVolumeWithSourceRef,
 					Namespace: vm.Namespace,
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -1134,7 +1138,7 @@ var _ = Describe("InferFromVolume", func() {
 			vm.Spec.Preference = preferenceMatcher
 			dvWithUnknownSourceRefKind := &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      "dvWithSourceRef",
+					Name:      dataVolumeWithSourceRef,
 					Namespace: vm.Namespace,
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -1224,11 +1228,11 @@ var _ = Describe("InferFromVolume", func() {
 
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "dataVolume",
+					Name: dataVolumeName,
 				},
 				Spec: cdiv1.DataVolumeSpec{
 					SourceRef: &cdiv1.DataVolumeSourceRef{
-						Kind:      "DataSource",
+						Kind:      dataSourceKind,
 						Name:      dsWithoutSourcePVC.Name,
 						Namespace: &dsWithoutSourcePVC.Namespace,
 					},
@@ -1238,7 +1242,7 @@ var _ = Describe("InferFromVolume", func() {
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: "dataVolume",
+						Name: dataVolumeName,
 					},
 				},
 			}}

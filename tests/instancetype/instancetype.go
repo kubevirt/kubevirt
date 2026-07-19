@@ -26,6 +26,11 @@ import (
 
 const timeout = 300 * time.Second
 
+const (
+	requiredAnnotation1  = "required-annotation-1"
+	preferredAnnotation2 = "preferred-annotation-2"
+)
+
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
 	var virtClient kubecli.KubevirtClient
 
@@ -157,7 +162,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:CNV-9095] should apply instancetype and preferences to VMI", func() {
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Annotations = map[string]string{
-				"required-annotation-1": "1",
+				requiredAnnotation1:     "1",
 				"required-annotation-2": "2",
 			}
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
@@ -188,8 +193,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preference.Spec.PreferredSubdomain = pointer.P("non-existent-subdomain")
 			preference.Spec.Annotations = map[string]string{
 				"preferred-annotation-1": "1",
-				"preferred-annotation-2": "use-vm-value",
-				"required-annotation-1":  "use-instancetype-value",
+				preferredAnnotation2:     "use-vm-value",
+				requiredAnnotation1:      "use-instancetype-value",
 			}
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
@@ -202,7 +207,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
-				"preferred-annotation-2": "2",
+				preferredAnnotation2: "2",
 			}
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -240,10 +245,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations[virtv1.ClusterInstancetypeAnnotation]).To(Equal(""))
 			Expect(vmi.Annotations[virtv1.PreferenceAnnotation]).To(Equal(preference.Name))
 			Expect(vmi.Annotations[virtv1.ClusterPreferenceAnnotation]).To(Equal(""))
-			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-1", "1"))
+			Expect(vmi.Annotations).To(HaveKeyWithValue(requiredAnnotation1, "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-2", "2"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
-			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
+			Expect(vmi.Annotations).To(HaveKeyWithValue(preferredAnnotation2, "2"))
 		})
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {

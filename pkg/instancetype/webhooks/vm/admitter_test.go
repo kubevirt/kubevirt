@@ -63,9 +63,10 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 		)
 
 		const (
-			instancetypeName = "instancetypeName"
-			preferenceName   = "preferenceName"
-			unknownResource  = "unknown"
+			instancetypeName    = "instancetypeName"
+			preferenceName      = "preferenceName"
+			unknownResource     = "unknown"
+			cpuSocketsFieldPath = "spec.template.spec.domain.cpu.sockets"
 		)
 
 		BeforeEach(func() {
@@ -155,8 +156,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 				[]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: "VM field(s) spec.template.spec.domain.cpu.sockets conflicts with selected instance type",
-						Field:   "spec.template.spec.domain.cpu.sockets",
+						Message: fmt.Sprintf("VM field(s) %s conflicts with selected instance type", cpuSocketsFieldPath),
+						Field:   cpuSocketsFieldPath,
 					},
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -176,8 +177,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			Expect(causes).To(ConsistOf(
 				metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "VM field(s) spec.template.spec.domain.cpu.sockets conflicts with selected instance type",
-					Field:   "spec.template.spec.domain.cpu.sockets",
+					Message: fmt.Sprintf("VM field(s) %s conflicts with selected instance type", cpuSocketsFieldPath),
+					Field:   cpuSocketsFieldPath,
 				},
 				metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,

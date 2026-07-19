@@ -26,7 +26,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	defaultServiceSearchDomain = "default.svc.cluster.local"
+	serviceSearchDomain        = "svc.cluster.local"
+	exampleSearchDomain        = "example.com"
+)
+
 var _ = Describe("Resolveconf", func() {
+	const localSearchDomain = "local"
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {
 			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
@@ -79,21 +86,21 @@ var _ = Describe("Resolveconf", func() {
 		It("should return a string of search domains", func() {
 			resolvConf := "search cluster.local svc.cluster.local example.com\nnameserver 8.8.8.8\n"
 			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
+			Expect(searchDomains).To(Equal([]string{defaultSearchDomain, serviceSearchDomain, exampleSearchDomain}))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should handle multi-line search domains", func() {
 			resolvConf := "search cluster.local\nsearch svc.cluster.local example.com\nnameserver 8.8.8.8\n"
 			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
+			Expect(searchDomains).To(Equal([]string{defaultSearchDomain, serviceSearchDomain, exampleSearchDomain}))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should clean up extra whitespace between search domains", func() {
 			resolvConf := "search cluster.local\tsvc.cluster.local    example.com\nnameserver 8.8.8.8\n"
 			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
+			Expect(searchDomains).To(Equal([]string{defaultSearchDomain, serviceSearchDomain, exampleSearchDomain}))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -107,14 +114,14 @@ var _ = Describe("Resolveconf", func() {
 		It("should allow partial search domains", func() {
 			resolvConf := "search local\nnameserver 8.8.8.8\n"
 			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"local"}))
+			Expect(searchDomains).To(Equal([]string{localSearchDomain}))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should normalize search domains to lower-case", func() {
 			resolvConf := "search LoCaL\nnameserver 8.8.8.8\n"
 			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"local"}))
+			Expect(searchDomains).To(Equal([]string{localSearchDomain}))
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -135,7 +142,7 @@ var _ = Describe("Resolveconf", func() {
 
 	Context("subdomain", func() {
 		It("should be added to the longest service domain", func() {
-			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+			searchDomains := []string{defaultServiceSearchDomain, serviceSearchDomain, defaultSearchDomain}
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
@@ -143,7 +150,7 @@ var _ = Describe("Resolveconf", func() {
 		})
 
 		It("should not be added if subdomain is empty", func() {
-			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+			searchDomains := []string{defaultServiceSearchDomain, serviceSearchDomain, defaultSearchDomain}
 
 			const subdomain = ""
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
@@ -151,7 +158,7 @@ var _ = Describe("Resolveconf", func() {
 		})
 
 		It("should be added even if the longest existing service domain isn't the first", func() {
-			searchDomains := []string{"svc.cluster.local", "cluster.local", "default.svc.cluster.local"}
+			searchDomains := []string{serviceSearchDomain, defaultSearchDomain, defaultServiceSearchDomain}
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
@@ -159,7 +166,7 @@ var _ = Describe("Resolveconf", func() {
 		})
 
 		It("should not be added if the longest existing service domain already has it", func() {
-			searchDomains := []string{"svc.cluster.local", "cluster.local", "subdomain.default.svc.cluster.local"}
+			searchDomains := []string{serviceSearchDomain, defaultSearchDomain, "subdomain.default.svc.cluster.local"}
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)
@@ -168,8 +175,8 @@ var _ = Describe("Resolveconf", func() {
 
 		It("should be added to the right entry if the longest entry is not a service entry", func() {
 			searchDomains := []string{
-				"default.svc.cluster.local", "svc.cluster.local",
-				"cluster.local", "this.is.a.very.very.very.long.entry",
+				defaultServiceSearchDomain, serviceSearchDomain,
+				defaultSearchDomain, "this.is.a.very.very.very.long.entry",
 			}
 
 			const subdomain = "subdomain"
@@ -178,7 +185,7 @@ var _ = Describe("Resolveconf", func() {
 		})
 
 		It("should not be added if there is no service entry", func() {
-			searchDomains := []string{"example.com"}
+			searchDomains := []string{exampleSearchDomain}
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)

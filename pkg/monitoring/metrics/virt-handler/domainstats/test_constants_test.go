@@ -17,27 +17,9 @@
  *
  */
 
-package virtapi
+package domainstats
 
-import (
-	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
-	v1 "kubevirt.io/api/core/v1"
+const (
+	testDomainstatsVMIName   = "test-vmi-1"
+	testDomainstatsNamespace = "test-ns-1"
 )
-
-var (
-	vmMetrics = []operatormetrics.Metric{
-		vmsCreatedCounter,
-	}
-
-	vmsCreatedCounter = operatormetrics.NewCounterVec(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_created_by_pod_total",
-			Help: "[Deprecated] The total number of VMs created by namespace and virt-api pod, since install.",
-		},
-		[]string{namespaceLabel},
-	)
-)
-
-func NewVMCreated(vm *v1.VirtualMachine) {
-	vmsCreatedCounter.WithLabelValues(vm.Namespace).Inc()
-}

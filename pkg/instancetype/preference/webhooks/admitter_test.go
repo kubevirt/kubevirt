@@ -40,6 +40,10 @@ import (
 )
 
 var _ = Describe("Validating Preference Admitter", func() {
+	const (
+		testPreferenceName      = "test-name"
+		testPreferenceNamespace = "test-namespace"
+	)
 	var (
 		admitter      *webhooks.PreferenceAdmitter
 		preferenceObj *instancetypev1beta1.VirtualMachinePreference
@@ -50,8 +54,8 @@ var _ = Describe("Validating Preference Admitter", func() {
 
 		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-name",
-				Namespace: "test-namespace",
+				Name:      testPreferenceName,
+				Namespace: testPreferenceNamespace,
 			},
 		}
 	})
@@ -215,6 +219,10 @@ var _ = Describe("Validating Preference Admitter", func() {
 })
 
 var _ = Describe("Validating ClusterPreference Admitter", func() {
+	const (
+		testPreferenceName      = "test-name"
+		testPreferenceNamespace = "test-namespace"
+	)
 	var (
 		admitter             *webhooks.ClusterPreferenceAdmitter
 		clusterPreferenceObj *instancetypev1beta1.VirtualMachineClusterPreference
@@ -225,8 +233,8 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 
 		clusterPreferenceObj = &instancetypev1beta1.VirtualMachineClusterPreference{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-name",
-				Namespace: "test-namespace",
+				Name:      testPreferenceName,
+				Namespace: testPreferenceNamespace,
 			},
 		}
 	})

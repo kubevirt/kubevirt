@@ -54,6 +54,10 @@ const (
 	randNodeSelectorSuffixLength   = 8
 	lowReadySingletonWorkloadCount = 1
 	lowReadyDeploymentRunningCount = 2
+	tailFParam                     = "-f"
+	virtOperatorDeploymentName     = "virt-operator"
+	devNull                        = "/dev/null"
+	tailCommand                    = "tail"
 )
 
 type alerts struct {
@@ -87,7 +91,7 @@ var (
 		lowReadyAlert:        "LowReadyVirtHandlerCount",
 	}
 	virtOperator = alerts{
-		deploymentName:       "virt-operator",
+		deploymentName:       virtOperatorDeploymentName,
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
@@ -234,7 +238,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 			badContainer := daemonSet.Spec.Template.Spec.Containers[0]
 			badContainer.Image = libregistry.GetUtilityImageFromRegistry("vm-killer")
-			badContainer.Command = []string{"tail", "-f", "/dev/null"}
+			badContainer.Command = []string{tailCommand, tailFParam, devNull}
 			badContainer.Args = []string{}
 			badContainer.ReadinessProbe = nil
 			badContainer.LivenessProbe = nil
@@ -539,7 +543,7 @@ func lowReadyDecoyPodSpecFromTemplate(spec corev1.PodSpec) corev1.PodSpec {
 	Expect(out.Containers).NotTo(BeEmpty())
 	c := &out.Containers[0]
 	c.Image = libregistry.GetUtilityImageFromRegistry("vm-killer")
-	c.Command = []string{"tail", "-f", "/dev/null"}
+	c.Command = []string{tailCommand, tailFParam, devNull}
 	c.Args = nil
 	c.ReadinessProbe = nil
 	c.LivenessProbe = nil

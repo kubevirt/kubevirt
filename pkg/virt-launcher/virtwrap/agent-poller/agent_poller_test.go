@@ -33,6 +33,9 @@ import (
 )
 
 var _ = Describe("Qemu agent poller", func() {
+	const frozenStatus = "frozen"
+	const version100 = "1.0.0"
+	const version41 = "4.1"
 	var fakeInterfaces []api.InterfaceStatus
 	var fakeFSFreezeStatus api.FSFreeze
 	var fakeInfo api.GuestOSInfo
@@ -47,14 +50,14 @@ var _ = Describe("Qemu agent poller", func() {
 			},
 		}
 		fakeFSFreezeStatus = api.FSFreeze{
-			Status: "frozen",
+			Status: frozenStatus,
 		}
 		fakeInfo = api.GuestOSInfo{
 			Name:          "TestGuestOSName",
 			KernelRelease: "1.1.0-Generic",
-			Version:       "1.0.0",
+			Version:       version100,
 			PrettyName:    "TestGuestOSName 1.0.0",
-			VersionId:     "1.0.0",
+			VersionId:     version100,
 			KernelVersion: "1.1.0",
 			Machine:       "x86_64",
 			Id:            "testguestos",
@@ -107,7 +110,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 	Context("with AsyncAgentStore", func() {
 		It("should store and load the data", func() {
-			agentVersion := AgentInfo{Version: "4.1"}
+			agentVersion := AgentInfo{Version: version41}
 			agentStore.Store(GetAgent, agentVersion)
 			agent := agentStore.GetGA()
 

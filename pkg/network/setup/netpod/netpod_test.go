@@ -46,7 +46,31 @@ import (
 )
 
 const (
-	defaultPodNetworkName = "default"
+	defaultPodNetworkName        = "default"
+	defaultPrimaryPodIfaceName   = "eth0"
+	defaultPodIfaceOriginalMAC   = "12:34:56:78:90:ab"
+	defaultPodBridgeName         = "k6t-eth0"
+	defaultPodBridgeMACAddress   = "02:00:00:00:00:00"
+	defaultPodBridgeIPv4Address  = "10.0.2.1"
+	defaultPodBridgeIPv6Address  = "fd10:0:2::1"
+	defaultTapDeviceName         = "tap0"
+	defaultRouteDestination      = "0.0.0.0/0"
+	defaultPodIfaceBridgeNICName = "eth0-nic"
+	customPrimaryBridgeName      = "k6t-cust-iface"
+	hashedSecondaryBridgeName    = "k6t-914f438d88d"
+	orderedSecondaryBridgeName   = "k6t-net1"
+	testNet1PodIfaceName         = "pod7087ef4cd1f"
+	testNet1PodIfaceMACAddress   = "22:34:56:78:90:ab"
+	testNet2PodIfaceName         = "podbc6cc93fa1e"
+	testNet2PodIfaceMACAddress   = "32:34:56:78:90:ab"
+	testNet1BridgeName           = "k6t-7087ef4cd1f"
+	testNet1TapName              = "tap7087ef4cd1f"
+	testNet2BridgeName           = "k6t-bc6cc93fa1e"
+	testNet2TapName              = "tapbc6cc93fa1e"
+	masqueradeBridgeMACAddress   = "bb:bb:bb:bb:bb:bb"
+	podInterfaceMACAddress       = "aa:aa:aa:aa:aa:aa"
+	httpPortName                 = "http"
+	tcpProtocol                  = "TCP"
 
 	vmiUID = "12345"
 
@@ -107,11 +131,11 @@ var _ = Describe("netpod", func() {
 				applyErr: errNMStateApply,
 				status: nmstate.Status{
 					Interfaces: []nmstate.Interface{{
-						Name:       "eth0",
+						Name:       defaultPrimaryPodIfaceName,
 						Index:      0,
 						TypeName:   nmstate.TypeVETH,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "12:34:56:78:90:ab",
+						MacAddress: defaultPodIfaceOriginalMAC,
 						MTU:        1500,
 					}},
 				},
@@ -132,11 +156,11 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "12:34:56:78:90:ab",
+					MacAddress: defaultPodIfaceOriginalMAC,
 					MTU:        1500,
 				}},
 			}}),
@@ -156,11 +180,11 @@ var _ = Describe("netpod", func() {
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "12:34:56:78:90:ab",
+					MacAddress: defaultPodIfaceOriginalMAC,
 					MTU:        1500,
 				}},
 			}}),
@@ -191,11 +215,11 @@ var _ = Describe("netpod", func() {
 	It("setup masquerade binding", func() {
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "12:34:56:78:90:ab",
+				MacAddress: defaultPodIfaceOriginalMAC,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
@@ -232,28 +256,28 @@ var _ = Describe("netpod", func() {
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
 					{
-						Name:       "k6t-eth0",
+						Name:       defaultPodBridgeName,
 						TypeName:   nmstate.TypeBridge,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "02:00:00:00:00:00",
+						MacAddress: defaultPodBridgeMACAddress,
 						MTU:        1500,
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
-							Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+							Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 						},
 						IPv6: nmstate.IP{
 							Enabled: pointer.P(true),
-							Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+							Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 						},
 						LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "tap0",
+						Name:       defaultTapDeviceName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,
-						Controller: "k6t-eth0",
+						Controller: defaultPodBridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
@@ -264,8 +288,8 @@ var _ = Describe("netpod", func() {
 				},
 			}),
 		)
-		Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
-		Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
+		Expect(masqstub.bridgeIfaceSpec.Name).To(Equal(defaultPodBridgeName))
+		Expect(masqstub.podIfaceSpec.Name).To(Equal(defaultPrimaryPodIfaceName))
 		Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
 		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 			Iface:  &vmiIface,
@@ -278,11 +302,11 @@ var _ = Describe("netpod", func() {
 		const (
 			defaultGatewayIP4Address = "10.222.222.254"
 
-			podIfaceOrignalMAC = "12:34:56:78:90:ab"
+			podIfaceOrignalMAC = defaultPodIfaceOriginalMAC
 		)
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
@@ -306,29 +330,29 @@ var _ = Describe("netpod", func() {
 			Routes: nmstate.Routes{Running: []nmstate.Route{
 				// Default Route
 				{
-					Destination:      "0.0.0.0/0",
-					NextHopInterface: "eth0",
+					Destination:      defaultRouteDestination,
+					NextHopInterface: defaultPrimaryPodIfaceName,
 					NextHopAddress:   defaultGatewayIP4Address,
 					TableID:          0,
 				},
 				// Local Route (should be ignored)
 				{
 					Destination:      "10.222.222.0/30",
-					NextHopInterface: "eth0",
+					NextHopInterface: defaultPrimaryPodIfaceName,
 					NextHopAddress:   primaryIPv4Address,
 					TableID:          0,
 				},
 				// Static Route
 				{
 					Destination:      "192.168.1.0/24",
-					NextHopInterface: "eth0",
+					NextHopInterface: defaultPrimaryPodIfaceName,
 					NextHopAddress:   defaultGatewayIP4Address,
 					TableID:          0,
 				},
 				// Static route to a wider subnet containing the local subnet
 				{
 					Destination:      "10.222.0.0/16",
-					NextHopInterface: "eth0",
+					NextHopInterface: defaultPrimaryPodIfaceName,
 					TableID:          0,
 				},
 			}},
@@ -350,7 +374,7 @@ var _ = Describe("netpod", func() {
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
 					{
-						Name:     "k6t-eth0",
+						Name:     defaultPodBridgeName,
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
 						IPv4: nmstate.IP{
@@ -360,10 +384,10 @@ var _ = Describe("netpod", func() {
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:        "eth0-nic",
+						Name:        defaultPodIfaceBridgeNICName,
 						Index:       0,
-						CopyMacFrom: "k6t-eth0",
-						Controller:  "k6t-eth0",
+						CopyMacFrom: defaultPodBridgeName,
+						Controller:  defaultPodBridgeName,
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
@@ -371,16 +395,16 @@ var _ = Describe("netpod", func() {
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "tap0",
+						Name:       defaultTapDeviceName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,
-						Controller: "k6t-eth0",
+						Controller: defaultPodBridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "eth0",
+						Name:       defaultPrimaryPodIfaceName,
 						TypeName:   nmstate.TypeDummy,
 						MacAddress: podIfaceOrignalMAC,
 						MTU:        1500,
@@ -420,13 +444,13 @@ var _ = Describe("netpod", func() {
 			"10.222.0.0/16",
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", defaultPrimaryPodIfaceName)).To(Equal(expDHCPConfig))
 	})
 
 	It("setup bridge binding with IP custom primary interface name", func() {
 		const (
 			defaultGatewayIP4Address = "10.222.222.254"
-			podIfaceOrignalMAC       = "12:34:56:78:90:ab"
+			podIfaceOrignalMAC       = defaultPodIfaceOriginalMAC
 			customPrimaryIfaceName   = "cust-iface"
 		)
 		nmstatestub := nmstateStub{status: nmstate.Status{
@@ -455,7 +479,7 @@ var _ = Describe("netpod", func() {
 			Routes: nmstate.Routes{Running: []nmstate.Route{
 				// Default Route
 				{
-					Destination:      "0.0.0.0/0",
+					Destination:      defaultRouteDestination,
 					NextHopInterface: customPrimaryIfaceName,
 					NextHopAddress:   defaultGatewayIP4Address,
 					TableID:          0,
@@ -503,7 +527,7 @@ var _ = Describe("netpod", func() {
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
 					{
-						Name:     "k6t-cust-iface",
+						Name:     customPrimaryBridgeName,
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
 						IPv4: nmstate.IP{
@@ -515,8 +539,8 @@ var _ = Describe("netpod", func() {
 					{
 						Name:        "cust-iface-nic",
 						Index:       0,
-						CopyMacFrom: "k6t-cust-iface",
-						Controller:  "k6t-cust-iface",
+						CopyMacFrom: customPrimaryBridgeName,
+						Controller:  customPrimaryBridgeName,
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
@@ -524,11 +548,11 @@ var _ = Describe("netpod", func() {
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "tap0",
+						Name:       defaultTapDeviceName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,
-						Controller: "k6t-cust-iface",
+						Controller: customPrimaryBridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
@@ -577,11 +601,11 @@ var _ = Describe("netpod", func() {
 	})
 
 	It("setup bridge binding without IP", func() {
-		const podIfaceOrignalMAC = "12:34:56:78:90:ab"
+		const podIfaceOrignalMAC = defaultPodIfaceOriginalMAC
 		const linklocalIPv6Address = "fe80::1"
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
@@ -613,16 +637,16 @@ var _ = Describe("netpod", func() {
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
 					{
-						Name:     "k6t-eth0",
+						Name:     defaultPodBridgeName,
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:        "eth0-nic",
+						Name:        defaultPodIfaceBridgeNICName,
 						Index:       0,
-						CopyMacFrom: "k6t-eth0",
-						Controller:  "k6t-eth0",
+						CopyMacFrom: defaultPodBridgeName,
+						Controller:  defaultPodBridgeName,
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
@@ -630,16 +654,16 @@ var _ = Describe("netpod", func() {
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "tap0",
+						Name:       defaultTapDeviceName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,
-						Controller: "k6t-eth0",
+						Controller: defaultPodBridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "eth0",
+						Name:       defaultPrimaryPodIfaceName,
 						TypeName:   nmstate.TypeDummy,
 						MacAddress: podIfaceOrignalMAC,
 						MTU:        1500,
@@ -660,13 +684,13 @@ var _ = Describe("netpod", func() {
 		_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)
 		Expect(err).To(HaveOccurred())
 
-		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", defaultPrimaryPodIfaceName)).To(
 			Equal(&cache.DHCPConfig{IPAMDisabled: true}))
 	})
 
 	It("setup passt binding", func() {
 		nmstatestub := nmstateStub{status: nmstate.Status{
-			Interfaces: []nmstate.Interface{{Name: "eth0"}},
+			Interfaces: []nmstate.Interface{{Name: defaultPrimaryPodIfaceName}},
 		}}
 
 		vmiIface := v1.Interface{
@@ -719,11 +743,11 @@ var _ = Describe("netpod", func() {
 			nmstatestub = nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{
 					{
-						Name:       "eth0",
+						Name:       defaultPrimaryPodIfaceName,
 						Index:      0,
 						TypeName:   nmstate.TypeVETH,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "12:34:56:78:90:ab",
+						MacAddress: defaultPodIfaceOriginalMAC,
 						MTU:        1500,
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
@@ -791,28 +815,28 @@ var _ = Describe("netpod", func() {
 
 			expectedPrimaryNetIfaces := []nmstate.Interface{
 				{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "02:00:00:00:00:00",
+					MacAddress: defaultPodBridgeMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
 					LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
 					Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				{
-					Name:       "tap0",
+					Name:       defaultTapDeviceName,
 					TypeName:   nmstate.TypeTap,
 					State:      nmstate.IfaceStateUp,
 					MTU:        1500,
-					Controller: "k6t-eth0",
+					Controller: defaultPodBridgeName,
 					Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 					Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
@@ -846,7 +870,7 @@ var _ = Describe("netpod", func() {
 						expectedPrimaryNetIfaces[1],
 						// Secondary network
 						{
-							Name:     "k6t-914f438d88d",
+							Name:     hashedSecondaryBridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
@@ -854,8 +878,8 @@ var _ = Describe("netpod", func() {
 						{
 							Name:        "914f438d88d-nic",
 							Index:       secondaryPodInterfaceIndex,
-							CopyMacFrom: "k6t-914f438d88d",
-							Controller:  "k6t-914f438d88d",
+							CopyMacFrom: hashedSecondaryBridgeName,
+							Controller:  hashedSecondaryBridgeName,
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
@@ -867,7 +891,7 @@ var _ = Describe("netpod", func() {
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-914f438d88d",
+							Controller: hashedSecondaryBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
@@ -887,8 +911,8 @@ var _ = Describe("netpod", func() {
 					},
 				}),
 			)
-			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
-			Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
+			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal(defaultPodBridgeName))
+			Expect(masqstub.podIfaceSpec.Name).To(Equal(defaultPrimaryPodIfaceName))
 			Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
 			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 				Iface:  &specInterfaces[0],
@@ -919,34 +943,34 @@ var _ = Describe("netpod", func() {
 					Interfaces: []nmstate.Interface{
 						// Primary network
 						{
-							Name:       "k6t-eth0",
+							Name:       defaultPodBridgeName,
 							TypeName:   nmstate.TypeBridge,
 							State:      nmstate.IfaceStateUp,
-							MacAddress: "02:00:00:00:00:00",
+							MacAddress: defaultPodBridgeMACAddress,
 							MTU:        1500,
 							IPv4: nmstate.IP{
 								Enabled: pointer.P(true),
-								Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+								Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 							},
 							IPv6: nmstate.IP{
 								Enabled: pointer.P(true),
-								Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+								Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 							},
 							LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "tap0",
+							Name:       defaultTapDeviceName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-eth0",
+							Controller: defaultPodBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						// Secondary network with `absent` marking.
 						{
-							Name:     "k6t-914f438d88d",
+							Name:     hashedSecondaryBridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
@@ -956,7 +980,7 @@ var _ = Describe("netpod", func() {
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateAbsent,
 							MTU:        1500,
-							Controller: "k6t-914f438d88d",
+							Controller: hashedSecondaryBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
@@ -977,8 +1001,8 @@ var _ = Describe("netpod", func() {
 					},
 				}),
 			)
-			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
-			Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
+			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal(defaultPodBridgeName))
+			Expect(masqstub.podIfaceSpec.Name).To(Equal(defaultPrimaryPodIfaceName))
 			Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
 		})
 
@@ -998,34 +1022,34 @@ var _ = Describe("netpod", func() {
 					Interfaces: []nmstate.Interface{
 						// Primary network
 						{
-							Name:       "k6t-eth0",
+							Name:       defaultPodBridgeName,
 							TypeName:   nmstate.TypeBridge,
 							State:      nmstate.IfaceStateUp,
-							MacAddress: "02:00:00:00:00:00",
+							MacAddress: defaultPodBridgeMACAddress,
 							MTU:        1500,
 							IPv4: nmstate.IP{
 								Enabled: pointer.P(true),
-								Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+								Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 							},
 							IPv6: nmstate.IP{
 								Enabled: pointer.P(true),
-								Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+								Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 							},
 							LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "tap0",
+							Name:       defaultTapDeviceName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-eth0",
+							Controller: defaultPodBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						// Secondary network
 						{
-							Name:     "k6t-net1",
+							Name:     orderedSecondaryBridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
@@ -1033,8 +1057,8 @@ var _ = Describe("netpod", func() {
 						{
 							Name:        "net1-nic",
 							Index:       secondaryPodInterfaceIndex,
-							CopyMacFrom: "k6t-net1",
-							Controller:  "k6t-net1",
+							CopyMacFrom: orderedSecondaryBridgeName,
+							Controller:  orderedSecondaryBridgeName,
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
@@ -1046,7 +1070,7 @@ var _ = Describe("netpod", func() {
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-net1",
+							Controller: orderedSecondaryBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
@@ -1066,8 +1090,8 @@ var _ = Describe("netpod", func() {
 					},
 				}),
 			)
-			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
-			Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
+			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal(defaultPodBridgeName))
+			Expect(masqstub.podIfaceSpec.Name).To(Equal(defaultPrimaryPodIfaceName))
 			Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
 		})
 	})
@@ -1086,7 +1110,7 @@ var _ = Describe("netpod", func() {
 		vmiIfaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
 			{
 				Name:             defaultPodNetworkName,
-				PodInterfaceName: "eth0",
+				PodInterfaceName: defaultPrimaryPodIfaceName,
 				QueueCount:       previousQueueCount,
 				InfoSource:       vmispec.InfoSourceDomain,
 			},
@@ -1094,11 +1118,11 @@ var _ = Describe("netpod", func() {
 
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "12:34:56:78:90:ab",
+				MacAddress: defaultPodIfaceOriginalMAC,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
@@ -1111,8 +1135,8 @@ var _ = Describe("netpod", func() {
 			Routes: nmstate.Routes{Running: []nmstate.Route{
 				// Default Route
 				{
-					Destination:      "0.0.0.0/0",
-					NextHopInterface: "eth0",
+					Destination:      defaultRouteDestination,
+					NextHopInterface: defaultPrimaryPodIfaceName,
 					NextHopAddress:   "10.0.0.1",
 					TableID:          0,
 				},
@@ -1130,7 +1154,7 @@ var _ = Describe("netpod", func() {
 		Expect(netPod.Setup()).To(Succeed())
 
 		index := slices.IndexFunc(nmstatestub.spec.Interfaces, func(iface nmstate.Interface) bool {
-			return iface.Name == "tap0"
+			return iface.Name == defaultTapDeviceName
 		})
 		Expect(index).To(BeNumerically(">=", 0))
 
@@ -1140,14 +1164,14 @@ var _ = Describe("netpod", func() {
 	It("setup bridge binding preserves MAC address after live migration", func() {
 		const (
 			defaultGatewayIP4Address = "10.222.222.254"
-			podIfaceNewMAC           = "aa:bb:cc:dd:ee:ff" // New MAC after migration
-			originalMAC              = "12:34:56:78:90:ab" // Original MAC from VMI status
+			podIfaceNewMAC           = "aa:bb:cc:dd:ee:ff"        // New MAC after migration
+			originalMAC              = defaultPodIfaceOriginalMAC // Original MAC from VMI status
 		)
 
 		// nmstatestub with the NEW pod interface MAC (post-migration)
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
@@ -1170,8 +1194,8 @@ var _ = Describe("netpod", func() {
 			}},
 			Routes: nmstate.Routes{Running: []nmstate.Route{
 				{
-					Destination:      "0.0.0.0/0",
-					NextHopInterface: "eth0",
+					Destination:      defaultRouteDestination,
+					NextHopInterface: defaultPrimaryPodIfaceName,
 					NextHopAddress:   defaultGatewayIP4Address,
 					TableID:          0,
 				},
@@ -1206,18 +1230,18 @@ var _ = Describe("netpod", func() {
 			defaultGatewayIP4Address,
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", defaultPrimaryPodIfaceName)).To(Equal(expDHCPConfig))
 	})
 
 	DescribeTable("setup unhandled bindings", func(binding v1.InterfaceBindingMethod, expNmstateSpec nmstate.Spec) {
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{
 				{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "12:34:56:78:90:ab",
+					MacAddress: defaultPodIfaceOriginalMAC,
 					MTU:        1500,
 				},
 			},
@@ -1270,27 +1294,27 @@ var _ = Describe("netpod", func() {
 			nmstatestub = &nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{
 					{
-						Name:       "eth0",
+						Name:       defaultPrimaryPodIfaceName,
 						Index:      0,
 						TypeName:   nmstate.TypeVETH,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "12:34:56:78:90:ab",
+						MacAddress: defaultPodIfaceOriginalMAC,
 						MTU:        1500,
 					},
 					{
-						Name:       "pod7087ef4cd1f",
+						Name:       testNet1PodIfaceName,
 						Index:      0,
 						TypeName:   nmstate.TypeVETH,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "22:34:56:78:90:ab",
+						MacAddress: testNet1PodIfaceMACAddress,
 						MTU:        1500,
 					},
 					{
-						Name:       "podbc6cc93fa1e",
+						Name:       testNet2PodIfaceName,
 						Index:      0,
 						TypeName:   nmstate.TypeVETH,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "32:34:56:78:90:ab",
+						MacAddress: testNet2PodIfaceMACAddress,
 						MTU:        1500,
 					},
 				},
@@ -1329,10 +1353,10 @@ var _ = Describe("netpod", func() {
 					Interfaces: []nmstate.Interface{
 						// Primary network
 						{
-							Name:       "k6t-eth0",
+							Name:       defaultPodBridgeName,
 							TypeName:   nmstate.TypeBridge,
 							State:      nmstate.IfaceStateUp,
-							MacAddress: "02:00:00:00:00:00",
+							MacAddress: defaultPodBridgeMACAddress,
 							MTU:        1500,
 							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
@@ -1340,49 +1364,49 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "tap0",
+							Name:       defaultTapDeviceName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-eth0",
+							Controller: defaultPodBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						// Secondary network with `absent` marking.
 						{
-							Name:     "k6t-7087ef4cd1f",
+							Name:     testNet1BridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:       "tap7087ef4cd1f",
+							Name:       testNet1TapName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateAbsent,
 							MTU:        1500,
-							Controller: "k6t-7087ef4cd1f",
+							Controller: testNet1BridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:       "pod7087ef4cd1f",
+							Name:       testNet1PodIfaceName,
 							TypeName:   nmstate.TypeDummy,
 							State:      nmstate.IfaceStateAbsent,
-							MacAddress: "22:34:56:78:90:ab",
+							MacAddress: testNet1PodIfaceMACAddress,
 							MTU:        1500,
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
 						{
-							Name:     "k6t-bc6cc93fa1e",
+							Name:     testNet2BridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
 							Name:        "bc6cc93fa1e-nic",
-							CopyMacFrom: "k6t-bc6cc93fa1e",
-							Controller:  "k6t-bc6cc93fa1e",
+							CopyMacFrom: testNet2BridgeName,
+							Controller:  testNet2BridgeName,
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
@@ -1390,18 +1414,18 @@ var _ = Describe("netpod", func() {
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:       "tapbc6cc93fa1e",
+							Name:       testNet2TapName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-bc6cc93fa1e",
+							Controller: testNet2BridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:       "podbc6cc93fa1e",
+							Name:       testNet2PodIfaceName,
 							TypeName:   nmstate.TypeDummy,
-							MacAddress: "32:34:56:78:90:ab",
+							MacAddress: testNet2PodIfaceMACAddress,
 							MTU:        1500,
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
@@ -1435,10 +1459,10 @@ var _ = Describe("netpod", func() {
 					Interfaces: []nmstate.Interface{
 						// Primary network
 						{
-							Name:       "k6t-eth0",
+							Name:       defaultPodBridgeName,
 							TypeName:   nmstate.TypeBridge,
 							State:      nmstate.IfaceStateUp,
-							MacAddress: "02:00:00:00:00:00",
+							MacAddress: defaultPodBridgeMACAddress,
 							MTU:        1500,
 							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
@@ -1446,59 +1470,59 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "tap0",
+							Name:       defaultTapDeviceName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-eth0",
+							Controller: defaultPodBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						// Secondary network with `absent` marking.
 						{
-							Name:     "k6t-7087ef4cd1f",
+							Name:     testNet1BridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:       "tap7087ef4cd1f",
+							Name:       testNet1TapName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateAbsent,
 							MTU:        1500,
-							Controller: "k6t-7087ef4cd1f",
+							Controller: testNet1BridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:       "pod7087ef4cd1f",
+							Name:       testNet1PodIfaceName,
 							TypeName:   nmstate.TypeDummy,
 							State:      nmstate.IfaceStateAbsent,
-							MacAddress: "22:34:56:78:90:ab",
+							MacAddress: testNet1PodIfaceMACAddress,
 							MTU:        1500,
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
 						{
-							Name:     "k6t-bc6cc93fa1e",
+							Name:     testNet2BridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:       "tapbc6cc93fa1e",
+							Name:       testNet2TapName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateAbsent,
 							MTU:        1500,
-							Controller: "k6t-bc6cc93fa1e",
+							Controller: testNet2BridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:       "podbc6cc93fa1e",
+							Name:       testNet2PodIfaceName,
 							TypeName:   nmstate.TypeDummy,
 							State:      nmstate.IfaceStateAbsent,
-							MacAddress: "32:34:56:78:90:ab",
+							MacAddress: testNet2PodIfaceMACAddress,
 							MTU:        1500,
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
@@ -1539,10 +1563,10 @@ var _ = Describe("netpod", func() {
 					Interfaces: []nmstate.Interface{
 						// Primary network
 						{
-							Name:       "k6t-eth0",
+							Name:       defaultPodBridgeName,
 							TypeName:   nmstate.TypeBridge,
 							State:      nmstate.IfaceStateUp,
-							MacAddress: "02:00:00:00:00:00",
+							MacAddress: defaultPodBridgeMACAddress,
 							MTU:        1500,
 							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
@@ -1550,25 +1574,25 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "tap0",
+							Name:       defaultTapDeviceName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-eth0",
+							Controller: defaultPodBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						// Secondary network.
 						{
-							Name:     "k6t-7087ef4cd1f",
+							Name:     testNet1BridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
 							Name:        "7087ef4cd1f-nic",
-							CopyMacFrom: "k6t-7087ef4cd1f",
-							Controller:  "k6t-7087ef4cd1f",
+							CopyMacFrom: testNet1BridgeName,
+							Controller:  testNet1BridgeName,
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
@@ -1576,42 +1600,42 @@ var _ = Describe("netpod", func() {
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:       "tap7087ef4cd1f",
+							Name:       testNet1TapName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-7087ef4cd1f",
+							Controller: testNet1BridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:       "pod7087ef4cd1f",
+							Name:       testNet1PodIfaceName,
 							TypeName:   nmstate.TypeDummy,
-							MacAddress: "22:34:56:78:90:ab",
+							MacAddress: testNet1PodIfaceMACAddress,
 							MTU:        1500,
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
 						{
-							Name:     "k6t-bc6cc93fa1e",
+							Name:     testNet2BridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:       "tapbc6cc93fa1e",
+							Name:       testNet2TapName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateAbsent,
 							MTU:        1500,
-							Controller: "k6t-bc6cc93fa1e",
+							Controller: testNet2BridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:       "podbc6cc93fa1e",
+							Name:       testNet2PodIfaceName,
 							TypeName:   nmstate.TypeDummy,
 							State:      nmstate.IfaceStateAbsent,
-							MacAddress: "32:34:56:78:90:ab",
+							MacAddress: testNet2PodIfaceMACAddress,
 							MTU:        1500,
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
@@ -1658,27 +1682,27 @@ var _ = Describe("netpod", func() {
 		nmstatestub := &nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{
 				{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "12:34:56:78:90:ab",
+					MacAddress: defaultPodIfaceOriginalMAC,
 					MTU:        1500,
 				},
 				{
-					Name:       "pod7087ef4cd1f",
+					Name:       testNet1PodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "22:34:56:78:90:ab",
+					MacAddress: testNet1PodIfaceMACAddress,
 					MTU:        1500,
 				},
 				{
-					Name:       "podbc6cc93fa1e",
+					Name:       testNet2PodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "32:34:56:78:90:ab",
+					MacAddress: testNet2PodIfaceMACAddress,
 					MTU:        1500,
 				},
 			},
@@ -1729,10 +1753,10 @@ var _ = Describe("netpod", func() {
 				Interfaces: []nmstate.Interface{
 					// Primary network
 					{
-						Name:       "k6t-eth0",
+						Name:       defaultPodBridgeName,
 						TypeName:   nmstate.TypeBridge,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "02:00:00:00:00:00",
+						MacAddress: defaultPodBridgeMACAddress,
 						MTU:        1500,
 						IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 						IPv6:       nmstate.IP{Enabled: pointer.P(false)},
@@ -1740,25 +1764,25 @@ var _ = Describe("netpod", func() {
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:       "tap0",
+						Name:       defaultTapDeviceName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,
-						Controller: "k6t-eth0",
+						Controller: defaultPodBridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					// Secondary network.
 					{
-						Name:     "k6t-7087ef4cd1f",
+						Name:     testNet1BridgeName,
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					{
 						Name:        "7087ef4cd1f-nic",
-						CopyMacFrom: "k6t-7087ef4cd1f",
-						Controller:  "k6t-7087ef4cd1f",
+						CopyMacFrom: testNet1BridgeName,
+						Controller:  testNet1BridgeName,
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
@@ -1766,42 +1790,42 @@ var _ = Describe("netpod", func() {
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					{
-						Name:       "tap7087ef4cd1f",
+						Name:       testNet1TapName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateUp,
 						MTU:        1500,
-						Controller: "k6t-7087ef4cd1f",
+						Controller: testNet1BridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					{
-						Name:       "pod7087ef4cd1f",
+						Name:       testNet1PodIfaceName,
 						TypeName:   nmstate.TypeDummy,
-						MacAddress: "22:34:56:78:90:ab",
+						MacAddress: testNet1PodIfaceMACAddress,
 						MTU:        1500,
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					// Third network.
 					{
-						Name:     "k6t-bc6cc93fa1e",
+						Name:     testNet2BridgeName,
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateAbsent,
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
 					{
-						Name:       "tapbc6cc93fa1e",
+						Name:       testNet2TapName,
 						TypeName:   nmstate.TypeTap,
 						State:      nmstate.IfaceStateAbsent,
 						MTU:        1500,
-						Controller: "k6t-bc6cc93fa1e",
+						Controller: testNet2BridgeName,
 						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
 					{
-						Name:       "podbc6cc93fa1e",
+						Name:       testNet2PodIfaceName,
 						TypeName:   nmstate.TypeDummy,
 						State:      nmstate.IfaceStateAbsent,
-						MacAddress: "32:34:56:78:90:ab",
+						MacAddress: testNet2PodIfaceMACAddress,
 						MTU:        1500,
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
@@ -1839,11 +1863,11 @@ var _ = Describe("netpod", func() {
 		})
 
 		It("setup succeeds", func() {
-			const podIfaceOrignalMAC = "12:34:56:78:90:ab"
+			const podIfaceOrignalMAC = defaultPodIfaceOriginalMAC
 
 			nmstatestub := nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
@@ -1882,33 +1906,33 @@ var _ = Describe("netpod", func() {
 				nmstate.Spec{
 					Interfaces: []nmstate.Interface{
 						{
-							Name:     "k6t-eth0",
+							Name:     defaultPodBridgeName,
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:        "eth0-nic",
+							Name:        defaultPodIfaceBridgeNICName,
 							Index:       0,
 							State:       nmstate.IfaceStateUp,
-							CopyMacFrom: "k6t-eth0",
-							Controller:  "k6t-eth0",
+							CopyMacFrom: defaultPodBridgeName,
+							Controller:  defaultPodBridgeName,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
 							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "tap0",
+							Name:       defaultTapDeviceName,
 							TypeName:   nmstate.TypeTap,
 							State:      nmstate.IfaceStateUp,
 							MTU:        1500,
-							Controller: "k6t-eth0",
+							Controller: defaultPodBridgeName,
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
-							Name:       "eth0",
+							Name:       defaultPrimaryPodIfaceName,
 							TypeName:   nmstate.TypeDummy,
 							MacAddress: podIfaceOrignalMAC,
 							MTU:        1500,

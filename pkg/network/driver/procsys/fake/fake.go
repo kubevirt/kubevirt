@@ -79,15 +79,17 @@ func (p *ProcSys) IPv4SetUnprivilegedPortStart(port int) error {
 	return nil
 }
 
+const allIface = "all"
+
 func (p *ProcSys) IPv4GetArpIgnore(ifaceName string) (procsys.ArpReplyMode, error) {
-	if ifaceName == "all" {
+	if ifaceName == allIface {
 		return p.linuxStackData.arpIgnoreMode, nil
 	}
 	return 0, nil
 }
 
 func (p *ProcSys) IPv4SetArpIgnore(ifaceName string, mode procsys.ArpReplyMode) error {
-	if ifaceName == "all" {
+	if ifaceName == allIface {
 		p.linuxStackData.arpIgnoreMode = mode
 	}
 	return nil

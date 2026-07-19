@@ -28,6 +28,8 @@ const (
 	workqueueBucketStart  = 10e-9
 	workqueueBucketFactor = 10
 	workqueueBucketCount  = 10
+
+	metricLabelName = "name"
 )
 
 var (
@@ -46,7 +48,7 @@ var (
 			Name: "kubevirt_workqueue_depth",
 			Help: "Current depth of workqueue",
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 
 	adds = operatormetrics.NewCounterVec(
@@ -54,7 +56,7 @@ var (
 			Name: "kubevirt_workqueue_adds_total",
 			Help: "Total number of adds handled by workqueue",
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 
 	latency = operatormetrics.NewHistogramVec(
@@ -65,7 +67,7 @@ var (
 		prometheus.HistogramOpts{
 			Buckets: prometheus.ExponentialBuckets(workqueueBucketStart, workqueueBucketFactor, workqueueBucketCount),
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 
 	workDuration = operatormetrics.NewHistogramVec(
@@ -76,7 +78,7 @@ var (
 		prometheus.HistogramOpts{
 			Buckets: prometheus.ExponentialBuckets(workqueueBucketStart, workqueueBucketFactor, workqueueBucketCount),
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 
 	retries = operatormetrics.NewCounterVec(
@@ -84,7 +86,7 @@ var (
 			Name: "kubevirt_workqueue_retries_total",
 			Help: "Total number of retries handled by workqueue",
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 
 	longestRunningProcessor = operatormetrics.NewGaugeVec(
@@ -92,7 +94,7 @@ var (
 			Name: "kubevirt_workqueue_longest_running_processor_seconds",
 			Help: "How many seconds has the longest running processor for workqueue been running.",
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 
 	unfinishedWork = operatormetrics.NewGaugeVec(
@@ -103,7 +105,7 @@ var (
 				"threads. The number of stuck threads can be deduced by observing " +
 				"the rate at which this value increases.",
 		},
-		[]string{"name"},
+		[]string{metricLabelName},
 	)
 )
 

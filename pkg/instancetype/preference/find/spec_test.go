@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+const foobarName = "foobar"
+
 var _ = Describe("Preference SpecFinder", func() {
 	const (
 		nonExistingResourceName = "non-existing-resource"
@@ -199,7 +201,7 @@ var _ = Describe("Preference SpecFinder", func() {
 				func(vm *v1.VirtualMachine, crName string) {
 					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
 						ControllerRevisionRef: &v1.ControllerRevisionRef{
-							Name: "foobar",
+							Name: foobarName,
 						},
 					}
 					vm.Spec.Preference = &v1.PreferenceMatcher{
@@ -370,7 +372,7 @@ var _ = Describe("Preference SpecFinder", func() {
 				func(vm *v1.VirtualMachine, crName string) {
 					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
 						ControllerRevisionRef: &v1.ControllerRevisionRef{
-							Name: "foobar",
+							Name: foobarName,
 						},
 					}
 					vm.Spec.Preference = &v1.PreferenceMatcher{

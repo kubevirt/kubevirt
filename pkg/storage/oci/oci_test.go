@@ -40,6 +40,7 @@ import (
 var _ = Describe("OCI Builder", func() {
 	const (
 		architecture  = "amd64"
+		diskVolume    = "disk"
 		osName        = "linux"
 		schemaVersion = 2
 	)
@@ -110,7 +111,7 @@ var _ = Describe("OCI Builder", func() {
 	It("should set disk size annotation from file size", func() {
 		diskPath := createTestDisk()
 		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
-			{VolumeName: "disk", FilePath: diskPath},
+			{VolumeName: diskVolume, FilePath: diskPath},
 		})
 
 		Expect(builder.Prepare(context.Background())).To(Succeed())
@@ -128,14 +129,14 @@ var _ = Describe("OCI Builder", func() {
 		var manifest ocispec.Manifest
 		Expect(json.Unmarshal(files[blobPath(index.Manifests[0].Digest)], &manifest)).To(Succeed())
 		Expect(manifest.Layers).To(HaveLen(1))
-		Expect(manifest.Layers[0].Annotations).To(HaveKeyWithValue(annotationDiskName, "disk"))
+		Expect(manifest.Layers[0].Annotations).To(HaveKeyWithValue(annotationDiskName, diskVolume))
 		Expect(manifest.Layers[0].Annotations).To(HaveKeyWithValue(annotationDiskSize, expectedSize))
 	})
 
 	It("should default architecture to amd64 when empty", func() {
 		diskPath := createTestDisk()
 		builder := NewVMBuilder(emptyConfigJSON(), "", []DiskInfo{
-			{VolumeName: "disk", FilePath: diskPath},
+			{VolumeName: diskVolume, FilePath: diskPath},
 		})
 
 		Expect(builder.Prepare(context.Background())).To(Succeed())
@@ -245,7 +246,7 @@ var _ = Describe("OCI Builder", func() {
 	It("should return TotalTarSize matching actual TAR length", func() {
 		diskPath := createTestDisk()
 		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
-			{VolumeName: "disk", FilePath: diskPath},
+			{VolumeName: diskVolume, FilePath: diskPath},
 		})
 		Expect(builder.Prepare(context.Background())).To(Succeed())
 
@@ -296,7 +297,7 @@ var _ = Describe("OCI Builder", func() {
 	It("should fail WriteTar when context is canceled", func() {
 		diskPath := createTestDisk()
 		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
-			{VolumeName: "disk", FilePath: diskPath},
+			{VolumeName: diskVolume, FilePath: diskPath},
 		})
 		Expect(builder.Prepare(context.Background())).To(Succeed())
 
@@ -313,7 +314,7 @@ var _ = Describe("OCI Builder", func() {
 		cancel()
 
 		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
-			{VolumeName: "disk", FilePath: diskPath},
+			{VolumeName: diskVolume, FilePath: diskPath},
 		})
 		Expect(builder.Prepare(ctx)).To(MatchError(ContainSubstring("context canceled")))
 	})

@@ -51,7 +51,8 @@ import (
 )
 
 const (
-	pvcSize = "100Mi"
+	namespaceFlag = "--namespace"
+	pvcSize       = "100Mi"
 )
 
 var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, func() {
@@ -320,7 +321,7 @@ func createArchive(sourceFilesNames ...string) string {
 func runImageUploadCmd(args ...string) error {
 	_args := append([]string{
 		"image-upload",
-		"--namespace", testsuite.GetTestNamespace(nil),
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 		"--size", pvcSize,
 		"--insecure",
 	}, args...)

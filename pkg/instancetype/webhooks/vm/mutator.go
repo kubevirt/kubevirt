@@ -39,6 +39,10 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
+const inferFromVolumeNameSetMsg = "Name already set, should be cleared before setting inferFromVolume"
+
+const inferFromVolumeKindSetMsg = "Kind already set, should be cleared before setting inferFromVolume"
+
 type inferHandler interface {
 	Instancetype(vm *virtv1.VirtualMachine) error
 	Preference(vm *virtv1.VirtualMachine) error
@@ -204,14 +208,14 @@ func validateInstancetypeMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause
 		if vm.Spec.Instancetype.Name != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "Name already set, should be cleared before setting inferFromVolume",
+				Message: inferFromVolumeNameSetMsg,
 				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
 			})
 		}
 		if vm.Spec.Instancetype.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "Kind already set, should be cleared before setting inferFromVolume",
+				Message: inferFromVolumeKindSetMsg,
 				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
 			})
 		}
@@ -246,14 +250,14 @@ func validatePreferenceMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
 		if vm.Spec.Preference.Name != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "Name already set, should be cleared before setting inferFromVolume",
+				Message: inferFromVolumeNameSetMsg,
 				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
 			})
 		}
 		if vm.Spec.Preference.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "Kind already set, should be cleared before setting inferFromVolume",
+				Message: inferFromVolumeKindSetMsg,
 				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
 			})
 		}

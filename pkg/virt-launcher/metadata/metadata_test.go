@@ -28,6 +28,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 )
 
+const testFailureReason = "test123"
+
 var _ = Describe("Metadata", func() {
 	var metadataCache *metadata.Cache
 
@@ -42,8 +44,7 @@ var _ = Describe("Metadata", func() {
 	})
 
 	It("Store and load data", func() {
-		const test123 = "test123"
-		origData := api.MigrationMetadata{FailureReason: test123}
+		origData := api.MigrationMetadata{FailureReason: testFailureReason}
 
 		metadataCache.Migration.Store(origData)
 
@@ -53,22 +54,18 @@ var _ = Describe("Metadata", func() {
 	})
 
 	It("Mutate uninitialized data in a safe block", func() {
-		const test123 = "test123"
-
 		metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, initialized bool) {
 			Expect(initialized).To(BeFalse())
 			Expect(*m).To(Equal(api.MigrationMetadata{}))
 
-			m.FailureReason = test123
+			m.FailureReason = testFailureReason
 		})
 		newData, exists := metadataCache.Migration.Load()
 		Expect(exists).To(BeTrue())
-		Expect(newData).To(Equal(api.MigrationMetadata{FailureReason: test123}))
+		Expect(newData).To(Equal(api.MigrationMetadata{FailureReason: testFailureReason}))
 	})
 
 	It("Mutate existing data in a safe block", func() {
-		const test123 = "test123"
-
 		origData := api.MigrationMetadata{FailureReason: "origin-data"}
 		metadataCache.Migration.Store(origData)
 
@@ -76,29 +73,27 @@ var _ = Describe("Metadata", func() {
 			Expect(initialized).To(BeTrue())
 			Expect(*m).To(Equal(origData))
 
-			m.FailureReason = test123
+			m.FailureReason = testFailureReason
 		})
 		newData, exists := metadataCache.Migration.Load()
 		Expect(exists).To(BeTrue())
-		Expect(newData).To(Equal(api.MigrationMetadata{FailureReason: test123}))
+		Expect(newData).To(Equal(api.MigrationMetadata{FailureReason: testFailureReason}))
 	})
 
 	It("Notify and listen when cache data store", func() {
-		const test123 = "test123"
-		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: test123})
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: testFailureReason})
 
 		Expect(metadataCache.Listen()).Should(Receive())
 	})
 
 	It("Do not notify when cache data set", func() {
-		const test123 = "test123"
-		metadataCache.Migration.Set(api.MigrationMetadata{FailureReason: test123})
+		metadataCache.Migration.Set(api.MigrationMetadata{FailureReason: testFailureReason})
 
 		Expect(metadataCache.Listen()).ShouldNot(Receive())
 	})
 
 	It("Reset notification signal", func() {
-		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test123"})
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: testFailureReason})
 
 		metadataCache.ResetNotification()
 
@@ -106,7 +101,7 @@ var _ = Describe("Metadata", func() {
 	})
 
 	It("Notify multiple times and listen to a single cache data change", func() {
-		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test123"})
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: testFailureReason})
 		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test456"})
 		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test789"})
 
@@ -116,18 +111,17 @@ var _ = Describe("Metadata", func() {
 
 	It("Notify when the data is mutated in a safe block", func() {
 		metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, initialized bool) {
-			m.FailureReason = "test123"
+			m.FailureReason = testFailureReason
 		})
 		Expect(metadataCache.Listen()).Should(Receive())
 	})
 
 	It("Do not notify when the data is not mutated in a safe block", func() {
-		const test123 = "test123"
-		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: test123})
+		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: testFailureReason})
 		Expect(metadataCache.Listen()).Should(Receive())
 
 		metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, initialized bool) {
-			m.FailureReason = test123
+			m.FailureReason = testFailureReason
 		})
 
 		Expect(metadataCache.Listen()).ShouldNot(Receive())

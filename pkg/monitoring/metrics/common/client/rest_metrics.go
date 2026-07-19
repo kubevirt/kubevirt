@@ -27,6 +27,9 @@ const (
 	rateLimiterBucketStart  = 0.001
 	rateLimiterBucketFactor = 2
 	rateLimiterBucketCount  = 10
+
+	metricLabelVerb = "verb"
+	metricLabelURL  = "url"
 )
 
 var (
@@ -51,7 +54,7 @@ var (
 				4, 5, 6, 8, 10, 15, 20, 30, 45, 60,
 			},
 		},
-		[]string{"verb", "url"},
+		[]string{metricLabelVerb, metricLabelURL},
 	)
 
 	rateLimiterLatency = operatormetrics.NewHistogramVec(
@@ -62,7 +65,7 @@ var (
 		prometheus.HistogramOpts{
 			Buckets: prometheus.ExponentialBuckets(rateLimiterBucketStart, rateLimiterBucketFactor, rateLimiterBucketCount),
 		},
-		[]string{"verb", "url"},
+		[]string{metricLabelVerb, metricLabelURL},
 	)
 
 	requestResult = operatormetrics.NewCounterVec(
@@ -70,6 +73,6 @@ var (
 			Name: "kubevirt_rest_client_requests_total",
 			Help: "Number of HTTP requests, partitioned by status code, method, and host.",
 		},
-		[]string{"code", "method", "host", "resource", "verb"},
+		[]string{"code", "method", "host", "resource", metricLabelVerb},
 	)
 )

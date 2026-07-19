@@ -51,6 +51,15 @@ const (
 	testLabelGuestEffective      = "guest_effective"
 	testLabelMemory              = "memory"
 	testLabelGuest               = "guest"
+	testMetricVMResourceLimits   = "kubevirt_vm_resource_limits"
+	testPVCName                  = "test-vm-pvc"
+	testPVCNilMode               = "test-vm-pvc-nil-mode"
+	testDataVolumeDiskName       = "datavolumedisk"
+	testLabelValueBackend        = "backend"
+	testSecondVMName             = "vm2"
+	testLabelTemplate            = "vm.kubevirt.io/template"
+	testLabelSecret              = "secret"
+	testLabelOther               = "other"
 )
 
 // Minimal stub for label config used by vmstats tests
@@ -62,26 +71,26 @@ var _ = Describe("VM Stats Collector", func() {
 	Context("VM status collector", func() {
 		createVM := func(status k6tv1.VirtualMachinePrintableStatus, vmLastTransitionsTime time.Time) *k6tv1.VirtualMachine {
 			return &k6tv1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns", Name: "test-vm"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace, Name: testVMNameDashed},
 				Status: k6tv1.VirtualMachineStatus{
 					PrintableStatus: status,
 					Conditions: []k6tv1.VirtualMachineCondition{
 						{
 							Type:               k6tv1.VirtualMachineFailure,
-							Status:             "any",
-							Reason:             "any",
+							Status:             testConditionAny,
+							Reason:             testConditionAny,
 							LastTransitionTime: metav1.NewTime(vmLastTransitionsTime.Add(-20 * time.Second)),
 						},
 						{
 							Type:               k6tv1.VirtualMachineReady,
-							Status:             "any",
-							Reason:             "any",
+							Status:             testConditionAny,
+							Reason:             testConditionAny,
 							LastTransitionTime: metav1.NewTime(vmLastTransitionsTime),
 						},
 						{
 							Type:               k6tv1.VirtualMachinePaused,
-							Status:             "any",
-							Reason:             "any",
+							Status:             testConditionAny,
+							Reason:             testConditionAny,
 							LastTransitionTime: metav1.NewTime(vmLastTransitionsTime.Add(-40 * time.Second)),
 						},
 					},
@@ -130,10 +139,10 @@ var _ = Describe("VM Stats Collector", func() {
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								annotationPrefix + "os":       "centos8",
-								annotationPrefix + "workload": "server",
-								annotationPrefix + "flavor":   "tiny",
-								"other":                       "other",
+								annotationPrefix + "os":       testAnnotationOSCentos8,
+								annotationPrefix + "workload": testAnnotationWorkloadServer,
+								annotationPrefix + "flavor":   testAnnotationFlavorTiny,
+								"other":                       testLabelOther,
 							},
 						},
 						Spec: k6tv1.VirtualMachineInstanceSpec{
@@ -145,7 +154,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 				Status: k6tv1.VirtualMachineStatus{PrintableStatus: k6tv1.VirtualMachineStatusCrashLoopBackOff},
 			})
-			vms[1].Spec.Template.ObjectMeta.Annotations[annotationPrefix+"phase"] = "dummy"
+			vms[1].Spec.Template.ObjectMeta.Annotations[annotationPrefix+"phase"] = testAnnotationDummy
 
 			crs := CollectVMsInfo(vms)
 			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
@@ -181,7 +190,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			vm := &k6tv1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
 				Spec:       k6tv1.VirtualMachineSpec{Instancetype: instanceType},
 			}
 			crs := CollectVMsInfo(cloneVM(vm))
@@ -217,7 +226,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			vm := &k6tv1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
 				Spec:       k6tv1.VirtualMachineSpec{Preference: preference},
 			}
 			crs := CollectVMsInfo(cloneVM(vm))
@@ -247,8 +256,8 @@ var _ = Describe("VM Stats Collector", func() {
 		It("should report default CPU when no CPU topology is set", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -260,7 +269,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectVMs(crs, "testvm", "test-ns", func(crs []operatormetrics.CollectorResult, name, ns string) {
+			expectVMs(crs, testVMName, testNamespace, func(crs []operatormetrics.CollectorResult, name, ns string) {
 				Expect(crs).ToNot(BeEmpty())
 				var defaults []operatormetrics.CollectorResult
 				for _, cr := range crs {
@@ -295,8 +304,8 @@ var _ = Describe("VM Stats Collector", func() {
 		It("should collect effective memory and effective CPU metrics", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -351,14 +360,14 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(ge).To(BeTrue())
 			}
 
-			expectVMs(crs, "testvm", "test-ns", expectVM)
+			expectVMs(crs, "testvm", testNamespace, expectVM)
 		})
 
 		It("should collect CPU requests/limits and guest_effective when resources are set", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -379,7 +388,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectVMs(crs, "testvm", "test-ns", func(filtered []operatormetrics.CollectorResult, name, ns string) {
+			expectVMs(crs, "testvm", testNamespace, func(filtered []operatormetrics.CollectorResult, name, ns string) {
 				var reqFound, limFound, geFound bool
 				for _, r := range filtered {
 					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
@@ -388,7 +397,7 @@ var _ = Describe("VM Stats Collector", func() {
 						Expect(r.Value).To(BeEquivalentTo(0.5))
 						reqFound = true
 					}
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_limits" &&
+					if r.Metric.GetOpts().Name == testMetricVMResourceLimits &&
 						len(r.Labels) == 4 && r.Labels[2] == testLabelCPU && r.Labels[3] == testLabelCores {
 						Expect(r.Value).To(BeEquivalentTo(1))
 						limFound = true
@@ -407,8 +416,8 @@ var _ = Describe("VM Stats Collector", func() {
 		It("should collect domain CPU metrics and guest_effective from topology", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -426,14 +435,14 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectDomainCPUMetrics(crs, "testvm", "test-ns", 2, 4, 1, 8)
+			expectDomainCPUMetrics(crs, "testvm", testNamespace, 2, 4, 1, 8)
 		})
 
 		It("should collect VM CPU metrics from Instance Type (guest_effective present)", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Instancetype: &k6tv1.InstancetypeMatcher{
@@ -462,14 +471,14 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(ge).To(BeTrue())
 			}
 
-			expectVMs(crs, "testvm", "test-ns", expectVM)
+			expectVMs(crs, "testvm", testNamespace, expectVM)
 		})
 
 		It("should report domain CPU metrics and guest_effective vCPUs", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -488,15 +497,15 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectDomainCPUMetrics(crs, "testvm", "test-ns", 2, 2, 1, 4)
+			expectDomainCPUMetrics(crs, testVMName, testNamespace, 2, 2, 1, 4)
 		})
 
 		It("should emit default memory bytes equal to effective memory", func() {
 			guestMemory := resource.MustParse("2Gi")
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -513,14 +522,14 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectMemoryGuestMetrics(crs, "testvm", "test-ns", float64(guestMemory.Value()), float64(guestMemory.Value()))
+			expectMemoryGuestMetrics(crs, testVMName, testNamespace, float64(guestMemory.Value()), float64(guestMemory.Value()))
 		})
 
 		It("should handle VM with only CPU topology but no limits (domain + guest_effective)", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -538,15 +547,15 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectDomainCPUMetrics(crs, "testvm", "test-ns", 1, 1, 2, 2)
+			expectDomainCPUMetrics(crs, testVMName, testNamespace, 1, 1, 2, 2)
 		})
 
 		It("should handle VM with only memory guest but no limits", func() {
 			guestMemory := resource.MustParse("1Gi")
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -562,14 +571,14 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			expectMemoryGuestMetrics(crs, "testvm", "test-ns", float64(guestMemory.Value()), float64(guestMemory.Value()))
+			expectMemoryGuestMetrics(crs, testVMName, testNamespace, float64(guestMemory.Value()), float64(guestMemory.Value()))
 		})
 
 		It("should return default CPU cores=1 for VM with no CPU topology or memory", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvm",
+					Namespace: testNamespace,
+					Name:      testVMName,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -582,7 +591,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
 			var cpuFound bool
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
+			for _, r := range filterResultsByVM(crs, "testvm", testNamespace) {
 				if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
 					len(r.Labels) == 5 && r.Labels[2] == testLabelCPU &&
 					r.Labels[3] == testLabelCores && r.Labels[4] == testLabelDefault {
@@ -592,7 +601,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 			Expect(cpuFound).To(BeTrue())
 			// No memory guest/guest_effective when memory not specified
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
+			for _, r := range filterResultsByVM(crs, "testvm", testNamespace) {
 				isMemoryRequest := r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
 					len(r.Labels) == 5 && r.Labels[2] == testLabelMemory
 				Expect(isMemoryRequest).To(BeFalse())
@@ -625,25 +634,25 @@ var _ = Describe("VM Stats Collector", func() {
 		}
 
 		It("should collect PVC size metrics correctly", func() {
-			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			pvc := createPVC(testLabelDefault, testPVCName, resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
 			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-					Name:      "test-vm",
+					Namespace: testLabelDefault,
+					Name:      testVMNameDashed,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
 						Spec: k6tv1.VirtualMachineInstanceSpec{
 							Volumes: []k6tv1.Volume{
 								{
-									Name: "rootdisk",
+									Name: testRootDiskName,
 									VolumeSource: k6tv1.VolumeSource{
 										PersistentVolumeClaim: &k6tv1.PersistentVolumeClaimVolumeSource{
 											PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-												ClaimName: "test-vm-pvc",
+												ClaimName: testPVCName,
 											},
 										},
 									},
@@ -661,19 +670,19 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(crs).To(HaveLen(1))
 				Expect(crs[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 				Expect(crs[0].Value).To(Equal(float64(5 * 1024 * 1024 * 1024)))
-				Expect(crs[0].Labels).To(Equal([]string{name, ns, "test-vm-pvc", "Filesystem", "rootdisk"}))
+				Expect(crs[0].Labels).To(Equal([]string{name, ns, testPVCName, string(k8sv1.PersistentVolumeFilesystem), testRootDiskName}))
 			}
-			expectVMs(results, "test-vm", "default", expectVM)
+			expectVMs(results, testVMNameDashed, testLabelDefault, expectVM)
 		})
 
 		It("should handle PVC with nil volume mode", func() {
-			pvc := createPVC("default", "test-vm-pvc-nil-mode", resource.MustParse("3Gi"), nil)
+			pvc := createPVC(testLabelDefault, testPVCNilMode, resource.MustParse("3Gi"), nil)
 			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
+					Namespace: testLabelDefault,
 					Name:      "test-vm-nil-mode",
 				},
 				Spec: k6tv1.VirtualMachineSpec{
@@ -681,11 +690,11 @@ var _ = Describe("VM Stats Collector", func() {
 						Spec: k6tv1.VirtualMachineInstanceSpec{
 							Volumes: []k6tv1.Volume{
 								{
-									Name: "rootdisk",
+									Name: testRootDiskName,
 									VolumeSource: k6tv1.VolumeSource{
 										PersistentVolumeClaim: &k6tv1.PersistentVolumeClaimVolumeSource{
 											PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-												ClaimName: "test-vm-pvc-nil-mode",
+												ClaimName: testPVCNilMode,
 											},
 										},
 									},
@@ -703,26 +712,26 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(crs).To(HaveLen(1))
 				Expect(crs[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 				Expect(crs[0].Value).To(Equal(float64(3 * 1024 * 1024 * 1024)))
-				Expect(crs[0].Labels).To(Equal([]string{name, ns, "test-vm-pvc-nil-mode", "", "rootdisk"}))
+				Expect(crs[0].Labels).To(Equal([]string{name, ns, testPVCNilMode, "", "rootdisk"}))
 			}
-			expectVMs(results, "test-vm-nil-mode", "default", expectVM)
+			expectVMs(results, "test-vm-nil-mode", testLabelDefault, expectVM)
 		})
 
 		It("should prioritize DataVolume template size over PVC size", func() {
-			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			pvc := createPVC(testLabelDefault, testDataVolumePVC, resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
 			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
+					Namespace: testLabelDefault,
 					Name:      "test-vm-dv",
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					DataVolumeTemplates: []k6tv1.DataVolumeTemplateSpec{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "test-dv-pvc",
+								Name: testDataVolumePVC,
 							},
 							Spec: cdiv1.DataVolumeSpec{
 								PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -739,10 +748,10 @@ var _ = Describe("VM Stats Collector", func() {
 						Spec: k6tv1.VirtualMachineInstanceSpec{
 							Volumes: []k6tv1.Volume{
 								{
-									Name: "datavolumedisk",
+									Name: testDataVolumeDiskName,
 									VolumeSource: k6tv1.VolumeSource{
 										DataVolume: &k6tv1.DataVolumeSource{
-											Name: "test-dv-pvc",
+											Name: testDataVolumePVC,
 										},
 									},
 								},
@@ -759,9 +768,9 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(crs).To(HaveLen(1))
 				Expect(crs[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 				Expect(crs[0].Value).To(Equal(float64(2 * 1024 * 1024 * 1024)))
-				Expect(crs[0].Labels).To(Equal([]string{name, ns, "test-dv-pvc", "Filesystem", "datavolumedisk"}))
+				Expect(crs[0].Labels).To(Equal([]string{name, ns, testDataVolumePVC, string(k8sv1.PersistentVolumeFilesystem), testDataVolumeDiskName}))
 			}
-			expectVMs(results, "test-vm-dv", "default", expectVM)
+			expectVMs(results, "test-vm-dv", testLabelDefault, expectVM)
 		})
 	})
 
@@ -771,8 +780,8 @@ var _ = Describe("VM Stats Collector", func() {
 
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace:         "test-ns",
-					Name:              "test-vm",
+					Namespace:         testNamespace,
+					Name:              testVMNameDashed,
 					CreationTimestamp: metav1.NewTime(testTime),
 				},
 				Spec: k6tv1.VirtualMachineSpec{
@@ -789,13 +798,13 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(crs[0].Value).To(Equal(float64(testTime.Unix())))
 				Expect(crs[0].Labels).To(Equal([]string{name, ns}))
 			}
-			expectVMs(results, "test-vm", "test-ns", expectVM)
+			expectVMs(results, "test-vm", testNamespace, expectVM)
 		})
 
 		It("should collect correct creation times for multiple VMs", func() {
 			vm1 := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace:         "test-ns",
+					Namespace:         testNamespace,
 					Name:              "test-vm1",
 					CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
 				},
@@ -805,7 +814,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 			vm2 := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace:         "test-ns",
+					Namespace:         testNamespace,
 					Name:              "test-vm2",
 					CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 				},
@@ -825,7 +834,7 @@ var _ = Describe("VM Stats Collector", func() {
 		It("metric should not exists if the VM creation timestamp is zero", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace:         "test-ns",
+					Namespace:         testNamespace,
 					Name:              "test-vm-zero-time",
 					CreationTimestamp: metav1.Time{},
 				},
@@ -836,8 +845,8 @@ var _ = Describe("VM Stats Collector", func() {
 
 			results := collectVMCreationTimestamp(cloneVM(vm))
 
-			Expect(filterResultsByVM(results, "test-vm-zero-time", "test-ns")).To(BeEmpty())
-			Expect(filterResultsByVM(results, "test-vm-zero-time-2", "test-ns")).To(BeEmpty())
+			Expect(filterResultsByVM(results, "test-vm-zero-time", testNamespace)).To(BeEmpty())
+			Expect(filterResultsByVM(results, "test-vm-zero-time-2", testNamespace)).To(BeEmpty())
 		})
 	})
 
@@ -846,8 +855,8 @@ var _ = Describe("VM Stats Collector", func() {
 			ifaces, nets := newVNICTestInterfaces()
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-vm",
+					Namespace: testNamespace,
+					Name:      testVMNameDashed,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -862,25 +871,41 @@ var _ = Describe("VM Stats Collector", func() {
 			metrics := CollectVmsVnicInfo(cloneVM(vm))
 			Expect(metrics).To(HaveLen(8), "Expected metrics for all vNICs in both VMs")
 
-			vm1 := filterResultsByVM(metrics, "test-vm", "test-ns")
+			vm1 := filterResultsByVM(metrics, testVMNameDashed, testNamespace)
 			Expect(vm1).To(HaveLen(4))
-			Expect(vm1[0].Labels).To(Equal([]string{"test-vm", "test-ns", "iface1", "core", "pod networking", "bridge", "virtio"}))
-			Expect(vm1[1].Labels).To(Equal([]string{"test-vm", "test-ns", "iface2", "core", "pod networking", "masquerade", "e1000e"}))
-			Expect(vm1[2].Labels).To(Equal([]string{"test-vm", "test-ns", "iface3", "core", "multus-net", "sriov", "<none>"}))
-			Expect(vm1[3].Labels).To(Equal([]string{"test-vm", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin", "<none>"}))
+			Expect(vm1[0].Labels).To(Equal([]string{
+				testVMNameDashed, testNamespace, testVNICIface1, bindingTypeCore, networkNamePod, bindingNameBridge, testModelVirtio,
+			}))
+			Expect(vm1[1].Labels).To(Equal([]string{
+				testVMNameDashed, testNamespace, testVNICIface2, bindingTypeCore, networkNamePod, bindingNameMasquerade, testModelE1000E,
+			}))
+			Expect(vm1[2].Labels).To(Equal([]string{
+				testVMNameDashed, testNamespace, testVNICIface3, bindingTypeCore, testMultusNetwork, bindingNameSRIOV, modelNone,
+			}))
+			Expect(vm1[3].Labels).To(Equal([]string{
+				testVMNameDashed, testNamespace, testVNICIface4, bindingTypePlugin, testNetworkCustom, testCustomPluginName, modelNone,
+			}))
 
-			vm2 := filterResultsByVM(metrics, "test-vm-2", "test-ns")
+			vm2 := filterResultsByVM(metrics, testSecondVMNameDashed, testNamespace)
 			Expect(vm2).To(HaveLen(4))
-			Expect(vm2[0].Labels).To(Equal([]string{"test-vm-2", "test-ns", "iface1", "core", "pod networking", "bridge", "virtio"}))
-			Expect(vm2[1].Labels).To(Equal([]string{"test-vm-2", "test-ns", "iface2", "core", "pod networking", "masquerade", "e1000e"}))
-			Expect(vm2[2].Labels).To(Equal([]string{"test-vm-2", "test-ns", "iface3", "core", "multus-net", "sriov", "<none>"}))
-			Expect(vm2[3].Labels).To(Equal([]string{"test-vm-2", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin", "<none>"}))
+			Expect(vm2[0].Labels).To(Equal([]string{
+				testSecondVMNameDashed, testNamespace, testVNICIface1, bindingTypeCore, networkNamePod, bindingNameBridge, testModelVirtio,
+			}))
+			Expect(vm2[1].Labels).To(Equal([]string{
+				testSecondVMNameDashed, testNamespace, testVNICIface2, bindingTypeCore, networkNamePod, bindingNameMasquerade, testModelE1000E,
+			}))
+			Expect(vm2[2].Labels).To(Equal([]string{
+				testSecondVMNameDashed, testNamespace, testVNICIface3, bindingTypeCore, testMultusNetwork, bindingNameSRIOV, modelNone,
+			}))
+			Expect(vm2[3].Labels).To(Equal([]string{
+				testSecondVMNameDashed, testNamespace, testVNICIface4, bindingTypePlugin, testNetworkCustom, testCustomPluginName, modelNone,
+			}))
 		})
 		It("should not collect kubevirt_vm_vnic_info metric if no network defined", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-vm",
+					Namespace: testNamespace,
+					Name:      testVMNameDashed,
 				},
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
@@ -889,7 +914,7 @@ var _ = Describe("VM Stats Collector", func() {
 								Devices: k6tv1.Devices{
 									Interfaces: []k6tv1.Interface{
 										{
-											Name: "iface1",
+											Name: testVNICIface1,
 											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 												Bridge: &k6tv1.InterfaceBridge{},
 											},
@@ -903,8 +928,8 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			metrics := CollectVmsVnicInfo(cloneVM(vm))
-			Expect(filterResultsByVM(metrics, "test-vm", "test-ns")).To(BeEmpty())
-			Expect(filterResultsByVM(metrics, "test-vm-2", "test-ns")).To(BeEmpty())
+			Expect(filterResultsByVM(metrics, testVMNameDashed, testNamespace)).To(BeEmpty())
+			Expect(filterResultsByVM(metrics, testSecondVMNameDashed, testNamespace)).To(BeEmpty())
 		})
 	})
 
@@ -919,21 +944,21 @@ var _ = Describe("VM Stats Collector", func() {
 			vms := []*k6tv1.VirtualMachine{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "vm1",
-						Namespace: "default",
+						Name:      testVMLocalAlias,
+						Namespace: testLabelDefault,
 						Labels: map[string]string{
-							"environment": "production",
-							"team":        "backend",
+							testLabelEnvironment: testLabelValueProduction,
+							testLabelTeam:        testLabelValueBackend,
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "vm2",
-						Namespace: "default",
+						Name:      testSecondVMName,
+						Namespace: testLabelDefault,
 						Labels: map[string]string{
-							"environment": "staging",
-							"version":     "2.0",
+							testLabelEnvironment: "staging",
+							testLabelVersion:     "2.0",
 						},
 					},
 				},
@@ -949,32 +974,32 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(labelResults).To(HaveLen(2))
 
 			var r1, r2 operatormetrics.CollectorResult
-			if labelResults[0].Labels[0] == "vm1" {
+			if labelResults[0].Labels[0] == testVMLocalAlias {
 				r1, r2 = labelResults[0], labelResults[1]
 			} else {
 				r1, r2 = labelResults[1], labelResults[0]
 			}
-			Expect(r1.Labels).To(Equal([]string{"vm1", "default"}))
-			Expect(r1.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
-			Expect(r1.ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+			Expect(r1.Labels).To(Equal([]string{testVMLocalAlias, testLabelDefault}))
+			Expect(r1.ConstLabels).To(HaveKeyWithValue("label_environment", testLabelValueProduction))
+			Expect(r1.ConstLabels).To(HaveKeyWithValue("label_team", testLabelValueBackend))
 
-			Expect(r2.Labels).To(Equal([]string{"vm2", "default"}))
+			Expect(r2.Labels).To(Equal([]string{testSecondVMName, testLabelDefault}))
 			Expect(r2.ConstLabels).To(HaveKeyWithValue("label_environment", "staging"))
 			Expect(r2.ConstLabels).To(HaveKeyWithValue("label_version", "2.0"))
 		})
 
 		It("should prioritize ignorelist over allowlist when overlapping", func() {
 			vmLabelsCfg = funcLabelsConfig(func(l string) bool {
-				return l != "vm.kubevirt.io/template"
+				return l != testLabelTemplate
 			})
 
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vm",
-					Namespace: "default",
+					Name:      testVMNameDashed,
+					Namespace: testLabelDefault,
 					Labels: map[string]string{
-						"environment":             "production",
-						"vm.kubevirt.io/template": "tmpl",
+						testLabelEnvironment: testLabelValueProduction,
+						testLabelTemplate:    "tmpl",
 					},
 				},
 			}
@@ -989,20 +1014,20 @@ var _ = Describe("VM Stats Collector", func() {
 		It("should change metric output when configuration changes dynamically", func() {
 			// Restrict to specific labels and ignore secret
 			vmLabelsCfg = funcLabelsConfig(func(l string) bool {
-				if l == "secret" {
+				if l == testLabelSecret {
 					return false
 				}
-				return l == "environment" || l == "team" || l == "version"
+				return l == testLabelEnvironment || l == testLabelTeam || l == testLabelVersion
 			})
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vm",
-					Namespace: "default",
+					Name:      testVMNameDashed,
+					Namespace: testLabelDefault,
 					Labels: map[string]string{
-						"environment": "production",
-						"team":        "backend",
-						"secret":      "sensitive",
-						"version":     "1.0",
+						testLabelEnvironment: "production",
+						testLabelTeam:        testLabelValueBackend,
+						testLabelSecret:      "sensitive",
+						"version":            "1.0",
 					},
 				},
 			}
@@ -1011,7 +1036,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(afterRestrict).To(HaveLen(1))
 			Expect(afterRestrict[0].ConstLabels).To(HaveLen(3))
 			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
-			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_team", "backend"))
+			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_team", testLabelValueBackend))
 			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_version", "1.0"))
 			Expect(afterRestrict[0].ConstLabels).ToNot(HaveKey("label_secret"))
 		})
@@ -1022,7 +1047,7 @@ var _ = Describe("VM Stats Collector", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vm-no-metric",
-					Namespace: "default",
+					Namespace: testLabelDefault,
 					Labels: map[string]string{
 						"a": "1",
 					},
@@ -1041,10 +1066,10 @@ var _ = Describe("VM Stats Collector", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vm-wildcard-ignore",
-					Namespace: "default",
+					Namespace: testLabelDefault,
 					Labels: map[string]string{
-						"environment": "prod",
-						"team":        "be",
+						testLabelEnvironment: "prod",
+						testLabelTeam:        "be",
 					},
 				},
 			}

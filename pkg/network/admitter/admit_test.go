@@ -34,17 +34,35 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
+const (
+	fooIfaceName              = "foo"
+	net1Name                  = "default"
+	testPortName              = "test"
+	fieldValueInvalidType     = "FieldValueInvalid"
+	fieldValueDuplicateType   = "FieldValueDuplicate"
+	fakePrimaryIfaceNameField = "fake.domain.devices.interfaces[0].name"
+	draClaimName              = "claim1"
+	draNetworkName            = "dra-net"
+	multusNet1Name            = "multus-net1"
+	tcpProtocol               = "TCP"
+	udpProtocol               = "UDP"
+	extraOptionsDomain        = "extra.options.kubevirt.io"
+	secondaryIfaceName        = "multus1"
+	netNetworkName            = "net"
+	fakeDomainState           = "fake.domain.devices.interfaces[0].state"
+)
+
 var _ = Describe("Validating VMI network spec", func() {
 	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
 		vm := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
+				Name:                   fooIfaceName,
 				State:                  value,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
+				Name:          fooIfaceName,
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: netNetworkName}},
 			}),
 		)
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
@@ -59,40 +77,40 @@ var _ = Describe("Validating VMI network spec", func() {
 	It("network interface state value is invalid", func() {
 		vm := libvmi.New(
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 			libvmi.WithInterface(v1.Interface{
-				Name:  "foo",
-				State: v1.InterfaceState("foo"),
+				Name:  fooIfaceName,
+				State: v1.InterfaceState(fooIfaceName),
 			}),
 		)
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
+				Type:    fieldValueInvalidType,
 				Message: "logical foo interface state value is unsupported: foo",
-				Field:   "fake.domain.devices.interfaces[0].state",
+				Field:   fakeDomainState,
 			}))
 	})
 
 	DescribeTable("network interface state ", func(state v1.InterfaceState, messageRegex types.GomegaMatcher) {
 		vm := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
+				Name:                   fooIfaceName,
 				State:                  state,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
+				Name:          fooIfaceName,
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: netNetworkName}},
 			}),
 		)
 		statusCause := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{}).Validate()
 		Expect(statusCause).To(HaveLen(1))
 		Expect(statusCause[0]).To(MatchAllFields(Fields{
-			"Type":    Equal(metav1.CauseType("FieldValueInvalid")),
-			"Field":   Equal("fake.domain.devices.interfaces[0].state"),
+			"Type":    Equal(metav1.CauseType(fieldValueInvalidType)),
+			"Field":   Equal(fakeDomainState),
 			"Message": messageRegex,
 		}))
 	},
@@ -104,11 +122,11 @@ var _ = Describe("Validating VMI network spec", func() {
 	It("network interface state value of absent is not supported on the default network", func() {
 		vm := libvmi.New(
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
+				Name:                   fooIfaceName,
 				State:                  v1.InterfaceStateAbsent,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}),
@@ -118,9 +136,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
+				Type:    fieldValueInvalidType,
 				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",
-				Field:   "fake.domain.devices.interfaces[0].state",
+				Field:   fakeDomainState,
 			}))
 	})
 })

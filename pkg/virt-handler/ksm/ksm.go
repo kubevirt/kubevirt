@@ -56,6 +56,8 @@ const (
 	ksmLoopIntervalMinutes = 3 * time.Minute
 	requiredMemInfoFields  = 2
 	ksmFilePermissions     = 0o600
+	trueString             = "true"
+	falseString            = "false"
 )
 
 var (
@@ -248,7 +250,7 @@ func (k *Handler) disableKSM() {
 		return
 	}
 
-	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
+	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == trueString {
 		if err := os.WriteFile(ksmRunPath, []byte("0\n"), ksmFilePermissions); err != nil {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
 		}

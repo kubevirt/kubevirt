@@ -48,7 +48,7 @@ var (
 		},
 		[]string{
 			// phase of the vmi migration
-			"phase",
+			metricLabelPhase,
 		},
 	)
 )

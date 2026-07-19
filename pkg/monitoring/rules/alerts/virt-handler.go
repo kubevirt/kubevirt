@@ -36,8 +36,8 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No running virt-handler pods were detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -51,8 +51,8 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Some virt-handlers are running but not ready.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -63,8 +63,8 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No ready virt-handler was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -78,8 +78,8 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Some virt-handlers failed to roll out",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -90,8 +90,8 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: getRestCallsFailedWarning(eightyPercent, "virt-handler", fiveMinutes),
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 	}

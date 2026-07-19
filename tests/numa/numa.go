@@ -104,6 +104,11 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 		})
 })
 
+const (
+	binBash = "/bin/bash"
+	bashC   = "-c"
+)
+
 func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 	var stdout, stderr string
 	const (
@@ -115,8 +120,8 @@ func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 	Eventually(func() (err error) {
 		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(handlerPod, "virt-handler",
 			[]string{
-				"/bin/bash",
-				"-c",
+				binBash,
+				bashC,
 				fmt.Sprintf("grep -l '[g]uest=%s_%s' /proc/*/cmdline", vmi.Namespace, vmi.Name),
 			})
 		return err
@@ -134,8 +139,8 @@ func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler",
 		[]string{
-			"/bin/bash",
-			"-c",
+			binBash,
+			bashC,
 			fmt.Sprintf("trap '' URG && cat /proc/%v/numa_maps", pid),
 		})
 	Expect(err).ToNot(HaveOccurred(), stderr)

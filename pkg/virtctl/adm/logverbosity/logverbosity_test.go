@@ -22,6 +22,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
+const (
+	admCommand          = "adm"
+	logVerbosityCommand = "log-verbosity"
+)
+
 var _ = Describe("Log Verbosity", func() {
 	var kvInterface *kubecli.MockKubeVirtInterface
 
@@ -202,7 +207,7 @@ var _ = Describe("Log Verbosity", func() {
 
 		Context("with empty set of flags", func() {
 			It("should fail (return help)", func() {
-				cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity")
+				cmd := testing.NewRepeatableVirtctlCommand(admCommand, logVerbosityCommand)
 				err := cmd()
 				Expect(err).NotTo(Succeed())
 				Expect(err).To(MatchError(ContainSubstring("no flag specified - expecting at least one flag")))
@@ -211,7 +216,7 @@ var _ = Describe("Log Verbosity", func() {
 
 		DescribeTable("should fail handled by the CLI package", func(args ...string) {
 			argStr := strings.Join(args, ",")
-			cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", argStr)
+			cmd := testing.NewRepeatableVirtctlCommand(admCommand, logVerbosityCommand, argStr)
 			Expect(cmd()).NotTo(Succeed())
 		},
 			Entry("reset and all coexist", "--reset", "--all=3"),
@@ -222,7 +227,7 @@ var _ = Describe("Log Verbosity", func() {
 		)
 
 		DescribeTable("should fail handled by error handler", func(output string, args ...string) {
-			commandAndArgs := []string{"adm", "log-verbosity"}
+			commandAndArgs := []string{admCommand, logVerbosityCommand}
 			commandAndArgs = append(commandAndArgs, args...)
 			_, err := testing.NewRepeatableVirtctlCommandWithOut(commandAndArgs...)()
 			Expect(err).NotTo(Succeed())
@@ -396,7 +401,7 @@ func commonSetup(kvInterface *kubecli.MockKubeVirtInterface, kvs *v1.KubeVirtLis
 }
 
 func commonShowTest(output []uint, args ...string) {
-	commandAndArgs := []string{"adm", "log-verbosity"}
+	commandAndArgs := []string{admCommand, logVerbosityCommand}
 	commandAndArgs = append(commandAndArgs, args...)
 	bytes, err := testing.NewRepeatableVirtctlCommandWithOut(commandAndArgs...)()
 	Expect(err).To(Succeed())
@@ -406,7 +411,7 @@ func commonShowTest(output []uint, args ...string) {
 }
 
 func commonSetCommand(args ...string) {
-	commandAndArgs := []string{"adm", "log-verbosity"}
+	commandAndArgs := []string{admCommand, logVerbosityCommand}
 	commandAndArgs = append(commandAndArgs, args...)
 	cmd := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
 	Expect(cmd()).To(Succeed())

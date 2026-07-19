@@ -40,6 +40,13 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	guestfishCmd    = "guestfish"
+	guestfishArgA   = "-a"
+	guestfishRunCmd = "run"
+	diskImagePath   = "/disk/disk.img"
+)
+
 var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	var (
 		pvcClaim string
@@ -102,7 +109,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 				libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi", libstorage.WithStorageProfile())
 				runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				stdout, stderr, err := execCommandLibguestfsPod(
-					getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil), []string{"guestfish", "-a", "/dev/vda", "run"},
+					getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil), []string{guestfishCmd, guestfishArgA, "/dev/vda", guestfishRunCmd},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stderr).To(BeEmpty())
@@ -130,7 +137,7 @@ func execCommandLibguestfsPod(podName, namespace string, args []string) (stdout,
 func guestfsCmd(pvcClaim, namespace string, setGroup bool, extraArgs ...string) func() error {
 	args := append([]string{
 		"guestfs", pvcClaim,
-		"--namespace", namespace,
+		namespaceFlag, namespace,
 	}, extraArgs...)
 	if setGroup {
 		const testGroup = "2000"
@@ -170,11 +177,11 @@ func guestfsWithSync(done chan struct{}, cmd func() error) {
 }
 
 func verifyCanRunOnFSPVC(podName, namespace string) {
-	stdout, stderr, err := execCommandLibguestfsPod(podName, namespace, []string{"qemu-img", "create", "/disk/disk.img", "500M"})
+	stdout, stderr, err := execCommandLibguestfsPod(podName, namespace, []string{"qemu-img", "create", diskImagePath, "500M"})
 	Expect(stderr).To(BeEmpty())
 	Expect(stdout).To(ContainSubstring("Formatting"))
 	Expect(err).ToNot(HaveOccurred())
-	stdout, stderr, err = execCommandLibguestfsPod(podName, namespace, []string{"guestfish", "-a", "/disk/disk.img", "run"})
+	stdout, stderr, err = execCommandLibguestfsPod(podName, namespace, []string{guestfishCmd, guestfishArgA, diskImagePath, guestfishRunCmd})
 	Expect(stderr).To(BeEmpty())
 	Expect(stdout).To(BeEmpty())
 	Expect(err).ToNot(HaveOccurred())
