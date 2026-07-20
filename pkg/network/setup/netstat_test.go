@@ -70,6 +70,37 @@ var _ = Describe("netstat", func() {
 		Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 	})
 
+	It("reports an empty IP, without failing, when the pod interface cache file does not exist yet", func() {
+		const primaryNetworkName = "primary"
+
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(primaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecPodNetwork(primaryNetworkName))
+		setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces,
+			newDomainSpecIface(primaryNetworkName, ""))
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(HaveLen(1))
+		Expect(setup.Vmi.Status.Interfaces[0].IP).To(BeEmpty())
+	})
+
+	It("reports an empty IP, without failing, when reading the pod interface cache fails unexpectedly", func() {
+		const primaryNetworkName = "primary"
+
+		netStat := netsetup.NewNetStateWithCustomFactory(failingReadCacheCreator{})
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(primaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecPodNetwork(primaryNetworkName))
+		setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces,
+			newDomainSpecIface(primaryNetworkName, ""))
+
+		Expect(netStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(HaveLen(1))
+		Expect(setup.Vmi.Status.Interfaces[0].IP).To(BeEmpty())
+	})
+
 	Context("with volatile cache", func() {
 		const (
 			primaryNetworkName = "primary"

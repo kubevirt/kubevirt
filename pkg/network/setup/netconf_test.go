@@ -158,11 +158,27 @@ func (c failingCacheCreator) New(path string) *cache.Cache {
 	return cache.NewCustomCache(path, stubFS{failRemove: true})
 }
 
-type stubFS struct{ failRemove bool }
+// failingReadCacheCreator simulates a non-transient (i.e. not "file missing") failure
+// when reading the pod interface cache.
+type failingReadCacheCreator struct{}
 
-func (f stubFS) Stat(name string) (os.FileInfo, error)                          { return nil, nil }
-func (f stubFS) MkdirAll(path string, perm os.FileMode) error                   { return nil }
-func (f stubFS) ReadFile(filename string) ([]byte, error)                       { return nil, nil }
+func (c failingReadCacheCreator) New(path string) *cache.Cache {
+	return cache.NewCustomCache(path, stubFS{failRead: true})
+}
+
+type stubFS struct {
+	failRemove bool
+	failRead   bool
+}
+
+func (f stubFS) Stat(name string) (os.FileInfo, error)        { return nil, os.ErrNotExist }
+func (f stubFS) MkdirAll(path string, perm os.FileMode) error { return nil }
+func (f stubFS) ReadFile(filename string) ([]byte, error) {
+	if f.failRead {
+		return nil, fmt.Errorf("simulated pod interface cache read failure")
+	}
+	return nil, nil
+}
 func (f stubFS) WriteFile(filename string, data []byte, perm fs.FileMode) error { return nil }
 func (f stubFS) RemoveAll(path string) error {
 	if f.failRemove {
