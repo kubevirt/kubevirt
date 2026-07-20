@@ -301,18 +301,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				AllowPostCopy:            true,
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
-				StallDetectionEnabled:    false,
+				StallDetectorOptions:     nil,
 				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
-				StallDetectorOptions: cmdclient.StallDetectorOptions{
-					StallMargin:               float64(virtconfig.DefaultStallMargin) / 100,
-					StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
-					SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
-					EwmaAlpha:                 parseDefaultStallDetectorFactor(virtconfig.DefaultEwmaAlpha),
-					PrecopyPossibleFactor:     parseDefaultStallDetectorFactor(virtconfig.DefaultPrecopyPossibleFactor),
-					PatienceWindowDecayFactor: parseDefaultStallDetectorFactor(virtconfig.DefaultPatienceWindowDecayFactor),
-					SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
-					CompletionTimeoutFactor:   parseDefaultStallDetectorFactor(virtconfig.DefaultCompletionTimeoutFactor),
-				},
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
 			sanityExecute()
@@ -595,7 +585,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 	})
 
-	It("should set StallDetectionEnabled to true when MigrationStallDetection feature gate is enabled", func() {
+	It("should put StallDetectorOptions on the wire when MigrationStallDetection feature gate is enabled", func() {
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
 				FeatureGates: []string{featuregate.PasstBinding, featuregate.MigrationStallDetection},
@@ -634,7 +624,17 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		addVMI(vmi, domain)
 		client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
-			Expect(options.StallDetectionEnabled).To(BeTrue())
+			Expect(options.StallDetectorOptions).ToNot(BeNil())
+			Expect(options.StallDetectorOptions).To(Equal(&cmdclient.StallDetectorOptions{
+				StallMargin:               float64(virtconfig.DefaultStallMargin) / 100,
+				StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
+				SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
+				EwmaAlpha:                 parseDefaultStallDetectorFactor(virtconfig.DefaultEwmaAlpha),
+				PrecopyPossibleFactor:     parseDefaultStallDetectorFactor(virtconfig.DefaultPrecopyPossibleFactor),
+				PatienceWindowDecayFactor: parseDefaultStallDetectorFactor(virtconfig.DefaultPatienceWindowDecayFactor),
+				SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
+				CompletionTimeoutFactor:   parseDefaultStallDetectorFactor(virtconfig.DefaultCompletionTimeoutFactor),
+			}))
 		}).Times(1).Return(nil)
 
 		sanityExecute()
@@ -680,16 +680,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			UnsafeMigration:          virtconfig.DefaultUnsafeMigrationOverride,
 			AllowPostCopy:            virtconfig.MigrationAllowPostCopy,
 			ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
-			StallDetectorOptions: cmdclient.StallDetectorOptions{
-				StallMargin:               float64(virtconfig.DefaultStallMargin) / 100,
-				StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
-				SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
-				EwmaAlpha:                 parseDefaultStallDetectorFactor(virtconfig.DefaultEwmaAlpha),
-				PrecopyPossibleFactor:     parseDefaultStallDetectorFactor(virtconfig.DefaultPrecopyPossibleFactor),
-				PatienceWindowDecayFactor: parseDefaultStallDetectorFactor(virtconfig.DefaultPatienceWindowDecayFactor),
-				SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
-				CompletionTimeoutFactor:   parseDefaultStallDetectorFactor(virtconfig.DefaultCompletionTimeoutFactor),
-			},
 		}
 		client.EXPECT().MigrateVirtualMachine(vmi, options)
 		sanityExecute()

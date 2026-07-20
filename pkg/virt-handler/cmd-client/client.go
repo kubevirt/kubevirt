@@ -88,8 +88,7 @@ type MigrationOptions struct {
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
 	AllowWorkloadDisruption  bool
-	StallDetectionEnabled    bool
-	StallDetectorOptions     StallDetectorOptions
+	StallDetectorOptions     *StallDetectorOptions
 	Compression              *string
 }
 
