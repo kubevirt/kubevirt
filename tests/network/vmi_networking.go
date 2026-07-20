@@ -572,23 +572,21 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				var err error
 
-				By("Create client pod")
-				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
-				clientPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				By("Create ref VMI")
+				refVMI := conformanceVMI()
+				refVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), refVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				refVMI = libwait.WaitUntilVMIReady(refVMI, console.LoginToAlpine)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
-				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
 				By("Check connectivity")
-				podIP := libnet.GetPodIPByFamily(clientPod, k8sv1.IPv4Protocol)
-				Expect(ping(podIP)).To(Succeed())
+				refIP := libnet.GetVmiPrimaryIPByFamily(refVMI, k8sv1.IPv4Protocol)
+				Expect(ping(refIP)).To(Succeed())
 
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -598,7 +596,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
-				Expect(ping(podIP)).To(Succeed())
+				Expect(ping(refIP)).To(Succeed())
 
 				By("Initiating DHCP client request after migration")
 
@@ -608,8 +606,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(console.RunCommand(vmi, "kill -USR1 $(cat /var/run/udhcpc.eth0.pid)\n", 15*time.Second)).To(Succeed(), "failed to renew dhcp client")
 
 				Eventually(func() error {
-					return ping(podIP)
-				}, 30*time.Second, 1*time.Second).Should(Succeed(), "expected pod to be reachable after DHCP renew")
+					return ping(refIP)
+				}, 30*time.Second, 1*time.Second).Should(Succeed(), "expected ref VMI to be reachable after DHCP renew")
 			},
 				Entry("without explicit ports specification", conformanceVMI()),
 				Entry("with explicit ports used by live migration", decorators.InterfacePorts,
