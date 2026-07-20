@@ -26,6 +26,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -318,11 +319,14 @@ func (c *Controller) execute(key string) error {
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vmi) {
-		vmi := vmi.DeepCopy()
-		controller.SetLatestApiVersionAnnotation(vmi)
+		var patchBytes []byte
+		patchBytes, err = controller.LatestApiVersionMergePatch()
+		if err != nil {
+			return err
+		}
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
+		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err

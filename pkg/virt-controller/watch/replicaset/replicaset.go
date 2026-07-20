@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -169,9 +170,12 @@ func (c *Controller) execute(key string) error {
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(rs) {
-		rs := rs.DeepCopy()
-		controller.SetLatestApiVersionAnnotation(rs)
-		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(context.Background(), rs, metav1.UpdateOptions{})
+		var patchBytes []byte
+		patchBytes, err = controller.LatestApiVersionMergePatch()
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.ReplicaSet(rs.Namespace).Patch(context.Background(), rs.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	}
 
