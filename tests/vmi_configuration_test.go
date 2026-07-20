@@ -1217,7 +1217,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking if pod memory usage is > 80Mi")
 				Expect(m).To(BeNumerically(">", 83886080), "83886080 B = 80 Mi")
 			})
-			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", decorators.RequiresAMD64, func(resources *v1.ResourceRequirements) {
+			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
 				cpuVmi := libvmifact.NewAlpine()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -1295,23 +1295,26 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
 
-				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				// KVM PIT (i8254) is x86-only; ARM64 uses the Generic Timer
+				if vmi.Spec.Architecture == "amd64" {
+					domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+					Expect(err).ToNot(HaveOccurred())
 
-				emulator := filepath.Base(domSpec.Devices.Emulator)
-				pidCmd := []string{"pidof", emulator}
-				qemuPid, err := exec.ExecuteCommandOnPod(readyPod, "compute", pidCmd)
-				// do not check for kvm-pit thread if qemu is not in use
-				if err != nil {
-					return
+					emulator := filepath.Base(domSpec.Devices.Emulator)
+					pidCmd := []string{"pidof", emulator}
+					qemuPid, err := exec.ExecuteCommandOnPod(readyPod, "compute", pidCmd)
+					// do not check for kvm-pit thread if qemu is not in use
+					if err != nil {
+						return
+					}
+					kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
+					Expect(err).ToNot(HaveOccurred())
+
+					vcpuzeromask, err := getVcpuMask(readyPod, emulator, "0")
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(kvmpitmask).To(Equal(vcpuzeromask))
 				}
-				kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
-				Expect(err).ToNot(HaveOccurred())
-
-				vcpuzeromask, err := getVcpuMask(readyPod, emulator, "0")
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(kvmpitmask).To(Equal(vcpuzeromask))
 			},
 				Entry(" with explicit resources set", &v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
