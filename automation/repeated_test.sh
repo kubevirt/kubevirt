@@ -237,6 +237,16 @@ add_to_label_filter() {
     fi
 }
 
+add_feature_gate() {
+  if [ -z "${FEATURE_GATES:-}" ]; then
+    export FEATURE_GATES="$1"
+  else
+    export FEATURE_GATES="$FEATURE_GATES,$1"
+  fi
+}
+
+add_feature_gate "Plugins"
+
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
 # skip certain tests on flake lane
