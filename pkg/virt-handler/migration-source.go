@@ -532,25 +532,6 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	if migrationConfiguration.MaxDowntimeMs == nil {
 		migrationConfiguration.MaxDowntimeMs = pointer.P(virtconfig.DefaultMigrationMaxDowntimeMs)
 	}
-	applyExperimentalMigrationDefaults(migrationConfiguration)
-
-	stallDetector := migrationConfiguration.ExperimentalMigrationOptions.StallDetector
-	ewmaAlpha, err := virtconfig.ParseFactor(*stallDetector.EwmaAlpha, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid ewmaAlpha: %w", err)
-	}
-	precopyPossibleFactor, err := virtconfig.ParseFactor(*stallDetector.PrecopyPossibleFactor, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid precopyPossibleFactor: %w", err)
-	}
-	patienceWindowDecayFactor, err := virtconfig.ParseFactor(*stallDetector.PatienceWindowDecayFactor, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid patienceWindowDecayFactor: %w", err)
-	}
-	completionTimeoutFactor, err := virtconfig.ParseFactor(*stallDetector.CompletionTimeoutFactor, virtconfig.StallDetectorFactorPrecision)
-	if err != nil {
-		return fmt.Errorf("invalid completionTimeoutFactor: %w", err)
-	}
 
 	options := &cmdclient.MigrationOptions{
 		Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
@@ -561,8 +542,28 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 		AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
-		StallDetectionEnabled:   c.clusterConfig.MigrationStallDetectionEnabled(),
-		StallDetectorOptions: cmdclient.StallDetectorOptions{
+	}
+
+	if c.clusterConfig.MigrationStallDetectionEnabled() {
+		applyExperimentalMigrationDefaults(migrationConfiguration)
+		stallDetector := migrationConfiguration.ExperimentalMigrationOptions.StallDetector
+		ewmaAlpha, err := virtconfig.ParseFactor(*stallDetector.EwmaAlpha, virtconfig.StallDetectorFactorPrecision)
+		if err != nil {
+			return fmt.Errorf("invalid ewmaAlpha: %w", err)
+		}
+		precopyPossibleFactor, err := virtconfig.ParseFactor(*stallDetector.PrecopyPossibleFactor, virtconfig.StallDetectorFactorPrecision)
+		if err != nil {
+			return fmt.Errorf("invalid precopyPossibleFactor: %w", err)
+		}
+		patienceWindowDecayFactor, err := virtconfig.ParseFactor(*stallDetector.PatienceWindowDecayFactor, virtconfig.StallDetectorFactorPrecision)
+		if err != nil {
+			return fmt.Errorf("invalid patienceWindowDecayFactor: %w", err)
+		}
+		completionTimeoutFactor, err := virtconfig.ParseFactor(*stallDetector.CompletionTimeoutFactor, virtconfig.StallDetectorFactorPrecision)
+		if err != nil {
+			return fmt.Errorf("invalid completionTimeoutFactor: %w", err)
+		}
+		options.StallDetectorOptions = &cmdclient.StallDetectorOptions{
 			StallMargin:               float64(*stallDetector.StallMargin) / 100,
 			StallProgressTimeout:      *stallDetector.StallProgressTimeout,
 			SwitchoverTimeout:         *stallDetector.SwitchoverTimeout,
@@ -571,7 +572,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 			PatienceWindowDecayFactor: patienceWindowDecayFactor,
 			SearchLocalMinima:         *stallDetector.SearchLocalMinima,
 			CompletionTimeoutFactor:   completionTimeoutFactor,
-		},
+		}
 	}
 
 	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil && exp.Compression != nil {
