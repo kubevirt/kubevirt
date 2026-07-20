@@ -177,7 +177,7 @@ func (f stubFS) ReadFile(filename string) ([]byte, error) {
 	if f.failRead {
 		return nil, fmt.Errorf("simulated pod interface cache read failure")
 	}
-	return nil, nil
+	return nil, os.ErrNotExist
 }
 func (f stubFS) WriteFile(filename string, data []byte, perm fs.FileMode) error { return nil }
 func (f stubFS) RemoveAll(path string) error {
