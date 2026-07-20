@@ -1980,3 +1980,29 @@ tests:
               kubernetes_operator_component: "kubevirt"
               namespace: "test"
               name: "vm-01"
+
+  # Test recording rule for suspected orphaned PVCs
+  - interval: 1m
+    input_series:
+      - series: 'kube_persistentvolumeclaim_info{namespace="ns-test", persistentvolumeclaim="orphan-disk"}'
+        values: "1 1 1"
+      - series: 'kube_persistentvolumeclaim_resource_requests_storage_bytes{namespace="ns-test", persistentvolumeclaim="orphan-disk"}'
+        values: "10737418240 10737418240 10737418240"
+      - series: 'kube_persistentvolumeclaim_info{namespace="ns-test", persistentvolumeclaim="vm-disk"}'
+        values: "1 1 1"
+      - series: 'kubevirt_vm_disk_allocated_size_bytes{namespace="ns-test", persistentvolumeclaim="vm-disk", name="my-vm"}'
+        values: "5368709120 5368709120 5368709120"
+      - series: 'kube_persistentvolumeclaim_resource_requests_storage_bytes{namespace="ns-test", persistentvolumeclaim="vm-disk"}'
+        values: "5368709120 5368709120 5368709120"
+      - series: 'kube_persistentvolumeclaim_info{namespace="ns-test", persistentvolumeclaim="pod-disk"}'
+        values: "1 1 1"
+      - series: 'kube_pod_spec_volumes_persistentvolumeclaims{namespace="ns-test", persistentvolumeclaim="pod-disk", pod="some-pod"}'
+        values: "1 1 1"
+      - series: 'kube_persistentvolumeclaim_resource_requests_storage_bytes{namespace="ns-test", persistentvolumeclaim="pod-disk"}'
+        values: "5368709120 5368709120 5368709120"
+    promql_expr_test:
+      - expr: 'pvc:kubevirt_suspected_orphaned_storage_bytes:info'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'pvc:kubevirt_suspected_orphaned_storage_bytes:info{namespace="ns-test", persistentvolumeclaim="orphan-disk"}'
+            value: 10737418240
