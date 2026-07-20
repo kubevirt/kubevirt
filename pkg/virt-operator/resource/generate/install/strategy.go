@@ -633,18 +633,16 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
 
-	if config.PluginsEnabled() {
-		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginValidatingAdmissionPolicyBinding())
-		strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginValidatingAdmissionPolicy())
-		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginWarningAdmissionPolicyBinding())
-		strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginWarningAdmissionPolicy())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginValidatingAdmissionPolicy())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginWarningAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginWarningAdmissionPolicy())
 
-		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
-		strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewSidecarSubPathValidatingAdmissionPolicy())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewSidecarSubPathValidatingAdmissionPolicy())
 
-		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginSocketPathValidatingAdmissionPolicyBinding())
-		strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginSocketPathValidatingAdmissionPolicy())
-	}
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginSocketPathValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginSocketPathValidatingAdmissionPolicy())
 
 	instancetypes, err := components.NewClusterInstancetypes()
 	if err != nil {

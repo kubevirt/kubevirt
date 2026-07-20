@@ -92,8 +92,8 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 96 + virtTemplateResourceCount
-	patchCount    = 64 + virtTemplatePatchCount
+	resourceCount = 104 + virtTemplateResourceCount
+	patchCount    = 72 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -1400,12 +1400,10 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 
 	userName := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.HandlerServiceAccountName)
 	all = append(all, vap.NewHandlerV1ValidatingAdmissionPolicy(userName), vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
-	if config.PluginsEnabled() {
-		all = append(all, vap.NewPluginValidatingAdmissionPolicy(), vap.NewPluginValidatingAdmissionPolicyBinding())
-		all = append(all, vap.NewPluginWarningAdmissionPolicy(), vap.NewPluginWarningAdmissionPolicyBinding())
-		all = append(all, vap.NewSidecarSubPathValidatingAdmissionPolicy(), vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
-		all = append(all, vap.NewPluginSocketPathValidatingAdmissionPolicy(), vap.NewPluginSocketPathValidatingAdmissionPolicyBinding())
-	}
+	all = append(all, vap.NewPluginValidatingAdmissionPolicy(), vap.NewPluginValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewPluginWarningAdmissionPolicy(), vap.NewPluginWarningAdmissionPolicyBinding())
+	all = append(all, vap.NewSidecarSubPathValidatingAdmissionPolicy(), vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewPluginSocketPathValidatingAdmissionPolicy(), vap.NewPluginSocketPathValidatingAdmissionPolicyBinding())
 
 	if config.VirtTemplateDeploymentEnabled() {
 		resources, err := components.NewVirtTemplateResources(config)
