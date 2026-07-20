@@ -104,9 +104,6 @@ const (
 	AdditionalPropertiesVMStatsCollectorEnabled = "VMStatsCollectorEnabled"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesPluginsEnabled = "PluginsEnabled"
-
-	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
 	DefaultSynchronizationPort              int32 = 9185
 
@@ -211,10 +208,6 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.VMStatsCollector) {
 		additionalProperties[AdditionalPropertiesVMStatsCollectorEnabled] = ""
-	}
-
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PluginsGate) {
-		additionalProperties[AdditionalPropertiesPluginsEnabled] = ""
 	}
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.OptOutRoleAggregation) {
@@ -588,11 +581,6 @@ func (c *KubeVirtDeploymentConfig) VMStatsCollectorEnabled() bool {
 
 func (c *KubeVirtDeploymentConfig) OptOutRoleAggregationEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesOptOutRoleAggregation]
-	return enabled
-}
-
-func (c *KubeVirtDeploymentConfig) PluginsEnabled() bool {
-	_, enabled := c.AdditionalProperties[AdditionalPropertiesPluginsEnabled]
 	return enabled
 }
 
