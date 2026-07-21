@@ -14,24 +14,16 @@
  * limitations under the License.
  *
  * Copyright The KubeVirt Authors.
- *
  */
 
-package synchronization
+package synccontrollermetrics_test
 
 import (
-	"google.golang.org/grpc"
+	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
-type SynchronizationConnection struct {
-	migrationID          string
-	syncAddress          string
-	grpcClientConnection *grpc.ClientConn
-}
-
-func (s *SynchronizationConnection) Close() error {
-	if s.grpcClientConnection != nil {
-		return s.grpcClientConnection.Close()
-	}
-	return nil
+func TestSyncControllerMetrics(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }

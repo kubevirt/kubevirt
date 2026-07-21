@@ -22,6 +22,7 @@ package synchronization
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -32,10 +33,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"kubevirt.io/client-go/log"
 
-	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
+	synccontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-synchronization-controller"
 	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
 )
 
@@ -45,6 +48,13 @@ const (
 
 	// channelIdleTimeout is the maximum time a channel can be idle before being closed
 	channelIdleTimeout = 5 * time.Minute
+
+	// maxConcurrentChannelsPerTunnel limits parallel Accept/inbound channel handlers
+	// (NBD opens multiple streams; unbounded Accept would allow FD/goroutine exhaustion).
+	maxConcurrentChannelsPerTunnel = 64
+
+	tlsHandshakeTimeout = 30 * time.Second
+	targetDialTimeout   = 30 * time.Second
 )
 
 // frameStream is a bidirectional MigrationTunnel stream (client or server side).
@@ -63,10 +73,16 @@ type MigrationTunnelManager struct {
 	migrationIP    string
 	crossClusterIP string
 
+	// tunnelPeers binds migrationID -> gRPC peer address allowed to open MigrationTunnel streams.
+	tunnelPeers sync.Map
+
 	// clientTLSConfig terminates TLS when dialing target virt-handler (migration client cert).
 	clientTLSConfig *tls.Config
 	// serverTLSConfig terminates TLS when accepting source virt-handler (virt-handler server cert).
 	serverTLSConfig *tls.Config
+
+	// metricsStop stops the throughput reporter started when the proxy is initialized.
+	metricsStop chan struct{}
 
 	logger *log.FilteredLogger
 }
@@ -82,6 +98,9 @@ type migrationTunnel struct {
 	mu       sync.Mutex
 
 	stopChan chan struct{}
+
+	// channelSem limits concurrent channel handlers for this tunnel.
+	channelSem chan struct{}
 
 	// Source: listeners for virt-handler and the shared control-plane conn.
 	listenerPorts map[int]int // map[listen TCP port]protocol port
@@ -99,18 +118,18 @@ type migrationTunnel struct {
 
 // tunnelChannel is one migration protocol connection with its own gRPC stream.
 type tunnelChannel struct {
-	channelID    int32
-	stream       frameStream
-	cancelStream context.CancelFunc // set for client-opened streams
-	conn         net.Conn           // virt-handler side (source local or target dial)
-	stopChan     chan struct{}
-	stopped      atomic.Bool
-	sequence     uint64
-	lastActivity atomic.Value // time.Time
-	bytesSent    atomic.Uint64
+	channelID     int32
+	stream        frameStream
+	cancelStream  context.CancelFunc // set for client-opened streams
+	conn          net.Conn           // virt-handler side (source local or target dial)
+	stopChan      chan struct{}
+	stopped       atomic.Bool
+	sequence      uint64
+	lastActivity  atomic.Value // time.Time
+	bytesSent     atomic.Uint64
 	bytesReceived atomic.Uint64
-	createdAt    time.Time
-	logger       *log.FilteredLogger
+	createdAt     time.Time
+	logger        *log.FilteredLogger
 }
 
 // NewMigrationTunnelManager creates a new tunnel manager.
@@ -121,17 +140,23 @@ func NewMigrationTunnelManager(clientTLSConfig, serverTLSConfig *tls.Config) *Mi
 		tunnels:         make(map[string]*migrationTunnel),
 		clientTLSConfig: clientTLSConfig,
 		serverTLSConfig: serverTLSConfig,
+		metricsStop:     make(chan struct{}),
 		logger:          log.DefaultLogger(),
 	}
 }
 
 // Initialize stores network IPs (called at startup if crossClusterNetwork configured)
+// and registers proxy metrics once the proxy is actually enabled.
 func (m *MigrationTunnelManager) Initialize(migrationIP, crossClusterIP string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.migrationIP = migrationIP
 	m.crossClusterIP = crossClusterIP
+
+	if err := synccontrollermetrics.EnsureProxyMetrics(m.metricsStop); err != nil {
+		m.logger.Reason(err).Error("failed to register migration proxy metrics")
+	}
 
 	m.logger.Infof("Migration tunnel manager initialized - migration0: %s, crosscluster0: %s",
 		migrationIP, crossClusterIP)
@@ -170,8 +195,15 @@ func (m *MigrationTunnelManager) StartTargetTunnel(
 	defer m.mu.Unlock()
 
 	tunnelKey := "target:" + migrationID
+	portsCopy := copyPortMap(targetVirtHandlerPorts)
 	if existing, exists := m.tunnels[tunnelKey]; exists {
-		m.logger.V(4).Infof("Target tunnel already exists for migration %s", migrationID)
+		// Refresh dial info — virt-handler IP/ports can change across reconciles.
+		existing.mu.Lock()
+		existing.targetIP = targetVirtHandlerIP
+		existing.targetPorts = portsCopy
+		existing.mu.Unlock()
+		m.logger.V(4).Infof("Refreshed target tunnel for migration %s → virt-handler %s ports %v",
+			migrationID, targetVirtHandlerIP, targetVirtHandlerPorts)
 		return existing, nil
 	}
 
@@ -179,9 +211,10 @@ func (m *MigrationTunnelManager) StartTargetTunnel(
 		migrationID:     migrationID,
 		isSource:        false,
 		stopChan:        make(chan struct{}),
+		channelSem:      make(chan struct{}, maxConcurrentChannelsPerTunnel),
 		listenerPorts:   make(map[int]int),
 		targetIP:        targetVirtHandlerIP,
-		targetPorts:     targetVirtHandlerPorts,
+		targetPorts:     portsCopy,
 		clientTLSConfig: m.clientTLSConfig,
 		serverTLSConfig: m.serverTLSConfig,
 		logger:          m.logger,
@@ -205,9 +238,21 @@ func (m *MigrationTunnelManager) StartSourceTunnel(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.serverTLSConfig == nil {
+		return nil, fmt.Errorf("migration server TLS config required for source tunnel listeners")
+	}
+
 	tunnelKey := "source:" + migrationID
 	if existing, exists := m.tunnels[tunnelKey]; exists {
-		m.logger.V(4).Infof("Source tunnel already exists for migration %s", migrationID)
+		// Refresh the shared control-plane conn when SyncAddress was re-dialed,
+		// and open listeners for any new protocol ports (e.g. hotplug/NBD growth).
+		existing.mu.Lock()
+		existing.grpcConn = grpcConn
+		existing.mu.Unlock()
+		if err := m.addSourceListenersLocked(existing, protocolPorts); err != nil {
+			return nil, err
+		}
+		m.logger.V(4).Infof("Refreshed source tunnel for migration %s (ports %v)", migrationID, existing.GetListenerPorts())
 		return existing, nil
 	}
 
@@ -215,6 +260,7 @@ func (m *MigrationTunnelManager) StartSourceTunnel(
 		migrationID:     migrationID,
 		isSource:        true,
 		stopChan:        make(chan struct{}),
+		channelSem:      make(chan struct{}, maxConcurrentChannelsPerTunnel),
 		listenerPorts:   make(map[int]int),
 		grpcConn:        grpcConn,
 		clientTLSConfig: m.clientTLSConfig,
@@ -222,43 +268,122 @@ func (m *MigrationTunnelManager) StartSourceTunnel(
 		logger:          m.logger,
 	}
 
-	if m.serverTLSConfig == nil {
-		return nil, fmt.Errorf("migration server TLS config required for source tunnel listeners")
-	}
-
-	// Deduplicate protocol ports (map values) so we open one listener per channel.
-	seen := make(map[int]struct{})
-	for _, protocolPort := range protocolPorts {
-		if _, ok := seen[protocolPort]; ok {
-			continue
-		}
-		seen[protocolPort] = struct{}{}
-
-		listenAddr := net.JoinHostPort(m.migrationIP, "0")
-		// Terminate TLS from source virt-handler (same as target virt-handler migration proxy).
-		listener, err := tls.Listen("tcp", listenAddr, m.serverTLSConfig.Clone())
-		if err != nil {
-			tunnel.closeListeners()
-			return nil, fmt.Errorf("failed to create TLS listener for protocol %d: %v", protocolPort, err)
-		}
-
-		listenerPort := listener.Addr().(*net.TCPAddr).Port
-		tunnel.listenerPorts[listenerPort] = protocolPort
-		tunnel.listeners = append(tunnel.listeners, listener)
-
-		go tunnel.acceptConnections(listener, int32(protocolPort))
-
-		m.logger.V(3).Infof("Source tunnel TLS listener for migration %s protocol %d: %s:%d",
-			migrationID, protocolPort, m.migrationIP, listenerPort)
+	if err := m.addSourceListenersLocked(tunnel, protocolPorts); err != nil {
+		tunnel.closeListeners()
+		return nil, err
 	}
 
 	m.tunnels[tunnelKey] = tunnel
 	return tunnel, nil
 }
 
-// GetListenerPorts returns the map of listener ports for this tunnel
+// addSourceListenersLocked opens TLS listeners for protocol ports not already present.
+// Caller must hold m.mu.
+func (m *MigrationTunnelManager) addSourceListenersLocked(tunnel *migrationTunnel, protocolPorts map[int]int) error {
+	tunnel.mu.Lock()
+	existingProtocols := make(map[int]struct{}, len(tunnel.listenerPorts))
+	for _, protocolPort := range tunnel.listenerPorts {
+		existingProtocols[protocolPort] = struct{}{}
+	}
+	tunnel.mu.Unlock()
+
+	seen := make(map[int]struct{})
+	for _, protocolPort := range protocolPorts {
+		if _, ok := seen[protocolPort]; ok {
+			continue
+		}
+		seen[protocolPort] = struct{}{}
+		if _, ok := existingProtocols[protocolPort]; ok {
+			continue
+		}
+
+		listenAddr := net.JoinHostPort(m.migrationIP, "0")
+		listener, err := tls.Listen("tcp", listenAddr, m.serverTLSConfig.Clone())
+		if err != nil {
+			return fmt.Errorf("failed to create TLS listener for protocol %d: %v", protocolPort, err)
+		}
+
+		listenerPort := listener.Addr().(*net.TCPAddr).Port
+		tunnel.mu.Lock()
+		tunnel.listenerPorts[listenerPort] = protocolPort
+		tunnel.listeners = append(tunnel.listeners, listener)
+		tunnel.mu.Unlock()
+
+		go tunnel.acceptConnections(listener, int32(protocolPort))
+
+		m.logger.V(3).Infof("Source tunnel TLS listener for migration %s protocol %d: %s:%d",
+			tunnel.migrationID, protocolPort, m.migrationIP, listenerPort)
+	}
+	return nil
+}
+
+// BindTunnelPeer records the gRPC peer host allowed to open MigrationTunnel streams
+// for this migration (typically from a validated SyncSourceMigrationStatus).
+// If a peer is already bound, a different host is rejected.
+func (m *MigrationTunnelManager) BindTunnelPeer(migrationID, peerAddr string) error {
+	host := peerHost(peerAddr)
+	if migrationID == "" || host == "" {
+		return fmt.Errorf("missing migration ID or peer address for tunnel binding")
+	}
+	if existing, loaded := m.tunnelPeers.LoadOrStore(migrationID, host); loaded {
+		expected, _ := existing.(string)
+		if expected != "" && expected != host {
+			return status.Errorf(codes.PermissionDenied,
+				"peer %q not authorized to bind migration %s (expected %q)", host, migrationID, expected)
+		}
+		return nil
+	}
+	m.logger.V(4).Infof("Bound tunnel peer %q for migration %s", host, migrationID)
+	return nil
+}
+
+// AuthorizeTunnelPeer rejects MigrationTunnel streams that are not from the peer
+// previously bound for this migration. Unbound migrations are rejected fail-closed.
+func (m *MigrationTunnelManager) AuthorizeTunnelPeer(migrationID, peerAddr string) error {
+	host := peerHost(peerAddr)
+	if migrationID == "" {
+		return fmt.Errorf("missing migration ID for tunnel authorization")
+	}
+	if host == "" {
+		return status.Errorf(codes.Unauthenticated, "missing peer address for migration tunnel %s", migrationID)
+	}
+	existing, ok := m.tunnelPeers.Load(migrationID)
+	if !ok {
+		return status.Errorf(codes.FailedPrecondition,
+			"no peer bound for migration %s; SyncSourceMigrationStatus must run first", migrationID)
+	}
+	expected, _ := existing.(string)
+	if expected != host {
+		return status.Errorf(codes.PermissionDenied,
+			"peer %q not authorized for migration %s (expected %q)", host, migrationID, expected)
+	}
+	return nil
+}
+
+func peerHost(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
+}
+
+func copyPortMap(in map[int]int) map[int]int {
+	out := make(map[int]int, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+// GetListenerPorts returns a copy of the map of listener ports for this tunnel
 func (t *migrationTunnel) GetListenerPorts() map[int]int {
-	return t.listenerPorts
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return copyPortMap(t.listenerPorts)
 }
 
 // HandleInboundChannel serves a MigrationTunnel stream opened by the source for one channel.
@@ -278,6 +403,12 @@ func (m *MigrationTunnelManager) HandleInboundChannel(stream frameStream, openFr
 		return fmt.Errorf("target tunnel not found for migration %s", migrationID)
 	}
 
+	if !tunnel.tryAcquireChannelSlot() {
+		return status.Errorf(codes.ResourceExhausted,
+			"too many concurrent channels for migration %s", migrationID)
+	}
+	defer tunnel.releaseChannelSlot()
+
 	// Each inbound stream is its own TCP connection to virt-handler (NBD may open
 	// several on protocol port 49153). Do not serialize on channelID.
 	now := time.Now()
@@ -292,23 +423,30 @@ func (m *MigrationTunnelManager) HandleInboundChannel(stream frameStream, openFr
 	ch.sequence = 1
 	tunnel.addChannel(ch)
 
-	targetPort, err := tunnel.lookupTargetPort(channelID)
+	targetIP, targetPort, err := tunnel.lookupTargetDial(channelID)
 	if err != nil {
 		tunnel.removeChannel(ch)
 		return err
 	}
 
-	targetAddr := net.JoinHostPort(tunnel.targetIP, fmt.Sprintf("%d", targetPort))
-	var conn net.Conn
-	if tunnel.clientTLSConfig != nil {
-		// Clone so concurrent dials do not share mutable session state.
-		conn, err = tls.Dial("tcp", targetAddr, tunnel.clientTLSConfig.Clone())
-	} else {
-		conn, err = net.Dial("tcp", targetAddr)
+	targetAddr := net.JoinHostPort(targetIP, fmt.Sprintf("%d", targetPort))
+	if tunnel.clientTLSConfig == nil {
+		tunnel.removeChannel(ch)
+		synccontrollermetrics.ErrorsInc("target", "connect_error")
+		_ = stream.Send(&syncv1.MigrationFrame{
+			MigrationId:  migrationID,
+			ChannelId:    channelID,
+			FrameType:    syncv1.FrameType_FRAME_TYPE_ERROR,
+			ErrorMessage: "migration client TLS config required to dial target virt-handler",
+		})
+		return fmt.Errorf("migration client TLS config required to dial target virt-handler at %s", targetAddr)
 	}
+	dialer := &net.Dialer{Timeout: targetDialTimeout}
+	// Clone so concurrent dials do not share mutable session state.
+	conn, err := tls.DialWithDialer(dialer, "tcp", targetAddr, tunnel.clientTLSConfig.Clone())
 	if err != nil {
 		tunnel.removeChannel(ch)
-		virthandler.DecentralizedMigrationProxyErrorsInc("target", "connect_error")
+		synccontrollermetrics.ErrorsInc("target", "connect_error")
 		_ = stream.Send(&syncv1.MigrationFrame{
 			MigrationId:  migrationID,
 			ChannelId:    channelID,
@@ -325,13 +463,37 @@ func (m *MigrationTunnelManager) HandleInboundChannel(stream frameStream, openFr
 	return tunnel.runClaimedChannel("target", ch)
 }
 
-func (t *migrationTunnel) lookupTargetPort(channelID int32) (int, error) {
+func (t *migrationTunnel) lookupTargetDial(channelID int32) (string, int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	for tcpPort, protocolPort := range t.targetPorts {
 		if int32(protocolPort) == channelID {
-			return tcpPort, nil
+			return t.targetIP, tcpPort, nil
 		}
 	}
-	return 0, fmt.Errorf("no target virt-handler port for channel %d", channelID)
+	return "", 0, fmt.Errorf("no target virt-handler port for channel %d", channelID)
+}
+
+func (t *migrationTunnel) tryAcquireChannelSlot() bool {
+	if t.channelSem == nil {
+		return true
+	}
+	select {
+	case t.channelSem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t *migrationTunnel) releaseChannelSlot() {
+	if t.channelSem == nil {
+		return
+	}
+	select {
+	case <-t.channelSem:
+	default:
+	}
 }
 
 // StopTunnel stops source and target tunnels for this migration
@@ -347,12 +509,15 @@ func (m *MigrationTunnelManager) StopTunnel(migrationID string) {
 	}
 	m.mu.Unlock()
 
+	m.tunnelPeers.Delete(migrationID)
+
 	if sourceExists {
 		m.stopTunnelInternal(sourceTunnel, migrationID, "source")
 	}
 	if targetExists {
 		m.stopTunnelInternal(targetTunnel, migrationID, "target")
 	}
+	synccontrollermetrics.ClearMigrationBytes(migrationID)
 }
 
 func (m *MigrationTunnelManager) stopTunnelInternal(tunnel *migrationTunnel, migrationID, tunnelType string) {
@@ -391,6 +556,12 @@ func (m *MigrationTunnelManager) Shutdown() {
 
 	for migrationID := range migrationIDs {
 		m.StopTunnel(migrationID)
+	}
+
+	select {
+	case <-m.metricsStop:
+	default:
+		close(m.metricsStop)
 	}
 
 	m.logger.Info("Migration tunnel manager shutdown complete")
@@ -467,7 +638,18 @@ func (t *migrationTunnel) acceptConnections(listener net.Listener, protocolPort 
 		default:
 		}
 
-		go t.handleSourceConnection(conn, protocolPort)
+		if !t.tryAcquireChannelSlot() {
+			t.logger.Warningf("Rejecting connection for migration %s channel %d: concurrency limit reached",
+				t.migrationID, protocolPort)
+			_ = conn.Close()
+			synccontrollermetrics.ErrorsInc("source", "connect_error")
+			continue
+		}
+
+		go func(c net.Conn) {
+			defer t.releaseChannelSlot()
+			t.handleSourceConnection(c, protocolPort)
+		}(conn)
 	}
 }
 
@@ -496,12 +678,17 @@ func isTransientAcceptError(err error) bool {
 }
 
 func (t *migrationTunnel) handleSourceConnection(conn net.Conn, protocolPort int32) {
-	if t.grpcConn == nil {
+	t.mu.Lock()
+	grpcConn := t.grpcConn
+	t.mu.Unlock()
+	if grpcConn == nil {
 		t.logger.Errorf("No gRPC connection for source tunnel migration %s", t.migrationID)
 		conn.Close()
 		return
 	}
 
+	// Bound the handshake so slow/malicious clients cannot hold Accept slots forever.
+	_ = conn.SetDeadline(time.Now().Add(tlsHandshakeTimeout))
 	// Complete TLS before opening the gRPC stream / dialing the target. Otherwise
 	// target-side traffic can close the conn mid-handshake.
 	if tlsConn, ok := conn.(*tls.Conn); ok {
@@ -509,18 +696,19 @@ func (t *migrationTunnel) handleSourceConnection(conn net.Conn, protocolPort int
 			t.logger.Reason(err).Errorf("TLS handshake failed for migration %s channel %d from %s",
 				t.migrationID, protocolPort, conn.RemoteAddr())
 			conn.Close()
-			virthandler.DecentralizedMigrationProxyErrorsInc("source", "connect_error")
+			synccontrollermetrics.ErrorsInc("source", "connect_error")
 			return
 		}
 	}
+	_ = conn.SetDeadline(time.Time{})
 
 	// Open the stream before registering the channel so StopTunnel can cancel it.
 	streamCtx, cancel := context.WithCancel(context.Background())
-	client := syncv1.NewSynchronizeClient(t.grpcConn)
+	client := syncv1.NewSynchronizeClient(grpcConn)
 	stream, err := client.MigrationTunnel(streamCtx)
 	if err != nil {
 		cancel()
-		virthandler.DecentralizedMigrationProxyErrorsInc("source", "connect_error")
+		synccontrollermetrics.ErrorsInc("source", "connect_error")
 		t.logger.Reason(err).Errorf("Failed to open MigrationTunnel stream for channel %d", protocolPort)
 		conn.Close()
 		return
@@ -534,7 +722,7 @@ func (t *migrationTunnel) handleSourceConnection(conn net.Conn, protocolPort int
 	}
 	if err := stream.Send(openFrame); err != nil {
 		cancel()
-		virthandler.DecentralizedMigrationProxyErrorsInc("source", "send_error")
+		synccontrollermetrics.ErrorsInc("source", "send_error")
 		t.logger.Reason(err).Errorf("Failed to send OPEN for channel %d", protocolPort)
 		conn.Close()
 		return
@@ -547,7 +735,7 @@ func (t *migrationTunnel) handleSourceConnection(conn net.Conn, protocolPort int
 	}
 }
 
-// runChannel proxies a connection on its own gRPC stream (used by tests / helpers).
+// runChannel registers conn on a dedicated stream and proxies until the channel ends.
 func (t *migrationTunnel) runChannel(
 	proxyType string,
 	channelID int32,
@@ -574,8 +762,8 @@ func (t *migrationTunnel) runChannel(
 
 // runClaimedChannel proxies an already-registered channel until either side closes.
 func (t *migrationTunnel) runClaimedChannel(proxyType string, ch *tunnelChannel) error {
-	virthandler.DecentralizedMigrationProxyActiveConnectionsInc(proxyType)
-	defer virthandler.DecentralizedMigrationProxyActiveConnectionsDec(proxyType)
+	synccontrollermetrics.ActiveConnectionsInc(proxyType)
+	defer synccontrollermetrics.ActiveConnectionsDec(proxyType)
 	defer func() {
 		ch.closeWithStats(t.migrationID, proxyType)
 		t.removeChannel(ch)
@@ -601,11 +789,47 @@ func (t *migrationTunnel) runClaimedChannel(proxyType string, ch *tunnelChannel)
 		case <-errChan:
 		case <-time.After(time.Second):
 		}
-		if err != nil && err != io.EOF {
+		if err != nil && !isExpectedProxyCloseErr(err) {
 			return err
 		}
 		return nil
 	}
+}
+
+// isExpectedProxyCloseErr reports errors that are normal when a tunnel channel
+// tears down (peer CLOSE/EOF, local close of the TCP conn or gRPC stream).
+// For joined errors, every component must be an expected close.
+func isExpectedProxyCloseErr(err error) bool {
+	if err == nil {
+		return true
+	}
+	if multi, ok := err.(interface{ Unwrap() []error }); ok {
+		errs := multi.Unwrap()
+		if len(errs) == 0 {
+			return true
+		}
+		for _, e := range errs {
+			if !isExpectedProxyCloseErr(e) {
+				return false
+			}
+		}
+		return true
+	}
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	if st, ok := status.FromError(err); ok {
+		switch st.Code() {
+		case codes.Canceled, codes.Unavailable:
+			return true
+		}
+	}
+	// net.OpError / older stdlib strings that do not always unwrap to net.ErrClosed
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection")
 }
 
 func (c *tunnelChannel) proxyConnToStream(migrationID, proxyType string) error {
@@ -625,12 +849,13 @@ func (c *tunnelChannel) proxyConnToStream(migrationID, proxyType string) error {
 				FrameType:   syncv1.FrameType_FRAME_TYPE_CLOSE,
 				Sequence:    atomic.AddUint64(&c.sequence, 1),
 			}
-			_ = c.stream.Send(closeFrame)
-			if err != io.EOF {
-				virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
-				return err
+			// Keep the Read error as the cause of teardown; Join any CLOSE Send
+			// failure so it is not silently discarded.
+			err = errors.Join(err, c.stream.Send(closeFrame))
+			if !isExpectedProxyCloseErr(err) && !c.stopped.Load() {
+				synccontrollermetrics.ErrorsInc(proxyType, "send_error")
 			}
-			return io.EOF
+			return err
 		}
 
 		frame := &syncv1.MigrationFrame{
@@ -641,13 +866,20 @@ func (c *tunnelChannel) proxyConnToStream(migrationID, proxyType string) error {
 			Sequence:    atomic.AddUint64(&c.sequence, 1),
 		}
 		if err := c.stream.Send(frame); err != nil {
-			virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
+			if !isExpectedProxyCloseErr(err) && !c.stopped.Load() {
+				synccontrollermetrics.ErrorsInc(proxyType, "send_error")
+			}
 			return err
 		}
 
 		c.lastActivity.Store(time.Now())
 		c.bytesSent.Add(uint64(n))
-		virthandler.DecentralizedMigrationProxyBytesTransferredAdd(proxyType, "receive", float64(n))
+		// Source: count once as payload enters the tunnel from virt-handler.
+		if proxyType == "source" {
+			if channelType := synccontrollermetrics.ChannelTypeFromID(c.channelID); channelType != "" {
+				synccontrollermetrics.BytesTransferredAdd(migrationID, proxyType, channelType, float64(n))
+			}
+		}
 	}
 }
 
@@ -661,8 +893,8 @@ func (c *tunnelChannel) proxyStreamToConn(migrationID, proxyType string) error {
 
 		frame, err := c.stream.Recv()
 		if err != nil {
-			if err != io.EOF {
-				virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
+			if !isExpectedProxyCloseErr(err) && !c.stopped.Load() {
+				synccontrollermetrics.ErrorsInc(proxyType, "recv_error")
 			}
 			return err
 		}
@@ -670,12 +902,19 @@ func (c *tunnelChannel) proxyStreamToConn(migrationID, proxyType string) error {
 		switch frame.FrameType {
 		case syncv1.FrameType_FRAME_TYPE_DATA:
 			if _, err := c.conn.Write(frame.Data); err != nil {
-				virthandler.DecentralizedMigrationProxyErrorsInc(proxyType, "send_error")
+				if !isExpectedProxyCloseErr(err) && !c.stopped.Load() {
+					synccontrollermetrics.ErrorsInc(proxyType, "send_error")
+				}
 				return err
 			}
 			c.lastActivity.Store(time.Now())
 			c.bytesReceived.Add(uint64(len(frame.Data)))
-			virthandler.DecentralizedMigrationProxyBytesTransferredAdd(proxyType, "send", float64(len(frame.Data)))
+			// Target: count once as payload leaves the tunnel toward virt-handler.
+			if proxyType == "target" {
+				if channelType := synccontrollermetrics.ChannelTypeFromID(c.channelID); channelType != "" {
+					synccontrollermetrics.BytesTransferredAdd(migrationID, proxyType, channelType, float64(len(frame.Data)))
+				}
+			}
 
 		case syncv1.FrameType_FRAME_TYPE_CLOSE, syncv1.FrameType_FRAME_TYPE_ERROR:
 			c.logger.V(4).Infof("Channel %d closed by remote (%v): %s", c.channelID, frame.FrameType, frame.ErrorMessage)

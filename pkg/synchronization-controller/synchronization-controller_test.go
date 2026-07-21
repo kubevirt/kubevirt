@@ -806,8 +806,14 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 			It("should set source SyncAddress and return when there is no outbound connection", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{}
-				err := controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
+				_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(sourceVMI.Namespace).Update(context.TODO(), sourceVMI, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(sourceVMI.Namespace).Get(context.TODO(), sourceVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVMI.Status.MigrationState.SourceState.SyncAddress).ToNot(BeNil())
+				Expect(*updatedVMI.Status.MigrationState.SourceState.SyncAddress).To(Equal(localTCPConn.Addr().String()))
 			})
 
 			It("should error and fail to update target VMI if target VMI doesn't exist", func() {
@@ -983,7 +989,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 				sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.execute(sourceKey)
+				err = controller.execute(context.Background(), sourceKey)
 				Expect(err).ToNot(HaveOccurred())
 
 				verifyTargetAbortCompletion()
@@ -999,7 +1005,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 				sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.execute(sourceKey)
+				err = controller.execute(context.Background(), sourceKey)
 				Expect(err).ToNot(HaveOccurred())
 
 				verifyTargetAbortCompletion()
@@ -1038,11 +1044,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(targetKey)
+			err = controller.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			verifySource(controller, sourceVMI, localTCPConn.Addr().String())
@@ -1153,13 +1159,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			By("calling execute on the source")
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("calling execute on the target")
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("verifying the result")
@@ -1181,7 +1187,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
 
 			By("calling execute on the source")
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("verifying the result")
@@ -1205,7 +1211,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("calling execute on the target")
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1435,7 +1441,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

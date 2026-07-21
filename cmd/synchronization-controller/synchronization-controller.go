@@ -25,6 +25,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
+	synccontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-synchronization-controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
@@ -108,6 +110,7 @@ type synchronizationControllerApp struct {
 	migrationServerKeyFilePath  string
 	externallyManaged           bool
 	ip                          string
+	podIP                       string
 
 	serverTLSConfig            *tls.Config
 	clientTLSConfig            *tls.Config
@@ -187,6 +190,7 @@ func (app *synchronizationControllerApp) Run() {
 	app.ctx = ctx
 
 	envIP, _ := os.LookupEnv("MY_POD_IP")
+	app.podIP = envIP
 	ip, err := virthandler.FindMigrationIP(envIP)
 	app.ip = ip
 
@@ -306,32 +310,43 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 	tlsConfig := kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", app.healthzHandler)
+	mux.Handle("/metrics", synccontrollermetrics.Handler(0))
 
 	log.Log.V(2).Infof("Listing on %s", app.Address())
 
-	server := &http.Server{
-		Addr:      "0.0.0.0:8443",
-		Handler:   mux,
-		TLSConfig: tlsConfig,
-		// Disable HTTP/2
-		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+	// Serve metrics/healthz on the primary pod IP (kubelet probes) and localhost
+	// (kubectl port-forward). Do not use 0.0.0.0 — that would also expose 8443 on
+	// secondary networks (internal migration / cross-cluster Multus interfaces).
+	metricsHosts := []string{"127.0.0.1"}
+	if app.podIP != "" && app.podIP != "127.0.0.1" {
+		metricsHosts = append(metricsHosts, app.podIP)
 	}
-
-	go func() {
-		log.Log.V(2).Infof("/healthz listening on %s", server.Addr)
-		for {
-			if err := server.ListenAndServeTLS("", ""); err != nil {
-				if errors.Is(err, http.ErrServerClosed) {
-					// Normal exit, do nothing.
-					log.Log.V(1).Info("shut down healthz http server")
-					return
-				}
-				log.Log.Errorf("unable to listen and serve TLS %v, retrying in 1 second", err)
-			}
-			time.Sleep(time.Second)
+	var metricsServers []*http.Server
+	for _, host := range metricsHosts {
+		metricsAddr := net.JoinHostPort(host, "8443")
+		server := &http.Server{
+			Addr:      metricsAddr,
+			Handler:   mux,
+			TLSConfig: tlsConfig.Clone(),
+			// Disable HTTP/2
+			// See CVE-2023-44487
+			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		}
-	}()
+		metricsServers = append(metricsServers, server)
+		go func(s *http.Server) {
+			log.Log.V(2).Infof("/healthz and /metrics listening on %s", s.Addr)
+			for {
+				if err := s.ListenAndServeTLS("", ""); err != nil {
+					if errors.Is(err, http.ErrServerClosed) {
+						log.Log.V(1).Infof("shut down http server on %s", s.Addr)
+						return
+					}
+					log.Log.Errorf("unable to listen and serve TLS on %s: %v, retrying in 1 second", s.Addr, err)
+				}
+				time.Sleep(time.Second)
+			}
+		}(server)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -339,12 +354,13 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 		defer wg.Done()
 		<-stop
 		app.close()
-		httpShutdownnCTX, httpShutdownCancel := context.WithTimeout(context.Background(), defaultGracefulShutdownSeconds*time.Second)
+		httpShutdownCTX, httpShutdownCancel := context.WithTimeout(context.Background(), defaultGracefulShutdownSeconds*time.Second)
 		defer httpShutdownCancel()
 
-		// Shutdown the server
-		if err := server.Shutdown(httpShutdownnCTX); err != nil {
-			log.Log.Errorf("server shutdown error: %v", err)
+		for _, s := range metricsServers {
+			if err := s.Shutdown(httpShutdownCTX); err != nil {
+				log.Log.Errorf("server shutdown error on %s: %v", s.Addr, err)
+			}
 		}
 		log.Log.V(1).Info("completed stop function")
 	}()
