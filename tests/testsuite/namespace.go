@@ -394,17 +394,15 @@ func GetLabelsForNamespace(namespace string) map[string]string {
 
 func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
 	return libnamespace.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
-		if ns.Labels == nil {
-			return
+		for key, value := range GetLabelsForNamespace(namespace) {
+			ns.Labels[key] = value
 		}
-		ns.Labels = GetLabelsForNamespace(namespace)
 	})
 }
 
 func createNamespaces() {
 	virtCli := kubevirt.Client()
 
-	// Create a Test Namespaces
 	for _, namespace := range TestNamespaces {
 		ns := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
