@@ -7,8 +7,33 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 		"":             "BackupVolumeInfo contains information about a volume included in a backup",
 		"volumeName":   "VolumeName is the volume name from VMI spec",
 		"diskTarget":   "DiskTarget is the disk target device name at backup time",
-		"dataEndpoint": "DataEndpoint is the URL of the endpoint for read for pull mode",
-		"mapEndpoint":  "MapEndpoint is the URL of the endpoint for map for pull mode",
+		"dataEndpoint": "DataEndpoint is the URL of the endpoint for read for pull mode\nDeprecated: still populated for backward compatibility\nUse Links.Internal or Links.External for structured endpoint access\nwith explicit internal/external distinction",
+		"mapEndpoint":  "MapEndpoint is the URL of the endpoint for map for pull mode\nDeprecated: still populated for backward compatibility\nUse Links.Internal or Links.External for structured endpoint access\nwith explicit internal/external distinction",
+	}
+}
+
+func (BackupLinks) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "BackupLinks contains internal and external links for accessing backup data in pull mode\nInternal links use in-cluster service DNS (ClusterIP), while external links\nuse a Route or Ingress hostname via virt-exportproxy",
+		"internal": "Internal contains endpoints reachable from within the cluster\n+optional",
+		"external": "External contains endpoints reachable from outside the cluster\n+optional",
+	}
+}
+
+func (BackupLink) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "BackupLink contains a CA certificate and per-volume endpoints for one network path",
+		"cert":    "Cert is the CA certificate bundle for TLS verification",
+		"volumes": "Volumes lists the data and map endpoints for each backed-up volume\n+listType=map\n+listMapKey=volumeName\n+optional",
+	}
+}
+
+func (BackupVolumeLink) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+		"volumeName":   "VolumeName identifies the volume these endpoints belong to",
+		"dataEndpoint": "DataEndpoint is the URL for reading backup data",
+		"mapEndpoint":  "MapEndpoint is the URL for reading the changed block map",
 	}
 }
 
@@ -85,8 +110,9 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"type":            "+optional\nType indicates if the backup was full or incremental",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
-		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
+		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.\nDeprecated: still populated for backward compatibility\nUse Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate",
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
 		"exportUID":       "+optional\nExportUID tracks the UID of the associated VMExport for pull-mode backups\nused to detect VMExport recreation and re-initiate the export handshake",
+		"links":           "+optional\nLinks contains structured internal and external endpoints for pull-mode backups\nEach link includes a CA certificate and per-volume data/map endpoint URLs\nClients that need to distinguish between in-cluster and external access paths\nshould use this field instead of the flat EndpointCert/IncludedVolumes fields",
 	}
 }
