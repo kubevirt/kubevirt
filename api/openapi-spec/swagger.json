@@ -20668,11 +20668,11 @@
     ],
     "properties": {
      "dataEndpoint": {
-      "description": "DataEndpoint is the URL of the endpoint for read for pull mode",
+      "description": "DataEndpoint is the URL of the endpoint for read for pull mode Deprecated: still populated for backward compatibility Use Links.Internal or Links.External for structured endpoint access with explicit internal/external distinction",
       "type": "string"
      },
      "mapEndpoint": {
-      "description": "MapEndpoint is the URL of the endpoint for map for pull mode",
+      "description": "MapEndpoint is the URL of the endpoint for map for pull mode Deprecated: still populated for backward compatibility Use Links.Internal or Links.External for structured endpoint access with explicit internal/external distinction",
       "type": "string"
      },
      "volumeName": {
@@ -20915,7 +20915,7 @@
       "x-kubernetes-list-type": "map"
      },
      "endpointCert": {
-      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode. Deprecated: still populated for backward compatibility Use Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate",
       "type": "string"
      },
      "exportUID": {
@@ -20930,6 +20930,10 @@
        "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "links": {
+      "description": "Links exposes internal and external endpoints for pull-mode backups. Reuses VirtualMachineExportLinks from the export API. Prefer over the deprecated flat EndpointCert/DataEndpoint/MapEndpoint fields.",
+      "$ref": "#/definitions/v1.VirtualMachineExportLinks"
      },
      "type": {
       "description": "Type indicates if the backup was full or incremental",

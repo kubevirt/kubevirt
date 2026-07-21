@@ -17406,14 +17406,14 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 					},
 					"dataEndpoint": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DataEndpoint is the URL of the endpoint for read for pull mode",
+							Description: "DataEndpoint is the URL of the endpoint for read for pull mode Deprecated: still populated for backward compatibility Use Links.Internal or Links.External for structured endpoint access with explicit internal/external distinction",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mapEndpoint": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MapEndpoint is the URL of the endpoint for map for pull mode",
+							Description: "MapEndpoint is the URL of the endpoint for map for pull mode Deprecated: still populated for backward compatibility Use Links.Internal or Links.External for structured endpoint access with explicit internal/external distinction",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17634,7 +17634,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 					},
 					"endpointCert": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+							Description: "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode. Deprecated: still populated for backward compatibility Use Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17665,11 +17665,17 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							Format:      "",
 						},
 					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Links exposes internal and external endpoints for pull-mode backups. Reuses VirtualMachineExportLinks from the export API. Prefer over the deprecated flat EndpointCert/DataEndpoint/MapEndpoint fields.",
+							Ref:         ref("kubevirt.io/api/export/v1.VirtualMachineExportLinks"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo", "kubevirt.io/api/export/v1.VirtualMachineExportLinks"},
 	}
 }
 

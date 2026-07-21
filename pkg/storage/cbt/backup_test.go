@@ -1892,7 +1892,7 @@ var _ = Describe("Backup Controller", func() {
 				Phase: exportv1.Ready,
 				Links: &exportv1.VirtualMachineExportLinks{
 					Internal: &exportv1.VirtualMachineExportLink{
-						Cert: "test",
+						Cert: "internal-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{{
 							Name: pvcName,
 							Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
@@ -1909,13 +1909,20 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(progressingReason(backupCopy)).To(Equal(backupv1.ReasonExportReady))
 			Expect(backupCopy.Status.EndpointCert).ToNot(BeNil())
-			Expect(*backupCopy.Status.EndpointCert).ToNot(BeEmpty())
+			Expect(*backupCopy.Status.EndpointCert).To(Equal("internal-cert"))
 			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 			Expect(backupCopy.Status.IncludedVolumes[0].DataEndpoint).To(Equal("/data"))
 			Expect(backupCopy.Status.IncludedVolumes[0].MapEndpoint).To(Equal("/map"))
+
+			Expect(backupCopy.Status.Links).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal.Cert).To(Equal("internal-cert"))
+			Expect(backupCopy.Status.Links.Internal.Backups).To(HaveLen(1))
+			Expect(backupCopy.Status.Links.Internal.Backups[0].Name).To(Equal(pvcName))
+			Expect(backupCopy.Status.Links.External).To(BeNil())
 		})
 
-		It("should prioritize external links over internal links", func() {
+		It("should prioritize external links for flat fields and populate both in Links", func() {
 			exportUID := types.UID("test-export-uid")
 			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
@@ -1923,7 +1930,7 @@ var _ = Describe("Backup Controller", func() {
 				Phase: exportv1.Ready,
 				Links: &exportv1.VirtualMachineExportLinks{
 					Internal: &exportv1.VirtualMachineExportLink{
-						Cert: "test",
+						Cert: "internal-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{{
 							Name: pvcName,
 							Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
@@ -1933,7 +1940,7 @@ var _ = Describe("Backup Controller", func() {
 						}},
 					},
 					External: &exportv1.VirtualMachineExportLink{
-						Cert: "test",
+						Cert: "external-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{{
 							Name: pvcName,
 							Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
@@ -1949,9 +1956,29 @@ var _ = Describe("Backup Controller", func() {
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(progressingReason(backupCopy)).To(Equal(backupv1.ReasonExportReady))
+
+			By("Verifying flat fields use external endpoints")
 			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 			Expect(backupCopy.Status.IncludedVolumes[0].DataEndpoint).To(Equal("/external/data"))
 			Expect(backupCopy.Status.IncludedVolumes[0].MapEndpoint).To(Equal("/external/map"))
+			Expect(*backupCopy.Status.EndpointCert).To(Equal("external-cert"))
+
+			By("Verifying Links contains both internal and external")
+			Expect(backupCopy.Status.Links).ToNot(BeNil())
+
+			Expect(backupCopy.Status.Links.Internal).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal.Cert).To(Equal("internal-cert"))
+			Expect(backupCopy.Status.Links.Internal.Backups).To(HaveLen(1))
+			Expect(backupCopy.Status.Links.Internal.Backups[0].Name).To(Equal(pvcName))
+			Expect(backupCopy.Status.Links.Internal.Backups[0].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/internal/data", Endpoint: exportv1.Data}))
+			Expect(backupCopy.Status.Links.Internal.Backups[0].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/internal/map", Endpoint: exportv1.Map}))
+
+			Expect(backupCopy.Status.Links.External).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.External.Cert).To(Equal("external-cert"))
+			Expect(backupCopy.Status.Links.External.Backups).To(HaveLen(1))
+			Expect(backupCopy.Status.Links.External.Backups[0].Name).To(Equal(pvcName))
+			Expect(backupCopy.Status.Links.External.Backups[0].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/external/data", Endpoint: exportv1.Data}))
+			Expect(backupCopy.Status.Links.External.Backups[0].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/external/map", Endpoint: exportv1.Map}))
 		})
 
 		It("should map endpoints independently for multiple volumes", func() {
@@ -1965,7 +1992,7 @@ var _ = Describe("Backup Controller", func() {
 				Phase: exportv1.Ready,
 				Links: &exportv1.VirtualMachineExportLinks{
 					Internal: &exportv1.VirtualMachineExportLink{
-						Cert: pvcName,
+						Cert: "test-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{
 							{
 								Name: "rootdisk",
@@ -1994,6 +2021,39 @@ var _ = Describe("Backup Controller", func() {
 				Expect(vol.DataEndpoint).To(ContainSubstring(vol.VolumeName))
 				Expect(vol.MapEndpoint).To(ContainSubstring(vol.VolumeName))
 			}
+
+			Expect(backupCopy.Status.Links).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal.Backups).To(HaveLen(2))
+			backupsByName := make(map[string]exportv1.VirtualMachineExportBackup)
+			for _, b := range backupCopy.Status.Links.Internal.Backups {
+				backupsByName[b.Name] = b
+			}
+			Expect(backupsByName).To(HaveKey("rootdisk"))
+			Expect(backupsByName).To(HaveKey("datadisk"))
+			Expect(backupsByName["rootdisk"].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/rootdisk/data", Endpoint: exportv1.Data}))
+			Expect(backupsByName["rootdisk"].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/rootdisk/map", Endpoint: exportv1.Map}))
+			Expect(backupsByName["datadisk"].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/datadisk/data", Endpoint: exportv1.Data}))
+			Expect(backupsByName["datadisk"].Endpoints).To(ContainElement(exportv1.VirtualMachineExportBackupEndpoint{Url: "/datadisk/map", Endpoint: exportv1.Map}))
+		})
+
+		It("should return an error when export is ready but has no backup links", func() {
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
+			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
+			vmExport.Status = &exportv1.VirtualMachineExportStatus{
+				Phase: exportv1.Ready,
+				Links: &exportv1.VirtualMachineExportLinks{
+					Internal: &exportv1.VirtualMachineExportLink{
+						Cert: "some-cert",
+					},
+				},
+			}
+			controller.vmExportStore.Add(vmExport)
+
+			_, err := syncBackup(backup)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("has no backup links"))
 		})
 
 		It("should return an error when export exists but is not owned by this backup", func() {
@@ -2116,5 +2176,27 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).To(MatchError(errCleanupPending))
 			Expect(deleteCalled).To(BeTrue())
 		})
+
+		It("should reset Links to nil when a new export is created", func() {
+			backup.Status.Links = &exportv1.VirtualMachineExportLinks{
+				Internal: &exportv1.VirtualMachineExportLink{
+					Cert: "old-cert",
+					Backups: []exportv1.VirtualMachineExportBackup{{
+						Name: "old-vol",
+						Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
+							{Url: "/old/data", Endpoint: exportv1.Data},
+							{Url: "/old/map", Endpoint: exportv1.Map},
+						},
+					}},
+				},
+			}
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(progressingReason(backupCopy)).To(Equal(backupv1.ReasonPreparingExport))
+			Expect(backupCopy.Status.Links).To(BeNil())
+		})
+
 	})
+
 })

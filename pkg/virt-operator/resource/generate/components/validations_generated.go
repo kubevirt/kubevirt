@@ -9717,6 +9717,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             EndpointCert is the raw CACert that is to be used when connecting
             to an exported backup endpoint in pull mode.
+            Deprecated: still populated for backward compatibility
+            Use Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate
           type: string
         exportUID:
           description: |-
@@ -9731,12 +9733,18 @@ var CRDsValidation map[string]string = map[string]string{
               in a backup
             properties:
               dataEndpoint:
-                description: DataEndpoint is the URL of the endpoint for read for
-                  pull mode
+                description: |-
+                  DataEndpoint is the URL of the endpoint for read for pull mode
+                  Deprecated: still populated for backward compatibility
+                  Use Links.Internal or Links.External for structured endpoint access
+                  with explicit internal/external distinction
                 type: string
               mapEndpoint:
-                description: MapEndpoint is the URL of the endpoint for map for pull
-                  mode
+                description: |-
+                  MapEndpoint is the URL of the endpoint for map for pull mode
+                  Deprecated: still populated for backward compatibility
+                  Use Links.Internal or Links.External for structured endpoint access
+                  with explicit internal/external distinction
                 type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
@@ -9746,6 +9754,225 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        links:
+          description: |-
+            Links exposes internal and external endpoints
+            for pull-mode backups. Reuses VirtualMachineExportLinks from the export API.
+            Prefer over the deprecated flat EndpointCert/DataEndpoint/MapEndpoint fields.
+          properties:
+            external:
+              description: VirtualMachineExportLink contains a list of volumes available
+                for export, as well as the URLs to obtain these volumes
+              properties:
+                backups:
+                  description: Backups is a list of available backups for the export
+                  items:
+                    description: VirtualMachineExportBackup contains the name and
+                      available endpoints for the exported backup
+                    properties:
+                      endpoints:
+                        items:
+                          description: VirtualMachineExportBackupEndpoint contains
+                            the endpoint type and URL to interact with a backup export
+                          properties:
+                            endpoint:
+                              description: Endpoint is the endpoint of the backup
+                                export at the specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - endpoint
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - endpoint
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+                cert:
+                  description: Cert is the public CA certificate base64 encoded
+                  type: string
+                manifests:
+                  description: Manifests is a list of available manifests for the
+                    export
+                  items:
+                    description: VirtualMachineExportManifest contains the type and
+                      URL of the exported manifest
+                    properties:
+                      type:
+                        description: Type is the type of manifest returned
+                        type: string
+                      url:
+                        description: Url is the url of the endpoint that returns the
+                          manifest
+                        type: string
+                    required:
+                    - type
+                    - url
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - type
+                  x-kubernetes-list-type: map
+                volumes:
+                  description: Volumes is a list of available volumes to export
+                  items:
+                    description: VirtualMachineExportVolume contains the name and
+                      available formats for the exported volume
+                    properties:
+                      formats:
+                        items:
+                          description: VirtualMachineExportVolumeFormat contains the
+                            format type and URL to get the volume in that format
+                          properties:
+                            format:
+                              description: Format is the format of the image at the
+                                specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - format
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - format
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+            internal:
+              description: VirtualMachineExportLink contains a list of volumes available
+                for export, as well as the URLs to obtain these volumes
+              properties:
+                backups:
+                  description: Backups is a list of available backups for the export
+                  items:
+                    description: VirtualMachineExportBackup contains the name and
+                      available endpoints for the exported backup
+                    properties:
+                      endpoints:
+                        items:
+                          description: VirtualMachineExportBackupEndpoint contains
+                            the endpoint type and URL to interact with a backup export
+                          properties:
+                            endpoint:
+                              description: Endpoint is the endpoint of the backup
+                                export at the specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - endpoint
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - endpoint
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+                cert:
+                  description: Cert is the public CA certificate base64 encoded
+                  type: string
+                manifests:
+                  description: Manifests is a list of available manifests for the
+                    export
+                  items:
+                    description: VirtualMachineExportManifest contains the type and
+                      URL of the exported manifest
+                    properties:
+                      type:
+                        description: Type is the type of manifest returned
+                        type: string
+                      url:
+                        description: Url is the url of the endpoint that returns the
+                          manifest
+                        type: string
+                    required:
+                    - type
+                    - url
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - type
+                  x-kubernetes-list-type: map
+                volumes:
+                  description: Volumes is a list of available volumes to export
+                  items:
+                    description: VirtualMachineExportVolume contains the name and
+                      available formats for the exported volume
+                    properties:
+                      formats:
+                        items:
+                          description: VirtualMachineExportVolumeFormat contains the
+                            format type and URL to get the volume in that format
+                          properties:
+                            format:
+                              description: Format is the format of the image at the
+                                specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - format
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - format
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+          type: object
         type:
           description: Type indicates if the backup was full or incremental
           type: string
@@ -9839,12 +10066,18 @@ var CRDsValidation map[string]string = map[string]string{
                   included in a backup
                 properties:
                   dataEndpoint:
-                    description: DataEndpoint is the URL of the endpoint for read
-                      for pull mode
+                    description: |-
+                      DataEndpoint is the URL of the endpoint for read for pull mode
+                      Deprecated: still populated for backward compatibility
+                      Use Links.Internal or Links.External for structured endpoint access
+                      with explicit internal/external distinction
                     type: string
                   mapEndpoint:
-                    description: MapEndpoint is the URL of the endpoint for map for
-                      pull mode
+                    description: |-
+                      MapEndpoint is the URL of the endpoint for map for pull mode
+                      Deprecated: still populated for backward compatibility
+                      Use Links.Internal or Links.External for structured endpoint access
+                      with explicit internal/external distinction
                     type: string
                   volumeName:
                     description: VolumeName is the volume name from VMI spec

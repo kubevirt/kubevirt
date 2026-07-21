@@ -1778,6 +1778,36 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	Expect(volumeInfo.DataEndpoint).ToNot(BeEmpty(), "Data endpoint should be populated")
 	Expect(volumeInfo.MapEndpoint).ToNot(BeEmpty(), "Map endpoint should be populated")
 
+	By("Verifying structured Links field is populated and consistent with IncludedVolumes")
+	Expect(vmbackup.Status.Links).ToNot(BeNil(), "Links should be populated for pull mode backups")
+	hasInternal := vmbackup.Status.Links.Internal != nil
+	hasExternal := vmbackup.Status.Links.External != nil
+	Expect(hasInternal || hasExternal).To(BeTrue(), "Links should have at least one of internal or external")
+
+	expectedVolumeNames := make([]string, len(vmbackup.Status.IncludedVolumes))
+	for i, v := range vmbackup.Status.IncludedVolumes {
+		expectedVolumeNames[i] = v.VolumeName
+	}
+
+	if hasInternal {
+		Expect(vmbackup.Status.Links.Internal.Cert).ToNot(BeEmpty(), "Internal link cert should be populated")
+		Expect(vmbackup.Status.Links.Internal.Backups).To(HaveLen(len(vmbackup.Status.IncludedVolumes)),
+			"Internal link should have the same number of backups as IncludedVolumes")
+		for _, b := range vmbackup.Status.Links.Internal.Backups {
+			Expect(expectedVolumeNames).To(ContainElement(b.Name),
+				fmt.Sprintf("Internal link backup %q should be in IncludedVolumes", b.Name))
+		}
+	}
+	if hasExternal {
+		Expect(vmbackup.Status.Links.External.Cert).ToNot(BeEmpty(), "External link cert should be populated")
+		Expect(vmbackup.Status.Links.External.Backups).To(HaveLen(len(vmbackup.Status.IncludedVolumes)),
+			"External link should have the same number of backups as IncludedVolumes")
+		for _, b := range vmbackup.Status.Links.External.Backups {
+			Expect(expectedVolumeNames).To(ContainElement(b.Name),
+				fmt.Sprintf("External link backup %q should be in IncludedVolumes", b.Name))
+		}
+	}
+
 	By("Creating CA configmap and downloader pod")
 	Expect(vmbackup.Status.EndpointCert).ToNot(BeNil(), "EndpointCert should be populated")
 	caConfigMap := &corev1.ConfigMap{

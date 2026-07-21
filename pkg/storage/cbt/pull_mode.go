@@ -185,6 +185,7 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 
 	setPreparingExport(backup)
 	backup.Status.EndpointCert = nil
+	backup.Status.Links = nil
 	return nil
 }
 
@@ -236,6 +237,8 @@ func (ctrl *VMBackupController) populateExportLinks(backup *backupv1.VirtualMach
 	setExportReady(backup)
 	backup.Status.EndpointCert = &iterableLinks.Cert
 	backup.Status.IncludedVolumes = volumes
+	backup.Status.Links = links.DeepCopy()
+
 	return nil
 }
 
