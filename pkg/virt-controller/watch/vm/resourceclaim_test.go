@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -55,7 +54,7 @@ var _ = Describe("ResourceClaim management", func() {
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{
 								{
 									Name:                      "gpu-claim",
 									ResourceClaimTemplateName: &templateName,
@@ -89,7 +88,7 @@ var _ = Describe("ResourceClaim management", func() {
 					ResourceClaimTemplates: []virtv1.ResourceClaimTemplateEntry{},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{
 								{
 									Name:                      "other-claim",
 									ResourceClaimTemplateName: &templateName,
@@ -125,7 +124,7 @@ var _ = Describe("ResourceClaim management", func() {
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{
 								{
 									Name:                      "different-claim",
 									ResourceClaimTemplateName: &templateName,
@@ -158,7 +157,7 @@ var _ = Describe("ResourceClaim management", func() {
 					RunStrategy: runStrategyPtr(virtv1.RunStrategyAlways),
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{
 								{
 									Name:              "gpu-claim",
 									ResourceClaimName: &directName,
@@ -196,7 +195,7 @@ var _ = Describe("ResourceClaim management", func() {
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{
 								{Name: "gpu-claim", ResourceClaimTemplateName: &tmpl1},
 								{Name: "nvme-claim", ResourceClaimTemplateName: &tmpl2},
 							},
@@ -233,7 +232,7 @@ var _ = Describe("ResourceClaim management", func() {
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{
 								{Name: "gpu-claim", ResourceClaimTemplateName: &templateName},
 								{Name: "nvme-claim", ResourceClaimName: &directName},
 							},
@@ -267,7 +266,7 @@ var _ = Describe("ResourceClaim management", func() {
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
-							ResourceClaims: []k8sv1.PodResourceClaim{},
+							ResourceClaims: []virtv1.VirtualMachineInstanceResourceClaim{},
 							Domain:         virtv1.DomainSpec{},
 						},
 					},

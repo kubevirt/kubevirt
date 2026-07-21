@@ -1181,7 +1181,7 @@ func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer 
 
 func (f *kubeInformerFactory) ResourceClaim() cache.SharedIndexInformer {
 	return f.getInformer("resourceClaimInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.ResourceV1().RESTClient()
+		restClient := f.k8sClient.ResourceV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "resourceclaims", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &resourcev1.ResourceClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
@@ -1189,7 +1189,7 @@ func (f *kubeInformerFactory) ResourceClaim() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) ResourceClaimTemplate() cache.SharedIndexInformer {
 	return f.getInformer("resourceClaimTemplateInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.ResourceV1().RESTClient()
+		restClient := f.k8sClient.ResourceV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "resourceclaimtemplates", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &resourcev1.ResourceClaimTemplate{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
