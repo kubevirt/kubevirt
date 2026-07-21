@@ -185,6 +185,31 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 		})
+
+		It("should reject a VM template with more than one unset-enabled ramFB display", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{Name: "testdisk"})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			})
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{Name: "gpu0", DeviceName: "vendor.com/gpu0", VirtualGPUOptions: &v1.VGPUOptions{Display: &v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}}}},
+				{Name: "gpu1", DeviceName: "vendor.com/gpu1", VirtualGPUOptions: &v1.VGPUOptions{Display: &v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}}}},
+			}
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running:  pointer.P(false),
+					Template: &v1.VirtualMachineInstanceTemplateSpec{Spec: vmi.Spec},
+				},
+			}
+
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(ContainElement(WithTransform(func(c metav1.StatusCause) string { return c.Field }, Equal("spec.template.spec.GPUs"))))
+		})
 	})
 
 	It("should allow VM that is being deleted", func() {
