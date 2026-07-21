@@ -573,8 +573,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	decentralizedMigrationProxyEnabled := app.clusterConfig != nil && app.clusterConfig.CrossClusterMigrationProxyEnabled()
-	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines, decentralizedMigrationProxyEnabled); err != nil {
+	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 

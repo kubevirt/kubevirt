@@ -14,24 +14,26 @@
  * limitations under the License.
  *
  * Copyright The KubeVirt Authors.
- *
  */
 
-package synchronization
+package synccontrollermetrics
 
 import (
-	"google.golang.org/grpc"
+	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type SynchronizationConnection struct {
-	migrationID          string
-	syncAddress          string
-	grpcClientConnection *grpc.ClientConn
-}
-
-func (s *SynchronizationConnection) Close() error {
-	if s.grpcClientConnection != nil {
-		return s.grpcClientConnection.Close()
-	}
-	return nil
+// Handler returns the HTTP handler that serves Prometheus metrics for the
+// synchronization controller.
+func Handler(maxRequestsInFlight int) http.Handler {
+	return promhttp.InstrumentMetricHandler(
+		prometheus.DefaultRegisterer,
+		promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				MaxRequestsInFlight: maxRequestsInFlight,
+			}),
+	)
 }
