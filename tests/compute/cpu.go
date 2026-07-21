@@ -32,7 +32,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -42,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -426,12 +426,7 @@ var _ = Describe(SIG("CPU", func() {
 			vmi := libvmifact.NewGuestless()
 
 			By("Adding the right label to VMI namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			patchData := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, autoCPULimitLabel))
-			_, err = virtClient.CoreV1().Namespaces().Patch(context.Background(), namespace.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(libnamespace.AddLabelToNamespace(virtClient, testsuite.GetTestNamespace(vmi), autoCPULimitLabel, "true")).To(Succeed())
 
 			By("Starting the VMI")
 			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
