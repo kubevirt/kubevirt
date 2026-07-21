@@ -1892,7 +1892,7 @@ var _ = Describe("Backup Controller", func() {
 				Phase: exportv1.Ready,
 				Links: &exportv1.VirtualMachineExportLinks{
 					Internal: &exportv1.VirtualMachineExportLink{
-						Cert: "test",
+						Cert: "internal-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{{
 							Name: pvcName,
 							Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
@@ -1909,13 +1909,22 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(progressingReason(backupCopy)).To(Equal(backupv1.ReasonExportReady))
 			Expect(backupCopy.Status.EndpointCert).ToNot(BeNil())
-			Expect(*backupCopy.Status.EndpointCert).ToNot(BeEmpty())
+			Expect(*backupCopy.Status.EndpointCert).To(Equal("internal-cert"))
 			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 			Expect(backupCopy.Status.IncludedVolumes[0].DataEndpoint).To(Equal("/data"))
 			Expect(backupCopy.Status.IncludedVolumes[0].MapEndpoint).To(Equal("/map"))
+
+			Expect(backupCopy.Status.Links).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal.Cert).To(Equal("internal-cert"))
+			Expect(backupCopy.Status.Links.Internal.Volumes).To(HaveLen(1))
+			Expect(backupCopy.Status.Links.Internal.Volumes[0].VolumeName).To(Equal(pvcName))
+			Expect(backupCopy.Status.Links.Internal.Volumes[0].DataEndpoint).To(Equal("/data"))
+			Expect(backupCopy.Status.Links.Internal.Volumes[0].MapEndpoint).To(Equal("/map"))
+			Expect(backupCopy.Status.Links.External).To(BeNil())
 		})
 
-		It("should prioritize external links over internal links", func() {
+		It("should prioritize external links for flat fields and populate both in Links", func() {
 			exportUID := types.UID("test-export-uid")
 			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
@@ -1923,7 +1932,7 @@ var _ = Describe("Backup Controller", func() {
 				Phase: exportv1.Ready,
 				Links: &exportv1.VirtualMachineExportLinks{
 					Internal: &exportv1.VirtualMachineExportLink{
-						Cert: "test",
+						Cert: "internal-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{{
 							Name: pvcName,
 							Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
@@ -1933,7 +1942,7 @@ var _ = Describe("Backup Controller", func() {
 						}},
 					},
 					External: &exportv1.VirtualMachineExportLink{
-						Cert: "test",
+						Cert: "external-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{{
 							Name: pvcName,
 							Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
@@ -1949,9 +1958,27 @@ var _ = Describe("Backup Controller", func() {
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(progressingReason(backupCopy)).To(Equal(backupv1.ReasonExportReady))
+
+			By("Verifying flat fields use external endpoints")
 			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 			Expect(backupCopy.Status.IncludedVolumes[0].DataEndpoint).To(Equal("/external/data"))
 			Expect(backupCopy.Status.IncludedVolumes[0].MapEndpoint).To(Equal("/external/map"))
+			Expect(*backupCopy.Status.EndpointCert).To(Equal("external-cert"))
+
+			By("Verifying Links contains both internal and external")
+			Expect(backupCopy.Status.Links).ToNot(BeNil())
+
+			Expect(backupCopy.Status.Links.Internal).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal.Cert).To(Equal("internal-cert"))
+			Expect(backupCopy.Status.Links.Internal.Volumes).To(HaveLen(1))
+			Expect(backupCopy.Status.Links.Internal.Volumes[0].DataEndpoint).To(Equal("/internal/data"))
+			Expect(backupCopy.Status.Links.Internal.Volumes[0].MapEndpoint).To(Equal("/internal/map"))
+
+			Expect(backupCopy.Status.Links.External).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.External.Cert).To(Equal("external-cert"))
+			Expect(backupCopy.Status.Links.External.Volumes).To(HaveLen(1))
+			Expect(backupCopy.Status.Links.External.Volumes[0].DataEndpoint).To(Equal("/external/data"))
+			Expect(backupCopy.Status.Links.External.Volumes[0].MapEndpoint).To(Equal("/external/map"))
 		})
 
 		It("should map endpoints independently for multiple volumes", func() {
@@ -1965,7 +1992,7 @@ var _ = Describe("Backup Controller", func() {
 				Phase: exportv1.Ready,
 				Links: &exportv1.VirtualMachineExportLinks{
 					Internal: &exportv1.VirtualMachineExportLink{
-						Cert: pvcName,
+						Cert: "test-cert",
 						Backups: []exportv1.VirtualMachineExportBackup{
 							{
 								Name: "rootdisk",
@@ -1994,6 +2021,39 @@ var _ = Describe("Backup Controller", func() {
 				Expect(vol.DataEndpoint).To(ContainSubstring(vol.VolumeName))
 				Expect(vol.MapEndpoint).To(ContainSubstring(vol.VolumeName))
 			}
+
+			Expect(backupCopy.Status.Links).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal).ToNot(BeNil())
+			Expect(backupCopy.Status.Links.Internal.Volumes).To(HaveLen(2))
+			volsByName := make(map[string]backupv1.BackupVolumeLink)
+			for _, vol := range backupCopy.Status.Links.Internal.Volumes {
+				volsByName[vol.VolumeName] = vol
+			}
+			Expect(volsByName).To(HaveKey("rootdisk"))
+			Expect(volsByName).To(HaveKey("datadisk"))
+			Expect(volsByName["rootdisk"].DataEndpoint).To(Equal("/rootdisk/data"))
+			Expect(volsByName["rootdisk"].MapEndpoint).To(Equal("/rootdisk/map"))
+			Expect(volsByName["datadisk"].DataEndpoint).To(Equal("/datadisk/data"))
+			Expect(volsByName["datadisk"].MapEndpoint).To(Equal("/datadisk/map"))
+		})
+
+		It("should return an error when export is ready but has no backup links", func() {
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
+			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
+			vmExport.Status = &exportv1.VirtualMachineExportStatus{
+				Phase: exportv1.Ready,
+				Links: &exportv1.VirtualMachineExportLinks{
+					Internal: &exportv1.VirtualMachineExportLink{
+						Cert: "some-cert",
+					},
+				},
+			}
+			controller.vmExportStore.Add(vmExport)
+
+			_, err := syncBackup(backup)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("has no backup links"))
 		})
 
 		It("should return an error when export exists but is not owned by this backup", func() {
@@ -2116,5 +2176,66 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).To(MatchError(errCleanupPending))
 			Expect(deleteCalled).To(BeTrue())
 		})
+
+		It("should reset Links to nil when a new export is created", func() {
+			backup.Status.Links = &backupv1.BackupLinks{
+				Internal: &backupv1.BackupLink{
+					Cert: "old-cert",
+					Volumes: []backupv1.BackupVolumeLink{{
+						VolumeName:   "old-vol",
+						DataEndpoint: "/old/data",
+						MapEndpoint:  "/old/map",
+					}},
+				},
+			}
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(progressingReason(backupCopy)).To(Equal(backupv1.ReasonPreparingExport))
+			Expect(backupCopy.Status.Links).To(BeNil())
+		})
+
+	})
+
+	Context("buildBackupLinks and toBackupLink helpers", func() {
+		It("should return nil from buildBackupLinks when input is nil", func() {
+			Expect(buildBackupLinks(nil)).To(BeNil())
+		})
+
+		It("should return nil from buildBackupLinks when both internal and external are nil", func() {
+			links := &exportv1.VirtualMachineExportLinks{}
+			Expect(buildBackupLinks(links)).To(BeNil())
+		})
+
+		It("should return BackupLink with cert but no volumes when backups are empty", func() {
+			link := &exportv1.VirtualMachineExportLink{
+				Cert: "some-cert",
+			}
+			result := toBackupLink(link)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Cert).To(Equal("some-cert"))
+			Expect(result.Volumes).To(BeEmpty())
+		})
+
+		It("should build BackupLinks with only internal when external is nil", func() {
+			links := &exportv1.VirtualMachineExportLinks{
+				Internal: &exportv1.VirtualMachineExportLink{
+					Cert: "int-cert",
+					Backups: []exportv1.VirtualMachineExportBackup{{
+						Name: "vol1",
+						Endpoints: []exportv1.VirtualMachineExportBackupEndpoint{
+							{Url: "/data", Endpoint: exportv1.Data},
+						},
+					}},
+				},
+			}
+			result := buildBackupLinks(links)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Internal).ToNot(BeNil())
+			Expect(result.External).To(BeNil())
+			Expect(result.Internal.Cert).To(Equal("int-cert"))
+			Expect(result.Internal.Volumes).To(HaveLen(1))
+		})
+
 	})
 })
