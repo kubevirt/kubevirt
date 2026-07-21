@@ -45,6 +45,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtControllerDown
         exp_alerts:
@@ -56,6 +57,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtOperatorDown
         exp_alerts:
@@ -67,6 +69,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtHandlerDown
         exp_alerts:
@@ -78,6 +81,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       # it must trigger when operators are not healthy
       - eval_time: 16m
         alertname: VirtAPIDown
@@ -90,6 +94,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtControllerDown
         exp_alerts:
@@ -101,6 +106,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtOperatorDown
         exp_alerts:
@@ -112,6 +118,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtHandlerDown
         exp_alerts:
@@ -123,6 +130,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       # it must not trigger when operators are healthy
       - eval_time: 17m
         alertname: VirtAPIDown
@@ -248,6 +256,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # Some virt operators are not ready
   - interval: 1m
@@ -277,6 +286,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # Some virt-api pods are not ready
   - interval: 1m
@@ -306,6 +316,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt-api are not ready
   - interval: 1m
@@ -332,6 +343,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtAPICount
         exp_alerts: [ ]
@@ -364,6 +376,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt-handlers are not ready
   - interval: 1m
@@ -390,6 +403,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtHandlerCount
         exp_alerts: [ ]
@@ -420,6 +434,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtControllersCount
         exp_alerts: [ ]
@@ -446,6 +461,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # No virt-controller is leading
   - interval: 1m
@@ -470,6 +486,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # A virt-controller is leading
   - interval: 1m
@@ -505,6 +522,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # No virt-operator is leading
   - interval: 1m
@@ -529,6 +547,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # A virt-operator is leading
   - interval: 1m
@@ -564,6 +583,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt operators are not ready (ImagePullBackOff)
   - interval: 1m
@@ -589,6 +609,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt operators are not ready
   - interval: 1m
@@ -616,6 +637,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtOperatorsCount
         exp_alerts: [ ]
@@ -646,6 +668,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtOperatorsCount
         exp_alerts: [ ]
@@ -676,6 +699,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtOperatorsCount
         exp_alerts: [ ]
@@ -735,6 +759,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 20m
         alertname: VirtOperatorRESTErrorsBurst
         exp_alerts:
@@ -746,6 +771,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 20m
         alertname: VirtHandlerRESTErrorsBurst
         exp_alerts:
@@ -757,6 +783,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 20m
         alertname: VirtApiRESTErrorsBurst
         exp_alerts:
@@ -768,6 +795,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
 
   # Some nodes without KVM resources
@@ -791,6 +819,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All nodes without KVM resources
   - interval: 1m
@@ -813,6 +842,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # Two nodes with KVM resources
   - interval: 1m
@@ -1073,6 +1103,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1091,6 +1122,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1116,6 +1148,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1134,6 +1167,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1160,6 +1194,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1187,6 +1222,7 @@ tests:
               operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               resource: "virtualmachines"
               group: "kubevirt.io"
               version: "v1alpha3"
@@ -1202,6 +1238,7 @@ tests:
               operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               resource: "virtualmachines"
               group: "kubevirt.io"
               version: "v1alpha3"
@@ -1852,6 +1889,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # LowVirtAPICount - should not fire when 75% or more of desired virt-api pods are running
   - interval: 1m
@@ -1895,6 +1933,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # LowVirtControllersCount - should not fire when 75% or more of desired virt-controller pods are running
   - interval: 1m
@@ -1938,6 +1977,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # LowVirtOperatorCount - should not fire when 75% or more of desired virt-operator pods are running
   - interval: 1m

@@ -38,7 +38,7 @@ const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|dev
 var vmsAlerts = []promv1.Rule{
 	{
 		Alert: "VirtLauncherPodsStuckFailed",
-		Expr:  intstr.FromString("sum(kube_pod_status_phase{phase='Failed', pod=~'virt-launcher-.*'}) >= 200"),
+		Expr:  intstr.FromString("sum by (namespace) (kube_pod_status_phase{phase='Failed', pod=~'virt-launcher-.*'}) >= 200"),
 		For:   ptr.To(promv1.Duration("10m")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes.",
@@ -51,9 +51,9 @@ var vmsAlerts = []promv1.Rule{
 	{
 		Alert: "OrphanedVirtualMachineInstances",
 		Expr: intstr.FromString(
-			"(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} " +
-				"* on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) " +
-				"or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0",
+			"(((max by (namespace, node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} " +
+				"* on(pod, namespace) group_left(node) max by(namespace,pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) " +
+				"or (count by (namespace, node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0",
 		),
 		For: ptr.To(promv1.Duration("10m")),
 		Annotations: map[string]string{
@@ -98,7 +98,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "OutdatedVirtualMachineInstanceWorkloads",
-		Expr:  intstr.FromString("kubevirt_vmi_number_of_outdated != 0"),
+		Expr:  intstr.FromString("kubevirt_vmi_number_of_outdated{namespace!=''} != 0"),
 		For:   ptr.To(promv1.Duration("24h")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
@@ -110,7 +110,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestVCPUQueueHighWarning",
-		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum > 10"),
+		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 10"),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} CPU queue length > 10",
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 10",
@@ -122,7 +122,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestVCPUQueueHighCritical",
-		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum > 20"),
+		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 20"),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} CPU queue length > 20",
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 20",
@@ -176,8 +176,9 @@ var vmsAlerts = []promv1.Rule{
 		Expr: intstr.FromString("((" +
 			"(vmi:kubevirt_vmi_memory_headroom_ratio:sum < 0.05) and (vmi:kubevirt_vmi_pgmajfaults:rate5m > 5 " +
 			"or (vmi:kubevirt_vmi_swap_traffic_bytes:rate5m > 1048576)) and (vmi:kubevirt_vmi_memory_available_bytes:sum > 0)) " +
-			"* on(name, namespace) group_left(vm)" +
-			"label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)'" +
+			"* on(name, namespace) group_left(vm) " +
+			"topk by(name, namespace) (1, " +
+			"label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)')" +
 			"))",
 		),
 		For: ptr.To(promv1.Duration("5m")),
@@ -194,8 +195,8 @@ var vmsAlerts = []promv1.Rule{
 	{
 		Alert: "GuestFilesystemAlmostOutOfSpace",
 		Expr: intstr.FromString(fmt.Sprintf(
-			"(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / "+
-				"kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95",
+			"(kubevirt_vmi_filesystem_used_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'} / "+
+				"kubevirt_vmi_filesystem_capacity_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95",
 			excludedFilesystemTypesRegex, excludedFilesystemTypesRegex,
 		)),
 		For: ptr.To(promv1.Duration("10m")),
@@ -212,8 +213,8 @@ var vmsAlerts = []promv1.Rule{
 	{
 		Alert: "GuestFilesystemAlmostOutOfSpace",
 		Expr: intstr.FromString(fmt.Sprintf(
-			"(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / "+
-				"kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95",
+			"(kubevirt_vmi_filesystem_used_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'} / "+
+				"kubevirt_vmi_filesystem_capacity_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95",
 			excludedFilesystemTypesRegex, excludedFilesystemTypesRegex,
 		)),
 		Annotations: map[string]string{
@@ -233,7 +234,8 @@ var vmsAlerts = []promv1.Rule{
 				"(vmi:kubevirt_vmi_memory_headroom_ratio:sum < 0.03) and (vmi:kubevirt_vmi_swap_traffic_bytes:rate30m < 2048) " +
 				"and (vmi:kubevirt_vmi_pgmajfaults:rate30m < 1) and (vmi:kubevirt_vmi_memory_available_bytes:sum > 0)) " +
 				"* on(name, namespace) group_left(vm) " +
-				"label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)')" +
+				"topk by(name, namespace) (1, " +
+				"label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)'))" +
 				")",
 		),
 		For: ptr.To(promv1.Duration("30m")),
