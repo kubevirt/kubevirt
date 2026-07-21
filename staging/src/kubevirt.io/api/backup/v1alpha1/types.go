@@ -41,10 +41,39 @@ const (
 type BackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
-	// DataEndpoint is the URL of the endpoint for read for pull mode
-	DataEndpoint string `json:"dataEndpoint,omitempty"`
-	// MapEndpoint is the URL of the endpoint for map for pull mode
-	MapEndpoint string `json:"mapEndpoint,omitempty"`
+}
+
+// BackupLinks contains internal and external links for accessing backup data in pull mode
+// Internal links use in-cluster service DNS (ClusterIP), while external links
+// use a Route or Ingress hostname via virt-exportproxy
+type BackupLinks struct {
+	// Internal contains endpoints reachable from within the cluster
+	// +optional
+	Internal *BackupLink `json:"internal,omitempty"`
+	// External contains endpoints reachable from outside the cluster
+	// +optional
+	External *BackupLink `json:"external,omitempty"`
+}
+
+// BackupLink contains a CA certificate and per-volume endpoints for one network path
+type BackupLink struct {
+	// Cert is the CA certificate bundle for TLS verification
+	Cert string `json:"cert"`
+	// Volumes lists the data and map endpoints for each backed-up volume
+	// +listType=map
+	// +listMapKey=volumeName
+	// +optional
+	Volumes []BackupVolumeLink `json:"volumes,omitempty"`
+}
+
+// BackupVolumeLink contains the data and map endpoint URLs for a single volume
+type BackupVolumeLink struct {
+	// VolumeName identifies the volume these endpoints belong to
+	VolumeName string `json:"volumeName"`
+	// DataEndpoint is the URL for reading backup data
+	DataEndpoint string `json:"dataEndpoint"`
+	// MapEndpoint is the URL for reading the changed block map
+	MapEndpoint string `json:"mapEndpoint"`
 }
 
 type BackupCheckpoint struct {
@@ -229,10 +258,6 @@ type VirtualMachineBackupStatus struct {
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
 	// +optional
-	// EndpointCert is the raw CACert that is to be used when connecting
-	// to an exported backup endpoint in pull mode.
-	EndpointCert *string `json:"endpointCert,omitempty"`
-	// +optional
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
@@ -240,6 +265,11 @@ type VirtualMachineBackupStatus struct {
 	// ExportUID tracks the UID of the associated VMExport for pull-mode backups
 	// used to detect VMExport recreation and re-initiate the export handshake
 	ExportUID *types.UID `json:"exportUID,omitempty"`
+	// +optional
+	// Links exposes internal (in-cluster) and external (Ingress/Route) endpoints
+	// for pull-mode backups, each with a CA certificate and per-volume URLs.
+	// Contains per-volume data and map endpoint URLs for each network path.
+	Links *BackupLinks `json:"links,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
