@@ -1771,6 +1771,9 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	Expect(volumeInfo.DataEndpoint).ToNot(BeEmpty(), "Data endpoint should be populated")
 	Expect(volumeInfo.MapEndpoint).ToNot(BeEmpty(), "Map endpoint should be populated")
 
+	By("Verifying structured Links field is populated and consistent with IncludedVolumes")
+	verifyPullBackupLinks(vmbackup.Status.Links, vmbackup.Status.IncludedVolumes)
+
 	By("Creating CA configmap and downloader pod")
 	Expect(vmbackup.Status.EndpointCert).ToNot(BeNil(), "EndpointCert should be populated")
 	caConfigMap := &corev1.ConfigMap{
@@ -1871,6 +1874,33 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 
 	err = virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Delete(context.Background(), caConfigMap.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func verifyPullBackupLinks(links *backupv1.BackupLinks, includedVolumes []backupv1.BackupVolumeInfo) {
+	Expect(links).ToNot(BeNil(), "Links should be populated for pull mode backups")
+	Expect(links.External != nil || links.Internal != nil).To(BeTrue(), "Links should have at least one of internal or external")
+
+	expectedVolumeNames := make([]string, len(includedVolumes))
+	for i, v := range includedVolumes {
+		expectedVolumeNames[i] = v.VolumeName
+	}
+
+	if links.Internal != nil {
+		verifyPullBackupLink("internal", links.Internal, includedVolumes)
+	}
+	if links.External != nil {
+		verifyPullBackupLink("external", links.External, includedVolumes)
+	}
+}
+
+func verifyPullBackupLink(linkType string, link *backupv1.BackupLink, expectedVolumes []backupv1.BackupVolumeInfo) {
+	Expect(link.Cert).ToNot(BeEmpty(), fmt.Sprintf("%s link cert should be populated", linkType))
+	Expect(link.Volumes).To(HaveLen(len(expectedVolumes)), fmt.Sprintf("%s link should have the same number of volumes as IncludedVolumes", linkType))
+	for _, vol := range link.Volumes {
+		Expect(expectedVolumes).To(ContainElement(vol.VolumeName), fmt.Sprintf("%s link volume %q should be in IncludedVolumes", linkType, vol.VolumeName))
+		Expect(vol.DataEndpoint).ToNot(BeEmpty(), fmt.Sprintf("%s data endpoint for %s should be populated", linkType, vol.VolumeName))
+		Expect(vol.MapEndpoint).ToNot(BeEmpty(), fmt.Sprintf("%s map endpoint for %s should be populated", linkType, vol.VolumeName))
+	}
 }
 
 // verifyExportPodAffinity verifies that the VMExport pod has proper affinity
