@@ -152,6 +152,10 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	if causes = validateResourceClaimTemplateNameLengths(k8sfield.NewPath("spec"), vmCopy.Name, vmCopy.Spec.ResourceClaimTemplates); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	causes, err = storageadmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -234,10 +238,10 @@ func validateResourceClaimTemplates(field *k8sfield.Path, spec *v1.VirtualMachin
 		return nil
 	}
 
-	if !config.GPUsWithDRAGateEnabled() && !config.HostDevicesWithDRAEnabled() {
+	if !config.PersistentDRAClaimsEnabled() {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "ResourceClaimTemplates requires the GPUsWithDRA or HostDevicesWithDRA feature gate to be enabled",
+			Message: "ResourceClaimTemplates requires the PersistentDRAClaims feature gate to be enabled",
 			Field:   field.Child("resourceClaimTemplates").String(),
 		}}
 	}
@@ -292,6 +296,21 @@ func validateResourceClaimTemplates(field *k8sfield.Path, spec *v1.VirtualMachin
 		}
 	}
 
+	return causes
+}
+
+func validateResourceClaimTemplateNameLengths(field *k8sfield.Path, vmName string, entries []v1.ResourceClaimTemplateEntry) (causes []metav1.StatusCause) {
+	const maxNameLength = 63
+	for i, entry := range entries {
+		derivedName := fmt.Sprintf("%s-%s", vmName, entry.Name)
+		if len(derivedName) > maxNameLength {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("derived ResourceClaim name %q exceeds %d characters", derivedName, maxNameLength),
+				Field:   field.Child("resourceClaimTemplates").Index(i).Child("name").String(),
+			})
+		}
+	}
 	return causes
 }
 
