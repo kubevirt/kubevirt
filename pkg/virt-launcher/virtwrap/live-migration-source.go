@@ -438,6 +438,7 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationA
 }
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
+	stallDetectorEnabled := options.StallDetectorOptions != nil
 	monitor := &migrationMonitor{
 		l:                        l,
 		vmi:                      vmi,
@@ -447,15 +448,15 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
-		stallDetectionEnabled:    options.StallDetectionEnabled,
+		stallDetectionEnabled:    stallDetectorEnabled,
 		logger:                   log.Log.Object(vmi),
 	}
 
-	if options.StallDetectionEnabled {
+	if stallDetectorEnabled {
 		monitor.iterationCh = make(chan int, 16)
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
 		monitor.stallDetector = &stallDetector{
-			stallDetectorOptions:    options.StallDetectorOptions,
+			stallDetectorOptions:    *options.StallDetectorOptions,
 			maxDowntimeMs:           options.MaxDowntimeMs,
 			allowPostCopy:           options.AllowPostCopy,
 			allowWorkloadDisruption: options.AllowWorkloadDisruption,
@@ -464,7 +465,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		monitor.logger.V(3).Infof(
 			"initialized migration monitor: stallDetection=%t progressTimeout=%ds completionTimeoutPerGiB=%d maxDowntimeMs=%d allowPostCopy=%t allowWorkloadDisruption=%t "+
 				"stallMargin=%.2f stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%.2f patienceWindowDecayFactor=%.2f bandwidthEWMAAlpha=%.2f searchLocalMinima=%t completionTimeoutFactor=%.2f",
-			options.StallDetectionEnabled,
+			stallDetectorEnabled,
 			options.ProgressTimeout,
 			options.CompletionTimeoutPerGiB,
 			options.MaxDowntimeMs,
