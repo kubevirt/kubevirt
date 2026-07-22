@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -67,16 +68,7 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
-type StallDetectorOptions struct {
-	StallMargin               float64
-	StallProgressTimeout      uint64
-	SwitchoverTimeout         uint64
-	EwmaAlpha                 float64
-	PrecopyPossibleFactor     float64
-	PatienceWindowDecayFactor float64
-	SearchLocalMinima         bool
-	CompletionTimeoutFactor   float64
-}
+type StallDetectorOptions = migrationutils.StallDetectorOptions
 
 type MigrationOptions struct {
 	Bandwidth                resource.Quantity
