@@ -2249,8 +2249,7 @@ func (c vmimCollection) Swap(i, j int) {
 }
 
 func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachineInstance) error {
-
-	var finalizedMigrations []string
+	var finalizedMigrations []*virtv1.VirtualMachineInstanceMigration
 
 	migrations, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
 	if err != nil {
@@ -2261,7 +2260,7 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 	sort.Sort(vmimCollection(migrations))
 	for _, migration := range migrations {
 		if migration.IsFinal() && migration.DeletionTimestamp == nil {
-			finalizedMigrations = append(finalizedMigrations, migration.Name)
+			finalizedMigrations = append(finalizedMigrations, migration)
 		}
 	}
 
@@ -2273,13 +2272,39 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 	}
 
 	for i := range garbageCollectionCount {
-		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), finalizedMigrations[i], v1.DeleteOptions{})
+		mig := finalizedMigrations[i]
+		oldPodName := ""
+		if mig.Status.MigrationState != nil {
+			// If the migration is a failed one, also garbage-collect its defunct target pod
+			// If the migration is a successful one, also garbage-collect its defunct source pod
+			// If the migration neither failed nor succeeded, be safe and do nothing
+			if mig.Status.MigrationState.Failed {
+				oldPodName = mig.Status.MigrationState.TargetPod
+			} else if mig.Status.MigrationState.Completed {
+				oldPodName = mig.Status.MigrationState.SourcePod
+			}
+		}
+
+		if oldPodName != "" {
+			err = c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), oldPodName, metav1.DeleteOptions{})
+			if err != nil && k8serrors.IsNotFound(err) {
+				// This is safe to ignore. It's possible in some
+				// scenarios that the pod we're trying to garbage
+				// collect has already disappeared. Let's log it
+				// and suppress the error in this situation.
+				log.Log.Reason(err).Infof("error encountered when garbage collecting pod object %s/%s", vmi.Namespace, oldPodName)
+			} else if err != nil {
+				return err
+			}
+		}
+
+		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, v1.DeleteOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
 			// This is safe to ignore. It's possible in some
 			// scenarios that the migration we're trying to garbage
-			// collect has already disappeared. Let's log it as debug
+			// collect has already disappeared. Let's log it
 			// and suppress the error in this situation.
-			log.Log.Reason(err).Infof("error encountered when garbage collecting migration object %s/%s", vmi.Namespace, finalizedMigrations[i])
+			log.Log.Reason(err).Infof("error encountered when garbage collecting migration object %s/%s", vmi.Namespace, mig.Name)
 		} else if err != nil {
 			return err
 		}
