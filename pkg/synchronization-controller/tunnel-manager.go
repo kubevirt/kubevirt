@@ -46,15 +46,15 @@ const (
 	// frameDataSize is the size of data per frame (32KB)
 	frameDataSize = 32 * 1024
 
-	// channelIdleTimeout is the maximum time a channel can be idle before being closed
-	channelIdleTimeout = 5 * time.Minute
-
 	// maxConcurrentChannelsPerTunnel limits parallel Accept/inbound channel handlers
 	// (NBD opens multiple streams; unbounded Accept would allow FD/goroutine exhaustion).
 	maxConcurrentChannelsPerTunnel = 64
 
 	tlsHandshakeTimeout = 30 * time.Second
 	targetDialTimeout   = 30 * time.Second
+
+	defaultChannelIdleTimeout       = 5 * time.Minute
+	defaultChannelIdleCheckInterval = 1 * time.Minute
 )
 
 // frameStream is a bidirectional MigrationTunnel stream (client or server side).
@@ -130,6 +130,10 @@ type tunnelChannel struct {
 	bytesReceived atomic.Uint64
 	createdAt     time.Time
 	logger        *log.FilteredLogger
+
+	// Optional overrides for unit tests; zero means use package defaults.
+	idleTimeout       time.Duration
+	idleCheckInterval time.Duration
 }
 
 // NewMigrationTunnelManager creates a new tunnel manager.
@@ -931,14 +935,23 @@ func (c *tunnelChannel) proxyStreamToConn(migrationID, proxyType string) error {
 }
 
 func (c *tunnelChannel) monitorIdle(migrationID string) {
-	ticker := time.NewTicker(1 * time.Minute)
+	idleTimeout := c.idleTimeout
+	if idleTimeout == 0 {
+		idleTimeout = defaultChannelIdleTimeout
+	}
+	checkInterval := c.idleCheckInterval
+	if checkInterval == 0 {
+		checkInterval = defaultChannelIdleCheckInterval
+	}
+
+	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
 			lastActivity, _ := c.lastActivity.Load().(time.Time)
-			if !lastActivity.IsZero() && time.Since(lastActivity) > channelIdleTimeout {
+			if !lastActivity.IsZero() && time.Since(lastActivity) > idleTimeout {
 				c.logger.V(3).Infof("Channel %d idle timeout for migration %s", c.channelID, migrationID)
 				c.close()
 				return
