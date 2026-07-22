@@ -44,6 +44,9 @@ const (
 	defaultAlertWaitTimeout         = 5 * time.Minute
 	defaultMetricsPort              = 8443
 	prometheusPortForwardTargetPort = 9090
+	prometheusPortForwardTimeout    = 90 * time.Second
+	prometheusRequestTimeout        = 30 * time.Second
+	prometheusHTTPTimeout           = 10 * time.Second
 )
 
 var (
@@ -221,7 +224,9 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 	var result []byte
 	if checks.IsOpenShift() {
 		promURL := getPrometheusURLForOpenShift()
-		result = doHTTPRequest(promURL, endpoint, token)
+		var err error
+		result, err = doHTTPRequest(promURL, endpoint, token)
+		Expect(err).ShouldNot(HaveOccurred())
 	} else {
 		Eventually(func() error {
 			_, cmd, cmdErr := clientcmd.CreateCommandWithNS(monitoringNs, "kubectl",
@@ -240,9 +245,10 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 			sourcePort := WaitForPortForwardCmd(stdout)
 
 			promURL := fmt.Sprintf("http://localhost:%d", sourcePort)
-			result = doHTTPRequest(promURL, endpoint, token)
-			return nil
-		}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
+			var err error
+			result, err = doHTTPRequest(promURL, endpoint, token)
+			return err
+		}, prometheusPortForwardTimeout, time.Second).ShouldNot(HaveOccurred())
 	}
 	return result
 }
@@ -260,38 +266,56 @@ func getPrometheusURLForOpenShift() string {
 	return fmt.Sprintf("https://%s", route.Spec.Host)
 }
 
-func doHTTPRequest(promURL, endpoint, token string) []byte {
-	var result []byte
+func doHTTPRequest(promURL, endpoint, token string) ([]byte, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-			ForceAttemptHTTP2: true,
+			DisableKeepAlives: true,
 		},
 	}
-	Eventually(func() error {
+
+	var lastErr error
+	deadline := time.Now().Add(prometheusRequestTimeout)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), prometheusHTTPTimeout)
+
 		req, err := http.NewRequestWithContext(
-			context.Background(),
+			ctx,
 			"GET",
-			fmt.Sprintf("%s/api/v1/%s", promURL, endpoint),
+			fmt.Sprintf("%s/api/v1/%s", promURL, strings.TrimLeft(endpoint, "/")),
 			http.NoBody,
 		)
 		if err != nil {
-			return err
+			cancel()
+			return nil, fmt.Errorf("creating request: %w", err)
 		}
 		req.Header.Add("Authorization", "Bearer "+token)
+
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			cancel()
+			lastErr = err
+			time.Sleep(time.Second)
+			continue
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-		}
-		result, err = io.ReadAll(resp.Body)
-		return err
-	}, 10*time.Second, 1*time.Second).Should(Not(HaveOccurred()))
 
-	return result
+		result, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		cancel()
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			time.Sleep(time.Second)
+			continue
+		}
+		if readErr != nil {
+			lastErr = readErr
+			time.Sleep(time.Second)
+			continue
+		}
+		return result, nil
+	}
+	return nil, fmt.Errorf("timed out after %s: %w", prometheusRequestTimeout, lastErr)
 }
 
 func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) string {
