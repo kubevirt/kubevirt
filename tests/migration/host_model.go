@@ -60,7 +60,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Creating a VMI with default CPU mode to land in source node")
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				libvmi.WithCPUModel(v1.CPUModeHostModel),
@@ -266,7 +266,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			libnode.AddLabelToNode(targetNode.Name, fakeRequiredFeature, "true")
 
 			vmiToMigrate := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Creating a VMI with default CPU mode to land in source node")
@@ -330,7 +330,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			targetNode = libnode.AddLabelToNode(targetNode.Name, fakeHostModel, "true")
 
 			vmiToMigrate := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Creating a VMI with default CPU mode to land in source node")

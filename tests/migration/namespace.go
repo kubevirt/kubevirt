@@ -184,7 +184,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			sourceVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			targetVMI := sourceVMI.DeepCopy()
@@ -234,7 +234,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			sourceVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk1", sourceDV.Name),
 			)
@@ -358,7 +358,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			sourceVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCPURequest("1"), libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("128Mi"),
@@ -536,7 +536,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				By("Creating a VMI with TPM+EFI enabled")
 				sourceVMI := libvmifact.NewFedora(
 					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())), libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithTPM(true),
 					libvmi.WithUefi(false),
@@ -582,7 +583,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		BeforeEach(func() {
 			sourceVMI = libvmifact.NewFedora(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("1Gi"),
 			)
@@ -760,7 +761,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			libstorage.EventuallyDV(sourceDV, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			sourceVMI := libvmi.New(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", sourceDV.Name),
 				libvmi.WithMemoryRequest("128Mi"),
@@ -803,7 +804,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			libstorage.EventuallyDV(sourceDV, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			sourceVMI := libvmi.New(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", sourceDV.Name),
 				libvmi.WithMemoryRequest("128Mi"),

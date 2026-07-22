@@ -56,7 +56,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 	Context("during evacuation", func() {
 		It("should add eviction-in-progress annotation to source virt-launcher pod", func() {
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 			)
@@ -110,7 +110,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				vmi = libvmifact.NewGuestless(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -218,7 +218,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 		Context("VirtualMachineInstanceEvictionRequested condition", func() {
 			It("should set VirtualMachineInstanceEvictionRequested condition when VMI marked for eviction", func() {
 				vmi := libvmifact.NewGuestless(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				)
@@ -269,7 +269,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				It("should keep VirtualMachineInstanceEvictionRequested condition when migration fails", func() {
 					By("Starting the VirtualMachineInstance")
 					vmi := libvmifact.NewGuestless(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -316,7 +316,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				libvmi.WithMemoryRequest("512Mi"),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Creating a migration policy that prevents migration")
