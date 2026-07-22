@@ -96,6 +96,8 @@ var (
 	RequiresRWXFsVMStateStorageClass = Label("RequiresRWXFsVMStateStorageClass")
 	// RequiresPersistentReservation requires the Persistent Reservation to be enabled on the kubevirt level
 	RequiresPersistentReservation = Label("RequiresPersistentReservation")
+	// RequiresPlugins requires the Plugins feature gate to be enabled on the kubevirt level
+	RequiresPlugins = Label("RequiresPlugins")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
