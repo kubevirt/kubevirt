@@ -101,6 +101,26 @@ func (mr *MockCmdClientMockRecorder) DeleteVirtualMachine(ctx, in any, opts ...a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).DeleteVirtualMachine), varargs...)
 }
 
+// EnableVMStats mocks base method.
+func (m *MockCmdClient) EnableVMStats(ctx context.Context, in *VMStatsRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "EnableVMStats", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnableVMStats indicates an expected call of EnableVMStats.
+func (mr *MockCmdClientMockRecorder) EnableVMStats(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableVMStats", reflect.TypeOf((*MockCmdClient)(nil).EnableVMStats), varargs...)
+}
+
 // Exec mocks base method.
 func (m *MockCmdClient) Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (*ExecResponse, error) {
 	m.ctrl.T.Helper()
@@ -828,6 +848,21 @@ func (m *MockCmdServer) DeleteVirtualMachine(arg0 context.Context, arg1 *VMIRequ
 func (mr *MockCmdServerMockRecorder) DeleteVirtualMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).DeleteVirtualMachine), arg0, arg1)
+}
+
+// EnableVMStats mocks base method.
+func (m *MockCmdServer) EnableVMStats(arg0 context.Context, arg1 *VMStatsRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableVMStats", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnableVMStats indicates an expected call of EnableVMStats.
+func (mr *MockCmdServerMockRecorder) EnableVMStats(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableVMStats", reflect.TypeOf((*MockCmdServer)(nil).EnableVMStats), arg0, arg1)
 }
 
 // Exec mocks base method.

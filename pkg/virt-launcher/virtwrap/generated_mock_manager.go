@@ -89,6 +89,20 @@ func (mr *MockDomainManagerMockRecorder) DeleteVMI(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVMI", reflect.TypeOf((*MockDomainManager)(nil).DeleteVMI), arg0)
 }
 
+// EnableAgentData mocks base method.
+func (m *MockDomainManager) EnableAgentData(dataKey string, enabled bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableAgentData", dataKey, enabled)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableAgentData indicates an expected call of EnableAgentData.
+func (mr *MockDomainManagerMockRecorder) EnableAgentData(dataKey, enabled any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableAgentData", reflect.TypeOf((*MockDomainManager)(nil).EnableAgentData), dataKey, enabled)
+}
+
 // Exec mocks base method.
 func (m *MockDomainManager) Exec(arg0, arg1 string, arg2 []string, arg3 int32) (string, error) {
 	m.ctrl.T.Helper()

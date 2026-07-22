@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-var _ = Describe("GetVMStats", func() {
+var _ = Describe("VMStats", func() {
 	var (
 		domainManager *virtwrap.MockDomainManager
 		ctrl          *gomock.Controller
@@ -46,6 +46,57 @@ var _ = Describe("GetVMStats", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 		server = cmdserver.NewLauncher(domainManager, cmdserver.NewServerOptions(false).WithVMStatsCollector(true))
+	})
+
+	Context("EnableVMStats", func() {
+		It("should return failure when feature gate is disabled", func() {
+			disabledServer := cmdserver.NewLauncher(domainManager, cmdserver.NewServerOptions(false))
+			request := &cmdv1.VMStatsRequest{}
+
+			response, err := disabledServer.EnableVMStats(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Success).To(BeFalse())
+			Expect(response.Message).To(ContainSubstring("VMStatsCollector feature gate is not enabled"))
+		})
+
+		It("should disable all fields when nothing is requested", func() {
+			domainManager.EXPECT().EnableAgentData(gomock.Any(), false).Return(nil).Times(len(cmdserver.AgentDataCommandKeys()))
+
+			request := &cmdv1.VMStatsRequest{}
+
+			response, err := server.EnableVMStats(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Success).To(BeTrue())
+		})
+
+		It("should enable requested fields and disable others", func() {
+			domainManager.EXPECT().EnableAgentData("guest-get-load", true).Return(nil)
+			domainManager.EXPECT().EnableAgentData("guest-get-time", true).Return(nil)
+			domainManager.EXPECT().EnableAgentData(gomock.Any(), false).Return(nil).Times(len(cmdserver.AgentDataCommandKeys()) - 2)
+
+			request := &cmdv1.VMStatsRequest{
+				GuestGetLoad: &cmdv1.AgentLoadRequest{},
+				GuestGetTime: &cmdv1.AgentTimeRequest{},
+			}
+			response, err := server.EnableVMStats(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Success).To(BeTrue())
+		})
+
+		It("should return failure when EnableAgentData fails", func() {
+			domainManager.EXPECT().EnableAgentData("guest-get-load", true).Return(fmt.Errorf("enable failed"))
+
+			request := &cmdv1.VMStatsRequest{
+				GuestGetLoad: &cmdv1.AgentLoadRequest{},
+			}
+			response, err := server.EnableVMStats(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Success).To(BeFalse())
+			Expect(response.Message).To(ContainSubstring("failed to enable agent data guest-get-load"))
+		})
+
 	})
 
 	It("should return success with empty data when nothing is requested", func() {
