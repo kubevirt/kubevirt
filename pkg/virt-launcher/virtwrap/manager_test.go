@@ -55,6 +55,7 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -4823,4 +4824,63 @@ var _ = Describe("Cross-architecture emulation helpers", func() {
 		Entry("uses host arch when guest arch matches host", true, runtime.GOARCH, runtime.GOARCH),
 		Entry("uses guest arch for cross-arch emulation", true, crossArch, crossArch),
 	)
+})
+
+var _ = Describe("findDiskFileInImageVolume", func() {
+	var baseDir string
+
+	BeforeEach(func() {
+		baseDir = GinkgoT().TempDir()
+	})
+
+	It("should use single file at root for ORAS-style artifacts", func() {
+		Expect(os.WriteFile(filepath.Join(baseDir, "fedora.qcow2"), []byte("fake-disk"), 0644)).To(Succeed())
+
+		result, err := findDiskFileInImageVolume(baseDir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unsafepath.UnsafeAbsolute(result.Raw())).To(HaveSuffix("/fedora.qcow2"))
+	})
+
+	It("should fallback to /disk for classic container images", func() {
+		diskDir := filepath.Join(baseDir, osdisk.DiskSourceFallbackPath)
+		Expect(os.MkdirAll(diskDir, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(diskDir, "disk.img"), []byte("fake-disk"), 0644)).To(Succeed())
+
+		result, err := findDiskFileInImageVolume(baseDir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unsafepath.UnsafeAbsolute(result.Raw())).To(HaveSuffix("/disk/disk.img"))
+	})
+
+	It("should use /disk fallback when root has both a file and a directory", func() {
+		Expect(os.WriteFile(filepath.Join(baseDir, "image.raw"), []byte("fake-disk"), 0644)).To(Succeed())
+
+		diskDir := filepath.Join(baseDir, osdisk.DiskSourceFallbackPath)
+		Expect(os.MkdirAll(diskDir, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(diskDir, "disk.img"), []byte("fake-disk"), 0644)).To(Succeed())
+
+		result, err := findDiskFileInImageVolume(baseDir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unsafepath.UnsafeAbsolute(result.Raw())).To(HaveSuffix("/disk/disk.img"))
+	})
+
+	It("should fail when directory is empty", func() {
+		_, err := findDiskFileInImageVolume(baseDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("could not determine disk file"))
+	})
+
+	It("should fail when multiple files at root and no /disk fallback", func() {
+		Expect(os.WriteFile(filepath.Join(baseDir, "disk1.qcow2"), []byte("fake"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(baseDir, "disk2.qcow2"), []byte("fake"), 0644)).To(Succeed())
+
+		_, err := findDiskFileInImageVolume(baseDir)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("could not determine disk file"))
+	})
+
+	It("should fail when directory does not exist", func() {
+		_, err := findDiskFileInImageVolume(filepath.Join(baseDir, "nonexistent"))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to read image volume directory"))
+	})
 })
