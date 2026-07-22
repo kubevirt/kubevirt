@@ -245,101 +245,73 @@ func (s *SynchronizationController) setupTargetProxiesForOutbound(
 	if !s.IsTunnelInitialized() || vmi.Status.MigrationState == nil || vmi.Status.MigrationState.TargetState == nil {
 		return nil
 	}
-
-	// Check if target virt-handler is ready for a connection
 	if vmi.Status.MigrationState.TargetState.NodeAddress == nil ||
 		vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts == nil {
-		// not ready
 		return nil
 	}
-	targetVirtHandlerIP := *vmi.Status.MigrationState.TargetState.NodeAddress
-	targetVirtHandlerPorts := vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts
-
-	// Extract migrationID from spec.receive.migrationID (target side)
 	if migration.Spec.Receive == nil {
 		return fmt.Errorf("did not find receiving migration when setting up target proxy")
 	}
-	migrationID := migration.Spec.Receive.MigrationID
-
-	// Convert from API format (map[string]int) to internal format (map[int]int)
-	targetVirtHandlerPortsInt, err := portMapToInt(targetVirtHandlerPorts)
-	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to convert target virt-handler ports")
-		return err
-	}
-
-	_, err = s.tunnelManager.StartTargetTunnel(ctx, migrationID, targetVirtHandlerIP, targetVirtHandlerPortsInt)
-	if err != nil {
-		log.Log.Object(migration).Reason(err).Error("Failed to start target tunnel")
-		return err
-	}
-
-	log.Log.Object(migration).V(3).Infof("Started target tunnel forwarding to virt-handler %s ports %v",
-		targetVirtHandlerIP, targetVirtHandlerPorts)
-
-	// Keep real virt-handler ports in the status so the source knows which protocol
-	// channels to expose locally. Do not rewrite to proxy listen ports — with gRPC
-	// multiplexing the source creates its own listeners and proxies over the existing
-	// control-plane connection.
-	return nil
+	return s.startTargetTunnel(ctx, migration, vmi)
 }
 
-// setupTargetProxiesFromSource starts target tunnel based on received source sync address
-// This is called on the target side when receiving source migration status
+// setupTargetProxiesFromSource starts target tunnel based on received source sync address.
+// This is called on the target side when receiving source migration status.
 func (s *SynchronizationController) setupTargetProxiesFromSource(
 	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
 	remoteStatus *virtv1.VirtualMachineInstanceStatus,
 ) error {
-	if s.tunnelManager == nil || remoteStatus.MigrationState.SourceState == nil {
+	if s.tunnelManager == nil || remoteStatus.MigrationState == nil || remoteStatus.MigrationState.SourceState == nil {
 		return nil
 	}
-
-	// Check if tunnel manager is initialized
 	if !s.tunnelManager.IsInitialized() {
 		return nil
 	}
-
-	// Extract source sync controller crosscluster0 address from received SourceState
 	if remoteStatus.MigrationState.SourceState.SyncAddress == nil {
 		return nil
 	}
+	log.Log.Object(migration).V(3).Infof("Received source sync address: %s",
+		*remoteStatus.MigrationState.SourceState.SyncAddress)
 
-	sourceSyncCrossclusterAddress := *remoteStatus.MigrationState.SourceState.SyncAddress
-	log.Log.Object(migration).V(3).Infof("Received source sync crosscluster0 address: %s", sourceSyncCrossclusterAddress)
-
-	// Get target virt-handler address from local TargetState (set by target virt-handler)
-	if vmi.Status.MigrationState.TargetState == nil ||
+	if vmi.Status.MigrationState == nil ||
+		vmi.Status.MigrationState.TargetState == nil ||
 		vmi.Status.MigrationState.TargetState.NodeAddress == nil ||
 		vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts == nil {
 		return nil
 	}
-
-	// Extract migrationID from spec.receive.migrationID (target side)
 	if migration.Spec.Receive == nil {
 		return nil
 	}
+	return s.startTargetTunnel(ctx, migration, vmi)
+}
+
+// startTargetTunnel starts (or refreshes) the target-side tunnel that dials local
+// virt-handler. Callers must ensure Spec.Receive and TargetState dial coordinates
+// are present.
+func (s *SynchronizationController) startTargetTunnel(
+	ctx context.Context,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	vmi *virtv1.VirtualMachineInstance,
+) error {
 	migrationID := migration.Spec.Receive.MigrationID
+	targetIP := *vmi.Status.MigrationState.TargetState.NodeAddress
+	targetPorts := vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts
 
-	targetVirtHandlerIP := *vmi.Status.MigrationState.TargetState.NodeAddress
-	targetVirtHandlerPorts := vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts
-
-	// Convert from API format (map[string]int) to internal format (map[int]int)
-	targetVirtHandlerPortsInt, err := portMapToInt(targetVirtHandlerPorts)
+	ports, err := portMapToInt(targetPorts)
 	if err != nil {
 		log.Log.Object(migration).Reason(err).Error("Failed to convert target virt-handler ports")
 		return err
 	}
 
-	_, err = s.tunnelManager.StartTargetTunnel(ctx, migrationID, targetVirtHandlerIP, targetVirtHandlerPortsInt)
-	if err != nil {
+	if _, err := s.tunnelManager.StartTargetTunnel(ctx, migrationID, targetIP, ports); err != nil {
 		log.Log.Object(migration).Reason(err).Error("Failed to start target tunnel")
 		return err
 	}
 
-	log.Log.Object(migration).V(3).Infof("Started target tunnel forwarding to virt-handler %s", targetVirtHandlerIP)
-
+	log.Log.Object(migration).V(3).Infof("Started target tunnel forwarding to virt-handler %s ports %v",
+		targetIP, targetPorts)
 	return nil
 }
 
