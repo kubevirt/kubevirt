@@ -61,6 +61,7 @@ var MigrationNetworkNIC = "eth1"
 var MigrationNetworkName string
 var EmulatedSRIOV bool
 var PrimaryNetworkBindingPlugin string
+var OrasTestArtifactImage = "quay.io/vladikr/alpine-oras-artifact:devel"
 
 func init() {
 	kubecli.Init()
@@ -97,6 +98,7 @@ func init() {
 	flag.StringVar(&MigrationNetworkName, "migration-network-name", "", "name of the NetworkAttachmentDefinition CR to be used for dedicated migration network tests")
 	flag.BoolVar(&EmulatedSRIOV, "emulated-sriov", false, "Run SR-IOV tests in emulated mode")
 	flag.StringVar(&PrimaryNetworkBindingPlugin, "primary-network-binding-plugin", "", "Name of a pre-registered network binding plugin to use instead of masquerade in conformance tests")
+	flag.StringVar(&OrasTestArtifactImage, "oras-test-artifact-image", OrasTestArtifactImage, "OCI artifact image for ORAS functional tests")
 }
 
 func NormalizeFlags() {

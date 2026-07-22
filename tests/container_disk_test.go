@@ -211,6 +211,46 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
+	// TODO: Once all containerDisk images are migrated to ORAS (see VEP 392),
+	// these dedicated ORAS tests can be dropped since the existing containerDisk
+	// tests would implicitly cover ORAS artifact support.
+	Describe("Starting a VMI from a raw ORAS artifact", decorators.ImageVolume, func() {
+		BeforeEach(func() {
+			v, err := checks.GetKubernetesVersion()
+			Expect(err).ToNot(HaveOccurred())
+			if v < "1.35" {
+				Fail("this test requires Kubernetes version >= 1.35")
+			}
+			if !checks.HasFeature(featuregate.ImageVolume) {
+				Fail("ImageVolume feature gate is not enabled")
+			}
+		})
+
+		It("should boot, live migrate, and login to a VMI using a raw ORAS artifact", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithContainerDiskAndPullPolicy("rootdisk", flags.OrasTestArtifactImage, k8sv1.PullAlways),
+				libvmi.WithAnnotation(v1.ImageVolumeSkipDigestResolutionAnnotation, "true"),
+			)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
+
+			By("Logging into the VM")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Starting live migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying the VMI is still running after migration")
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Logging in after migration")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+		})
+	})
+
 	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
 			v, err := checks.GetKubernetesVersion()

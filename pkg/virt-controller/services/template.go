@@ -658,7 +658,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
-	} else if t.clusterConfig.ImageVolumeEnabled() {
+	} else if t.clusterConfig.ImageVolumeEnabled() && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" {
 		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
 		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
 		// and the digest can be fetched directly from the Pod volume status.

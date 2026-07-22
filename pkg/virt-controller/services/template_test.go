@@ -4306,6 +4306,25 @@ var _ = Describe("Template", func() {
 				),
 			)
 
+			It("should skip init containers and launcher volume when skip-digest-resolution annotation is set", func() {
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithContainerDisk("r0", "someImage"),
+					libvmi.WithAnnotation(v1.ImageVolumeSkipDigestResolutionAnnotation, "true"),
+				)
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, vol := range pod.Spec.Volumes {
+					Expect(vol.Name).ToNot(Equal(containerdisk.LauncherVolume),
+						"should not create launcher binary volume when digest resolution is skipped")
+				}
+				for _, c := range pod.Spec.InitContainers {
+					Expect(c.Name).ToNot(HavePrefix("volume"),
+						"should not create digest-resolving init containers when annotation is set")
+				}
+			})
+
 			DescribeTable("should use image digest extracted from source pod during migration and avoid adding init container for container disks ", func(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, expectedVolumes []k8sv1.Volume) {
 				// Create a mock migration object
 				migration := &v1.VirtualMachineInstanceMigration{
