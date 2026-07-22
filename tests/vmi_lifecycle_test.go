@@ -318,7 +318,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					"Welcome to Alpine"),
 				Entry("[test_id:1628]Cirros as first boot",
 					libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskAlpine), bootOrderToDisk(2)), libvmi.WithContainerDisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros), bootOrderToDisk(1)),
-					"cirros"),
+					"rc.sysinit"),
 			)
 		})
 
