@@ -25,6 +25,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -265,7 +266,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	if err != nil {
 		return nil, err
 	}
-	return root.AppendAndResolveWithRelativeRoot("run", "kubevirt-private", string(vmi.GetUID()), socketName)
+	return safepath.JoinNoFollow(root, filepath.Join("run", "kubevirt-private", string(vmi.GetUID()), socketName))
 }
 
 func unixSocketDialer(vmi *v1.VirtualMachineInstance, socketPath *safepath.Path) func() (net.Conn, error) {
