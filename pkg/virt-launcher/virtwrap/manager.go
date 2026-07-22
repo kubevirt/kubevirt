@@ -1013,6 +1013,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err := emptydisk.NewEmptyDiskCreator().CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
+	if !generateEmptyIsos {
+		if err := config.WaitForVolumeMountSources(vmi); err != nil {
+			return domain, fmt.Errorf("waiting for config volume sources: %v", err)
+		}
+	}
 	// create ConfigMap disks if they exists
 	if err := config.CreateConfigMapDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating config map disks failed: %v", err)
