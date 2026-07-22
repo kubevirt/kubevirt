@@ -71,7 +71,7 @@ func AddDataVolume(vm *v1.VirtualMachine, diskName string, dataVolume *v1beta1.D
 }
 
 func CreateBlankFSDataVolume(name, namespace, size string, labels map[string]string) *v1beta1.DataVolume {
-	sc, _ := GetRWOFileSystemStorageClass()
+	sc, _ := GetCSIStorageClass()
 	dv := libdv.NewDataVolume(
 		libdv.WithNamespace(namespace),
 		libdv.WithName(name),

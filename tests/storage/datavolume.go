@@ -131,7 +131,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					Fail("Fail test when Block storage is not present")
 				}
 			} else {
-				sc, exists = libstorage.GetRWOFileSystemStorageClass()
+				sc, exists = libstorage.GetCSIStorageClass()
 				if !exists {
 					Fail("Fail test when Filesystem storage is not present")
 				}
@@ -206,8 +206,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		)
 
 		It("Check disk expansion accounts for actual usable size", func() {
-
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			sc, exists := libstorage.GetCSIStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
 			}
@@ -242,6 +241,8 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			_, err = fmt.Sscanf(fstatOutput, "%d %d", &freeBlocks, &ioBlockSize)
 			Expect(err).ToNot(HaveOccurred())
 			freeSize := freeBlocks * ioBlockSize
+			err = virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
