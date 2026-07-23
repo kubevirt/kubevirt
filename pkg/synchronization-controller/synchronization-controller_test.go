@@ -108,7 +108,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			},
 		}
 
-		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1")
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -126,9 +126,9 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 	Context("getLocalSynchronizationAddress", func() {
 		DescribeTable("should produce an address parseable by net.SplitHostPort", func(ip string, port int, expectedHost, expectedPort string) {
-			ctrl := &SynchronizationController{ip: ip, bindPort: port}
+			controller = &SynchronizationController{ip: ip, bindPort: port}
 
-			addr, err := ctrl.getLocalSynchronizationAddress()
+			addr, err := controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 
 			host, p, err := net.SplitHostPort(addr)
@@ -137,10 +137,47 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(p).To(Equal(expectedPort))
 		},
 			Entry("IPv4 address", "10.0.0.1", 9185, "10.0.0.1", "9185"),
+
 			Entry("IPv6 address", "fd02:0:0:1::cb", 9185, "fd02:0:0:1::cb", "9185"),
 			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
 			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
 		)
+	})
+
+	Context("migration proxy initialization", func() {
+		It("should leave the tunnel uninitialized when Proxy is disabled", func() {
+			// Uses the suite BeforeEach controller, created with a nil ProxyInitConfig.
+			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
+
+		It("should initialize the tunnel on the pod IP when Proxy is enabled without required NADs", func() {
+			controller = &SynchronizationController{
+				tunnelManager: NewMigrationTunnelManager(nil, nil),
+				bindPort:      9185,
+				ip:            "127.0.0.1",
+			}
+			err := controller.initMigrationProxy("127.0.0.1", "0.0.0.0", 9185, &ProxyInitConfig{Enabled: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.IsTunnelInitialized()).To(BeTrue())
+			Expect(controller.tunnelManager.MigrationIP()).To(Equal("127.0.0.1"))
+			Expect(controller.tunnelManager.CrossClusterIP()).To(Equal("127.0.0.1"))
+			Expect(controller.bindAddress).To(Equal("127.0.0.1"))
+		})
+
+		It("should fail to create the controller when a required cross-cluster interface is missing", func() {
+			controller = &SynchronizationController{
+				tunnelManager: NewMigrationTunnelManager(nil, nil),
+				bindPort:      9185,
+				ip:            "127.0.0.1",
+			}
+			err := controller.initMigrationProxy("127.0.0.1", "0.0.0.0", 9185, &ProxyInitConfig{
+				Enabled:                      true,
+				RequireCrossClusterInterface: true,
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("peer sync address"))
+			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
 	})
 
 	Context("grpc SyncSourceMigrationStatus", func() {
@@ -1068,7 +1105,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		BeforeEach(func() {
 			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1")
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			remoteTCPConn, err := remoteController.createTcpListener()

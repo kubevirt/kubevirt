@@ -16603,7 +16603,11 @@
       "format": "int64"
      },
      "crossClusterNetwork": {
-      "description": "CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations. When specified, synchronization controllers will attach to this network in addition to the in-cluster migration network, and will proxy migration traffic between the two networks. This reduces IP address requirements on the cross-cluster network. By default, not set.",
+      "description": "CrossClusterNetwork is the name of the CNI network used for synchronization-controller peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers attach to this network as crosscluster0 and bind the sync gRPC port only there. When omitted with Proxy, peer traffic uses the pod network. Must not be set when decentralizedLiveMigrationDatapath is Direct (or unset).",
+      "type": "string"
+     },
+     "decentralizedLiveMigrationDatapath": {
+      "description": "DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for decentralized live migrations (cross-namespace or cross-cluster). Direct (default when unset): no synchronization-controller migration-data proxy. Proxy: sync controllers proxy migration traffic on a single gRPC port. Requires the CrossClusterMigrationProxy feature gate while Alpha.",
       "type": "string"
      },
      "disableTLS": {
@@ -16620,7 +16624,7 @@
       "format": "int64"
      },
      "network": {
-      "description": "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+      "description": "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP). If set with Proxy, synchronization controllers require the migration0 interface at startup and will fail to start if it is missing.",
       "type": "string"
      },
      "nodeDrainTaintKey": {

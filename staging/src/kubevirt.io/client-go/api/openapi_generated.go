@@ -23599,7 +23599,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 					"synchronizationPlacement": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SynchronizationPlacement allows customization of node placement for synchronization controllers. This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to the cross-cluster migration network). By default, sync controllers use control-plane placement.",
-							Ref:         ref("kubevirt.io/api/core/v1.ComponentConfig"),
+							Ref:         ref(corev1.ComponentConfig{}.OpenAPIModelName()),
 						},
 					},
 					"customizeComponents": {
@@ -24378,7 +24378,7 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 					},
 					"network": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP). If set with Proxy, synchronization controllers require the migration0 interface at startup and will fail to start if it is missing.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24392,7 +24392,14 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 					},
 					"crossClusterNetwork": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations. When specified, synchronization controllers will attach to this network in addition to the in-cluster migration network, and will proxy migration traffic between the two networks. This reduces IP address requirements on the cross-cluster network. By default, not set.",
+							Description: "CrossClusterNetwork is the name of the CNI network used for synchronization-controller peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers attach to this network as crosscluster0 and bind the sync gRPC port only there. When omitted with Proxy, peer traffic uses the pod network. Must not be set when decentralizedLiveMigrationDatapath is Direct (or unset).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"decentralizedLiveMigrationDatapath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for decentralized live migrations (cross-namespace or cross-cluster). Direct (default when unset): no synchronization-controller migration-data proxy. Proxy: sync controllers proxy migration traffic on a single gRPC port. Requires the CrossClusterMigrationProxy feature gate while Alpha.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

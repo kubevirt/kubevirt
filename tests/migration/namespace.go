@@ -901,6 +901,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			if config.MigrationConfiguration == nil {
 				config.MigrationConfiguration = &v1.MigrationConfiguration{}
 			}
+			config.MigrationConfiguration.DecentralizedLiveMigrationDatapath = pointer.P(v1.DecentralizedLiveMigrationDatapathProxy)
 			config.MigrationConfiguration.CrossClusterNetwork = pointer.P(crossClusterNAD.Name)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 			By("Ensuring that synchronization address is properly propagated to the KubeVirt CR")

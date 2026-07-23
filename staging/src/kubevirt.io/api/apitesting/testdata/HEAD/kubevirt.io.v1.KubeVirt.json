@@ -137,7 +137,8 @@
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true,
-        "crossClusterNetwork": "crossClusterNetworkValue"
+        "crossClusterNetwork": "crossClusterNetworkValue",
+        "decentralizedLiveMigrationDatapath": "decentralizedLiveMigrationDatapathValue"
       },
       "machineType": "machineTypeValue",
       "network": {
