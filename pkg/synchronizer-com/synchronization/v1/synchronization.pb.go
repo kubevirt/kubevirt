@@ -256,7 +256,8 @@ type SynchronizeClient interface {
 	SyncSourceMigrationStatus(ctx context.Context, in *VMIStatusRequest, opts ...grpc.CallOption) (*VMIStatusResponse, error)
 	SyncTargetMigrationStatus(ctx context.Context, in *VMIStatusRequest, opts ...grpc.CallOption) (*VMIStatusResponse, error)
 	CancelMigration(ctx context.Context, in *MigrationCancelRequest, opts ...grpc.CallOption) (*MigrationCancelResponse, error)
-	// Bidirectional stream for multiplexed migration traffic
+	// Bidirectional stream for one migration channel (one stream per protocol port).
+	// Multiple streams share the existing control-plane gRPC connection.
 	MigrationTunnel(ctx context.Context, opts ...grpc.CallOption) (Synchronize_MigrationTunnelClient, error)
 }
 
@@ -332,7 +333,8 @@ type SynchronizeServer interface {
 	SyncSourceMigrationStatus(context.Context, *VMIStatusRequest) (*VMIStatusResponse, error)
 	SyncTargetMigrationStatus(context.Context, *VMIStatusRequest) (*VMIStatusResponse, error)
 	CancelMigration(context.Context, *MigrationCancelRequest) (*MigrationCancelResponse, error)
-	// Bidirectional stream for multiplexed migration traffic
+	// Bidirectional stream for one migration channel (one stream per protocol port).
+	// Multiple streams share the existing control-plane gRPC connection.
 	MigrationTunnel(Synchronize_MigrationTunnelServer) error
 }
 

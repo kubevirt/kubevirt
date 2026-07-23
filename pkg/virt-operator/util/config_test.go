@@ -483,7 +483,7 @@ var _ = Describe("Operator Config", func() {
 			},
 			true, "",
 		),
-		Entry("when CrossClusterNetwork is set and feature gate is enabled",
+		Entry("when CrossClusterNetwork is set and feature gate is enabled but datapath is Direct",
 			func() *KubeVirtDeploymentConfig {
 				networkName := "test-crosscluster-network"
 				kv := &v1.KubeVirt{
@@ -494,6 +494,27 @@ var _ = Describe("Operator Config", func() {
 							},
 							MigrationConfiguration: &v1.MigrationConfiguration{
 								CrossClusterNetwork: &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set with Proxy datapath and feature gate",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				datapath := v1.DecentralizedLiveMigrationDatapathProxy
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{"CrossClusterMigrationProxy"},
+							},
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								DecentralizedLiveMigrationDatapath: &datapath,
+								CrossClusterNetwork:                &networkName,
 							},
 						},
 					},

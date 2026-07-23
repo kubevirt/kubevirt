@@ -198,9 +198,11 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		}
 	}
 
-	// Only enable cross-cluster migration proxy if feature gate is enabled
+	// Only attach cross-cluster Multus network when Proxy datapath is selected
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.CrossClusterMigrationProxy) {
 		if kv.Spec.Configuration.MigrationConfiguration != nil &&
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath != nil &&
+			*kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy &&
 			kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork != nil {
 			additionalProperties[AdditionalPropertiesCrossClusterMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork
 		}
@@ -232,18 +234,12 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
-	cfg := getConfig(kv.Spec.ImageRegistry,
+	return getConfig(kv.Spec.ImageRegistry,
 		kv.Spec.ImageTag,
 		kv.Namespace,
 		additionalProperties,
-		envVarManager)
-
-	// Set synchronization placement if configured
-	if kv.Spec.SynchronizationPlacement != nil {
-		cfg.SynchronizationPlacement = kv.Spec.SynchronizationPlacement
-	}
-
-	return cfg
+		envVarManager,
+		kv.Spec.SynchronizationPlacement)
 }
 
 func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, fg string) bool {
@@ -315,7 +311,7 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 	}
 }
 
-func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager, synchronizationPlacement *v1.ComponentConfig) *KubeVirtDeploymentConfig {
 
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
@@ -364,7 +360,7 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
 
-	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
+	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv, synchronizationPlacement)
 }
 
 func VerifyEnv() error {
@@ -398,7 +394,7 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string, synchronizationPlacement *v1.ComponentConfig) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:        registry,
 		ImagePrefix:     imagePrefix,
@@ -418,9 +414,10 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorI
 			PrHelperImage:                      prHelperImage,
 			SidecarShimImage:                   sidecarShimImage,
 		},
-		Namespace:            namespace,
-		AdditionalProperties: kvSpec,
-		PassthroughEnvVars:   passthroughEnv,
+		Namespace:                namespace,
+		AdditionalProperties:     kvSpec,
+		PassthroughEnvVars:       passthroughEnv,
+		SynchronizationPlacement: synchronizationPlacement,
 	}
 	c.generateInstallStrategyID()
 	return c
