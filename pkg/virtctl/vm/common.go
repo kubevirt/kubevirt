@@ -28,6 +28,7 @@ import (
 
 const (
 	volumeNameArg         = "volume-name"
+	diskNameArg           = "disk-name"
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
