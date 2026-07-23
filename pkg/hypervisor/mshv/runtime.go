@@ -21,11 +21,9 @@ package mshv
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/mitchellh/go-ps"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -37,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
+
+var ListProcesses = ps.Processes
 
 type MshvVirtRuntime struct {
 	podIsolationDetector isolation.PodIsolationDetector
@@ -52,7 +52,7 @@ func NewMshvVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *l
 }
 
 func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error {
-	if !vmitrait.HasVFIO(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !vmitrait.HasVFIO(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
 		return nil
 	}
 
@@ -74,7 +74,7 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 			return err
 		}
 	} else {
-		processes, err := ps.Processes()
+		processes, err := ListProcesses()
 		if err != nil {
 			return fmt.Errorf("failed to get all processes: %v", err)
 		}
@@ -90,39 +90,13 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 
 	targetProcessID := targetProcess.Pid()
 
-	var memlockSize resource.Quantity
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
-		memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
-	} else {
-		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
-		// and we are sure that all VMIs include the MemoryOverhead status field
-		memlockSize = m.GetMemoryOverhead(vmi, runtime.GOARCH, config.AdditionalGuestMemoryOverheadRatio)
+	if err := common.SetProcessMemoryLockUnlimited(targetProcessID); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to unlimited: %v", targetProcessID, err)
 	}
-	// Add memory assigned to the VM
-	vmiBaseMemory := getVMIBaseMemory(vmi)
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	if err := common.SetProcessMemoryLockRLimit(targetProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", targetProcessID, memlockSize.Value(), err)
-	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		targetProcess, memlockSize.Value())
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to unlimited",
+		targetProcess)
 
 	return nil
-}
-
-func getVMIBaseMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
-	vmiBaseMemory := resource.NewScaledQuantity(0, resource.Kilo)
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil && !vmi.Spec.Domain.Resources.Requests.Memory().IsZero():
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	}
-	return vmiBaseMemory
 }
 
 func (m *MshvVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {
