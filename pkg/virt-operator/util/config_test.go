@@ -152,6 +152,35 @@ var _ = Describe("Operator Config", func() {
 			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
 		})
 
+		It("should change deployment ID when switching Direct/Proxy without crossClusterNetwork", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"CrossClusterMigrationProxy"},
+						},
+						MigrationConfiguration: &v1.MigrationConfiguration{},
+					},
+				},
+			}
+			cfgDirect := GetTargetConfigFromKV(kv)
+
+			proxy := v1.DecentralizedLiveMigrationDatapathProxy
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath = &proxy
+			cfgProxy := GetTargetConfigFromKV(kv)
+
+			Expect(cfgDirect.ID).ToNot(BeEmpty())
+			Expect(cfgProxy.ID).ToNot(BeEmpty())
+			Expect(cfgProxy.ID).ToNot(Equal(cfgDirect.ID))
+			Expect(cfgProxy.AdditionalProperties).To(HaveKey(AdditionalPropertiesDecentralizedLiveMigrationProxy))
+			Expect(cfgDirect.AdditionalProperties).NotTo(HaveKey(AdditionalPropertiesDecentralizedLiveMigrationProxy))
+
+			direct := v1.DecentralizedLiveMigrationDatapathDirect
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath = &direct
+			cfgBackToDirect := GetTargetConfigFromKV(kv)
+			Expect(cfgBackToDirect.ID).To(Equal(cfgDirect.ID))
+		})
+
 		DescribeTable("should result in different ID when component images change", func(setImage func(*KubeVirtDeploymentConfig, string)) {
 			cfgA := &KubeVirtDeploymentConfig{}
 			cfgA.AdditionalProperties = make(map[string]string)
@@ -483,7 +512,7 @@ var _ = Describe("Operator Config", func() {
 			},
 			true, "",
 		),
-		Entry("when CrossClusterNetwork is set and feature gate is enabled",
+		Entry("when CrossClusterNetwork is set and feature gate is enabled but datapath is Direct",
 			func() *KubeVirtDeploymentConfig {
 				networkName := "test-crosscluster-network"
 				kv := &v1.KubeVirt{
@@ -494,6 +523,27 @@ var _ = Describe("Operator Config", func() {
 							},
 							MigrationConfiguration: &v1.MigrationConfiguration{
 								CrossClusterNetwork: &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set with Proxy datapath and feature gate",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				datapath := v1.DecentralizedLiveMigrationDatapathProxy
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{"CrossClusterMigrationProxy"},
+							},
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								DecentralizedLiveMigrationDatapath: &datapath,
+								CrossClusterNetwork:                &networkName,
 							},
 						},
 					},

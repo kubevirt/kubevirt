@@ -149,8 +149,8 @@ func NewMigrationTunnelManager(clientTLSConfig, serverTLSConfig *tls.Config) *Mi
 	}
 }
 
-// Initialize stores network IPs (called at startup if crossClusterNetwork configured)
-// and registers proxy metrics once the proxy is actually enabled.
+// Initialize stores local and peer network IPs used by the tunnel and registers
+// proxy metrics once the proxy is actually enabled.
 func (m *MigrationTunnelManager) Initialize(migrationIP, crossClusterIP string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -162,25 +162,25 @@ func (m *MigrationTunnelManager) Initialize(migrationIP, crossClusterIP string) 
 		m.logger.Reason(err).Error("failed to register migration proxy metrics")
 	}
 
-	m.logger.Infof("Migration tunnel manager initialized - migration0: %s, crosscluster0: %s",
+	m.logger.Infof("Migration tunnel manager initialized - local: %s, peer: %s",
 		migrationIP, crossClusterIP)
 }
 
-// IsInitialized reports whether both migration0 and crosscluster0 IPs are set.
+// IsInitialized reports whether local and peer tunnel IPs are set.
 func (m *MigrationTunnelManager) IsInitialized() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.migrationIP != "" && m.crossClusterIP != ""
 }
 
-// MigrationIP returns the migration0 address under lock.
+// MigrationIP returns the local (virt-handler-facing) tunnel address under lock.
 func (m *MigrationTunnelManager) MigrationIP() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.migrationIP
 }
 
-// CrossClusterIP returns the crosscluster0 address under lock.
+// CrossClusterIP returns the peer-facing tunnel / advertise address under lock.
 func (m *MigrationTunnelManager) CrossClusterIP() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

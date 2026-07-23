@@ -273,6 +273,30 @@ func (app *synchronizationControllerApp) Run() {
 		cancel()
 	}()
 
+	// ClusterConfig is backed by informers; start and sync before reading Proxy
+	// datapath / Multus requirements, otherwise we always see defaults (Direct).
+	factory.Start(stop)
+	if !cache.WaitForCacheSync(stop, factory.CRD().HasSynced, factory.KubeVirt().HasSynced) {
+		panic("timed out waiting for KubeVirt configuration caches to sync")
+	}
+
+	proxyConfig := &synchronization.ProxyInitConfig{
+		Enabled: app.clusterConfig.DecentralizedLiveMigrationProxyEnabled(),
+	}
+	if mig := app.clusterConfig.GetConfig().MigrationConfiguration; mig != nil {
+		proxyConfig.RequireMigrationInterface = mig.Network != nil
+		proxyConfig.RequireCrossClusterInterface = mig.CrossClusterNetwork != nil
+	}
+	log.Log.Infof("Migration proxy init config: enabled=%t requireMigrationIface=%t requireCrossClusterIface=%t",
+		proxyConfig.Enabled, proxyConfig.RequireMigrationInterface, proxyConfig.RequireCrossClusterInterface)
+
+	// Proxy peer/gRPC fallback must use the real pod IP so it matches what
+	// virt-operator advertises when crossClusterNetwork is unset. Direct mode
+	// still prefers the migration-network address from FindMigrationIP.
+	controllerIP := app.ip
+	if proxyConfig.Enabled {
+		controllerIP = app.podIP
+	}
 	synchronizationController, err := synchronization.NewSynchronizationController(
 		app.virtCli,
 		vmiInformer,
@@ -283,7 +307,8 @@ func (app *synchronizationControllerApp) Run() {
 		app.migrationServerTLSConfig,
 		app.BindAddress,
 		app.Port,
-		app.ip,
+		controllerIP,
+		proxyConfig,
 	)
 	if err != nil {
 		panic(err)
@@ -294,7 +319,6 @@ func (app *synchronizationControllerApp) Run() {
 	go app.migrationclientcertmanager.Start()
 	go app.migrationservercertmanager.Start()
 
-	factory.Start(stop)
 	app.runWithLeaderElection(synchronizationController, stop)
 }
 
