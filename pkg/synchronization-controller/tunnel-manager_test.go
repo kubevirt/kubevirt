@@ -180,12 +180,12 @@ var _ = Describe("MigrationTunnelManager", func() {
 
 	It("creates and refreshes StartTargetTunnel dial coordinates", func() {
 		By("creating the target tunnel")
-		tunnel, err := manager.StartTargetTunnel(context.Background(), "mig-target", "10.0.0.5", map[int]int{1: 49152})
+		tunnel, err := manager.StartTargetTunnel("mig-target", "10.0.0.5", map[int]int{1: 49152})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(tunnel.targetIP).To(Equal("10.0.0.5"))
 
 		By("refreshing dial coordinates on the same tunnel")
-		same, err := manager.StartTargetTunnel(context.Background(), "mig-target", "10.0.0.6", map[int]int{2: 49153})
+		same, err := manager.StartTargetTunnel("mig-target", "10.0.0.6", map[int]int{2: 49153})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(same).To(BeIdenticalTo(tunnel))
 		Expect(same.targetIP).To(Equal("10.0.0.6"))
@@ -210,7 +210,7 @@ var _ = Describe("MigrationTunnelManager", func() {
 
 		It("returns ResourceExhausted when the channel semaphore is full", func() {
 			By("starting a target tunnel with a saturated semaphore")
-			tunnel, err := manager.StartTargetTunnel(context.Background(), "mig-sem", "127.0.0.1", map[int]int{1: 49152})
+			tunnel, err := manager.StartTargetTunnel("mig-sem", "127.0.0.1", map[int]int{1: 49152})
 			Expect(err).NotTo(HaveOccurred())
 			tunnel.channelSem = make(chan struct{}, 1)
 			Expect(tunnel.tryAcquireChannelSlot()).To(BeTrue())
@@ -259,7 +259,7 @@ var _ = Describe("MigrationTunnelManager", func() {
 			mgr := NewMigrationTunnelManager(clientTLS, serverTLS)
 			mgr.Initialize("127.0.0.1", "127.0.0.1")
 			defer mgr.Shutdown()
-			_, err = mgr.StartTargetTunnel(context.Background(), "mig-proxy", "127.0.0.1", map[int]int{port: 49152})
+			_, err = mgr.StartTargetTunnel("mig-proxy", "127.0.0.1", map[int]int{port: 49152})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("serving an inbound MigrationTunnel stream")
@@ -368,7 +368,7 @@ var _ = Describe("MigrationTunnelManager", func() {
 
 	It("removes peer binding and tears down tunnels on StopTunnel", func() {
 		By("creating a target tunnel and binding a peer")
-		_, err := manager.StartTargetTunnel(context.Background(), "mig-stop", "10.0.0.1", map[int]int{1: 49152})
+		_, err := manager.StartTargetTunnel("mig-stop", "10.0.0.1", map[int]int{1: 49152})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(manager.BindTunnelPeer("mig-stop", "192.0.2.1:1")).To(Succeed())
 
