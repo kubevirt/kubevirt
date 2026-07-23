@@ -223,7 +223,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 	DescribeTable("validateCrossClusterMigrationNetwork", func(kvSpec v1.KubeVirtSpec, expectError bool) {
 		causes := validateCrossClusterMigrationNetwork(&kvSpec.Configuration)
 		if expectError {
-			Expect(causes).To(HaveLen(1))
+			Expect(causes).ToNot(BeEmpty())
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.crossClusterNetwork"))
 		} else {
@@ -234,13 +234,28 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						CrossClusterNetwork: pointer.P("cross-cluster-nad"),
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+						CrossClusterNetwork:                pointer.P("cross-cluster-nad"),
 					},
 				},
 			},
 			true,
 		),
-		Entry("should allow when CrossClusterNetwork is set with CrossClusterMigrationProxy feature gate",
+		Entry("should reject when CrossClusterNetwork is set with Direct datapath",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathDirect),
+						CrossClusterNetwork:                pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should reject when CrossClusterNetwork is set without datapath (defaults to Direct)",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -248,6 +263,20 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						CrossClusterNetwork: pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow when CrossClusterNetwork is set with Proxy datapath and feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+						CrossClusterNetwork:                pointer.P("cross-cluster-nad"),
 					},
 				},
 			},
@@ -266,6 +295,112 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 			false,
+		),
+	)
+
+	DescribeTable("validateDecentralizedLiveMigrationDatapath", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateDecentralizedLiveMigrationDatapath(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).ToNot(BeEmpty())
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.decentralizedLiveMigrationDatapath"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should allow unset datapath",
+			v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{}},
+			false,
+		),
+		Entry("should allow Direct without feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathDirect),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should reject Proxy without feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow Proxy with feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should reject unknown value",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapath("foo")),
+					},
+				},
+			},
+			true,
+		),
+	)
+
+	DescribeTable("warnProxyMigrationNetwork", func(kvSpec v1.KubeVirtSpec, expectWarning bool) {
+		warnings := warnProxyMigrationNetwork(&kvSpec.Configuration)
+		if expectWarning {
+			Expect(warnings).ToNot(BeEmpty())
+			Expect(warnings[0]).To(ContainSubstring("migration0"))
+		} else {
+			Expect(warnings).To(BeEmpty())
+		}
+	},
+		Entry("should not warn when network unset",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should not warn when Direct with network",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						Network: pointer.P("migration-nad"),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should warn when Proxy with network",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+						Network:                            pointer.P("migration-nad"),
+					},
+				},
+			},
+			true,
 		),
 	)
 

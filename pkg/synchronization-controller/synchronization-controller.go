@@ -111,6 +111,14 @@ type SynchronizationController struct {
 	tunnelManager *MigrationTunnelManager
 }
 
+// ProxyInitConfig selects whether the migration-data proxy is enabled and which
+// secondary interfaces are required (vs falling back to the pod IP).
+type ProxyInitConfig struct {
+	Enabled                      bool
+	RequireMigrationInterface    bool
+	RequireCrossClusterInterface bool
+}
+
 func NewSynchronizationController(
 	client kubecli.KubevirtClient,
 	vmiInformer cache.SharedIndexInformer,
@@ -122,6 +130,7 @@ func NewSynchronizationController(
 	bindAddress string,
 	bindPort int,
 	ip string,
+	proxyConfig *ProxyInitConfig,
 ) (*SynchronizationController, error) {
 	syncController := &SynchronizationController{
 		vmiInformer:              vmiInformer,
@@ -182,50 +191,82 @@ func NewSynchronizationController(
 	// Initialize migration tunnel manager for terminating TLS with virt-handlers
 	syncController.tunnelManager = NewMigrationTunnelManager(migrationClientTLSConfig, migrationServerTLSConfig)
 
-	// Try to initialize proxy if crossClusterNetwork is configured
-	// Proxy requires BOTH migrationIP and crossClusterIP to function
-	migrationIP, migrationErr := getMigrationIP(ip)
-	crossClusterIP, err := getCrossClusterIP()
-
-	// Validate that we have at least one usable network
-	// Synchronization controller requires either:
-	// 1. migration0 network (dedicated migration network), OR
-	// 2. Pod IP (for in-cluster migrations without dedicated network)
-	if migrationIP == "" && ip == "" {
-		return nil, fmt.Errorf("synchronization controller requires a migration network or pod IP, but neither is available: migrationErr=%v, podIP=%q", migrationErr, ip)
+	if ip == "" && bindAddress == "" {
+		return nil, fmt.Errorf("synchronization controller requires a pod IP or bind address")
+	}
+	podIP := ip
+	if podIP == "" {
+		podIP = bindAddress
 	}
 
-	// migrationErr != nil means migration0 exists but has no usable address; do not
-	// fall back to pod IP for tunnel listeners (wrong interface).
-	if err == nil && migrationErr == nil && crossClusterIP != "" && migrationIP != "" {
-		syncController.tunnelManager.Initialize(migrationIP, crossClusterIP)
-		log.Log.Infof("Migration tunnel manager initialized with migration0=%s, crosscluster0=%s", migrationIP, crossClusterIP)
-
-		// Security: Bind gRPC server only to crosscluster network when available
-		// This prevents unauthorized access from other networks
-		syncController.bindAddress = crossClusterIP
-		log.Log.Infof("gRPC server will bind to crosscluster network: %s:%d", crossClusterIP, bindPort)
-	} else {
-		// Proxy requires both migrationIP and crossClusterIP
-		if err != nil || crossClusterIP == "" {
-			log.Log.V(2).Infof("Cross-cluster network not available (proxy disabled): migrationIP=%s, crossClusterIP=%s, err=%v", migrationIP, crossClusterIP, err)
-		} else if migrationErr != nil {
-			log.Log.V(2).Infof("Migration network not ready (proxy disabled): migrationErr=%v, crossClusterIP=%s", migrationErr, crossClusterIP)
-		} else if migrationIP == "" {
-			log.Log.V(2).Infof("Migration network not available (proxy disabled): migrationIP empty, crossClusterIP=%s", crossClusterIP)
+	if proxyConfig != nil && proxyConfig.Enabled {
+		// Proxy was explicitly selected: fail fast on misconfiguration (e.g. a
+		// required Multus interface is missing) rather than starting without the
+		// tunnel and causing opaque migration failures later.
+		if err := syncController.initMigrationProxy(podIP, bindAddress, bindPort, proxyConfig); err != nil {
+			return nil, fmt.Errorf("migration proxy required but failed to initialize: %w", err)
 		}
-
-		// If migration network is available, bind to migration IP instead of all interfaces
-		if migrationIP != "" {
+	} else {
+		if migrationIP, err := interfaceIP(virtv1.MigrationInterfaceName); err == nil {
 			syncController.bindAddress = migrationIP
 			log.Log.Infof("gRPC server will bind to migration network: %s:%d", migrationIP, bindPort)
+		} else if ip != "" {
+			// Match historic Direct behavior: prefer pod IP over 0.0.0.0 when no
+			// dedicated migration interface is present.
+			syncController.bindAddress = ip
+			log.Log.Infof("gRPC server will bind to pod IP: %s:%d", ip, bindPort)
 		} else {
-			// Fallback to provided bindAddress (pod IP or 0.0.0.0)
 			log.Log.Infof("gRPC server will bind to: %s:%d", bindAddress, bindPort)
 		}
+		log.Log.V(2).Info("Decentralized live migration datapath is Direct; migration proxy disabled")
 	}
 
 	return syncController, nil
+}
+
+func (s *SynchronizationController) initMigrationProxy(podIP, fallbackBind string, bindPort int, cfg *ProxyInitConfig) error {
+	migrationIP, err := resolveProxyAddress(virtv1.MigrationInterfaceName, podIP, cfg.RequireMigrationInterface)
+	if err != nil {
+		return fmt.Errorf("local migration address: %w", err)
+	}
+	peerIP, err := resolveProxyAddress(virtv1.CrossClusterMigrationInterfaceName, podIP, cfg.RequireCrossClusterInterface)
+	if err != nil {
+		return fmt.Errorf("peer sync address: %w", err)
+	}
+
+	s.tunnelManager.Initialize(migrationIP, peerIP)
+	log.Log.Infof("Migration tunnel manager initialized with local=%s peer=%s", migrationIP, peerIP)
+
+	// When a dedicated cross-cluster network is configured, bind only there.
+	// Otherwise bind on the pod IP (Service/Ingress reachable).
+	if cfg.RequireCrossClusterInterface {
+		s.bindAddress = peerIP
+		log.Log.Infof("gRPC server will bind to crosscluster network: %s:%d", peerIP, bindPort)
+	} else {
+		s.bindAddress = podIP
+		if s.bindAddress == "" {
+			s.bindAddress = fallbackBind
+		}
+		log.Log.Infof("gRPC server will bind to pod network: %s:%d", s.bindAddress, bindPort)
+	}
+	return nil
+}
+
+// resolveProxyAddress returns the IP on ifaceName when present. If the interface
+// is missing and required is false, podIP is used. If required is true, a missing
+// or unaddressed interface is an error.
+func resolveProxyAddress(ifaceName, podIP string, required bool) (string, error) {
+	ip, err := interfaceIP(ifaceName)
+	if err == nil {
+		return ip, nil
+	}
+	if required {
+		return "", err
+	}
+	if podIP == "" {
+		return "", fmt.Errorf("%s not available and pod IP is empty: %w", ifaceName, err)
+	}
+	return podIP, nil
 }
 
 // IsTunnelInitialized checks if the migration proxy has been initialized with network IPs
@@ -319,7 +360,7 @@ func (s *SynchronizationController) setupSourceProxiesFromTarget(
 	vmi *virtv1.VirtualMachineInstance,
 	remoteStatus *virtv1.VirtualMachineInstanceStatus,
 ) error {
-	if s.tunnelManager == nil || remoteStatus.MigrationState.TargetState == nil {
+	if s.tunnelManager == nil || remoteStatus.MigrationState == nil || remoteStatus.MigrationState.TargetState == nil {
 		return nil
 	}
 
@@ -2022,46 +2063,15 @@ func (s *SynchronizationController) MigrationTunnel(stream syncv1.Synchronize_Mi
 	return s.tunnelManager.HandleInboundChannel(stream, openFrame)
 }
 
-// getMigrationIP returns the IP address on the migration network interface
-func getMigrationIP(podIP string) (string, error) {
-	ief, err := net.InterfaceByName(virtv1.MigrationInterfaceName)
+// interfaceIP returns a global unicast IP on the named interface.
+func interfaceIP(ifaceName string) (string, error) {
+	ief, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		// Migration network not configured, use pod IP
-		return podIP, nil
+		return "", fmt.Errorf("%s not found: %w", ifaceName, err)
 	}
 	addrs, err := ief.Addrs()
 	if err != nil {
-		return podIP, fmt.Errorf("%s present but doesn't have an IP", virtv1.MigrationInterfaceName)
-	}
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
-		default:
-			continue
-		}
-		if !ip.IsGlobalUnicast() {
-			// skip local/multicast IPs
-			continue
-		}
-		return ip.String(), nil
-	}
-
-	return podIP, fmt.Errorf("no IP found on %s", virtv1.MigrationInterfaceName)
-}
-
-// getCrossClusterIP returns the IP address on the cross-cluster migration network interface
-func getCrossClusterIP() (string, error) {
-	ief, err := net.InterfaceByName(virtv1.CrossClusterMigrationInterfaceName)
-	if err != nil {
-		return "", err // Cross-cluster network not configured
-	}
-	addrs, err := ief.Addrs()
-	if err != nil {
-		return "", fmt.Errorf("crosscluster0 present but no IP")
+		return "", fmt.Errorf("%s present but no addresses: %w", ifaceName, err)
 	}
 	for _, addr := range addrs {
 		var ip net.IP
@@ -2078,7 +2088,7 @@ func getCrossClusterIP() (string, error) {
 		}
 		return ip.String(), nil
 	}
-	return "", fmt.Errorf("no IP found on crosscluster0")
+	return "", fmt.Errorf("no IP found on %s", ifaceName)
 }
 
 // portMapToInt converts a port map from API format (map[string]int) to internal format (map[int]int)

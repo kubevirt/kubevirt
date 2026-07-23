@@ -189,6 +189,7 @@ spec:
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       crossClusterNetwork: crossClusterNetworkValue
+      decentralizedLiveMigrationDatapath: decentralizedLiveMigrationDatapathValue
       disableTLS: true
       matchSELinuxLevelOnMigration: true
       maxDowntimeMs: 18446744073709551603

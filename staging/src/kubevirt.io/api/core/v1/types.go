@@ -3657,19 +3657,45 @@ type MigrationConfiguration struct {
 	// Defaults to false.
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
-	// through the pod network.
+	// through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is
+	// also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP).
+	// If set with Proxy, synchronization controllers require the migration0 interface at startup
+	// and will fail to start if it is missing.
 	Network *string `json:"network,omitempty"`
 	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
 	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
-	// CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations.
-	// When specified, synchronization controllers will attach to this network in addition to the
-	// in-cluster migration network, and will proxy migration traffic between the two networks.
-	// This reduces IP address requirements on the cross-cluster network. By default, not set.
+	// CrossClusterNetwork is the name of the CNI network used for synchronization-controller
+	// peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers
+	// attach to this network as crosscluster0 and bind the sync gRPC port only there.
+	// When omitted with Proxy, peer traffic uses the pod network. Must not be set when
+	// decentralizedLiveMigrationDatapath is Direct (or unset).
 	CrossClusterNetwork *string `json:"crossClusterNetwork,omitempty"`
+	// DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for
+	// decentralized live migrations (cross-namespace or cross-cluster).
+	// Direct (default when unset): no synchronization-controller migration-data proxy.
+	// Proxy: sync controllers proxy migration traffic on a single gRPC port.
+	// Requires the CrossClusterMigrationProxy feature gate while Alpha.
+	// +optional
+	// +kubebuilder:validation:Enum=Direct;Proxy
+	DecentralizedLiveMigrationDatapath *DecentralizedLiveMigrationDatapath `json:"decentralizedLiveMigrationDatapath,omitempty"`
 }
+
+// DecentralizedLiveMigrationDatapath selects how migration data is transferred for
+// decentralized live migrations.
+// +kubebuilder:validation:Enum=Direct;Proxy
+type DecentralizedLiveMigrationDatapath string
+
+const (
+	// DecentralizedLiveMigrationDatapathDirect transfers migration data without the
+	// synchronization-controller proxy (default when the field is unset).
+	DecentralizedLiveMigrationDatapathDirect DecentralizedLiveMigrationDatapath = "Direct"
+	// DecentralizedLiveMigrationDatapathProxy proxies migration data through
+	// synchronization controllers.
+	DecentralizedLiveMigrationDatapathProxy DecentralizedLiveMigrationDatapath = "Proxy"
+)
 
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {
