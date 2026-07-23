@@ -2541,6 +2541,98 @@ var _ = Describe("Manager", func() {
 		Expect(err).To(MatchError(ContainSubstring("failed to find the status of volume test1")))
 	})
 
+	Context("on GuestPing", func() {
+		const pingCmd = `{"execute":"guest-ping"}`
+
+		It("should succeed when guest-ping returns successfully", func() {
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+			mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+			Expect(manager.GuestPing(testDomainName)).To(Succeed())
+		})
+
+		It("should return error when guest-ping fails and no migration is in progress", func() {
+			pingErr := fmt.Errorf("guest agent not responding")
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+			mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", pingErr)
+			Expect(manager.GuestPing(testDomainName)).To(MatchError(pingErr))
+		})
+
+		Context("in pre-copy migration phase", func() {
+			BeforeEach(func() {
+				now := metav1.Now()
+				metadataCache.Migration.Store(api.MigrationMetadata{
+					UID:            "test-migration-uid",
+					StartTimestamp: &now,
+					Mode:           v1.MigrationPreCopy,
+				})
+			})
+
+			It("should not suppress a passing probe on the source pod (VM is running and reachable)", func() {
+				manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+				mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should suppress ERR_AGENT_UNRESPONSIVE on the target pod (VM paused, receiving memory pages)", func() {
+				agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+				manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+				mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should suppress ERR_NO_DOMAIN on the target pod (domain not yet present)", func() {
+				manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+				mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should still surface unrelated libvirt errors during migration", func() {
+				connErr := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
+				manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+				mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", connErr)
+				Expect(manager.GuestPing(testDomainName)).To(MatchError(connErr))
+			})
+		})
+
+		Context("in post-copy migration phase", func() {
+			BeforeEach(func() {
+				now := metav1.Now()
+				metadataCache.Migration.Store(api.MigrationMetadata{
+					UID:            "test-migration-uid",
+					StartTimestamp: &now,
+					Mode:           v1.MigrationPostCopy,
+				})
+			})
+
+			It("should not suppress a passing probe on the target pod (VM is running and reachable)", func() {
+				manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+				mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should suppress ERR_AGENT_UNRESPONSIVE on the source pod (VM handed off, no longer accessible)", func() {
+				agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+				manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+				mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+		})
+
+		It("should not suppress agent errors once the migration has completed", func() {
+			now := metav1.Now()
+			later := metav1.NewTime(now.Add(time.Second))
+			metadataCache.Migration.Store(api.MigrationMetadata{
+				UID:            "test-migration-uid",
+				StartTimestamp: &now,
+				EndTimestamp:   &later,
+			})
+			agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
+			mockConn.EXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+			Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+		})
+	})
+
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 })
 
