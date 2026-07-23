@@ -574,8 +574,10 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		},
 	}
 
-	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil && exp.Compression != nil {
-		options.Compression = pointer.P(string(*exp.Compression))
+	if c.clusterConfig.MigrationCompressionEnabled() {
+		if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil && exp.Compression != nil {
+			options.Compression = pointer.P(string(*exp.Compression))
+		}
 	}
 
 	configureParallelMigrationThreads(options, vmi)

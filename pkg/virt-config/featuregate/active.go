@@ -271,6 +271,13 @@ const (
 	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
 	MigrationStallDetection = "MigrationStallDetection"
 
+	// Owner: @michalskrivanek
+	// Alpha: v1.9.0
+	//
+	// MigrationCompression enables compression of the live migration data stream
+	// via the ExperimentalMigrationOptions.Compression field.
+	MigrationCompression = "MigrationCompression"
+
 	// Owner: sig-compute / @lyarwood
 	// Alpha: v1.9.0
 	//
@@ -335,6 +342,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationCompression, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 }

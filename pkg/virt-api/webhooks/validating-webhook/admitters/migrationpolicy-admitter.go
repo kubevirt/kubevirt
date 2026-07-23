@@ -140,6 +140,26 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 		)...)
 	}
 
+	if spec.ExperimentalMigrationOptions != nil && spec.ExperimentalMigrationOptions.Compression != nil {
+		var oldCompression any
+		if ar.Request.OldObject.Raw != nil {
+			oldPolicy := &migrationsv1.MigrationPolicy{}
+			if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPolicy); err == nil {
+				if oldPolicy.Spec.ExperimentalMigrationOptions != nil {
+					oldCompression = oldPolicy.Spec.ExperimentalMigrationOptions.Compression
+				}
+			}
+		}
+		if !equality.Semantic.DeepEqual(oldCompression, spec.ExperimentalMigrationOptions.Compression) &&
+			!admitter.clusterConfig.MigrationCompressionEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("experimental.compression cannot be modified without enabling the %s feature gate", featuregate.MigrationCompression),
+				Field:   sourceField.Child("experimental", "compression").String(),
+			})
+		}
+	}
+
 	if spec.BandwidthPerMigration != nil {
 		quantity, ok := spec.BandwidthPerMigration.AsInt64()
 		if !ok {
