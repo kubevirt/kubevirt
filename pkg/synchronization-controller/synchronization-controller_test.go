@@ -94,7 +94,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstanceMigration(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetNamespace)).AnyTimes()
 		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
-		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		tmpDir, err := os.MkdirTemp("", "synchronizationcontrollertest")
 		Expect(err).ToNot(HaveOccurred())
 		store, err := certificates.GenerateSelfSignedCert(tmpDir, "test", "test")
@@ -1053,7 +1053,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		)
 
 		BeforeEach(func() {
-			remoteMigrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186, "")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1591,10 +1591,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 	})
 
 	It("should return nil, nil if invalid resource type passed into index function", func() {
-		res, err := indexByMigrationUID("invalid")
-		Expect(res).To(BeNil())
-		Expect(err).ToNot(HaveOccurred())
-		res, err = indexByActiveVmiName("invalid")
+		res, err := indexByActiveVmiName("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexBySourceMigrationID("invalid")
