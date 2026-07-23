@@ -207,6 +207,7 @@ func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr str
 		VerifyConnection:   app.verifyBackendConnection,
 		ServerName:         serverName,
 	}
+	kvtls.ApplyTLSConfigurationFromKubeVirtStore(cfg, app.kubeVirtStore)
 
 	tlsConn := tls.Client(conn, cfg)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
