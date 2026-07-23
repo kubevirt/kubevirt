@@ -188,9 +188,9 @@ func (m *MigrationTunnelManager) CrossClusterIP() string {
 }
 
 // StartTargetTunnel prepares the target side to accept per-channel streams from the source
-// and forward them to the local virt-handler ports.
+// and forward them to the local virt-handler ports. Lifecycle is owned by stopChan /
+// StopTunnel, not a caller context.
 func (m *MigrationTunnelManager) StartTargetTunnel(
-	_ context.Context,
 	migrationID string,
 	targetVirtHandlerIP string,
 	targetVirtHandlerPorts map[int]int,
@@ -232,9 +232,9 @@ func (m *MigrationTunnelManager) StartTargetTunnel(
 
 // StartSourceTunnel creates listeners on the internal migration network for source
 // virt-handler and stores the control-plane gRPC connection used to open one
-// MigrationTunnel stream per channel.
+// MigrationTunnel stream per channel. Lifecycle is owned by stopChan / StopTunnel,
+// not a caller context.
 func (m *MigrationTunnelManager) StartSourceTunnel(
-	_ context.Context,
 	migrationID string,
 	grpcConn *grpc.ClientConn,
 	protocolPorts map[int]int, // map[any TCP port]protocol port — values are the channels to open

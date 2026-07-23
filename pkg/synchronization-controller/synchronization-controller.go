@@ -238,7 +238,6 @@ func (s *SynchronizationController) IsTunnelInitialized() bool {
 // virt-handler ports (protocol mapping); the source sync controller rewrites its local
 // VMI to point virt-handler at source-side listeners.
 func (s *SynchronizationController) setupTargetProxiesForOutbound(
-	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
 ) error {
@@ -252,13 +251,12 @@ func (s *SynchronizationController) setupTargetProxiesForOutbound(
 	if migration.Spec.Receive == nil {
 		return fmt.Errorf("did not find receiving migration when setting up target proxy")
 	}
-	return s.startTargetTunnel(ctx, migration, vmi)
+	return s.startTargetTunnel(migration, vmi)
 }
 
 // setupTargetProxiesFromSource starts target tunnel based on received source sync address.
 // This is called on the target side when receiving source migration status.
 func (s *SynchronizationController) setupTargetProxiesFromSource(
-	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
 	remoteStatus *virtv1.VirtualMachineInstanceStatus,
@@ -284,14 +282,13 @@ func (s *SynchronizationController) setupTargetProxiesFromSource(
 	if migration.Spec.Receive == nil {
 		return nil
 	}
-	return s.startTargetTunnel(ctx, migration, vmi)
+	return s.startTargetTunnel(migration, vmi)
 }
 
 // startTargetTunnel starts (or refreshes) the target-side tunnel that dials local
 // virt-handler. Callers must ensure Spec.Receive and TargetState dial coordinates
 // are present.
 func (s *SynchronizationController) startTargetTunnel(
-	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
 ) error {
@@ -305,7 +302,7 @@ func (s *SynchronizationController) startTargetTunnel(
 		return err
 	}
 
-	if _, err := s.tunnelManager.StartTargetTunnel(ctx, migrationID, targetIP, ports); err != nil {
+	if _, err := s.tunnelManager.StartTargetTunnel(migrationID, targetIP, ports); err != nil {
 		log.Log.Object(migration).Reason(err).Error("Failed to start target tunnel")
 		return err
 	}
@@ -318,7 +315,6 @@ func (s *SynchronizationController) startTargetTunnel(
 // setupSourceProxiesFromTarget starts source tunnel based on received target state
 // This is called on the source side when receiving target migration status
 func (s *SynchronizationController) setupSourceProxiesFromTarget(
-	ctx context.Context,
 	migration *virtv1.VirtualMachineInstanceMigration,
 	vmi *virtv1.VirtualMachineInstance,
 	remoteStatus *virtv1.VirtualMachineInstanceStatus,
@@ -380,7 +376,7 @@ func (s *SynchronizationController) setupSourceProxiesFromTarget(
 	// Start source tunnel: listeners on the internal migration network (Multus or
 	// pod IP); each accepted connection opens its own MigrationTunnel stream on
 	// the shared control-plane gRPC connection.
-	tunnel, err := s.tunnelManager.StartSourceTunnel(ctx, migrationID, conn.grpcClientConnection, targetVirtHandlerPortsInt)
+	tunnel, err := s.tunnelManager.StartSourceTunnel(migrationID, conn.grpcClientConnection, targetVirtHandlerPortsInt)
 	if err != nil {
 		log.Log.Object(migration).Reason(err).Error("Failed to start source tunnel")
 		return err
@@ -1176,7 +1172,7 @@ func (s *SynchronizationController) handleTargetState(ctx context.Context, vmi *
 	statusToSend := vmi.Status.DeepCopy()
 
 	// If proxy is initialized, start target proxies and rewrite addresses
-	if err := s.setupTargetProxiesForOutbound(ctx, migration, vmi); err != nil {
+	if err := s.setupTargetProxiesForOutbound(migration, vmi); err != nil {
 		return err
 	}
 
@@ -1498,7 +1494,7 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	log.Log.Object(newVMI).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
 
 	// If proxy is initialized, handle target-side proxy setup
-	if err := s.setupTargetProxiesFromSource(ctx, migration, newVMI, remoteStatus); err != nil {
+	if err := s.setupTargetProxiesFromSource(migration, newVMI, remoteStatus); err != nil {
 		return nil, err
 	}
 
@@ -1645,7 +1641,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	log.Log.Object(newVMI).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
 
 	// If proxy is initialized, handle source-side proxy setup when receiving TargetState
-	if err := s.setupSourceProxiesFromTarget(ctx, migration, newVMI, remoteStatus); err != nil {
+	if err := s.setupSourceProxiesFromTarget(migration, newVMI, remoteStatus); err != nil {
 		return &syncv1.VMIStatusResponse{
 			Message: fmt.Sprintf("failed to setup source proxies: %v", err),
 		}, err
