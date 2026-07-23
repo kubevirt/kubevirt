@@ -1427,6 +1427,16 @@ var CRDsValidation map[string]string = map[string]string{
                   maximum: 2000000
                   minimum: 1
                   type: integer
+                maxDowntimeSteps:
+                  description: |-
+                    MaxDowntimeSteps is the number of incremental steps used to reach the
+                    MaxDowntimeMs value: the migration starts with a max downtime of
+                    MaxDowntimeMs/MaxDowntimeSteps milliseconds and increases it linearly up
+                    to MaxDowntimeMs, waiting 75 seconds per GiB of VM memory between
+                    increases. When unset or 0, no stepping is performed. Inspired by
+                    OpenStack Nova's live_migration_downtime_steps.
+                  format: int32
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -15655,6 +15665,16 @@ var CRDsValidation map[string]string = map[string]string{
                   maximum: 2000000
                   minimum: 1
                   type: integer
+                maxDowntimeSteps:
+                  description: |-
+                    MaxDowntimeSteps is the number of incremental steps used to reach the
+                    MaxDowntimeMs value: the migration starts with a max downtime of
+                    MaxDowntimeMs/MaxDowntimeSteps milliseconds and increases it linearly up
+                    to MaxDowntimeMs, waiting 75 seconds per GiB of VM memory between
+                    increases. When unset or 0, no stepping is performed. Inspired by
+                    OpenStack Nova's live_migration_downtime_steps.
+                  format: int32
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -16342,6 +16362,16 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int64
                   maximum: 2000000
                   minimum: 1
+                  type: integer
+                maxDowntimeSteps:
+                  description: |-
+                    MaxDowntimeSteps is the number of incremental steps used to reach the
+                    MaxDowntimeMs value: the migration starts with a max downtime of
+                    MaxDowntimeMs/MaxDowntimeSteps milliseconds and increases it linearly up
+                    to MaxDowntimeMs, waiting 75 seconds per GiB of VM memory between
+                    increases. When unset or 0, no stepping is performed. Inspired by
+                    OpenStack Nova's live_migration_downtime_steps.
+                  format: int32
                   type: integer
                 network:
                   description: |-

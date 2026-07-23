@@ -1322,6 +1322,20 @@ const (
 	// Migration will stay in Pending state while utility volumes exist, and will fail if they are not removed before timeout
 	MigrationUtilityVolumesTimeoutSecondsAnnotation string = "kubevirt.io/migrationUtilityVolumesTimeoutSeconds"
 
+	// MigrationMaxDowntimeMsAnnotation overrides, for this VMI, the maximum
+	// tolerable downtime (in milliseconds) during the live migration
+	// switchover. It overrides the cluster wide
+	// MigrationConfiguration.MaxDowntimeMs value.
+	// This exists for experimentation (PoC).
+	MigrationMaxDowntimeMsAnnotation string = "kubevirt.io/migrationMaxDowntimeMs"
+
+	// MigrationMaxDowntimeStepsAnnotation overrides, for this VMI, the number
+	// of incremental steps used to reach the migration max downtime value. It
+	// overrides the cluster wide MigrationConfiguration.MaxDowntimeSteps
+	// value.
+	// This exists for experimentation (PoC).
+	MigrationMaxDowntimeStepsAnnotation string = "kubevirt.io/migrationMaxDowntimeSteps"
+
 	// CustomLibvirtLogFiltersAnnotation can be used to customized libvirt log filters. Example value could be
 	// "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*".
 	// For more info: https://libvirt.org/kbase/debuglogs.html
@@ -3506,6 +3520,13 @@ type VMIMConfigurationOptions struct {
 	//+kubebuilder:validation:Minimum=1
 	//+kubebuilder:validation:Maximum=2000000
 	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
+	// MaxDowntimeSteps is the number of incremental steps used to reach the
+	// MaxDowntimeMs value: the migration starts with a max downtime of
+	// MaxDowntimeMs/MaxDowntimeSteps milliseconds and increases it linearly up
+	// to MaxDowntimeMs, waiting 75 seconds per GiB of VM memory between
+	// increases. When unset or 0, no stepping is performed. Inspired by
+	// OpenStack Nova's live_migration_downtime_steps.
+	MaxDowntimeSteps *uint32 `json:"maxDowntimeSteps,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
 	// then considered stuck and therefore cancelled. Defaults to 150
@@ -3571,6 +3592,13 @@ type MigrationConfiguration struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=2000000
 	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
+	// MaxDowntimeSteps is the number of incremental steps used to reach the
+	// MaxDowntimeMs value: the migration starts with a max downtime of
+	// MaxDowntimeMs/MaxDowntimeSteps milliseconds and increases it linearly up
+	// to MaxDowntimeMs, waiting 75 seconds per GiB of VM memory between
+	// increases. When unset or 0, no stepping is performed. Inspired by
+	// OpenStack Nova's live_migration_downtime_steps.
+	MaxDowntimeSteps *uint32 `json:"maxDowntimeSteps,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
 	// then considered stuck and therefore cancelled. Defaults to 150
