@@ -580,9 +580,9 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	if !vmi.Status.MigrationState.Failed {
 		delete(vmi.Annotations, v1.CreateMigrationTarget)
 		// Clear SourceState/TargetState after a successful decentralized migration.
-		// This is intentional: IsDecentralizedMigration() requires both to be non-nil,
-		// so clearing flips that to false and lets the target VMI be treated as a normal
-		// Running guest. Safe because:
+		// This is intentional: IsDecentralizedMigration() keys off SyncAddress on those
+		// states, so clearing flips that to false and lets the target VMI be treated as
+		// a normal Running guest. Safe because:
 		// - finalCleanup only runs when EndTimestamp is set and Completed/Failed
 		// - source-side Halted runstrategy still sees SourceState on the source VMI
 		// - in-progress helpers (IsMigrationSourceSynchronized, target prepare waits)
