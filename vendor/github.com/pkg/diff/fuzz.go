@@ -7,6 +7,10 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+
+	"github.com/pkg/diff/ctxt"
+	"github.com/pkg/diff/myers"
+	"github.com/pkg/diff/write"
 )
 
 func Fuzz(data []byte) int {
@@ -23,9 +27,12 @@ func Fuzz(data []byte) int {
 	a := data[:nul]
 	b := data[nul:]
 	ab := &IndividualBytes{a: a, b: b}
-	e := Myers(context.Background(), ab)
-	e = e.WithContextSize(sz)
-	e.WriteUnified(ioutil.Discard, ab)
+	s := myers.Diff(context.Background(), ab)
+	s = ctxt.Size(s, sz)
+	err := write.Unified(s, ioutil.Discard, ab)
+	if err != nil {
+		panic(err)
+	}
 	return 0
 }
 
