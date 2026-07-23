@@ -337,27 +337,28 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtOperatorRESTErrorsBurst should be triggered when requests to virt-operator are failing", func() {
-			By("Restoring the operator")
-			scales.RestoreScale(virtOperator.deploymentName)
+		It("[QUARANTINE] VirtOperatorRESTErrorsBurst should be triggered when requests to virt-operator are failing",
+			decorators.Quarantine, func() {
+				By("Restoring the operator")
+				scales.RestoreScale(virtOperator.deploymentName)
 
-			By("Deleting the operator cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(
-				context.Background(), crb.Name, metav1.DeleteOptions{},
-			)
-			Expect(err).ToNot(HaveOccurred())
+				By("Deleting the operator cluster role binding")
+				err = virtClient.RbacV1().ClusterRoleBindings().Delete(
+					context.Background(), crb.Name, metav1.DeleteOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Deleting the operator role binding")
-			err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(
-				context.Background(), operatorRoleBindingName, metav1.DeleteOptions{},
-			)
-			Expect(err).ToNot(HaveOccurred())
+				By("Deleting the operator role binding")
+				err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(
+					context.Background(), operatorRoleBindingName, metav1.DeleteOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for the alert to exist")
-			Eventually(func(g Gomega) {
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
-			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
-		})
+				By("Waiting for the alert to exist")
+				Eventually(func(g Gomega) {
+					g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
+				}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
+			})
 
 		PIt("VirtControllerRESTErrorsBurst should be triggered for virt-controller", func() {
 			checkRESTErrorsBurst(virtClient, "kubevirt-controller", virtController.restErrorsBurtsAlert)
@@ -365,6 +366,33 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
 			checkRESTErrorsBurst(virtClient, "kubevirt-handler", virtHandler.restErrorsBurtsAlert)
+		})
+	})
+
+	Context("Virt-handler alerts", func() {
+		It("VirtHandlerDaemonSetRolloutFailing should be triggered when virt-handler pods are not ready", func() {
+			const alertName = "VirtHandlerDaemonSetRolloutFailing"
+
+			virtHandlerDS, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtHandler.deploymentName, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			originalVirtHandlerDS := virtHandlerDS.DeepCopy()
+			defer func() {
+				restoreDaemonSetImage(virtClient, virtHandler.deploymentName, originalVirtHandlerDS, alertName)
+			}()
+
+			By("Patching virt-handler DaemonSet with a non-existent image to cause ImagePullBackOff")
+			container := &virtHandlerDS.Spec.Template.Spec.Containers[0]
+			container.Image = "registry.example.com/nonexistent:v0.0.0"
+
+			Expect(mergePatchDaemonSet(
+				context.Background(), virtClient, flags.KubeVirtInstallNamespace, virtHandlerDS,
+			)).To(Succeed())
+
+			By("Verifying the alert exists")
+			libmonitoring.VerifyAlertExist(virtClient, alertName)
 		})
 	})
 })

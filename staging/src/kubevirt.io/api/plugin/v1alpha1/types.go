@@ -69,6 +69,8 @@ type PluginSpec struct {
 	DomainHooks []DomainHook `json:"domainHooks,omitempty"`
 
 	// NodeHooks defines hooks that execute during VM lifecycle events.
+	// Hooks are applied in declaration order within each plugin.
+	// Across plugins, hooks are applied in alphabetical order by plugin name.
 	// +optional
 	// +listType=atomic
 	NodeHooks []NodeHook `json:"nodeHooks,omitempty"`
@@ -98,6 +100,16 @@ type FailureStrategy string
 const (
 	FailureStrategyFail   FailureStrategy = "Fail"
 	FailureStrategyIgnore FailureStrategy = "Ignore"
+)
+
+// InvocationContext identifies why a domain hook is being invoked.
+// +enum
+type InvocationContext string
+
+const (
+	InvocationContextBoot            InvocationContext = "Boot"
+	InvocationContextMigrationSource InvocationContext = "MigrationSource"
+	InvocationContextMigrationTarget InvocationContext = "MigrationTarget"
 )
 
 // DomainHook defines a hook that modifies the libvirt domain XML.
@@ -135,6 +147,8 @@ type SidecarDomainHook struct {
 // NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.
 // Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations
 // such as configuring networking, storage preparation, or device management.
+// Hooks may fire multiple times for the same lifecycle event due to reconciliation retries.
+// Implementations must be idempotent.
 type NodeHook struct {
 	// Socket is the path to the Unix socket for hook communication.
 	// +kubebuilder:validation:MinLength=1
@@ -164,7 +178,6 @@ const (
 	NodeHookPreVMStop           NodeHookPoint = "PreVMStop"
 	NodeHookPostVMStop          NodeHookPoint = "PostVMStop"
 	NodeHookPreMigrationSource  NodeHookPoint = "PreMigrationSource"
-	NodeHookPostMigrationSource NodeHookPoint = "PostMigrationSource"
 	NodeHookPreMigrationTarget  NodeHookPoint = "PreMigrationTarget"
 	NodeHookPostMigrationTarget NodeHookPoint = "PostMigrationTarget"
 )

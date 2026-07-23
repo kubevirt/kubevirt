@@ -87,7 +87,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 
 		BeforeEach(func() {
 			By("Creating a VM")
-			vmi := libvmifact.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -98,7 +98,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
+			Expect(console.LoginToFedora(hotPluggedVMI)).To(Succeed())
 
 			By("Creating a NAD")
 			Expect(createSRIOVNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), nadName, sriovResourceName)).To(Succeed())
@@ -165,29 +165,14 @@ func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourc
 	return err
 }
 
-func newSRIOVNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
-	network := v1.Network{
-		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: netAttachDefName,
-			},
-		},
-	}
-	iface := v1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
-	}
-	return network, iface
-}
-
 func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
-	newNetwork, newIface := newSRIOVNetworkInterface(name, netAttachDefName)
 	mac, err := libnet.GenerateRandomMac()
 	if err != nil {
 		return err
 	}
-	return libnet.PatchVMWithNewInterface(vm, newNetwork, libvmi.InterfaceWithMac(newIface, mac.String()))
+	newNetwork := *libvmi.MultusNetwork(name, netAttachDefName)
+	newIface := libvmi.NewInterface(name, libvmi.WithSRIOVBinding(), libvmi.WithMac(mac.String()))
+	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
 }
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {

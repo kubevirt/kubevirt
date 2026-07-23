@@ -31,6 +31,7 @@ const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
 const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
 
 const ContainerNameEnvVar = "CONTAINER_NAME"
+const NetworkBindingPluginNameEnvVar = "NETWORK_BINDING_PLUGIN_NAME"
 
 type HookSidecarList []HookSidecar
 
@@ -47,13 +48,14 @@ type PVC struct {
 }
 
 type HookSidecar struct {
-	Image           string                           `json:"image,omitempty"`
-	ImagePullPolicy k8sv1.PullPolicy                 `json:"imagePullPolicy"`
-	Command         []string                         `json:"command,omitempty"`
-	Args            []string                         `json:"args,omitempty"`
-	ConfigMap       *ConfigMap                       `json:"configMap,omitempty"`
-	PVC             *PVC                             `json:"pvc,omitempty"`
-	DownwardAPI     v1.NetworkBindingDownwardAPIType `json:"-"`
+	Image                    string                           `json:"image,omitempty"`
+	ImagePullPolicy          k8sv1.PullPolicy                 `json:"imagePullPolicy"`
+	Command                  []string                         `json:"command,omitempty"`
+	Args                     []string                         `json:"args,omitempty"`
+	ConfigMap                *ConfigMap                       `json:"configMap,omitempty"`
+	PVC                      *PVC                             `json:"pvc,omitempty"`
+	DownwardAPI              v1.NetworkBindingDownwardAPIType `json:"-"`
+	NetworkBindingPluginName string                           `json:"-"`
 }
 
 func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {

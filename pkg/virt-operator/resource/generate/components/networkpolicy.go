@@ -39,6 +39,7 @@ const (
 	allowExportProxyCommunications    = "kubevirt-allow-virt-exportproxy-communications"
 	allowHandlerToHandler             = "kubevirt-allow-handler-to-handler"
 	allowHandlerToPrometheus          = "kubevirt-allow-handler-to-prometheus"
+	allowObservabilityToHandlers      = "kubevirt-allow-observability-to-virt-handler"
 )
 
 // NewKubeVirtNetworkPolicies returns the network policies required by kv to operate
@@ -54,6 +55,7 @@ func NewKubeVirtNetworkPolicies(namespace string) []*networkv1.NetworkPolicy {
 		newExportProxyNP(namespace),
 		newHandlerToHandlerNP(namespace),
 		newHandlerToPrometheusNP(namespace),
+		newObservabilityToHandlersNP(namespace),
 	}
 }
 
@@ -88,6 +90,7 @@ func newIngressToMetricsNP(namespace string) *networkv1.NetworkPolicy {
 							VirtAPIName,
 							VirtExportProxyName,
 							VirtSynchronizationControllerName,
+							VirtObservabilityControllerName,
 						},
 					},
 				},
@@ -98,6 +101,10 @@ func newIngressToMetricsNP(namespace string) *networkv1.NetworkPolicy {
 					Ports: []networkv1.NetworkPolicyPort{
 						{
 							Port:     pointer.P(intstr.FromInt32(8443)),
+							Protocol: pointer.P(k8sv1.ProtocolTCP),
+						},
+						{
+							Port:     pointer.P(intstr.FromInt32(8187)),
 							Protocol: pointer.P(k8sv1.ProtocolTCP),
 						},
 					},
@@ -372,6 +379,36 @@ func newHandlerToPrometheusNP(namespace string) *networkv1.NetworkPolicy {
 					Ports: []networkv1.NetworkPolicyPort{
 						{
 							Port:     pointer.P(intstr.FromInt32(8443)),
+							Protocol: pointer.P(k8sv1.ProtocolTCP),
+						},
+					},
+				},
+			},
+		},
+	)
+}
+
+func newObservabilityToHandlersNP(namespace string) *networkv1.NetworkPolicy {
+	return newNetworkPolicy(
+		namespace,
+		allowObservabilityToHandlers,
+		&networkv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{kubevirtLabelKey: VirtObservabilityControllerName},
+			},
+			PolicyTypes: []networkv1.PolicyType{networkv1.PolicyTypeEgress},
+			Egress: []networkv1.NetworkPolicyEgressRule{
+				{
+					To: []networkv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{kubevirtLabelKey: VirtHandlerName},
+							},
+						},
+					},
+					Ports: []networkv1.NetworkPolicyPort{
+						{
+							Port:     pointer.P(intstr.FromInt32(8187)),
 							Protocol: pointer.P(k8sv1.ProtocolTCP),
 						},
 					},

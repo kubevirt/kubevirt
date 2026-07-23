@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -51,10 +52,13 @@ func execute() error {
 	if value, exists := os.LookupEnv("CONTAINER_TAG"); exists {
 		args = append(args, "--container-tag", value)
 	}
+	if value, exists := os.LookupEnv("PRIMARY_NETWORK_BINDING_PLUGIN"); exists {
+		args = append(args, "--primary-network-binding-plugin", value)
+	}
 
 	args = append(args, "--config", "/conformance-config.json")
 
-	cmd := exec.Command("/usr/bin/go_default_test", args...)
+	cmd := exec.CommandContext(context.Background(), "/usr/bin/go_default_test", args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("ARTIFACTS=%s", resultsDir))
 	cmd.Stderr = os.Stderr

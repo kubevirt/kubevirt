@@ -735,6 +735,9 @@ const (
 
 	// VirtualMachineInstanceEvictionRequested indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceEvictionRequested VirtualMachineInstanceConditionType = "EvictionRequested"
+
+	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
+	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
 )
 
 // These are valid reasons for VMI conditions.
@@ -1029,7 +1032,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
-	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
+	VMIMConfigurationOptions *VMIMConfigurationOptions `json:"migrationConfiguration,omitempty"`
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic
@@ -1158,6 +1161,11 @@ const (
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
 	CreatedByLabel string = "kubevirt.io/created-by"
+	// Owner VMI name/UID recorded on a pod, used to recover the VMI when the
+	// owner chain cannot be resolved. Used on Pod.
+	// Internal use only.
+	OwnerVMINameAnnotation string = "kubevirt.io/owner-vmi-name"
+	OwnerVMIUIDAnnotation  string = "kubevirt.io/owner-vmi-uid"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
 	// This label indicates the migration name that a PDB is protecting.
@@ -1226,8 +1234,6 @@ const (
 	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
 	// This annotation stores the memory overhead calculated for the virt-launcher pod
 	MemoryOverheadAnnotationBytes string = "kubevirt.io/memory-overhead-bytes"
-	// This annotation indicates the VMI contains an ephemeral hotplug volume
-	EphemeralHotplugAnnotation string = "kubevirt.io/ephemeral-hotplug-volumes"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
@@ -1342,6 +1348,9 @@ const (
 
 	// TDXLabel marks the node as capable of running workloads with Intel TDX
 	TDXLabel string = "kubevirt.io/tdx"
+
+	// VMArchLabel marks the node as capable of running VMs of a given architecture
+	VMArchLabel string = "kubevirt.io/vm-arch-"
 
 	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
@@ -2251,6 +2260,9 @@ type VirtualMachineInstanceBackupStatus struct {
 	// +optional
 	// +listType=atomic
 	Volumes []backupv1.BackupVolumeInfo `json:"volumes,omitempty"`
+	// QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.
+	// +optional
+	QuiesceStatus string `json:"quiesceStatus,omitempty"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM
@@ -2543,7 +2555,10 @@ type KubeVirtSpec struct {
 	// Defaults to the same registry the operator's container image is pulled from.
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 
-	// The ImagePullPolicy to use.
+	// The ImagePullPolicy to use for KubeVirt operator-managed infrastructure
+	// images (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).
+	// For pull policy of user workload pods, see
+	// spec.configuration.imagePullPolicy.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 
 	// The imagePullSecrets to pull the container images from
@@ -2728,7 +2743,6 @@ const (
 	// Whether all resources were created and up-to-date
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 
-	// Conditions for HCO, see https://github.com/kubevirt/hyperconverged-cluster-operator/blob/master/docs/conditions.md
 	// Whether KubeVirt is functional and available in the cluster.
 	KubeVirtConditionAvailable KubeVirtConditionType = "Available"
 	// Whether the operator is actively making changes to KubeVirt
@@ -3072,7 +3086,10 @@ type KubeVirtConfiguration struct {
 	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
 	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
 	// Deprecated. Use architectureConfiguration instead.
-	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
+	EmulatedMachines []string `json:"emulatedMachines,omitempty"`
+	// The ImagePullPolicy to use for user workload pods and their containers
+	// (launcher pods, exporter pods, etc.).
+	// For KubeVirt infrastructure images, use spec.imagePullPolicy instead.
 	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
 	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
 	// Deprecated. Use architectureConfiguration instead.
@@ -3173,8 +3190,8 @@ type KubeVirtConfiguration struct {
 	// to the default Kubernetes roles (admin, edit, view).
 	// When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
 	// When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
-	// Setting this field to "Manual" requires the OptOutRoleAggregation feature gate to be enabled.
-	// This is an Alpha feature and subject to change.
+	// Setting RoleAggregationStrategy to "Manual" requires the OptOutRoleAggregation feature gate
+	// to be enabled (Beta, enabled by default since v1.9.0).
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
@@ -3387,6 +3404,145 @@ type TLSConfiguration struct {
 	Ciphers []string `json:"ciphers,omitempty"`
 }
 
+type StallDetectorOptions struct {
+	// StallMargin is the fractional tolerance, expressed as a percentage, used when
+	// comparing remaining migration bytes against the best observed value to detect stalls
+	// and local minima. A stall is reported when remaining bytes stay above
+	// (1 - StallMargin/100) of the outside-window minimum.
+	// Defaults to 4.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=100
+	//+optional
+	StallMargin *int64 `json:"stallMargin,omitempty"`
+	// EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+	// observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
+	// the estimate would never incorporate new samples. Higher values weight recent samples
+	// more heavily.
+	// Defaults to "0.4".
+	//+optional
+	EwmaAlpha *string `json:"ewmaAlpha,omitempty"`
+	// StallProgressTimeout is the duration in seconds of the sliding window used to track
+	// minimum remaining-bytes and detect when migration progress has stalled.
+	// Defaults to 40.
+	//+optional
+	StallProgressTimeout *uint64 `json:"stallProgressTimeout,omitempty"`
+	// SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+	// switchover to complete after being triggered before the migration is aborted.
+	// Defaults to 60.
+	//+optional
+	SwitchoverTimeout *uint64 `json:"switchoverTimeout,omitempty"`
+	// PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+	// MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+	// Defaults to "1.5".
+	//+optional
+	PrecopyPossibleFactor *string `json:"precopyPossibleFactor,omitempty"`
+	// PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+	// multiplied after each best-remaining-bytes relaxation step.
+	// Defaults to "0.5".
+	//+optional
+	PatienceWindowDecayFactor *string `json:"patienceWindowDecayFactor,omitempty"`
+	// SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+	// reach a local minimum near the best observed value. When false, actions may trigger
+	// as soon as a stall is detected.
+	// Defaults to true.
+	//+optional
+	SearchLocalMinima *bool `json:"searchLocalMinima,omitempty"`
+	// CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+	// the total time budget for deciding whether a forced switchover can still finish in time,
+	// and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+	// Defaults to "2".
+	//+optional
+	CompletionTimeoutFactor *string `json:"completionTimeoutFactor,omitempty"`
+}
+
+// MigrationCompression represents the compression method for live migration.
+type MigrationCompression string
+
+const (
+	// MigrationCompressionNone disables compression.
+	MigrationCompressionNone MigrationCompression = "none"
+	// MigrationCompressionZstd enables zstd compression on multifd channels.
+	MigrationCompressionZstd MigrationCompression = "zstd"
+)
+
+// ExperimentalMigrationOptions is an alpha API for experimental migration tunables.
+// It is intended for experimental purposes only and will be removed in the future.
+type ExperimentalMigrationOptions struct {
+	//+optional
+	StallDetector *StallDetectorOptions `json:"stallDetector,omitempty"`
+	// Compression selects the algorithm for compressing the live migration
+	// data stream. When omitted (nil) or set to "none", compression is
+	// disabled.
+	// +kubebuilder:validation:Enum=none;zstd
+	//+optional
+	Compression *MigrationCompression `json:"compression,omitempty"`
+}
+
+// VMIMConfigurationOptions holds the resolved migration options for a single migration.
+// It is written to VirtualMachineInstanceMigrationState and represents the effective
+// configuration after merging KubeVirt defaults with any matched MigrationPolicy.
+type VMIMConfigurationOptions struct {
+	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
+	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
+	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
+	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
+	// allowed per node. Defaults to 2
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
+	// allowed cluster-wide. Defaults to 5
+	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
+	// guarantee successful VMI live migrations. Defaults to false
+	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
+	// BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.
+	// The value is in quantity per second. Defaults to 0 (no limit)
+	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	// CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
+	// If the timeout is reached, the migration will be either paused, switched
+	// to post-copy or cancelled depending on other settings. Defaults to 150
+	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
+	// MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+	// Defaults to 900
+	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Maximum=2000000
+	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
+	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
+	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
+	// then considered stuck and therefore cancelled. Defaults to 150
+	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
+	// UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+	// for utility volumes to be detached. If utility volumes are still present after this timeout,
+	// the migration will be marked as Failed. Defaults to 150
+	UtilityVolumesTimeout *int64 `json:"utilityVolumesTimeout,omitempty"`
+	// UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
+	// indicates the migration will be unsafe to the guest. Defaults to false
+	UnsafeMigrationOverride *bool `json:"unsafeMigrationOverride,omitempty"`
+	// AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
+	// to successfully live-migrate. However, events like a network failure can cause a VMI crash.
+	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
+	// CompletionTimeoutPerGiB triggers. Defaults to false
+	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	// AllowWorkloadDisruption indicates that the migration shouldn't be
+	// canceled after acceptableCompletionTime is exceeded. Instead, if
+	// permitted, migration will be switched to post-copy or the VMI will be
+	// paused to allow the migration to complete
+	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// When set to true, DisableTLS will disable the additional layer of live migration encryption
+	// provided by KubeVirt. This is usually a bad idea. Defaults to false
+	DisableTLS *bool `json:"disableTLS,omitempty"`
+	// Network is the name of the CNI network to use for live migrations. By default, migrations go
+	// through the pod network.
+	Network *string `json:"network,omitempty"`
+	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
+	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
+	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
+	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
+	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// ExperimentalMigrationOptions is an alpha API. It is intended for experimental
+	// purposes only and will be removed in the future.
+	ExperimentalMigrationOptions *ExperimentalMigrationOptions `json:"experimental,omitempty"`
+}
+
 // MigrationConfiguration holds migration options.
 // Can be overridden for specific groups of VMs though migration policies.
 // Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
@@ -3410,6 +3566,11 @@ type MigrationConfiguration struct {
 	// If the timeout is reached, the migration will be either paused, switched
 	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
+	// MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+	// Defaults to 900
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=2000000
+	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
 	// then considered stuck and therefore cancelled. Defaults to 150

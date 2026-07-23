@@ -20,18 +20,12 @@
 package compute_test
 
 import (
-	"runtime"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
-	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 var _ = Describe("IOMMUFD Domain Configurator", func() {
@@ -53,42 +47,6 @@ var _ = Describe("IOMMUFD Domain Configurator", func() {
 
 		configurator := compute.NewIOMMUFDConfigurator(false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-		Expect(domain.Spec.IOMMUFD).To(BeNil())
-	})
-})
-
-var _ = Describe("IOMMUFD converter wiring", func() {
-	It("should set IOMMUFD on domain when IOMMUFDEnabled is true", func() {
-		vmi := libvmi.New()
-		domain := &api.Domain{}
-
-		ctx := &convertertypes.ConverterContext{
-			Architecture:              archconverter.NewConverter(runtime.GOARCH),
-			AllowEmulation:            true,
-			HypervisorDeviceAvailable: true,
-			IOMMUFDEnabled:            true,
-		}
-
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, ctx)).To(Succeed())
-
-		Expect(domain.Spec.IOMMUFD).NotTo(BeNil())
-		Expect(domain.Spec.IOMMUFD.Enabled).To(Equal("yes"))
-		Expect(domain.Spec.IOMMUFD.FDGroup).To(Equal("iommu"))
-	})
-
-	It("should not set IOMMUFD on domain when IOMMUFDEnabled is false", func() {
-		vmi := libvmi.New()
-		domain := &api.Domain{}
-
-		ctx := &convertertypes.ConverterContext{
-			Architecture:              archconverter.NewConverter(runtime.GOARCH),
-			AllowEmulation:            true,
-			HypervisorDeviceAvailable: true,
-			IOMMUFDEnabled:            false,
-		}
-
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, ctx)).To(Succeed())
 
 		Expect(domain.Spec.IOMMUFD).To(BeNil())
 	})

@@ -96,3 +96,7 @@ func (converterAMD64) SupportPCIHole64Disabling() bool {
 func (converterAMD64) SupportPCIePlacement() bool {
 	return true
 }
+
+func (converterAMD64) IsMemfdSupported() bool {
+	return true
+}

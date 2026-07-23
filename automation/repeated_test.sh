@@ -43,7 +43,7 @@ export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''
 source hack/config-default.sh
 
-CANNIER_IMAGE="${CANNIER_IMAGE-quay.io/kubevirtci/cannier:v20250328-a1ef64e}"
+GINKGO_TESTS_IMAGE="${GINKGO_TESTS_IMAGE-quay.io/kubevirtci/ginkgo-tests:v20260708-fc5fb56}"
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
@@ -58,7 +58,7 @@ usage: [NUM_TESTS=x] \
     hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
-        CANNIER_IMAGE        the container image to use to execute cannier
+        GINKGO_TESTS_IMAGE        the container image to use to execute cannier
                              command
         NUM_TESTS            how many times the test lane is run, default is 5
         INVOKE_FUNCTEST_ONCE if set to 'true', instead of invoking functests
@@ -100,22 +100,16 @@ function new_tests() {
         target_commit_range=('-r' "${target_commit_range}")
     fi
 
-    # The CANNIER project provides (among others) the command `extract changed-tests` that extracts the names of
-    # changed tests from a commit range into a json file.
-    #
-    # For reference - the latter is part of a bigger effort implementing a new re-run strategy
-    # leveraging ML to predict test flakiness. Initial implementation of the CANNIER approach set of tools is done here:
-    # https://github.com/kubevirt/project-infra/pull/3930
-
     tmp_dir="$(mktemp -d)"
+    # ignore stderr during execution caused by ginkgo compile
     podman run --rm \
-        -v "${KUBEVIRT_ROOT}:/kubevirt/" \
-        -v "${tmp_dir}:/tmp" \
-        "${CANNIER_IMAGE}" \
-        extract changed-tests "${target_commit_range[@]}" \
+        -v "${KUBEVIRT_ROOT}:/kubevirt/:z" \
+        -v "${tmp_dir}:/tmp:z" \
+        "${GINKGO_TESTS_IMAGE}" \
+        changed "${target_commit_range[@]}" \
         -p /kubevirt \
-        -t /kubevirt/tests/ \
-        -o /tmp/changed-tests.json
+        -t tests/ \
+        -o /tmp/changed-tests.json > /dev/null 2>&1
 
     echo "${tmp_dir}/changed-tests.json"
 }
@@ -172,7 +166,9 @@ if [[ -z ${TARGET_COMMIT_RANGE-} ]]; then
 fi
 
 if [[ -z ${NEW_TESTS-} ]]; then
+    echo "TARGET_COMMIT_RANGE: $TARGET_COMMIT_RANGE"
     NEW_TESTS=$(new_tests "$TARGET_COMMIT_RANGE")
+    echo "NEW_TESTS: $NEW_TESTS"
 fi
 
 if [[ -z "${NEW_TESTS}" ]]; then
@@ -197,11 +193,16 @@ elif should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     exit 0
 fi
 
+# Tests triggered by a Prow batch should stop after the first failure to save CI resources
+if [[ -n ${PROW_JOB_ID:-} && ${JOB_TYPE} == "batch" ]]; then
+  ginkgo_params="$ginkgo_params --fail-fast"
+fi
+
 # for some tests we need three nodes aka two nodes with cpu manager installed
 # TODO: check whether no test with label `RequiresTwoWorkerNodesWithCPUManager` is present, in that case use two nodes
 KUBEVIRT_NUM_NODES=3
 
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
+trap '{ ret=$?; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM
 
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
 export KUBEVIRT_MEMORY_SIZE='9216M'
@@ -214,6 +215,7 @@ export KUBEVIRT_STORAGE="rook-ceph-default"
 export KUBEVIRT_DEPLOY_NFS_CSI=true
 export KUBEVIRT_DEPLOY_PROMETHEUS=true
 export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
+export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
 export KUBEVIRT_FLANNEL=true
 
 export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
@@ -237,10 +239,20 @@ add_to_label_filter() {
     fi
 }
 
+add_feature_gate() {
+  if [ -z "${FEATURE_GATES:-}" ]; then
+    export FEATURE_GATES="$1"
+  else
+    export FEATURE_GATES="$FEATURE_GATES,$1"
+  fi
+}
+
+add_feature_gate "Plugins"
+
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
 # skip certain tests on flake lane
-add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs))" "&&"
+add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU))" "&&"
 
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
@@ -250,12 +262,8 @@ add_to_label_filter '(!requireHugepages1Gi)' '&&'
 add_to_label_filter '(!USB)' '&&'
 add_to_label_filter '(!requires-arm64)' '&&'
 add_to_label_filter '(!requires-s390x)' '&&'
+add_to_label_filter '(!requires-cross-arch-emulation)' '&&'
 add_to_label_filter '(!RequiresPersistentReservation)' '&&'
-rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
-if [[ "${rwofs_sc}" == "local" ]]; then
-    # local is a primitive non CSI storage class that doesn't support expansion
-    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
-fi
 
 if ! kubectl get clusterversion version &>/dev/null; then
   add_to_label_filter '(!OpenShift)' '&&'

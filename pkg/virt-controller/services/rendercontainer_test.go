@@ -29,11 +29,11 @@ var _ = Describe("Container spec renderer", func() {
 
 	Context("with non root user option", func() {
 		BeforeEach(func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithNonRoot(nonRootUser))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithNonRoot(nonRootUser))
 		})
 
 		It("should feature the XDG environment variables", func() {
-			Expect(specRenderer.Render(exampleCommand).Env).Should(
+			Expect(specRenderer.Render().Env).Should(
 				ConsistOf(
 					k8sv1.EnvVar{
 						Name:  cacheHomeEnvVarName,
@@ -56,11 +56,11 @@ var _ = Describe("Container spec renderer", func() {
 		}
 		Context("a VMI running as root", func() {
 			BeforeEach(func() {
-				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCapabilities(simplestVMI()))
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithCapabilities(simplestVMI()))
 			})
 
 			It("must request to add the NET_BIND_SERVICE and SYS_NICE capabilities", func() {
-				Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).To(
+				Expect(specRenderer.Render().SecurityContext.Capabilities.Add).To(
 					ConsistOf(allowedCapabilities))
 			})
 
@@ -71,11 +71,11 @@ var _ = Describe("Container spec renderer", func() {
 						containerName,
 						img,
 						pullPolicy,
-						WithCapabilities(vmiWithVirtioFS(rootUser)))
+						WithCommand(exampleCommand), WithCapabilities(vmiWithVirtioFS(rootUser)))
 				})
 
 				It("cannot request additional capabilities", func() {
-					Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).Should(
+					Expect(specRenderer.Render().SecurityContext.Capabilities.Add).Should(
 						ConsistOf(allowedCapabilities))
 				})
 			})
@@ -88,11 +88,11 @@ var _ = Describe("Container spec renderer", func() {
 					containerName,
 					img,
 					pullPolicy,
-					WithCapabilities(nonRootVMI(nonRootUser)))
+					WithCommand(exampleCommand), WithCapabilities(nonRootVMI(nonRootUser)))
 			})
 
 			It("must request the NET_BIND_SERVICE capability", func() {
-				Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).Should(
+				Expect(specRenderer.Render().SecurityContext.Capabilities.Add).Should(
 					ConsistOf(k8sv1.Capability(CAP_NET_BIND_SERVICE)))
 			})
 		})
@@ -105,8 +105,8 @@ var _ = Describe("Container spec renderer", func() {
 		)
 
 		DescribeTable("the expected `VolumeDevice`s are rendered into the container", func(devices ...k8sv1.VolumeDevice) {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithVolumeDevices(devices...))
-			Expect(specRenderer.Render(exampleCommand).VolumeDevices).To(ConsistOf(devices))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithVolumeDevices(devices...))
+			Expect(specRenderer.Render().VolumeDevices).To(ConsistOf(devices))
 		},
 			Entry("no volume devices are passed as options"),
 			Entry("one optional volume device is added to the renderer", volumeDevice(volumeName, volumePath)),
@@ -120,8 +120,8 @@ var _ = Describe("Container spec renderer", func() {
 		)
 
 		DescribeTable("the expected `VolumeMount`s are rendered into the container", func(mounts ...k8sv1.VolumeMount) {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithVolumeMounts(mounts...))
-			Expect(specRenderer.Render(exampleCommand).VolumeMounts).To(ConsistOf(mounts))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithVolumeMounts(mounts...))
+			Expect(specRenderer.Render().VolumeMounts).To(ConsistOf(mounts))
 		},
 			Entry("no volume devices are passed as options"),
 			Entry("one optional volume device is added to the renderer", volumeMount(mountName, mountPath)),
@@ -134,27 +134,27 @@ var _ = Describe("Container spec renderer", func() {
 		BeforeEach(func() {
 			expectedResource = resources("10", "100")
 			specRenderer = NewContainerSpecRenderer(
-				containerName, img, pullPolicy, WithResourceRequirements(expectedResource))
+				containerName, img, pullPolicy, WithCommand(exampleCommand), WithResourceRequirements(expectedResource))
 		})
 
 		It("the resource requirements are rendered into the container", func() {
-			Expect(specRenderer.Render(exampleCommand).Resources).To(Equal(expectedResource))
+			Expect(specRenderer.Render().Resources).To(Equal(expectedResource))
 		})
 	})
 
 	Context("with no capabilities option", func() {
 		It("all capabilities should be dropped", func() {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithNoCapabilities())
-			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithNoCapabilities())
+			Expect(specRenderer.Render().SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
 		})
 	})
 
 	Context("with drop-all capabilities option", func() {
 		It("all capabilities should be dropped, but added caps should be kept", func() {
 			vmi := simplestVMI()
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCapabilities(vmi), WithDropALLCapabilities())
-			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
-			Expect(specRenderer.Render(exampleCommand).SecurityContext.Capabilities.Add).ToNot(BeEmpty())
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithCapabilities(vmi), WithDropALLCapabilities())
+			Expect(specRenderer.Render().SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
+			Expect(specRenderer.Render().SecurityContext.Capabilities.Add).ToNot(BeEmpty())
 		})
 	})
 
@@ -168,14 +168,14 @@ var _ = Describe("Container spec renderer", func() {
 				{Protocol: "UDP", Port: 80},
 				{Port: 90},
 				{Name: "other-http", Port: 80}}
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPorts(
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithPorts(
 				vmiWithInterfaceWithPortAllowList(ifaceName, ports...)))
 		})
 
 		It("the container should feature the same port list", func() {
-			Expect(specRenderer.Render(exampleCommand).Ports).To(HaveLen(len(ports)))
+			Expect(specRenderer.Render().Ports).To(HaveLen(len(ports)))
 			for i := range ports {
-				Expect(specRenderer.Render(exampleCommand).Ports[i]).To(
+				Expect(specRenderer.Render().Ports[i]).To(
 					Equal(vmPortToContainerPort(ports[i])))
 			}
 		})
@@ -183,9 +183,9 @@ var _ = Describe("Container spec renderer", func() {
 
 	Context("container command and arguments", func() {
 		DescribeTable("", func(args ...string) {
-			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithArgs(args))
-			Expect(specRenderer.Render(exampleCommand).Command).To(Equal(exampleCommand))
-			Expect(specRenderer.Render(exampleCommand).Args).To(Equal(args))
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithArgs(args))
+			Expect(specRenderer.Render().Command).To(Equal(exampleCommand))
+			Expect(specRenderer.Render().Args).To(Equal(args))
 		},
 			Entry("without input args"),
 			Entry("with an input argument", "do-stuff"),
@@ -196,18 +196,18 @@ var _ = Describe("Container spec renderer", func() {
 		Context("readiness probe", func() {
 			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
 				probe := dummyProbe()
-				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithReadinessProbe(
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithReadinessProbe(
 					vmiWithReadinessProbe(probe)))
-				Expect(specRenderer.Render(exampleCommand).ReadinessProbe).To(Equal(probeWithDelay(probe)))
+				Expect(specRenderer.Render().ReadinessProbe).To(Equal(probeWithDelay(probe)))
 			})
 		})
 
 		Context("liveness probe", func() {
 			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
 				probe := dummyProbe()
-				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithLivelinessProbe(
 					vmiWithLivenessProbe(probe)))
-				Expect(specRenderer.Render(exampleCommand).LivenessProbe).To(Equal(probeWithDelay(probe)))
+				Expect(specRenderer.Render().LivenessProbe).To(Equal(probeWithDelay(probe)))
 			})
 		})
 
@@ -217,9 +217,9 @@ var _ = Describe("Container spec renderer", func() {
 				probe.Handler = v1.Handler{
 					Exec: &k8sv1.ExecAction{Command: []string{"dummy-cli"}},
 				}
-				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithLivelinessProbe(
 					vmiWithLivenessProbe(probe)))
-				Expect(specRenderer.Render(exampleCommand).LivenessProbe.Exec.Command).To(HaveExactElements(
+				Expect(specRenderer.Render().LivenessProbe.Exec.Command).To(HaveExactElements(
 					"virt-probe",
 					"--domainName", "_",
 					"--timeoutSeconds", strconv.FormatInt(int64(dummyProbe().TimeoutSeconds), 10),
@@ -235,9 +235,9 @@ var _ = Describe("Container spec renderer", func() {
 				probe.Handler = v1.Handler{
 					Exec: &k8sv1.ExecAction{Command: expectedExecCmd},
 				}
-				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithCommand(exampleCommand), WithLivelinessProbe(
 					vmiWithLivenessProbe(probe)))
-				Expect(specRenderer.Render(exampleCommand).LivenessProbe.Exec.Command).To(Equal(expectedExecCmd))
+				Expect(specRenderer.Render().LivenessProbe.Exec.Command).To(Equal(expectedExecCmd))
 			})
 		})
 	})

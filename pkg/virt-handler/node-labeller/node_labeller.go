@@ -21,8 +21,11 @@ package nodelabeller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -61,6 +64,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
 	kubevirtv1.SupportedMachineTypeLabel,
+	kubevirtv1.VMArchLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -85,6 +89,7 @@ type NodeLabeller struct {
 	SecureExecution         SecureExecutionConfiguration
 	TDX                     TDXConfiguration
 	arch                    archLabeller
+	supportedCrossArchs     []string
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
@@ -180,6 +185,8 @@ func (n *NodeLabeller) loadAll() error {
 	}
 
 	n.loadHypervFeatures()
+
+	n.loadCrossArchCapabilities()
 
 	return nil
 }
@@ -309,7 +316,44 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		newLabels[kubevirtv1.TDXLabel] = "true"
 	}
 
+	if n.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+		nativeArch := n.arch.arch()
+		newLabels[kubevirtv1.VMArchLabel+nativeArch] = "true"
+		for _, crossArch := range n.supportedCrossArchs {
+			newLabels[kubevirtv1.VMArchLabel+crossArch] = "true"
+		}
+	}
+
 	return newLabels
+}
+
+var unameToGoArch = map[string]string{
+	"x86_64":  "amd64",
+	"aarch64": "arm64",
+}
+
+func (n *NodeLabeller) loadCrossArchCapabilities() {
+	crossArchFiles := map[string]string{
+		"aarch64": "virsh_domcapabilities_aarch64.xml",
+		"x86_64":  "virsh_domcapabilities_x86_64.xml",
+	}
+	for unameArch, filename := range crossArchFiles {
+		goArch, ok := unameToGoArch[unameArch]
+		if !ok || goArch == n.arch.arch() {
+			continue
+		}
+		path := filepath.Join(n.volumePath, filename)
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		var caps HostDomCapabilities
+		if err := n.getStructureFromXMLFile(path, &caps); err != nil {
+			n.logger.Warningf("failed to parse cross-arch domcapabilities for %s: %v", unameArch, err)
+			continue
+		}
+		n.supportedCrossArchs = append(n.supportedCrossArchs, goArch)
+		n.logger.Infof("detected cross-architecture emulation support for %s", goArch)
+	}
 }
 
 func (n *NodeLabeller) getNode() (*v1.Node, error) {

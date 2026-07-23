@@ -20,7 +20,6 @@
 package ignition
 
 import (
-	"errors"
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -43,14 +42,14 @@ func GetIgnitionSource(vmi *v1.VirtualMachineInstance) string {
 func SetLocalDirectory(dir string) error {
 	err := util.MkdirAllWithNosec(dir)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Unable to initialize Ignition local cache directory (%s). %v", dir, err))
+		return fmt.Errorf("Unable to initialize Ignition local cache directory (%s): %w", dir, err)
 	}
 
 	exists, err := diskutils.FileExists(dir)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Ignition local cache directory (%s) does not exist or is inaccessible. %v", dir, err))
+		return fmt.Errorf("Ignition local cache directory (%s) does not exist or is inaccessible: %w", dir, err)
 	} else if exists == false {
-		return errors.New(fmt.Sprintf("Ignition local cache directory (%s) does not exist or is inaccessible.", dir))
+		return fmt.Errorf("Ignition local cache directory (%s) does not exist or is inaccessible", dir)
 	}
 
 	ignitionLocalDir = dir

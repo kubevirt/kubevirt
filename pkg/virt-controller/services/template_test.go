@@ -284,7 +284,7 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(*containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.MustParse("1")))
-				Expect(containers[0].Command).NotTo(ContainElements(allowEmulationOption))
+				Expect(containers[0].Args).NotTo(ContainElements(allowEmulationOption))
 			})
 
 			It("should not add the kvm resource and add the allow-emulation option when emulation is enabled", func() {
@@ -299,7 +299,55 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
-				Expect(containers[0].Command).To(ContainElements(allowEmulationOption))
+				Expect(containers[0].Args).To(ContainElements(allowEmulationOption))
+			})
+
+			It("should add the allow-cross-arch-emulation option when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Command).To(ContainElements("--allow-cross-arch-emulation"))
+			})
+
+			It("should not add the allow-cross-arch-emulation option by default", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Command).NotTo(ContainElements("--allow-cross-arch-emulation"))
+			})
+
+			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when CrossArchitectureVirtualization is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithArchitecture("arm64"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.NodeSelector).NotTo(HaveKey(k8sv1.LabelArchStable))
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.VMArchLabel+"arm64", "true"))
+
+				Expect(pod.Spec.Affinity).NotTo(BeNil())
+				Expect(pod.Spec.Affinity.NodeAffinity).NotTo(BeNil())
+				preferred := pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+				Expect(preferred).To(HaveLen(1))
+				Expect(preferred[0].Weight).To(Equal(int32(100)))
+				Expect(preferred[0].Preference.MatchExpressions).To(ConsistOf(
+					k8sv1.NodeSelectorRequirement{
+						Key:      k8sv1.LabelArchStable,
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"arm64"},
+					},
+				))
 			})
 		})
 
@@ -514,14 +562,15 @@ var _ = Describe("Template", func() {
 					v1.DeprecatedVirtualMachineNameLabel: "testvmi",
 					v1.VirtualMachineInstanceIDLabel:     "testvmi",
 				}))
-				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:                                  "testvmi",
-					"test":                                               "shouldBeInPod",
-					hooks.HookSidecarListAnnotationName:                  `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
-					"kubevirt.io/migrationTransportUnix":                 "true",
-					"kubectl.kubernetes.io/default-container":            "compute",
-					"descheduler.alpha.kubernetes.io/request-evict-only": "",
-				}))
+				Expect(pod.ObjectMeta.Annotations).To(And(
+					HaveKeyWithValue(v1.DomainAnnotation, "testvmi"),
+					HaveKeyWithValue("test", "shouldBeInPod"),
+					HaveKeyWithValue(hooks.HookSidecarListAnnotationName, `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`),
+					HaveKeyWithValue("kubevirt.io/migrationTransportUnix", "true"),
+					HaveKeyWithValue("kubectl.kubernetes.io/default-container", "compute"),
+					HaveKeyWithValue("descheduler.alpha.kubernetes.io/request-evict-only", ""),
+					HaveKey(v1.MemoryOverheadAnnotationBytes),
+				))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
 					Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
@@ -536,8 +585,9 @@ var _ = Describe("Template", func() {
 					k8sv1.LabelArchStable: arch,
 				}))
 
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
-					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor"}))
+				Expect(pod.Spec.Containers[0].Args).To(Equal([]string{
+					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Args),
 					"--name", "testvmi",
 					"--uid", "1234",
 					"--namespace", "testns",
@@ -1050,7 +1100,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.InitContainers).To(HaveLen(3))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
-				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp", "--preserve=all",
+				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp"}))
+				Expect(pod.Spec.InitContainers[0].Args).To(Equal([]string{"--preserve=all",
 					"/usr/bin/container-disk",
 					"/init/usr/bin/container-disk",
 				}))
@@ -1138,8 +1189,9 @@ var _ = Describe("Template", func() {
 					v1.NodeSchedulable:    "true",
 					k8sv1.LabelArchStable: arch,
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
-					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor"}))
+				Expect(pod.Spec.Containers[0].Args).To(Equal([]string{
+					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Args),
 					"--name", "testvmi",
 					"--uid", "1234",
 					"--namespace", "default",
@@ -2589,7 +2641,7 @@ var _ = Describe("Template", func() {
 						k8sv1.Volume{
 							Name: "hugetblfs-dir",
 							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
 							}}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
@@ -2669,7 +2721,7 @@ var _ = Describe("Template", func() {
 						k8sv1.Volume{
 							Name: "hugetblfs-dir",
 							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
 							}}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
@@ -4180,7 +4232,7 @@ var _ = Describe("Template", func() {
 				initContainers := pod.Spec.InitContainers
 				for _, container := range append(containers, initContainers...) {
 					if container.Name == "compute" {
-						Expect(container.Command).To(ContainElement("--image-volume"))
+						Expect(container.Args).To(ContainElement("--image-volume"))
 						break
 					}
 				}
@@ -4493,7 +4545,7 @@ var _ = Describe("Template", func() {
 
 				for _, container := range pod.Spec.Containers {
 					if container.Name == "compute" {
-						Expect(container.Command).To(ContainElement("--vm-stats-collector"))
+						Expect(container.Args).To(ContainElement("--vm-stats-collector"))
 						return
 					}
 				}
@@ -4508,7 +4560,7 @@ var _ = Describe("Template", func() {
 
 				for _, container := range pod.Spec.Containers {
 					if container.Name == "compute" {
-						Expect(container.Command).NotTo(ContainElement("--vm-stats-collector"))
+						Expect(container.Args).NotTo(ContainElement("--vm-stats-collector"))
 						return
 					}
 				}
@@ -4659,6 +4711,36 @@ var _ = Describe("Template", func() {
 					Level: "s0",
 				},
 			}))
+		})
+
+		It("should render owner VMI annotations on hotplug attachment pod", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "fake-vmi-uid"
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Hotplug pod rendering requires an SELinux context; the value is not relevant to this annotation test.
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, map[string]*k8sv1.PersistentVolumeClaim{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMINameAnnotation, vmi.Name))
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMIUIDAnnotation, string(vmi.UID)))
+		})
+
+		It("should render owner VMI annotations on hotplug attachment trigger pods", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "fake-vmi-uid"
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Hotplug pod rendering requires an SELinux context; the value is not relevant to this annotation test.
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", true, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMINameAnnotation, vmi.Name))
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMIUIDAnnotation, string(vmi.UID)))
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment pods", func() {
@@ -6300,7 +6382,7 @@ var _ = Describe("Template", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"))
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--firmware-auto-selection"))
+			Expect(pod.Spec.Containers[0].Args).To(ContainElement("--firmware-auto-selection"))
 		})
 
 		It("should not pass --firmware-auto-selection flag when disabled", func() {
@@ -6309,7 +6391,7 @@ var _ = Describe("Template", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"))
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.Containers[0].Command).ToNot(ContainElement("--firmware-auto-selection"))
+			Expect(pod.Spec.Containers[0].Args).ToNot(ContainElement("--firmware-auto-selection"))
 		})
 	})
 })

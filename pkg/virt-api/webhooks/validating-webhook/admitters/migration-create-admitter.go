@@ -110,16 +110,6 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	if migration.Spec.Priority != nil {
-		if !admitter.clusterConfig.MigrationPriorityQueueEnabled() {
-			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-				{
-					Type:    metav1.CauseTypeForbidden,
-					Message: "MigrationPriorityQueue feature gate is not enabled in kubevirt resource",
-					Field:   "spec.migrationPriority",
-				},
-			})
-		}
-
 		if !hasRequestOriginatedFromVirtController(ar.Request.UserInfo.Username, admitter.kubeVirtServiceAccounts) {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 				{

@@ -56,6 +56,9 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should reject when VirtTemplateDeployment enabled without Template feature gate",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.Template},
+					},
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 						Enabled: pointer.P(true),
 					},
@@ -114,20 +117,20 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		}
 	},
-		Entry("should reject when RoleAggregationStrategy is Manual without OptOutRoleAggregation feature gate",
+		Entry("should reject when RoleAggregationStrategy is Manual with OptOutRoleAggregation feature gate disabled",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
+					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				},
 			},
 			true,
 		),
-		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation feature gate",
+		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation enabled by default (Beta)",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.OptOutRoleAggregation},
-					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				},
 			},
@@ -146,6 +149,64 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 			false,
+		),
+		Entry("should allow when RoleAggregationStrategy is AggregateToDefault and OptOutRoleAggregation is disabled",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
+					},
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+				},
+			},
+			false,
+		),
+	)
+
+	DescribeTable("validateMigrationConfiguration", func(oldConfig, newConfig *v1.KubeVirtConfiguration, expectError bool) {
+		causes := validateMigrationConfiguration(oldConfig, newConfig)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.maxDowntimeMs"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when MaxDowntimeMs is newly set without feature gate",
+			&v1.KubeVirtConfiguration{},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			true,
+		),
+		Entry("should allow when MaxDowntimeMs is set with feature gate",
+			&v1.KubeVirtConfiguration{},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.MigrationStallDetection},
+				},
+			},
+			false,
+		),
+		Entry("should allow unrelated update when MaxDowntimeMs is unchanged and feature gate is disabled",
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			false,
+		),
+		Entry("should reject changing MaxDowntimeMs when feature gate is disabled",
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(500))},
+			},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			true,
 		),
 	)
 

@@ -28,6 +28,7 @@ other_images_default="
     //cmd/sidecars:sidecar-shim-image
     //cmd/libguestfs:libguestfs-tools-image
     //cmd/test-helpers:test-helpers-image
+    //cmd/example-node-hook-plugin:example-node-hook-plugin-image
     //containerimages:alpine-container-disk-image
     //containerimages:fedora-with-test-tooling
     //images/disks-images-provider:disks-images-provider-image
@@ -38,6 +39,7 @@ other_images_x86_64_aarch64="
     //cmd/sidecars/smbios:example-hook-sidecar-image
     //cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image
     //cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image
+    //cmd/plugin-sidecars/test-domain-hook:test-domain-hook-sidecar-image
     //cmd/sidecars/network-slirp-binding:network-slirp-binding-image
     //cmd/sidecars/network-passt-binding:network-passt-binding-image
     //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image

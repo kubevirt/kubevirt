@@ -33,7 +33,6 @@ import (
 )
 
 var _ = Describe("Console Domain Configurator", func() {
-
 	const uid = "test-uid"
 	serialPort := uint(0)
 	socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, uid, serialPort)

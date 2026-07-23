@@ -57,7 +57,7 @@ const (
 	//nolint:revive,stylecheck
 	IOMMU_OPTION = 0x3B87
 
-	iommufdSocketAcceptTimeout = 60 * time.Second
+	iommufdSocketAcceptTimeout = 15 * time.Minute
 )
 
 var iommufdSocketDir = "/var/run/kubevirt"

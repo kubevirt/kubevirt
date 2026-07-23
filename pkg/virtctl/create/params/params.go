@@ -138,7 +138,7 @@ func split(paramsStr string) (map[string]string, error) {
 // apply assigns the different parameters into obj's corresponding fields
 func apply(paramsMap map[string]string, obj interface{}) error {
 	objVal := reflect.ValueOf(obj)
-	if objVal.Kind() != reflect.Ptr {
+	if objVal.Kind() != reflect.Pointer {
 		return errors.New("passed in interface needs to be a pointer")
 	}
 

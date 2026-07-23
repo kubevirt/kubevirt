@@ -33,9 +33,9 @@ import (
 	virt "kubevirt.io/api/core"
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/api/snapshot"
+	templateapi "kubevirt.io/virt-template-api/core"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -43,17 +43,23 @@ const (
 	vmSnapshotKind = "VirtualMachineSnapshot"
 	vmKind         = "VirtualMachine"
 	vmBackupKind   = "VirtualMachineBackup"
+	vmTemplateKind = "VirtualMachineTemplate"
 )
+
+type vmExportConfigChecker interface {
+	OCIExportEnabled() bool
+	VirtTemplateDeploymentEnabled() bool
+}
 
 // VMExportAdmitter validates VirtualMachineExports
 type VMExportAdmitter struct {
-	Config *virtconfig.ClusterConfig
+	config vmExportConfigChecker
 }
 
 // NewVMExportAdmitter creates a VMExportAdmitter
-func NewVMExportAdmitter(config *virtconfig.ClusterConfig) *VMExportAdmitter {
+func NewVMExportAdmitter(config vmExportConfigChecker) *VMExportAdmitter {
 	return &VMExportAdmitter{
-		Config: config,
+		config: config,
 	}
 }
 
@@ -90,6 +96,17 @@ func (admitter *VMExportAdmitter) Admit(_ context.Context, ar *admissionv1.Admis
 		case vmBackupKind:
 			causes = append(causes, admitter.validateVMBackupName(sourceField.Child("name"), vmExport.Spec.Source.Name)...)
 			causes = append(causes, admitter.validateVMBackupApiGroup(sourceField.Child("APIGroup"), vmExport.Spec.Source.APIGroup)...)
+		case vmTemplateKind:
+			if !admitter.config.OCIExportEnabled() || !admitter.config.VirtTemplateDeploymentEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "VirtualMachineTemplate source requires the OCIExport feature gate and virt-template deployment to be enabled",
+					Field:   sourceField.Child("kind").String(),
+				})
+				break
+			}
+			causes = append(causes, admitter.validateVMTemplateName(sourceField.Child("name"), vmExport.Spec.Source.Name)...)
+			causes = append(causes, admitter.validateVMTemplateApiGroup(sourceField.Child("APIGroup"), vmExport.Spec.Source.APIGroup)...)
 		default:
 			causes = []metav1.StatusCause{
 				{
@@ -234,6 +251,32 @@ func (admitter *VMExportAdmitter) validateVMBackupApiGroup(field *k8sfield.Path,
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "VirtualMachineBackup API group must be " + backup.GroupName,
+				Field:   field.String(),
+			},
+		}
+	}
+	return []metav1.StatusCause{}
+}
+
+func (admitter *VMExportAdmitter) validateVMTemplateName(field *k8sfield.Path, name string) []metav1.StatusCause {
+	if name == "" {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VirtualMachineTemplate name must not be empty",
+				Field:   field.String(),
+			},
+		}
+	}
+	return []metav1.StatusCause{}
+}
+
+func (admitter *VMExportAdmitter) validateVMTemplateApiGroup(field *k8sfield.Path, apigroup *string) []metav1.StatusCause {
+	if apigroup == nil || *apigroup != templateapi.GroupName {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VirtualMachineTemplate API group must be " + templateapi.GroupName,
 				Field:   field.String(),
 			},
 		}

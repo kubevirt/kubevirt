@@ -26,7 +26,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"io"
 	golog "log"
@@ -72,6 +71,7 @@ const (
 	authHeader              = "x-kubevirt-export-token"
 	manifestCmBasePath      = "/manifest_data/"
 	vmManifestPath          = manifestCmBasePath + "virtualmachine-manifest"
+	vmTemplateManifestPath  = manifestCmBasePath + "virtualmachinetemplate-manifest"
 	internalLinkPath        = manifestCmBasePath + "internal_host"
 	internalCaConfigMapPath = manifestCmBasePath + "internal_ca_cm"
 	externalLinkPath        = manifestCmBasePath + "external_host"
@@ -146,7 +146,7 @@ func (er *execReader) Read(p []byte) (int, error) {
 	if err == io.EOF {
 		if err2 := er.cmd.Wait(); err2 != nil {
 			errBytes, _ := io.ReadAll(er.stderr)
-			log.Log.Reason(err2).Errorf("Subprocess did not execute successfully, result is: %q\n%s", er.cmd.ProcessState.ExitCode(), string(errBytes))
+			log.Log.Reason(err2).Errorf("Subprocess did not execute successfully, result is: %d\n%s", er.cmd.ProcessState.ExitCode(), string(errBytes))
 			return n, err2
 		}
 	}
@@ -311,7 +311,7 @@ func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 }
 
 func (s *exportServer) AddFlags() {
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	flag.CommandLine.AddGoFlag(log.VerbosityFlag())
 }
 
 func NewExportServer(config ExportServerConfig) (service.Service, error) {

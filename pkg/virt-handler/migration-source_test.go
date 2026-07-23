@@ -68,6 +68,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+func parseDefaultStallDetectorFactor(value string) float64 {
+	factor, err := virtconfig.ParseFactor(value, virtconfig.StallDetectorFactorPrecision)
+	Expect(err).NotTo(HaveOccurred())
+	return factor
+}
+
 var _ = Describe("VirtualMachineInstance migration target", func() {
 	var (
 		client         *cmdclient.MockLauncherClient
@@ -198,6 +204,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			"/tmp/%d",
 			&netStatStub{},
 			migrationSourcePasstRepairHandler,
+			nil,
+			nil,
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -249,7 +257,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			// This ensures that during upgrades, the migrationConfigurations that
 			// are set by the older migration controller can be read by the updated virt-handler, without
 			// panic.
-			var migrationConfiguration = &v1.MigrationConfiguration{
+			var migrationConfiguration = &v1.VMIMConfigurationOptions{
 				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
 				ProgressTimeout:         pointer.P(int64(150)),
 				AllowAutoConverge:       pointer.P(false),
@@ -271,7 +279,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
-				MigrationConfiguration:         migrationConfiguration,
+				VMIMConfigurationOptions:       migrationConfiguration,
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -288,10 +296,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Bandwidth:                resource.MustParse("0Mi"),
 				ProgressTimeout:          150,
 				CompletionTimeoutPerGiB:  50,
+				MaxDowntimeMs:            virtconfig.DefaultMigrationMaxDowntimeMs,
 				UnsafeMigration:          false,
 				AllowPostCopy:            true,
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
+				StallDetectorOptions:     nil,
 				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
@@ -421,7 +431,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortInProgress,
+						AbortStatus:    v1.MigrationAbortSucceeded,
 					})))),
 				nil,
 			),
@@ -429,7 +439,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortSucceeded,
+						AbortStatus:    v1.MigrationAbortInProgress,
 					})))),
 				nil,
 			),
@@ -575,6 +585,62 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 	})
 
+	It("should put StallDetectorOptions on the wire when MigrationStallDetection feature gate is enabled", func() {
+		kv := &v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.PasstBinding, featuregate.MigrationStallDetection},
+			},
+		}
+		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+		vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:                     "othernode",
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     host,
+			MigrationUID:                   "123",
+			TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+		}
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			{
+				Type:   v1.VirtualMachineInstanceIsMigratable,
+				Status: k8sv1.ConditionTrue,
+			},
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+		const testIfaceName = "eth0"
+		domain.Status.Interfaces = []api.InterfaceStatus{
+			{InterfaceName: testIfaceName},
+		}
+		addVMI(vmi, domain)
+		client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+			Expect(options.StallDetectorOptions).ToNot(BeNil())
+			Expect(options.StallDetectorOptions).To(Equal(&cmdclient.StallDetectorOptions{
+				StallMargin:               float64(virtconfig.DefaultStallMargin) / 100,
+				StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
+				SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
+				EwmaAlpha:                 parseDefaultStallDetectorFactor(virtconfig.DefaultEwmaAlpha),
+				PrecopyPossibleFactor:     parseDefaultStallDetectorFactor(virtconfig.DefaultPrecopyPossibleFactor),
+				PatienceWindowDecayFactor: parseDefaultStallDetectorFactor(virtconfig.DefaultPatienceWindowDecayFactor),
+				SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
+				CompletionTimeoutFactor:   parseDefaultStallDetectorFactor(virtconfig.DefaultCompletionTimeoutFactor),
+			}))
+		}).Times(1).Return(nil)
+
+		sanityExecute()
+		testutils.ExpectEvent(recorder, VMIMigrating)
+	})
+
 	It("should migrate vmi once target address is known", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.UID = vmiTestUUID
@@ -610,6 +676,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			Bandwidth:                resource.MustParse("0Mi"),
 			ProgressTimeout:          virtconfig.MigrationProgressTimeout,
 			CompletionTimeoutPerGiB:  virtconfig.MigrationCompletionTimeoutPerGiB,
+			MaxDowntimeMs:            virtconfig.DefaultMigrationMaxDowntimeMs,
 			UnsafeMigration:          virtconfig.DefaultUnsafeMigrationOverride,
 			AllowPostCopy:            virtconfig.MigrationAllowPostCopy,
 			ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),

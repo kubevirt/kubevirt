@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -53,7 +54,7 @@ var _ = Describe(SIG("Eviction", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())

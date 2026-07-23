@@ -408,13 +408,15 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		synchronizationControllerDeploymentRolledOver && virtTemplateDeploymentsRolledOver {
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
-	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) {
+	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) &&
+		// virt-template TLS config is injected as container args, so config-only changes trigger a rollout
+		virtTemplateDeploymentsRolledOver {
 		// infrastructure was observed to have rolled over successfully
 		// in the past
 		infrastructureRolledOver = true
 	}
 
-	// -------- CREATE AND ROLE OUT UPDATED OBJECTS --------
+	// -------- CREATE AND ROLL OUT UPDATED OBJECTS --------
 
 	// creates a blocking webhook for any new CRDs that don't exist previously.
 	// this webhook is removed once the new apiserver is online.

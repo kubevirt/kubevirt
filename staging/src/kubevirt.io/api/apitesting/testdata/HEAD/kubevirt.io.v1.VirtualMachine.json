@@ -352,6 +352,13 @@
                     "port": -4
                   }
                 ],
+                "portRanges": [
+                  {
+                    "protocol": "protocolValue",
+                    "start": -5,
+                    "end": -3
+                  }
+                ],
                 "macAddress": "macAddressValue",
                 "bootOrder": 18446744073709551607,
                 "pciAddress": "pciAddressValue",
@@ -1365,7 +1372,8 @@
             "dataEndpoint": "dataEndpointValue",
             "mapEndpoint": "mapEndpointValue"
           }
-        ]
+        ],
+        "quiesceStatus": "quiesceStatusValue"
       }
     },
     "instancetypeRef": {

@@ -153,6 +153,137 @@ var _ = Describe("HostDevice", func() {
 		})
 	})
 
+	Context("PCI display options", func() {
+		hostPCIAddress0 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		basePCIDevice := api.HostDevice{
+			Alias:   newAlias(devName0),
+			Source:  api.HostDeviceSource{Address: &hostPCIAddress0},
+			Type:    api.HostDevicePCI,
+			Managed: "no",
+		}
+
+		It("does not set display when VirtualGPUOptions is nil", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{basePCIDevice}))
+		})
+
+		It("does not set display when Display is set but Enabled is nil", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{},
+					}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{basePCIDevice}))
+		})
+
+		It("does not set display when Display.Enabled is false", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(false),
+						},
+					}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{basePCIDevice}))
+		})
+
+		It("sets display on when explicitly enabled, without ramfb", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+						},
+					}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			expected := basePCIDevice
+			expected.Display = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
+		})
+
+		It("does not set ramfb when RamFB.Enabled is false", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB: &v1.FeatureState{
+								Enabled: pointer.P(false),
+							},
+						},
+					}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			expected := basePCIDevice
+			expected.Display = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
+		})
+
+		It("sets display and ramfb on when both explicitly enabled", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB: &v1.FeatureState{
+								Enabled: pointer.P(true),
+							},
+						},
+					}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			expected := basePCIDevice
+			expected.Display = "on"
+			expected.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
+		})
+
+		It("does not set ramfb when RamFB is present but Enabled is nil", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB:   &v1.FeatureState{},
+						},
+					}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			expected := basePCIDevice
+			expected.Display = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
+		})
+	})
+
 	Context("MDEV", func() {
 		const uuid0 = "0123456789-0"
 		hostMDEVAddress0 := api.Address{UUID: uuid0}

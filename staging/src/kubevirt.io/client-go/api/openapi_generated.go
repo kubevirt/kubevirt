@@ -271,7 +271,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/api/core/v1.WeightedPodAffinityTerm":                                                      schema_k8sio_api_core_v1_WeightedPodAffinityTerm(ref),
 		"k8s.io/api/core/v1.WindowsSecurityContextOptions":                                                schema_k8sio_api_core_v1_WindowsSecurityContextOptions(ref),
 		"k8s.io/apimachinery/pkg/api/resource.Quantity":                                                   schema_apimachinery_pkg_api_resource_Quantity(ref),
-		"k8s.io/apimachinery/pkg/api/resource.int64Amount":                                                schema_apimachinery_pkg_api_resource_int64Amount(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                                   schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                               schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                                schema_pkg_apis_meta_v1_APIResource(ref),
@@ -415,6 +414,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.EmptyDiskSource":                                                         schema_kubevirtio_api_core_v1_EmptyDiskSource(ref),
 		"kubevirt.io/api/core/v1.EphemeralVolumeSource":                                                   schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/api/core/v1.EvacuateCancelOptions":                                                   schema_kubevirtio_api_core_v1_EvacuateCancelOptions(ref),
+		"kubevirt.io/api/core/v1.ExperimentalMigrationOptions":                                            schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref),
 		"kubevirt.io/api/core/v1.FeatureAPIC":                                                             schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
 		"kubevirt.io/api/core/v1.FeatureHyperv":                                                           schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
 		"kubevirt.io/api/core/v1.FeatureKVM":                                                              schema_kubevirtio_api_core_v1_FeatureKVM(ref),
@@ -504,6 +504,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.PluginBinding":                                                           schema_kubevirtio_api_core_v1_PluginBinding(ref),
 		"kubevirt.io/api/core/v1.PodNetwork":                                                              schema_kubevirtio_api_core_v1_PodNetwork(ref),
 		"kubevirt.io/api/core/v1.Port":                                                                    schema_kubevirtio_api_core_v1_Port(ref),
+		"kubevirt.io/api/core/v1.PortRange":                                                               schema_kubevirtio_api_core_v1_PortRange(ref),
 		"kubevirt.io/api/core/v1.PreferenceMatcher":                                                       schema_kubevirtio_api_core_v1_PreferenceMatcher(ref),
 		"kubevirt.io/api/core/v1.Probe":                                                                   schema_kubevirtio_api_core_v1_Probe(ref),
 		"kubevirt.io/api/core/v1.ProfilerResult":                                                          schema_kubevirtio_api_core_v1_ProfilerResult(ref),
@@ -537,6 +538,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                      schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                              schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                             schema_kubevirtio_api_core_v1_SoundDevice(ref),
+		"kubevirt.io/api/core/v1.StallDetectorOptions":                                                    schema_kubevirtio_api_core_v1_StallDetectorOptions(ref),
 		"kubevirt.io/api/core/v1.StartOptions":                                                            schema_kubevirtio_api_core_v1_StartOptions(ref),
 		"kubevirt.io/api/core/v1.StopOptions":                                                             schema_kubevirtio_api_core_v1_StopOptions(ref),
 		"kubevirt.io/api/core/v1.StorageMigratedVolumeInfo":                                               schema_kubevirtio_api_core_v1_StorageMigratedVolumeInfo(ref),
@@ -561,6 +563,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.UtilityVolume":                                                           schema_kubevirtio_api_core_v1_UtilityVolume(ref),
 		"kubevirt.io/api/core/v1.VGPUDisplayOptions":                                                      schema_kubevirtio_api_core_v1_VGPUDisplayOptions(ref),
 		"kubevirt.io/api/core/v1.VGPUOptions":                                                             schema_kubevirtio_api_core_v1_VGPUOptions(ref),
+		"kubevirt.io/api/core/v1.VMIMConfigurationOptions":                                                schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref),
 		"kubevirt.io/api/core/v1.VMISelector":                                                             schema_kubevirtio_api_core_v1_VMISelector(ref),
 		"kubevirt.io/api/core/v1.VSOCKOptions":                                                            schema_kubevirtio_api_core_v1_VSOCKOptions(ref),
 		"kubevirt.io/api/core/v1.VideoDevice":                                                             schema_kubevirtio_api_core_v1_VideoDevice(ref),
@@ -15676,15 +15679,12 @@ func schema_pkg_apis_meta_v1_InternalEvent(ref common.ReferenceCallback) common.
 					"Object": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Object is:\n * If Type is Added or Modified: the new state of the object.\n * If Type is Deleted: the state of the object immediately before deletion.\n * If Type is Bookmark: the object (instance of a type being watched) where\n   only ResourceVersion field is set. On successful restart of watch from a\n   bookmark resourceVersion, client is guaranteed to not get repeat event\n   nor miss any events.\n * If Type is Error: *api.Status is recommended; other types may make sense\n   depending on context.",
-							Ref:         ref("k8s.io/apimachinery/pkg/runtime.Object"),
 						},
 					},
 				},
 				Required: []string{"Type", "Object"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/runtime.Object"},
 	}
 }
 
@@ -21017,6 +21017,33 @@ func schema_kubevirtio_api_core_v1_EvacuateCancelOptions(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExperimentalMigrationOptions is an alpha API for experimental migration tunables. It is intended for experimental purposes only and will be removed in the future.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stallDetector": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.StallDetectorOptions"),
+						},
+					},
+					"compression": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.StallDetectorOptions"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_FeatureAPIC(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22155,13 +22182,32 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"ports": {
 						SchemaProps: spec.SchemaProps{
-							Description: "List of ports to be forwarded to the virtual machine.",
+							Description: "List of ports to be forwarded to the virtual machine. Mutually exclusive with portRanges.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
 										Ref:     ref("kubevirt.io/api/core/v1.Port"),
+									},
+								},
+							},
+						},
+					},
+					"portRanges": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "List of port ranges to be forwarded to the virtual machine. Mutually exclusive with ports. Only supported on masquerade interfaces. This feature is in Alpha.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.PortRange"),
 									},
 								},
 							},
@@ -22220,7 +22266,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasstBinding", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
+			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasstBinding", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port", "kubevirt.io/api/core/v1.PortRange"},
 	}
 }
 
@@ -22719,7 +22765,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Possible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
+							Description: "The ImagePullPolicy to use for user workload pods and their containers (launcher pods, exporter pods, etc.). For KubeVirt infrastructure images, use spec.imagePullPolicy instead.\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Always", "IfNotPresent", "Never"},
@@ -22990,7 +23036,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"roleAggregationStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated to the default Kubernetes roles (admin, edit, view). When set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles. When set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles. Setting this field to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled. This is an Alpha feature and subject to change.",
+							Description: "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated to the default Kubernetes roles (admin, edit, view). When set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles. When set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles. Setting RoleAggregationStrategy to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled (Beta, enabled by default since v1.9.0).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -23118,7 +23164,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 					},
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The ImagePullPolicy to use.\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
+							Description: "The ImagePullPolicy to use for KubeVirt operator-managed infrastructure images (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.). For pull policy of user workload pods, see spec.configuration.imagePullPolicy.\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Always", "IfNotPresent", "Never"},
@@ -23952,6 +23998,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 					"completionTimeoutPerGiB": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"maxDowntimeMs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -24858,6 +24911,44 @@ func schema_kubevirtio_api_core_v1_Port(ref common.ReferenceCallback) common.Ope
 					},
 				},
 				Required: []string{"port"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_PortRange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PortRange represents a range of ports to be forwarded to the virtual machine. All fields are mandatory.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"protocol": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required. Must be UDP or TCP.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"start": {
+						SchemaProps: spec.SchemaProps{
+							Description: "First port of the range to expose for the virtual machine. This must be a valid port number, 0 < x < 65536.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"end": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Last port of the range to expose for the virtual machine. This must be a valid port number, 0 < x < 65536. Must be greater than or equal to start.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"protocol", "start", "end"},
 			},
 		},
 	}
@@ -25887,6 +25978,74 @@ func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_kubevirtio_api_core_v1_StallDetectorOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stallMargin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StallMargin is the fractional tolerance, expressed as a percentage, used when comparing remaining migration bytes against the best observed value to detect stalls and local minima. A stall is reported when remaining bytes stay above (1 - StallMargin/100) of the outside-window minimum. Defaults to 4.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"ewmaAlpha": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because the estimate would never incorporate new samples. Higher values weight recent samples more heavily. Defaults to \"0.4\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"stallProgressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StallProgressTimeout is the duration in seconds of the sliding window used to track minimum remaining-bytes and detect when migration progress has stalled. Defaults to 40.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"switchoverTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy switchover to complete after being triggered before the migration is aborted. Defaults to 60.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"precopyPossibleFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration. Defaults to \"1.5\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"patienceWindowDecayFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PatienceWindowDecayFactor is the factor by which the relaxation patience window is multiplied after each best-remaining-bytes relaxation step. Defaults to \"0.5\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"searchLocalMinima": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SearchLocalMinima controls whether convergence actions are delayed until remaining bytes reach a local minimum near the best observed value. When false, actions may trigger as soon as a stall is detected. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"completionTimeoutFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine the total time budget for deciding whether a forced switchover can still finish in time, and to extend the abort deadline after initiating a completion-timeout-driven switchover. Defaults to \"2\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_StartOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26642,6 +26801,131 @@ func schema_kubevirtio_api_core_v1_VGPUOptions(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMIMConfigurationOptions holds the resolved migration options for a single migration. It is written to VirtualMachineInstanceMigrationState and represents the effective configuration after merging KubeVirt defaults with any matched MigrationPolicy.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeDrainTaintKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeDrainTaintKey defines the taint key that indicates a node should be drained. Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"parallelOutboundMigrationsPerNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations allowed per node. Defaults to 2",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"parallelMigrationsPerCluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelMigrationsPerCluster is the total number of concurrent live migrations allowed cluster-wide. Defaults to 5",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"maxDowntimeMs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"utilityVolumesTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowWorkloadDisruption": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"disableTLS": {
+						SchemaProps: spec.SchemaProps{
+							Description: "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"network": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"matchSELinuxLevelOnMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"experimental": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExperimentalMigrationOptions is an alpha API. It is intended for experimental purposes only and will be removed in the future.",
+							Ref:         ref("kubevirt.io/api/core/v1.ExperimentalMigrationOptions"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.ExperimentalMigrationOptions"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VMISelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26949,6 +27233,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref common
 									},
 								},
 							},
+						},
+					},
+					"quiesceStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -28057,7 +28348,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 					"migrationConfiguration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Migration configurations to apply",
-							Ref:         ref("kubevirt.io/api/core/v1.MigrationConfiguration"),
+							Ref:         ref("kubevirt.io/api/core/v1.VMIMConfigurationOptions"),
 						},
 					},
 					"targetCPUSet": {
@@ -28130,7 +28421,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSourceState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.VMIMConfigurationOptions", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSourceState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState"},
 	}
 }
 
@@ -32859,6 +33150,12 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Format: "int64",
 						},
 					},
+					"maxDowntimeMs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 					"allowPostCopy": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -32871,12 +33168,18 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Format: "",
 						},
 					},
+					"experimental": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExperimentalMigrationOptions is an alpha API. It is intended for experimental purposes only and will be removed in the future.",
+							Ref:         ref("kubevirt.io/api/core/v1.ExperimentalMigrationOptions"),
+						},
+					},
 				},
 				Required: []string{"selectors"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/migrations/v1alpha1.Selectors"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.ExperimentalMigrationOptions", "kubevirt.io/api/migrations/v1alpha1.Selectors"},
 	}
 }
 
@@ -33027,7 +33330,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management.",
+				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management. Hooks may fire multiple times for the same lifecycle event due to reconciliation retries. Implementations must be idempotent.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"socket": {
@@ -33053,7 +33356,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
-										Enum:    []interface{}{"PostMigrationSource", "PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart", "PreVMStop"},
+										Enum:    []interface{}{"PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart", "PreVMStop"},
 									},
 								},
 							},
@@ -33239,7 +33542,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "NodeHooks defines hooks that execute during VM lifecycle events.",
+							Description: "NodeHooks defines hooks that execute during VM lifecycle events. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

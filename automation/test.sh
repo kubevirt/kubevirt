@@ -40,6 +40,7 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
         echo "Aborting as there were only none-code related changes detected."
         exit 0
     fi
+    RPM_CHANGES=$(echo "$CI_GIT_ALL_CHANGES" | grep -E '^(rpm/|WORKSPACE)' || :)
  fi
 
 if [ -z $TARGET ]; then
@@ -74,6 +75,16 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    ;;
+  *emulated-igb*)
+    export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
+    export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
+    export KUBEVIRT_WITH_SRIOV=true
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_DEPLOY_CDI=false
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+    export KUBEVIRT_E2E_PARALLEL=false
+    export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
     ;;
   *sig-storage*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
@@ -116,12 +127,21 @@ case "$TARGET" in
     ;;
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
+    add_feature_gate "Plugins"
     ;;
   *sig-compute-parallel*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
     ;;
   *sig-compute-conformance*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
+    ;;
+  *sig-compute-dra-gpu*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-dra-gpu/}
+    export KUBEVIRT_USE_FAKE_VFIO=true
+    export DRA_DRIVER_PROFILE=vfio-gpu
+    export FAKE_PCI_DEVICES=8
+    export DRA_DRIVER_NAME="vfio-gpu.example.com"
+    add_feature_gate "GPUsWithDRA"
     ;;
   *sig-compute*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
@@ -314,10 +334,12 @@ build_images() {
 
 check_for_panics() {
     set +x
+    local ret=0
     if [ -d "${ARTIFACTS_PATH}" ]; then
         local panic_files=$(grep -rlE --color=never -i "\bpanic(ked)?\b" "${ARTIFACTS_PATH}" 2>/dev/null | \
             while IFS= read -r file; do
-                grep -qE "panicked:\s*false" "$file" 2>/dev/null || echo "$file"
+                grep -vE 'panicked:\s*false|<testcase\b|Simulated virt-launcher crash' "$file" 2>/dev/null | grep -qiE "\bpanic(ked)?\b" || continue
+                echo "$file"
             done)
         if [ -n "$panic_files" ]; then
             echo ""
@@ -333,15 +355,17 @@ check_for_panics() {
                 echo "$panic_files"
             fi
             echo "================================"
+            ret=1
         fi
     fi
     set -x
+    return $ret
 }
 
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; check_for_panics || { [ "$ret" -eq 0 ] && ret=3; }; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
@@ -355,9 +379,14 @@ fi
 cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || : >ci.bazelrc
 cat >>ci.bazelrc <<EOF
 build --jobs=4
-build --remote_download_toplevel
 build --noshow_progress
 EOF
+# Use --remote_download_toplevel for bandwidth savings, but skip it when
+# RPMs change since novel OCI image action hashes need their transitive
+# inputs downloaded to build locally.
+if [[ -z "${RPM_CHANGES:-}" ]]; then
+    echo "build --remote_download_toplevel" >>ci.bazelrc
+fi
 
 echo "=== ci.bazelrc ==="
 cat ci.bazelrc
@@ -434,7 +463,7 @@ done
 kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
-export KUBEVIRT_E2E_PARALLEL=true
+export KUBEVIRT_E2E_PARALLEL="${KUBEVIRT_E2E_PARALLEL:-true}"
 # arm64 e2e test lane use kind provider
 if [[ $TARGET =~ .*kind.* ]]; then
   # MSHV tests do not require serial execution
@@ -447,7 +476,12 @@ else
   fi
 fi
 
-ginko_params="--no-color"
+ginkgo_params="--no-color"
+
+# Tests triggered by a Prow batch should stop after the first failure to save CI resources
+if [[ -n ${PROW_JOB_ID:-} && ${JOB_TYPE} == "batch" ]]; then
+  ginkgo_params="$ginkgo_params --fail-fast"
+fi
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
@@ -519,7 +553,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='(sig-storage)'
   elif [[ $TARGET =~ wg-s390x ]]; then
-    label_filter='(wg-s390x) && !(requires-amd64)'
+    label_filter='(wg-s390x) && !(requires-amd64) && !(secure-execution)'
   elif [[ $TARGET =~ wg-arm64 ]]; then
     label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64))'
   elif [[ $TARGET =~ vgpu.* ]]; then
@@ -534,13 +568,16 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
     label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
+  elif [[ $TARGET =~ sig-compute-dra-gpu ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+    label_filter='(DRA-GPU)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage,DRA-GPU) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -552,6 +589,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
       label_filter='(sig-operator)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
+    label_filter='(SRIOV)'
+  elif [[ $TARGET =~ emulated-igb ]]; then
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
@@ -577,14 +616,12 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!requires-arm64)" "&&"
   fi
 
-  if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
-    add_to_label_filter "(!ImageVolume)" "&&"
+  if [[ ${KUBEVIRT_CROSS_ARCH_EMULATION} != "true" ]]; then
+    add_to_label_filter "(!requires-cross-arch-emulation)" "&&"
   fi
 
-  rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
-  if [[ "${rwofs_sc}" == "local" ]]; then
-    # local is a primitive non CSI storage class that doesn't support expansion
-    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
+  if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
+    add_to_label_filter "(!ImageVolume)" "&&"
   fi
 
   vmstate_sc=$(jq -r .storageVMState "${kubevirt_test_config}")
@@ -640,7 +677,7 @@ fi
 
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
-  ginko_params="$ginko_params|Networkpolicy"
+  ginkgo_params="$ginkgo_params|Networkpolicy"
 
   kubectl create -f - <<EOF
 ---
@@ -682,7 +719,7 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
+FUNC_TEST_ARGS=$ginkgo_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then

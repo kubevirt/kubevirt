@@ -694,6 +694,14 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplates
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - pool.kubevirt.io
           resources:
           - virtualmachinepools
@@ -1048,6 +1056,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/memorydump
+          - virtualmachines/removememorydump
           - virtualmachines/evacuate/cancel
           verbs:
           - update
@@ -1234,6 +1243,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/memorydump
+          - virtualmachines/removememorydump
           - virtualmachines/evacuate/cancel
           verbs:
           - update
@@ -1650,6 +1660,7 @@ spec:
           - kubevirt-virt-handler-server-certs
           - kubevirt-virt-handler-migration-client-certs
           - kubevirt-virt-handler-vsock-client-certs
+          - kubevirt-virt-handler-monitoring-client-certs
           - kubevirt-operator-certs
           - kubevirt-virt-api-certs
           - kubevirt-controller-certs

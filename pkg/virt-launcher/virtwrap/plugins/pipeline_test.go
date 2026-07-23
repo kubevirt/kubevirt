@@ -53,14 +53,14 @@ var _ = Describe("Domain Hook Pipeline", func() {
 
 	Context("with no plugins", func() {
 		It("should return the original spec unchanged", func() {
-			result, xmlStr, err := plugins.ApplyDomainHooks(nil, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks(nil, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).To(BeEmpty())
 			Expect(result).To(Equal(spec))
 		})
 
 		It("should return original spec for empty plugin list", func() {
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).To(BeEmpty())
 			Expect(result).To(Equal(spec))
@@ -80,7 +80,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(BeEmpty())
 			Expect(xmlStr).To(ContainSubstring("modified"))
@@ -102,7 +102,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
 			Expect(result).NotTo(BeNil())
@@ -121,7 +121,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).To(ContainSubstring("applied"))
 			Expect(result).NotTo(BeNil())
@@ -144,7 +144,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(BeEmpty())
 			Expect(result.Type).To(Equal("kvm"))
@@ -178,7 +178,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(BeEmpty())
 			Expect(result.QEMUCmd).NotTo(BeNil())
@@ -205,7 +205,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			_, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			_, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).To(ContainSubstring("compound-match"))
 		})
@@ -223,7 +223,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			_, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			_, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
 		})
@@ -254,7 +254,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 
 			for i := 0; i < 10; i++ {
 				_, xmlStr, err := plugins.ApplyDomainHooks(
-					[]pluginv1alpha1.Plugin{pluginBeta, pluginAlpha}, vmi, spec)
+					[]pluginv1alpha1.Plugin{pluginBeta, pluginAlpha}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(xmlStr).To(ContainSubstring("from-beta"))
 				Expect(xmlStr).NotTo(ContainSubstring("from-alpha"))
@@ -276,7 +276,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).To(ContainSubstring("second"))
 			Expect(xmlStr).NotTo(ContainSubstring("first"))
@@ -305,7 +305,7 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{pluginB, pluginA}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{pluginB, pluginA}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).To(ContainSubstring("from-a"))
 			Expect(xmlStr).To(ContainSubstring("from-b"))
@@ -313,62 +313,120 @@ var _ = Describe("Domain Hook Pipeline", func() {
 		})
 	})
 
-	Context("failure strategy", func() {
-		It("should abort on Fail strategy with bad expression", func() {
+	Context("plugin-level condition", func() {
+		It("should skip all hooks when plugin condition is false", func() {
 			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "failing"},
+				ObjectMeta: metav1.ObjectMeta{Name: "filtered"},
 				Spec: pluginv1alpha1.PluginSpec{
+					Condition: `vmi.Labels["app"] == "nonexistent"`,
 					DomainHooks: []pluginv1alpha1.DomainHook{
 						{
-							FailureStrategy: pluginv1alpha1.FailureStrategyFail,
-							CEL:             &pluginv1alpha1.CELDomainHook{Expression: `invalid!!! expression`},
+							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "should-not-appear"}`},
 						},
 					},
 				},
 			}
 
-			_, _, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should continue on Ignore strategy with bad expression", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "ignoring"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
-						{
-							FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
-							CEL:             &pluginv1alpha1.CELDomainHook{Expression: `invalid!!! expression`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(BeEmpty())
+			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
 			Expect(result).NotTo(BeNil())
 		})
 
-		It("should default to Fail when no strategy is set", func() {
+		It("should apply hooks when plugin condition is true", func() {
 			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "defaulting"},
+				ObjectMeta: metav1.ObjectMeta{Name: "matching"},
 				Spec: pluginv1alpha1.PluginSpec{
+					Condition: `vmi.Labels["app"] == "test"`,
 					DomainHooks: []pluginv1alpha1.DomainHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `invalid!!! expression`},
+							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "plugin-matched"}`},
 						},
 					},
 				},
 			}
 
-			_, _, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			_, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(xmlStr).To(ContainSubstring("plugin-matched"))
+		})
+
+		It("should hard-fail on invalid plugin condition regardless of failure strategy", func() {
+			plugin := pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "bad-condition"},
+				Spec: pluginv1alpha1.PluginSpec{
+					Condition:       `invalid!!! expression`,
+					FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
+					DomainHooks: []pluginv1alpha1.DomainHook{
+						{
+							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "irrelevant"}`},
+						},
+					},
+				},
+			}
+
+			_, _, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("condition"))
+		})
+
+		It("should evaluate hook condition only when plugin condition passes", func() {
+			plugin := pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "both-conditions"},
+				Spec: pluginv1alpha1.PluginSpec{
+					Condition: `vmi.Labels["app"] == "test"`,
+					DomainHooks: []pluginv1alpha1.DomainHook{
+						{
+							Condition: `vmi.Namespace == "wrong"`,
+							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "should-not-appear"}`},
+						},
+						{
+							Condition: `vmi.Namespace == "default"`,
+							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "both-passed"}`},
+						},
+					},
+				},
+			}
+
+			_, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(xmlStr).To(ContainSubstring("both-passed"))
+			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
 		})
 	})
 
+	Context("failure strategy", func() {
+		DescribeTable("should resolve failure strategy correctly", func(pluginStrategy, hookStrategy pluginv1alpha1.FailureStrategy, expectErr bool) {
+			plugin := pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-strategy"},
+				Spec: pluginv1alpha1.PluginSpec{
+					FailureStrategy: pluginStrategy,
+					DomainHooks: []pluginv1alpha1.DomainHook{
+						{
+							FailureStrategy: hookStrategy,
+							CEL:             &pluginv1alpha1.CELDomainHook{Expression: `invalid!!! expression`},
+						},
+					},
+				},
+			}
+
+			_, _, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
+			if expectErr {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		},
+			Entry("should abort on Fail strategy", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategyFail, true),
+			Entry("should continue on Ignore strategy", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategyIgnore, false),
+			Entry("should default to Fail when no strategy is set", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategy(""), true),
+			Entry("should fall back to plugin-level Ignore when hook has none", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategy(""), false),
+			Entry("should let hook-level Fail override plugin-level Ignore", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategyFail, true),
+		)
+	})
+
 	Context("sidecar hooks", func() {
-		It("should skip sidecar hooks gracefully", func() {
+		It("should fail when sidecar socket is unreachable and failureStrategy is Fail", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "sidecar-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
@@ -380,7 +438,25 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec)
+			_, _, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not ready"))
+		})
+
+		It("should skip sidecar hooks gracefully when failureStrategy is Ignore", func() {
+			plugin := pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "sidecar-plugin"},
+				Spec: pluginv1alpha1.PluginSpec{
+					DomainHooks: []pluginv1alpha1.DomainHook{
+						{
+							Sidecar:         &pluginv1alpha1.SidecarDomainHook{SocketPath: "/tmp/test.sock"},
+							FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
+						},
+					},
+				},
+			}
+
+			result, xmlStr, err := plugins.ApplyDomainHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(BeEmpty())
 			Expect(result).NotTo(BeNil())

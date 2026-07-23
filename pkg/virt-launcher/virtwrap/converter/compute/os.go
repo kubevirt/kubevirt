@@ -58,7 +58,7 @@ func NewOSDomainConfigurator(isSMBiosNeeded bool, efiConfiguration *EFIConfigura
 }
 
 func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if err := o.convert_v1_Firmware_To_related_apis(vmi, domain); err != nil {
+	if err := o.convertFirmwareToRelatedAPIs(vmi, domain); err != nil {
 		return err
 	}
 
@@ -94,7 +94,7 @@ func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	}
 }
 
-func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (o OSDomainConfigurator) convertFirmwareToRelatedAPIs(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	firmware := vmi.Spec.Domain.Firmware
 	if firmware == nil {
 		return nil
@@ -200,7 +200,7 @@ func configureACPI(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volum
 	}
 
 	if firmware.ACPI.SlicNameRef == "" && firmware.ACPI.MsdmNameRef == "" {
-		return fmt.Errorf("No ACPI tables were set. Expecting at least one.")
+		return fmt.Errorf("no ACPI tables were set, expecting at least one")
 	}
 
 	if domain.Spec.OS.ACPI == nil {
@@ -237,7 +237,7 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 
 		if volume.Secret == nil {
 			// Unsupported. This should have been blocked by webhook, so warn user.
-			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", tableType)
+			return nil, fmt.Errorf("firmware's volume type is unsupported for %s", tableType)
 		}
 
 		// Return path to table's binary data
@@ -249,5 +249,5 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Firmware's volume for %s was not found", tableType)
+	return nil, fmt.Errorf("firmware's volume for %s was not found", tableType)
 }

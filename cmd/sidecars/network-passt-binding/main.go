@@ -20,6 +20,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -35,11 +36,14 @@ import (
 	srv "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/server"
 )
 
-const hookSocket = "passt.sock"
+const (
+	hookSocket               = "passt.sock"
+	defaultBindingPluginName = "passt"
+)
 
 func main() {
 	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, hookSocket)
-	socket, err := net.Listen("unix", socketPath)
+	socket, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
 		log.Log.Error("Check whether given directory exists and socket name is not already taken by other file")
@@ -51,7 +55,11 @@ func main() {
 	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha3"})
 
 	shutdownChan := make(chan struct{})
-	hooksV1alpha3.RegisterCallbacksServer(server, srv.V1alpha3Server{Done: shutdownChan})
+	bindingPluginName := os.Getenv(hooks.NetworkBindingPluginNameEnvVar)
+	if bindingPluginName == "" {
+		bindingPluginName = defaultBindingPluginName
+	}
+	hooksV1alpha3.RegisterCallbacksServer(server, srv.V1alpha3Server{Done: shutdownChan, BindingPluginName: bindingPluginName})
 	log.Log.Infof("passt sidecar is now exposing its services on socket %s using %q API version", socketPath, "v1alpha3")
 	srv.Serve(server, socket, shutdownChan)
 }

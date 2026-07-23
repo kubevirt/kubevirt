@@ -3,7 +3,6 @@ package evacuation
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -334,7 +333,7 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 	return evictionCandidates
 }
 
-func GenerateNewMigration(vmi *virtv1.VirtualMachineInstance, key string, config *virtconfig.ClusterConfig) *virtv1.VirtualMachineInstanceMigration {
+func GenerateNewMigration(vmi *virtv1.VirtualMachineInstance, key string) *virtv1.VirtualMachineInstanceMigration {
 
 	annotations := map[string]string{
 		virtv1.EvacuationMigrationAnnotation: key,
@@ -348,11 +347,9 @@ func GenerateNewMigration(vmi *virtv1.VirtualMachineInstance, key string, config
 			VMIName: vmi.Name,
 		},
 	}
-	if config.MigrationPriorityQueueEnabled() {
-		mig.Spec.Priority = pointer.P(virtv1.PrioritySystemCritical)
-		if value, exists := vmi.GetAnnotations()[virtv1.EvictionSourceAnnotation]; exists && value == "descheduler" {
-			mig.Spec.Priority = pointer.P(virtv1.PrioritySystemMaintenance)
-		}
+	mig.Spec.Priority = pointer.P(virtv1.PrioritySystemCritical)
+	if value, exists := vmi.GetAnnotations()[virtv1.EvictionSourceAnnotation]; exists && value == "descheduler" {
+		mig.Spec.Priority = pointer.P(virtv1.PrioritySystemMaintenance)
 	}
 
 	return mig
@@ -377,45 +374,6 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	}
 
 	selectedCandidates := migrationCandidates
-	if !c.clusterConfig.MigrationPriorityQueueEnabled() {
-		runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
-		activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
-		maxParallelMigrationsPerOutboundNode :=
-			int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
-		maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
-		freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
-		freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
-		freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
-		if freeSpots <= 0 {
-			c.Queue.AddAfter(node.Name, 5*time.Second)
-			return nil
-		}
-
-		diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
-		remaining := freeSpots - diff
-		remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
-
-		if remainingForNonMigrateableDiff > 0 {
-			// for all non-migrating VMIs which would get e spot emit a warning
-			for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
-			}
-
-		}
-
-		if diff == 0 {
-			if remainingForNonMigrateableDiff > 0 {
-				// Let's ensure that some warnings will stay in the event log and periodically update
-				// In theory the warnings could disappear after one hour if nothing else updates
-				c.Queue.AddAfter(node.Name, 1*time.Minute)
-			}
-			// nothing to do
-			return nil
-		}
-
-		// TODO: should the order be randomized?
-		selectedCandidates = migrationCandidates[0:diff]
-	}
 
 	actualSpots := len(selectedCandidates)
 	log.DefaultLogger().Infof("node: %v, migrations: %v, candidates: %v, selected: %v", node.Name, len(activeMigrations), len(migrationCandidates), len(selectedCandidates))
@@ -429,7 +387,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi, node.Name, c.clusterConfig), v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi, node.Name), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)

@@ -123,6 +123,10 @@ func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
 
+func (config *ClusterConfig) CrossArchitectureVirtualizationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.CrossArchitectureVirtualization)
+}
+
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.AlignCPUsGate)
 }
@@ -145,10 +149,6 @@ func (config *ClusterConfig) ObjectGraphEnabled() bool {
 
 func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
-}
-
-func (config *ClusterConfig) SecureExecutionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }
 
 func (config *ClusterConfig) PasstBindingEnabled() bool {
@@ -181,16 +181,16 @@ func (config *ClusterConfig) AnyDeviceDRAGateEnabled() bool {
 		config.NetworkDevicesWithDRAGateEnabled()
 }
 
+func (config *ClusterConfig) PortRangesSpecGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.PortRangesSpec)
+}
+
 func (config *ClusterConfig) PCINUMAAwareTopologyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PCINUMAAwareTopologyEnabled)
 }
 
 func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
-}
-
-func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.MigrationPriorityQueue)
 }
 
 func (config *ClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
@@ -247,4 +247,8 @@ func (config *ClusterConfig) IOMMUFDEnabled() bool {
 
 func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
+}
+
+func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
 }

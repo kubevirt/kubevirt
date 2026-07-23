@@ -42,9 +42,13 @@ const (
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
-	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
-	WorkloadEncryptionTDX      = "WorkloadEncryptionTDX"
-	VSOCKGate                  = "VSOCK"
+
+	// Owner: sig-compute / @alancaldelas
+	// Alpha: v0.49.0
+	// Beta: v1.9.0
+	WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
+	WorkloadEncryptionTDX = "WorkloadEncryptionTDX"
+	VSOCKGate             = "VSOCK"
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
 	KubevirtSeccompProfile = "KubevirtSeccompProfile"
@@ -90,12 +94,14 @@ const (
 
 	// Owner: @alaypatel07
 	// Alpha: v1.6.0
+	// Beta: v1.9.0
 	//
 	// GPUsWithDRAGate allows users to create VMIs with DRA provisioned GPU devices
 	GPUsWithDRAGate = "GPUsWithDRA"
 
 	// Owner: @alaypatel07
 	// Alpha: v1.6.0
+	// Beta: v1.9.0
 	//
 	// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 	HostDevicesWithDRAGate = "HostDevicesWithDRA"
@@ -132,26 +138,10 @@ const (
 	// also implicitly handles inject/eject CDROM
 	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
 
-	// Owner: sig-conpute / @jschintag
-	// Alpha: v1.6.0
-	// Beta: v1.7.0
-	//
-	// SecureExecution introduces secure execution of VMs on IBM Z architecture
-	SecureExecution = "SecureExecution"
-
 	// Beta: v1.8.0
 	//
 	// PasstBinding enables the use of passt core network binding
 	PasstBinding = "PasstBinding"
-
-	// MigrationPriorityQueue enables controllers to assign priorities to migrations,
-	// ensuring system-initiated migrations (e.g., node drains, upgrades) take precedence
-	// over user-initiated ones (e.g., hot plug operations).
-	// Owner: sig-compute / @fossedihelm
-	// Alpha: v1.7.0
-	// Beta: v1.8.0
-	//
-	MigrationPriorityQueue = "MigrationPriorityQueue"
 
 	// Owner: @harshitgupta1337
 	// Alpha: v1.8.0
@@ -185,10 +175,12 @@ const (
 	// Owner: sig-compute / @0xFelix
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	Template = "Template"
 
 	// Owner: @bmordeha
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	//
 	// VmiMemoryOverheadReport enables reporting the memory overhead in the VMI status.
 	// When enabled, the memory overhead is calculated and set in the VMI status.Memory.MemoryOverhead field.
@@ -211,6 +203,7 @@ const (
 
 	// Owner: @orenc1
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	//
 	// OptOutRoleAggregation enables the RoleAggregationStrategy field in KubeVirtConfiguration,
 	// allowing users to opt out of aggregating KubeVirt ClusterRoles to the default Kubernetes roles.
@@ -271,6 +264,29 @@ const (
 	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
 	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
 	FirmwareAutoSelection = "FirmwareAutoSelection"
+
+	// Owner: @aseeef
+	// Alpha: v1.9.0
+	//
+	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
+	MigrationStallDetection = "MigrationStallDetection"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.9.0
+	//
+	// CrossArchitectureVirtualization enables cross-architecture VM execution.
+	// When enabled, VMs can run on nodes with a different CPU architecture than
+	// the guest (e.g., ARM64 guests on AMD64 hosts) via software emulation or
+	// hardware-accelerated virtualization. Independent of useEmulation.
+	// See VEP #172.
+	CrossArchitectureVirtualization = "CrossArchitectureVirtualization"
+
+	// Owner: sig-network
+	// Alpha: v1.9.0
+	//
+	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
+	// allowing compact specification of contiguous port intervals to forward to the VM guest.
+	PortRangesSpec = "PortRangesSpec"
 )
 
 func init() {
@@ -285,34 +301,32 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
@@ -320,4 +334,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 }

@@ -825,6 +825,85 @@ var _ = Describe("Backup Controller", func() {
 			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 		})
 
+		DescribeTable("should set Quiesced condition correctly",
+			func(quiesceStatus string, expectedConditionStatus metav1.ConditionStatus, expectedReason string) {
+				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+				backup.Finalizers = []string{vmBackupFinalizer}
+				backup.Status = &backupv1.VirtualMachineBackupStatus{
+					Conditions: []metav1.Condition{
+						newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+					},
+				}
+
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+
+				volumesInfo := []backupv1.BackupVolumeInfo{
+					{VolumeName: "rootdisk", DiskTarget: "vda"},
+				}
+				vmi := createInitializedVMI()
+				vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
+				vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumesInfo
+				vmi.Status.ChangedBlockTracking.BackupStatus.QuiesceStatus = quiesceStatus
+				controller.vmiStore.Add(vmi)
+
+				pvc := createPVC(pvcName)
+				controller.pvcStore.Add(pvc)
+
+				err := controller.sync(backup)
+				Expect(err).ToNot(HaveOccurred())
+
+				condition := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionQuiesced))
+				Expect(condition).ToNot(BeNil())
+				Expect(condition.Status).To(Equal(expectedConditionStatus))
+				Expect(condition.Reason).To(Equal(expectedReason))
+			},
+			Entry("when quiesce succeeded", string(backupv1.QuiesceSucceeded), metav1.ConditionTrue, backupv1.ReasonQuiesceSucceeded),
+			Entry("when quiesce failed", string(backupv1.QuiesceFailed), metav1.ConditionFalse, backupv1.ReasonQuiesceFailed),
+			Entry("when quiesce was skipped", string(backupv1.QuiesceSkipped), metav1.ConditionFalse, backupv1.ReasonQuiesceSkipped),
+		)
+
+		It("should set Quiesced condition when backup completes before reconcileActive runs", func() {
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+				},
+			}
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+
+			volumesInfo := []backupv1.BackupVolumeInfo{
+				{VolumeName: "rootdisk", DiskTarget: "vda"},
+			}
+			vmi := createVMI()
+			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     backupName,
+				Completed:      true,
+				CheckpointName: pointer.P(checkpointName),
+				Volumes:        volumesInfo,
+				QuiesceStatus:  string(backupv1.QuiesceSucceeded),
+			}
+			controller.vmiStore.Add(vmi)
+
+			pvc := createPVC(pvcName)
+			controller.pvcStore.Add(pvc)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmi, nil)
+
+			err := controller.sync(backup)
+			Expect(err).ToNot(HaveOccurred())
+
+			condition := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionQuiesced))
+			Expect(condition).ToNot(BeNil())
+			Expect(condition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(condition.Reason).To(Equal(backupv1.ReasonQuiesceSucceeded))
+		})
+
 		It("should patch VMI to remove backup status when backup is completed", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}

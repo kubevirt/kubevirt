@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
@@ -74,7 +75,7 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{MatchVolume: &v1.FeatureState{}}
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 

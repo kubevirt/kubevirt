@@ -292,6 +292,13 @@
                 "port": -4
               }
             ],
+            "portRanges": [
+              {
+                "protocol": "protocolValue",
+                "start": -5,
+                "end": -3
+              }
+            ],
             "macAddress": "macAddressValue",
             "bootOrder": 18446744073709551607,
             "pciAddress": "pciAddressValue",
@@ -1002,6 +1009,7 @@
         "allowAutoConverge": true,
         "bandwidthPerMigration": "0",
         "completionTimeoutPerGiB": -23,
+        "maxDowntimeMs": 18446744073709551603,
         "progressTimeout": -15,
         "utilityVolumesTimeout": -21,
         "unsafeMigrationOverride": true,
@@ -1009,7 +1017,20 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "experimental": {
+          "stallDetector": {
+            "stallMargin": -11,
+            "ewmaAlpha": "ewmaAlphaValue",
+            "stallProgressTimeout": 18446744073709551596,
+            "switchoverTimeout": 18446744073709551599,
+            "precopyPossibleFactor": "precopyPossibleFactorValue",
+            "patienceWindowDecayFactor": "patienceWindowDecayFactorValue",
+            "searchLocalMinima": true,
+            "completionTimeoutFactor": "completionTimeoutFactorValue"
+          },
+          "compression": "compressionValue"
+        }
       },
       "targetCPUSet": [
         -12
@@ -1184,7 +1205,8 @@
             "dataEndpoint": "dataEndpointValue",
             "mapEndpoint": "mapEndpointValue"
           }
-        ]
+        ],
+        "quiesceStatus": "quiesceStatusValue"
       }
     }
   }

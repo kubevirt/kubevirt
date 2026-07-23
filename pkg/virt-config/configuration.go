@@ -138,7 +138,19 @@ func isPrometheusRules(crd *extv1.CustomResourceDefinition) bool {
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
-	crd := obj.(*extv1.CustomResourceDefinition)
+	crd, ok := obj.(*extv1.CustomResourceDefinition)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Errorf("couldn't get object from tombstone %+v", obj)
+			return
+		}
+		crd, ok = tombstone.Obj.(*extv1.CustomResourceDefinition)
+		if !ok {
+			log.Log.Errorf("tombstone contained object that is not a CRD %#v", obj)
+			return
+		}
+	}
 	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) &&
 		!isServiceMonitor(crd) && !isPrometheusRules(crd) {
 		return
@@ -168,6 +180,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
+	maxDowntimeMs := DefaultMigrationMaxDowntimeMs
 	utilityVolumesTimeout := MigrationUtilityVolumesTimeoutSeconds
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
@@ -210,6 +223,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			BandwidthPerMigration:             &bandwidthPerMigrationDefault,
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+			MaxDowntimeMs:                     &maxDowntimeMs,
 			UtilityVolumesTimeout:             &utilityVolumesTimeout,
 			UnsafeMigrationOverride:           &defaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 &allowAutoConverge,
@@ -440,6 +454,14 @@ func (c *ClusterConfig) HasPrometheusRuleAPI() bool {
 		}
 	}
 	return false
+}
+
+func (c *ClusterConfig) VirtTemplateDeploymentEnabled() bool {
+	if !c.TemplateEnabled() {
+		return false
+	}
+	vtd := c.GetConfig().VirtTemplateDeployment
+	return vtd == nil || vtd.Enabled == nil || *vtd.Enabled
 }
 
 func parseNodeSelectors(str string) (map[string]string, error) {

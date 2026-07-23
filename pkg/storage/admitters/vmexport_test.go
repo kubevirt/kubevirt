@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -31,12 +31,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
+	templateapi "kubevirt.io/virt-template-api/core"
 
-	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating VirtualMachineExport Admitter", func() {
@@ -44,8 +43,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	snapshotApiGroup := "snapshot.kubevirt.io"
 	kubevirtApiGroup := "kubevirt.io"
 	backupApiGroup := "backup.kubevirt.io"
-
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	templateApiGroup := templateapi.GroupName
 
 	Context("VMExport", func() {
 		It("should reject invalid request resource", func() {
@@ -55,7 +53,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				},
 			}
 
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
@@ -63,7 +61,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 		createBlankPVCObjectRef := func() corev1.TypedLocalObjectReference {
 			return corev1.TypedLocalObjectReference{
 				APIGroup: &apiGroup,
-				Kind:     pvc,
+				Kind:     "PersistentVolumeClaim",
 				Name:     "",
 			}
 		}
@@ -71,7 +69,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 		createBlankVMSnapshotObjectRef := func() corev1.TypedLocalObjectReference {
 			return corev1.TypedLocalObjectReference{
 				APIGroup: &kubevirtApiGroup,
-				Kind:     vmSnapshotKind,
+				Kind:     "VirtualMachineSnapshot",
 				Name:     "",
 			}
 		}
@@ -79,7 +77,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 		createBlankVMObjectRef := func() corev1.TypedLocalObjectReference {
 			return corev1.TypedLocalObjectReference{
 				APIGroup: &kubevirtApiGroup,
-				Kind:     vmKind,
+				Kind:     "VirtualMachine",
 				Name:     "",
 			}
 		}
@@ -87,7 +85,15 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 		createBlankVMBackupObjectRef := func() corev1.TypedLocalObjectReference {
 			return corev1.TypedLocalObjectReference{
 				APIGroup: &backupApiGroup,
-				Kind:     vmBackupKind,
+				Kind:     "VirtualMachineBackup",
+				Name:     "",
+			}
+		}
+
+		createBlankVMTemplateObjectRef := func() corev1.TypedLocalObjectReference {
+			return corev1.TypedLocalObjectReference{
+				APIGroup: &templateApiGroup,
+				Kind:     "VirtualMachineTemplate",
 				Name:     "",
 			}
 		}
@@ -99,7 +105,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				},
 			}
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring(errorString))
 		},
@@ -108,6 +114,57 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("virtual machine", createBlankVMObjectRef, "Virtual Machine name must not be empty"),
 			Entry("virtual machine backup", createBlankVMBackupObjectRef, "VirtualMachineBackup name must not be empty"),
 		)
+
+		It("should reject blank VMTemplate name when Template gate enabled", func() {
+			clusterConfig := stubVMExportConfigChecker{
+				ociExportEnabled:              true,
+				virtTemplateDeploymentEnabled: true,
+			}
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: createBlankVMTemplateObjectRef(),
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := admitters.NewVMExportAdmitter(clusterConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).Should(ContainSubstring("VirtualMachineTemplate name must not be empty"))
+		})
+
+		DescribeTable("should reject VMTemplate source when required feature gates are missing", func(clusterConfig stubVMExportConfigChecker) {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: createBlankVMTemplateObjectRef(),
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := admitters.NewVMExportAdmitter(clusterConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).Should(ContainSubstring("OCIExport feature gate and virt-template deployment"))
+		},
+			Entry("no feature gates", stubVMExportConfigChecker{}),
+			Entry("only OCIExport", stubVMExportConfigChecker{ociExportEnabled: true}),
+			Entry("only Template", stubVMExportConfigChecker{virtTemplateDeploymentEnabled: true}),
+		)
+
+		It("should accept valid VMTemplate source when both gates enabled", func() {
+			clusterConfig := stubVMExportConfigChecker{
+				ociExportEnabled:              true,
+				virtTemplateDeploymentEnabled: true,
+			}
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &templateApiGroup,
+						Kind:     "VirtualMachineTemplate",
+						Name:     "test-template",
+					},
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := admitters.NewVMExportAdmitter(clusterConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
 
 		It("should reject unknown kind", func() {
 			export := &exportv1.VirtualMachineExport{
@@ -121,7 +178,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
@@ -132,7 +189,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     pvc,
+						Kind:     "PersistentVolumeClaim",
 						Name:     "test",
 					},
 				},
@@ -142,14 +199,14 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     pvc,
+						Kind:     "PersistentVolumeClaim",
 						Name:     "baz",
 					},
 				},
 			}
 
 			ar := createExportUpdateAdmissionReview(oldExport, export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
@@ -160,7 +217,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     pvc,
+						Kind:     "PersistentVolumeClaim",
 						Name:     "test",
 					},
 				},
@@ -173,14 +230,14 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 				Spec: exportv1.VirtualMachineExportSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
-						Kind:     pvc,
+						Kind:     "PersistentVolumeClaim",
 						Name:     "test",
 					},
 				},
 			}
 
 			ar := createExportUpdateAdmissionReview(oldExport, export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -196,12 +253,12 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue(), "should allow APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
-			Entry("persistent volume claim blank", "", pvc),
-			Entry("virtual machine snapshot", snapshotApiGroup, vmSnapshotKind),
-			Entry("virtual machine", kubevirtApiGroup, vmKind),
+			Entry("persistent volume claim blank", "", "PersistentVolumeClaim"),
+			Entry("virtual machine snapshot", snapshotApiGroup, "VirtualMachineSnapshot"),
+			Entry("virtual machine", kubevirtApiGroup, "VirtualMachine"),
 		)
 
 		DescribeTable("it should reject invalid apigroups", func(apiGroup, kind string) {
@@ -216,14 +273,34 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 
 			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			resp := admitters.NewVMExportAdmitter(stubVMExportConfigChecker{}).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse(), "should reject APIGroup: %s, Kind: %s", apiGroup, kind)
 		},
-			Entry("persistent volume claim", "invalid", pvc),
-			Entry("virtual machine snapshot", "invalid", vmSnapshotKind),
-			Entry("virtual machine", "invalid", vmKind),
-			Entry("virtual machine backup", "invalid", vmBackupKind),
+			Entry("persistent volume claim", "invalid", "PersistentVolumeClaim"),
+			Entry("virtual machine snapshot", "invalid", "VirtualMachineSnapshot"),
+			Entry("virtual machine", "invalid", "VirtualMachine"),
+			Entry("virtual machine backup", "invalid", "VirtualMachineBackup"),
 		)
+
+		It("should reject invalid VMTemplate apigroup", func() {
+			clusterConfig := stubVMExportConfigChecker{
+				ociExportEnabled:              true,
+				virtTemplateDeploymentEnabled: true,
+			}
+			invalidGroup := "invalid"
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &invalidGroup,
+						Kind:     "VirtualMachineTemplate",
+						Name:     "test",
+					},
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := admitters.NewVMExportAdmitter(clusterConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+		})
 	})
 })
 
@@ -271,6 +348,12 @@ func createExportUpdateAdmissionReview(old, current *exportv1.VirtualMachineExpo
 	return ar
 }
 
-func createTestVMExportAdmitter(config *virtconfig.ClusterConfig) *VMExportAdmitter {
-	return &VMExportAdmitter{Config: config}
+type stubVMExportConfigChecker struct {
+	ociExportEnabled              bool
+	virtTemplateDeploymentEnabled bool
+}
+
+func (s stubVMExportConfigChecker) OCIExportEnabled() bool { return s.ociExportEnabled }
+func (s stubVMExportConfigChecker) VirtTemplateDeploymentEnabled() bool {
+	return s.virtTemplateDeploymentEnabled
 }

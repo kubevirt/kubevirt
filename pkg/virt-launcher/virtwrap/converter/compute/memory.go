@@ -26,8 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
-type MemoryConfigurator struct {
-}
+type MemoryConfigurator struct{}
 
 func (r MemoryConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Memory == nil ||

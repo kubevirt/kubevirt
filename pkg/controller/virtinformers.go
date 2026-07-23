@@ -71,6 +71,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	templateapi "kubevirt.io/virt-template-api/core"
+	"kubevirt.io/virt-template-api/core/v1beta1"
+	templateclient "kubevirt.io/virt-template-client-go/virttemplate"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -142,6 +145,9 @@ type KubeInformerFactory interface {
 
 	// Watches VirtualMachineExport objects
 	VirtualMachineExport() cache.SharedIndexInformer
+
+	// Watches VirtualMachineTemplate objects
+	VirtualMachineTemplate() cache.SharedIndexInformer
 
 	// Watches VirtualMachineSnapshot objects
 	VirtualMachineSnapshot() cache.SharedIndexInformer
@@ -757,6 +763,20 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		templateapi.SingularResourceName: func(obj interface{}) ([]string, error) {
+			export, ok := obj.(*exportv1.VirtualMachineExport)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if export.Spec.Source.APIGroup != nil &&
+				*export.Spec.Source.APIGroup == templateapi.GroupName &&
+				export.Spec.Source.Kind == "VirtualMachineTemplate" {
+				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
 	}
 }
 
@@ -764,6 +784,17 @@ func (f *kubeInformerFactory) VirtualMachineExport() cache.SharedIndexInformer {
 	return f.getInformer("vmExportInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().ExportV1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &exportv1.VirtualMachineExport{}, f.defaultResync, GetVirtualMachineExportInformerIndexers())
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineTemplate() cache.SharedIndexInformer {
+	return f.getInformer("vmTemplateInformer", func() cache.SharedIndexInformer {
+		tc, err := templateclient.NewForConfig(f.virtClient.Config())
+		if err != nil {
+			panic(fmt.Sprintf("failed to create virt-template client: %v", err))
+		}
+		lw := cache.NewListWatchFromClient(tc.TemplateV1beta1().RESTClient(), templateapi.PluralResourceName, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &v1beta1.VirtualMachineTemplate{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

@@ -350,8 +350,10 @@ func (s *SynchronizationController) execute(key string) error {
 		}
 		if migration.IsDecentralizedSource() {
 			if migration.DeletionTimestamp != nil {
-				log.Log.V(2).Object(migration).Infof("migration is being deleted, informing the target that the migration is canceled")
-				// migration is being deleted, inform the target that the migration is canceled
+				log.Log.V(2).Object(migration).Infof("migration is being deleted, syncing source state before canceling target migration")
+				if err := s.handleSourceState(vmi.DeepCopy(), migration); err != nil {
+					return s.updateDecentralizedFailureOnSource(vmi, migration, err)
+				}
 				if err := s.cancelTargetRemoteMigration(vmi, migration); err != nil {
 					return err
 				}
@@ -374,6 +376,15 @@ func (s *SynchronizationController) execute(key string) error {
 		}
 		return nil
 	} else {
+		// After a target-initiated cancel the source migration object may be removed
+		// before the source VMI records abort completion. Push the final source state
+		// once more so the target VMI receives EndTimestamp and can finish abort cleanup.
+		if needsOrphanSourceAbortSync(vmi) {
+			log.Log.Object(vmi).Info("migration object gone after source abort, pushing final source state to target")
+			if err := s.handleSourceState(vmi.DeepCopy(), nil); err != nil {
+				return err
+			}
+		}
 		// No migration found don't do anything
 		// We should only clear the condition if we are not waiting for synchronization.
 		if err := s.clearDecentralizedLiveMigrationFailure(vmi); err != nil {
@@ -382,6 +393,17 @@ func (s *SynchronizationController) execute(key string) error {
 		log.Log.Object(vmi).V(4).Info("no active decentralized migration found for VMI")
 		return nil
 	}
+}
+
+func needsOrphanSourceAbortSync(vmi *virtv1.VirtualMachineInstance) bool {
+	ms := vmi.Status.MigrationState
+	if ms == nil || ms.SourceState == nil || ms.TargetState == nil {
+		return false
+	}
+	if ms.MigrationUID != ms.SourceState.MigrationUID {
+		return false
+	}
+	return ms.AbortRequested && ms.EndTimestamp != nil
 }
 
 func (s *SynchronizationController) updateDecentralizedFailureOnSource(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration, opErr error) error {
@@ -546,7 +568,29 @@ func (s *SynchronizationController) getOutboundSourceConnection(vmi *virtv1.Virt
 	if migrationState.TargetState == nil || migrationState.TargetState.SyncAddress == nil || *migrationState.TargetState.SyncAddress == "" {
 		return nil, nil
 	}
-	return s.getOutboundConnection(vmi, migrationState.SourceState.MigrationUID, *migrationState.TargetState.SyncAddress, s.syncOutboundConnectionMap)
+	migrationID, err := s.resolveSourceOutboundMigrationID(migrationState)
+	if err != nil {
+		return nil, err
+	}
+	if migrationID == "" {
+		return nil, nil
+	}
+	return s.getOutboundConnectionByMigrationID(vmi, migrationID, *migrationState.TargetState.SyncAddress, s.syncOutboundConnectionMap)
+}
+
+func (s *SynchronizationController) resolveSourceOutboundMigrationID(migrationState *virtv1.VirtualMachineInstanceMigrationState) (string, error) {
+	if migrationState == nil || migrationState.SourceState == nil {
+		return "", nil
+	}
+	migrationID, err := s.getMigrationIDFromUID(migrationState.SourceState.MigrationUID)
+	if err != nil || migrationID != "" {
+		return migrationID, err
+	}
+	// The source migration object may already be deleted after a target-initiated cancel.
+	if migrationState.TargetState != nil && migrationState.TargetState.MigrationUID != "" {
+		return s.getMigrationIDFromUID(migrationState.TargetState.MigrationUID)
+	}
+	return "", nil
 }
 
 func (s *SynchronizationController) getOutboundTargetConnection(vmi *virtv1.VirtualMachineInstance, migrationState *virtv1.VirtualMachineInstanceMigrationState) (*SynchronizationConnection, error) {
@@ -563,6 +607,13 @@ func (s *SynchronizationController) getOutboundConnection(vmi *virtv1.VirtualMac
 	migrationID, err := s.getMigrationIDFromUID(migrationUID)
 	if err != nil {
 		return nil, err
+	}
+	return s.getOutboundConnectionByMigrationID(vmi, migrationID, syncAddress, connectionMap)
+}
+
+func (s *SynchronizationController) getOutboundConnectionByMigrationID(vmi *virtv1.VirtualMachineInstance, migrationID string, syncAddress string, connectionMap *sync.Map) (*SynchronizationConnection, error) {
+	if migrationID == "" {
+		return nil, nil
 	}
 	log.Log.Object(vmi).V(4).Infof("found migration ID %s", migrationID)
 	obj, ok := connectionMap.Load(migrationID)
@@ -631,7 +682,7 @@ func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachine
 	}); err != nil {
 		return err
 	}
-	if migration.IsFinal() {
+	if migration != nil && migration.IsFinal() {
 		if migration.Spec.SendTo != nil {
 			log.Log.Object(migration).Infof("completed migration for VMI %s/%s, closing outbound connections", migration.Namespace, migration.Spec.VMIName)
 			s.closeConnectionForMigrationID(s.syncOutboundConnectionMap, migration.Spec.SendTo.MigrationID)
@@ -1246,7 +1297,7 @@ func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virt
 	patchMigrationStateField(patchSet, "migrationUid", origMS.MigrationUID, newMS.MigrationUID)
 	patchMigrationStateField(patchSet, "mode", origMS.Mode, newMS.Mode)
 	patchMigrationStateField(patchSet, "migrationPolicyName", origMS.MigrationPolicyName, newMS.MigrationPolicyName)
-	patchMigrationStateField(patchSet, "migrationConfiguration", origMS.MigrationConfiguration, newMS.MigrationConfiguration)
+	patchMigrationStateField(patchSet, "migrationConfiguration", origMS.VMIMConfigurationOptions, newMS.VMIMConfigurationOptions)
 	patchMigrationStateField(patchSet, "targetCPUSet", origMS.TargetCPUSet, newMS.TargetCPUSet)
 	patchMigrationStateField(patchSet, "targetNodeTopology", origMS.TargetNodeTopology, newMS.TargetNodeTopology)
 	patchMigrationStateField(patchSet, "sourcePersistentStatePVCName", origMS.SourcePersistentStatePVCName, newMS.SourcePersistentStatePVCName)
@@ -1348,6 +1399,16 @@ func copyLegacySourceFields(vmi *virtv1.VirtualMachineInstance, migrationState *
 	}
 	vmi.Status.MigrationState.SourcePod = migrationState.SourceState.Pod
 	copyCommonLegacyFields(vmi.Status.MigrationState, migrationState)
+	if migrationState.AbortRequested && migrationState.EndTimestamp != nil {
+		vmi.Status.MigrationState.Failed = migrationState.Failed
+		vmi.Status.MigrationState.Completed = migrationState.Completed
+		if migrationState.AbortStatus != "" {
+			vmi.Status.MigrationState.AbortStatus = migrationState.AbortStatus
+		}
+		if migrationState.FailureReason != "" {
+			vmi.Status.MigrationState.FailureReason = migrationState.FailureReason
+		}
+	}
 }
 
 func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.VirtualMachineInstanceMigrationState) {
@@ -1355,8 +1416,8 @@ func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.V
 	if sourceMigrationState.MigrationPolicyName != nil {
 		targetMigrationState.MigrationPolicyName = sourceMigrationState.MigrationPolicyName
 	}
-	if sourceMigrationState.MigrationConfiguration != nil {
-		targetMigrationState.MigrationConfiguration = sourceMigrationState.MigrationConfiguration
+	if sourceMigrationState.VMIMConfigurationOptions != nil {
+		targetMigrationState.VMIMConfigurationOptions = sourceMigrationState.VMIMConfigurationOptions
 	}
 	if sourceMigrationState.StartTimestamp != nil {
 		targetMigrationState.StartTimestamp = sourceMigrationState.StartTimestamp

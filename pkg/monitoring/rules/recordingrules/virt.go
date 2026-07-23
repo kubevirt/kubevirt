@@ -96,9 +96,14 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 
 		// leading
 		newRecordingRule(
+			"cluster:kubevirt_virt_controller_leading:sum",
+			"The number of virt-controller pods that are leading.",
+			fmt.Sprintf("sum(kubevirt_virt_controller_leading_status{namespace='%s'}) or vector(0)", namespace),
+		),
+		newRecordingRule(
 			"cluster:kubevirt_virt_operator_leading:sum",
 			"The number of virt-operator pods that are leading.",
-			fmt.Sprintf("sum(kubevirt_virt_operator_leading_status{namespace='%s'})", namespace),
+			fmt.Sprintf("sum(kubevirt_virt_operator_leading_status{namespace='%s'}) or vector(0)", namespace),
 		),
 	}
 }

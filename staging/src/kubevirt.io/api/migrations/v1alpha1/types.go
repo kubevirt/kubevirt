@@ -50,9 +50,17 @@ type MigrationPolicySpec struct {
 	//+optional
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	//+optional
+	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Maximum=2000000
+	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
+	//+optional
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 	//+optional
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// ExperimentalMigrationOptions is an alpha API. It is intended for experimental
+	// purposes only and will be removed in the future.
+	//+optional
+	ExperimentalMigrationOptions *k6tv1.ExperimentalMigrationOptions `json:"experimental,omitempty"`
 }
 
 type LabelSelector map[string]string
@@ -76,39 +84,4 @@ type MigrationPolicyList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// +listType=atomic
 	Items []MigrationPolicy `json:"items"`
-}
-
-// GetMigrationConfByPolicy returns a new migration configuration. The new configuration attributes will be overridden
-// by the migration policy if the specified attributes were defined for this policy. Otherwise they wouldn't change.
-// The boolean returned value indicates if any changes were made to the configurations.
-func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *k6tv1.MigrationConfiguration) (changed bool, err error) {
-	policySpec := m.Spec
-	changed = false
-
-	if policySpec.AllowAutoConverge != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowAutoConverge = *policySpec.AllowAutoConverge
-	}
-	if policySpec.BandwidthPerMigration != nil {
-		changed = true
-		*clusterMigrationConfigurations.BandwidthPerMigration = *policySpec.BandwidthPerMigration
-	}
-	if policySpec.CompletionTimeoutPerGiB != nil {
-		changed = true
-		*clusterMigrationConfigurations.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
-	}
-	if policySpec.AllowPostCopy != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowPostCopy = *policySpec.AllowPostCopy
-	}
-	if policySpec.AllowWorkloadDisruption != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowWorkloadDisruption
-	} else if policySpec.AllowWorkloadDisruption == nil && policySpec.AllowPostCopy != nil {
-		// For backward compatibility, AllowWorkloadDisruption will follow the
-		// value of AllowPostCopy, if not explicitly set
-		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowPostCopy
-	}
-
-	return changed, nil
 }

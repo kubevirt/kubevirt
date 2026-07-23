@@ -1,8 +1,12 @@
 package converter
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"sort"
 	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
@@ -16,6 +20,21 @@ import (
 const (
 	maxExpanderBusNr = 255
 )
+
+type pciNUMAPlacementOptions struct {
+	strict bool
+}
+
+// PCIPlacementOption configures PCI NUMA-aware placement behavior.
+type PCIPlacementOption func(*pciNUMAPlacementOptions)
+
+// WithStrictPCINUMAPlacement makes placement fail when a PCI host device cannot
+// be represented in the NUMA-aware PCI topology.
+func WithStrictPCINUMAPlacement() PCIPlacementOption {
+	return func(options *pciNUMAPlacementOptions) {
+		options.strict = true
+	}
+}
 
 // iteratePCIAddresses invokes the callback function for each PCI device specified in the domain
 func iteratePCIAddresses(spec *api.DomainSpec, callback func(address *api.Address) (*api.Address, error)) (err error) {
@@ -176,12 +195,16 @@ type numaAwareTopology struct {
 // expanderBusAssigner manages the assignment of PCIe expander buses and
 // NUMA aligned device placement.
 type expanderBusAssigner struct {
-	domainSpec       *api.DomainSpec
-	controllerIndex  uint32
-	controllerCount  uint32
-	topologyMap      map[uint32]*numaAwareTopology
-	devices          map[string]*api.HostDevice
-	devicesNUMANodes map[string]uint32
+	domainSpec              *api.DomainSpec
+	controllerIndex         uint32
+	controllerCount         uint32
+	topologyMap             map[uint32]*numaAwareTopology
+	devices                 map[string]*api.HostDevice
+	devicesNUMANodes        map[string]uint32
+	deviceNUMANodeOverrides map[string]uint32
+	isolatedDevices         map[string]*api.IOMMUDevice
+	strict                  bool
+	strictFailures          []string
 
 	// lastAssignedBusNr tracks the last assigned bus number for expander buses.
 	// It starts from maxExpanderBusNr and decreases as expander buses are assigned
@@ -204,18 +227,30 @@ func getCurrentControllerIndex(domainSpec *api.DomainSpec) uint32 {
 }
 
 // newExpanderBusAssigner creates a new PCIe expander bus assigner.
-func newExpanderBusAssigner(domainSpec *api.DomainSpec) *expanderBusAssigner {
+func newExpanderBusAssigner(domainSpec *api.DomainSpec, opts ...PCIPlacementOption) *expanderBusAssigner {
+	return newExpanderBusAssignerWithOptions(domainSpec, nil, nil, opts...)
+}
+
+func newExpanderBusAssignerWithOptions(domainSpec *api.DomainSpec, isolatedDevices map[string]*api.IOMMUDevice, numaOverrides map[string]uint32, opts ...PCIPlacementOption) *expanderBusAssigner {
+	options := pciNUMAPlacementOptions{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	currentControllerIndex := getCurrentControllerIndex(domainSpec)
 	log.Log.Infof("Current max controller index: %d", currentControllerIndex)
 
 	assigner := &expanderBusAssigner{
-		domainSpec:        domainSpec,
-		topologyMap:       make(map[uint32]*numaAwareTopology),
-		devices:           make(map[string]*api.HostDevice),
-		devicesNUMANodes:  make(map[string]uint32),
-		controllerIndex:   currentControllerIndex,
-		controllerCount:   0,
-		lastAssignedBusNr: maxExpanderBusNr,
+		domainSpec:              domainSpec,
+		topologyMap:             make(map[uint32]*numaAwareTopology),
+		devices:                 make(map[string]*api.HostDevice),
+		devicesNUMANodes:        make(map[string]uint32),
+		deviceNUMANodeOverrides: numaOverrides,
+		isolatedDevices:         isolatedDevices,
+		strict:                  options.strict,
+		controllerIndex:         currentControllerIndex,
+		controllerCount:         0,
+		lastAssignedBusNr:       maxExpanderBusNr,
 	}
 
 	return assigner
@@ -224,8 +259,8 @@ func newExpanderBusAssigner(domainSpec *api.DomainSpec) *expanderBusAssigner {
 // PlacePCIDevicesWithNUMAAlignment places PCI devices in the domainSpec with
 // NUMA alignment using PCIe expander buses. It modifies the domainSpec in place
 // or leaves it unchanged in case of an error.
-func PlacePCIDevicesWithNUMAAlignment(domainSpec *api.DomainSpec) error {
-	assigner := newExpanderBusAssigner(domainSpec)
+func PlacePCIDevicesWithNUMAAlignment(domainSpec *api.DomainSpec, opts ...PCIPlacementOption) error {
+	assigner := newExpanderBusAssigner(domainSpec, opts...)
 	return assigner.PlaceNumaAlignedDevices()
 }
 
@@ -258,9 +293,10 @@ func (a *expanderBusAssigner) createController(model string, parentBus string, s
 	return controller
 }
 
-func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
+func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) error {
 	var pciAddresses []string
 	devicesByAddress := make(map[string]*api.HostDevice)
+	a.strictFailures = nil
 
 	for i := range devices {
 		if devices[i].Type != api.HostDevicePCI {
@@ -268,24 +304,67 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 		}
 
 		if devices[i].Source.Address == nil {
-			log.Log.Infof("device has no source address, skipping for pcie-expander-bus assignment")
+			a.handlePlacementWarning("PCI host device has no source address, skipping pcie-expander-bus assignment")
 			continue
 		}
 
 		address := hardware.PCIAddressToString(devices[i].Source.Address)
+		if hasGuestPCIAddress(devices[i].Address) {
+			a.handlePlacementWarning("device %s already has a guest PCI address, skipping pcie-expander-bus assignment", address)
+			continue
+		}
+
 		pciAddresses = append(pciAddresses, address)
 		devicesByAddress[address] = &devices[i]
 	}
 
-	numaNodes := hardware.LookupDevicesNumaNodes(pciAddresses, a.domainSpec)
+	slices.Sort(pciAddresses)
+	devicesNUMANodes, warnings := hardware.LookupDevicesNumaNodesWithWarnings(pciAddresses, a.domainSpec)
+	warningsByAddress := make(map[string][]string)
+	for _, warning := range warnings {
+		log.Log.Warningf("PCI NUMA-aware placement: %s", warning.String())
+		if warning.PCIAddress != "" {
+			warningsByAddress[warning.PCIAddress] = append(warningsByAddress[warning.PCIAddress], warning.Reason)
+		} else if a.strict {
+			a.addStrictFailure(warning.String())
+		}
+	}
 
-	for address, device := range devicesByAddress {
-		if numaNode, exists := numaNodes[address]; exists {
+	for _, address := range pciAddresses {
+		device := devicesByAddress[address]
+		if numaNode, exists := a.deviceNUMANodeOverrides[address]; exists {
+			a.devices[address] = device
+			a.devicesNUMANodes[address] = numaNode
+			continue
+		}
+
+		if numaNode, exists := devicesNUMANodes[address]; exists {
 			a.devices[address] = device
 			a.devicesNUMANodes[address] = numaNode
 		} else {
-			log.Log.Infof("device %s has no NUMA affinity information, skipping for pcie-expander-bus assignment", address)
+			reason := "no guest NUMA node mapping is available"
+			if warningReasons := warningsByAddress[address]; len(warningReasons) > 0 {
+				reason = strings.Join(warningReasons, "; ")
+			}
+			a.handlePlacementWarning("device %s cannot be placed on a NUMA-aware PCIe topology: %s", address, reason)
 		}
+	}
+
+	if len(a.strictFailures) > 0 {
+		return fmt.Errorf("strict PCI NUMA-aware placement failed: %s", strings.Join(a.strictFailures, "; "))
+	}
+	return nil
+}
+
+func (a *expanderBusAssigner) handlePlacementWarning(format string, args ...interface{}) {
+	message := fmt.Sprintf(format, args...)
+	log.Log.Warningf("%s", message)
+	a.addStrictFailure(message)
+}
+
+func (a *expanderBusAssigner) addStrictFailure(message string) {
+	if a.strict {
+		a.strictFailures = append(a.strictFailures, message)
 	}
 }
 
@@ -301,6 +380,12 @@ func (a *expanderBusAssigner) groupDevicesByNUMA() numaDeviceGroups {
 			continue
 		}
 		groups[numaNode] = append(groups[numaNode], device)
+	}
+	for numaNode := range groups {
+		sort.Slice(groups[numaNode], func(i, j int) bool {
+			return hardware.PCIAddressToString(groups[numaNode][i].Source.Address) <
+				hardware.PCIAddressToString(groups[numaNode][j].Source.Address)
+		})
 	}
 	return groups
 }
@@ -342,6 +427,13 @@ func (a *expanderBusAssigner) placeDevice(topology *numaAwareTopology, device *a
 	return nil
 }
 
+func (a *expanderBusAssigner) createDeviceTopology(numaNode uint32) *numaAwareTopology {
+	return &numaAwareTopology{
+		expanderBus:               a.createController(api.ControllerModelPCIeExpanderBus, "", 0, &numaNode),
+		addressPerDeviceSourcePCI: make(map[string]*api.Address),
+	}
+}
+
 // buildTopology groups devices by NUMA node by using a pcie-expander-bus per
 // NUMA node. Within a pcie-expander-bus one pcie-root-port per device is created.
 // Each device is then placed behind its respective root port.
@@ -353,25 +445,67 @@ func (a *expanderBusAssigner) placeDevice(topology *numaAwareTopology, device *a
 func (a *expanderBusAssigner) buildTopology() error {
 	numaDeviceGroups := a.groupDevicesByNUMA()
 
-	for numaKey, devices := range numaDeviceGroups {
-		topology := a.getNumaAwareTopology(numaKey)
+	for _, numaKey := range sortedKeys(numaDeviceGroups) {
+		devices := numaDeviceGroups[numaKey]
 
+		var normalDevices []*api.HostDevice
 		for _, device := range devices {
+			address := hardware.PCIAddressToString(device.Source.Address)
+			iommuDevice, isolated := a.isolatedDevices[address]
+			if !isolated {
+				normalDevices = append(normalDevices, device)
+				continue
+			}
+
+			topology := a.createDeviceTopology(numaKey)
+			if err := a.placeDevice(topology, device); err != nil {
+				return fmt.Errorf("failed to place isolated device %s: %w", address, err)
+			}
+			a.assignBusNr(topology)
+			if err := a.applyIOMMUDevice(topology, iommuDevice); err != nil {
+				return fmt.Errorf("failed to place isolated device %s IOMMU: %w", address, err)
+			}
+			a.applyTopology(topology)
+		}
+
+		if len(normalDevices) == 0 {
+			continue
+		}
+
+		topology := a.getNumaAwareTopology(numaKey)
+		for _, device := range normalDevices {
 			if err := a.placeDevice(topology, device); err != nil {
 				return fmt.Errorf("failed to place device %s: %w", hardware.PCIAddressToString(device.Source.Address), err)
 			}
 		}
-
-		// Set the busNr of the expander bus so that it has enough space for all
-		// its children. We start from 254 (1 expander bus + 1 root port, when one
-		// device is aligned with a NUMA node) and go downwards to leave space for
-		// system controllers and additional expander buses.
-		busNr := maxExpanderBusNr - a.controllerCount + 1
-		topology.expanderBus.Target.BusNr = ptr.To(busNr)
-
-		a.lastAssignedBusNr = busNr
+		a.assignBusNr(topology)
 	}
 
+	return nil
+}
+
+func (a *expanderBusAssigner) assignBusNr(topology *numaAwareTopology) {
+	// Set the busNr of the expander bus so that it has enough space for all
+	// its children. We start from 254 (1 expander bus + 1 root port, when one
+	// device is aligned with a NUMA node) and go downwards to leave space for
+	// system controllers and additional expander buses.
+	busNr := maxExpanderBusNr - a.controllerCount + 1
+	topology.expanderBus.Target.BusNr = ptr.To(busNr)
+	a.lastAssignedBusNr = busNr
+}
+
+func (a *expanderBusAssigner) applyIOMMUDevice(topology *numaAwareTopology, iommuDevice *api.IOMMUDevice) error {
+	if iommuDevice == nil {
+		return nil
+	}
+	if iommuDevice.Driver == nil {
+		iommuDevice.Driver = &api.IOMMUDriver{}
+	}
+	if topology == nil || topology.expanderBus == nil || topology.expanderBus.Index == "" {
+		return fmt.Errorf("missing pcie-expander-bus controller index")
+	}
+	iommuDevice.Driver.PCIBus = topology.expanderBus.Index
+	a.domainSpec.Devices.IOMMU = append(a.domainSpec.Devices.IOMMU, *iommuDevice)
 	return nil
 }
 
@@ -379,28 +513,59 @@ func (a *expanderBusAssigner) buildTopology() error {
 // into a PCIe topology aligned to their NUMA node. It modifies the domainSpec
 // in place or leaves it unchanged in case of an error.
 func (a *expanderBusAssigner) PlaceNumaAlignedDevices() error {
-	a.addDevices(a.domainSpec.Devices.HostDevices)
+	if err := a.addDevices(a.domainSpec.Devices.HostDevices); err != nil {
+		return err
+	}
 
 	if err := a.buildTopology(); err != nil {
 		return fmt.Errorf("failed to create PCIe topology with NUMA alignment: %w", err)
 	}
 
-	for _, topology := range a.topologyMap {
-		a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *topology.expanderBus)
-
-		for _, rootPort := range topology.rootPorts {
-			a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *rootPort)
-		}
-
-		for sourceAddress, address := range topology.addressPerDeviceSourcePCI {
-			if device, exists := a.devices[sourceAddress]; exists {
-				device.Address = address
-			}
-			// If a device was not placed in the topology (e.g. missing vCPU
-			// affinity information), we leave it unmodified so that it can be
-			// placed by the root slot assigner.
-		}
+	for _, numaKey := range sortedKeys(a.topologyMap) {
+		a.applyTopology(a.topologyMap[numaKey])
 	}
 
 	return nil
+}
+
+func (a *expanderBusAssigner) applyTopology(topology *numaAwareTopology) {
+	a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *topology.expanderBus)
+
+	for _, rootPort := range topology.rootPorts {
+		a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *rootPort)
+	}
+
+	for _, sourceAddress := range sortedKeys(topology.addressPerDeviceSourcePCI) {
+		address := topology.addressPerDeviceSourcePCI[sourceAddress]
+		if device, exists := a.devices[sourceAddress]; exists {
+			device.Address = address
+		}
+		// If a device was not placed in the topology (e.g. missing vCPU
+		// affinity information), we leave it unmodified so that it can be
+		// placed by the root slot assigner.
+	}
+}
+
+func sortedKeys[K cmp.Ordered, V any](values map[K]V) []K {
+	keys := make([]K, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func sortedUint32Keys[T any](values map[uint32]T) []uint32 {
+	return sortedKeys(values)
+}
+
+func hasGuestPCIAddress(address *api.Address) bool {
+	if address == nil {
+		return false
+	}
+
+	// Any populated PCI coordinate is treated as explicit guest placement.
+	// This planner must not complete or relocate partially populated addresses;
+	// malformed addresses are left to the normal domain validation path.
+	return address.Domain != "" || address.Bus != "" || address.Slot != "" || address.Function != ""
 }

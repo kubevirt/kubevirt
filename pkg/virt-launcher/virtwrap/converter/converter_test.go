@@ -1383,16 +1383,6 @@ var _ = Describe("Converter", func() {
 			}))
 		})
 
-		It("passt network interface should enable shared memory", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Interfaces[0].PasstBinding = &v1.InterfacePasstBinding{}
-			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: "eth0"}}
-			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.MemoryBacking.Access.Mode).To(Equal("shared"))
-			Expect(dom.Spec.MemoryBacking.Source.Type).To(Equal("memfd"))
-		})
-
 		DescribeTable("usb controller", func(arch, bus string, matcher types.GomegaMatcher) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = v1.InputBus(bus)
@@ -1628,19 +1618,29 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should convert hugepages", func() {
+		DescribeTable("should convert hugepages", func(arch string, expectMemfd bool) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Hugepages: &v1.Hugepages{},
 			}
+			c.Architecture = archconverter.NewConverter(arch)
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
-			Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
-			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
 
+			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))
-		})
+
+			if expectMemfd {
+				Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
+				Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
+			} else {
+				Expect(domainSpec.MemoryBacking.Source).To(BeNil())
+			}
+		},
+			Entry("with memfd on amd64", amd64, true),
+			Entry("with memfd on arm64", arm64, true),
+			Entry("without memfd on s390x", s390x, false),
+		)
 
 		It("should not add RNG when not present", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
@@ -1696,9 +1696,15 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should add VSOCK section when present",
 			func(useVirtioTransitional bool) {
+				fakeProc := GinkgoT().TempDir()
+				vsockPath := filepath.Join(fakeProc, "sys", "net", "vsock")
+				Expect(os.MkdirAll(vsockPath, 0755)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(vsockPath, "ns_mode"), []byte("global\n"), 0600)).To(Succeed())
+
 				vmi.Status.VSOCKCID = pointer.P(uint32(100))
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				c.UseVirtioTransitional = useVirtioTransitional
+				c.VSOCKProcPath = fakeProc
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
 				Expect(domainSpec.Devices.VSOCK.Model).To(Equal("virtio-non-transitional"))
@@ -1906,6 +1912,25 @@ var _ = Describe("Converter", func() {
 					Expect(rootPort.Address).ToNot(BeNil(), "root port %d should have a PCI address assigned", i)
 					Expect(rootPort.Address.Bus).To(Equal(numaExpander.Index), "root port %d should be attached to the expander bus", i)
 				}
+			})
+
+			It("should fail conversion when guest NUMA passthrough host devices cannot be NUMA placed", func() {
+				if cleanup != nil {
+					cleanup()
+				}
+				cleanup = setupMockHardwarePaths(map[string]string{
+					"0000:81:01.0": "0",
+					"0000:81:02.0": "0",
+					"0000:82:01.0": "0",
+				}, map[string]string{"0": "0-1"})
+
+				c = createContextWithDevices(vmi, c)
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to process strict PCIe NUMA-aware topology"))
+				Expect(err.Error()).To(ContainSubstring("0000:82:02.0"))
 			})
 		})
 
@@ -3849,17 +3874,17 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{},
 					},
-				}, "", nil, "Firmware's volume type is unsupported for slic"),
+				}, "", nil, "firmware's volume type is unsupported for slic"),
 			Entry("msdm with configmap", "", nil,
 				"vol-msdm", &v1.Volume{
 					Name: "vol-msdm",
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{},
 					},
-				}, "Firmware's volume type is unsupported for msdm"),
+				}, "firmware's volume type is unsupported for msdm"),
 			// without matching volume source
-			Entry("slic without volume", "vol-slic", &v1.Volume{}, "", &v1.Volume{}, "Firmware's volume for slic was not found"),
-			Entry("msdm without volume", "", &v1.Volume{}, "vol-msdm", &v1.Volume{}, "Firmware's volume for msdm was not found"),
+			Entry("slic without volume", "vol-slic", &v1.Volume{}, "", &v1.Volume{}, "firmware's volume for slic was not found"),
+			Entry("msdm without volume", "", &v1.Volume{}, "vol-msdm", &v1.Volume{}, "firmware's volume for msdm was not found"),
 			// try both togeter, correct input
 			Entry("slic and msdm with secret",
 				"vol-slic", &v1.Volume{
@@ -4545,6 +4570,36 @@ var _ = Describe("Converter", func() {
 				BeEmpty(),
 			),
 		)
+	})
+
+	Context("with IOMMUFD", func() {
+		It("should set IOMMUFD on domain when IOMMUFDEnabled is true", func() {
+			vmi := libvmi.New()
+			c := &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:            true,
+				HypervisorDeviceAvailable: true,
+				IOMMUFDEnabled:            true,
+			}
+			domain := vmiToDomain(vmi, c)
+
+			Expect(domain.Spec.IOMMUFD).NotTo(BeNil())
+			Expect(domain.Spec.IOMMUFD.Enabled).To(Equal("yes"))
+			Expect(domain.Spec.IOMMUFD.FDGroup).To(Equal("iommu"))
+		})
+
+		It("should not set IOMMUFD on domain when IOMMUFDEnabled is false", func() {
+			vmi := libvmi.New()
+			c := &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:            true,
+				HypervisorDeviceAvailable: true,
+				IOMMUFDEnabled:            false,
+			}
+			domain := vmiToDomain(vmi, c)
+
+			Expect(domain.Spec.IOMMUFD).To(BeNil())
+		})
 	})
 })
 

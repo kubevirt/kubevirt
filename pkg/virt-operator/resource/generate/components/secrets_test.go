@@ -286,6 +286,7 @@ var _ = Describe("Certificate Management", func() {
 			Expect(crt).ToNot(BeNil())
 		},
 			Entry("virt-handler", VirtHandlerCertSecretName),
+			Entry("virt-handler-monitoring-client", VirtHandlerMonitoringClientCertSecretName),
 			Entry("virt-controller", VirtControllerCertSecretName),
 			Entry("virt-api", VirtApiCertSecretName),
 			Entry("virt-operator", VirtOperatorCertSecretName),

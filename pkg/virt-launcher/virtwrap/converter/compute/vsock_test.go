@@ -20,6 +20,9 @@
 package compute_test
 
 import (
+	"os"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -30,18 +33,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/vsock"
+	"kubevirt.io/kubevirt/pkg/vsock/mode"
 )
 
 var _ = Describe("VSOCK Domain Configurator", func() {
+	var fakeProc string
+
+	BeforeEach(func() {
+		fakeProc = GinkgoT().TempDir()
+	})
+
 	It("Should not configure VSOCK when VSOCKCID is absent", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		Expect(compute.VSOCKDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+		configurator := compute.VSOCKDomainConfigurator{ProcPath: fakeProc}
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
-	It("Should configure VSOCK when VSOCKCID is present", func() {
+	It("Should configure VSOCK when VSOCKCID is present in global mode", func() {
 		const expectedVSOCKID = uint32(50)
 		vmiStatus := v1.VirtualMachineInstanceStatus{
 			VSOCKCID: pointer.P(expectedVSOCKID),
@@ -51,7 +63,10 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 		)
 		var domain api.Domain
 
-		Expect(compute.VSOCKDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+		createFakeVsockModeFile(fakeProc, mode.ModeGlobal)
+
+		configurator := compute.VSOCKDomainConfigurator{ProcPath: fakeProc}
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
@@ -68,4 +83,40 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 		}
 		Expect(domain).To(Equal(expectedDomain))
 	})
+
+	It("Should configure VSOCK when VSOCKCID is present in local mode", func() {
+		vmiStatus := v1.VirtualMachineInstanceStatus{
+			VSOCKCID: pointer.P[uint32](1234),
+		}
+		vmi := libvmi.New(
+			libvmistatus.WithStatus(vmiStatus),
+		)
+		var domain api.Domain
+
+		createFakeVsockModeFile(fakeProc, mode.ModeLocal)
+
+		configurator := compute.VSOCKDomainConfigurator{ProcPath: fakeProc}
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					VSOCK: &api.VSOCK{
+						Model: "virtio-non-transitional",
+						CID: api.CID{
+							Auto:    "no",
+							Address: vsock.LocalCID,
+						},
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
 })
+
+func createFakeVsockModeFile(tmpDir, vsockMode string) {
+	vsockPath := filepath.Join(tmpDir, "sys", "net", "vsock")
+	Expect(os.MkdirAll(vsockPath, 0o755)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(vsockPath, "ns_mode"), []byte(vsockMode+"\n"), 0o600)).To(Succeed())
+}

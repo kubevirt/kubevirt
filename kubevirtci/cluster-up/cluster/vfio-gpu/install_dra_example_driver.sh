@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+#
+# This file is part of the KubeVirt project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Copyright 2024 Red Hat, Inc.
+#
+
+set -e
+set -o pipefail
+
+DRA_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${DRA_SCRIPT_DIR}/../../../hack/detect_cri.sh"
+
+DRA_EXAMPLE_DRIVER_REPO="https://github.com/Sreeja1725/dra-example-driver.git"
+DRA_EXAMPLE_DRIVER_BRANCH="kubevirt-dra-profile"
+DRA_EXAMPLE_DRIVER_DIR=${DRA_EXAMPLE_DRIVER_DIR:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_dra-example-driver"}
+DRA_DRIVER_NAMESPACE=${DRA_DRIVER_NAMESPACE:-dra-example-driver}
+
+function _kubectl() {
+   ${KUBECTL} "$@"
+}
+
+function create_privileged_dra_driver_namespace() {
+    _kubectl create namespace "${DRA_DRIVER_NAMESPACE}"
+    _kubectl label namespace "${DRA_DRIVER_NAMESPACE}" \
+        pod-security.kubernetes.io/enforce=privileged \
+        pod-security.kubernetes.io/warn=privileged \
+        pod-security.kubernetes.io/audit=privileged
+}
+
+function _get_dra_repo() {
+    git --git-dir "${DRA_EXAMPLE_DRIVER_DIR}/.git" config --get remote.origin.url 2>/dev/null || true
+}
+
+function _dra_driver_image_tag() {
+    grep '^appVersion:' "${DRA_EXAMPLE_DRIVER_DIR}/deployments/helm/dra-example-driver/Chart.yaml" \
+        | sed -E 's/^appVersion:[[:space:]]*"?([^"]*)"?/\1/'
+}
+
+function _helm_bin() {
+    if command -v helm >/dev/null 2>&1; then
+        echo "Using helm binary: $(command -v helm)" >&2
+        command -v helm
+        return
+    fi
+
+    local version="${HELM_VERSION:-v3.16.4}"
+
+    [[ "${version}" == v* ]] || version="v${version}"
+
+    local os arch install_dir helm_bin url tarball
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    arch="$(uname -m)"
+    case "${arch}" in
+        x86_64) arch=amd64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *)
+            echo "ERROR: unsupported architecture for helm: ${arch}" >&2
+            return 1
+            ;;
+    esac
+
+    install_dir="${KUBEVIRTCI_CONFIG_PATH}/.tools/helm-${version}"
+    helm_bin="${install_dir}/helm"
+    if [ -x "${helm_bin}" ]; then
+        echo "${helm_bin}"
+        return
+    fi
+
+    mkdir -p "${install_dir}"
+    url="https://get.helm.sh/helm-${version}-${os}-${arch}.tar.gz"
+    tarball="${install_dir}/helm.tar.gz"
+    if ! curl -fsSL -o "${tarball}" "${url}"; then
+        echo "ERROR: failed to download helm from ${url}" >&2
+        echo "       check that HELM_VERSION=${version} is a real release for ${os}-${arch}." >&2
+        rm -f "${tarball}"
+        return 1
+    fi
+    
+    tar -xz -C "${install_dir}" -f "${tarball}" "${os}-${arch}/helm"
+    mv "${install_dir}/${os}-${arch}/helm" "${helm_bin}"
+    rm -f "${tarball}"
+    rmdir "${install_dir}/${os}-${arch}" 2>/dev/null || true
+    echo "${helm_bin}"
+}
+
+function clone_dra_example_driver() {
+    if [ -d "${DRA_EXAMPLE_DRIVER_DIR}" ]; then
+        if [ "$(_get_dra_repo)" != "${DRA_EXAMPLE_DRIVER_REPO}" ]; then
+            rm -rf "${DRA_EXAMPLE_DRIVER_DIR}"
+        fi
+    fi
+
+    if [ ! -d "${DRA_EXAMPLE_DRIVER_DIR}" ]; then
+        git clone --depth 1 --branch "${DRA_EXAMPLE_DRIVER_BRANCH}" \
+            "${DRA_EXAMPLE_DRIVER_REPO}" "${DRA_EXAMPLE_DRIVER_DIR}"
+    fi
+}
+
+function cluster::install_dra_example_driver() {
+    : "${DRA_DRIVER_PROFILE:=vfio-gpu}"
+    : "${DRA_DRIVER_NAME:=vfio-gpu.example.com}"
+    : "${DRA_DRIVER_IMAGE_NAME:=dra-example-driver}"
+
+    clone_dra_example_driver
+
+    local provider_config="${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/config-provider-${KUBEVIRT_PROVIDER}.sh"
+    if [ ! -f "${provider_config}" ]; then
+        echo "ERROR: provider config not found at ${provider_config}" >&2
+        exit 1
+    fi
+
+    source "${provider_config}"
+
+    local driver_image_tag
+    driver_image_tag=$(_dra_driver_image_tag)
+    if [ -z "${driver_image_tag}" ]; then
+        echo "ERROR: could not determine DRA driver image tag from Chart.yaml" >&2
+        exit 1
+    fi
+
+    local local_image_repo="${docker_prefix}/${DRA_DRIVER_IMAGE_NAME}"
+    local manifest_image_repo="${manifest_docker_prefix}/${DRA_DRIVER_IMAGE_NAME}"
+
+    CONTAINER_TOOL="${CONTAINER_TOOL:-$(detect_cri)}"; export CONTAINER_TOOL
+    export DRIVER_IMAGE_REGISTRY="${docker_prefix}"
+    export DRIVER_IMAGE_NAME="${DRA_DRIVER_IMAGE_NAME}"
+    export DRIVER_IMAGE_TAG="${driver_image_tag}"
+
+    (
+        cd "${DRA_EXAMPLE_DRIVER_DIR}"
+        bash demo/build-driver.sh
+    )
+
+    if [[ "${CONTAINER_TOOL}" = "podman" ]]; then
+        ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}" --tls-verify=false
+    else
+        ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}"
+    fi
+
+    create_privileged_dra_driver_namespace
+
+    local helm_bin
+    helm_bin="$(_helm_bin)"
+    "${helm_bin}" upgrade -i dra-example-driver "${DRA_EXAMPLE_DRIVER_DIR}/deployments/helm/dra-example-driver" \
+        --kubeconfig "${KUBECONFIG}" \
+        --namespace "${DRA_DRIVER_NAMESPACE}" \
+        --set deviceProfile="${DRA_DRIVER_PROFILE}" \
+        --set driverName="${DRA_DRIVER_NAME}" \
+        --set image.repository="${manifest_image_repo}" \
+        --set image.tag="${driver_image_tag}" \
+        --set-string kubeletPlugin.nodeSelector.fake-vfio-capable=true \
+        --set kubeletPlugin.enableDeviceMetadata=true
+}

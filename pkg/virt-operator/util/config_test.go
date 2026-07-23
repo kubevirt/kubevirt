@@ -125,19 +125,30 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
 
-		It("should result in different ID when OptOutRoleAggregation is enabled", func() {
+		It("should result in different ID when RoleAggregationStrategy is Manual (OptOutRoleAggregation is Beta)", func() {
 			kv := &v1.KubeVirt{}
 			cfgWithout := GetTargetConfigFromKV(kv)
 
 			manual := v1.RoleAggregationStrategyManual
-			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{"OptOutRoleAggregation"},
-			}
 			kv.Spec.Configuration.RoleAggregationStrategy = &manual
 			cfgWith := GetTargetConfigFromKV(kv)
 
 			Expect(cfgWithout.ID).ToNot(BeEmpty())
 			Expect(cfgWith.ID).ToNot(BeEmpty())
+			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
+		})
+
+		It("should propagate VMStatsCollector feature gate into AdditionalProperties", func() {
+			kv := &v1.KubeVirt{}
+			cfgWithout := GetTargetConfigFromKV(kv)
+			Expect(cfgWithout.VMStatsCollectorEnabled()).To(BeFalse())
+
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{"VMStatsCollector"},
+			}
+			cfgWith := GetTargetConfigFromKV(kv)
+			Expect(cfgWith.VMStatsCollectorEnabled()).To(BeTrue())
+
 			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
 		})
 

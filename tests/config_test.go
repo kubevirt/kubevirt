@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -138,7 +139,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					withVolume(volume),
 				)
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -204,7 +205,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libvmi.WithConfigMapDisk(configMaps[1], configMaps[1]),
 					libvmi.WithConfigMapDisk(configMaps[2], configMaps[2]))
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -260,7 +261,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					withVolume(volume),
 				)
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -326,7 +327,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libvmi.WithSecretDisk(secrets[1], secrets[1]),
 					libvmi.WithSecretDisk(secrets[2], secrets[2]))
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -363,7 +364,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				withVolume(volume),
 			)
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)
@@ -444,7 +445,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			By("Running VMI")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 
 			By("Checking the pod has the correct service account")
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -536,7 +537,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					}
 				}
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -665,7 +666,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					withVolume(volume),
 				)
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -752,7 +753,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				withVolume(volume),
 			)
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)

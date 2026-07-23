@@ -505,23 +505,8 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
-		//TODO @alayp: add proper validation for DRA GPUs in beta
-		if !config.GPUsWithDRAGateEnabled() {
-			for _, hostDev := range spec.Domain.Devices.GPUs {
-				if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
-					errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
-				}
-			}
-		}
-		for _, hostDev := range spec.Domain.Devices.HostDevices {
-			// skip host devices backed by DRA claims, since they are validated via DRA instead of the permittedHostDevices config
-			if config.HostDevicesWithDRAEnabled() && hostDev.ClaimRequest != nil {
-				continue
-			}
-			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
-				errors = append(errors, fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
-			}
-		}
+		errors = append(errors, validateGPUs(spec.Domain.Devices.GPUs, config.GPUsWithDRAGateEnabled(), supportedHostDevicesMap)...)
+		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, config.HostDevicesWithDRAEnabled(), supportedHostDevicesMap)...)
 	}
 
 	if len(errors) != 0 {
@@ -529,6 +514,32 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 	}
 
 	return nil
+}
+
+func validateGPUs(gpus []v1.GPU, draEnabled bool, supportedHostDevicesMap map[string]bool) (errors []string) {
+	for _, hostDev := range gpus {
+		// skip GPU devices backed by DRA claims, since they are validated via DRA instead of the permittedHostDevices config
+		if draEnabled && hostDev.ClaimRequest != nil {
+			continue
+		}
+		if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+			errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+		}
+	}
+	return errors
+}
+
+func validateHostDevices(hostDevs []v1.HostDevice, draEnabled bool, supportedHostDevicesMap map[string]bool) (errors []string) {
+	for _, hostDev := range hostDevs {
+		// skip host devices backed by DRA claims, since they are validated via DRA instead of the permittedHostDevices config
+		if draEnabled && hostDev.ClaimRequest != nil {
+			continue
+		}
+		if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+			errors = append(errors, fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+		}
+	}
+	return errors
 }
 
 func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {

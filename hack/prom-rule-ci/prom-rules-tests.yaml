@@ -45,6 +45,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtControllerDown
         exp_alerts:
@@ -56,6 +57,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtOperatorDown
         exp_alerts:
@@ -67,6 +69,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtHandlerDown
         exp_alerts:
@@ -78,6 +81,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       # it must trigger when operators are not healthy
       - eval_time: 16m
         alertname: VirtAPIDown
@@ -90,6 +94,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtControllerDown
         exp_alerts:
@@ -101,6 +106,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtOperatorDown
         exp_alerts:
@@ -112,6 +118,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtHandlerDown
         exp_alerts:
@@ -123,6 +130,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       # it must not trigger when operators are healthy
       - eval_time: 17m
         alertname: VirtAPIDown
@@ -248,6 +256,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # Some virt operators are not ready
   - interval: 1m
@@ -277,6 +286,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # Some virt-api pods are not ready
   - interval: 1m
@@ -306,6 +316,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt-api are not ready
   - interval: 1m
@@ -332,6 +343,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtAPICount
         exp_alerts: [ ]
@@ -364,6 +376,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt-handlers are not ready
   - interval: 1m
@@ -390,6 +403,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtHandlerCount
         exp_alerts: [ ]
@@ -420,6 +434,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtControllersCount
         exp_alerts: [ ]
@@ -446,6 +461,129 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
+
+  # No virt-controller is leading
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_controller_leading_status{namespace="ci", pod="virt-controller-1"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
+      - series: 'kubevirt_virt_controller_leading_status{namespace="ci", pod="virt-controller-2"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: NoLeadingVirtController
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoLeadingVirtController
+        exp_alerts:
+          - exp_annotations:
+              summary: "No leading virt-controller was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoLeadingVirtController"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
+
+  # A virt-controller is leading
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_controller_leading_status{namespace="ci", pod="virt-controller-1"}'
+        values: "1 1 1 1 1 1 1 1 1 1 1"
+      - series: 'kubevirt_virt_controller_leading_status{namespace="ci", pod="virt-controller-2"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoLeadingVirtController
+        exp_alerts: [ ]
+
+  # No virt-controller is leading (stale metrics)
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_controller_leading_status{namespace="ci", pod="virt-controller-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
+
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: NoLeadingVirtController
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoLeadingVirtController
+        exp_alerts:
+          - exp_annotations:
+              summary: "No leading virt-controller was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoLeadingVirtController"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
+
+  # No virt-operator is leading
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_leading_status{namespace="ci", pod="virt-operator-1"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
+      - series: 'kubevirt_virt_operator_leading_status{namespace="ci", pod="virt-operator-2"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: NoLeadingVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoLeadingVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No leading virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoLeadingVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
+
+  # A virt-operator is leading
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_leading_status{namespace="ci", pod="virt-operator-1"}'
+        values: "1 1 1 1 1 1 1 1 1 1 1"
+      - series: 'kubevirt_virt_operator_leading_status{namespace="ci", pod="virt-operator-2"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoLeadingVirtOperator
+        exp_alerts: [ ]
+
+  # No virt-operator is leading (stale metrics)
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_leading_status{namespace="ci", pod="virt-operator-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
+
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: NoLeadingVirtOperator
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoLeadingVirtOperator
+        exp_alerts:
+          - exp_annotations:
+              summary: "No leading virt-operator was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoLeadingVirtOperator"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt operators are not ready (ImagePullBackOff)
   - interval: 1m
@@ -471,6 +609,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All virt operators are not ready
   - interval: 1m
@@ -498,6 +637,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtOperatorsCount
         exp_alerts: [ ]
@@ -528,6 +668,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtOperatorsCount
         exp_alerts: [ ]
@@ -558,6 +699,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: LowReadyVirtOperatorsCount
         exp_alerts: [ ]
@@ -617,6 +759,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 20m
         alertname: VirtOperatorRESTErrorsBurst
         exp_alerts:
@@ -628,6 +771,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 20m
         alertname: VirtHandlerRESTErrorsBurst
         exp_alerts:
@@ -639,6 +783,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 20m
         alertname: VirtApiRESTErrorsBurst
         exp_alerts:
@@ -650,6 +795,7 @@ tests:
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
 
   # Some nodes without KVM resources
@@ -673,6 +819,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # All nodes without KVM resources
   - interval: 1m
@@ -695,6 +842,7 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # Two nodes with KVM resources
   - interval: 1m
@@ -955,6 +1103,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -973,6 +1122,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -998,6 +1148,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1016,6 +1167,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1042,6 +1194,7 @@ tests:
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               kubernetes_operator_part_of: "kubevirt"
               operator_health_impact: "critical"
 
@@ -1069,6 +1222,7 @@ tests:
               operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               resource: "virtualmachines"
               group: "kubevirt.io"
               version: "v1alpha3"
@@ -1084,6 +1238,7 @@ tests:
               operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
               resource: "virtualmachines"
               group: "kubevirt.io"
               version: "v1alpha3"
@@ -1588,54 +1743,6 @@ tests:
         alertname: GuestFilesystemAlmostOutOfSpace
         exp_alerts: []
 
-  # VirtualMachineInstanceHasEphemeralHotplugVolume
-  - interval: 1m
-    input_series:
-      # VMI without ephemeral hotplug volume
-      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-no-hotplug", volume_name="persistent-vol"}'
-        values: "0x5"
-      # VMI with one ephemeral hotplug volume
-      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-one-hotplug", volume_name="ephemeral-vol"}'
-        values: "_ _ 1 1 1 1"
-      # VMI with multiple ephemeral hotplug volumes
-      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-multi-hotplug", volume_name="ephemeral-vol-1, ephemeral-vol-2"}'
-        values: "_ _ 1 1 1 1"
-
-    alert_rule_test:
-      # at 1m: no VMI with ephemeral hotplug volume
-      - eval_time: 1m
-        alertname: VirtualMachineInstanceHasEphemeralHotplugVolume
-        exp_alerts: []
-
-      # at 2m: both VMIs will trigger the alert
-      - eval_time: 2m
-        alertname: VirtualMachineInstanceHasEphemeralHotplugVolume
-        exp_alerts:
-          - exp_annotations:
-              summary: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged"
-              description: "Virtual Machine Instance vmi-one-hotplug in namespace test-ns has ephemeral hotplug volume(s) ephemeral-vol."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineInstanceHasEphemeralHotplugVolume"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              name: "vmi-one-hotplug"
-              namespace: "test-ns"
-              volume_name: "ephemeral-vol"
-          - exp_annotations:
-              summary: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged"
-              description: "Virtual Machine Instance vmi-multi-hotplug in namespace test-ns has ephemeral hotplug volume(s) ephemeral-vol-1, ephemeral-vol-2."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineInstanceHasEphemeralHotplugVolume"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              name: "vmi-multi-hotplug"
-              namespace: "test-ns"
-              volume_name: "ephemeral-vol-1, ephemeral-vol-2"
-
   # GuestFilesystemAlmostOutOfSpace - Exclusions: fuse.* should be excluded
   - interval: 1m
     input_series:
@@ -1760,7 +1867,7 @@ tests:
   # LowVirtAPICount - should fire when less than 75% of desired virt-api pods are running
   - interval: 1m
     input_series:
-      - series: 'up{namespace="ci", pod="virt-api-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Running"}'
         values: '1+0x61'
       - series: 'kube_deployment_spec_replicas{deployment="virt-api", namespace="ci"}'
         values: '4+0x61'
@@ -1782,15 +1889,16 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # LowVirtAPICount - should not fire when 75% or more of desired virt-api pods are running
   - interval: 1m
     input_series:
-      - series: 'up{namespace="ci", pod="virt-api-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Running"}'
         values: '1+0x61'
-      - series: 'up{namespace="ci", pod="virt-api-2"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-api-2", phase="Running"}'
         values: '1+0x61'
-      - series: 'up{namespace="ci", pod="virt-api-3"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-api-3", phase="Running"}'
         values: '1+0x61'
       - series: 'kube_deployment_spec_replicas{deployment="virt-api", namespace="ci"}'
         values: '4+0x61'
@@ -1800,10 +1908,10 @@ tests:
         alertname: LowVirtAPICount
         exp_alerts: []
 
-  # LowVirtControllersCount - should fire when less than 75% of desired virt-controller pods are up
+  # LowVirtControllersCount - should fire when less than 75% of desired virt-controller pods are running
   - interval: 1m
     input_series:
-      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
         values: '1+0x11'
       - series: 'kube_deployment_spec_replicas{deployment="virt-controller", namespace="ci"}'
         values: '4+0x11'
@@ -1813,27 +1921,28 @@ tests:
       - eval_time: 9m
         alertname: LowVirtControllersCount
         exp_alerts: []
-      # should fire at 10m (1 out of 4 pods up = 25% < 75%)
+      # should fire at 10m (1 out of 4 pods running = 25% < 75%)
       - eval_time: 10m
         alertname: LowVirtControllersCount
         exp_alerts:
           - exp_annotations:
-              summary: "Less than 75% of desired virt-controller pods are ready."
+              summary: "Less than 75% of desired virt-controller pods are running."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowVirtControllersCount"
             exp_labels:
               severity: "warning"
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
-  # LowVirtControllersCount - should not fire when 75% or more of desired virt-controller pods are up
+  # LowVirtControllersCount - should not fire when 75% or more of desired virt-controller pods are running
   - interval: 1m
     input_series:
-      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
         values: '1+0x11'
-      - series: 'up{namespace="ci", pod="virt-controller-2"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-2", phase="Running"}'
         values: '1+0x11'
-      - series: 'up{namespace="ci", pod="virt-controller-3"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-3", phase="Running"}'
         values: '1+0x11'
       - series: 'kube_deployment_spec_replicas{deployment="virt-controller", namespace="ci"}'
         values: '4+0x11'
@@ -1846,7 +1955,7 @@ tests:
   # LowVirtOperatorCount - should fire when less than 75% of desired virt-operator pods are running
   - interval: 1m
     input_series:
-      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-1", phase="Running"}'
         values: '1+0x61'
       - series: 'kube_deployment_spec_replicas{deployment="virt-operator", namespace="ci"}'
         values: '4+0x61'
@@ -1868,15 +1977,16 @@ tests:
               operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
 
   # LowVirtOperatorCount - should not fire when 75% or more of desired virt-operator pods are running
   - interval: 1m
     input_series:
-      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-1", phase="Running"}'
         values: '1+0x61'
-      - series: 'up{namespace="ci", pod="virt-operator-2"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-2", phase="Running"}'
         values: '1+0x61'
-      - series: 'up{namespace="ci", pod="virt-operator-3"}'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-3", phase="Running"}'
         values: '1+0x61'
       - series: 'kube_deployment_spec_replicas{deployment="virt-operator", namespace="ci"}'
         values: '4+0x61'
@@ -1885,3 +1995,28 @@ tests:
       - eval_time: 60m
         alertname: LowVirtOperatorCount
         exp_alerts: []
+
+  # VM non-recoverable OS panic
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_guest_os_panic_total{namespace="test", name="vm-01", type="unknown", bugcheck_code="unknown"}'
+        values: '0 0 6 6 6 6 6'
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: VMNonRecoverableOSPanic
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: VMNonRecoverableOSPanic
+        exp_alerts:
+          - exp_annotations:
+              summary: "VM vm-01 in namespace test experienced a non-recoverable guest OS panic"
+              description: "The VM has experienced 6 non-recoverable guest OS panic(s) in the last 24 hours."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VMNonRecoverableOSPanic"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "test"
+              name: "vm-01"

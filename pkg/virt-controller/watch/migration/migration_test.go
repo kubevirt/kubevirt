@@ -26,9 +26,6 @@ import (
 	"strings"
 	"time"
 
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -57,14 +54,15 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 	kvtesting "kubevirt.io/client-go/testing"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -198,27 +196,12 @@ var _ = Describe("Migration watcher", func() {
 		Expect(updatedVMI.Labels).To(SatisfyAll(matchers...))
 	}
 
-	expectVirtualMachineInstanceMigrationConfiguration := func(namespace, name string, expectedConfiguration *v1.MigrationConfiguration) {
+	expectVirtualMachineInstanceMigrationConfiguration := func(namespace, name string, expectedConfiguration *v1.VMIMConfigurationOptions) {
 		updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
-		Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
-		Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).To(PointTo(MatchFields(IgnoreExtras, Fields{
-			"NodeDrainTaintKey":                 Equal(expectedConfiguration.NodeDrainTaintKey),
-			"ParallelOutboundMigrationsPerNode": Equal(expectedConfiguration.ParallelOutboundMigrationsPerNode),
-			"ParallelMigrationsPerCluster":      Equal(expectedConfiguration.ParallelMigrationsPerCluster),
-			"AllowAutoConverge":                 Equal(expectedConfiguration.AllowAutoConverge),
-			"BandwidthPerMigration": WithTransform(func(qnt *resource.Quantity) string {
-				return qnt.String()
-			}, BeEquivalentTo(expectedConfiguration.BandwidthPerMigration.String())),
-			"CompletionTimeoutPerGiB":      Equal(expectedConfiguration.CompletionTimeoutPerGiB),
-			"ProgressTimeout":              Equal(expectedConfiguration.ProgressTimeout),
-			"UnsafeMigrationOverride":      Equal(expectedConfiguration.UnsafeMigrationOverride),
-			"AllowPostCopy":                Equal(expectedConfiguration.AllowPostCopy),
-			"DisableTLS":                   Equal(expectedConfiguration.DisableTLS),
-			"Network":                      Equal(expectedConfiguration.Network),
-			"MatchSELinuxLevelOnMigration": Equal(expectedConfiguration.MatchSELinuxLevelOnMigration),
-		})))
+		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+		Expect(*updatedVMI.Status.MigrationState.VMIMConfigurationOptions).To(BeComparableTo(*expectedConfiguration))
 	}
 
 	expectMigrationCondition := func(namespace, name string, conditionType v1.VirtualMachineInstanceMigrationConditionType) {
@@ -340,7 +323,7 @@ var _ = Describe("Migration watcher", func() {
 		}
 	}
 
-	getMigrationConfig := func(customConfigs ...*v1.MigrationConfiguration) *v1.MigrationConfiguration {
+	getMigrationConfig := func(customConfigs ...*v1.MigrationConfiguration) *v1.VMIMConfigurationOptions {
 		Expect(customConfigs).To(Or(BeEmpty(), HaveLen(1)))
 
 		var migrationConfiguration *v1.MigrationConfiguration
@@ -352,7 +335,7 @@ var _ = Describe("Migration watcher", func() {
 			Expect(migrationConfiguration).ToNot(BeNil())
 		}
 
-		return migrationConfiguration
+		return migrationsutil.ToVMIMConfigurationOptions(migrationConfiguration)
 	}
 
 	sanityExecute := func() {
@@ -1389,6 +1372,18 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration garbage collection", func() {
+		createPod := func(name, ns string) {
+			pod := k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: ns,
+				},
+				Spec:   k8sv1.PodSpec{},
+				Status: k8sv1.PodStatus{},
+			}
+			_, err := kubeClient.CoreV1().Pods(ns).Create(context.Background(), &pod, metav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		}
 		DescribeTable("should garbage old finalized migration objects", func(phase v1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 
@@ -1473,25 +1468,55 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in running phase", v1.MigrationRunning),
 		)
 		It("should garbage collect oldest finalized migrations when exceeding buffer", func() {
-			// Setup: Create a VMI and 8 finalized migrations (buffer=5, expect 3 oldest deleted)
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addVirtualMachineInstance(vmi)
 
 			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
+			// Only the 3 oldest migrations (finalized-mig-0/1/2) exceed the garbage collection buffer (5) and are
+			// expected to be deleted below, along with their pods. Each of those 3 migrations gets its own
+			// source/target pods and a distinct MigrationState so that we can assert that pod cleanup depends on
+			// how the migration ended:
+			//  - finalized-mig-0 succeeded, so only its source pod (the old virt-launcher) is stale and gets
+			//    deleted, the target pod remains as the VMI's current virt-launcher.
+			//  - finalized-mig-1 failed, so only its target pod (the failed virt-launcher) is stale and gets
+			//    deleted, the source pod remains as the VMI's current virt-launcher.
+			//  - finalized-mig-2 never completed nor failed (its MigrationState is inconclusive), so neither pod
+			//    is touched to be safe.
+			// This doesn't perfectly reflect a real cluster, where the source/target pods of consecutive
+			// migrations would actually be shared (e.g. the target of migration N is the source of migration
+			// N+1), but it lets us verify each cleanup path independently.
+			By("Creating 8 finalized migrations, only the 3 oldest of which have associated pods")
 			for i := range 8 {
 				migName := fmt.Sprintf("finalized-mig-%d", i)
 				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
 				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				if i < 3 {
+					createPod(fmt.Sprintf("source-mig-%d", i), vmi.Namespace)
+					createPod(fmt.Sprintf("target-mig-%d", i), vmi.Namespace)
+					mig.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+						SourcePod: fmt.Sprintf("source-mig-%d", i),
+						TargetPod: fmt.Sprintf("target-mig-%d", i),
+					}
+					switch i {
+					case 0:
+						mig.Status.MigrationState.Completed = true
+						mig.Status.MigrationState.Failed = false
+					case 1:
+						mig.Status.MigrationState.Failed = true
+					default:
+						// migration 2 is left with neither Completed nor Failed set
+					}
+				}
 				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
 				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			// Call the function
+			By("Running garbage collection")
 			Expect(controller.garbageCollectFinalizedMigrations(vmi)).To(Succeed())
 
-			// Verify remaining migrations (newest 5)
+			By("Expecting only the newest 5 migrations to remain")
 			migrationList, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(migrationList.Items).To(WithTransform(func(migrations []v1.VirtualMachineInstanceMigration) []string {
@@ -1501,15 +1526,26 @@ var _ = Describe("Migration watcher", func() {
 				}
 				return migrationNames // No sort needed
 			}, ConsistOf("finalized-mig-3", "finalized-mig-4", "finalized-mig-5", "finalized-mig-6", "finalized-mig-7")))
+
+			By("Expecting the target pod of the succeeded migration, the source pod of the failed migration, and both pods of the inconclusive migration to remain")
+			podList, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(podList.Items).To(WithTransform(func(pods []k8sv1.Pod) []string {
+				var podNames []string
+				for _, pod := range pods {
+					podNames = append(podNames, pod.Name)
+				}
+				return podNames // No sort needed
+			}, ConsistOf("target-mig-0", "source-mig-1", "source-mig-2", "target-mig-2")))
 		})
 
 		It("should handle errors during garbage collection deletions", func() {
-			// Setup: Similar to above, but only 6 finalized (expect 1 deletion, but fail it)
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addVirtualMachineInstance(vmi)
 
 			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
+			By("Creating 6 finalized migrations, 1 above the garbage collection buffer")
 			for i := range 6 {
 				migName := fmt.Sprintf("finalized-mig-%d", i)
 				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
@@ -1519,12 +1555,12 @@ var _ = Describe("Migration watcher", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			// Mock deletion to fail
+			By("Making the migration deletion fail")
 			virtClientset.PrependReactor("delete", "virtualmachineinstancemigrations", func(action testing.Action) (handled bool, ret k8sruntime.Object, err error) {
 				return true, nil, fmt.Errorf("simulated deletion error")
 			})
 
-			// Call the function: Expect error propagation
+			By("Expecting the error to propagate")
 			err := controller.garbageCollectFinalizedMigrations(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("simulated deletion error"))
@@ -2166,6 +2202,39 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
 
+		It("should finalize migration on VMI when target pod fails after migration proxy is set up", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, "node02")
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPreparingTarget)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   migration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodFailed)
+			targetPod.Spec.NodeName = "node01"
+			addPod(targetPod)
+
+			sanityExecute()
+
+			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
+				"TargetNode":   Equal("node01"),
+				"SourceNode":   Equal("node02"),
+				"MigrationUID": Equal(types.UID("testmigration")),
+				"Completed":    BeTrue(),
+				"Failed":       BeTrue(),
+				"EndTimestamp": Not(BeNil()),
+			})))
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+		})
+
 		It("should set EndTimestamp on failed migration without overwriting existing StartTimestamp", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addNodeNameToVMI(vmi, "node02")
@@ -2327,7 +2396,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 		})
 
-		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *v1.MigrationConfiguration), expectConfigUpdate bool) {
+		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testResolvedConfig func(*v1.VMIMConfigurationOptions)) {
 			By("Initialize VMI and migration")
 			vmi = newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
@@ -2348,13 +2417,6 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			By("Calculating new migration config and validating it")
-			expectedConfigs := getDefaultMigrationConfiguration()
-			isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(expectedConfigs)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
-			testMigrationConfigs(expectedConfigs)
-
 			By("Running the controller")
 			sanityExecute()
 
@@ -2364,72 +2426,128 @@ var _ = Describe("Migration watcher", func() {
 				"TargetPod":           Equal(targetPod.Name),
 				"SourceNode":          Equal("tefwegwrerg"),
 				"MigrationUID":        Equal(types.UID("testmigration")),
-				"MigrationPolicyName": BeNil(),
-			}
-			if expectConfigUpdate {
-				fields["MigrationPolicyName"] = Equal(pointer.P(migrationPolicy.Name))
+				"MigrationPolicyName": Equal(pointer.P(migrationPolicy.Name)),
 			}
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, fields)))
-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig(expectedConfigs))
+
+			By("Validating VirtualMachineMigrationConfig")
+			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
+			Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+			testResolvedConfig(updatedVMI.Status.MigrationState.VMIMConfigurationOptions)
+
 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
 				HaveKeyWithValue(v1.MigrationTargetNodeNameLabel, "node01"),
 				HaveKeyWithValue(fmt.Sprintf("%s-key-0", migrationPolicy.Name), fmt.Sprintf("%s-value-0", migrationPolicy.Name)),
 			)
 		},
-			Entry("allow auto coverage",
+			Entry("allow auto converge",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(true) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowAutoConverge).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowAutoConverge).To(BeTrue())
 				},
-				true,
 			),
-			Entry("deny auto coverage",
+			Entry("deny auto converge",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(false) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowAutoConverge).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowAutoConverge).To(BeFalse())
 				},
-				true,
 			),
 			Entry("set bandwidth per migration",
 				func(p *migrationsv1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.BandwidthPerMigration).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
 				},
-				true,
 			),
 			Entry("set completion time per GiB",
 				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
 				},
-				true,
 			),
 			Entry("set force migration completion",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowWorkloadDisruption = pointer.P(true) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowWorkloadDisruption).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowWorkloadDisruption).To(BeTrue())
 				},
-				true,
 			),
 			Entry("deny post copy",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.P(false) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowPostCopy).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowPostCopy).To(BeFalse())
 				},
-				true,
 			),
 			Entry("nothing is changed",
 				func(p *migrationsv1.MigrationPolicySpec) {},
-				func(c *v1.MigrationConfiguration) {},
-				false,
+				func(c *v1.VMIMConfigurationOptions) {},
 			),
 		)
+
+		Describe("resolveMigrationConfig merge matrix", func() {
+			expectResolvedMigrationConfig := func(setup func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy, expectPolicyMatch bool) {
+				vmi = newVirtualMachine("testvmi", v1.Running)
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
+
+				if policy := setup(vmi); policy != nil {
+					addMigrationPolicies(*policy)
+				}
+
+				resolvedConfig, matchedPolicy, err := controller.resolveMigrationConfig(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				var policySpec *migrationsv1.MigrationPolicySpec
+				if expectPolicyMatch {
+					Expect(matchedPolicy).ToNot(BeNil())
+					policySpec = &matchedPolicy.Spec
+				} else {
+					Expect(matchedPolicy).To(BeNil())
+				}
+
+				expected := migrationsutil.ToVMIMConfigurationOptions(controller.clusterConfig.GetMigrationConfiguration())
+				if policySpec != nil {
+					expected = applyMigrationPolicySpec(expected, policySpec)
+				}
+				Expect(resolvedConfig).To(Equal(expected))
+			}
+
+			It("uses policy overrides when cluster defaults are unset", func() {
+				expectResolvedMigrationConfig(func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+					migrationPolicy := generatePolicyAndAlignVMI(vmi)
+					migrationPolicy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(600))
+					migrationPolicy.Spec.AllowPostCopy = pointer.P(true)
+					return migrationPolicy
+				}, true)
+			})
+
+			It("uses cluster defaults when no policy matches", func() {
+				setConfig(&v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						AllowAutoConverge: pointer.P(true),
+						ProgressTimeout:   pointer.P(int64(200)),
+					},
+				})
+				expectResolvedMigrationConfig(func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy { return nil }, false)
+			})
+
+			It("uses implicit cluster defaults when neither side sets overrides", func() {
+				expectResolvedMigrationConfig(func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy { return nil }, false)
+			})
+
+			It("merges cluster defaults with policy overrides", func() {
+				setConfig(&v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						AllowAutoConverge: pointer.P(false),
+						ProgressTimeout:   pointer.P(int64(300)),
+					},
+				})
+				expectResolvedMigrationConfig(func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+					migrationPolicy := generatePolicyAndAlignVMI(vmi)
+					migrationPolicy.Spec.AllowAutoConverge = pointer.P(true)
+					return migrationPolicy
+				}, true)
+			})
+		})
 	})
 
 	Context("Migration of host-model VMI", func() {
@@ -2732,30 +2850,37 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Priority queue", func() {
-		It("should properly re-enqueue pending migrations as low priority when no new migration can start", func() {
-			setConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				},
-			})
+		It("new items should have a priority strictly lower than active and higher than default", func() {
+			controller.Queue.Add("default/testmigrationpending")
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
+			Expect(priority).To(BeNumerically(">=", migrationsutil.QueuePriorityDefault))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("should properly re-enqueue pending migrations with the defined priority when no new migration can start", func() {
 			By("Creating 1 pending migration. It will be picked up by the call to Execute()")
 			vmi := newVirtualMachine("testvmipending", v1.Running)
 			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			By("Creating 5 running migrations")
+			const migrationNamePrefix = "testmigration%d"
+			By("Creating 5 running system maintenance migrations")
 			for i := range 5 {
 				vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
-				migration := newMigration(fmt.Sprintf("testmigration%d", i), vmi.Name, v1.MigrationRunning)
+				migration := newMigration(fmt.Sprintf(migrationNamePrefix, i), vmi.Name, v1.MigrationRunning)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
 				pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 				addPod(pod)
 			}
 
-			By("Executing the controller and expecting the pending migration to have a low priority")
+			By("Executing the controller and expecting the pending migration to have the defined priority")
 			controller.Execute()
 			runningMigrationsFromQueue := make([]string, 0, 5)
 			for range 5 {
@@ -2766,57 +2891,101 @@ var _ = Describe("Migration watcher", func() {
 			}
 			Expect(runningMigrationsFromQueue).To(
 				ConsistOf(
-					"default/testmigration0",
-					"default/testmigration1",
-					"default/testmigration2",
-					"default/testmigration3",
-					"default/testmigration4",
+					fmt.Sprintf("default/"+migrationNamePrefix, 0),
+					fmt.Sprintf("default/"+migrationNamePrefix, 1),
+					fmt.Sprintf("default/"+migrationNamePrefix, 2),
+					fmt.Sprintf("default/"+migrationNamePrefix, 3),
+					fmt.Sprintf("default/"+migrationNamePrefix, 4),
 				),
 			)
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(Equal(migrationsutil.QueuePriorityPending))
+			Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
 			Expect(shutdown).To(BeFalse())
 		})
 
-		It("existing items should keep low priority after regular Add", func() {
-			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-				Priority: pointer.P(migrationsutil.QueuePriorityPending),
-			}, "default/testmigrationpending")
+		It("should re-enqueue with migration priority when pending pod creations exist", func() {
+			vmi := newVirtualMachine("testvmipending", v1.Running)
+			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PriorityUserTriggered)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
 
-			// Simulating what we do with informer handler
-			controller.Queue.Add("default/testmigrationpending")
+			By("Setting up pending pod creation expectations so AllPendingCreations() > 0")
+			controller.podExpectations.ExpectCreations("some-other-key", 1)
+
+			controller.Execute()
+
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
+			Expect(priority).To(Equal(migrationsutil.QueuePriorityUserTriggered))
 			Expect(shutdown).To(BeFalse())
 		})
 
-		It("new items should have a priority strictly lower than active and higher than pending", func() {
-			controller.Queue.Add("default/testmigrationpending")
+		It("should re-enqueue with migration priority when multiple active pods exist for VMI", func() {
+			vmi := newVirtualMachine("testvmipending", v1.Running)
+			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
+
+			pod1 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod1.Labels[v1.MigrationJobLabel] = "some-other-job"
+			addPod(pod1)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			controller.Execute()
+
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
-			Expect(priority).To(BeNumerically(">", migrationsutil.QueuePriorityPending))
+			Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemMaintenance))
 			Expect(shutdown).To(BeFalse())
 		})
 
 		It("should get items in order based on priority", func() {
-			for i := range 5 {
-				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: pointer.P(migrationsutil.QueuePriorityPending),
-				}, fmt.Sprintf("default/pending%d", i))
-			}
-			for i := range 5 {
-				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: pointer.P(migrationsutil.QueuePriorityRunning),
-				}, fmt.Sprintf("default/active%d", i))
-			}
-			// Add should not change active3's priority
-			controller.Queue.Add("default/active3")
-			// Add should bump pending3 higher than pending but lower than active
-			controller.Queue.Add("default/pending3")
 
+			const (
+				runningMigNamePrefix       = "testmigration%d"
+				userTriggeredMigNamePrefix = "test-user-migration-%d"
+				criticalMigNamePrefix      = "test-crit-migration-%d"
+				defaultMigNamePrefix       = "test-noprio-migration-%d"
+				maintenanceMigNamePrefix   = "test-maint-migration-%d"
+			)
+
+			By("Creating 5 running system critical migrations")
+			for i := range 5 {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
+				migration := newMigration(fmt.Sprintf(runningMigNamePrefix, i), vmi.Name, v1.MigrationRunning)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+				controller.enqueueMigration(migration)
+			}
+
+			By("Creating 5 critical, 5 maintenance, 5 user triggered and 5 non-defined priority migrations")
+			for i := range 5 {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi-user-%d", i), v1.Running)
+				migration := newMigration(fmt.Sprintf(userTriggeredMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				migration.Spec.Priority = pointer.P(v1.PriorityUserTriggered)
+				controller.enqueueMigration(migration)
+
+				vmi = newVirtualMachine(fmt.Sprintf("testvmi-crit-%d", i), v1.Running)
+				migration = newMigration(fmt.Sprintf(criticalMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+				controller.enqueueMigration(migration)
+
+				vmi = newVirtualMachine(fmt.Sprintf("testvmi-noprio-%d", i), v1.Running)
+				migration = newMigration(fmt.Sprintf(defaultMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				controller.enqueueMigration(migration)
+
+				vmi = newVirtualMachine(fmt.Sprintf("testvmi-maint-%d", i), v1.Running)
+				migration = newMigration(fmt.Sprintf(maintenanceMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
+				controller.enqueueMigration(migration)
+			}
+
+			Eventually(func() int {
+				return controller.Queue.Len()
+			}, 2*time.Second, 20*time.Millisecond).Should(Equal(25))
 			runningMigrationsFromQueue := make([]string, 0, 5)
 			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
@@ -2826,220 +2995,178 @@ var _ = Describe("Migration watcher", func() {
 			}
 			Expect(runningMigrationsFromQueue).To(
 				ConsistOf(
-					"default/active0",
-					"default/active1",
-					"default/active2",
-					"default/active3",
-					"default/active4",
+					fmt.Sprintf("default/"+runningMigNamePrefix, 0),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 1),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 2),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 3),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 4),
 				),
 			)
 
-			item, priority, shutdown := controller.Queue.GetWithPriority()
-			Expect(item).To(BeEquivalentTo("default/pending3"))
-			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
-			Expect(priority).To(BeNumerically(">", migrationsutil.QueuePriorityPending))
-			Expect(shutdown).To(BeFalse())
-			runningMigrationsFromQueue = make([]string, 0, 4)
-			for range 4 {
+			criticalMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
-				runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-				Expect(priority).To(Equal(migrationsutil.QueuePriorityPending))
+				criticalMigrationsFromQueue = append(criticalMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
 				Expect(shutdown).To(BeFalse())
 			}
-			Expect(runningMigrationsFromQueue).To(
+			Expect(criticalMigrationsFromQueue).To(
 				ConsistOf(
-					"default/pending0",
-					"default/pending1",
-					"default/pending2",
-					"default/pending4",
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 0),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 1),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 2),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 3),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 4),
+				),
+			)
+
+			userMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				userMigrationsFromQueue = append(userMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePriorityUserTriggered))
+				Expect(shutdown).To(BeFalse())
+			}
+			Expect(userMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 0),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 1),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 2),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 3),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 4),
+				),
+			)
+
+			maintenanceMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				maintenanceMigrationsFromQueue = append(maintenanceMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemMaintenance))
+				Expect(shutdown).To(BeFalse())
+			}
+			Expect(maintenanceMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 0),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 1),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 2),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 3),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 4),
+				),
+			)
+
+			defaultMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				defaultMigrationsFromQueue = append(defaultMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePriorityDefault))
+				Expect(shutdown).To(BeFalse())
+			}
+			Expect(defaultMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 0),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 1),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 2),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 3),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 4),
 				),
 			)
 		})
+	})
 
-		Context("with MigrationPriorityQueue feature gate enabled", func() {
-			BeforeEach(func() {
-				setConfig(&v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.MigrationPriorityQueue},
+	Context("handleBackendStorage decentralized migrations", func() {
+		setupVMStateStorageClass := func() {
+			sc := &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{Name: "testsc123"},
+			}
+			sp := &cdiv1.StorageProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
+				Spec: cdiv1.StorageProfileSpec{
+					ClaimPropertySets: []cdiv1.ClaimPropertySet{
+						{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
 					},
-				})
+				},
+				Status: cdiv1.StorageProfileStatus{
+					StorageClass: pointer.P(sc.Name),
+					ClaimPropertySets: []cdiv1.ClaimPropertySet{
+						{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+					},
+				},
+			}
+			Expect(controller.storageClassStore.Add(sc)).To(Succeed())
+			Expect(controller.storageProfileStore.Add(sp)).To(Succeed())
+			setConfig(&v1.KubeVirtConfiguration{
+				VMStateStorageClass: "testsc123",
 			})
+		}
 
-			It("should properly re-enqueue pending migrations with the defined priority when no new migration can start", func() {
-				By("Creating 1 pending migration. It will be picked up by the call to Execute()")
-				vmi := newVirtualMachine("testvmipending", v1.Running)
-				migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
-				migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(newSourcePodForVirtualMachine(vmi))
+		It("should not require source backend PVC on decentralized target VMI waiting for sync", func() {
+			setupVMStateStorageClass()
+			vmi := newReceiverVirtualMachine("testvmi", v1.WaitingForSync, "testmigration")
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{Persistent: pointer.P(true)},
+				},
+			}
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
 
-				const migrationNamePrefix = "testmigration%d"
-				By("Creating 5 running system maintenance migrations")
-				for i := range 5 {
-					vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
-					migration := newMigration(fmt.Sprintf(migrationNamePrefix, i), vmi.Name, v1.MigrationRunning)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
-					pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
-					addMigration(migration)
-					addVirtualMachineInstance(vmi)
-					addPod(pod)
-				}
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(BeEmpty())
 
-				By("Executing the controller and expecting the pending migration to have the defined priority")
-				controller.Execute()
-				runningMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-					Expect(priority).To(Equal(0))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(runningMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+migrationNamePrefix, 0),
-						fmt.Sprintf("default/"+migrationNamePrefix, 1),
-						fmt.Sprintf("default/"+migrationNamePrefix, 2),
-						fmt.Sprintf("default/"+migrationNamePrefix, 3),
-						fmt.Sprintf("default/"+migrationNamePrefix, 4),
-					),
-				)
-				item, priority, shutdown := controller.Queue.GetWithPriority()
-				Expect(item).To(Equal("default/testmigrationpending"))
-				Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
-				Expect(shutdown).To(BeFalse())
-			})
+			pvcs, listErr := kubeClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(listErr).ToNot(HaveOccurred())
+			Expect(pvcs.Items).ToNot(BeEmpty())
+		})
 
-			// TODO: This test is flaky due to https://github.com/kubernetes-sigs/controller-runtime/issues/3363
-			//  Promote this back to stable once a fix is merged
-			PIt("should get items in order based on priority", func() {
+		It("should require source backend PVC for local migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
-				const (
-					runningMigNamePrefix       = "testmigration%d"
-					userTriggeredMigNamePrefix = "test-user-migration-%d"
-					criticalMigNamePrefix      = "test-crit-migration-%d"
-					defaultMigNamePrefix       = "test-noprio-migration-%d"
-					maintenanceMigNamePrefix   = "test-maint-migration-%d"
-				)
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).To(MatchError(ContainSubstring("no backend-storage PVC found")))
+		})
 
-				By("Creating 5 running system critical migrations")
-				for i := range 5 {
-					vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
-					migration := newMigration(fmt.Sprintf(runningMigNamePrefix, i), vmi.Name, v1.MigrationRunning)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
-					controller.enqueueMigration(migration)
-				}
+		It("should require source backend PVC for decentralized source migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
 
-				By("Creating 5 critical, 5 maintenance, 5 user triggered and 5 non-defined priority migrations")
-				for i := range 5 {
-					vmi := newVirtualMachine(fmt.Sprintf("testvmi-user-%d", i), v1.Running)
-					migration := newMigration(fmt.Sprintf(userTriggeredMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					migration.Spec.Priority = pointer.P(v1.PriorityUserTriggered)
-					controller.enqueueMigration(migration)
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).To(MatchError(ContainSubstring("no backend-storage PVC found")))
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(BeEmpty())
+		})
 
-					vmi = newVirtualMachine(fmt.Sprintf("testvmi-crit-%d", i), v1.Running)
-					migration = newMigration(fmt.Sprintf(criticalMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
-					controller.enqueueMigration(migration)
+		It("should set SourcePersistentStatePVCName for decentralized source migration when source PVC exists", func() {
+			const sourcePVCName = "source-backend-pvc"
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			setBackendStorageVolumeStatus(vmi, sourcePVCName)
+			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetPersistentStatePVCName: "existing-target-pvc",
+			}
 
-					vmi = newVirtualMachine(fmt.Sprintf("testvmi-noprio-%d", i), v1.Running)
-					migration = newMigration(fmt.Sprintf(defaultMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					controller.enqueueMigration(migration)
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(Equal(sourcePVCName))
+		})
 
-					vmi = newVirtualMachine(fmt.Sprintf("testvmi-maint-%d", i), v1.Running)
-					migration = newMigration(fmt.Sprintf(maintenanceMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
-					controller.enqueueMigration(migration)
-				}
+		It("should set SourcePersistentStatePVCName on decentralized target when previous migration completed", func() {
+			const sourcePVCName = "handoff-backend-pvc"
+			vmi := newReceiverVirtualMachine("testvmi", v1.Running, "testmigration")
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			setBackendStorageVolumeStatus(vmi, sourcePVCName)
+			vmi.Status.MigrationState.Completed = true
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetPersistentStatePVCName: "existing-target-pvc",
+			}
 
-				Eventually(func() int {
-					return controller.Queue.Len()
-				}, 20*time.Millisecond, 2*time.Second).Should(Equal(25))
-				runningMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePriorityRunning))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(runningMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+runningMigNamePrefix, 0),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 1),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 2),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 3),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 4),
-					),
-				)
-
-				criticalMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					criticalMigrationsFromQueue = append(criticalMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(criticalMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 0),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 1),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 2),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 3),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 4),
-					),
-				)
-
-				userMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					userMigrationsFromQueue = append(userMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePriorityUserTriggered))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(userMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 0),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 1),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 2),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 3),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 4),
-					),
-				)
-
-				maintenanceMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					maintenanceMigrationsFromQueue = append(maintenanceMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemMaintenance))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(maintenanceMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 0),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 1),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 2),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 3),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 4),
-					),
-				)
-
-				defaultMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					defaultMigrationsFromQueue = append(defaultMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePriorityDefault))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(defaultMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 0),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 1),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 2),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 3),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 4),
-					),
-				)
-			})
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(Equal(sourcePVCName))
 		})
 	})
 
@@ -3146,6 +3273,24 @@ func newDecentralizedReceiverMigration(name string, vmiName string, phase v1.Vir
 		MigrationID: vmiName,
 	}
 	return migration
+}
+
+func newDecentralizedSenderMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+	migration := newMigration(name, vmiName, phase)
+	migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+		MigrationID: "remote-migration-id",
+		ConnectURL:  "10.0.0.1:9185",
+	}
+	return migration
+}
+
+func setBackendStorageVolumeStatus(vmi *v1.VirtualMachineInstance, claimName string) {
+	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+		Name: backendstorage.VolumeName,
+		PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+			ClaimName: claimName,
+		},
+	})
 }
 
 func newMigrationWithAddedNodeSelector(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase, addedNodeSelector map[string]string) *v1.VirtualMachineInstanceMigration {

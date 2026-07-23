@@ -20,15 +20,22 @@
 package eventsclient
 
 import (
+	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"libvirt.org/go/libvirt"
 
 	api2 "kubevirt.io/client-go/api"
@@ -41,9 +48,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
+	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -79,9 +89,9 @@ var _ = Describe("Notify", func() {
 			vmiStore = vmiInformer.GetStore()
 			e = &eventCaller{}
 
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
-			}()
+			go func(ec chan watch.Event, rec *record.FakeRecorder, vs cache.Store) {
+				notifyserver.RunServer(shareDir, stop, ec, rec, vs)
+			}(eventChan, recorder, vmiStore)
 			// mimic pipe
 			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
 			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
@@ -135,6 +145,71 @@ var _ = Describe("Notify", func() {
 				Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
 				Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
 			)
+
+			It("should not send watch.Error event on libvirt reconnect", func() {
+				By("Setting up StartDomainNotifier with a mock connection")
+				ctrl := gomock.NewController(GinkgoT())
+				mockConn := testing.NewLibvirt(ctrl)
+
+				var reconnectChan chan bool
+				mockConn.ConnectionEXPECT().SetReconnectChan(gomock.Any()).Do(func(ch chan bool) {
+					reconnectChan = ch
+				})
+				mockConn.ConnectionEXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventDeviceAddedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any()).Return(nil)
+
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.UID = "1234"
+				agentStore := agentpoller.NewAsyncAgentStore()
+
+				err := client.StartDomainNotifier(
+					mockConn.VirtConnection,
+					deleteNotificationSent,
+					vmi,
+					"test_domain",
+					&agentStore,
+					10*time.Second,
+					10*time.Second,
+					10*time.Second,
+					10*time.Second,
+					10*time.Second,
+					metadataCache(),
+					false,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Triggering a libvirt reconnect")
+				Expect(reconnectChan).ToNot(BeNil())
+				reconnectChan <- true
+
+				By("Verifying no watch.Error event is sent to virt-handler")
+				Consistently(eventChan, 500*time.Millisecond).ShouldNot(Receive())
+			})
+
+			It("should send watch.Modified event on libvirt reconnect when domain cache is populated", func() {
+				domain := api.NewMinimalDomain("test")
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+				// Exercises the reconnect handler's code path when domainCache is non-nil.
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache(), false)
+
+				var event watch.Event
+				Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+				Expect(event.Type).To(Equal(watch.Modified))
+				newDomain, ok := event.Object.(*api.Domain)
+				Expect(ok).To(BeTrue())
+				Expect(newDomain.Status.Status).To(Equal(api.Running))
+			})
 		})
 
 		It("should receive a delete event when a VirtualMachineInstance is undefined",
@@ -519,4 +594,292 @@ var _ = Describe("Notify", func() {
 
 		})
 	})
+
+	Describe("isTransientError", func() {
+		DescribeTable("should classify errors correctly",
+			func(err error, expected bool) {
+				Expect(isTransientError(err)).To(Equal(expected))
+			},
+			Entry("nil error", nil, false),
+			Entry("Unavailable is transient", status.Errorf(codes.Unavailable, "unavailable"), true),
+			Entry("DeadlineExceeded is transient", status.Errorf(codes.DeadlineExceeded, "timeout"), true),
+			Entry("Canceled is not transient", status.Errorf(codes.Canceled, "canceled"), false),
+			Entry("Aborted is transient", status.Errorf(codes.Aborted, "aborted"), true),
+			Entry("InvalidArgument is not transient", status.Errorf(codes.InvalidArgument, "bad request"), false),
+			Entry("Internal is not transient", status.Errorf(codes.Internal, "internal error"), false),
+			Entry("NotFound is not transient", status.Errorf(codes.NotFound, "not found"), false),
+			Entry("PermissionDenied is not transient", status.Errorf(codes.PermissionDenied, "denied"), false),
+			Entry("non-gRPC error is transient", errors.New("connection refused"), true),
+			Entry("context.DeadlineExceeded is transient", context.DeadlineExceeded, true),
+		)
+	})
+
+	Describe("gRPC status error handling", func() {
+		newTestNotifier := func(fake *fakeNotifyClient) *Notifier {
+			return &Notifier{
+				v1client:        fake,
+				conn:            &grpc.ClientConn{},
+				intervalTimeout: 100 * time.Millisecond,
+				sendTimeout:     1 * time.Second,
+				totalTimeout:    3 * time.Second,
+			}
+		}
+
+		Context("SendDomainEvent", func() {
+			It("should propagate business errors immediately", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					domainEventErr: status.Errorf(codes.InvalidArgument, "invalid domain event"),
+				})
+
+				domain := api.NewMinimalDomain("test")
+				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+
+				Expect(err).To(MatchError(ContainSubstring("InvalidArgument")))
+				Expect(err).To(MatchError(ContainSubstring("invalid domain event")))
+			})
+
+			It("should propagate Internal errors from server", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					domainEventErr: status.Errorf(codes.Internal, "server crashed"),
+				})
+
+				domain := api.NewMinimalDomain("test")
+				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+
+				Expect(err).To(MatchError(ContainSubstring("Internal")))
+				Expect(err).To(MatchError(ContainSubstring("server crashed")))
+			})
+
+			It("should succeed when server returns no error", func() {
+				client := newTestNotifier(&fakeNotifyClient{})
+
+				domain := api.NewMinimalDomain("test")
+				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should fall back to Response.Success for old servers", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					domainEventResponse: &notifyv1.Response{Success: false, Message: "legacy error"},
+				})
+
+				domain := api.NewMinimalDomain("test")
+				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+
+				Expect(err).To(MatchError(ContainSubstring("legacy error")))
+			})
+
+			It("should succeed when a migrated server returns an empty response without Success field", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					domainEventResponse: &notifyv1.Response{},
+				})
+
+				domain := api.NewMinimalDomain("test")
+				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("SendK8sEvent", func() {
+			It("should propagate business errors immediately", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					k8sEventErr: status.Errorf(codes.InvalidArgument, "invalid k8s event"),
+				})
+
+				vmi := libvmi.New(libvmi.WithName("test-vmi"))
+				vmi.UID = "1234"
+				err := client.SendK8sEvent(vmi, "Normal", "TestReason", "test message")
+
+				Expect(err).To(MatchError(ContainSubstring("InvalidArgument")))
+				Expect(err).To(MatchError(ContainSubstring("invalid k8s event")))
+			})
+
+			It("should propagate Internal errors from server", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					k8sEventErr: status.Errorf(codes.Internal, "handler error"),
+				})
+
+				vmi := libvmi.New(libvmi.WithName("test-vmi"))
+				vmi.UID = "1234"
+				err := client.SendK8sEvent(vmi, "Normal", "TestReason", "test message")
+
+				Expect(err).To(MatchError(ContainSubstring("Internal")))
+				Expect(err).To(MatchError(ContainSubstring("handler error")))
+			})
+
+			It("should succeed when server returns no error", func() {
+				client := newTestNotifier(&fakeNotifyClient{})
+
+				vmi := libvmi.New(libvmi.WithName("test-vmi"))
+				vmi.UID = "1234"
+				err := client.SendK8sEvent(vmi, "Normal", "TestReason", "test message")
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should fall back to Response.Success for old servers", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					k8sEventResponse: &notifyv1.Response{Success: false, Message: "legacy k8s error"},
+				})
+
+				vmi := libvmi.New(libvmi.WithName("test-vmi"))
+				vmi.UID = "1234"
+				err := client.SendK8sEvent(vmi, "Normal", "TestReason", "test message")
+
+				Expect(err).To(MatchError(ContainSubstring("legacy k8s error")))
+			})
+
+			It("should succeed when a migrated server returns an empty response without Success field", func() {
+				client := newTestNotifier(&fakeNotifyClient{
+					k8sEventResponse: &notifyv1.Response{},
+				})
+
+				vmi := libvmi.New(libvmi.WithName("test-vmi"))
+				vmi.UID = "1234"
+				err := client.SendK8sEvent(vmi, "Normal", "TestReason", "test message")
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("transient error retry", func() {
+			var shareDir string
+			var grpcServer *grpc.Server
+			var sock net.Listener
+			var retryClient *Notifier
+
+			startRetryServer := func(server notifyv1.NotifyServer) *Notifier {
+				shareDir = GinkgoT().TempDir()
+
+				grpcServer = grpc.NewServer()
+				info.RegisterNotifyInfoServer(grpcServer, &testInfoServer{})
+				notifyv1.RegisterNotifyServer(grpcServer, server)
+
+				var err error
+				sock, err = net.Listen("unix", filepath.Join(shareDir, "domain-notify.sock"))
+				Expect(err).ToNot(HaveOccurred())
+				go func() { _ = grpcServer.Serve(sock) }()
+
+				Expect(os.Symlink(
+					filepath.Join(shareDir, "domain-notify.sock"),
+					filepath.Join(shareDir, "domain-notify-pipe.sock"),
+				)).To(Succeed())
+
+				retryClient = NewNotifier(shareDir)
+				retryClient.SetCustomTimeouts(50*time.Millisecond, 1*time.Second, 5*time.Second)
+				return retryClient
+			}
+
+			AfterEach(func() {
+				if retryClient != nil {
+					retryClient.Close()
+				}
+				if grpcServer != nil {
+					grpcServer.Stop()
+				}
+				if sock != nil {
+					sock.Close()
+				}
+			})
+
+			It("SendDomainEvent should succeed after a transient error on retry", func() {
+				var callCount atomic.Int32
+				server := &callbackNotifyServer{
+					onDomainEvent: func(_ context.Context, _ *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+						if callCount.Add(1) == 1 {
+							return nil, status.Errorf(codes.Unavailable, "temporary failure")
+						}
+						return &notifyv1.Response{Success: true}, nil
+					},
+				}
+				startRetryServer(server)
+
+				domain := api.NewMinimalDomain("test")
+				err := retryClient.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(callCount.Load()).To(BeNumerically(">=", int32(2)))
+			})
+
+			It("SendK8sEvent should succeed after a transient error on retry", func() {
+				var callCount atomic.Int32
+				server := &callbackNotifyServer{
+					onK8SEvent: func(_ context.Context, _ *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
+						if callCount.Add(1) == 1 {
+							return nil, status.Errorf(codes.Unavailable, "temporary failure")
+						}
+						return &notifyv1.Response{Success: true}, nil
+					},
+				}
+				startRetryServer(server)
+
+				vmi := libvmi.New(libvmi.WithName("test-vmi"))
+				vmi.UID = "1234"
+				err := retryClient.SendK8sEvent(vmi, "Normal", "TestReason", "test message")
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(callCount.Load()).To(BeNumerically(">=", int32(2)))
+			})
+		})
+	})
 })
+
+type fakeNotifyClient struct {
+	domainEventErr      error
+	domainEventResponse *notifyv1.Response
+	k8sEventErr         error
+	k8sEventResponse    *notifyv1.Response
+}
+
+func (f *fakeNotifyClient) HandleDomainEvent(
+	_ context.Context, _ *notifyv1.DomainEventRequest, _ ...grpc.CallOption,
+) (*notifyv1.Response, error) {
+	if f.domainEventErr != nil {
+		return nil, f.domainEventErr
+	}
+	if f.domainEventResponse != nil {
+		return f.domainEventResponse, nil
+	}
+	return &notifyv1.Response{Success: true}, nil
+}
+
+func (f *fakeNotifyClient) HandleK8SEvent(
+	_ context.Context, _ *notifyv1.K8SEventRequest, _ ...grpc.CallOption,
+) (*notifyv1.Response, error) {
+	if f.k8sEventErr != nil {
+		return nil, f.k8sEventErr
+	}
+	if f.k8sEventResponse != nil {
+		return f.k8sEventResponse, nil
+	}
+	return &notifyv1.Response{Success: true}, nil
+}
+
+type testInfoServer struct{}
+
+func (t *testInfoServer) Info(_ context.Context, _ *info.NotifyInfoRequest) (*info.NotifyInfoResponse, error) {
+	return &info.NotifyInfoResponse{
+		SupportedNotifyVersions: []uint32{1},
+	}, nil
+}
+
+type callbackNotifyServer struct {
+	onDomainEvent func(context.Context, *notifyv1.DomainEventRequest) (*notifyv1.Response, error)
+	onK8SEvent    func(context.Context, *notifyv1.K8SEventRequest) (*notifyv1.Response, error)
+}
+
+func (s *callbackNotifyServer) HandleDomainEvent(ctx context.Context, req *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+	if s.onDomainEvent != nil {
+		return s.onDomainEvent(ctx, req)
+	}
+	return &notifyv1.Response{Success: true}, nil
+}
+
+func (s *callbackNotifyServer) HandleK8SEvent(ctx context.Context, req *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
+	if s.onK8SEvent != nil {
+		return s.onK8SEvent(ctx, req)
+	}
+	return &notifyv1.Response{Success: true}, nil
+}

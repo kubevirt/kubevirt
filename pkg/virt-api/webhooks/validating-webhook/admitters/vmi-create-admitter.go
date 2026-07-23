@@ -125,6 +125,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, isKubeVirtServiceAccount)...)
+	causes = append(causes, validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), &vmi.Spec, vmi.Annotations, admitter.ClusterConfig)...)
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	if len(causes) > 0 {
@@ -228,6 +229,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateMDEVRamFB(field, spec)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateGraceIOVirtualization(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
@@ -596,7 +598,7 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	case "amd64":
 		causes = append(causes, webhooks.ValidateLaunchSecurityAmd64(field, spec, config)...)
 	case "s390x":
-		causes = append(causes, webhooks.ValidateLaunchSecurityS390x(field, spec, config)...)
+		// No s390x specific settings for IBM Secure Execution
 	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

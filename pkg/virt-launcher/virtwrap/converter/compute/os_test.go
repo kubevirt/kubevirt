@@ -37,7 +37,6 @@ import (
 )
 
 var _ = Describe("OS Domain Configurator", func() {
-
 	const (
 		smbiosEnabled    = true
 		useSerialEnabled = true
@@ -256,13 +255,13 @@ var _ = Describe("OS Domain Configurator", func() {
 		},
 			Entry("when ACPI volume is not found",
 				libvmi.New(withACPISlic("missing-volume")),
-				"Firmware's volume for slic was not found"),
+				"firmware's volume for slic was not found"),
 			Entry("when ACPI is set but no tables are specified",
 				libvmi.New(withEmptyACPI()),
-				"No ACPI tables were set. Expecting at least one."),
+				"no ACPI tables were set, expecting at least one"),
 			Entry("when ACPI volume is not a secret",
 				libvmi.New(withACPISlic("config-volume"), withConfigMapVolume("config-volume")),
-				"Firmware's volume type is unsupported for slic"),
+				"firmware's volume type is unsupported for slic"),
 		)
 	})
 })
@@ -281,14 +280,18 @@ func withStartStrategy(strategy v1.StartStrategy) libvmi.Option {
 	}
 }
 
+func ensureBootloader(vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.Firmware == nil {
+		vmi.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+	if vmi.Spec.Domain.Firmware.Bootloader == nil {
+		vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+	}
+}
+
 func withBIOSUseSerial(useSerial bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
+		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{
 			UseSerial: pointer.P(useSerial),
 		}
@@ -308,12 +311,7 @@ func withKernelArgs(args string) libvmi.Option {
 
 func withEFIBootloader(secureBoot bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
+		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{
 			SecureBoot: pointer.P(secureBoot),
 		}

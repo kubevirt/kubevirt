@@ -509,6 +509,7 @@ func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
 		"backupMsg":      "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
 		"checkpointName": "CheckpointName is the name of the checkpoint created for the backup\n+optional",
 		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic",
+		"quiesceStatus":  "QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.\n+optional",
 	}
 }
 
@@ -631,7 +632,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"imageTag":                "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
 		"imageRegistry":           "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy":         "The ImagePullPolicy to use.",
+		"imagePullPolicy":         "The ImagePullPolicy to use for KubeVirt operator-managed infrastructure\nimages (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).\nFor pull policy of user workload pods, see\nspec.configuration.imagePullPolicy.",
 		"imagePullSecrets":        "The imagePullSecrets to pull the container images from\nDefaults to none\n+listType=atomic",
 		"monitorNamespace":        "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
 		"serviceMonitorNamespace": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
@@ -880,6 +881,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                   "KubeVirtConfiguration holds all kubevirt configurations",
 		"emulatedMachines":                   "Deprecated. Use architectureConfiguration instead.",
+		"imagePullPolicy":                    "The ImagePullPolicy to use for user workload pods and their containers\n(launcher pods, exporter pods, etc.).\nFor KubeVirt infrastructure images, use spec.imagePullPolicy instead.",
 		"machineType":                        "Deprecated. Use architectureConfiguration instead.",
 		"ovmfPath":                           "Deprecated. Use architectureConfiguration instead.",
 		"evictionStrategy":                   "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
@@ -899,7 +901,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
 		"persistentReservationConfiguration": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs\n+nullable",
 		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
-		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting this field to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled.\nThis is an Alpha feature and subject to change.\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
+		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting RoleAggregationStrategy to \"Manual\" requires the OptOutRoleAggregation feature gate\nto be enabled (Beta, enabled by default since v1.9.0).\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
 	}
 }
 
@@ -1016,6 +1018,49 @@ func (TLSConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (StallDetectorOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"stallMargin":               "StallMargin is the fractional tolerance, expressed as a percentage, used when\ncomparing remaining migration bytes against the best observed value to detect stalls\nand local minima. A stall is reported when remaining bytes stay above\n(1 - StallMargin/100) of the outside-window minimum.\nDefaults to 4.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=100\n+optional",
+		"ewmaAlpha":                 "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of\nobserved migration bandwidth. Must be in the range (0, 1]; zero is invalid because\nthe estimate would never incorporate new samples. Higher values weight recent samples\nmore heavily.\nDefaults to \"0.4\".\n+optional",
+		"stallProgressTimeout":      "StallProgressTimeout is the duration in seconds of the sliding window used to track\nminimum remaining-bytes and detect when migration progress has stalled.\nDefaults to 40.\n+optional",
+		"switchoverTimeout":         "SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy\nswitchover to complete after being triggered before the migration is aborted.\nDefaults to 60.\n+optional",
+		"precopyPossibleFactor":     "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed\nMaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.\nDefaults to \"1.5\".\n+optional",
+		"patienceWindowDecayFactor": "PatienceWindowDecayFactor is the factor by which the relaxation patience window is\nmultiplied after each best-remaining-bytes relaxation step.\nDefaults to \"0.5\".\n+optional",
+		"searchLocalMinima":         "SearchLocalMinima controls whether convergence actions are delayed until remaining bytes\nreach a local minimum near the best observed value. When false, actions may trigger\nas soon as a stall is detected.\nDefaults to true.\n+optional",
+		"completionTimeoutFactor":   "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine\nthe total time budget for deciding whether a forced switchover can still finish in time,\nand to extend the abort deadline after initiating a completion-timeout-driven switchover.\nDefaults to \"2\".\n+optional",
+	}
+}
+
+func (ExperimentalMigrationOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "ExperimentalMigrationOptions is an alpha API for experimental migration tunables.\nIt is intended for experimental purposes only and will be removed in the future.",
+		"stallDetector": "+optional",
+		"compression":   "Compression selects the algorithm for compressing the live migration\ndata stream. When omitted (nil) or set to \"none\", compression is\ndisabled.\n+kubebuilder:validation:Enum=none;zstd\n+optional",
+	}
+}
+
+func (VMIMConfigurationOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                                  "VMIMConfigurationOptions holds the resolved migration options for a single migration.\nIt is written to VirtualMachineInstanceMigrationState and represents the effective\nconfiguration after merging KubeVirt defaults with any matched MigrationPolicy.",
+		"nodeDrainTaintKey":                 "NodeDrainTaintKey defines the taint key that indicates a node should be drained.\nNote: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+		"parallelOutboundMigrationsPerNode": "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations\nallowed per node. Defaults to 2",
+		"parallelMigrationsPerCluster":      "ParallelMigrationsPerCluster is the total number of concurrent live migrations\nallowed cluster-wide. Defaults to 5",
+		"allowAutoConverge":                 "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
+		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
+		"completionTimeoutPerGiB":           "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf the timeout is reached, the migration will be either paused, switched\nto post-copy or cancelled depending on other settings. Defaults to 150",
+		"maxDowntimeMs":                     "MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.\nDefaults to 900\n+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=2000000",
+		"progressTimeout":                   "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.\nHitting this timeout means a migration transferred 0 data for that many seconds. The migration is\nthen considered stuck and therefore cancelled. Defaults to 150",
+		"utilityVolumesTimeout":             "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state\nfor utility volumes to be detached. If utility volumes are still present after this timeout,\nthe migration will be marked as Failed. Defaults to 150",
+		"unsafeMigrationOverride":           "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check\nindicates the migration will be unsafe to the guest. Defaults to false",
+		"allowPostCopy":                     "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs\nto successfully live-migrate. However, events like a network failure can cause a VMI crash.\nIf set to true, migrations will still start in pre-copy, but switch to post-copy when\nCompletionTimeoutPerGiB triggers. Defaults to false",
+		"allowWorkloadDisruption":           "AllowWorkloadDisruption indicates that the migration shouldn't be\ncanceled after acceptableCompletionTime is exceeded. Instead, if\npermitted, migration will be switched to post-copy or the VMI will be\npaused to allow the migration to complete",
+		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
+		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
+		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+		"experimental":                      "ExperimentalMigrationOptions is an alpha API. It is intended for experimental\npurposes only and will be removed in the future.",
+	}
+}
+
 func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                  "MigrationConfiguration holds migration options.\nCan be overridden for specific groups of VMs though migration policies.\nVisit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.",
@@ -1025,6 +1070,7 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"allowAutoConverge":                 "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
 		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
 		"completionTimeoutPerGiB":           "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf the timeout is reached, the migration will be either paused, switched\nto post-copy or cancelled depending on other settings. Defaults to 150",
+		"maxDowntimeMs":                     "MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.\nDefaults to 900\n+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=2000000",
 		"progressTimeout":                   "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.\nHitting this timeout means a migration transferred 0 data for that many seconds. The migration is\nthen considered stuck and therefore cancelled. Defaults to 150",
 		"utilityVolumesTimeout":             "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state\nfor utility volumes to be detached. If utility volumes are still present after this timeout,\nthe migration will be marked as Failed. Defaults to 150",
 		"unsafeMigrationOverride":           "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check\nindicates the migration will be unsafe to the guest. Defaults to false",

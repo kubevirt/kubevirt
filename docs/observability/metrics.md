@@ -30,13 +30,13 @@
 | kubevirt_vm_running_status_last_transition_timestamp_seconds | Metric | Counter | Virtual Machine last transition timestamp to running status. |
 | kubevirt_vm_starting_status_last_transition_timestamp_seconds | Metric | Counter | Virtual Machine last transition timestamp to starting status. |
 | kubevirt_vm_vnic_info | Metric | Gauge | Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC defined in the VM's configuration. |
-| kubevirt_vmi_contains_ephemeral_hotplug_volume | Metric | Gauge | Reported only for VMIs that contain an ephemeral hotplug volume. |
 | kubevirt_vmi_cpu_system_usage_seconds_total | Metric | Counter | Total CPU time spent in system mode. |
 | kubevirt_vmi_cpu_usage_seconds_total | Metric | Counter | Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). |
 | kubevirt_vmi_cpu_user_usage_seconds_total | Metric | Counter | Total CPU time spent in user mode. |
 | kubevirt_vmi_dirty_rate_bytes_per_second | Metric | Gauge | Guest dirty-rate in bytes per second. |
 | kubevirt_vmi_filesystem_capacity_bytes | Metric | Gauge | Total VM filesystem capacity in bytes. |
 | kubevirt_vmi_filesystem_used_bytes | Metric | Gauge | Used VM filesystem capacity in bytes. |
+| kubevirt_vmi_gpu_info | Metric | Gauge | Info metric mapping GPU/vGPU UUIDs to VMIs. |
 | kubevirt_vmi_guest_load_15m | Metric | Gauge | Guest system load average over 15 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
 | kubevirt_vmi_guest_load_1m | Metric | Gauge | Guest system load average over 1 minute as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
 | kubevirt_vmi_guest_load_5m | Metric | Gauge | Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
@@ -114,6 +114,7 @@
 | cluster:kubevirt_virt_api_pods_running:count | Recording rule | Gauge | The number of virt-api pods that are running. |
 | cluster:kubevirt_virt_api_ready:sum | Recording rule | Gauge | The number of virt-api pods that are ready. |
 | cluster:kubevirt_virt_api_up:sum | Recording rule | Gauge | The number of virt-api pods that are up. |
+| cluster:kubevirt_virt_controller_leading:sum | Recording rule | Gauge | The number of virt-controller pods that are leading. |
 | cluster:kubevirt_virt_controller_pods_running:count | Recording rule | Gauge | The number of virt-controller pods that are running. |
 | cluster:kubevirt_virt_controller_ready:sum | Recording rule | Gauge | The number of virt-controller pods that are ready. |
 | cluster:kubevirt_virt_controller_up:sum | Recording rule | Gauge | The number of virt-controller pods that are up. |

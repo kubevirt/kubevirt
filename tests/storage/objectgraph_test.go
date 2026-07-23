@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package storage
 
 import (
 	"context"
@@ -199,7 +199,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 		It("Object Graph should detect newly added resources", func() {
 			By("Creating DataVolume")
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 				libdv.WithStorage(),
 				libdv.WithForceBindAnnotation(),
 			)
@@ -243,7 +243,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 					},
 				},
 			})
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = libvmops.StartVirtualMachine(vm)

@@ -56,7 +56,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	velero "kubevirt.io/kubevirt/pkg/storage/velero"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
@@ -306,6 +306,69 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Expect(controller.dataVolumeIndexer.Add(dv)).To(Succeed())
 	}
 
+	Describe("recovering a VMI from pod owner annotations", func() {
+		It("should recover the VMI when the annotated owner identity matches", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "attachment-pod",
+					Namespace: vmi.Namespace,
+					Annotations: map[string]string{
+						virtv1.OwnerVMINameAnnotation: vmi.Name,
+						virtv1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+					},
+				},
+			}
+
+			Expect(controller.recoverVMIFromPodAnnotations(pod)).To(Equal(vmi))
+		})
+
+		It("should not recover the VMI when the annotated owner UID does not match", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "attachment-pod",
+					Namespace: vmi.Namespace,
+					Annotations: map[string]string{
+						virtv1.OwnerVMINameAnnotation: vmi.Name,
+						virtv1.OwnerVMIUIDAnnotation:  "other-uid",
+					},
+				},
+			}
+
+			Expect(controller.recoverVMIFromPodAnnotations(pod)).To(BeNil())
+		})
+
+		It("should observe an attachment pod deletion when the virt-launcher pod is gone from the cache", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+			vmiKey := kvcontroller.VirtualMachineInstanceKey(vmi)
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			attachmentPod := newPodForVirtlauncher(virtlauncherPod, "attachment-pod", "attachment-uid", k8sv1.PodRunning)
+			attachmentPod.Annotations = map[string]string{
+				virtv1.OwnerVMINameAnnotation: vmi.Name,
+				virtv1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+			}
+
+			controller.podExpectations.ExpectDeletions(vmiKey, []string{kvcontroller.PodKey(attachmentPod)})
+			Expect(controller.podExpectations.SatisfiedExpectations(vmiKey)).To(BeFalse())
+
+			controller.onPodDelete(attachmentPod)
+
+			Expect(controller.podExpectations.SatisfiedExpectations(vmiKey)).To(BeTrue())
+			Expect(mockQueue.Len()).To(Equal(1))
+			key, shutdown := mockQueue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(key).To(Equal(vmiKey))
+			mockQueue.Done(key)
+		})
+	})
+
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
 
 		dvVolumeSource := virtv1.VolumeSource{
@@ -354,7 +417,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				func(pod *k8sv1.Pod) string {
 					for _, c := range pod.Spec.Containers {
 						if c.Name == "compute" {
-							return strings.Join(c.Command, " ")
+							return strings.Join(append(c.Command, c.Args...), " ")
 						}
 					}
 
@@ -716,7 +779,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				func(pod *k8sv1.Pod) string {
 					for _, c := range pod.Spec.Containers {
 						if c.Name == "compute" {
-							return strings.Join(c.Command, " ")
+							return strings.Join(append(c.Command, c.Args...), " ")
 						}
 					}
 
@@ -1216,6 +1279,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})),
 			)
 		})
+		It("should requeue after the expectations timeout when expectations are not met", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			addVirtualMachine(vmi)
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeZero())
+
+			// A pending creation expectation that no event will satisfy.
+			controller.podExpectations.SetExpectations(key, 1, 0)
+
+			sanityExecute()
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
 		It("should remove the error condition if the sync finally succeeds", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 
@@ -4386,6 +4463,135 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}, true),
 		)
+
+		DescribeTable("should handle old running pod kept as fallback based on volume status", func(volName string, volPhase virtv1.VolumePhase, inSpec bool, expectDelete bool) {
+			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testnode",
+				},
+			})
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				{
+					Name:  volName,
+					Phase: volPhase,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+			}
+			if inSpec {
+				vmi.Spec.Volumes = []virtv1.Volume{
+					{
+						Name: volName,
+						VolumeSource: virtv1.VolumeSource{
+							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: volName + "-pvc",
+								},
+								Hotpluggable: true,
+							},
+						},
+					},
+				}
+			} else {
+				vmi.Spec.Volumes = []virtv1.Volume{}
+			}
+
+			readyVolumes := []*virtv1.Volume{{}}
+			oldPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pod",
+					Namespace: vmi.Namespace,
+				},
+				Spec: k8sv1.PodSpec{
+					Volumes: []k8sv1.Volume{
+						{Name: volName},
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+			addPod(oldPod)
+
+			err := controller.cleanupAttachmentPods(nil, []*k8sv1.Pod{oldPod}, vmi, len(readyVolumes))
+			Expect(err).ToNot(HaveOccurred())
+			if expectDelete {
+				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
+				expectPodDoesNotExist(oldPod.Namespace, oldPod.Name)
+			} else {
+				expectPodExists(oldPod.Namespace, oldPod.Name)
+			}
+		},
+			Entry("should delete when all volumes are Detaching",
+				"detaching-vol", virtv1.HotplugVolumeDetaching, false, true),
+			Entry("should keep when volume is still in spec",
+				"active-vol", virtv1.VolumeReady, true, false),
+			Entry("should keep when removed volume is in deletion-blocking phase",
+				"blocking-vol", virtv1.VolumeReady, false, false),
+		)
+
+		It("should keep old running pod as fallback when it has both a Detaching and an in-spec volume", func() {
+			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testnode",
+				},
+			})
+			vmi.Spec.Volumes = []virtv1.Volume{
+				{
+					Name: "active-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "active-pvc",
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				{
+					Name:  "detaching-vol",
+					Phase: virtv1.HotplugVolumeDetaching,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+				{
+					Name:  "active-vol",
+					Phase: virtv1.VolumeReady,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+			}
+
+			readyVolumes := []*virtv1.Volume{{}}
+			oldPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pod",
+					Namespace: vmi.Namespace,
+				},
+				Spec: k8sv1.PodSpec{
+					Volumes: []k8sv1.Volume{
+						{Name: "detaching-vol"},
+						{Name: "active-vol"},
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+			addPod(oldPod)
+
+			err := controller.cleanupAttachmentPods(nil, []*k8sv1.Pod{oldPod}, vmi, len(readyVolumes))
+			Expect(err).ToNot(HaveOccurred())
+			expectPodExists(oldPod.Namespace, oldPod.Name)
+		})
 	})
 
 	Context("topology hints", func() {

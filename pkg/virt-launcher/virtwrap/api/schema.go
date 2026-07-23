@@ -54,6 +54,10 @@ const (
 	Shutoff     LifeCycle = "Shutoff"
 	Crashed     LifeCycle = "Crashed"
 	PMSuspended LifeCycle = "PMSuspended"
+	// Unknown indicates the domain exists but its virt-launcher is
+	// unreachable (e.g. during NFS failover). Prevents spurious deletions
+	// during informer re-lists.
+	Unknown LifeCycle = "Unknown"
 
 	// Common reasons
 	ReasonUnknown StateChangeReason = "Unknown"
@@ -123,6 +127,7 @@ type DomainStatus struct {
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
 	GuestPanicInfo *GuestPanicInfo
+	PanicCount     int
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU
@@ -467,6 +472,7 @@ type BackupMetadata struct {
 	BackupMsg      string       `xml:"backupMsg,omitempty"`
 	CheckpointName string       `xml:"checkpointName,omitempty"`
 	Volumes        string       `xml:"volumes,omitempty"`
+	QuiesceStatus  string       `xml:"quiesceStatus,omitempty"`
 }
 
 type GracePeriodMetadata struct {

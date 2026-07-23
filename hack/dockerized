@@ -12,7 +12,7 @@ fi
 
 fail_if_cri_bin_missing
 
-kubevirt_builder_version="2602201229-4494d1587"
+kubevirt_builder_version="2606231619-4fe2cd536f"
 kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
 
 # CentOS Stream 9 builder images (default)
@@ -168,6 +168,11 @@ if [ -n "$ARTIFACTS" ]; then
         echo "ARTIFACTS directory is specified, but it is not an absolute directory"
         exit 1
     fi
+fi
+
+# mount bazel cache GCS credentials if available
+if [ -n "${BAZEL_CACHE_GOOGLE_CREDENTIALS-}" ] && [ -f "${BAZEL_CACHE_GOOGLE_CREDENTIALS}" ]; then
+    volumes="$volumes -v ${BAZEL_CACHE_GOOGLE_CREDENTIALS}:${BAZEL_CACHE_GOOGLE_CREDENTIALS}:ro${selinux_bind_options}"
 fi
 
 # Ensure that a bazel server which is running is the correct one

@@ -71,7 +71,8 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 	mutex := &sync.Mutex{}
 	conf := &tls.Config{
 		//nolint:gosec
-		InsecureSkipVerify: true,
+		InsecureSkipVerify:     true,
+		SessionTicketsDisabled: true,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			mutex.Lock()
 			defer mutex.Unlock()
@@ -89,7 +90,7 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		localPort, err := ForwardPorts(pod, []string{"0:" + port}, stopChan, timeout*time.Second)
 		ExpectWithOffset(offset, err).ToNot(HaveOccurred())
 
-		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%d", localPort), conf)
+		conn, err := (&tls.Dialer{Config: conf}).DialContext(context.Background(), "tcp4", fmt.Sprintf("localhost:%d", localPort))
 		if err == nil {
 			defer conn.Close()
 		}

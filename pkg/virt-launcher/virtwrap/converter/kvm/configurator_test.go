@@ -20,6 +20,8 @@
 package kvm_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -67,13 +69,123 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			configurator := kvm.NewKvmDomainConfigurator(!emulationAllowed, !kvmEnabled)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("kvm not present"))
+			Expect(err.Error()).To(ContainSubstring("kvm not present and emulation is not allowed"))
 		})
 
 		It("Should set domain type to qemu when emulation is allowed", func() {
 			configurator := kvm.NewKvmDomainConfigurator(emulationAllowed, !kvmEnabled)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
+		})
+	})
+
+	Context("Cross-architecture emulation", func() {
+		const (
+			crossArchAllowed = true
+		)
+
+		BeforeEach(func() {
+			// Skip binary existence check in unit tests
+			kvm.SetEmulatorBinaryExistsFunc(func(path string) error {
+				return nil
+			})
+		})
+
+		AfterEach(func() {
+			kvm.ResetEmulatorBinaryExistsFunc()
+		})
+
+		It("Should set domain type to qemu and emulator path for cross-arch", func() {
+			vmi.Spec.Architecture = "arm64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal("qemu"))
+			Expect(domain.Spec.Devices.Emulator).To(Equal("/usr/bin/qemu-system-aarch64"))
+		})
+
+		It("Should return error when cross-arch feature gate is disabled", func() {
+			vmi.Spec.Architecture = "arm64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, !crossArchAllowed, "amd64",
+			)
+			err := configurator.Configure(vmi, &domain)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("CrossArchitectureVirtualization"))
+		})
+
+		It("Should succeed for cross-arch even when useEmulation is disabled", func() {
+			vmi.Spec.Architecture = "arm64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				!emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal("qemu"))
+			Expect(domain.Spec.Devices.Emulator).To(Equal("/usr/bin/qemu-system-aarch64"))
+		})
+
+		It("Should not trigger cross-arch when guest matches host", func() {
+			vmi.Spec.Architecture = "amd64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal(""))
+		})
+
+		It("Should not trigger cross-arch when guest architecture is empty", func() {
+			vmi.Spec.Architecture = ""
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal(""))
+		})
+
+		It("Should set correct emulator path for amd64 guest on arm64 host", func() {
+			vmi.Spec.Architecture = "amd64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "arm64",
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal("qemu"))
+			Expect(domain.Spec.Devices.Emulator).To(Equal("/usr/bin/qemu-system-x86_64"))
+		})
+
+		It("Should set correct emulator path for s390x guest", func() {
+			vmi.Spec.Architecture = "s390x"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal("qemu"))
+			Expect(domain.Spec.Devices.Emulator).To(Equal("/usr/bin/qemu-system-s390x"))
+		})
+
+		It("Should return error when emulator binary is missing", func() {
+			kvm.SetEmulatorBinaryExistsFunc(func(path string) error {
+				return fmt.Errorf("required emulator binary not found: %s", path)
+			})
+
+			vmi.Spec.Architecture = "arm64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			err := configurator.Configure(vmi, &domain)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("required emulator binary not found"))
+			Expect(err.Error()).To(ContainSubstring("qemu-system-aarch64"))
+		})
+
+		It("Should return error for unsupported guest architecture", func() {
+			vmi.Spec.Architecture = "riscv64"
+			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
+				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+			)
+			err := configurator.Configure(vmi, &domain)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unsupported guest architecture"))
 		})
 	})
 })

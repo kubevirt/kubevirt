@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnamespace"
@@ -204,7 +205,8 @@ var istioTests = func(vmType VmType) {
 
 				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				)
 
 				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI, metav1.CreateOptions{})
@@ -333,14 +335,15 @@ var istioTests = func(vmType VmType) {
 
 				serverVMI = libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
-				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, libvmops.StartupTimeoutSecondsHuge)
+				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, flags.StartupTimeoutSecondsHuge())
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
@@ -472,7 +475,11 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name,
+			libvmi.WithMasqueradeBinding(),
+			libvmi.WithPorts(ports...),
+		)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "true"),
 		libvmi.WithCloudInitNoCloud(
@@ -484,8 +491,8 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 }
 
 func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
-	passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
-	passtIface.Ports = ports
+	passtIface := libvmi.NewInterface(
+		v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPorts(ports...))
 	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(passtIface),

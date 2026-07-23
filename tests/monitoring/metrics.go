@@ -97,9 +97,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// Verify separately after deletion
 			"kubevirt_vmi_phase_transition_time_from_deletion_seconds": true,
 
-			// This metric is being tested in storage hotplug
-			"kubevirt_vmi_contains_ephemeral_hotplug_volume": true,
-
 			// Needs a guest crash - tested in VM Monitoring, guest panic metrics
 			"kubevirt_vmi_guest_os_panic_total": true,
 
@@ -108,6 +105,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_guest_load_1m":  true,
 			"kubevirt_vmi_guest_load_5m":  true,
 			"kubevirt_vmi_guest_load_15m": true,
+
+			// needs GPU - tested in MediatedDevices
+			"kubevirt_vmi_gpu_info": true,
 		}
 
 		BeforeAll(func() {
@@ -294,7 +294,7 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithMemoryLimit("512Mi"),
+		libvmi.WithMemoryLimit(libvmifact.FedoraMemory),
 		libvmi.WithDataVolume("testdisk", dv.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),

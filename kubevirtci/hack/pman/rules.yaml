@@ -23,6 +23,10 @@ none:
 regex:
   - cluster-provision/k8s/[0-9].[0-9][0-9]*
   - cluster-up/cluster/k8s-[0-9].[0-9][0-9]*
+specific:
+  - pattern: cluster-up/cluster/vfio-gpu/*
+    targets:
+      - "1.36"
 regex_none:
   - cluster-up/cluster/kind*
   - cluster-up/cluster/minikube*

@@ -101,6 +101,12 @@ const (
 	AdditionalPropertiesOptOutRoleAggregation = "OptOutRoleAggregation"
 
 	// lookup key in AdditionalProperties
+	AdditionalPropertiesVMStatsCollectorEnabled = "VMStatsCollectorEnabled"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesPluginsEnabled = "PluginsEnabled"
+
+	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
 	DefaultSynchronizationPort              int32 = 9185
 
@@ -202,6 +208,14 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 
 	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
 	additionalProperties[AdditionalPropertiesHypervisorName] = hypervisor.Name
+
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.VMStatsCollector) {
+		additionalProperties[AdditionalPropertiesVMStatsCollectorEnabled] = ""
+	}
+
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PluginsGate) {
+		additionalProperties[AdditionalPropertiesPluginsEnabled] = ""
+	}
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.OptOutRoleAggregation) {
 		if kv.Spec.Configuration.RoleAggregationStrategy != nil &&
@@ -567,8 +581,18 @@ func (c *KubeVirtDeploymentConfig) ExternalNetResourceInjectionEnabled() bool {
 	return enabled
 }
 
+func (c *KubeVirtDeploymentConfig) VMStatsCollectorEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesVMStatsCollectorEnabled]
+	return enabled
+}
+
 func (c *KubeVirtDeploymentConfig) OptOutRoleAggregationEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesOptOutRoleAggregation]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) PluginsEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesPluginsEnabled]
 	return enabled
 }
 

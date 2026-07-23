@@ -168,7 +168,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 	updateRunStrategy := func(vm *virtv1.VirtualMachine, strategy *virtv1.VirtualMachineRunStrategy) {
 		Eventually(func() error {
 			vm.Spec.RunStrategy = strategy
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{}) //nolint:forbidigo
 			if err != nil {
 				// Ignore the error from the get.
 				vm, _ = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -184,7 +184,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			sourceVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			targetVMI := sourceVMI.DeepCopy()
@@ -234,7 +234,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			sourceVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk1", sourceDV.Name),
 			)
@@ -358,7 +358,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			sourceVMI := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCPURequest("1"), libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("128Mi"),
@@ -394,7 +394,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			By("Writing data to extra disk")
 			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
 			// I am aware I should not use the device name since it is not guaranteed to be the same as the one in the VMI
-			// I should be using the serial number, but not sure how to access that in cirros.
+			// I should be using the serial number, but not sure how to access that in alpine.
 			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("mkfs.ext4 /dev/%s", deviceName), 30*time.Second)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, "mkdir /home/alpine/test", 30*time.Second)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("mount -t ext4 /dev/%s /home/alpine/test", deviceName), 30*time.Second)).To(Succeed())
@@ -536,7 +536,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				By("Creating a VMI with TPM+EFI enabled")
 				sourceVMI := libvmifact.NewFedora(
 					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())), libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithTPM(true),
 					libvmi.WithUefi(false),
@@ -580,10 +581,11 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		)
 
 		BeforeEach(func() {
-			sourceVMI = libvmifact.NewAlpine(
+			sourceVMI = libvmifact.NewFedora(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithMemoryRequest("1Gi"),
 			)
 			By("limiting the bandwidth of migrations")
 			Expect(CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(sourceVMI, resource.MustParse("1Ki")))).ToNot(BeNil())
@@ -592,12 +594,16 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 		})
 
-		DescribeTable("should be able to cancel a migration by deleting the migration resource", decorators.SigStorage, Serial, func(deleteSource bool) {
+		DescribeTable("should be able to cancel a migration by deleting the migration resource", Serial, func(deleteSource bool) {
 			const timeout = 180
 			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 
 			By("starting the VirtualMachine")
 			createAndStartVMFromVMISpec(sourceVMI)
+			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(console.LoginToFedora(sourceVMI)).To(Succeed())
+			runStressTest(sourceVMI, stressLargeVMSize)
 			By("creating a receiver VM")
 			createReceiverVMFromVMISpec(targetVMI)
 			By("creating the migration")
@@ -639,16 +645,17 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			By("Waiting for the target migration object to disappear")
 			Expect(libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout*time.Second)).To(Succeed())
 			By("Logging in and ensuring the source VM is still running")
-			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
+			Expect(console.LoginToFedora(sourceVMI)).To(Succeed())
 			By("Checking that the receiving VM is in WaitingAsReceiver phase")
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				targetVMI, err := virtClient.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return targetVMI.Status.Phase
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
+			stopStressTest(sourceVMI)
 		},
-			Entry("[QUARANTINE] delete source migration", decorators.Quarantine, true),
-			Entry("[QUARANTINE]delete target migration", decorators.Quarantine, false),
+			Entry("delete source migration", true),
+			Entry("delete target migration", false),
 		)
 
 		It("should properly propagate failure from target to source", func() {
@@ -754,7 +761,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			libstorage.EventuallyDV(sourceDV, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			sourceVMI := libvmi.New(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", sourceDV.Name),
 				libvmi.WithMemoryRequest("128Mi"),
@@ -797,7 +804,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			libstorage.EventuallyDV(sourceDV, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			sourceVMI := libvmi.New(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", sourceDV.Name),
 				libvmi.WithMemoryRequest("128Mi"),

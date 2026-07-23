@@ -13,7 +13,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/testsuite",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",

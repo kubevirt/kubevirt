@@ -57,7 +57,8 @@ func (s InfoServer) Info(_ context.Context, _ *hooksInfo.InfoParams) (*hooksInfo
 }
 
 type V1alpha2Server struct {
-	SearchDomains []string
+	SearchDomains     []string
+	BindingPluginName string
 }
 
 func (s V1alpha2Server) OnDefineDomain(_ context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
@@ -68,7 +69,7 @@ func (s V1alpha2Server) OnDefineDomain(_ context.Context, params *hooksV1alpha2.
 		return nil, fmt.Errorf("failed to unmarshal VMI: %v", err)
 	}
 
-	slirpConfigurator, err := domain.NewSlirpNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, s.SearchDomains)
+	slirpConfigurator, err := domain.NewSlirpNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, s.SearchDomains, s.BindingPluginName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create slirp configurator: %v", err)
 	}

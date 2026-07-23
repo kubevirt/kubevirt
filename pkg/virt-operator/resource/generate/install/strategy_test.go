@@ -62,6 +62,19 @@ var _ = Describe("Install Strategy", func() {
 
 	config := getConfig("fake-registry", "v9.9.9")
 
+	getConfigWith := func(kvConfig v1.KubeVirtConfiguration) *util.KubeVirtDeploymentConfig {
+		return util.GetTargetConfigFromKV(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+			},
+			Spec: v1.KubeVirtSpec{
+				ImageRegistry: "fake-registry",
+				ImageTag:      "v9.9.9",
+				Configuration: kvConfig,
+			},
+		})
+	}
+
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
 			client := fake.NewSimpleClientset(objects...)
@@ -237,19 +250,6 @@ var _ = Describe("Install Strategy", func() {
 			"kubevirt.io:view":  "rbac.authorization.k8s.io/aggregate-to-view",
 		}
 
-		getConfigWith := func(kvConfig v1.KubeVirtConfiguration) *util.KubeVirtDeploymentConfig {
-			return util.GetTargetConfigFromKV(&v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "fake-registry",
-					ImageTag:      "v9.9.9",
-					Configuration: kvConfig,
-				},
-			})
-		}
-
 		DescribeTable("should set aggregate labels correctly", func(testConfig *util.KubeVirtDeploymentConfig, expectedValue string) {
 			strategy, err := GenerateCurrentInstallStrategy(testConfig, "", namespace)
 			Expect(err).ToNot(HaveOccurred())
@@ -262,25 +262,49 @@ var _ = Describe("Install Strategy", func() {
 			}
 		},
 			Entry("by default", config, "true"),
-			Entry("when OptOutRoleAggregation FG is enabled and strategy is Manual",
+			Entry("when OptOutRoleAggregation FG is enabled (Beta default) and strategy is Manual",
 				getConfigWith(v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{"OptOutRoleAggregation"},
-					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				}), "false"),
-			Entry("when strategy is Manual but FG is not enabled",
-				getConfigWith(v1.KubeVirtConfiguration{
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
-				}), "true"),
-			Entry("when FG is enabled but strategy is AggregateToDefault",
+			Entry("when strategy is Manual but FG is disabled",
 				getConfigWith(v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{"OptOutRoleAggregation"},
+						DisabledFeatureGates: []string{"OptOutRoleAggregation"},
+					},
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+				}), "true"),
+			Entry("when FG is enabled (Beta default) but strategy is AggregateToDefault",
+				getConfigWith(v1.KubeVirtConfiguration{
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+				}), "true"),
+			Entry("when FG is explicitly disabled and strategy is AggregateToDefault",
+				getConfigWith(v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{"OptOutRoleAggregation"},
 					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
 				}), "true"),
 		)
+	})
+
+	Context("VMStatsCollector", func() {
+		It("should not generate PrometheusRules when VMStatsCollector feature gate is enabled", func() {
+			vmStatsConfig := getConfigWith(v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{"VMStatsCollector"},
+				},
+			})
+
+			strategy, err := GenerateCurrentInstallStrategy(vmStatsConfig, "openshift-monitoring", namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strategy.prometheusRules).To(BeEmpty())
+		})
+
+		It("should generate PrometheusRules by default", func() {
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strategy.prometheusRules).ToNot(BeEmpty())
+		})
 	})
 
 	Context("should match", func() {

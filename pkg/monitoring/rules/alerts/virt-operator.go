@@ -42,13 +42,11 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowVirtOperatorCount",
-			Expr: intstr.FromString(
-				fmt.Sprintf(
-					"cluster:kubevirt_virt_operator_up:sum / on() "+
-						"kube_deployment_spec_replicas{deployment='virt-operator', namespace='%s'} < 0.75",
-					namespace,
-				),
-			),
+			Expr: intstr.FromString(fmt.Sprintf(
+				"cluster:kubevirt_virt_operator_pods_running:count / on() "+
+					"kube_deployment_spec_replicas{deployment='virt-operator', namespace='%s'} < 0.75",
+				namespace,
+			)),
 			For: ptr.To(promv1.Duration("60m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Less than 75% of desired virt-operator pods are running.",

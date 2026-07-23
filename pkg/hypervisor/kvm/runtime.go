@@ -21,13 +21,11 @@ package kvm
 
 import (
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/mitchellh/go-ps"
 	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -39,6 +37,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
+
+var ListProcesses = ps.Processes
 
 type KvmVirtRuntime struct {
 	podIsolationDetector isolation.PodIsolationDetector
@@ -77,7 +77,7 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 			return err
 		}
 	} else {
-		processes, err := ps.Processes()
+		processes, err := ListProcesses()
 		if err != nil {
 			return fmt.Errorf("failed to get all processes: %v", err)
 		}
@@ -93,61 +93,13 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 
 	targetProcessID := targetProcess.Pid()
 
-	memlockSize := k.CalculateMemlockSize(vmi, config)
-
-	if err := common.SetProcessMemoryLockRLimit(targetProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", targetProcessID, memlockSize.Value(), err)
+	if err := common.SetProcessMemoryLockUnlimited(targetProcessID); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to unlimited: %v", targetProcessID, err)
 	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		targetProcess, memlockSize.Value())
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to unlimited",
+		targetProcess)
 
 	return nil
-}
-
-// CalculateMemlockSize computes the memlock rlimit needed for the QEMU process.
-// This includes the memory overhead, guest memory, and additional per-device
-// memory for multi-device VFIO passthrough.
-func (k *KvmVirtRuntime) CalculateMemlockSize(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) resource.Quantity {
-	var memlockSize resource.Quantity
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
-		memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
-	} else {
-		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
-		// and we are sure that all VMIs include the MemoryOverhead status field
-		memlockSize = k.GetMemoryOverhead(vmi, runtime.GOARCH, config.AdditionalGuestMemoryOverheadRatio)
-	}
-
-	vmiBaseMemory := getVMIBaseMemory(vmi)
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	// With a vIOMMU, libvirt locks N * guest_memory for N VFIO devices
-	// (qemuDomainGetMemLockLimitBytes, since libvirt v8.7.0). Each
-	// device gets a separate AddressSpace mapping full guest RAM. The
-	// base overhead already includes 1 * guest_memory, so add (N-1)
-	// more. We apply this unconditionally rather than checking for a
-	// vIOMMU because the domain XML is not yet available at this point
-	// and the over-reservation is harmless — it only raises the rlimit
-	// ceiling without consuming actual memory.
-	if numDevices := util.CountVFIODevices(vmi); numDevices > 1 {
-		extra := vmiBaseMemory.DeepCopy()
-		extra.Set(extra.Value() * int64(numDevices-1))
-		memlockSize.Add(extra)
-	}
-
-	return memlockSize
-}
-
-func getVMIBaseMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
-	vmiBaseMemory := resource.NewScaledQuantity(0, resource.Kilo)
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil && !vmi.Spec.Domain.Resources.Requests.Memory().IsZero():
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	}
-	return vmiBaseMemory
 }
 
 func (k *KvmVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {

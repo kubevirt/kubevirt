@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -55,12 +56,12 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 	Context("during evacuation", func() {
 		It("should add eviction-in-progress annotation to source virt-launcher pod", func() {
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 			)
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
@@ -109,7 +110,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				vmi = libvmifact.NewGuestless(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -118,7 +119,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("should not remove eviction-in-progress annotation from source virt-launcher pod", decorators.WgS390x, func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -167,29 +168,29 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("retrying immediately should be blocked by the migration backoff", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				By("Waiting for the migration to fail")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 
 				By("Try again")
 				migration = libmigration.New(vmi.Name, vmi.Namespace)
 				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 
 				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 			})
 
 			It("after a successful migration backoff should be cleared", decorators.WgS390x, func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				By("Waiting for the migration to fail")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 
 				By("Patch VMI")
 				patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, patch.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
@@ -217,13 +218,13 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 		Context("VirtualMachineInstanceEvictionRequested condition", func() {
 			It("should set VirtualMachineInstanceEvictionRequested condition when VMI marked for eviction", func() {
 				vmi := libvmifact.NewGuestless(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -268,12 +269,12 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				It("should keep VirtualMachineInstanceEvictionRequested condition when migration fails", func() {
 					By("Starting the VirtualMachineInstance")
 					vmi := libvmifact.NewGuestless(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 					)
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 					virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
@@ -315,7 +316,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				libvmi.WithMemoryRequest("512Mi"),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Creating a migration policy that prevents migration")

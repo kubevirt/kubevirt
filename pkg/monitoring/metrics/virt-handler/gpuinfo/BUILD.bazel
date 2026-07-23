@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "collector.go",
+        "gpu_metrics.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/gpuinfo",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/monitoring/metrics/virt-handler/gpuinfo/podresources:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/util/net/grpc:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "collector_test.go",
+        "gpuinfo_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

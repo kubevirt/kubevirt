@@ -143,6 +143,8 @@ var _ = Describe("HotplugVolume", func() {
 			parent isolation.IsolationResult,
 			_ isolation.IsolationResult,
 			findmntInfo FindmntInfo,
+			_ string,
+			_ string,
 		) (*safepath.Path, error) {
 			path, err := parent.MountRoot()
 			Expect(err).ToNot(HaveOccurred())
@@ -379,6 +381,89 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(record.MountTargetEntries).To(BeEmpty())
 		})
 
+		It("should skip mounting hotplug volumes no longer in VMI spec", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "1234"
+			// Volume is in status but NOT in spec (simulates RemoveVolume)
+			vmi.Spec.Volumes = []v1.Volume{}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "removed-vol",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "test-pod",
+						AttachPodUID:  "test-uid",
+					},
+				},
+			}
+
+			err = m.mountFromPod(vmi, "", cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+
+			record, err := m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(record.MountTargetEntries).To(BeEmpty())
+		})
+
+		It("should mount volumes still in spec while skipping removed ones", func() {
+			blockSourcePodUID := types.UID("fghij")
+			_, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "kept-vol", "file")
+			Expect(err).ToNot(HaveOccurred())
+
+			blockMode := k8sv1.PersistentVolumeBlock
+			vmi.Spec.Volumes = []v1.Volume{
+				{Name: "kept-vol", VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "kept-pvc"},
+						Hotpluggable:                      true,
+					},
+				}},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "removed-vol",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+				{
+					Name:  "kept-vol",
+					Phase: v1.HotplugVolumeAttachedToNode,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "test-pod",
+						AttachPodUID:  blockSourcePodUID,
+					},
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeMode: &blockMode,
+					},
+				},
+			}
+
+			statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
+				return fakeStat(true, 0666, 123456), nil
+			}
+			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
+				return true, nil
+			}
+			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
+				return os.WriteFile(filepath.Join(unsafepath.UnsafeAbsolute(basePath.Raw()), deviceName), []byte("test"), 0644)
+			}
+			setExpectedCgroupRuns(1)
+			expectCgroupRule(devices.BlockDevice, 482, 64, true)
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any())
+
+			err = m.mountFromPod(vmi, "", cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+
+			record, err = m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// Only the kept-vol should have been mounted
+			Expect(record.MountTargetEntries).To(HaveLen(1))
+			Expect(record.MountTargetEntries[0].TargetFile).To(ContainSubstring("kept-vol"))
+		})
+
 		It("findVirtlauncherUID should find the right UID", func() {
 			res := m.findVirtlauncherUID(vmi)
 			Expect(res).To(BeEquivalentTo("abcd"))
@@ -425,6 +510,82 @@ var _ = Describe("HotplugVolume", func() {
 			expectCgroupRule(devices.BlockDevice, 482, 64, false)
 			err = m.unmountBlockHotplugVolumes(deviceFile, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not reuse a previous source UID for subsequent hotplug volumes", func() {
+			sourcePodUIDA := types.UID("source-a")
+			sourcePodUIDC := types.UID("source-c")
+			blockMode := k8sv1.PersistentVolumeBlock
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name: "volume-a",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeMode: &blockMode,
+					},
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "pod-a",
+						AttachPodUID:  sourcePodUIDA,
+					},
+				},
+				{
+					Name: "volume-b",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeMode: &blockMode,
+					},
+					HotplugVolume: &v1.HotplugVolumeStatus{},
+				},
+				{
+					Name: "volume-c",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeMode: &blockMode,
+					},
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "pod-c",
+						AttachPodUID:  sourcePodUIDC,
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{Name: "volume-a"},
+				{Name: "volume-b"},
+				{Name: "volume-c"},
+			}
+
+			for _, volume := range []struct {
+				sourceUID types.UID
+				name      string
+			}{
+				{sourcePodUIDA, "volume-a"},
+				{sourcePodUIDC, "volume-c"},
+			} {
+				_, err := newDir(tempDir, string(volume.sourceUID), "volumeDevices", volume.name)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			usedSourceUIDs := []types.UID{}
+			deviceBasePath = func(sourceUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
+				usedSourceUIDs = append(usedSourceUIDs, sourceUID)
+				return newDir(tempDir, string(sourceUID), "volumeDevices")
+			}
+			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
+				_, err := newFile(unsafepath.UnsafeAbsolute(basePath.Raw()), deviceName)
+				Expect(err).ToNot(HaveOccurred())
+				return nil
+			}
+			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
+				return true, nil
+			}
+
+			setExpectedCgroupRuns(2)
+			expectCgroupRule(devices.BlockDevice, 482, 64, true)
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(2)
+
+			err = m.Mount(vmi, cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(usedSourceUIDs).To(Equal([]types.UID{sourcePodUIDA, sourcePodUIDC}))
+
+			_, err = os.Stat(filepath.Join(targetPodPath, "volume-b"))
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 		})
 
 		It("getSourceMajorMinor should return an error if no uid", func() {
@@ -730,6 +891,46 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).To(MatchError(ErrWaitingForHotplugMount), "expected error waiting for hotplug mount")
 		})
 
+		It("should pass the correct sourceUID to parentPathForMount", func() {
+			const expectedSourceUID = "test-source-pod-uid-12345"
+			path, err := newDir(tempDir, expectedSourceUID, "volumes")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
+			Expect(err).ToNot(HaveOccurred())
+			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+			}
+			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
+			Expect(err).ToNot(HaveOccurred())
+			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
+				return []byte("Success"), nil
+			}
+
+			// Override the mock to assert that the correct podUID is passed
+			uidWasVerified := false
+			parentPathForMount = func(
+				parent isolation.IsolationResult,
+				_ isolation.IsolationResult,
+				findmntInfo FindmntInfo,
+				podUID string,
+				kubeletPodsDir string,
+			) (*safepath.Path, error) {
+				Expect(podUID).To(Equal(expectedSourceUID), "parentPathForMount should receive the correct sourceUID")
+				Expect(kubeletPodsDir).To(Equal("/var/lib/kubelet/pods"), "parentPathForMount should receive the configured kubelet pods directory")
+				uidWasVerified = true
+				path, err := parent.MountRoot()
+				Expect(err).ToNot(HaveOccurred())
+				return path.AppendAndResolveWithRelativeRoot(findmntInfo.GetSourcePath())
+			}
+
+			m.kubeletPodsDir = "/var/lib/kubelet/pods"
+			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
+
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(expectedSourceUID), record, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uidWasVerified).To(BeTrue(), "parentPathForMount mock should have been called and verified the UID")
+		})
+
 		It("unmountFileSystemHotplugVolumes should return error if isMounted returns error", func() {
 			testPath, err := newFile(tempDir, "test")
 			Expect(err).ToNot(HaveOccurred())
@@ -901,6 +1102,35 @@ var _ = Describe("HotplugVolume", func() {
 				},
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
+
+			// Volumes must be in spec for Mount to process them
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permanent",
+				},
+				{
+					Name: "filesystemvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "filesystemvolume",
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+				{
+					Name: "blockvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "blockvolume",
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
 			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return newDir(tempDir, string(podUID), "volumeDevices")
 			}
@@ -1061,6 +1291,35 @@ var _ = Describe("HotplugVolume", func() {
 				},
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
+
+			// Volumes must be in spec for Mount to process them
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permanent",
+				},
+				{
+					Name: "filesystemvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "filesystemvolume",
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+				{
+					Name: "blockvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "blockvolume",
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
 			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return newDir(tempDir, string(podUID), "volumeDevices")
 			}

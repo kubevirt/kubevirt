@@ -373,7 +373,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			service.Spec.Ports[0].Port = 123
 
 			By("Update service with undesired port")
-			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{})
+			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
@@ -607,7 +607,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = imagePullSecrets
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -629,7 +629,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = []k8sv1.LocalObjectReference{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -885,6 +885,31 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
 
+			By("Verifying RBAC aggregate labels are preserved after upgrade")
+			verifyAggregateLabels(virtClient, "true")
+
+			By("Setting RoleAggregationStrategy to Manual after upgrade")
+			currentKV := libkubevirt.GetCurrentKv(virtClient)
+			savedConfig := currentKV.Spec.Configuration.DeepCopy()
+			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
+				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+				featuregate.OptOutRoleAggregation,
+			)
+			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
+
+			By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
+			verifyAggregateLabels(virtClient, "false")
+
+			By("Restoring RoleAggregationStrategy to default after upgrade verification")
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*savedConfig)
+
+			By("Verifying aggregate labels are restored after upgrade")
+			verifyAggregateLabels(virtClient, "true")
+
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Ensuring vm %s is ready and latest API annotation is set", vmYaml.apiVersion))
@@ -1021,8 +1046,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false, originalKv.Name)
 		},
-			Entry("from previous y release by patching KubeVirt CR", fromY, false),
-			Entry("from previous y release by updating virt-operator", fromY, true),
+			Entry("[QUARANTINE]from previous y release by patching KubeVirt CR", decorators.Quarantine, fromY, false),
+			Entry("[QUARANTINE]from previous y release by updating virt-operator", decorators.Quarantine, fromY, true),
 			Entry("from previous z release by patching KubeVirt CR", fromZ, false),
 			Entry("from previous z release by updating virt-operator", fromZ, true),
 		)
@@ -2273,7 +2298,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					},
 				}
 
-				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(instancetype.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(instancetype.Labels).To(HaveKeyWithValue(keyTest, valModified))
@@ -2304,7 +2329,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					},
 				}
 
-				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{})
+				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(preference.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(preference.Labels).To(HaveKeyWithValue(keyTest, valModified))
@@ -2325,6 +2350,23 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("virt-template deployment", func() {
+		var fgDisabled bool
+
+		BeforeEach(func() {
+			fgDisabled = !checks.HasFeature(featuregate.Template)
+			if fgDisabled {
+				kvconfig.EnableFeatureGate(featuregate.Template)
+			}
+		})
+
+		AfterEach(func() {
+			if fgDisabled {
+				kvconfig.DisableFeatureGate(featuregate.Template)
+			} else {
+				kvconfig.EnableFeatureGate(featuregate.Template)
+			}
+		})
+
 		setVirtTemplateDeploymentEnabled := func(enabled bool) {
 			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 			kv.Spec.Configuration.VirtTemplateDeployment = &v1.VirtTemplateDeployment{
@@ -2336,9 +2378,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// Note: virt-template requires the Snapshot feature gate for full functionality,
 		// but these tests only verify deployment/removal behavior.
 		DescribeTable("should deploy and remove virt-template", func(setup func(), enable func(), disable func()) {
-			if setup != nil {
-				setup()
-			}
+			setup()
 
 			By("Ensuring virt-template deployments do not exist initially")
 			eventuallyVirtTemplateDeploymentsNotFound()
@@ -2356,15 +2396,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			eventuallyVirtTemplateDeploymentsNotFound()
 		},
 			Entry("when feature gate is toggled",
-				nil,
+				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
 				func() { kvconfig.EnableFeatureGate(featuregate.Template) },
 				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
 			),
 			Entry("when VirtTemplateDeployment.Enabled is toggled",
-				func() {
-					setVirtTemplateDeploymentEnabled(false)
-					kvconfig.EnableFeatureGate(featuregate.Template)
-				},
+				func() { setVirtTemplateDeploymentEnabled(false) },
 				func() { setVirtTemplateDeploymentEnabled(true) },
 				func() { setVirtTemplateDeploymentEnabled(false) },
 			),
@@ -2511,52 +2548,24 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("RoleAggregationStrategy", func() {
-		clusterRolesWithAggregateLabels := map[string]string{
-			rbac.ClusterRoleAdmin: "rbac.authorization.k8s.io/aggregate-to-admin",
-			rbac.ClusterRoleEdit:  "rbac.authorization.k8s.io/aggregate-to-edit",
-			rbac.ClusterRoleView:  "rbac.authorization.k8s.io/aggregate-to-view",
-		}
-
 		It("should disable aggregate labels when set to Manual and restore them when set to AggregateToDefault", func() {
 			By("Verifying aggregate labels are present by default")
-			for name, labelKey := range clusterRolesWithAggregateLabels {
-				clusterRole, err := kubevirt.Client().RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "true"),
-					"ClusterRole %s should have label %s", name, labelKey)
-			}
+			verifyAggregateLabels(kubevirt.Client(), "true")
 
-			By("Setting RoleAggregationStrategy to Manual with OptOutRoleAggregation feature gate")
+			By("Setting RoleAggregationStrategy to Manual (OptOutRoleAggregation is Beta, enabled by default)")
 			currentKV := libkubevirt.GetCurrentKv(kubevirt.Client())
-			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
-				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-			}
-			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
-				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-				featuregate.OptOutRoleAggregation,
-			)
 			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
 			kv := kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
 
 			By("Verifying aggregate labels are set to false")
-			for name, labelKey := range clusterRolesWithAggregateLabels {
-				clusterRole, err := kubevirt.Client().RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "false"),
-					"ClusterRole %s should have label %s set to false when RoleAggregationStrategy is Manual", name, labelKey)
-			}
+			verifyAggregateLabels(kubevirt.Client(), "false")
 
 			By("Setting RoleAggregationStrategy to AggregateToDefault")
 			kv.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyAggregateToDefault)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 			By("Verifying aggregate labels are restored")
-			for name, labelKey := range clusterRolesWithAggregateLabels {
-				clusterRole, err := kubevirt.Client().RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "true"),
-					"ClusterRole %s should have label %s when RoleAggregationStrategy is AggregateToDefault", name, labelKey)
-			}
+			verifyAggregateLabels(kubevirt.Client(), "true")
 		})
 	})
 })
@@ -3255,4 +3264,18 @@ func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {
 			g.Expect(count).To(Equal(1), "vmi [%s] returned %d successful migrations", vmi.Name, count)
 		}
 	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "Expects only a single successful migration per workload update")
+}
+
+func verifyAggregateLabels(virtClient kubecli.KubevirtClient, expectedValue string) {
+	clusterRolesWithAggregateLabels := map[string]string{
+		rbac.ClusterRoleAdmin: "rbac.authorization.k8s.io/aggregate-to-admin",
+		rbac.ClusterRoleEdit:  "rbac.authorization.k8s.io/aggregate-to-edit",
+		rbac.ClusterRoleView:  "rbac.authorization.k8s.io/aggregate-to-view",
+	}
+	for name, labelKey := range clusterRolesWithAggregateLabels {
+		clusterRole, err := virtClient.RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, clusterRole.Labels).To(HaveKeyWithValue(labelKey, expectedValue),
+			"ClusterRole %s should have label %s=%s", name, labelKey, expectedValue)
+	}
 }

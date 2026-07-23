@@ -514,6 +514,10 @@ spec:
             passt: {}
             passtBinding: {}
             pciAddress: pciAddressValue
+            portRanges:
+            - end: -3
+              protocol: protocolValue
+              start: -5
             ports:
             - name: nameValue
               port: -4
@@ -825,6 +829,7 @@ status:
       completed: true
       endTimestamp: "1988-01-01T01:01:01Z"
       failed: true
+      quiesceStatus: quiesceStatusValue
       startTimestamp: "1986-01-01T01:01:01Z"
       volumes:
       - dataEndpoint: dataEndpointValue

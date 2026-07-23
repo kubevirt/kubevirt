@@ -116,6 +116,12 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 	return res[1:], nil
 }
 
+// NormalizePCIID normalizes PCI vendor and device IDs for comparison.
+func NormalizePCIID(id string) string {
+	id = strings.ToUpper(strings.TrimSpace(id))
+	return strings.TrimPrefix(id, "0X")
+}
+
 var (
 	PciBasePath  = "/sys/bus/pci/devices"
 	NodeBasePath = "/sys/bus/node/devices"
@@ -132,6 +138,9 @@ func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
 	numaNodeInt, err := strconv.Atoi(string(numaNodeStr))
 	if err != nil {
 		return nil, err
+	}
+	if numaNodeInt < 0 {
+		return nil, fmt.Errorf("device %s has no NUMA node affinity", pciAddress)
 	}
 	numaNode := uint32(numaNodeInt)
 	return &numaNode, nil
@@ -197,27 +206,60 @@ func PCIAddressToString(pciBusID *api.Address) string {
 		strings.TrimPrefix(pciBusID.Function, prefix))
 }
 
-// LookupDevicesNumaNodes looks up the NUMA nodes of multiple devices based on
-// their PCI addresses and the domain spec of the virtual machine.
-//
-// It returns a map of PCI addresses to their corresponding NUMA node IDs.
-func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) map[string]uint32 {
-	results := make(map[string]uint32)
-	if len(pciAddresses) == 0 || domainSpec == nil || domainSpec.CPU.NUMA == nil || domainSpec.CPUTune == nil {
-		return results
+// DeviceNUMANodeLookupWarning explains why a device or mapping input could not
+// be used for PCI NUMA-aware placement.
+type DeviceNUMANodeLookupWarning struct {
+	PCIAddress string
+	Reason     string
+}
+
+func (w DeviceNUMANodeLookupWarning) String() string {
+	if w.PCIAddress == "" {
+		return w.Reason
 	}
+	return fmt.Sprintf("device %s: %s", w.PCIAddress, w.Reason)
+}
+
+// LookupDevicesNumaNodes looks up the guest NUMA cells for multiple PCI devices.
+func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) map[string]uint32 {
+	numaNodes, _ := LookupDevicesNumaNodesWithWarnings(pciAddresses, domainSpec)
+	return numaNodes
+}
+
+// LookupDevicesNumaNodesWithWarnings looks up the guest NUMA cells that should
+// host PCI devices based on the devices' host NUMA affinity and the domain's
+// host-to-guest NUMA mapping.
+func LookupDevicesNumaNodesWithWarnings(pciAddresses []string, domainSpec *api.DomainSpec) (map[string]uint32, []DeviceNUMANodeLookupWarning) {
+	results := make(map[string]uint32)
+	var warnings []DeviceNUMANodeLookupWarning
+	if len(pciAddresses) == 0 || domainSpec == nil || domainSpec.CPU.NUMA == nil {
+		return results, warnings
+	}
+
+	// Prefer NUMATune memnodes when present because they encode the explicit
+	// guest-cell to host-node memory binding.
+	memNodeMap, memNodeWarnings := memNodeHostToGuestNUMAMap(domainSpec.CPU.NUMA, domainSpec.NUMATune)
+	warnings = append(warnings, memNodeWarnings...)
 
 	// pcpu -> vcpu mapping
 	p2vCPUMap := make(map[uint32]uint32)
-	cpuTune := domainSpec.CPUTune.VCPUPin
-	for _, vcpuPin := range cpuTune {
-		pc, err := ParseCPUSetLine(vcpuPin.CPUSet, MAX_CPU_LIMIT)
-		if err != nil {
-			continue
+	if domainSpec.CPUTune != nil {
+		cpuTune := domainSpec.CPUTune.VCPUPin
+		for _, vcpuPin := range cpuTune {
+			pc, err := ParseCPUSetLine(vcpuPin.CPUSet, MAX_CPU_LIMIT)
+			if err != nil {
+				warnings = append(warnings, DeviceNUMANodeLookupWarning{
+					Reason: fmt.Sprintf("ignoring invalid vCPU pinning for vCPU %d: %v", vcpuPin.VCPU, err),
+				})
+				continue
+			}
+			for _, p := range pc {
+				p2vCPUMap[uint32(p)] = vcpuPin.VCPU
+			}
 		}
-		for _, p := range pc {
-			p2vCPUMap[uint32(p)] = vcpuPin.VCPU
-		}
+	}
+	if len(memNodeMap) == 0 && len(p2vCPUMap) == 0 {
+		return results, warnings
 	}
 
 	// vcpu -> vnuma mapping
@@ -225,11 +267,17 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 	for _, cell := range domainSpec.CPU.NUMA.Cells {
 		vcpusInCell, err := ParseCPUSetLine(cell.CPUs, MAX_CPU_LIMIT)
 		if err != nil {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				Reason: fmt.Sprintf("ignoring guest NUMA cell %q with invalid CPU set %q: %v", cell.ID, cell.CPUs, err),
+			})
 			continue
 		}
 
 		cellID, err := strconv.Atoi(cell.ID)
 		if err != nil {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				Reason: fmt.Sprintf("ignoring guest NUMA cell with invalid ID %q: %v", cell.ID, err),
+			})
 			continue
 		}
 
@@ -243,8 +291,17 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 	for _, pciAddress := range pciAddresses {
 		deviceNuma, err := GetDeviceNumaNode(pciAddress)
 		if err != nil {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				PCIAddress: pciAddress,
+				Reason:     fmt.Sprintf("failed to read host NUMA affinity: %v", err),
+			})
 			continue
 		}
+		if cellID, exists := memNodeMap[*deviceNuma]; exists {
+			results[pciAddress] = cellID
+			continue
+		}
+
 		var pcpus []uint32
 		// if another device is already on this NUMA node, use the same pcpu set
 		if res, exists := pNumaToPCPUSetMap[*deviceNuma]; exists {
@@ -252,6 +309,10 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 		} else {
 			pcpusNuma, err := GetNumaNodeCPUList(int(*deviceNuma))
 			if err != nil {
+				warnings = append(warnings, DeviceNUMANodeLookupWarning{
+					PCIAddress: pciAddress,
+					Reason:     fmt.Sprintf("failed to read CPU list for host NUMA node %d: %v", *deviceNuma, err),
+				})
 				continue
 			}
 			for _, pcpu := range pcpusNuma {
@@ -262,11 +323,90 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 
 		for _, pcpu := range pcpus {
 			if vCPU, exist := p2vCPUMap[pcpu]; exist {
-				cellID := vCPUToCellMap[vCPU]
-				results[pciAddress] = cellID
-				break
+				if cellID, exists := vCPUToCellMap[vCPU]; exists {
+					results[pciAddress] = cellID
+					break
+				}
 			}
 		}
+		if _, exists := results[pciAddress]; !exists {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				PCIAddress: pciAddress,
+				Reason:     fmt.Sprintf("host NUMA node %d cannot be mapped to a guest NUMA cell", *deviceNuma),
+			})
+		}
 	}
-	return results
+	return results, warnings
+}
+
+func memNodeHostToGuestNUMAMap(numa *api.NUMA, numaTune *api.NUMATune) (map[uint32]uint32, []DeviceNUMANodeLookupWarning) {
+	results := make(map[uint32]uint32)
+	var warnings []DeviceNUMANodeLookupWarning
+	if numa == nil || numaTune == nil {
+		return results, warnings
+	}
+
+	// NUMATune memnodes are emitted as guest-cell -> host-node memory bindings.
+	// PCI placement needs the reverse mapping: host NUMA node -> guest NUMA cell.
+	// A host node that is assigned to multiple guest cells is ambiguous, so it is
+	// excluded and the caller may fall back to vCPU pinning inference per device.
+	guestCells := make(map[uint32]struct{})
+	for _, cell := range numa.Cells {
+		cellID, err := strconv.Atoi(cell.ID)
+		if err != nil || cellID < 0 {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				Reason: fmt.Sprintf("ignoring guest NUMA cell with invalid ID %q", cell.ID),
+			})
+			continue
+		}
+		guestCells[uint32(cellID)] = struct{}{}
+	}
+	if len(guestCells) == 0 {
+		return results, warnings
+	}
+
+	ambiguousHostNodes := make(map[uint32]struct{})
+	for _, memNode := range numaTune.MemNodes {
+		if _, exists := guestCells[memNode.CellID]; !exists {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				Reason: fmt.Sprintf("ignoring NUMATune memnode for unknown guest NUMA cell %d", memNode.CellID),
+			})
+			continue
+		}
+
+		hostNodes, err := ParseCPUSetLine(memNode.NodeSet, MAX_CPU_LIMIT)
+		if err != nil {
+			warnings = append(warnings, DeviceNUMANodeLookupWarning{
+				Reason: fmt.Sprintf("ignoring NUMATune memnode for guest NUMA cell %d with invalid nodeset %q: %v", memNode.CellID, memNode.NodeSet, err),
+			})
+			continue
+		}
+		for _, hostNode := range hostNodes {
+			if hostNode < 0 {
+				warnings = append(warnings, DeviceNUMANodeLookupWarning{
+					Reason: fmt.Sprintf("ignoring negative host NUMA node %d in NUMATune memnode for guest NUMA cell %d", hostNode, memNode.CellID),
+				})
+				continue
+			}
+
+			hostNodeID := uint32(hostNode)
+			if _, ambiguous := ambiguousHostNodes[hostNodeID]; ambiguous {
+				continue
+			}
+
+			guestCellID, exists := results[hostNodeID]
+			if exists && guestCellID != memNode.CellID {
+				delete(results, hostNodeID)
+				ambiguousHostNodes[hostNodeID] = struct{}{}
+				warnings = append(warnings, DeviceNUMANodeLookupWarning{
+					Reason: fmt.Sprintf("host NUMA node %d is mapped to multiple guest NUMA cells (%d and %d); ignoring NUMATune mapping for that host node", hostNodeID, guestCellID, memNode.CellID),
+				})
+				continue
+			}
+
+			results[hostNodeID] = memNode.CellID
+		}
+	}
+
+	return results, warnings
 }

@@ -14,8 +14,10 @@ func (MigrationPolicySpec) SwaggerDoc() map[string]string {
 		"allowAutoConverge":       "+optional",
 		"bandwidthPerMigration":   "+optional",
 		"completionTimeoutPerGiB": "+optional",
+		"maxDowntimeMs":           "+optional\n+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=2000000",
 		"allowPostCopy":           "+optional",
 		"allowWorkloadDisruption": "+optional",
+		"experimental":            "ExperimentalMigrationOptions is an alpha API. It is intended for experimental\npurposes only and will be removed in the future.\n+optional",
 	}
 }
 

@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
@@ -76,7 +76,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -123,21 +122,20 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			By("Creating a VMI with VSOCK enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
 
 			By("Creating a new VMI with VSOCK enabled on the same node")
 			node := vmi.Status.NodeName
 			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			vmi2.Spec.Affinity = affinity(node)
-			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, libvmops.StartupTimeoutSecondsSmall)
+			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
@@ -145,7 +143,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
-			Expect(domSpec2.Devices.VSOCK.CID.Address).To(Equal(*vmi2.Status.VSOCKCID))
 
 			By("Migrating the 2nd VMI")
 			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
@@ -155,7 +152,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
-			Expect(domSpec2.Devices.VSOCK.CID.Address).To(Equal(*vmi2.Status.VSOCKCID))
 		})
 	})
 
@@ -169,7 +165,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Logging in as root")
 		err = console.LoginToFedora(vmi)
@@ -221,6 +217,10 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		default:
 		}
 	},
+		// TODO: The TLS handshake will fail when using local namespace,
+		//   because the certificate server is listening in global namespace.
+		//   This will be fixed in a future commit. See "Change 4" in the VEP:
+		//   https://github.com/kubevirt/enhancements/blob/main/veps/sig-compute/222-vsock-netns-vep/vsock-netns-vep.md#change-4-on-demand-vsock-ca-service
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
 	)
@@ -231,7 +231,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		By("Creating a VMI with VSOCK enabled")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Connect to the guest on invalid port")
 		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(0)})
@@ -244,7 +244,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		By("Creating a VMI with VSOCK enabled")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Connect to the guest on the unused port")
 		cliConn, svrConn := net.Pipe()

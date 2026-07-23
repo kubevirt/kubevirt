@@ -65,6 +65,7 @@ import (
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
+	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
@@ -897,6 +898,10 @@ func (app *virtAPIApp) Compose() {
 
 	app.composeSubresources()
 
+	// SecurityHeadersFilter is registered first so security headers are set before
+	// any other filter runs, ensuring they are present even if a later filter
+	// (e.g. OPTIONSFilter) short-circuits the chain without calling the handler.
+	restful.Filter(filter.SecurityHeadersFilter())
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 	restful.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
@@ -979,9 +984,12 @@ func (app *virtAPIApp) prepareCertManager() {
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts,
-			func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
-				return netadmitter.Validate(field, vmiSpec, clusterCfg)
+			// SIG-Network
+			func(field *field.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+				return netadmitter.Validate(field, spec, config)
 			},
+			// SIG-Storage
+			storageadmitters.Validate,
 		)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
@@ -1039,7 +1047,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationPolicies(w, r)
+		validating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)

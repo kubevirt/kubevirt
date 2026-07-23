@@ -60,7 +60,7 @@ func buildSystem(firmware *v1.Firmware, smBIOS *SMBIOS) []api.Entry {
 	if firmware != nil {
 		systemEntries = []api.Entry{{Name: "uuid", Value: string(firmware.UUID)}}
 
-		if len(firmware.Serial) > 0 {
+		if firmware.Serial != "" {
 			systemEntries = append(systemEntries, api.Entry{Name: "serial", Value: firmware.Serial})
 		}
 	}

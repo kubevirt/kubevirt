@@ -156,6 +156,26 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	It("should accept valid plugin-level condition", func() {
+		p := newMinimalPlugin()
+		p.Spec.Condition = `vmi.Name == "test"`
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	DescribeTable("should reject invalid plugin-level condition", func(condition string) {
+		p := newMinimalPlugin()
+		p.Spec.Condition = condition
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(
+			WithTransform(func(c metav1.StatusCause) string { return c.Field }, Equal("spec.condition")),
+		))
+	},
+		Entry("with invalid syntax", "invalid!!! condition"),
+		Entry("with non-bool return type", `vmi.Name`),
+	)
+
 	It("should reject CEL domain hook with type-incorrect field value", func() {
 		p := newMinimalPlugin()
 		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
@@ -166,6 +186,64 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(resp.Result.Details.Causes).To(ContainElement(
 			WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("invalid CEL mutation expression")),
 		))
+	})
+
+	It("should reject node hook with invalid condition expression", func() {
+		p := newMinimalPlugin()
+		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
+			Socket:         "/var/run/kubevirt/plugins/test.sock",
+			PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
+			Condition:      "invalid!!! condition",
+		}}
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(
+			WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("invalid CEL condition expression")),
+		))
+	})
+
+	It("should accept node hook with valid condition expression", func() {
+		p := newMinimalPlugin()
+		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
+			Socket:         "/var/run/kubevirt/plugins/test.sock",
+			PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
+			Condition:      `vmi.spec.domain.cpu.cores > 0`,
+		}}
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	Context("sidecar socketPath validation", func() {
+		It("should accept a valid sidecar socketPath", func() {
+			p := newMinimalPlugin()
+			p.Name = "my-plugin"
+			p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
+				Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook.sock",
+				},
+			}}
+			resp := admit(p)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		DescribeTable("should reject socketPath with unclean path segments", func(socketPath string) {
+			p := newMinimalPlugin()
+			p.Name = "my-plugin"
+			p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
+				Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+			}}
+			resp := admit(p)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(ContainElement(
+				WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("must be a clean path")),
+			))
+		},
+			Entry("path traversal with ..", "/var/run/kubevirt-plugin/my-plugin/../other/hook.sock"),
+			Entry("dot segment", "/var/run/kubevirt-plugin/my-plugin/./hook.sock"),
+			Entry("double slash", "/var/run/kubevirt-plugin/my-plugin//hook.sock"),
+			Entry("trailing slash", "/var/run/kubevirt-plugin/my-plugin/hook.sock/"),
+		)
+
 	})
 })
 

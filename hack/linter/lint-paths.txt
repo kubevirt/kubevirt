@@ -66,6 +66,7 @@ pkg/virt-launcher/metadata
 pkg/virt-launcher/premigration-hook-server/network
 pkg/virt-launcher/virtwrap/access-credentials
 pkg/virt-launcher/virtwrap/agent-poller
+pkg/virt-launcher/virtwrap/converter/compute
 pkg/virt-launcher/virtwrap/converter/metadata
 pkg/virt-launcher/virtwrap/converter/network
 pkg/virt-launcher/virtwrap/converter/storage
@@ -73,6 +74,7 @@ pkg/virt-launcher/virtwrap/converter/virtio
 pkg/virt-launcher/virtwrap/network
 pkg/virt-launcher/virtwrap/statsconv/util
 pkg/vmitrait
+pkg/vsock
 tests/conformance
 tests/console
 tests/decorators

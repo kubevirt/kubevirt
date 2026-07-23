@@ -1203,8 +1203,10 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: atomic
             imagePullPolicy:
-              description: PullPolicy describes a policy for if/when to pull a container
-                image
+              description: |-
+                The ImagePullPolicy to use for user workload pods and their containers
+                (launcher pods, exporter pods, etc.).
+                For KubeVirt infrastructure images, use spec.imagePullPolicy instead.
               type: string
             instancetype:
               description: Instancetype configuration
@@ -1417,6 +1419,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntimeMs:
+                  description: |-
+                    MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -1651,8 +1661,8 @@ var CRDsValidation map[string]string = map[string]string{
                 to the default Kubernetes roles (admin, edit, view).
                 When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
                 When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
-                Setting this field to "Manual" requires the OptOutRoleAggregation feature gate to be enabled.
-                This is an Alpha feature and subject to change.
+                Setting RoleAggregationStrategy to "Manual" requires the OptOutRoleAggregation feature gate
+                to be enabled (Beta, enabled by default since v1.9.0).
               enum:
               - AggregateToDefault
               - Manual
@@ -1889,7 +1899,11 @@ var CRDsValidation map[string]string = map[string]string{
               x-kubernetes-list-type: atomic
           type: object
         imagePullPolicy:
-          description: The ImagePullPolicy to use.
+          description: |-
+            The ImagePullPolicy to use for KubeVirt operator-managed infrastructure
+            images (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).
+            For pull policy of user workload pods, see
+            spec.configuration.imagePullPolicy.
           type: string
         imagePullSecrets:
           description: |-
@@ -4121,6 +4135,88 @@ var CRDsValidation map[string]string = map[string]string{
         completionTimeoutPerGiB:
           format: int64
           type: integer
+        experimental:
+          description: |-
+            ExperimentalMigrationOptions is an alpha API. It is intended for experimental
+            purposes only and will be removed in the future.
+          properties:
+            compression:
+              description: |-
+                Compression selects the algorithm for compressing the live migration
+                data stream. When omitted (nil) or set to "none", compression is
+                disabled.
+              enum:
+              - none
+              - zstd
+              type: string
+            stallDetector:
+              properties:
+                completionTimeoutFactor:
+                  description: |-
+                    CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                    the total time budget for deciding whether a forced switchover can still finish in time,
+                    and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                    Defaults to "2".
+                  type: string
+                ewmaAlpha:
+                  description: |-
+                    EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                    observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
+                    the estimate would never incorporate new samples. Higher values weight recent samples
+                    more heavily.
+                    Defaults to "0.4".
+                  type: string
+                patienceWindowDecayFactor:
+                  description: |-
+                    PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                    multiplied after each best-remaining-bytes relaxation step.
+                    Defaults to "0.5".
+                  type: string
+                precopyPossibleFactor:
+                  description: |-
+                    PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                    MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                    Defaults to "1.5".
+                  type: string
+                searchLocalMinima:
+                  description: |-
+                    SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                    reach a local minimum near the best observed value. When false, actions may trigger
+                    as soon as a stall is detected.
+                    Defaults to true.
+                  type: boolean
+                stallMargin:
+                  description: |-
+                    StallMargin is the fractional tolerance, expressed as a percentage, used when
+                    comparing remaining migration bytes against the best observed value to detect stalls
+                    and local minima. A stall is reported when remaining bytes stay above
+                    (1 - StallMargin/100) of the outside-window minimum.
+                    Defaults to 4.
+                  format: int64
+                  maximum: 100
+                  minimum: 0
+                  type: integer
+                stallProgressTimeout:
+                  description: |-
+                    StallProgressTimeout is the duration in seconds of the sliding window used to track
+                    minimum remaining-bytes and detect when migration progress has stalled.
+                    Defaults to 40.
+                  format: int64
+                  type: integer
+                switchoverTimeout:
+                  description: |-
+                    SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                    switchover to complete after being triggered before the migration is aborted.
+                    Defaults to 60.
+                  format: int64
+                  type: integer
+              type: object
+          type: object
+        maxDowntimeMs:
+          format: int64
+          maximum: 2000000
+          minimum: 1
+          type: integer
         selectors:
           properties:
             namespaceSelector:
@@ -4261,12 +4357,17 @@ var CRDsValidation map[string]string = map[string]string{
           type: array
           x-kubernetes-list-type: atomic
         nodeHooks:
-          description: NodeHooks defines hooks that execute during VM lifecycle events.
+          description: |-
+            NodeHooks defines hooks that execute during VM lifecycle events.
+            Hooks are applied in declaration order within each plugin.
+            Across plugins, hooks are applied in alphabetical order by plugin name.
           items:
             description: |-
               NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.
               Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations
               such as configuring networking, storage preparation, or device management.
+              Hooks may fire multiple times for the same lifecycle event due to reconciliation retries.
+              Implementations must be idempotent.
             properties:
               condition:
                 description: Condition is a CEL expression that determines whether
@@ -6840,9 +6941,43 @@ var CRDsValidation map[string]string = map[string]string{
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
                                 type: string
+                              portRanges:
+                                description: |-
+                                  List of port ranges to be forwarded to the virtual machine.
+                                  Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                  This feature is in Alpha.
+                                items:
+                                  description: |-
+                                    PortRange represents a range of ports to be forwarded to the virtual machine.
+                                    All fields are mandatory.
+                                  properties:
+                                    end:
+                                      description: |-
+                                        Last port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                        Must be greater than or equal to start.
+                                      format: int32
+                                      type: integer
+                                    protocol:
+                                      description: Required. Must be UDP or TCP.
+                                      type: string
+                                    start:
+                                      description: |-
+                                        First port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - end
+                                  - protocol
+                                  - start
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
                               ports:
-                                description: List of ports to be forwarded to the
-                                  virtual machine.
+                                description: |-
+                                  List of ports to be forwarded to the virtual machine.
+                                  Mutually exclusive with portRanges.
                                 items:
                                   description: |-
                                     Port represents a port to expose from the virtual machine.
@@ -8783,6 +8918,10 @@ var CRDsValidation map[string]string = map[string]string{
                 failed:
                   description: Failed indicates that the backup failed
                   type: boolean
+                quiesceStatus:
+                  description: QuiesceStatus indicates whether filesystem freeze succeeded,
+                    failed, or was skipped.
+                  type: string
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -13032,9 +13171,43 @@ var CRDsValidation map[string]string = map[string]string{
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
                         type: string
+                      portRanges:
+                        description: |-
+                          List of port ranges to be forwarded to the virtual machine.
+                          Mutually exclusive with ports. Only supported on masquerade interfaces.
+                          This feature is in Alpha.
+                        items:
+                          description: |-
+                            PortRange represents a range of ports to be forwarded to the virtual machine.
+                            All fields are mandatory.
+                          properties:
+                            end:
+                              description: |-
+                                Last port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                                Must be greater than or equal to start.
+                              format: int32
+                              type: integer
+                            protocol:
+                              description: Required. Must be UDP or TCP.
+                              type: string
+                            start:
+                              description: |-
+                                First port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                              format: int32
+                              type: integer
+                          required:
+                          - end
+                          - protocol
+                          - start
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       ports:
-                        description: List of ports to be forwarded to the virtual
-                          machine.
+                        description: |-
+                          List of ports to be forwarded to the virtual machine.
+                          Mutually exclusive with portRanges.
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -14956,6 +15129,10 @@ var CRDsValidation map[string]string = map[string]string{
                 failed:
                   description: Failed indicates that the backup failed
                   type: boolean
+                quiesceStatus:
+                  description: QuiesceStatus indicates whether filesystem freeze succeeded,
+                    failed, or was skipped.
+                  type: string
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -15386,6 +15563,83 @@ var CRDsValidation map[string]string = map[string]string{
                     When set to true, DisableTLS will disable the additional layer of live migration encryption
                     provided by KubeVirt. This is usually a bad idea. Defaults to false
                   type: boolean
+                experimental:
+                  description: |-
+                    ExperimentalMigrationOptions is an alpha API. It is intended for experimental
+                    purposes only and will be removed in the future.
+                  properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
+                    stallDetector:
+                      properties:
+                        completionTimeoutFactor:
+                          description: |-
+                            CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                            the total time budget for deciding whether a forced switchover can still finish in time,
+                            and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                            Defaults to "2".
+                          type: string
+                        ewmaAlpha:
+                          description: |-
+                            EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                            observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
+                            the estimate would never incorporate new samples. Higher values weight recent samples
+                            more heavily.
+                            Defaults to "0.4".
+                          type: string
+                        patienceWindowDecayFactor:
+                          description: |-
+                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                            multiplied after each best-remaining-bytes relaxation step.
+                            Defaults to "0.5".
+                          type: string
+                        precopyPossibleFactor:
+                          description: |-
+                            PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                            MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                            Defaults to "1.5".
+                          type: string
+                        searchLocalMinima:
+                          description: |-
+                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                            reach a local minimum near the best observed value. When false, actions may trigger
+                            as soon as a stall is detected.
+                            Defaults to true.
+                          type: boolean
+                        stallMargin:
+                          description: |-
+                            StallMargin is the fractional tolerance, expressed as a percentage, used when
+                            comparing remaining migration bytes against the best observed value to detect stalls
+                            and local minima. A stall is reported when remaining bytes stay above
+                            (1 - StallMargin/100) of the outside-window minimum.
+                            Defaults to 4.
+                          format: int64
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                        stallProgressTimeout:
+                          description: |-
+                            StallProgressTimeout is the duration in seconds of the sliding window used to track
+                            minimum remaining-bytes and detect when migration progress has stalled.
+                            Defaults to 40.
+                          format: int64
+                          type: integer
+                        switchoverTimeout:
+                          description: |-
+                            SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                            switchover to complete after being triggered before the migration is aborted.
+                            Defaults to 60.
+                          format: int64
+                          type: integer
+                      type: object
+                  type: object
                 matchSELinuxLevelOnMigration:
                   description: |-
                     By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
@@ -15393,6 +15647,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntimeMs:
+                  description: |-
+                    MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -15989,6 +16251,83 @@ var CRDsValidation map[string]string = map[string]string{
                     When set to true, DisableTLS will disable the additional layer of live migration encryption
                     provided by KubeVirt. This is usually a bad idea. Defaults to false
                   type: boolean
+                experimental:
+                  description: |-
+                    ExperimentalMigrationOptions is an alpha API. It is intended for experimental
+                    purposes only and will be removed in the future.
+                  properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
+                    stallDetector:
+                      properties:
+                        completionTimeoutFactor:
+                          description: |-
+                            CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                            the total time budget for deciding whether a forced switchover can still finish in time,
+                            and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                            Defaults to "2".
+                          type: string
+                        ewmaAlpha:
+                          description: |-
+                            EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                            observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
+                            the estimate would never incorporate new samples. Higher values weight recent samples
+                            more heavily.
+                            Defaults to "0.4".
+                          type: string
+                        patienceWindowDecayFactor:
+                          description: |-
+                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                            multiplied after each best-remaining-bytes relaxation step.
+                            Defaults to "0.5".
+                          type: string
+                        precopyPossibleFactor:
+                          description: |-
+                            PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                            MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                            Defaults to "1.5".
+                          type: string
+                        searchLocalMinima:
+                          description: |-
+                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                            reach a local minimum near the best observed value. When false, actions may trigger
+                            as soon as a stall is detected.
+                            Defaults to true.
+                          type: boolean
+                        stallMargin:
+                          description: |-
+                            StallMargin is the fractional tolerance, expressed as a percentage, used when
+                            comparing remaining migration bytes against the best observed value to detect stalls
+                            and local minima. A stall is reported when remaining bytes stay above
+                            (1 - StallMargin/100) of the outside-window minimum.
+                            Defaults to 4.
+                          format: int64
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                        stallProgressTimeout:
+                          description: |-
+                            StallProgressTimeout is the duration in seconds of the sliding window used to track
+                            minimum remaining-bytes and detect when migration progress has stalled.
+                            Defaults to 40.
+                          format: int64
+                          type: integer
+                        switchoverTimeout:
+                          description: |-
+                            SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                            switchover to complete after being triggered before the migration is aborted.
+                            Defaults to 60.
+                          format: int64
+                          type: integer
+                      type: object
+                  type: object
                 matchSELinuxLevelOnMigration:
                   description: |-
                     By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
@@ -15996,6 +16335,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntimeMs:
+                  description: |-
+                    MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -16935,9 +17282,43 @@ var CRDsValidation map[string]string = map[string]string{
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
                         type: string
+                      portRanges:
+                        description: |-
+                          List of port ranges to be forwarded to the virtual machine.
+                          Mutually exclusive with ports. Only supported on masquerade interfaces.
+                          This feature is in Alpha.
+                        items:
+                          description: |-
+                            PortRange represents a range of ports to be forwarded to the virtual machine.
+                            All fields are mandatory.
+                          properties:
+                            end:
+                              description: |-
+                                Last port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                                Must be greater than or equal to start.
+                              format: int32
+                              type: integer
+                            protocol:
+                              description: Required. Must be UDP or TCP.
+                              type: string
+                            start:
+                              description: |-
+                                First port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                              format: int32
+                              type: integer
+                          required:
+                          - end
+                          - protocol
+                          - start
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       ports:
-                        description: List of ports to be forwarded to the virtual
-                          machine.
+                        description: |-
+                          List of ports to be forwarded to the virtual machine.
+                          Mutually exclusive with portRanges.
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -19497,9 +19878,43 @@ var CRDsValidation map[string]string = map[string]string{
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
                                 type: string
+                              portRanges:
+                                description: |-
+                                  List of port ranges to be forwarded to the virtual machine.
+                                  Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                  This feature is in Alpha.
+                                items:
+                                  description: |-
+                                    PortRange represents a range of ports to be forwarded to the virtual machine.
+                                    All fields are mandatory.
+                                  properties:
+                                    end:
+                                      description: |-
+                                        Last port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                        Must be greater than or equal to start.
+                                      format: int32
+                                      type: integer
+                                    protocol:
+                                      description: Required. Must be UDP or TCP.
+                                      type: string
+                                    start:
+                                      description: |-
+                                        First port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - end
+                                  - protocol
+                                  - start
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
                               ports:
-                                description: List of ports to be forwarded to the
-                                  virtual machine.
+                                description: |-
+                                  List of ports to be forwarded to the virtual machine.
+                                  Mutually exclusive with portRanges.
                                 items:
                                   description: |-
                                     Port represents a port to expose from the virtual machine.
@@ -24645,9 +25060,44 @@ var CRDsValidation map[string]string = map[string]string{
                                           address with the specified PCI address.
                                           For example: 0000:81:01.10'
                                         type: string
+                                      portRanges:
+                                        description: |-
+                                          List of port ranges to be forwarded to the virtual machine.
+                                          Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                          This feature is in Alpha.
+                                        items:
+                                          description: |-
+                                            PortRange represents a range of ports to be forwarded to the virtual machine.
+                                            All fields are mandatory.
+                                          properties:
+                                            end:
+                                              description: |-
+                                                Last port of the range to expose for the virtual machine.
+                                                This must be a valid port number, 0 < x < 65536.
+                                                Must be greater than or equal to start.
+                                              format: int32
+                                              type: integer
+                                            protocol:
+                                              description: Required. Must be UDP or
+                                                TCP.
+                                              type: string
+                                            start:
+                                              description: |-
+                                                First port of the range to expose for the virtual machine.
+                                                This must be a valid port number, 0 < x < 65536.
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - end
+                                          - protocol
+                                          - start
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
                                       ports:
-                                        description: List of ports to be forwarded
-                                          to the virtual machine.
+                                        description: |-
+                                          List of ports to be forwarded to the virtual machine.
+                                          Mutually exclusive with portRanges.
                                         items:
                                           description: |-
                                             Port represents a port to expose from the virtual machine.
@@ -30293,9 +30743,44 @@ var CRDsValidation map[string]string = map[string]string{
                                               the guests pci address with the specified
                                               PCI address. For example: 0000:81:01.10'
                                             type: string
+                                          portRanges:
+                                            description: |-
+                                              List of port ranges to be forwarded to the virtual machine.
+                                              Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                              This feature is in Alpha.
+                                            items:
+                                              description: |-
+                                                PortRange represents a range of ports to be forwarded to the virtual machine.
+                                                All fields are mandatory.
+                                              properties:
+                                                end:
+                                                  description: |-
+                                                    Last port of the range to expose for the virtual machine.
+                                                    This must be a valid port number, 0 < x < 65536.
+                                                    Must be greater than or equal to start.
+                                                  format: int32
+                                                  type: integer
+                                                protocol:
+                                                  description: Required. Must be UDP
+                                                    or TCP.
+                                                  type: string
+                                                start:
+                                                  description: |-
+                                                    First port of the range to expose for the virtual machine.
+                                                    This must be a valid port number, 0 < x < 65536.
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - end
+                                              - protocol
+                                              - start
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
                                           ports:
-                                            description: List of ports to be forwarded
-                                              to the virtual machine.
+                                            description: |-
+                                              List of ports to be forwarded to the virtual machine.
+                                              Mutually exclusive with portRanges.
                                             items:
                                               description: |-
                                                 Port represents a port to expose from the virtual machine.
@@ -32280,6 +32765,10 @@ var CRDsValidation map[string]string = map[string]string{
                             failed:
                               description: Failed indicates that the backup failed
                               type: boolean
+                            quiesceStatus:
+                              description: QuiesceStatus indicates whether filesystem
+                                freeze succeeded, failed, or was skipped.
+                              type: string
                             startTimestamp:
                               description: StartTimestamp is the timestamp when the
                                 backup started

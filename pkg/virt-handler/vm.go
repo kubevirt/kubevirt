@@ -28,8 +28,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/opencontainers/cgroups"
@@ -62,6 +64,9 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -81,6 +86,7 @@ import (
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
+	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -105,9 +111,11 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplugvolume.VolumeMounter
 	hostCpuModel             string
 	ioErrorRetryManager      *FailRetryManager
+	pluginExecutor           plugins.NodeHookExecutor
 	deviceManagerController  *deviceManager.DeviceController
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
+	lastSeenPanicCount       sync.Map
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
@@ -142,6 +150,7 @@ func NewVirtualMachineController(
 	netStat netstat,
 	cbtHandler *CBTHandler,
 	pluginStore cache.Store,
+	pluginExecutor plugins.NodeHookExecutor,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -200,6 +209,7 @@ func NewVirtualMachineController(
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 		cbtHandler:               cbtHandler,
+		pluginExecutor:           pluginExecutor,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -848,6 +858,31 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
+func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+	if !c.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+		return
+	}
+
+	isCrossArchEmulation := domain != nil && domain.Spec.Type == "qemu" &&
+		vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH
+
+	if isCrossArchEmulation {
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
+			now := metav1.Now()
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:               v1.VirtualMachineInstanceSoftwareEmulation,
+				Status:             k8sv1.ConditionTrue,
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+				Reason:             "CrossArchitectureEmulation",
+				Message:            fmt.Sprintf("VM running with software emulation (host=%s, guest=%s)", runtime.GOARCH, vmi.Spec.Architecture),
+			})
+		}
+	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)
+	}
+}
+
 func dumpTargetFile(vmiName, volName string) string {
 	targetFileName := fmt.Sprintf("%s-%s-%s.memory.dump", vmiName, volName, time.Now().Format("20060102-150405"))
 	return targetFileName
@@ -1054,6 +1089,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 		return err
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
+	c.updateSoftwareEmulationCondition(vmi, domain, condManager)
 
 	return nil
 }
@@ -1077,6 +1113,8 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	if err != nil {
 		return err
 	}
+
+	c.emitPanicMetricIfNeeded(domain, vmi)
 
 	// Update conditions on VMI Status
 	err = c.updateVMIConditions(vmi, domain, condManager)
@@ -1109,6 +1147,12 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	// Record an event on the VMI when the VMI's phase changes
 	if oldStatus.Phase != vmi.Status.Phase {
 		c.recordPhaseChangeEvent(vmi)
+
+		if c.pluginExecutor != nil && vmi.Status.Phase == v1.Running && !vmi.IsMigrationTarget() {
+			if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostVMStart, vmi, c.host); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -1406,6 +1450,11 @@ func (c *VirtualMachineController) sync(key string,
 
 	c.logger.V(3).Infof("Processing event %v", key)
 
+	if domainExists && domain.Status.Status == api.Unknown {
+		c.logger.Object(vmi).Warningf("Domain has Unknown status (virt-launcher unreachable), skipping processing for %v", key)
+		return nil
+	}
+
 	if vmiExists && domainExists {
 		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
 	} else if vmiExists {
@@ -1493,6 +1542,12 @@ func (c *VirtualMachineController) sync(key string,
 		}
 	}
 
+	if c.pluginExecutor != nil && vmiExists && vmi.IsFinal() && !domainAlive {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostVMStop, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	var syncErr error
 
 	// Process the VirtualMachineInstance update in this order.
@@ -1549,6 +1604,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	vmiId := string(vmi.UID)
 
 	c.logger.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
+	c.lastSeenPanicCount.Delete(vmiId)
 
 	c.migrationProxy.StopTargetListener(vmiId)
 	c.migrationProxy.StopSourceListener(vmiId)
@@ -1584,11 +1640,23 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 }
 
 func (c *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if c.pluginExecutor != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStop, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	tryGracefully := false
 	return c.helperVmShutdown(vmi, domain, tryGracefully)
 }
 
 func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if c.pluginExecutor != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStop, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	tryGracefully := true
 	return c.helperVmShutdown(vmi, domain, tryGracefully)
 }
@@ -1890,6 +1958,12 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 		return nil
 	}
 
+	if c.pluginExecutor != nil && !vmi.IsRunning() {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	// Synchronize the VirtualMachineInstance state
 	err = c.syncVirtualMachine(client, vmi, preallocatedVolumes)
 	if err != nil {
@@ -1972,6 +2046,12 @@ func (c *VirtualMachineController) handleStartingVMI(
 ) (bool, error) {
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := c.launcherClients.GetLauncherClientInfo(vmi)
+	if info == nil {
+		c.logger.Object(vmi).V(5).Info("not handling starting VMI, launcher client info is nil, requeuing")
+		c.queue.AddRateLimited(controller.VirtualMachineInstanceKey(vmi))
+		return false, nil
+	}
+
 	if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
 		if err != nil {
 			return false, err
@@ -2044,7 +2124,7 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	smbios := c.clusterConfig.GetSMBIOS()
 	period := c.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
+	options := virtualMachineOptions(vmi, smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 	pluginsJSON, err := c.serializePlugins()
 	if err != nil {
@@ -2187,33 +2267,34 @@ func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 	if err != nil {
 		return err
 	}
-	if phase == v1.Failed && vmi.Status.Phase != v1.Failed {
-		panicInfo := c.getGuestPanicInfo(domain, vmi)
-		if panicInfo != nil {
-			panicType := "unknown"
-			if panicInfo.Type != "" {
-				panicType = panicInfo.Type
-			}
-			bugcheckCode := panicInfo.Arg1
-			vhmetrics.IncGuestOSPanic(vmi.Namespace, vmi.Name, panicType, bugcheckCode)
-		}
-	}
 	vmi.Status.Phase = phase
 	return nil
 }
 
-func (c *VirtualMachineController) getGuestPanicInfo(domain *api.Domain, vmi *v1.VirtualMachineInstance) *api.GuestPanicInfo {
-	if domain != nil {
-		return domain.Status.GuestPanicInfo
+// emitPanicMetricIfNeeded increments the panic metric once per new panic event.
+// We increment by 1 rather than by the delta (PanicCount - lastSeen) to avoid
+// over-counting on virt-handler restart: the Prometheus counter resets to 0 but
+// PanicCount persists, so a delta-based approach would re-count old panics.
+func (c *VirtualMachineController) emitPanicMetricIfNeeded(domain *api.Domain, vmi *v1.VirtualMachineInstance) {
+	if domain == nil || domain.Status.PanicCount == 0 {
+		return
 	}
-	obj, exists, err := c.domainStore.GetByKey(controller.VirtualMachineInstanceKey(vmi))
-	if err != nil || !exists {
-		return nil
+
+	key := string(vmi.UID)
+	if val, ok := c.lastSeenPanicCount.Load(key); ok && val.(int) >= domain.Status.PanicCount {
+		return
 	}
-	if d, ok := obj.(*api.Domain); ok {
-		return d.Status.GuestPanicInfo
+	c.lastSeenPanicCount.Store(key, domain.Status.PanicCount)
+
+	panicType := "unknown"
+	var bugcheckCode uint64
+	if info := domain.Status.GuestPanicInfo; info != nil {
+		if info.Type != "" {
+			panicType = info.Type
+		}
+		bugcheckCode = info.Arg1
 	}
-	return nil
+	vhmetrics.IncGuestOSPanic(vmi.Namespace, vmi.Name, panicType, bugcheckCode)
 }
 
 func vmiHasTerminationGracePeriod(vmi *v1.VirtualMachineInstance) bool {
@@ -2438,5 +2519,8 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 		if err := json.Unmarshal([]byte(backupMetadata.Volumes), &volumes); err == nil && len(volumes) > 0 {
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumes
 		}
+	}
+	if backupMetadata.QuiesceStatus != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.QuiesceStatus = backupMetadata.QuiesceStatus
 	}
 }

@@ -11,6 +11,7 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 GRAPHQL_API_URL = "https://api.github.com/graphql"
+_TRACKED_STATUSES = ("Tracked", "At risk")
 _TRACKED_ISSUES_QUERY = """
     query($orgName: String!, $projectNumber: Int!, $cursor: String) {
       organization(login: $orgName) {
@@ -137,14 +138,11 @@ def _is_item_field_tracked_status(field_value_node):
     field_name = field_node.get("field_definition_name")
     option_name = field_value_node.get("selected_option_name")
 
-    return field_name == "Status" and option_name in ("Tracked", "At risk")
+    return field_name == "Status" and option_name in _TRACKED_STATUSES
 
 
 def _check_item_fields_for_tracked_status(field_value_nodes):
-    for field_value_node in field_value_nodes:
-        if _is_item_field_tracked_status(field_value_node):
-            return True
-    return False
+    return any(_is_item_field_tracked_status(n) for n in field_value_nodes)
 
 
 def _extract_issue_if_tracked(item_node):
@@ -179,7 +177,7 @@ def _process_page_items(nodes, tracked_issues_accumulator):
     for item_node in nodes:
         tracked_issue_number = _extract_issue_if_tracked(item_node)
         if tracked_issue_number is not None:
-            tracked_issues_accumulator[tracked_issue_number] = True
+            tracked_issues_accumulator.add(tracked_issue_number)
 
 
 def _extract_page_data_from_gql_result(result, project_number_for_logging):
@@ -215,7 +213,7 @@ def get_tracked_enhancement_issues_from_project(project_number):
 
     A "Tracked" issue means that it is approved for the release.
     """
-    tracked_issues = {}
+    tracked_issues = set()
     variables = {"orgName": "kubevirt", "projectNumber": project_number}
     has_next_page = True
     current_cursor = None
@@ -272,11 +270,8 @@ def main():
         project_number
     )
 
-    first_matching_vep = None
-    for vep_issue_num in ref_numbers:
-        if vep_issue_num in tracked_issues_in_project:
-            first_matching_vep = vep_issue_num
-            break
+    matching_veps = ref_numbers & tracked_issues_in_project
+    first_matching_vep = next(iter(matching_veps), None)
 
     if first_matching_vep is not None:
         print(

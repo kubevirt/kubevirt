@@ -70,7 +70,9 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtAPICount",
 			Expr: intstr.FromString(fmt.Sprintf(
-				"cluster:kubevirt_virt_api_up:sum / on() kube_deployment_spec_replicas{deployment='virt-api', namespace='%s'} < 0.75", namespace,
+				"cluster:kubevirt_virt_api_pods_running:count / on() "+
+					"kube_deployment_spec_replicas{deployment='virt-api', namespace='%s'} < 0.75",
+				namespace,
 			)),
 			For: ptr.To(promv1.Duration("60m")),
 			Annotations: map[string]string{

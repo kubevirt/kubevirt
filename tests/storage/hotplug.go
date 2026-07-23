@@ -53,13 +53,12 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -354,10 +353,8 @@ var _ = Describe(SIG("Hotplug", func() {
 	verifyVolumeAccessible := func(vmi *v1.VirtualMachineInstance, volumeName string) {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: fmt.Sprintf("ls %s\n", volumeName)},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: fmt.Sprintf("test -b %s > /dev/null 2>&1 && echo devicefound\n", volumeName)},
+				&expect.BExp{R: console.RetValue("devicefound")},
 			}, 10)
 		}, 40*time.Second, 2*time.Second).Should(Succeed(), "timed out waiting for volume %s to become accessible in VMI %s/%s", volumeName, vmi.Namespace, vmi.Name)
 	}
@@ -727,21 +724,26 @@ var _ = Describe(SIG("Hotplug", func() {
 		})
 	})
 
-	Context("WFFC storage", decorators.RequiresWFFCStorageClass, func() {
+	Context("WFFC storage", func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
 		)
-		const numPVs = 3
+		const (
+			numDVs = 3
+		)
+
 		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-				Fail("fail test, no wffc storage class available")
-			}
+			sc, err = libstorage.CreateWFFCStorageClass(virtClient)
+			Expect(err).ToNot(HaveOccurred(), "Could not create dummy wffc storage class, %s", err)
 		})
 
-		It("Should be able to boot from WFFC local storage", decorators.StorageCritical, func() {
+		AfterEach(func() {
+			// clean up the storage class created for this test
+			libstorage.DeleteStorageClass(sc)
+		})
+
+		It("Should be able to boot from WFFC storage", decorators.StorageCritical, func() {
 			dvName := "disk0"
 			vm = createBootableHotplugVM(sc)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -752,7 +754,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 		})
 
-		It("Should be able to add and use WFFC local storage", func() {
+		It("Should be able to add and use WFFC storage", func() {
 			vm = createAndStartWFFCStorageHotplugVM()
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for WFFC storage test", vm.Name)
@@ -760,7 +762,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				libwait.WithTimeout(240),
 			)
 			dvNames := make([]string, 0)
-			for i := 0; i < numPVs; i++ {
+			for i := 0; i < numDVs; i++ {
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
@@ -771,7 +773,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				dvNames = append(dvNames, dv.Name)
 			}
 
-			for i := 0; i < numPVs; i++ {
+			for i := 0; i < numDVs; i++ {
 				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
 				addDVVolumeVM(vm.Name, vm.Namespace, dvNames[i], dvNames[i], v1.DiskBusSCSI, false, "")
 			}
@@ -795,23 +797,6 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	Context("[storage-req]", decorators.StorageReq, func() {
-		findCPUManagerWorkerNode := func() string {
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
-				LabelSelector: "node-role.kubernetes.io/worker",
-			})
-			Expect(err).ToNot(HaveOccurred(), "failed to list nodes")
-			for _, node := range nodes.Items {
-				nodeLabels := node.GetLabels()
-
-				for label, val := range nodeLabels {
-					if label == v1.CPUManager && val == "true" {
-						return node.Name
-					}
-				}
-			}
-			return ""
-		}
-
 		validateDryRun := func(obj metav1.Object, addVolumeFunc addVolumeFunction, sc string, volumeMode k8sv1.PersistentVolumeMode) {
 			dv := createDataVolumeAndWaitForImport(sc, volumeMode)
 
@@ -824,103 +809,6 @@ var _ = Describe(SIG("Hotplug", func() {
 			addVolumeFunc(obj.GetName(), obj.GetNamespace(), "testvolume", dv.Name, v1.DiskBusSCSI, true, "")
 			verifyNoVolumeAttached(vmi, "testvolume")
 		}
-
-		Context("Ephemeral Metrics", decorators.SigMonitoring, func() {
-
-			var (
-				vm *v1.VirtualMachine
-				sc string
-			)
-
-			BeforeEach(func() {
-				exists := false
-				sc, exists = libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Fail no filesystem storage class available") //nolint:forbidigo
-				}
-
-				vmi := libvmifact.NewAlpineWithTestTooling()
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
-				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
-			})
-
-			AfterEach(func() {
-				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-			})
-
-			isPrometheusDeployed := func() bool {
-				ns := "monitoring"
-				if checks.IsOpenShift() {
-					ns = "openshift-monitoring"
-				}
-
-				_, err := virtClient.CoreV1().ServiceAccounts(ns).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
-				return err == nil
-			}
-
-			It("should count only vmis with hotplug ephemeral volumes, ignoring persistent volumes and unplugs", Serial, func() {
-				if !isPrometheusDeployed() {
-					Skip("Prometheus not deployed") //nolint:forbidigo
-				}
-				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-				kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
-				ephemeralCount := 0.0
-
-				By("Creating hotplug volume that will persist")
-				dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
-				addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
-
-				By("Creating hotplug volume that will be unplugged")
-				dvUnplug := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
-				addDVVolumeVM(vm.Name, vm.Namespace, "unplug-volume", dvUnplug.Name, v1.DiskBusSCSI, false, "")
-				removeVolumeVM(vm.Name, vm.Namespace, "unplug-volume", false)
-
-				By("Creating ephemeral hotplug volume")
-				dvEphemeral := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
-				addDVVolumeVMI(vm.Name, vm.Namespace, "ephemeral-volume", dvEphemeral.Name, v1.DiskBusSCSI, false, "")
-				ephemeralCount++
-
-				vmi := libvmifact.NewAlpineWithTestTooling()
-				vm2, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
-
-				Eventually(matcher.ThisVM(vm2)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
-
-				By("Creating second ephemeral hotplug volume on separate vm")
-				dvEphemeral2 := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
-				addDVVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", dvEphemeral2.Name, v1.DiskBusSCSI, false, "")
-				ephemeralCount++
-
-				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
-
-				By("Removing ephemeral volume")
-				removeVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", false)
-				ephemeralCount--
-
-				By("Expecting metric to have decremented")
-				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
-
-				By("Checking Alert is fired")
-				libmonitoring.VerifyAlertExist(virtClient, "VirtualMachineInstanceHasEphemeralHotplugVolume")
-			})
-
-			It("should ignore delcarative hotplugs", Serial, func() {
-				if !isPrometheusDeployed() {
-					Skip("Prometheus not deployed") //nolint:forbidigo
-				}
-				kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-
-				By("Adding delcarative hotplug")
-				dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
-				addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
-
-				By("Expecting no ephemeral metrics")
-				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", -1)
-			})
-		})
 
 		Context("VMI", func() {
 			var (
@@ -935,12 +823,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					Fail("Fail test when CSI storage class is not present")
 				}
 
-				node := findCPUManagerWorkerNode()
-				opts := []libvmi.Option{}
-				if node != "" {
-					opts = append(opts, libvmi.WithNodeSelectorFor(node))
-				}
-				vmi = libvmifact.NewAlpineWithTestTooling(opts...)
+				vmi = libvmifact.NewAlpineWithTestTooling()
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to create VMI %s/%s", vmi.Namespace, vmi.Name)
@@ -981,12 +864,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					Fail("Fail test when CSI storage class is not present")
 				}
 
-				node := findCPUManagerWorkerNode()
-				opts := []libvmi.Option{}
-				if node != "" {
-					opts = append(opts, libvmi.WithNodeSelectorFor(node))
-				}
-				vmi := libvmifact.NewAlpineWithTestTooling(opts...)
+				vmi := libvmifact.NewAlpineWithTestTooling()
 
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
@@ -1167,7 +1045,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
 			})
 
-			It("[QUARANTINE] should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.Quarantine, decorators.RequiresRWXBlock, func() {
+			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.RequiresRWXBlock, func() {
 				dvBlock := createDataVolumeAndWaitForImport(blockSC(), k8sv1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1360,7 +1238,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			DescribeTable("should allow live migration with attached hotplug volumes", decorators.StorageCritical, func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 				volumeName := "testvolume"
 				volumeMode := k8sv1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI
@@ -2046,7 +1924,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeNolongerAccessible(vmi, target)
 		},
 			Entry("without dedicated IO and shared policy", false),
-			Entry("[QUARANTINE]with dedicated IO and auto policy", decorators.Quarantine, true),
+			Entry("with dedicated IO and auto policy", true),
 		)
 	})
 
@@ -2205,7 +2083,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
-	Context("with PCI hostdev", Serial, func() {
+	Context("with PCI HostDevices", Serial, func() {
 		const deviceName = "example.org/soundcard"
 
 		BeforeEach(func() {

@@ -87,7 +87,7 @@ func UpdateConditionsAvailable(kv *virtv1.KubeVirt) {
 
 func UpdateConditionsFailedExists(kv *virtv1.KubeVirt) {
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
-	// don' t set any other conditions here, so HCO just ignores this KubeVirt CR
+	// don't set any other conditions here, so the managing operator just ignores this KubeVirt CR
 }
 
 func UpdateConditionsFailedError(kv *virtv1.KubeVirt, err error) {
@@ -271,6 +271,25 @@ func IsValidatingAdmissionPolicyEnabled(clientset kubecli.KubevirtClient) (bool,
 		if api.GroupVersion == admissionregistrationv1.SchemeGroupVersion.String() {
 			for _, resource := range api.APIResources {
 				if resource.Name == "validatingadmissionpolicies" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func IsMutatingAdmissionPolicyEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == "admissionregistration.k8s.io/v1" {
+			for _, resource := range api.APIResources {
+				if resource.Name == "mutatingadmissionpolicies" {
 					return true, nil
 				}
 			}

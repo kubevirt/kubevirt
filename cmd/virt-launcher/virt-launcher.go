@@ -22,7 +22,6 @@ package main
 import (
 	"context"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -355,6 +354,7 @@ func main() {
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vmi process")
 	allowEmulation := pflag.Bool("allow-emulation", false, "Allow use of software emulation as fallback")
+	allowCrossArchEmulation := pflag.Bool("allow-cross-arch-emulation", false, "Allow cross-architecture software emulation via QEMU TCG")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
 	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
@@ -374,7 +374,7 @@ func main() {
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 	hypervisor := pflag.String("hypervisor", v1.KvmHypervisorName, "Hypervisor to be used by the VMI")
 
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
@@ -461,7 +461,27 @@ func main() {
 		stopChan,
 		hookFuncs...,
 	)
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer, *hypervisor, nbdclient.RegisterNBDServer, domainName, *vmStatsCollectorEnabled, *firmwareAutoSelectionEnabled)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(
+		domainConn,
+		*virtShareDir,
+		*ephemeralDiskDir,
+		&agentStore,
+		*ovmfPath,
+		ephemeralDiskCreator,
+		metadataCache,
+		signalStopChan,
+		*diskMemoryLimitBytes,
+		util.GetPodCPUSet,
+		*imageVolumeEnabled,
+		*libvirtHooksServerAndClientEnabled,
+		preMigrationHookServer,
+		*hypervisor,
+		nbdclient.RegisterNBDServer,
+		domainName,
+		*vmStatsCollectorEnabled,
+		*firmwareAutoSelectionEnabled,
+		*allowCrossArchEmulation,
+		notifier)
 	if err != nil {
 		panic(err)
 	}

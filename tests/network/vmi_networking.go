@@ -209,16 +209,20 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
-			e1000ModelIface := libvmi.InterfaceWithModel(libvmi.InterfaceDeviceWithMasqueradeBinding(), "e1000")
-			e1000ModelIface.PciAddress = "0000:02:01.0"
-
-			const secondaryNetName = "secondary-net"
-			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
-			defaultModelIface.PciAddress = "0000:03:00.0"
+			const (
+				secondaryNetName  = "secondary-net"
+				e1000PciAddress   = "0000:02:01.0"
+				defaultPciAddress = "0000:03:00.0"
+			)
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithInterface(e1000ModelIface),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+					libvmi.WithMasqueradeBinding(), libvmi.WithModel("e1000"),
+					libvmi.WithPciAddress(e1000PciAddress),
+				)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(defaultModelIface),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetName,
+					libvmi.WithBridgeBinding(), libvmi.WithPciAddress(defaultPciAddress),
+				)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)
 
@@ -239,9 +243,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			err = console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
-				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000ModelIface.PciAddress)},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000PciAddress)},
 				&expect.BExp{R: intelVendorID},
-				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultModelIface.PciAddress)},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultPciAddress)},
 				&expect.BExp{R: redhatVendorID},
 			}, 40)
 			Expect(err).ToNot(HaveOccurred())
@@ -401,7 +405,11 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
 			}
 			return libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					v1.DefaultPodNetwork().Name,
+					libvmi.WithMasqueradeBinding(),
+					libvmi.WithPorts(ports...),
+				)),
 				libvmi.WithNetwork(net),
 			)
 		}
@@ -414,7 +422,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 		}
 
-		Context("[test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", decorators.Conformance, func() {
+		Context("[test_id:1780]should allow regular network connection", decorators.Conformance, func() {
 			// This CIDR tests backwards compatibility of the "vmNetworkCIDR" field.
 			// The leading zero is intentional.
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
@@ -442,18 +450,20 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				return nil
 			}
 
-			DescribeTable("ipv4", func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("ipv4", func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv4()
 
-				clientVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), masqueradeVMI([]v1.Port{}, networkCIDR), metav1.CreateOptions{},
+				var err error
+				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), clientVMI, metav1.CreateOptions{},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 
-				serverVMI := masqueradeVMI(ports, networkCIDR)
 				serverVMI.Labels = map[string]string{"expose": "server"}
-				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
+				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), serverVMI, metav1.CreateOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
@@ -462,20 +472,26 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				By("starting a tcp server")
 				vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
 
-				if networkCIDR == "" {
+				if networkCIDR == "" && flags.PrimaryNetworkBindingPlugin == "" {
 					networkCIDR = api.DefaultVMCIDR
 				}
 
-				By("Checking ping (IPv4) to gateway")
-				ipAddr := gatewayIPFromCIDR(networkCIDR)
-				Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
+				if networkCIDR != "" {
+					By("Checking ping (IPv4) to gateway")
+					ipAddr := gatewayIPFromCIDR(networkCIDR)
+					Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
+				}
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			},
-				Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
-				Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
-				Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
+				Entry("basic connectivity [IPv4]",
+					conformanceVMI(), conformanceVMI(), 8080, ""),
+				Entry("with a specific port number [IPv4]", decorators.InterfacePorts,
+					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI([]v1.Port{{Name: "http", Port: 8080}}, ""), 8080, api.DefaultVMCIDR),
+				Entry("with a specific port used by live migration", decorators.InterfacePorts,
+					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI(portsUsedByLiveMigration(), ""), LibvirtDirectMigrationPort, api.DefaultVMCIDR),
+				Entry("with custom CIDR [IPv4] containing leading zeros", decorators.NetworkCIDR,
+					masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), 8080, cidrWithLeadingZeros),
 			)
 
 			It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
@@ -490,7 +506,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				}
 
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), masqueradeVMI([]v1.Port{}, ""), metav1.CreateOptions{},
+					context.Background(), conformanceVMI(), metav1.CreateOptions{},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
@@ -500,7 +516,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 			})
 
-			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("IPv6", decorators.IPv6, func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, networkCIDR)
@@ -525,13 +541,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
-				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
+				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, cloudinit.DefaultIPv6CIDR),
+				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, cloudinit.DefaultIPv6CIDR),
+				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, cloudinit.DefaultIPv6CIDR),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
-			It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+			It("should be able to reach the outside world", decorators.IPv6, Label("RequiresOutsideConnectivity"), func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
@@ -541,7 +557,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					ipv6Address = flags.IPV6ConnectivityCheckAddress
 				}
 
-				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
+				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -559,30 +575,26 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				return libnet.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
 			}
 
-			DescribeTable("preserves connectivity - IPv4", decorators.Conformance, func(ports []v1.Port) {
+			DescribeTable("preserves connectivity - IPv4", decorators.Conformance, func(testVMI *v1.VirtualMachineInstance) {
 				libnet.SkipWhenClusterNotSupportIpv4()
 
 				var err error
 
-				By("Create client pod")
-				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
-				clientPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				By("Create ref VMI")
+				refVMI := conformanceVMI()
+				refVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), refVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
-				vmi = masqueradeVMI(ports, "")
-
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				refVMI = libwait.WaitUntilVMIReady(refVMI, console.LoginToAlpine)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
-				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
 				By("Check connectivity")
-				podIP := libnet.GetPodIPByFamily(clientPod, k8sv1.IPv4Protocol)
-				Expect(ping(podIP)).To(Succeed())
+				refIP := libnet.GetVmiPrimaryIPByFamily(refVMI, k8sv1.IPv4Protocol)
+				Expect(ping(refIP)).To(Succeed())
 
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -592,7 +604,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
-				Expect(ping(podIP)).To(Succeed())
+				Expect(ping(refIP)).To(Succeed())
 
 				By("Initiating DHCP client request after migration")
 
@@ -602,14 +614,15 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(console.RunCommand(vmi, "kill -USR1 $(cat /var/run/udhcpc.eth0.pid)\n", 15*time.Second)).To(Succeed(), "failed to renew dhcp client")
 
 				Eventually(func() error {
-					return ping(podIP)
-				}, 30*time.Second, 1*time.Second).Should(Succeed(), "expected pod to be reachable after DHCP renew")
+					return ping(refIP)
+				}, 30*time.Second, 1*time.Second).Should(Succeed(), "expected ref VMI to be reachable after DHCP renew")
 			},
-				Entry("without a specific port number", []v1.Port{}),
-				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
+				Entry("without explicit ports specification", conformanceVMI()),
+				Entry("with explicit ports used by live migration", decorators.InterfacePorts,
+					masqueradeVMI(portsUsedByLiveMigration(), "")),
 			)
 
-			It("should preserve connectivity - IPv6", decorators.Conformance, func() {
+			It("should preserve connectivity - IPv6", decorators.Conformance, decorators.IPv6, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				var err error
@@ -620,7 +633,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
-				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
+				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -698,7 +711,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
@@ -768,10 +782,14 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	})
 }))
 
+func conformanceVMI() *v1.VirtualMachineInstance {
+	return libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+}
+
 func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-	if ipv6NetworkCIDR == "" {
-		ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
-	}
 	networkData, err := cloudinit.NewNetworkData(
 		cloudinit.WithEthernet("eth0",
 			cloudinit.WithAddresses(ipv6NetworkCIDR),
@@ -785,7 +803,11 @@ func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.Vi
 	net := v1.DefaultPodNetwork()
 	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
 	vmi := libvmifact.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name,
+			libvmi.WithMasqueradeBinding(),
+			libvmi.WithPorts(ports...),
+		)),
 		libvmi.WithNetwork(net),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
@@ -844,7 +866,8 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithInterface(libvmi.InterfaceWithMac(*v1.DefaultBridgeNetworkInterface(), mac)),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding(), libvmi.WithMac(mac))),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 

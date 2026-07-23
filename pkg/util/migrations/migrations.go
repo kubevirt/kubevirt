@@ -14,12 +14,13 @@ import (
 )
 
 const (
-	QueuePriorityRunning           int = 1000
-	QueuePrioritySystemCritical    int = 100
-	QueuePriorityUserTriggered     int = 50
-	QueuePrioritySystemMaintenance int = 20
-	QueuePriorityDefault           int = 0
-	QueuePriorityPending           int = -100
+	QEMUMaxMigrationDowntimeMS     uint64 = 2_000_000
+	QEMUDefaultTargetDowntimeMS    uint64 = 300
+	QueuePriorityRunning           int    = 1000
+	QueuePrioritySystemCritical    int    = 100
+	QueuePriorityUserTriggered     int    = 50
+	QueuePrioritySystemMaintenance int    = 20
+	QueuePriorityDefault           int    = 0
 )
 
 func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
@@ -162,4 +163,28 @@ func PriorityFromMigration(migration *v1.VirtualMachineInstanceMigration) *int {
 	default:
 		return pointer.P(QueuePriorityDefault)
 	}
+}
+
+// ToVMIMConfigurationOptions copies cluster migration defaults into the resolved
+// options type carried on VMIM status. cfg must not be nil. The returned value
+// owns its pointer fields and is safe to store on VMI status or mutate locally.
+func ToVMIMConfigurationOptions(cfg *v1.MigrationConfiguration) *v1.VMIMConfigurationOptions {
+	opts := &v1.VMIMConfigurationOptions{
+		AllowAutoConverge:                 cfg.AllowAutoConverge,
+		BandwidthPerMigration:             cfg.BandwidthPerMigration,
+		CompletionTimeoutPerGiB:           cfg.CompletionTimeoutPerGiB,
+		MaxDowntimeMs:                     cfg.MaxDowntimeMs,
+		ProgressTimeout:                   cfg.ProgressTimeout,
+		UtilityVolumesTimeout:             cfg.UtilityVolumesTimeout,
+		UnsafeMigrationOverride:           cfg.UnsafeMigrationOverride,
+		AllowPostCopy:                     cfg.AllowPostCopy,
+		AllowWorkloadDisruption:           cfg.AllowWorkloadDisruption,
+		MatchSELinuxLevelOnMigration:      cfg.MatchSELinuxLevelOnMigration,
+		ParallelOutboundMigrationsPerNode: cfg.ParallelOutboundMigrationsPerNode,
+		NodeDrainTaintKey:                 cfg.NodeDrainTaintKey,
+		ParallelMigrationsPerCluster:      cfg.ParallelMigrationsPerCluster,
+		DisableTLS:                        cfg.DisableTLS,
+		Network:                           cfg.Network,
+	}
+	return opts.DeepCopy()
 }

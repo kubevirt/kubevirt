@@ -24,5 +24,5 @@ package decorators
 func SIG(identifier, text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
 	newArgs = args
 	extendedText = identifier + " " + text
-	return
+	return extendedText, newArgs
 }

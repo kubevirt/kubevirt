@@ -23,6 +23,7 @@ var (
 
 	GPU             = Label("GPU")
 	VGPU            = Label("VGPU")
+	DRAGPU          = Label("DRA-GPU")
 	SEV             = Label("SEV")
 	SEVES           = Label("SEVES")
 	SEVSNP          = Label("SEVSNP")
@@ -60,6 +61,9 @@ var (
 	InPlaceHotplugNICs                   = Label("in-place-hotplug-NICs")
 	MigrationBasedHotplugNICs            = Label("migration-based-hotplug-NICs")
 	NetCustomBindingPlugins              = Label("netCustomBindingPlugins")
+	InterfacePorts                       = Label("interface-ports")
+	NetworkCIDR                          = Label("network-cidr")
+	IPv6                                 = Label("IPv6")
 	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
 	RequiresThreeSchedulableNodes        = Label("requires-three-schedulable-nodes")
 	RequiresDedicatedWorkerNodes         = Label("requires-dedicated-worker-nodes")
@@ -92,6 +96,8 @@ var (
 	RequiresRWXFsVMStateStorageClass = Label("RequiresRWXFsVMStateStorageClass")
 	// RequiresPersistentReservation requires the Persistent Reservation to be enabled on the kubevirt level
 	RequiresPersistentReservation = Label("RequiresPersistentReservation")
+	// RequiresPlugins requires the Plugins feature gate to be enabled on the kubevirt level
+	RequiresPlugins = Label("RequiresPlugins")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
@@ -118,6 +124,8 @@ var (
 	RequiresAMD64 = Label("requires-amd64")
 	RequiresS390X = Label("requires-s390x")
 	RequiresARM64 = Label("requires-arm64")
+
+	RequiresCrossArchEmulation = Label("requires-cross-arch-emulation")
 
 	// Virtctl related tests
 	Virtctl = Label("virtctl")

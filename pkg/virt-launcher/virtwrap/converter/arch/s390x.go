@@ -82,3 +82,8 @@ func (converterS390X) SupportPCIePlacement() bool {
 	// All devices are attached via zPCI in a flat topology.
 	return false
 }
+
+func (converterS390X) IsMemfdSupported() bool {
+	// s390x does not support NUMA, and memfd requires a NUMA topology definition.
+	return false
+}

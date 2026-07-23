@@ -21,6 +21,7 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -40,6 +41,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -47,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -73,7 +76,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		BeforeAll(func() {
 			sharedVMI = libvmops.RunVMIAndExpectLaunch(
-				libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsHuge,
+				libvmifact.NewGuestless(), flags.StartupTimeoutSecondsHuge(),
 			)
 		})
 
@@ -365,9 +368,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(console.SafeExpectBatch(stressedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
+				&expect.BSnd{S: "command -v stress-ng\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: stressCmd},
 				&expect.BExp{R: ""},
-			}, stressTestTimeout)).To(Succeed(), "should run a stress test")
+			}, stressTestTimeout)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
 
 			By("Validating that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
 			const consistencyTimeout = 30 * time.Second
@@ -421,7 +428,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
 			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Migrating VMIs")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -457,7 +464,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 			labels := map[string]string{
 				"vmi":       vmi.Name,
 				"namespace": vmi.Namespace,
@@ -504,13 +511,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		})
 
 		AfterEach(func() {
-			scales.RestoreAllScales()
+			restoreOperator(virtClient, scales)
 		})
 
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("delete virt-handler daemonset")
 			err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(
@@ -520,6 +527,72 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 			By("waiting for OrphanedVirtualMachineInstances alert")
 			libmonitoring.VerifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+
+			By("Waiting for OrphanedVirtualMachineInstances alert to clear")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, "OrphanedVirtualMachineInstances")
+		})
+
+		It("OutdatedVirtualMachineInstanceWorkloads should be triggered when VMIs run outdated launcher images", func() {
+			const alertName = "OutdatedVirtualMachineInstanceWorkloads"
+
+			By("Starting a VMI and waiting for it to be running")
+			vmi := libvmifact.NewGuestless()
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Waiting for LauncherContainerImageVersion to be populated")
+			Eventually(func(g Gomega) {
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(
+					context.Background(), vmi.Name, metav1.GetOptions{},
+				)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vmi.Status.LauncherContainerImageVersion).ToNot(BeEmpty())
+			}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+			By("Getting the virt-controller deployment")
+			virtControllerDep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtController.deploymentName, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Patching virt-controller --launcher-image arg to a fake image")
+			args := virtControllerDep.Spec.Template.Spec.Containers[0].Args
+			found := false
+			for i, arg := range args {
+				if arg == "--launcher-image" && i+1 < len(args) {
+					args[i+1] = "registry.example.com/fake-launcher:v0.0.0"
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "--launcher-image arg not found in virt-controller deployment")
+			virtControllerDep.Spec.Template.Spec.Containers[0].Args = args
+
+			patchBytes, patchErr := json.Marshal(virtControllerDep)
+			Expect(patchErr).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(
+				context.Background(), virtControllerDep.Name, k8stypes.MergePatchType, patchBytes, metav1.PatchOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for outdated VMI metric and alert to fire")
+			Eventually(func(g Gomega) {
+				v, metricErr := libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_number_of_outdated", nil)
+				g.Expect(metricErr).ToNot(HaveOccurred())
+				g.Expect(v).To(BeNumerically(">", 0))
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, alertName)).To(BeTrue())
+			}, 5*time.Minute, 10*time.Second).Should(Succeed())
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
 		})
 	})
 
@@ -562,15 +635,23 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("triggering a kernel panic inside the guest")
-			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo su -\n"},
-				&expect.BExp{R: "#"},
-				&expect.BSnd{S: "echo c > /proc/sysrq-trigger\n"},
-				&expect.BExp{R: "sysrq triggered crash"},
-			}, 15*time.Second)).To(Succeed())
+			const consoleTimeout = 30 * time.Second
+			expecter, _, err := console.NewExpecter(virtClient, vmi, consoleTimeout)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo c | sudo tee /proc/sysrq-trigger\n"},
+			}, consoleTimeout)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for VMI to reach Failed phase")
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.Failed))
+
+			By("verifying the GuestPanicked event was emitted")
+			events.ExpectEvent(vmi, corev1.EventTypeWarning, "GuestPanicked")
 
 			By("verifying the guest OS panic metric was incremented")
 			labels := map[string]string{
@@ -588,7 +669,7 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 		gstruct.IgnoreExtras, gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)},
 	)
 	vmi := libvmops.RunVMIAndExpectLaunch(
-		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), libvmops.StartupTimeoutSecondsXLarge,
+		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), flags.StartupTimeoutSecondsXLarge(),
 	)
 
 	var err error

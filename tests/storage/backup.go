@@ -122,6 +122,80 @@ var _ = Describe(SIG("Backup", func() {
 		Entry("2 backups to the same PVC should succeed", getDoubleTargetPVCSize(cd.AlpineVolumeSize), 2),
 	)
 
+	It("Should expose FS Freeze status early in backup", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		targetPVC := libstorage.CreateFSPVC("target-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		tokenValue := "backup-token-" + rand.String(5)
+		tokenSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-secret-" + rand.String(5),
+				Namespace: vm.Namespace,
+			},
+			StringData: map[string]string{
+				"token": tokenValue,
+			},
+		}
+		_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating backup")
+		backupName := backupName(vm.Name)
+		backup := NewBackup(backupName, vm.Namespace, targetPVC.Name)
+		backup.Spec.Source = corev1.TypedLocalObjectReference{
+			APIGroup: pointer.P(backupapi.GroupName),
+			Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+			Name:     tracker.Name,
+		}
+		backup.Spec.Mode = pointer.P(backupv1.PullMode)
+		backup.Spec.TokenSecretRef = tokenSecret.Name
+		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for Quiesced condition to be set early (before backup completion)")
+		Eventually(func() *metav1.Condition {
+			var err error
+			backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if backup.Status == nil {
+				return nil
+			}
+			return meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionQuiesced))
+		}, 60*time.Second, 2*time.Second).ShouldNot(BeNil(), "Quiesced condition should be set early in backup process")
+
+		By("Verifying Quiesced condition is True with Succeeded reason")
+		condition := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionQuiesced))
+		Expect(condition).ToNot(BeNil())
+		Expect(condition.Status).To(Equal(metav1.ConditionTrue), "Quiesced condition should be True when guest agent is available")
+		Expect(condition.Reason).To(Equal(backupv1.ReasonQuiesceSucceeded))
+
+		By("Waiting for export to be ready before cleanup")
+		backup = waitBackupExportReady(virtClient, backup.Namespace, backup.Name)
+
+		By("Deleting backup")
+		deleteVMBackup(virtClient, backup.Namespace, backup.Name)
+	})
+
 	It("Full and Incremental Backup with BackupTracker", func() {
 		const (
 			testDataSizeMB    = 50
@@ -1429,6 +1503,10 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 	))
 
 	events.ExpectEvent(vmbackup, corev1.EventTypeNormal, "VirtualMachineBackupCompletedSuccessfully")
+
+	condition := meta.FindStatusCondition(vmbackup.Status.Conditions, string(backupv1.ConditionQuiesced))
+	Expect(condition).ToNot(BeNil(), "Quiesced condition should be set in successful backups")
+
 	return vmbackup
 }
 
