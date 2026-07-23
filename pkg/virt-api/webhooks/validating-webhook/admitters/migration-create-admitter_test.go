@@ -35,7 +35,6 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -294,7 +293,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			vmi.Status.Phase = v1.Running
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
 			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
-			migration.Spec.Priority = pointer.P(v1.MigrationPriority("system-critical"))
+			migration.Spec.Priority = new(v1.MigrationPriority("system-critical"))
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			ar.Request.UserInfo.Username = user
 			Expect(err).ToNot(HaveOccurred())

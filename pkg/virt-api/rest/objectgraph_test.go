@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -402,7 +401,7 @@ var _ = Describe("Object Graph", func() {
 
 		It("should include backend storage PVC in the graph", func() {
 			vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-				Persistent: pointer.P(true),
+				Persistent: new(true),
 			}
 			pvc := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -653,7 +652,7 @@ var _ = Describe("Object Graph", func() {
 
 		It("should exclude optional resources when IncludeOptionalNodes is false", func() {
 			options := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(false),
+				IncludeOptionalNodes: new(false),
 			}
 			graph := NewObjectGraph(kvClient, options)
 			graphNodes, err := graph.GetObjectGraph(vm)

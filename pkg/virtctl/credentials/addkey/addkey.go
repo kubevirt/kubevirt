@@ -14,7 +14,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -249,7 +248,7 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 				Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 				Name:       vm.Name,
 				UID:        vm.UID,
-				Controller: pointer.P(true),
+				Controller: new(true),
 			}},
 		},
 		Data: map[string][]byte{

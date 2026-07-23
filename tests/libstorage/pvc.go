@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -74,10 +73,10 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 						Capabilities: &k8sv1.Capabilities{
 							Drop: []k8sv1.Capability{"ALL"},
 						},
-						Privileged:               pointer.P(false),
+						Privileged:               new(false),
 						RunAsUser:                &nonRootUser,
-						RunAsNonRoot:             pointer.P(true),
-						AllowPrivilegeEscalation: pointer.P(false),
+						RunAsNonRoot:             new(true),
+						AllowPrivilegeEscalation: new(false),
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 						},

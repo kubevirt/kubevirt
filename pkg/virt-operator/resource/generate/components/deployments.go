@@ -35,7 +35,6 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -260,7 +259,7 @@ func newBaseDeployment(deploymentName, imageName, namespace, repository, version
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.P(int32(2)),
+			Replicas: new(int32(2)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					kubevirtLabelKey: deploymentName,
@@ -328,7 +327,7 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.P(true),
+		RunAsNonRoot:   new(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -380,7 +379,7 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 	}
 
 	container.SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.P(false),
+		AllowPrivilegeEscalation: new(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -413,7 +412,7 @@ func NewControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, prod
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.P(true),
+		RunAsNonRoot:   new(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -482,7 +481,7 @@ func NewControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, prod
 	}
 
 	container.SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.P(false),
+		AllowPrivilegeEscalation: new(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -521,7 +520,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.P(int32(2)),
+			Replicas: new(int32(2)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					virtv1.AppLabel: VirtOperatorName,
@@ -623,7 +622,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.P(false),
+								AllowPrivilegeEscalation: new(false),
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
@@ -633,7 +632,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot:   pointer.P(true),
+						RunAsNonRoot:   new(true),
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 				},
@@ -681,7 +680,7 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ExportProxyServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.P(true),
+		RunAsNonRoot:   new(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -732,7 +731,7 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 	}
 
 	container.SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.P(false),
+		AllowPrivilegeEscalation: new(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -779,7 +778,7 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = SynchronizationControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.P(true),
+		RunAsNonRoot:   new(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -831,7 +830,7 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 	}
 
 	container.SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.P(false),
+		AllowPrivilegeEscalation: new(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},

@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -170,7 +168,7 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse param \"%s\": %w", tagVal, err)
 			}
-			field.Set(reflect.ValueOf(pointer.P(uint(u64))))
+			field.Set(reflect.ValueOf(new(uint(u64))))
 		case field.Type() == reflect.TypeOf(&resource.Quantity{}):
 			quantity, err := resource.ParseQuantity(paramVal)
 			if err != nil {

@@ -20,8 +20,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("test configuration", func() {
@@ -315,10 +313,10 @@ var _ = Describe("test configuration", func() {
 			nil, true,
 		),
 		Entry("is Stage, IsVMRolloutStrategyLiveUpdate should return false",
-			pointer.P(v1.VMRolloutStrategyStage), false,
+			new(v1.VMRolloutStrategyStage), false,
 		),
 		Entry("is LiveUpdate, IsVMRolloutStrategyLiveUpdate should return true",
-			pointer.P(v1.VMRolloutStrategyLiveUpdate), true,
+			new(v1.VMRolloutStrategyLiveUpdate), true,
 		),
 	)
 
@@ -697,8 +695,8 @@ var _ = Describe("test configuration", func() {
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					NetworkInterface:                  "test",
-					DeprecatedPermitSlirpInterface:    pointer.P(true),
-					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
+					DeprecatedPermitSlirpInterface:    new(true),
+					PermitBridgeInterfaceOnPodNetwork: new(false),
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
@@ -709,8 +707,8 @@ var _ = Describe("test configuration", func() {
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					NetworkInterface:                  string(v1.DeprecatedSlirpInterface),
-					DeprecatedPermitSlirpInterface:    pointer.P(true),
-					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
+					DeprecatedPermitSlirpInterface:    new(true),
+					PermitBridgeInterfaceOnPodNetwork: new(false),
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
@@ -720,8 +718,8 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set with empty NetworkInterface, should use the default",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					DeprecatedPermitSlirpInterface:    pointer.P(true),
-					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
+					DeprecatedPermitSlirpInterface:    new(true),
+					PermitBridgeInterfaceOnPodNetwork: new(false),
 				},
 			},
 			func(c *v1.KubeVirtConfiguration) interface{} {
@@ -750,7 +748,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is set to false should result in persistent reservation being disabled",
 			&v1.KubeVirtConfiguration{
 				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			}, false),
 		Entry("is empty should result in persistent reservation being disabled",
@@ -764,7 +762,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is enabled should result in persistent reservation being enabled",
 			&v1.KubeVirtConfiguration{
 				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			}, true),
 		Entry("is enabled by feature gate should result in persistent reservation being enabled",
@@ -787,7 +785,7 @@ var _ = Describe("test configuration", func() {
 					FeatureGates: []string{featuregate.PersistentReservation},
 				},
 				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			}, false),
 	)
@@ -819,8 +817,8 @@ var _ = Describe("test configuration", func() {
 	},
 		Entry("reference when InstancetypeConfiguration is nil", nil, v1.Reference),
 		Entry("reference when InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, v1.Reference),
-		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, v1.Reference),
-		Entry("expand InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, v1.Expand),
+		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: new(v1.Reference)}, v1.Reference),
+		Entry("expand InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: new(v1.Expand)}, v1.Expand),
 	)
 
 	DescribeTable("MediatedDevicesHandlingDisabled", func(kubevirtConfig *v1.KubeVirtConfiguration, expectedHandling bool) {
@@ -830,7 +828,7 @@ var _ = Describe("test configuration", func() {
 		Entry("should return true when Enabled is false and FG missing",
 			&v1.KubeVirtConfiguration{
 				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			},
 			true,
@@ -855,7 +853,7 @@ var _ = Describe("test configuration", func() {
 		Entry("should return false when Enabled is explicitly true",
 			&v1.KubeVirtConfiguration{
 				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 			false,
@@ -863,7 +861,7 @@ var _ = Describe("test configuration", func() {
 		Entry("should return false when Enabled is explicitly true even when FG is present",
 			&v1.KubeVirtConfiguration{
 				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
 					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
@@ -1000,8 +998,8 @@ var _ = Describe("test configuration", func() {
 		Entry("partial attestation config should fill missing fields with defaults",
 			&v1.ConfidentialComputeConfiguration{
 				TDX: &v1.TDXConfiguration{
-					Attestation: pointer.P(v1.TDXAttestationConfiguration{
-						Enforced: pointer.P(true),
+					Attestation: new(v1.TDXAttestationConfiguration{
+						Enforced: new(true),
 					}),
 				},
 			},
@@ -1010,9 +1008,9 @@ var _ = Describe("test configuration", func() {
 		Entry("has full config, should return configured values",
 			&v1.ConfidentialComputeConfiguration{
 				TDX: &v1.TDXConfiguration{
-					Attestation: pointer.P(v1.TDXAttestationConfiguration{
-						Enforced:      pointer.P(true),
-						QgsSocketPath: pointer.P("/custom/path/qgs.socket"),
+					Attestation: new(v1.TDXAttestationConfiguration{
+						Enforced:      new(true),
+						QgsSocketPath: new("/custom/path/qgs.socket"),
 					}),
 				},
 			},

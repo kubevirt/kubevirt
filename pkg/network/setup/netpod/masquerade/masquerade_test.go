@@ -31,7 +31,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/driver/nft"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("masquerade (NAT)", func() {
@@ -41,7 +40,7 @@ var _ = Describe("masquerade (NAT)", func() {
 			addTableErr: testErr,
 		}))
 
-		ifaceSpec := nmstate.Interface{IPv4: nmstate.IP{Enabled: pointer.P(true)}}
+		ifaceSpec := nmstate.Interface{IPv4: nmstate.IP{Enabled: new(true)}}
 		Expect(masqPod.Setup(&ifaceSpec, &ifaceSpec, v1.Interface{})).To(MatchError(testErr))
 	})
 
@@ -57,7 +56,7 @@ var _ = Describe("masquerade (NAT)", func() {
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -70,7 +69,7 @@ var _ = Describe("masquerade (NAT)", func() {
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
@@ -116,7 +115,7 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 				},
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -129,7 +128,7 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "2001::1",
 						PrefixLen: 64,
@@ -175,11 +174,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 				},
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -192,14 +191,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "2001::1",
 						PrefixLen: 64,
@@ -258,11 +257,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 				},
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -275,14 +274,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "2001::1",
 						PrefixLen: 64,
@@ -351,7 +350,7 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -364,7 +363,7 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
@@ -416,11 +415,11 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 				},
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -433,14 +432,14 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "2001::1",
 						PrefixLen: 64,
@@ -511,11 +510,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 443-444 
 				State:      nmstate.IfaceStateUp,
 				MacAddress: "bb:bb:bb:bb:bb:bb",
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 				},
 			},
@@ -527,14 +526,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 443-444 
 				MacAddress: "aa:aa:aa:aa:aa:aa",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        "2001::1",
 						PrefixLen: 64,
@@ -603,11 +602,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 1500-250
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -620,14 +619,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 1500-250
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -694,11 +693,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -711,14 +710,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -790,11 +789,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -807,14 +806,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -882,11 +881,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -899,14 +898,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -976,11 +975,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -993,14 +992,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -1064,11 +1063,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 15000 co
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -1081,14 +1080,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 15000 co
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -1152,11 +1151,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 1000-150
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -1169,14 +1168,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 1000-150
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,
@@ -1242,11 +1241,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 20-25 co
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "bb:bb:bb:bb:bb:bb",
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
@@ -1259,14 +1258,14 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 20-25 co
 					MacAddress: "aa:aa:aa:aa:aa:aa",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "10.222.222.1",
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        "2001::1",
 							PrefixLen: 64,

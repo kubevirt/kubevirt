@@ -35,7 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -168,7 +167,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	response := &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,
-		PatchType: kvpointer.P(admissionv1.PatchTypeJSONPatch),
+		PatchType: new(admissionv1.PatchTypeJSONPatch),
 	}
 	// If newVMI has been annotated with presets include a deprecation warning in the response
 	for annotation := range newVMI.Annotations {

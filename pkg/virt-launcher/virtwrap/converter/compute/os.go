@@ -28,7 +28,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -89,7 +88,7 @@ func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 		const bootMenuTimeoutMS = uint(10000)
 		domain.Spec.OS.BootMenu = &api.BootMenu{
 			Enable:  "yes",
-			Timeout: pointer.P(bootMenuTimeoutMS),
+			Timeout: new(bootMenuTimeoutMS),
 		}
 	}
 }

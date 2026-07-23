@@ -34,7 +34,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -990,7 +989,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 						log.Log.Object(vm).Infof("decentralized migration completed, setting runStrategy to halted")
 						// decentralized migration completed, mark the VM as halted. In this case the VM is now in a different
 						// namespace/cluster and we need to stop the VM.
-						vm.Spec.RunStrategy = pointer.P(virtv1.RunStrategyHalted)
+						vm.Spec.RunStrategy = new(virtv1.RunStrategyHalted)
 						// return here and let the halted runstrategy stop the VMI.
 						return vm, nil
 					}
@@ -1156,7 +1155,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 					log.Log.Object(vm).V(4).Infof("VMI %s/%s is a receiver VMI and has completed migration", vmi.Namespace, vmi.Name)
 					// Restore the original run strategy
 					if val, ok := vm.Annotations[virtv1.RestoreRunStrategy]; ok {
-						vm.Spec.RunStrategy = pointer.P(virtv1.VirtualMachineRunStrategy(val))
+						vm.Spec.RunStrategy = new(virtv1.VirtualMachineRunStrategy(val))
 					}
 
 					return vm, nil

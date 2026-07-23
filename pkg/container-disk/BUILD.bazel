@@ -9,7 +9,6 @@ go_library(
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/os/disk:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",

@@ -39,8 +39,6 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -162,7 +160,7 @@ func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			Memory: &v1.Memory{
-				Guest: pointer.P(resource.MustParse("128Mi")),
+				Guest: new(resource.MustParse("128Mi")),
 			},
 		},
 	}
@@ -421,7 +419,7 @@ func GetVMISata() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	makeMigratable(vmi)
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -430,7 +428,7 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	initFedoraIsolated(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
@@ -455,7 +453,7 @@ func GetVMISecureBoot() *v1.VirtualMachineInstance {
 		},
 	}
 
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1Gi"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1Gi"))
 	return vmi
 }
 
@@ -472,13 +470,13 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 		},
 	}
 
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1Gi"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1Gi"))
 	return vmi
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMasquerade)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	vmi.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vmi.Spec)
 	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    routes:\n    - to: ::/0\n      via: fd10:0:2::1\n"
@@ -496,7 +494,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 
 func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiSRIOV)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserDataNetworkData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
@@ -509,7 +507,7 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 
 func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMultusPtp)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	vmi.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -521,7 +519,7 @@ func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 
 func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMultusMultipleNet)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserDataNetworkData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
@@ -592,7 +590,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 				},
 			},
 			Memory: &v1.Memory{
-				Guest: pointer.P(resource.MustParse("2048Mi")),
+				Guest: new(resource.MustParse("2048Mi")),
 			},
 			Devices: v1.Devices{
 				Interfaces: []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()},
@@ -611,7 +609,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 
 func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiKernelBoot)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1Gi"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1Gi"))
 	AddKernelBootToVMI(vmi)
 	return vmi
 }
@@ -645,7 +643,7 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 			Labels: labels,
 		},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.RunStrategyHalted),
+			RunStrategy: new(v1.RunStrategyHalted),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -806,7 +804,7 @@ func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) 
 					Labels: selectorLabels,
 				},
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyAlways),
+					RunStrategy: new(v1.RunStrategyAlways),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: selectorLabels,
@@ -900,10 +898,10 @@ func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
 	policy := kubecli.NewMinimalMigrationPolicy(MigrationPolicyName)
 	policy.Spec = v1alpha1.MigrationPolicySpec{
-		AllowAutoConverge:       pointer.P(false),
-		BandwidthPerMigration:   pointer.P(resource.MustParse("2000Mi")),
-		CompletionTimeoutPerGiB: pointer.P(int64(123456789)),
-		AllowPostCopy:           pointer.P(false),
+		AllowAutoConverge:       new(false),
+		BandwidthPerMigration:   new(resource.MustParse("2000Mi")),
+		CompletionTimeoutPerGiB: new(int64(123456789)),
+		AllowPostCopy:           new(false),
 		Selectors: &v1alpha1.Selectors{
 			NamespaceSelector:              map[string]string{"namespace-key": "namespace-value"},
 			VirtualMachineInstanceSelector: map[string]string{"vmi-key": "vmi-value"},
@@ -920,7 +918,7 @@ func GetVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 
 	vmPreset.Spec.Domain = &v1.DomainSpec{
 		Memory: &v1.Memory{
-			Guest: pointer.P(resource.MustParse("128Mi")),
+			Guest: new(resource.MustParse("128Mi")),
 		},
 	}
 	return vmPreset
@@ -928,7 +926,7 @@ func GetVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 
 func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiWithHookSidecar)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -942,7 +940,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 
 func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiWithHookSidecarConfigMap)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
@@ -959,7 +957,7 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 
 func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiGPU)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	GPUs := []v1.GPU{
 		{
 			Name:       "gpu1",
@@ -1014,14 +1012,14 @@ func getDRAGPUResourceClaims() []v1.VirtualMachineInstanceResourceClaim {
 	return []v1.VirtualMachineInstanceResourceClaim{
 		{
 			Name:                      DRAResourceClaimName,
-			ResourceClaimTemplateName: pointer.P(ResourceClaimTemplatePGPU),
+			ResourceClaimTemplateName: new(ResourceClaimTemplatePGPU),
 		},
 	}
 }
 
 func GetVMIDRAGPU() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiDRAGPU)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	vmi.Spec.ResourceClaims = getDRAGPUResourceClaims()
 	vmi.Spec.Domain.Devices.GPUs = getDRAGPUDevice(DRAResourceClaimName)
 
@@ -1033,7 +1031,7 @@ func GetVMIDRAGPU() *v1.VirtualMachineInstance {
 // The minimum memory for UEFI boot on Arm64 is 256Mi
 func GetVMIARM() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiARM)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("256Mi"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("256Mi"))
 	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
@@ -1042,7 +1040,7 @@ func GetVMIARM() *v1.VirtualMachineInstance {
 
 func GetVMIUSB() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiUSB)
-	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("1024M"))
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
 
@@ -1193,7 +1191,7 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 			Clock: &instancetypev1beta1.ClockPreferences{
 				PreferredClockOffset: &v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				PreferredTimer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
+					HPET:   &v1.HPETTimer{Enabled: new(false)},
 					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
 					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
 					Hyperv: &v1.HypervTimer{},
@@ -1216,7 +1214,7 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 			},
 			Firmware: &instancetypev1beta1.FirmwarePreferences{
 				PreferredEfi: &v1.EFI{
-					SecureBoot: pointer.P(true),
+					SecureBoot: new(true),
 				},
 			},
 		},
@@ -1278,7 +1276,7 @@ func GetVmWindowsInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine
 	addPVCDisk(&vm.Spec.Template.Spec, "disk-windows", "", "pvcdisk")
 
 	// Copy the same remaining defaults as the vmi-windows example
-	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.P(int64(0))
+	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = new(int64(0))
 	vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
 		UUID: types.UID(windowsFirmware),
 	}

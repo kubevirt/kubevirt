@@ -36,7 +36,6 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -65,7 +64,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),
@@ -268,7 +267,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),

@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -51,7 +50,7 @@ var _ = Describe("applyMigrationPolicySpec", func() {
 
 	DescribeTable("backward compatibility shim for AllowWorkloadDisruption", func(allowPostCopy bool, wantDisrupt bool) {
 		spec := &migrationsv1.MigrationPolicySpec{
-			AllowPostCopy: pointer.P(allowPostCopy),
+			AllowPostCopy: new(allowPostCopy),
 		}
 		got := applyMigrationPolicySpec(&v1.VMIMConfigurationOptions{}, spec)
 

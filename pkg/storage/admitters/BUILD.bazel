@@ -16,7 +16,6 @@ go_test(
     race = "on",
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",

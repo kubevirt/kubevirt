@@ -16,7 +16,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -193,7 +192,7 @@ var _ = Describe("VCPU pinning", func() {
 						Devices: corev1.Devices{
 							Disks: []corev1.Disk{{
 								Name:              "rootdisk",
-								DedicatedIOThread: pointer.P(true),
+								DedicatedIOThread: new(true),
 								DiskDevice: corev1.DiskDevice{
 									Disk: &corev1.DiskTarget{Bus: corev1.DiskBusVirtio},
 								},

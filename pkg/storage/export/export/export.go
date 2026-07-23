@@ -57,7 +57,6 @@ import (
 	instancetypeexpand "kubevirt.io/kubevirt/pkg/instancetype/expand"
 	instancetypefind "kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
@@ -1148,8 +1147,8 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		podManifest.Annotations[key] = value
 	}
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.P(true),
-		FSGroup:        pointer.P(int64(kvm)),
+		RunAsNonRoot:   new(true),
+		FSGroup:        new(int64(kvm)),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 

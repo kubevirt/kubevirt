@@ -107,7 +107,6 @@ go_test(
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",

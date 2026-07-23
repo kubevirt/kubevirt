@@ -48,7 +48,6 @@ import (
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -813,13 +812,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			It("should error and fail to update target VMI if target VMI doesn't exist", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
 				sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
@@ -833,13 +832,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			It("should update target VMI source migration from source VMI", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
 				sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
@@ -869,13 +868,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			It("should error and fail to update target VMI if source VMI doesn't exist", func() {
 				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
 				targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
@@ -889,13 +888,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			It("should update source VMI target migration from target VMI", func() {
 				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
 				targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
@@ -911,13 +910,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
 						MigrationUID: sourceTestMigrationUID,
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 					},
 				}
 				sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
 						MigrationUID: targetTestMigrationUID,
-						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						SyncAddress:  new(localTCPConn.Addr().String()),
 					},
 				}
 				targetVMI.Status.MigrationState.MigrationUID = targetTestMigrationUID
@@ -928,7 +927,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress: pointer.P(localTCPConn.Addr().String()),
+						SyncAddress: new(localTCPConn.Addr().String()),
 					},
 				}
 				err = controller.vmiInformer.GetStore().Update(sourceVMI)
@@ -985,7 +984,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				setupConnectedAbortMigration()
 				setSourceAbortCompleted()
 
-				sourceMigration.DeletionTimestamp = pointer.P(metav1.Now())
+				sourceMigration.DeletionTimestamp = new(metav1.Now())
 				err = migrationInformer.GetStore().Update(sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1006,7 +1005,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(localTCPConn.Addr().String()),
+					SyncAddress: new(localTCPConn.Addr().String()),
 				},
 			}
 
@@ -1017,7 +1016,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(localTCPConn.Addr().String()),
+					SyncAddress: new(localTCPConn.Addr().String()),
 				},
 			}
 			err = controller.vmiInformer.GetStore().Update(targetVMI)
@@ -1119,7 +1118,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(localURL),
+					SyncAddress: new(localURL),
 				},
 			}
 			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
@@ -1129,7 +1128,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(remoteURL),
+					SyncAddress: new(remoteURL),
 				},
 			}
 			By("setting up the clients and informers")
@@ -1273,7 +1272,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(remoteURL),
+					SyncAddress: new(remoteURL),
 				},
 			}
 			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
@@ -1305,7 +1304,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(remoteURL),
+					SyncAddress: new(remoteURL),
 				},
 			}
 			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
@@ -1340,7 +1339,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(localURL),
+					SyncAddress: new(localURL),
 				},
 			}
 			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
@@ -1350,7 +1349,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(remoteURL),
+					SyncAddress: new(remoteURL),
 				},
 			}
 			By("setting up the clients and informers")
@@ -1362,7 +1361,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			targetMigration.DeletionTimestamp = pointer.P(metav1.Now())
+			targetMigration.DeletionTimestamp = new(metav1.Now())
 			err = remoteController.migrationInformer.GetStore().Update(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1399,7 +1398,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(localURL),
+					SyncAddress: new(localURL),
 				},
 			}
 			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
@@ -1409,7 +1408,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			}
 			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P(remoteURL),
+					SyncAddress: new(remoteURL),
 				},
 			}
 			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
@@ -1421,7 +1420,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			targetMigration.DeletionTimestamp = pointer.P(metav1.Now())
+			targetMigration.DeletionTimestamp = new(metav1.Now())
 			err = remoteController.migrationInformer.GetStore().Update(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
 

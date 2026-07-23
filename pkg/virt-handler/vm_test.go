@@ -63,7 +63,6 @@ import (
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1455,8 +1454,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 						vmi.Spec.Volumes[0].Name: uint32(1234),
 					},
 					KernelBootChecksum: containerdisk.KernelBootChecksum{
-						Kernel: pointer.P(uint32(33)),
-						Initrd: pointer.P(uint32(35)),
+						Kernel: new(uint32(33)),
+						Initrd: new(uint32(35)),
 					},
 				}
 
@@ -2404,7 +2403,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 							Name: "VIRTIOFS",
 							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 								AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
-								VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+								VolumeMode:  new(k8sv1.PersistentVolumeFilesystem),
 							},
 						},
 					),
@@ -2831,14 +2830,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 			},
 				Entry("CDROM", getCDRomDisk(nil), getContainerDiskVolume(), v1.LiveMigration),
-				Entry("CDROM with read-only=true", getCDRomDisk(pointer.P(true)), getContainerDiskVolume(), v1.LiveMigration),
-				Entry("CDROM with read-only=false", getCDRomDisk(pointer.P(false)), getContainerDiskVolume(), v1.BlockMigration),
+				Entry("CDROM with read-only=true", getCDRomDisk(new(true)), getContainerDiskVolume(), v1.LiveMigration),
+				Entry("CDROM with read-only=false", getCDRomDisk(new(false)), getContainerDiskVolume(), v1.BlockMigration),
 			)
 		})
 
 		It("HyperV reenlightenment shouldn't be migratable when tsc frequency is missing", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)}}}
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: new(true)}}}
 			vmi.Status.TopologyHints = nil
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
@@ -2849,7 +2848,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("HyperV passthrough shouldn't be migratable", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)}}
+			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: new(true)}}
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
 			Expect(cond).ToNot(BeNil())
@@ -3043,7 +3042,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.Memory.GuestCurrent).To(Equal(pointer.P(resource.MustParse("512Ki"))))
+			Expect(updatedVMI.Status.Memory.GuestCurrent).To(Equal(new(resource.MustParse("512Ki"))))
 		})
 	})
 

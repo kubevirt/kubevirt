@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.Architecture", func() {
@@ -48,7 +47,7 @@ var _ = Describe("Preference.Architecture", func() {
 
 	It("should apply preferred architecture to VMI when architecture is not set", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredArchitecture: pointer.P("arm64"),
+			PreferredArchitecture: new("arm64"),
 		}
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
@@ -58,7 +57,7 @@ var _ = Describe("Preference.Architecture", func() {
 	It("should not override existing architecture in VMI", func() {
 		vmi.Spec.Architecture = "amd64"
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredArchitecture: pointer.P("arm64"),
+			PreferredArchitecture: new("arm64"),
 		}
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
@@ -72,7 +71,7 @@ var _ = Describe("Preference.Architecture", func() {
 		Entry("PreferenceSpec is nil", nil),
 		Entry("PreferredArchitecture is nil", &v1beta1.VirtualMachinePreferenceSpec{}),
 		Entry("PreferredArchitecture is an empty string", &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredArchitecture: pointer.P(""),
+			PreferredArchitecture: new(""),
 		}),
 	)
 })

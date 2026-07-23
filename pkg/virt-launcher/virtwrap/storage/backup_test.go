@@ -36,7 +36,6 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -80,7 +79,7 @@ var _ = Describe("Backup", func() {
 			BackupName:      backupName,
 			BackupStartTime: &now,
 			Mode:            backupv1.PushMode,
-			TargetPath:      pointer.P(tempDir),
+			TargetPath:      new(tempDir),
 			SkipQuiesce:     true,
 		}
 	})
@@ -97,7 +96,7 @@ var _ = Describe("Backup", func() {
 			It("should fail", func() {
 				// Set up migration in progress
 				migrationMetadata := api.MigrationMetadata{
-					StartTimestamp: pointer.P(metav1.Now()),
+					StartTimestamp: new(metav1.Now()),
 				}
 				metadataCache.Migration.Store(migrationMetadata)
 
@@ -188,7 +187,7 @@ var _ = Describe("Backup", func() {
 		})
 
 		It("incremental backup should store checkpoint name in metadata", func() {
-			backupOptions.Incremental = pointer.P("previous-checkpoint")
+			backupOptions.Incremental = new("previous-checkpoint")
 
 			domainXML := `<domain type='kvm'>
 				<devices>
@@ -478,7 +477,7 @@ var _ = Describe("Backup", func() {
 		})
 
 		It("should not set incremental field when Incremental is empty string", func() {
-			backupOptions.Incremental = pointer.P("")
+			backupOptions.Incremental = new("")
 
 			disks := []api.Disk{
 				{
@@ -704,7 +703,7 @@ var _ = Describe("Backup", func() {
 					StartTimestamp: &timestamp,
 				}
 				metadataCache.Backup.Store(backupMetadata)
-				backupOptions.BackupStartTime = pointer.P(metav1.Date(1, 1, 1, 1, 1, 1, 1, time.Local))
+				backupOptions.BackupStartTime = new(metav1.Date(1, 1, 1, 1, 1, 1, 1, time.Local))
 
 				Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(
 					MatchError(
@@ -886,7 +885,7 @@ var _ = Describe("Backup", func() {
 				// Use a path where a file exists as parent - mkdir will fail
 				// because you can't create a directory inside a file
 				invalidBackupOptions := backupOptions.DeepCopy()
-				invalidBackupOptions.TargetPath = pointer.P("/dev/null/subdir")
+				invalidBackupOptions.TargetPath = new("/dev/null/subdir")
 
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(`<domain/>`, nil)

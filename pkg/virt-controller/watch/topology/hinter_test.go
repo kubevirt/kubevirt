@@ -10,8 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -56,7 +54,7 @@ var _ = Describe("Hinter", func() {
 		g.Expect(GetTscFrequencyRequirement(vmi).Type).ToNot(g.Equal(NotRequired))
 		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
 			&virtv1.TopologyHints{
-				TSCFrequency: pointer.P(int64(12)),
+				TSCFrequency: new(int64(12)),
 			},
 		))
 	})

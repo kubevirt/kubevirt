@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
 
@@ -53,7 +52,7 @@ var _ = Describe("params", func() {
 			Expect(err.Is(target)).To(BeTrue())
 		},
 			Entry("value", params.NotFoundError{Name: testParam}),
-			Entry("pointer", pointer.P(params.NotFoundError{Name: testParam})),
+			Entry("pointer", new(params.NotFoundError{Name: testParam})),
 		)
 
 		It("should detect unequal errors", func() {
@@ -127,7 +126,7 @@ var _ = Describe("params", func() {
 			Expect(err).To(MatchError(parseFlagErr + errMsg))
 		},
 			Entry("not a pointer", "something", "passed in interface needs to be a pointer"),
-			Entry("not a struct", pointer.P("something"), "passed in pointer needs to point to a struct"),
+			Entry("not a struct", new("something"), "passed in pointer needs to point to a struct"),
 		)
 
 		It("should map supported parameters to supported fields with param tag", func() {

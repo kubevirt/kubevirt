@@ -24,8 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -48,7 +46,7 @@ func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.Valid
 			Name: sidecarSubPathPolicyName,
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: pointer.P(admissionregistrationv1.Fail),
+			FailurePolicy: new(admissionregistrationv1.Fail),
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ObjectSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -159,7 +157,7 @@ func NewPluginSocketPathValidatingAdmissionPolicy() *admissionregistrationv1.Val
 			Name: pluginSocketPathPolicyName,
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: pointer.P(admissionregistrationv1.Fail),
+			FailurePolicy: new(admissionregistrationv1.Fail),
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{

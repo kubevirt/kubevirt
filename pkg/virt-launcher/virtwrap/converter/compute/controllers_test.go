@@ -25,7 +25,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -133,7 +132,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
-					Queues: pointer.P[uint](1), IOThread: pointer.P[uint](2),
+					Queues: new(uint(1)), IOThread: new(uint(2)),
 				}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
@@ -148,7 +147,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
-					Queues: pointer.P[uint](1), IOThread: pointer.P[uint](1),
+					Queues: new(uint(1)), IOThread: new(uint(1)),
 				}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
@@ -162,7 +161,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
-					Queues: pointer.P[uint](1), IOThread: pointer.P[uint](1),
+					Queues: new(uint(1)), IOThread: new(uint(1)),
 				}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
@@ -307,8 +306,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 					Type: "scsi", Index: "0", Model: "test-model",
 					Driver: &api.ControllerDriver{
 						IOMMU:    "on",
-						Queues:   pointer.P[uint](1),
-						IOThread: pointer.P[uint](2),
+						Queues:   new(uint(1)),
+						IOThread: new(uint(2)),
 					},
 				},
 				{

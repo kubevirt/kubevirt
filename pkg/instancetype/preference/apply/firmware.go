@@ -22,8 +22,6 @@ package apply
 import (
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
@@ -50,7 +48,7 @@ func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSp
 	}
 
 	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
-		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
+		vmiFirmware.Bootloader.BIOS.UseSerial = new(*firmware.PreferredUseBiosSerial)
 	}
 
 	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
@@ -67,6 +65,6 @@ func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSp
 	}
 
 	if firmware.DeprecatedPreferredUseSecureBoot != nil && vmiFirmware.Bootloader.EFI != nil && vmiFirmware.Bootloader.EFI.SecureBoot == nil {
-		vmiFirmware.Bootloader.EFI.SecureBoot = pointer.P(*firmware.DeprecatedPreferredUseSecureBoot)
+		vmiFirmware.Bootloader.EFI.SecureBoot = new(*firmware.DeprecatedPreferredUseSecureBoot)
 	}
 }

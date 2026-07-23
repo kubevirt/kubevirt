@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -532,12 +531,12 @@ var _ = Describe("CBT", func() {
 			}),
 			Entry("FG disabled, VMI had CBT enabled - status remains Enabled", testCase{
 				vmMatchesSelector: true,
-				initialVMIState:   pointer.P(v1.ChangedBlockTrackingEnabled),
+				initialVMIState:   new(v1.ChangedBlockTrackingEnabled),
 				expectedVMIState:  v1.ChangedBlockTrackingEnabled,
 			}),
 			Entry("FG disabled, VMI had CBT initializing - status remains Initializing", testCase{
 				vmMatchesSelector: true,
-				initialVMIState:   pointer.P(v1.ChangedBlockTrackingInitializing),
+				initialVMIState:   new(v1.ChangedBlockTrackingInitializing),
 				expectedVMIState:  v1.ChangedBlockTrackingInitializing,
 			}),
 			// Feature gate enabled
@@ -548,7 +547,7 @@ var _ = Describe("CBT", func() {
 			}),
 			Entry("FG enabled, VM doesn't match, VM has CBT state - VMI state set to Disabled", testCase{
 				fgEnabled:        true,
-				initialVMState:   pointer.P(v1.ChangedBlockTrackingEnabled),
+				initialVMState:   new(v1.ChangedBlockTrackingEnabled),
 				expectedVMIState: v1.ChangedBlockTrackingDisabled,
 			}),
 			Entry("FG enabled, VM doesn't match, VM has no CBT state - VMI state Undefined", testCase{

@@ -17,8 +17,6 @@ package defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -48,7 +46,7 @@ func setDefaultArm64Bootloader(spec *v1.VirtualMachineInstanceSpec) {
 		spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 	}
 	if spec.Domain.Firmware.Bootloader.EFI != nil && spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil {
-		spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(false)
+		spec.Domain.Firmware.Bootloader.EFI.SecureBoot = new(false)
 	}
 }
 

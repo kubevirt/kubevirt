@@ -17,7 +17,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -42,7 +41,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),
@@ -69,7 +68,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			vmi := libvmifact.NewAlpine(vmiOpts...)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
-				Guest: pointer.P(resource.MustParse("1Gi")),
+				Guest: new(resource.MustParse("1Gi")),
 			}
 
 			if sockets != nil {
@@ -174,7 +173,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			}, 360*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
 
 			By("Stopping the VM")
-			stopOptions := &v1.StopOptions{GracePeriod: pointer.P(int64(0))}
+			stopOptions := &v1.StopOptions{GracePeriod: new(int64(0))}
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -198,7 +197,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			By("Creating a VM")
 			guest := resource.MustParse("1Gi")
 			newSockets := uint32(2)
-			vm, vmi := createHotplugVM(pointer.P(uint32(1)), newSockets)
+			vm, vmi := createHotplugVM(new(uint32(1)), newSockets)
 
 			By("Hotplug Memory and CPU")
 			newGuestMemory := resource.MustParse("1042Mi")
@@ -294,7 +293,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			By("Creating a VM")
 			vm, vmi := createHotplugVM(nil, 0)
 
-			for _, newMemory := range []*resource.Quantity{pointer.P(resource.MustParse("1028Mi")), pointer.P(resource.MustParse("1042Mi"))} {
+			for _, newMemory := range []*resource.Quantity{new(resource.MustParse("1028Mi")), new(resource.MustParse("1042Mi"))} {
 				oldGuestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
 
 				By("Ensuring the compute container has the expected memory")

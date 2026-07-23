@@ -11,7 +11,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -94,11 +93,11 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 								},
 							},
 							SecurityContext: &k8sv1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.P(false),
+								AllowPrivilegeEscalation: new(false),
 								Capabilities: &k8sv1.Capabilities{
 									Drop: []k8sv1.Capability{"ALL"},
 								},
-								RunAsNonRoot: pointer.P(true),
+								RunAsNonRoot: new(true),
 								SeccompProfile: &k8sv1.SeccompProfile{
 									Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 								},

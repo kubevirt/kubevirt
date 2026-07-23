@@ -62,7 +62,6 @@ import (
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -209,7 +208,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{
 			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-				MinimumClusterTSCFrequency: pointer.P(int64(12345)),
+				MinimumClusterTSCFrequency: new(int64(12345)),
 			},
 		}
 
@@ -407,7 +406,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			addDataVolumePVC(dvPVC)
 			addVirtualMachine(vmi)
@@ -454,7 +453,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 
 			addDataVolumePVC(dvPVC)
@@ -484,7 +483,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, new(true))
 			addDataVolumePVC(dvPVC)
 			addVirtualMachine(vmi)
 			addPod(pod)
@@ -541,7 +540,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})
 
 				dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
-				dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+				dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, new(true))
 				dvPVC.Status.Phase = k8sv1.ClaimBound
 				Expect(controller.pvcIndexer.Add(dvPVC)).To(Succeed())
 
@@ -574,7 +573,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Pending)
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 
 			addVirtualMachine(vmi)
@@ -592,7 +591,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 					Bootloader: &virtv1.Bootloader{
 						EFI: &virtv1.EFI{
-							Persistent: pointer.P(true),
+							Persistent: new(true),
 						},
 					},
 				}
@@ -611,14 +610,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvc := newPvc(vmi.Namespace, "persistent-state-for-"+vmi.Name+"-12345")
 				pvc.ObjectMeta.Labels = map[string]string{"persistent-state-for": vmi.Name}
 				pvc.Status.Phase = k8sv1.ClaimPending
-				pvc.Spec.StorageClassName = pointer.P("testsc123")
+				pvc.Spec.StorageClassName = new("testsc123")
 				pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
 				addDataVolumePVC(pvc)
 
 				sanityExecute()
 				expectVirtualMachinePendingState(vmi.Namespace, vmi.Name)
 			},
-				Entry("using explicit Immediate mode", pointer.P(storagev1.VolumeBindingImmediate)),
+				Entry("using explicit Immediate mode", new(storagev1.VolumeBindingImmediate)),
 				Entry("using nil mode", nil))
 
 			It("should create a corresponding Pod on VMI creation with a storage class in WaitForFirstConsumer mode", func() {
@@ -626,14 +625,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testsc456",
 					},
-					VolumeBindingMode: pointer.P(storagev1.VolumeBindingWaitForFirstConsumer),
+					VolumeBindingMode: new(storagev1.VolumeBindingWaitForFirstConsumer),
 				}
 				Expect(storageClassStore.Add(sc)).To(Succeed())
 
 				pvc := newPvc(vmi.Namespace, "persistent-state-for-"+vmi.Name+"-67890")
 				pvc.ObjectMeta.Labels = map[string]string{"persistent-state-for": vmi.Name}
 				pvc.Status.Phase = k8sv1.ClaimPending
-				pvc.Spec.StorageClassName = pointer.P("testsc456")
+				pvc.Spec.StorageClassName = new("testsc456")
 				pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
 				addDataVolumePVC(pvc)
 
@@ -656,7 +655,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testsc123",
 					},
-					VolumeBindingMode: pointer.P(storagev1.VolumeBindingImmediate),
+					VolumeBindingMode: new(storagev1.VolumeBindingImmediate),
 				}
 				sp := &cdiv1.StorageProfile{
 					ObjectMeta: metav1.ObjectMeta{
@@ -664,13 +663,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 					Spec: cdiv1.StorageProfileSpec{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
-							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: new(k8sv1.PersistentVolumeFilesystem)},
 						},
 					},
 					Status: cdiv1.StorageProfileStatus{
-						StorageClass: pointer.P(sc.Name),
+						StorageClass: new(sc.Name),
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
-							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: new(k8sv1.PersistentVolumeFilesystem)},
 						},
 					},
 				}
@@ -696,7 +695,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 						Bootloader: &virtv1.Bootloader{
 							EFI: &virtv1.EFI{
-								Persistent: pointer.P(true),
+								Persistent: new(true),
 							},
 						},
 					}
@@ -744,7 +743,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", new(true))
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
@@ -765,7 +764,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
@@ -806,7 +805,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "test1",
 			})
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
@@ -839,7 +838,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Succeeded)
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimBound
 			addVirtualMachine(vmi)
 			addDataVolumePVC(dvPVC)
@@ -862,7 +861,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", "test1", new(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.Pending)
 
@@ -1097,7 +1096,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 
 			vmi.Status.Phase = phase
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 
 			if vmi.IsRunning() {
 				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
@@ -1160,7 +1159,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 
 			vmi.Status.Phase = virtv1.Failed
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 
 			finalizedPod := newPodForVirtualMachine(vmi, k8sv1.PodSucceeded)
 			finalizedPod.UID = "finalized-123"
@@ -1182,7 +1181,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 
 			vmi.Status.Phase = virtv1.Scheduling
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -1195,7 +1194,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectPodDoesNotExist(pod.Namespace, pod.Name)
 
 			modifiedPod := pod.DeepCopy()
-			modifiedPod.DeletionTimestamp = pointer.P(metav1.Now())
+			modifiedPod.DeletionTimestamp = new(metav1.Now())
 
 			key, err := kvcontroller.KeyFunc(vmi)
 			Expect(err).To(Not(HaveOccurred()))
@@ -1498,7 +1497,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		It("should move the vmi to failed state if the vmi is pending, no pod exists yet and gets deleted", func() {
 			vmi := newPendingVirtualMachine("testvmi")
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 
 			addVirtualMachine(vmi)
 
@@ -1657,7 +1656,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("should set an error condition if deleting the virtual machine pod fails", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			// Expect pod delete
@@ -2026,7 +2025,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.Conditions = nil
 			vmi.Status.Phase = virtv1.Running
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.DeletionTimestamp = pointer.P(metav1.Now())
+			pod.DeletionTimestamp = new(metav1.Now())
 			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 
 			addVirtualMachine(vmi)
@@ -3280,7 +3279,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		makePodsWithDeletion := func(indexes ...int) []*k8sv1.Pod {
 			attachmentPods := makePods(indexes...)
 			for _, pod := range attachmentPods {
-				pod.DeletionTimestamp = pointer.P(metav1.Now())
+				pod.DeletionTimestamp = new(metav1.Now())
 			}
 			return attachmentPods
 		}
@@ -3540,7 +3539,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadOnlyMany,
 						},
-						FilesystemOverhead: pointer.P(storagetypes.DefaultFSOverhead),
+						FilesystemOverhead: new(storagetypes.DefaultFSOverhead),
 					},
 				})
 			}
@@ -3575,7 +3574,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			attachmentPods := makePodWithVirtlauncher(virtlauncherPod, podIndexes...)
 
 			for _, pod := range attachmentPods {
-				pod.DeletionTimestamp = pointer.P(metav1.Now())
+				pod.DeletionTimestamp = new(metav1.Now())
 				Expect(controller.podIndexer.Add(pod)).To(Succeed())
 			}
 			for _, pvcIndex := range pvcIndexes {
@@ -4240,7 +4239,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "existing",
-						FilesystemOverhead: pointer.P(virtv1.Percent("0.055")),
+						FilesystemOverhead: new(virtv1.Percent("0.055")),
 					},
 				},
 				{
@@ -4251,7 +4250,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Message: "PVC is in phase Bound",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "hotplug",
-						FilesystemOverhead: pointer.P(virtv1.Percent("0.055")),
+						FilesystemOverhead: new(virtv1.Percent("0.055")),
 					},
 					HotplugVolume: &virtv1.HotplugVolumeStatus{},
 				},
@@ -4349,7 +4348,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "existing",
-						FilesystemOverhead: pointer.P(virtv1.Percent("0.055"))},
+						FilesystemOverhead: new(virtv1.Percent("0.055"))},
 				},
 				{
 					Name:   "hotplug",
@@ -4616,7 +4615,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.Features = &virtv1.Features{
 				Hyperv: &virtv1.FeatureHyperv{
-					Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
+					Reenlightenment: &virtv1.FeatureState{Enabled: new(true)},
 				},
 			}
 
@@ -4919,7 +4918,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 			vmi.Status.Phase = virtv1.Scheduling
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = new(true)
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -4937,7 +4936,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.cidsMap = alc
 
 			vmi := newPendingVirtualMachine("testvmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = new(true)
 			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
 			vmi.Status.Phase = virtv1.Succeeded
 			addVirtualMachine(vmi)
@@ -5544,7 +5543,7 @@ func newHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhas
 					APIVersion: "v1alpha1",
 					Kind:       "DataVolume",
 					Name:       name,
-					Controller: pointer.P(true),
+					Controller: new(true),
 				},
 			},
 		},
@@ -5570,7 +5569,7 @@ func newPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 					Name:       virtlauncher.Name,
 					Kind:       "Pod",
 					APIVersion: "v1",
-					Controller: pointer.P(true),
+					Controller: new(true),
 					UID:        virtlauncher.UID,
 				},
 			},

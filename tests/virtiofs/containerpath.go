@@ -37,7 +37,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -345,7 +344,7 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 		},
 		Spec: k8sv1.PodSpec{
 			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsNonRoot: pointer.P(true),
+				RunAsNonRoot: new(true),
 				SeccompProfile: &k8sv1.SeccompProfile{
 					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 				},
@@ -366,11 +365,11 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 					ReadOnly:  true,
 				}},
 				SecurityContext: &k8sv1.SecurityContext{
-					AllowPrivilegeEscalation: pointer.P(false),
+					AllowPrivilegeEscalation: new(false),
 					Capabilities: &k8sv1.Capabilities{
 						Drop: []k8sv1.Capability{"ALL"},
 					},
-					RunAsNonRoot: pointer.P(true),
+					RunAsNonRoot: new(true),
 					SeccompProfile: &k8sv1.SeccompProfile{
 						Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 					},
@@ -466,8 +465,8 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 				Service: &admissionregistrationv1.ServiceReference{
 					Namespace: testNamespace,
 					Name:      webhookName,
-					Path:      pointer.P("/mutate"),
-					Port:      pointer.P(webhookPort),
+					Path:      new("/mutate"),
+					Port:      new(webhookPort),
 				},
 			},
 			Rules: []admissionregistrationv1.RuleWithOperations{{

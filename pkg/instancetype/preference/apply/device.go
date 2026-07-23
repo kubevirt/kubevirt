@@ -22,8 +22,6 @@ package apply
 import (
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 type field struct {
@@ -44,7 +42,7 @@ func ApplyAutoAttachPreferences(preferenceSpec *v1beta1.VirtualMachinePreference
 	}
 	for _, field := range autoAttachFields {
 		if field.preference != nil && *field.vmi == nil {
-			*field.vmi = pointer.P(*field.preference)
+			*field.vmi = new(*field.preference)
 		}
 	}
 }
@@ -60,15 +58,15 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	// 2. The user hasn't defined the corresponding attribute already within the VMI
 	//
 	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
-		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.P(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
+		vmiSpec.Domain.Devices.UseVirtioTransitional = new(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
 	}
 
 	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
-		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredBlockMultiQueue)
+		vmiSpec.Domain.Devices.BlockMultiQueue = new(*preferenceSpec.Devices.PreferredBlockMultiQueue)
 	}
 
 	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
-		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
+		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = new(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
 	}
 
 	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.

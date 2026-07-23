@@ -43,7 +43,6 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -410,11 +409,11 @@ func setEndTimestamp(metadataCache *metadata.Cache) {
 	migrationMetadata, exists := metadataCache.Migration.Load()
 	if exists && migrationMetadata.EndTimestamp == nil {
 		metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
-			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
+			migrationMetadata.EndTimestamp = new(metav1.Now())
 		})
 	} else if !exists {
 		migrationMetadata = api.MigrationMetadata{
-			EndTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp: new(metav1.Now()),
 		}
 		metadataCache.Migration.Store(migrationMetadata)
 	}

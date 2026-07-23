@@ -20,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 // WithUefi configures EFI bootloader and SecureBoot.
@@ -36,7 +34,7 @@ func WithUefi(secureBoot bool) Option {
 		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 		}
-		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(secureBoot)
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = new(secureBoot)
 		// secureBoot Requires SMM to be enabled
 		if secureBoot {
 			if vmi.Spec.Domain.Features == nil {
@@ -45,7 +43,7 @@ func WithUefi(secureBoot bool) Option {
 			if vmi.Spec.Domain.Features.SMM == nil {
 				vmi.Spec.Domain.Features.SMM = &v1.FeatureState{}
 			}
-			vmi.Spec.Domain.Features.SMM.Enabled = pointer.P(secureBoot)
+			vmi.Spec.Domain.Features.SMM.Enabled = new(secureBoot)
 		}
 	}
 }

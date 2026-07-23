@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/tpm:go_default_library",
@@ -39,7 +38,6 @@ go_test(
     race = "on",
     deps = [
         "//pkg/libvmi:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",

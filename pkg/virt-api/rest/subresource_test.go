@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -93,7 +92,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 	var migrateClient *kubecli.MockVirtualMachineInstanceMigrationInterface
 
-	gracePeriodZero := pointer.P(int64(0))
+	gracePeriodZero := new(int64(0))
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -308,9 +307,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 				Expect(status.Error()).To(ContainSubstring(errMsg))
 			},
-				Entry("with Running field", "RunStategy Halted does not support manual restart requests", pointer.P(NotRunning), nil),
-				Entry("with RunStrategyHalted", "RunStategy Halted does not support manual restart requests", nil, pointer.P(v1.RunStrategyHalted)),
-				Entry("with RunStrategyManual", "VM is not running: Halted", nil, pointer.P(v1.RunStrategyManual)),
+				Entry("with Running field", "RunStategy Halted does not support manual restart requests", new(NotRunning), nil),
+				Entry("with RunStrategyHalted", "RunStategy Halted does not support manual restart requests", nil, new(v1.RunStrategyHalted)),
+				Entry("with RunStrategyManual", "VM is not running: Halted", nil, new(v1.RunStrategyManual)),
 			)
 
 			DescribeTable("should ForceRestart VirtualMachine according to options", func(terminationGracePeriod *int64, restartOptions *v1.RestartOptions) {
@@ -320,7 +319,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vm := newVirtualMachineWithRunning(new(Running))
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Name:      testVMName,
@@ -363,9 +362,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				Entry("with non-nil terminationGracePeriod", pointer.P(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
+				Entry("with non-nil terminationGracePeriod", new(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
 				Entry("with nil terminationGracePeriod", nil, &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
-				Entry("with dry-run option", pointer.P(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero, DryRun: withDryRun()}),
+				Entry("with dry-run option", new(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero, DryRun: withDryRun()}),
 			)
 
 			It("should return error when VMI terminationGracePeriod patch fails during ForceRestart", func() {
@@ -376,7 +375,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vm := newVirtualMachineWithRunning(new(Running))
 				var terminationGracePeriodSeconds int64 = 600
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -406,7 +405,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vm := newVirtualMachineWithRunning(new(Running))
 				var terminationGracePeriodSeconds int64 = 600
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -445,7 +444,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vm := newVirtualMachineWithRunning(new(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
@@ -466,7 +465,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vm := newVirtualMachineWithRunning(new(Running))
 				vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -504,7 +503,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(stopOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vm := newVirtualMachineWithRunning(new(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -807,11 +806,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			}
 		},
-			Entry("fail with nil graceperiod", pointer.P(int64(1800)), nil, true),
-			Entry("fail with equal graceperiod", pointer.P(int64(1800)), pointer.P(int64(1800)), true),
-			Entry("fail with greater graceperiod", pointer.P(int64(1800)), pointer.P(int64(2400)), true),
-			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, pointer.P(int64(1800)), false),
-			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", pointer.P(int64(1800)), pointer.P(int64(800)), false),
+			Entry("fail with nil graceperiod", new(int64(1800)), nil, true),
+			Entry("fail with equal graceperiod", new(int64(1800)), new(int64(1800)), true),
+			Entry("fail with greater graceperiod", new(int64(1800)), new(int64(2400)), true),
+			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, new(int64(1800)), false),
+			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", new(int64(1800)), new(int64(800)), false),
 		)
 
 		DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -1387,7 +1386,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			expectVMI(running, paused)
 
-			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vm := newVirtualMachineWithRunning(new(Running))
 			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
@@ -1410,7 +1409,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = testVMIName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vm := newVirtualMachineWithRunning(new(Running))
 			vm.Status.SnapshotInProgress = &[]string{"test-snapshot"}[0]
 
 			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -1436,7 +1435,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 			expectVMI(Running, Paused)
-			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vm := newVirtualMachineWithRunning(new(Running))
 			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
@@ -1469,7 +1468,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Namespace: k8smetav1.NamespaceDefault,
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running:  pointer.P(NotRunning),
+					Running:  new(NotRunning),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
 				},
 			}

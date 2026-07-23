@@ -39,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -64,7 +63,7 @@ var _ = Describe("VMBackupController", func() {
 			Entry("needs redefinition when all conditions met",
 				&backupv1.VirtualMachineBackupTracker{
 					Status: &backupv1.VirtualMachineBackupTrackerStatus{
-						CheckpointRedefinitionRequired: pointer.P(true),
+						CheckpointRedefinitionRequired: new(true),
 						LatestCheckpoint: &backupv1.BackupCheckpoint{
 							Name: "checkpoint-1",
 						},
@@ -96,7 +95,7 @@ var _ = Describe("VMBackupController", func() {
 			Entry("does not need redefinition when flag is false",
 				&backupv1.VirtualMachineBackupTracker{
 					Status: &backupv1.VirtualMachineBackupTrackerStatus{
-						CheckpointRedefinitionRequired: pointer.P(false),
+						CheckpointRedefinitionRequired: new(false),
 						LatestCheckpoint: &backupv1.BackupCheckpoint{
 							Name: "checkpoint-1",
 						},
@@ -107,7 +106,7 @@ var _ = Describe("VMBackupController", func() {
 			Entry("does not need redefinition when checkpoint is nil",
 				&backupv1.VirtualMachineBackupTracker{
 					Status: &backupv1.VirtualMachineBackupTrackerStatus{
-						CheckpointRedefinitionRequired: pointer.P(true),
+						CheckpointRedefinitionRequired: new(true),
 						LatestCheckpoint:               nil,
 					},
 				},
@@ -116,7 +115,7 @@ var _ = Describe("VMBackupController", func() {
 			Entry("does not need redefinition when checkpoint name is empty",
 				&backupv1.VirtualMachineBackupTracker{
 					Status: &backupv1.VirtualMachineBackupTrackerStatus{
-						CheckpointRedefinitionRequired: pointer.P(true),
+						CheckpointRedefinitionRequired: new(true),
 						LatestCheckpoint: &backupv1.BackupCheckpoint{
 							Name: "",
 						},
@@ -418,7 +417,7 @@ func createTracker(name, vmName string, hasCheckpoint bool, redefinitionRequired
 		},
 		Spec: backupv1.VirtualMachineBackupTrackerSpec{
 			Source: corev1.TypedLocalObjectReference{
-				APIGroup: pointer.P("kubevirt.io"),
+				APIGroup: new("kubevirt.io"),
 				Kind:     "VirtualMachine",
 				Name:     vmName,
 			},
@@ -429,7 +428,7 @@ func createTracker(name, vmName string, hasCheckpoint bool, redefinitionRequired
 			LatestCheckpoint: &backupv1.BackupCheckpoint{
 				Name: "checkpoint-1",
 			},
-			CheckpointRedefinitionRequired: pointer.P(redefinitionRequired),
+			CheckpointRedefinitionRequired: new(redefinitionRequired),
 		}
 	}
 	return tracker

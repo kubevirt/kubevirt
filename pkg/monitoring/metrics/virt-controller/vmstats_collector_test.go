@@ -34,7 +34,6 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -625,7 +624,7 @@ var _ = Describe("VM Stats Collector", func() {
 		}
 
 		It("should collect PVC size metrics correctly", func() {
-			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), new(k8sv1.PersistentVolumeFilesystem))
 			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -709,7 +708,7 @@ var _ = Describe("VM Stats Collector", func() {
 		})
 
 		It("should prioritize DataVolume template size over PVC size", func() {
-			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), new(k8sv1.PersistentVolumeFilesystem))
 			err := stores.PersistentVolumeClaim.Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 

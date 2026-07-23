@@ -30,7 +30,6 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -55,7 +54,7 @@ const (
 )
 
 var (
-	ipDisabled = nmstate.IP{Enabled: pointer.P(false)}
+	ipDisabled = nmstate.IP{Enabled: new(false)}
 )
 
 var _ = Describe("netpod", func() {
@@ -198,14 +197,14 @@ var _ = Describe("netpod", func() {
 				MacAddress: "12:34:56:78:90:ab",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv6Address,
 						PrefixLen: 64,
@@ -238,14 +237,14 @@ var _ = Describe("netpod", func() {
 						MacAddress: "02:00:00:00:00:00",
 						MTU:        1500,
 						IPv4: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 						},
 						IPv6: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 						},
-						LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
+						LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: new(true)},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
@@ -259,8 +258,8 @@ var _ = Describe("netpod", func() {
 					},
 				},
 				LinuxStack: nmstate.LinuxStack{
-					IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
-					IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+					IPv4: nmstate.LinuxStackIP4{Forwarding: new(true)},
+					IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 				},
 			}),
 		)
@@ -289,14 +288,14 @@ var _ = Describe("netpod", func() {
 				MacAddress: podIfaceOrignalMAC,
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv6Address,
 						PrefixLen: 64,
@@ -354,7 +353,7 @@ var _ = Describe("netpod", func() {
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
 						IPv4: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{IP: "169.254.75.10", PrefixLen: 32}},
 						},
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
@@ -367,7 +366,7 @@ var _ = Describe("netpod", func() {
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
-						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
@@ -385,14 +384,14 @@ var _ = Describe("netpod", func() {
 						MacAddress: podIfaceOrignalMAC,
 						MTU:        1500,
 						IPv4: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        primaryIPv4Address,
 								PrefixLen: 30,
 							}},
 						},
 						IPv6: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        primaryIPv6Address,
 								PrefixLen: 64,
@@ -402,7 +401,7 @@ var _ = Describe("netpod", func() {
 					},
 				},
 				LinuxStack: nmstate.LinuxStack{IPv4: nmstate.LinuxStackIP4{
-					ArpIgnore: pointer.P(procsys.ARPReplyMode1),
+					ArpIgnore: new(procsys.ARPReplyMode1),
 				}},
 			}),
 		)
@@ -438,14 +437,14 @@ var _ = Describe("netpod", func() {
 				MacAddress: podIfaceOrignalMAC,
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv6Address,
 						PrefixLen: 64,
@@ -507,7 +506,7 @@ var _ = Describe("netpod", func() {
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
 						IPv4: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{IP: "169.254.75.10", PrefixLen: 32}},
 						},
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
@@ -520,7 +519,7 @@ var _ = Describe("netpod", func() {
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
-						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
@@ -538,14 +537,14 @@ var _ = Describe("netpod", func() {
 						MacAddress: podIfaceOrignalMAC,
 						MTU:        1500,
 						IPv4: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        primaryIPv4Address,
 								PrefixLen: 30,
 							}},
 						},
 						IPv6: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        primaryIPv6Address,
 								PrefixLen: 64,
@@ -555,7 +554,7 @@ var _ = Describe("netpod", func() {
 					},
 				},
 				LinuxStack: nmstate.LinuxStack{IPv4: nmstate.LinuxStackIP4{
-					ArpIgnore: pointer.P(procsys.ARPReplyMode1),
+					ArpIgnore: new(procsys.ARPReplyMode1),
 				}},
 			}),
 		)
@@ -589,7 +588,7 @@ var _ = Describe("netpod", func() {
 				MTU:        1500,
 				IPv4:       ipDisabled,
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        linklocalIPv6Address,
 						PrefixLen: 64,
@@ -626,7 +625,7 @@ var _ = Describe("netpod", func() {
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
-						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
@@ -645,7 +644,7 @@ var _ = Describe("netpod", func() {
 						MTU:        1500,
 						IPv4:       ipDisabled,
 						IPv6: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        linklocalIPv6Address,
 								PrefixLen: 64,
@@ -687,7 +686,7 @@ var _ = Describe("netpod", func() {
 				LinuxStack: nmstate.LinuxStack{
 					IPv4: nmstate.LinuxStackIP4{
 						PingGroupRange:        []int{107, 107},
-						UnprivilegedPortStart: pointer.P(0),
+						UnprivilegedPortStart: new(0),
 					},
 				},
 			}),
@@ -726,14 +725,14 @@ var _ = Describe("netpod", func() {
 						MacAddress: "12:34:56:78:90:ab",
 						MTU:        1500,
 						IPv4: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        primaryIPv4Address,
 								PrefixLen: 30,
 							}},
 						},
 						IPv6: nmstate.IP{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							Address: []nmstate.IPAddress{{
 								IP:        primaryIPv6Address,
 								PrefixLen: 64,
@@ -797,14 +796,14 @@ var _ = Describe("netpod", func() {
 					MacAddress: "02:00:00:00:00:00",
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 					},
-					LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
+					LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: new(true)},
 					Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				{
@@ -822,8 +821,8 @@ var _ = Describe("netpod", func() {
 					nmstate.Spec{
 						Interfaces: expectedPrimaryNetIfaces,
 						LinuxStack: nmstate.LinuxStack{
-							IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
-							IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+							IPv4: nmstate.LinuxStackIP4{Forwarding: new(true)},
+							IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 						},
 					},
 				))
@@ -859,7 +858,7 @@ var _ = Describe("netpod", func() {
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
-							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
@@ -882,8 +881,8 @@ var _ = Describe("netpod", func() {
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{
-						IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
-						IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+						IPv4: nmstate.LinuxStackIP4{Forwarding: new(true)},
+						IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 					},
 				}),
 			)
@@ -925,14 +924,14 @@ var _ = Describe("netpod", func() {
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
 							IPv4: nmstate.IP{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 								Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 							},
 							IPv6: nmstate.IP{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 								Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 							},
-							LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
+							LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: new(true)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
@@ -972,8 +971,8 @@ var _ = Describe("netpod", func() {
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{
-						IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
-						IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+						IPv4: nmstate.LinuxStackIP4{Forwarding: new(true)},
+						IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 					},
 				}),
 			)
@@ -1004,14 +1003,14 @@ var _ = Describe("netpod", func() {
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
 							IPv4: nmstate.IP{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 								Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 							},
 							IPv6: nmstate.IP{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 								Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
 							},
-							LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: pointer.P(true)},
+							LinuxStack: nmstate.LinuxIfaceStack{IP4RouteLocalNet: new(true)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
@@ -1038,7 +1037,7 @@ var _ = Describe("netpod", func() {
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
-							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
@@ -1061,8 +1060,8 @@ var _ = Describe("netpod", func() {
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{
-						IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
-						IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+						IPv4: nmstate.LinuxStackIP4{Forwarding: new(true)},
+						IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 					},
 				}),
 			)
@@ -1101,7 +1100,7 @@ var _ = Describe("netpod", func() {
 				MacAddress: "12:34:56:78:90:ab",
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv4Address,
 						PrefixLen: 30,
@@ -1154,14 +1153,14 @@ var _ = Describe("netpod", func() {
 				MacAddress: podIfaceNewMAC,
 				MTU:        1500,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 					Address: []nmstate.IPAddress{{
 						IP:        primaryIPv6Address,
 						PrefixLen: 64,
@@ -1334,8 +1333,8 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+							IPv4:       nmstate.IP{Enabled: new(false)},
+							IPv6:       nmstate.IP{Enabled: new(false)},
 							LinuxStack: nmstate.LinuxIfaceStack{},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
@@ -1386,7 +1385,7 @@ var _ = Describe("netpod", func() {
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
-							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
@@ -1440,8 +1439,8 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+							IPv4:       nmstate.IP{Enabled: new(false)},
+							IPv6:       nmstate.IP{Enabled: new(false)},
 							LinuxStack: nmstate.LinuxIfaceStack{},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
@@ -1544,8 +1543,8 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+							IPv4:       nmstate.IP{Enabled: new(false)},
+							IPv6:       nmstate.IP{Enabled: new(false)},
 							LinuxStack: nmstate.LinuxIfaceStack{},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
@@ -1572,7 +1571,7 @@ var _ = Describe("netpod", func() {
 							State:       nmstate.IfaceStateUp,
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
-							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
@@ -1734,8 +1733,8 @@ var _ = Describe("netpod", func() {
 						State:      nmstate.IfaceStateUp,
 						MacAddress: "02:00:00:00:00:00",
 						MTU:        1500,
-						IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-						IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+						IPv4:       nmstate.IP{Enabled: new(false)},
+						IPv6:       nmstate.IP{Enabled: new(false)},
 						LinuxStack: nmstate.LinuxIfaceStack{},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
@@ -1762,7 +1761,7 @@ var _ = Describe("netpod", func() {
 						State:       nmstate.IfaceStateUp,
 						IPv4:        ipDisabled,
 						IPv6:        ipDisabled,
-						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					{
@@ -1850,14 +1849,14 @@ var _ = Describe("netpod", func() {
 					MacAddress: podIfaceOrignalMAC,
 					MTU:        1500,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        primaryIPv6Address,
 							PrefixLen: 64,
@@ -1895,7 +1894,7 @@ var _ = Describe("netpod", func() {
 							Controller:  "k6t-eth0",
 							IPv4:        ipDisabled,
 							IPv6:        ipDisabled,
-							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 						{
@@ -1913,18 +1912,18 @@ var _ = Describe("netpod", func() {
 							MacAddress: podIfaceOrignalMAC,
 							MTU:        1500,
 							IPv4: nmstate.IP{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 								Address: []nmstate.IPAddress{{IP: primaryIPv4Address, PrefixLen: 30}},
 							},
 							IPv6: nmstate.IP{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 								Address: []nmstate.IPAddress{{IP: primaryIPv6Address, PrefixLen: 64}},
 							},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{IPv4: nmstate.LinuxStackIP4{
-						ArpIgnore: pointer.P(procsys.ARPReplyMode1),
+						ArpIgnore: new(procsys.ARPReplyMode1),
 					}},
 				},
 			))

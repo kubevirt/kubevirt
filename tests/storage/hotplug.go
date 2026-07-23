@@ -39,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -1846,7 +1845,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					Name: claimName,
 				},
 			}, false, false, "")
-			avr.Disk.DedicatedIOThread = pointer.P(true)
+			avr.Disk.DedicatedIOThread = new(true)
 
 			addVolumeVMWithSource(name, namespace, avr)
 		}
@@ -2218,7 +2217,7 @@ func deleteAttachmentPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachi
 	Expect(podName).ToNot(BeEmpty(), "attachment pod name should not be empty for VMI %s/%s", vmi.Namespace, vmi.Name)
 	foreGround := metav1.DeletePropagationForeground
 	err := virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
-		GracePeriodSeconds: pointer.P(int64(0)),
+		GracePeriodSeconds: new(int64(0)),
 		PropagationPolicy:  &foreGround,
 	})
 	Expect(err).ToNot(HaveOccurred(), "failed to delete attachment pod %s in namespace %s", podName, vmi.Namespace)

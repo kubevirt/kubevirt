@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
@@ -50,7 +49,7 @@ var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
 
 	It("should apply to VMI", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredTerminationGracePeriodSeconds: pointer.P(int64(180)),
+			PreferredTerminationGracePeriodSeconds: new(int64(180)),
 		}
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 		Expect(vmi.Spec.TerminationGracePeriodSeconds).To(HaveValue(Equal(*preferenceSpec.PreferredTerminationGracePeriodSeconds)))
@@ -58,9 +57,9 @@ var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
 
 	It("should not overwrite user defined value", func() {
 		const userDefinedValue = int64(100)
-		vmi.Spec.TerminationGracePeriodSeconds = pointer.P(userDefinedValue)
+		vmi.Spec.TerminationGracePeriodSeconds = new(userDefinedValue)
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredTerminationGracePeriodSeconds: pointer.P(int64(180)),
+			PreferredTerminationGracePeriodSeconds: new(int64(180)),
 		}
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 		Expect(vmi.Spec.TerminationGracePeriodSeconds).To(HaveValue(Equal(userDefinedValue)))

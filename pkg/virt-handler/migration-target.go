@@ -56,7 +56,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -355,7 +354,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		// record the moment we detected the domain is running.
 		// This is used as a trigger to help coordinate when CNI drivers
 		// fail over the IP to the new pod.
-		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = pointer.P(metav1.Now())
+		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = new(metav1.Now())
 		if vmi.Status.MigrationState.TargetState != nil {
 			vmi.Status.MigrationState.TargetState.DomainReadyTimestamp = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp
 		}
@@ -418,7 +417,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		vmi.Status.MigrationState.TargetNodeAddress = c.migrationIpAddress
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 		if vmi.Status.MigrationState.TargetState != nil {
-			vmi.Status.MigrationState.TargetState.NodeAddress = pointer.P(c.migrationIpAddress)
+			vmi.Status.MigrationState.TargetState.NodeAddress = new(c.migrationIpAddress)
 			vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts = destSrcPortsMap
 		}
 	}

@@ -51,7 +51,6 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -362,14 +361,14 @@ var _ = Describe("Template", func() {
 		It("should set seccomp profile when configured", func() {
 			expectedProfile := &k8sv1.SeccompProfile{
 				Type:             k8sv1.SeccompProfileTypeLocalhost,
-				LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
+				LocalhostProfile: new("kubevirt/kubevirt.json"),
 			}
 			_, kvStore, svc = configFactory(defaultArch)
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
 				VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
+						LocalhostProfile: new("kubevirt/kubevirt.json"),
 					},
 				},
 			}
@@ -1386,7 +1385,7 @@ var _ = Describe("Template", func() {
 					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 						SEV: &v1.SEV{
 							Policy: &v1.SEVPolicy{
-								EncryptedState: pointer.P(true),
+								EncryptedState: new(true),
 							},
 						},
 					}
@@ -1421,7 +1420,7 @@ var _ = Describe("Template", func() {
 				},
 					Entry("when no SEV policy is set", &v1.SEVPolicy{}),
 					Entry("when no SEV-ES policy bit is set", &v1.SEVPolicy{EncryptedState: nil}),
-					Entry("when SEV-ES policy bit is set to false", &v1.SEVPolicy{EncryptedState: pointer.P(false)}),
+					Entry("when SEV-ES policy bit is set to false", &v1.SEVPolicy{EncryptedState: new(false)}),
 				)
 
 				It("should not add SEV-SNP node label selector when no SEV-SNP workload", func() {
@@ -1569,19 +1568,19 @@ var _ = Describe("Template", func() {
 							Features: &v1.Features{
 								Hyperv: &v1.FeatureHyperv{
 									SyNIC: &v1.FeatureState{
-										Enabled: pointer.P(true),
+										Enabled: new(true),
 									},
 									SyNICTimer: &v1.SyNICTimer{
-										FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
+										FeatureState: v1.FeatureState{Enabled: new(true)},
 									},
 									Frequencies: &v1.FeatureState{
-										Enabled: pointer.P(true),
+										Enabled: new(true),
 									},
 									IPI: &v1.FeatureState{
-										Enabled: pointer.P(true),
+										Enabled: new(true),
 									},
 									EVMCS: &v1.FeatureState{
-										Enabled: pointer.P(EVMCSEnabled),
+										Enabled: new(EVMCSEnabled),
 									},
 								},
 							},
@@ -1650,7 +1649,7 @@ var _ = Describe("Template", func() {
 
 			Context("TSC frequency label", func() {
 				var noHints, validHints *v1.TopologyHints
-				validHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(123123))}
+				validHints = &v1.TopologyHints{TSCFrequency: new(int64(123123))}
 
 				setVmWithTscRequirementType := func(vmi *v1.VirtualMachineInstance, tscRequirementType topology.TscFrequencyRequirementType) {
 					switch tscRequirementType {
@@ -1668,7 +1667,7 @@ var _ = Describe("Template", func() {
 						vmi.Spec.Domain.Features = &v1.Features{
 							Hyperv: &v1.FeatureHyperv{
 								Reenlightenment: &v1.FeatureState{
-									Enabled: pointer.P(true),
+									Enabled: new(true),
 								},
 							},
 						}
@@ -2342,11 +2341,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
 				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 362),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 362),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 329),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", new(true), 362),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", new(false), 329),
 				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 497),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 497),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 463),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", new(true), 497),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", new(false), 463),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvStore, svc = configFactory(defaultArch)
@@ -2498,7 +2497,7 @@ var _ = Describe("Template", func() {
 				}
 				setGuestMemory := func(vmi *v1.VirtualMachineInstance) {
 					By("Setting guest memory")
-					vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("1Gi"))}
+					vmi.Spec.Domain.Memory = &v1.Memory{Guest: new(resource.MustParse("1Gi"))}
 				}
 				setHugePagesMemory := func(vmi *v1.VirtualMachineInstance) {
 					By("Setting huge page memory")
@@ -4658,7 +4657,7 @@ var _ = Describe("Template", func() {
 				return api.NewMinimalVMI("fake-vmi")
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
-				FSGroup:   pointer.P(int64(util.NonRootUID)),
+				FSGroup:   new(int64(util.NonRootUID)),
 			}),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
@@ -4667,7 +4666,7 @@ var _ = Describe("Template", func() {
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.P(true),
+				RunAsNonRoot: new(true),
 				FSGroup:      &nonRootUser,
 			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
@@ -4681,7 +4680,7 @@ var _ = Describe("Template", func() {
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.P(true),
+				RunAsNonRoot: new(true),
 				FSGroup:      &nonRootUser,
 			}),
 		)
@@ -4698,8 +4697,8 @@ var _ = Describe("Template", func() {
 
 			runUser := int64(util.NonRootUID)
 			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(k8sv1.SecurityContext{
-				AllowPrivilegeEscalation: pointer.P(false),
-				RunAsNonRoot:             pointer.P(true),
+				AllowPrivilegeEscalation: new(false),
+				RunAsNonRoot:             new(true),
 				RunAsUser:                &runUser,
 				SeccompProfile: &k8sv1.SeccompProfile{
 					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -4903,8 +4902,8 @@ var _ = Describe("Template", func() {
 
 			runUser := int64(util.NonRootUID)
 			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(k8sv1.SecurityContext{
-				AllowPrivilegeEscalation: pointer.P(false),
-				RunAsNonRoot:             pointer.P(true),
+				AllowPrivilegeEscalation: new(false),
+				RunAsNonRoot:             new(true),
 				RunAsUser:                &runUser,
 				SeccompProfile: &k8sv1.SeccompProfile{
 					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -5136,7 +5135,7 @@ var _ = Describe("Template", func() {
 						VolumeSource: k8sv1.VolumeSource{
 							ConfigMap: &k8sv1.ConfigMapVolumeSource{
 								LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-cm"},
-								DefaultMode:          pointer.P(int32(0755)),
+								DefaultMode:          new(int32(0755)),
 							},
 						},
 					}))
@@ -5270,7 +5269,7 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := api.NewMinimalVMI(vmiName)
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-					Persistent: pointer.P(true),
+					Persistent: new(true),
 				}
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -5293,7 +5292,7 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := api.NewMinimalVMI(vmiName)
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-					Persistent: pointer.P(true),
+					Persistent: new(true),
 				}
 				pod, err := svc.RenderMigrationManifest(vmi, migration, &k8sv1.Pod{})
 				Expect(err).ToNot(HaveOccurred())
@@ -5310,7 +5309,7 @@ var _ = Describe("Template", func() {
 						Namespace: metav1.NamespaceDefault,
 					},
 					Spec: k8sv1.PersistentVolumeClaimSpec{
-						VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+						VolumeMode:  new(k8sv1.PersistentVolumeFilesystem),
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 					},
 				}
@@ -5521,7 +5520,7 @@ var _ = Describe("Template", func() {
 	Context("with VSOCK enabled", func() {
 		It("should add VSOCK device to resources", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = new(true)
 
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -5950,7 +5949,7 @@ var _ = Describe("Template", func() {
 			Expect(pod).ToNot(BeNil())
 			containGCL := ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Name":            Equal("guest-console-log"),
-				"RestartPolicy":   Equal(pointer.P(k8sv1.ContainerRestartPolicyAlways)),
+				"RestartPolicy":   Equal(new(k8sv1.ContainerRestartPolicyAlways)),
 				"ImagePullPolicy": Equal(config.GetImagePullPolicy()),
 			}))
 			if expected {

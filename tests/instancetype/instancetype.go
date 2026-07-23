@@ -15,7 +15,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -133,7 +132,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			clusterPreference := builder.NewClusterPreference()
 			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+				PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 			}
 
 			clusterPreference, err = virtClient.VirtualMachineClusterPreference().
@@ -166,7 +165,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			preference := builder.NewPreference()
 			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+				PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 			}
 			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 				PreferredDiskBus: virtv1.DiskBusSATA,
@@ -174,18 +173,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preference.Spec.Features = &instancetypev1beta1.FeaturePreferences{
 				PreferredHyperv: &virtv1.FeatureHyperv{
 					VAPIC: &virtv1.FeatureState{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 					Relaxed: &virtv1.FeatureState{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 				},
 			}
 			preference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
-				PreferredUseBios: pointer.P(true),
+				PreferredUseBios: new(true),
 			}
-			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.P(int64(preferredTerminationGracePeriodSeconds))
-			preference.Spec.PreferredSubdomain = pointer.P("non-existent-subdomain")
+			preference.Spec.PreferredTerminationGracePeriodSeconds = new(int64(preferredTerminationGracePeriodSeconds))
+			preference.Spec.PreferredSubdomain = new("non-existent-subdomain")
 			preference.Spec.Annotations = map[string]string{
 				"preferred-annotation-1": "1",
 				"preferred-annotation-2": "use-vm-value",
@@ -305,7 +304,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi := libvmifact.NewGuestless()
 
 			clusterInstancetype := builder.NewClusterInstancetypeFromVMI(vmi)
-			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
+			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = new(true)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

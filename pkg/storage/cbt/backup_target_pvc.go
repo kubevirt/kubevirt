@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
@@ -121,7 +120,7 @@ func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInst
 		PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 			ClaimName: pvcName,
 		},
-		Type: pointer.P(v1.Backup),
+		Type: new(v1.Backup),
 	}
 
 	patchSet := patch.New(

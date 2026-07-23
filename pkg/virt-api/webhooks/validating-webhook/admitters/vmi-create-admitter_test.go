@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -174,7 +173,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			v1.Clock{
 				ClockOffset: v1.ClockOffset{
 					UTC: &v1.ClockOffsetUTC{
-						OffsetSeconds: pointer.P(offsetSeconds),
+						OffsetSeconds: new(offsetSeconds),
 					},
 				},
 			},
@@ -831,7 +830,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept correct cpu size values even if vmRolloutStrategy is set to Stage", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			kvConfig.Spec.Configuration.VMRolloutStrategy = new(v1.VMRolloutStrategyStage)
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			vm := api.NewMinimalVMI("testvm")
@@ -900,7 +899,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept correct memory size values even if vmRolloutStrategy is set to Stage", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			kvConfig.Spec.Configuration.VMRolloutStrategy = new(v1.VMRolloutStrategyStage)
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			vm := api.NewMinimalVMI("testvm")
@@ -942,7 +941,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject greater hugepages.size than guest memory", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{
-				Guest:     pointer.P(resource.MustParse("64Mi")),
+				Guest:     new(resource.MustParse("64Mi")),
 				Hugepages: &v1.Hugepages{},
 			}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
@@ -966,7 +965,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should allow smaller guest memory than requested memory even if vmRolloutStrategy is set to Stage", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			kvConfig.Spec.Configuration.VMRolloutStrategy = new(v1.VMRolloutStrategyStage)
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			guestMemory := resource.MustParse("1Mi")
@@ -982,7 +981,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject bigger guest memory than the memory limit if vmRolloutStrategy is set to Stage", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			kvConfig.Spec.Configuration.VMRolloutStrategy = new(v1.VMRolloutStrategyStage)
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			guestMemory := resource.MustParse("128Mi")
@@ -1172,7 +1171,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
 			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = new(true)
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
 			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("5")
 
@@ -1182,7 +1181,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should ignore CPU settings for explicitly rejected BlockMultiQueue", func() {
 			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(false)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = new(false)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
@@ -1209,9 +1208,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject invalid ioThreadsPolicy to supplementalPool and invalid number of IOthreads", func() {
 			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
+			vmi.Spec.Domain.IOThreadsPolicy = new(v1.IOThreadsPolicySupplementalPool)
 			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{
-				SupplementalPoolThreadCount: pointer.P(uint32(0)),
+				SupplementalPoolThreadCount: new(uint32(0)),
 			}
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 2,
@@ -1226,7 +1225,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject invalid ioThreadsPolicy to supplementalPool and unsetted number of IOthreads", func() {
 			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
+			vmi.Spec.Domain.IOThreadsPolicy = new(v1.IOThreadsPolicySupplementalPool)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("spec.domain.ioThreads.count"))
@@ -1241,7 +1240,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					DeviceName: "vendor.com/gpu_name",
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					},
 				},
@@ -1250,7 +1249,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					DeviceName: "vendor.com/gpu_name1",
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					},
 				},
@@ -1363,7 +1362,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
-				{Name: "claim1", ResourceClaimName: pointer.P("claim1")},
+				{Name: "claim1", ResourceClaimName: new("claim1")},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -1399,7 +1398,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
-				{Name: "claim1", ResourceClaimName: pointer.P("claim1")},
+				{Name: "claim1", ResourceClaimName: new("claim1")},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -1566,7 +1565,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Context("with panic devices defined", func() {
 			It("should allow valid panic device model", func() {
 				vmi := api.NewMinimalVMI("testvm")
-				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: new(v1.Hyperv)}}
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
@@ -1584,7 +1583,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			It("should reject panic devices on s390x architecture", func() {
 				vmi := api.NewMinimalVMI("testvm")
 				vmi.Spec.Architecture = "s390x"
-				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Isa)}}
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: new(v1.Isa)}}
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.panicDevices"))
@@ -2493,7 +2492,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -2525,7 +2524,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
+						SecureBoot: new(false),
 					},
 				},
 			}
@@ -2539,7 +2538,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -2590,7 +2589,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(true),
+						SecureBoot: new(true),
 					},
 				},
 			}
@@ -2730,7 +2729,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
+						SecureBoot: new(false),
 					},
 				},
 			}
@@ -2768,10 +2767,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject when SecureBoot is enabled", func() {
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			}
-			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(true)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = new(true)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
@@ -2834,7 +2833,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should reject when persistent EFI variables are enabled", func() {
-				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
@@ -2843,7 +2842,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should accept when persistent EFI variables are disabled", func() {
-				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(false)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
@@ -2882,7 +2881,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
+						SecureBoot: new(false),
 					},
 				},
 			}
@@ -2893,7 +2892,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject when SMM is enabled", func() {
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -2905,13 +2904,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(true),
+						SecureBoot: new(true),
 					},
 				},
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -2970,7 +2969,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when persistent EFI variables are enabled", func() {
-			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
@@ -2979,7 +2978,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept when persistent EFI variables are disabled", func() {
-			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(false)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
@@ -3005,7 +3004,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should accept vmi with vsocks defined", func() {
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = new(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
@@ -3014,7 +3013,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Context("feature gate disabled", func() {
 			It("should reject when the feature gate is disabled", func() {
 				disableFeatureGates()
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = new(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.VSOCKGate)))
@@ -3666,7 +3665,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		enablePersistentReservation := func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.PersistentReservationConfiguration = &v1.PersistentReservationConfiguration{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 		}
@@ -3880,7 +3879,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when autoattachGraphicsDevice is set to false", func() {
-			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = new(false)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
@@ -3953,7 +3952,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
 			)
-			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
+			vmi.Spec.Domain.RebootPolicy = new(v1.RebootPolicyTerminate)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty(), "should accept rebootPolicy when feature gate is enabled")
@@ -3968,7 +3967,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
 			)
-			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
+			vmi.Spec.Domain.RebootPolicy = new(v1.RebootPolicyTerminate)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -4005,7 +4004,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				libvmi.WithResourceMemory("128M"),
 				libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
 					Name:              "my-gpu-claim",
-					ResourceClaimName: pointer.P("my-gpu-claim"),
+					ResourceClaimName: new("my-gpu-claim"),
 				}),
 			)
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
@@ -4047,7 +4046,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
 				{
 					Name:              "my-gpu-claim",
-					ResourceClaimName: pointer.P("my-gpu-claim"),
+					ResourceClaimName: new("my-gpu-claim"),
 				},
 			}
 
@@ -4100,7 +4099,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
 				{
 					Name:              "my-gpu-claim",
-					ResourceClaimName: pointer.P("my-gpu-claim"),
+					ResourceClaimName: new("my-gpu-claim"),
 				},
 			}
 
@@ -4251,13 +4250,13 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				Runtime: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				Reset: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 		}
@@ -4271,7 +4270,7 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 		}
@@ -4297,7 +4296,7 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 		}
@@ -4313,10 +4312,10 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				VAPIC: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 		}
@@ -4340,10 +4339,10 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				VAPIC: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 		}
@@ -4367,10 +4366,10 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				VAPIC: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 			},
 		}
@@ -4384,13 +4383,13 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				SyNIC: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
+					FeatureState: v1.FeatureState{Enabled: new(true)},
 				},
 			},
 		}
@@ -4404,16 +4403,16 @@ var _ = Describe("additional tests", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				VPIndex: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				SyNIC: &v1.FeatureState{
-					Enabled: pointer.P(true),
+					Enabled: new(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
+					FeatureState: v1.FeatureState{Enabled: new(true)},
 				},
 			},
 		}

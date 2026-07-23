@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -213,7 +212,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+								PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 							},
 						},
 					},
@@ -254,7 +253,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+								PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 							},
 						},
 					},
@@ -331,7 +330,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+								PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 							},
 						},
 					},
@@ -366,7 +365,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+								PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 							},
 						},
 					},

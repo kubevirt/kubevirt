@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -544,7 +543,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				)
 				sourceVMI.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
-						EFI: &v1.EFI{SecureBoot: pointer.P(false), Persistent: pointer.P(true)},
+						EFI: &v1.EFI{SecureBoot: new(false), Persistent: new(true)},
 					},
 				}
 				sourceVM := createAndStartVMFromVMISpec(sourceVMI)
@@ -693,7 +692,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(sourceVMI, sourceVMI.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sourcePod.Status.Phase).To(Equal(k8sv1.PodRunning))
-			Expect(virtClient.CoreV1().Pods(sourceVMI.Namespace).Delete(context.Background(), sourcePod.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(0))})).To(Succeed())
+			Expect(virtClient.CoreV1().Pods(sourceVMI.Namespace).Delete(context.Background(), sourcePod.Name, metav1.DeleteOptions{GracePeriodSeconds: new(int64(0))})).To(Succeed())
 
 			By("waiting for the source migration to fail")
 			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {
@@ -778,7 +777,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			// The target DV disk.img is not properly created by CDI, even with the filesystem overhead it disk.img is too small with 512Mi (even though it would fit)
 			// This is a bug in CDI, and should be fixed in the future. That is why we increase the size to 564Mi to ensure it fits.
-			targetDV := createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, pointer.P(k8sv1.PersistentVolumeFilesystem), "564Mi")
+			targetDV := createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, new(k8sv1.PersistentVolumeFilesystem), "564Mi")
 			Expect(targetDV).ToNot(BeNil())
 			targetVM := createReceiverVMFromVMISpec(targetVMI)
 			Expect(targetVM).ToNot(BeNil())
@@ -825,14 +824,14 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				By(fmt.Sprintf("executing a migration, and waiting for finalized state, run %d", i))
 				if i%2 == 0 {
 					// source -> target
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, pointer.P(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, new(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
 					targetVM = createReceiverVMFromVMISpec(targetVMI)
 					sourceMigration = libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
 					targetMigration = libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
 					expectedVMI = targetVMI
 				} else {
 					// target -> source
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestDefault, pointer.P(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestDefault, new(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
 					targetVM = createReceiverVMFromVMISpec(sourceVMI)
 					sourceMigration = libmigration.NewSource(targetVMI.Name, targetVMI.Namespace, migrationID, connectionURL)
 					targetMigration = libmigration.NewTarget(sourceVMI.Name, sourceVMI.Namespace, migrationID)

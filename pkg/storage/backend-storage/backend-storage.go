@@ -41,7 +41,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/tpm"
@@ -165,7 +164,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 					// The job failed to run properly. Deleting it to retry asap.
 					// Ignoring the deletion error because the job may already be gone, or will get auto-removed anyway.
 					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+						PropagationPolicy: new(metav1.DeletePropagationBackground),
 					})
 					return fmt.Errorf("%s", c.Message)
 				}
@@ -187,14 +186,14 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 			},
 		},
 		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds:   pointer.P(int64(30)),
-			BackoffLimit:            pointer.P(int32(0)),
-			TTLSecondsAfterFinished: pointer.P(int32(30)),
+			ActiveDeadlineSeconds:   new(int64(30)),
+			BackoffLimit:            new(int32(0)),
+			TTLSecondsAfterFinished: new(int32(30)),
 			PodFailurePolicy: &batchv1.PodFailurePolicy{
 				Rules: []batchv1.PodFailurePolicyRule{{
 					Action: batchv1.PodFailurePolicyActionFailJob,
 					OnExitCodes: &batchv1.PodFailurePolicyOnExitCodesRequirement{
-						ContainerName: pointer.P("container"),
+						ContainerName: new("container"),
 						Operator:      "In",
 						Values:        []int32{42},
 					},
@@ -207,7 +206,7 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 				Spec: v1.PodSpec{
 					RestartPolicy: v1.RestartPolicyNever,
 					SecurityContext: &v1.PodSecurityContext{
-						RunAsNonRoot: pointer.P(true),
+						RunAsNonRoot: new(true),
 						SeccompProfile: &v1.SeccompProfile{
 							Type: v1.SeccompProfileTypeRuntimeDefault,
 						},
@@ -215,7 +214,7 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 					Containers: []v1.Container{{
 						Name: "container",
 						SecurityContext: &v1.SecurityContext{
-							AllowPrivilegeEscalation: pointer.P(false),
+							AllowPrivilegeEscalation: new(false),
 							Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"ALL"}},
 						},
 						Image:   launcherImage,

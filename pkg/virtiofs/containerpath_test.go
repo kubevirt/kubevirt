@@ -27,8 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("ContainerPath helpers", func() {
@@ -160,7 +158,7 @@ var _ = Describe("ContainerPath helpers", func() {
 						Sources: []k8sv1.VolumeProjection{
 							{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
 								Audience:          "sts.amazonaws.com",
-								ExpirationSeconds: pointer.P(int64(3600)),
+								ExpirationSeconds: new(int64(3600)),
 								Path:              "token",
 							}},
 						},

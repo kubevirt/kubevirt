@@ -34,7 +34,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -225,7 +224,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 				Opportunistic: &poolv1.VirtualMachineOpportunisticUpdateStrategy{},
 				Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
 					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyRandom),
+						SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyRandom),
 					},
 				},
 			}
@@ -291,16 +290,16 @@ var _ = Describe("Validating Pool Admitter", func() {
 		pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyNewest),
+					SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyNewest),
 				},
 			},
 		}
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyNewest),
+					SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyNewest),
 				},
-				StatePreservation: pointer.P(poolv1.StatePreservationOnline),
+				StatePreservation: new(poolv1.StatePreservationOnline),
 			},
 		}
 		poolBytes, _ := json.Marshal(&pool)

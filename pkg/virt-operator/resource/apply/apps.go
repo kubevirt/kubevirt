@@ -19,7 +19,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
@@ -76,7 +75,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		if err != nil {
 			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
-			deployment.Spec.Replicas = pointer.P(replicas)
+			deployment.Spec.Replicas = new(replicas)
 		}
 	}
 

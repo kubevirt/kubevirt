@@ -75,7 +75,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -898,7 +897,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 				featuregate.OptOutRoleAggregation,
 			)
-			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
+			currentKV.Spec.Configuration.RoleAggregationStrategy = new(v1.RoleAggregationStrategyManual)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
 
 			By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
@@ -1286,7 +1285,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-				PermitBridgeInterfaceOnPodNetwork: pointer.P(true),
+				PermitBridgeInterfaceOnPodNetwork: new(true),
 			}
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 
@@ -1965,7 +1964,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 				vmProfile := &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
+						LocalhostProfile: new("kubevirt/kubevirt.json"),
 					},
 				}
 				if !enable {
@@ -2060,10 +2059,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Entry("default should not set profile", nil, nil),
 				Entry("custom should use localhost", &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
+						LocalhostProfile: new("kubevirt/kubevirt.json"),
 					},
 				},
-					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: pointer.P("kubevirt/kubevirt.json")}),
+					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: new("kubevirt/kubevirt.json")}),
 			)
 		})
 	})
@@ -2089,7 +2088,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		enableDeployment := func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 			}
 			updateConfigAndWait(kv.Spec.Configuration)
 		}
@@ -2097,7 +2096,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		disableDeployment := func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
-				Enabled: pointer.P(false),
+				Enabled: new(false),
 			}
 			updateConfigAndWait(kv.Spec.Configuration)
 		}
@@ -2554,14 +2553,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Setting RoleAggregationStrategy to Manual (OptOutRoleAggregation is Beta, enabled by default)")
 			currentKV := libkubevirt.GetCurrentKv(kubevirt.Client())
-			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
+			currentKV.Spec.Configuration.RoleAggregationStrategy = new(v1.RoleAggregationStrategyManual)
 			kv := kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
 
 			By("Verifying aggregate labels are set to false")
 			verifyAggregateLabels(kubevirt.Client(), "false")
 
 			By("Setting RoleAggregationStrategy to AggregateToDefault")
-			kv.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyAggregateToDefault)
+			kv.Spec.Configuration.RoleAggregationStrategy = new(v1.RoleAggregationStrategyAggregateToDefault)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 			By("Verifying aggregate labels are restored")

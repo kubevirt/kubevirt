@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -336,7 +335,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", rs.Spec.Replicas, pointer.P(2))
+		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", rs.Spec.Replicas, new(2))
 		Expect(err).ToNot(HaveOccurred())
 		rs, err = virtClient.ReplicaSet(rs.Namespace).Patch(context.Background(), rs.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())

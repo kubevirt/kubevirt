@@ -27,7 +27,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
@@ -192,7 +191,7 @@ var _ = Describe("HostDevice", func() {
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(false),
+							Enabled: new(false),
 						},
 					}},
 			}
@@ -208,7 +207,7 @@ var _ = Describe("HostDevice", func() {
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					}},
 			}
@@ -226,9 +225,9 @@ var _ = Describe("HostDevice", func() {
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							RamFB: &v1.FeatureState{
-								Enabled: pointer.P(false),
+								Enabled: new(false),
 							},
 						},
 					}},
@@ -247,9 +246,9 @@ var _ = Describe("HostDevice", func() {
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							RamFB: &v1.FeatureState{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 							},
 						},
 					}},
@@ -269,7 +268,7 @@ var _ = Describe("HostDevice", func() {
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							RamFB:   &v1.FeatureState{},
 						},
 					}},
@@ -356,9 +355,9 @@ var _ = Describe("HostDevice", func() {
 					ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
 						Display: &v1.VGPUDisplayOptions{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 							RamFB: &v1.FeatureState{
-								Enabled: pointer.P(true),
+								Enabled: new(true),
 							},
 						},
 					},

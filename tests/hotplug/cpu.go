@@ -19,7 +19,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -46,7 +45,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),
@@ -87,7 +86,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			if kubevirt.Spec.Configuration.LiveUpdateConfiguration == nil {
 				kubevirt.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{}
 			}
-			kubevirt.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(uint32(2))
+			kubevirt.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = new(uint32(2))
 			kvconfig.UpdateKubeVirtConfigValueAndWait(kubevirt.Spec.Configuration)
 
 			By("Run VM with 3 sockets")
