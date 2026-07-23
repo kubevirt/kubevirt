@@ -27,32 +27,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-// ValidateVMIandPodIPMatch Checks that the vmi pod and vmi scheme have matching Ip/Ips fields for primary interface
-func ValidateVMIandPodIPMatch(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod) error {
-	if vmi.Status.Interfaces[0].IP != vmiPod.Status.PodIP {
-		return fmt.Errorf("VMI Status.Interfaces[0].IP %s does not equal pod's Status.PodIP %s",
-			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
-	}
-
-	if len(vmi.Status.Interfaces[0].IPs) != len(vmiPod.Status.PodIPs) {
-		return fmt.Errorf("VMI Status.Interfaces[0].IPs %s len does not equal pod's Status.PodIPs %s len",
-			vmi.Status.Interfaces[0].IPs, vmiPod.Status.PodIPs)
-	}
-
-	if len(vmi.Status.Interfaces[0].IPs) == 0 {
-		return fmt.Errorf("VMI Status.Interfaces[0].IPs len is zero")
-	}
-
-	for i, ip := range vmiPod.Status.PodIPs {
-		if vmi.Status.Interfaces[0].IPs[i] != ip.IP {
-			return fmt.Errorf("VMI Status.Interfaces[0].IPs %s do not equal pod's Status.PodIPs %s",
-				vmi.Status.Interfaces[0].IPs, vmiPod.Status.PodIPs)
-		}
-	}
-
-	return nil
-}
-
 // AssertAllPodIPsReportedOnVMI checks that each Pod IP is present in the VMI reported IPs
 func AssertAllPodIPsReportedOnVMI(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod) error {
 	if vmi.Status.Interfaces[0].IP != vmiPod.Status.PodIP {
