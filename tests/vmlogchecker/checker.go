@@ -55,7 +55,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    5,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to freeze vmi.*virError\(Code=.*, Domain=.*, Message='(internal error: unable to execute|guest agent command failed: unable to execute) QEMU agent command 'guest-fsfreeze-freeze':.*Permission denied'\)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to freeze vmi.*virError\(Code=.*, Domain=.*, Message='(internal error: unable to execute|guest agent command failed: unable to execute) QEMU agent command 'guest-fsfreeze-freeze':.*(Permission denied|Command guest-fsfreeze-freeze has been disabled(: the command is not allowed)?)'\)`),
 		SIGs:  SIGStorage,
 	},
 	{
@@ -130,7 +130,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    20,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Domain lookup failed: virError\(Code=.*, Domain=.*, Message='Domain not found:`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Domain lookup failed: virError\(Code=.*, Domain=.*, Message='(Domain not found:|Cannot recv data: Connection reset by peer)`),
 		SIGs:  SIGCompute,
 	},
 	{
@@ -566,6 +566,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	{
 		ID:    108,
 		Regex: regexp.MustCompile(`"level":"error".*("msg":"operation failed: timed out waiting to open tray of '[^']+'"|"reason":"virError\(Code=.*, Domain=.*, Message='operation failed: timed out waiting to open tray of '[^']+''\)")`),
+		SIGs:  SIGStorage,
+	},
+	{
+		ID:    109,
+		Regex: regexp.MustCompile(`"level":"error","msg":"libvirt failed to expand disk image .*","pos":"disk_expansion\.go.*"reason":"virError\(Code=.*, Domain=.*, Message='Requested operation is not valid: domain is not running'\)"`),
 		SIGs:  SIGStorage,
 	},
 }
