@@ -328,6 +328,34 @@ var _ = Describe("dialBackendTLS", func() {
 		Expect(conn).To(BeNil())
 	})
 
+	It("applies MinTLSVersion from the KubeVirt store", func() {
+		ca, err := triple.NewCA("trusted", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		serverKP := newLocalBackendKeyPair(ca)
+		// Backend only speaks TLS 1.2.
+		addr := startTLSBackend(tlsCertificateFromKeyPair(serverKP), tls.VersionTLS12)
+
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					TLSConfiguration: &v1.TLSConfiguration{
+						MinTLSVersion: v1.VersionTLS13,
+					},
+				},
+			},
+		}
+		app := newDialTestApp(&mockClientCAManager{pool: certPoolFromCA(ca)}, kv)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		DeferCleanup(cancel)
+
+		conn, err := app.dialBackendTLS(ctx, "tcp4", addr)
+		Expect(err).To(HaveOccurred())
+		Expect(conn).To(BeNil())
+	})
 })
 
 type captureTransport struct {
