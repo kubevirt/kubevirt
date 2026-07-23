@@ -69,7 +69,7 @@ func GetIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 	}
 
 	ioThreadCount = autoThreads + dedicatedThreads
-	return
+	return ioThreadCount, autoThreads
 }
 
 func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
@@ -84,6 +84,7 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 			return 1
 		}
+		const ioThreadsPerCPU = 2
 		numCPUs := 1
 		// Requested CPU's is guaranteed to be no greater than the limit
 		if req, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
@@ -91,7 +92,7 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 		} else if lim, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
 			numCPUs = int(lim.Value())
 		}
-		return numCPUs * 2
+		return numCPUs * ioThreadsPerCPU
 	default:
 		return 0
 	}

@@ -68,6 +68,7 @@ pkg/virt-launcher/virtwrap/access-credentials
 pkg/virt-launcher/virtwrap/agent-poller
 pkg/virt-launcher/virtwrap/converter/arch
 pkg/virt-launcher/virtwrap/converter/compute
+pkg/virt-launcher/virtwrap/converter/iothreads
 pkg/virt-launcher/virtwrap/converter/kvm
 pkg/virt-launcher/virtwrap/converter/metadata
 pkg/virt-launcher/virtwrap/converter/mshv
