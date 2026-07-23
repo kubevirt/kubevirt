@@ -3,8 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "migration-tunnel.go",
         "synchronization-connection.go",
         "synchronization-controller.go",
+        "tunnel-channel.go",
         "tunnel-manager.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/synchronization-controller",
@@ -35,8 +37,10 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "migration-tunnel_test.go",
         "synchronization-controller_suite_test.go",
         "synchronization-controller_test.go",
+        "tunnel-channel_test.go",
         "tunnel-manager_test.go",
     ],
     embed = [":go_default_library"],
