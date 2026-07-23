@@ -641,6 +641,67 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		testutils.ExpectEvent(recorder, VMIMigrating)
 	})
 
+	DescribeTable("should gate DowntimeTuning on MigrationDowntimeTuning feature gate", func(enableGate bool) {
+		kv := &v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{},
+		}
+		if enableGate {
+			kv.DeveloperConfiguration.FeatureGates = []string{featuregate.MigrationDowntimeTuning}
+		}
+		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = map[string]string{v1.MigrationTargetNodeNameLabel: "othernode"}
+		vmi.Status.NodeName = host
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:                     "othernode",
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     host,
+			MigrationUID:                   "123",
+			TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+			VMIMConfigurationOptions: &v1.VMIMConfigurationOptions{
+				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+				ProgressTimeout:         pointer.P(int64(150)),
+				CompletionTimeoutPerGiB: pointer.P(int64(150)),
+				UnsafeMigrationOverride: pointer.P(false),
+				AllowAutoConverge:       pointer.P(false),
+				AllowPostCopy:           pointer.P(false),
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					DowntimeTuning: &v1.DowntimeTuningOptions{
+						InitialMs: pointer.P(int64(10)),
+						Steps:     pointer.P(int32(5)),
+					},
+				},
+			},
+		}
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue},
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+		addVMI(vmi, domain)
+
+		client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+			if enableGate {
+				Expect(options.DowntimeTuning).ToNot(BeNil())
+				Expect(options.DowntimeTuning.InitialMs).To(HaveValue(BeEquivalentTo(10)))
+			} else {
+				Expect(options.DowntimeTuning).To(BeNil())
+			}
+		}).Times(1).Return(nil)
+
+		sanityExecute()
+		testutils.ExpectEvent(recorder, VMIMigrating)
+	},
+		Entry("passes DowntimeTuning when gate is enabled", true),
+		Entry("drops DowntimeTuning when gate is disabled", false),
+	)
+
 	It("should migrate vmi once target address is known", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.UID = vmiTestUUID

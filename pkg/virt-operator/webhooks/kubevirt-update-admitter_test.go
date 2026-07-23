@@ -180,12 +180,22 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			},
 			true,
 		),
-		Entry("should allow when MaxDowntimeMs is set with feature gate",
+		Entry("should allow when MaxDowntimeMs is set with MigrationStallDetection gate",
 			&v1.KubeVirtConfiguration{},
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
 					FeatureGates: []string{featuregate.MigrationStallDetection},
+				},
+			},
+			false,
+		),
+		Entry("should allow when MaxDowntimeMs is set with MigrationDowntimeTuning gate",
+			&v1.KubeVirtConfiguration{},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.MigrationDowntimeTuning},
 				},
 			},
 			false,

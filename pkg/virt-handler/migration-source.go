@@ -579,7 +579,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		if exp.Compression != nil {
 			options.Compression = pointer.P(string(*exp.Compression))
 		}
-		if exp.DowntimeTuning != nil {
+		if c.clusterConfig.MigrationDowntimeTuningEnabled() && exp.DowntimeTuning != nil {
 			options.DowntimeTuning = exp.DowntimeTuning
 		}
 	}

@@ -2148,6 +2148,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 
 		Context("with downtime tuning", Serial, func() {
+			BeforeEach(func() {
+				kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+			})
+			AfterEach(func() {
+				kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+			})
+
 			It("should migrate with downtime tuning and confirm via API and logs", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("1Gi"))
 

@@ -133,6 +133,15 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 				},
 			},
 		),
+
+		Entry("stallDetector and downtimeTuning both set",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector:  &v1.StallDetectorOptions{},
+					DowntimeTuning: &v1.DowntimeTuningOptions{},
+				},
+			},
+		),
 	)
 
 	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -188,9 +197,13 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 	)
 
-	DescribeTable("maxDowntimeMs feature gate validation when feature gate is disabled",
-		func(isUpdate bool, oldMs, newMs *uint64, expectAllowed bool) {
-			disableFeatureGates()
+	DescribeTable("maxDowntimeMs feature gate validation",
+		func(gate string, isUpdate bool, oldMs, newMs *uint64, expectAllowed bool) {
+			if gate == "" {
+				disableFeatureGates()
+			} else {
+				enableFeatureGate(gate)
+			}
 			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
 			newPolicy.Spec.MaxDowntimeMs = newMs
 			if !isUpdate {
@@ -204,9 +217,49 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			}
 			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
 		},
-		Entry("reject on create", false, nil, pointer.P(uint64(900)), false),
-		Entry("allow unchanged update", true, pointer.P(uint64(900)), pointer.P(uint64(900)), true),
-		Entry("reject changing value on update", true, pointer.P(uint64(500)), pointer.P(uint64(900)), false),
+		Entry("reject on create without gate", "", false, nil, pointer.P(uint64(900)), false),
+		Entry("allow unchanged update without gate", "", true, pointer.P(uint64(900)), pointer.P(uint64(900)), true),
+		Entry("reject changing value without gate", "", true, pointer.P(uint64(500)), pointer.P(uint64(900)), false),
+		Entry("allow on create with MigrationDowntimeTuning", featuregate.MigrationDowntimeTuning, false, nil, pointer.P(uint64(900)), true),
+	)
+
+	DescribeTable("experimental.downtimeTuning feature gate validation when feature gate is disabled",
+		func(isUpdate bool, oldDT, newDT *v1.DowntimeTuningOptions, expectAllowed bool) {
+			disableFeatureGates()
+			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			if newDT != nil {
+				newPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					DowntimeTuning: newDT,
+				}
+			}
+			if !isUpdate {
+				admitter.admitAndExpect(newPolicy, expectAllowed)
+				return
+			}
+			oldPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			if oldDT != nil {
+				oldPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					DowntimeTuning: oldDT,
+				}
+			}
+			if expectAllowed {
+				newPolicy.Spec.AllowAutoConverge = pointer.P(true)
+			}
+			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
+		},
+		Entry("reject on create", false, nil, &v1.DowntimeTuningOptions{
+			InitialMs: pointer.P(int64(10)),
+		}, false),
+		Entry("allow unchanged update", true,
+			&v1.DowntimeTuningOptions{InitialMs: pointer.P(int64(10))},
+			&v1.DowntimeTuningOptions{InitialMs: pointer.P(int64(10))},
+			true,
+		),
+		Entry("reject changing value on update", true,
+			&v1.DowntimeTuningOptions{InitialMs: pointer.P(int64(10))},
+			&v1.DowntimeTuningOptions{InitialMs: pointer.P(int64(20))},
+			false,
+		),
 	)
 
 	DescribeTable("experimental.stallDetector feature gate validation when feature gate is disabled",
