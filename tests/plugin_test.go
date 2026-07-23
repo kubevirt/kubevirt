@@ -46,10 +46,10 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -59,10 +59,10 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.PluginsGate)
+		checks.FailTestIfNoFeatureGate(featuregate.PluginsGate)
 	})
 
 	createPlugin := func(plugin *pluginv1alpha1.Plugin) {
@@ -489,12 +489,12 @@ const (
 	pluginMarkerDir  = "/var/run/kubevirt/plugin-test-markers"
 )
 
-var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		config.EnableFeatureGate(featuregate.PluginsGate)
+		checks.FailTestIfNoFeatureGate(featuregate.PluginsGate)
 	})
 
 	It("should execute PreVMStart node hook and create a marker file", func() {

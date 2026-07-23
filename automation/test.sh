@@ -127,6 +127,7 @@ case "$TARGET" in
     ;;
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
+    add_feature_gate "Plugins"
     ;;
   *sig-compute-parallel*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
