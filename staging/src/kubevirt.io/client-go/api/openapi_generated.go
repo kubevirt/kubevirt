@@ -23277,6 +23277,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/api/core/v1.ComponentConfig"),
 						},
 					},
+					"synchronizationPlacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SynchronizationPlacement allows customization of node placement for synchronization controllers. This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to the cross-cluster migration network). By default, sync controllers use control-plane placement.",
+							Ref:         ref("kubevirt.io/api/core/v1.ComponentConfig"),
+						},
+					},
 					"customizeComponents": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -24062,6 +24068,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"crossClusterNetwork": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations. When specified, synchronization controllers will attach to this network in addition to the in-cluster migration network, and will proxy migration traffic between the two networks. This reduces IP address requirements on the cross-cluster network. By default, not set.",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},

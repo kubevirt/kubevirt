@@ -210,6 +210,55 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
+	DescribeTable("validateCrossClusterMigrationNetwork", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateCrossClusterMigrationNetwork(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.crossClusterNetwork"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when CrossClusterNetwork is set without CrossClusterMigrationProxy feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						CrossClusterNetwork: pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow when CrossClusterNetwork is set with CrossClusterMigrationProxy feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						CrossClusterNetwork: pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when MigrationConfiguration is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should allow when CrossClusterNetwork is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{},
+				},
+			},
+			false,
+		),
+	)
+
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
 		Expect(causes).To(HaveLen(len(expectedFields)))

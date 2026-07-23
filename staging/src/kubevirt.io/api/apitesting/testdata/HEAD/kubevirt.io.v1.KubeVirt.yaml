@@ -188,6 +188,7 @@ spec:
       allowWorkloadDisruption: true
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
+      crossClusterNetwork: crossClusterNetworkValue
       disableTLS: true
       matchSELinuxLevelOnMigration: true
       maxDowntimeMs: 18446744073709551603
@@ -440,6 +441,146 @@ spec:
   productName: productNameValue
   productVersion: productVersionValue
   serviceMonitorNamespace: serviceMonitorNamespaceValue
+  synchronizationPlacement:
+    nodePlacement:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+      nodeSelector:
+        nodeSelectorKey: nodeSelectorValue
+      tolerations:
+      - effect: effectValue
+        key: keyValue
+        operator: operatorValue
+        tolerationSeconds: 5
+        value: valueValue
+    replicas: 248
   synchronizationPort: synchronizationPortValue
   uninstallStrategy: uninstallStrategyValue
   workloadUpdateStrategy:

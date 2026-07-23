@@ -229,6 +229,68 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: kubevirt-allow-sync-controller-ephemeral-migration-proxy
+  namespace: {{.Namespace}}
+spec:
+  egress:
+  - ports:
+    - endPort: 60999
+      port: 32768
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          kubevirt.io: virt-handler
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          kubevirt.io: virt-handler
+    ports:
+    - endPort: 60999
+      port: 32768
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-synchronization-controller
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kubevirt-allow-virt-handler-ephemeral-migration-proxy
+  namespace: {{.Namespace}}
+spec:
+  egress:
+  - ports:
+    - endPort: 60999
+      port: 32768
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          kubevirt.io: virt-synchronization-controller
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          kubevirt.io: virt-synchronization-controller
+    ports:
+    - endPort: 60999
+      port: 32768
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-handler
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   annotations:
     template.kubevirt.io/virt-template-version: v0.2.2
   labels:

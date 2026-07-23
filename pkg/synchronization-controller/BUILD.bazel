@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "deadline_resetting_reader.go",
+        "migration-proxy.go",
         "synchronization-connection.go",
         "synchronization-controller.go",
     ],
@@ -11,11 +13,11 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/monitoring/metrics/virt-handler:go_default_library",
         "//pkg/synchronizer-com/synchronization/v1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "//vendor/google.golang.org/grpc:go_default_library",
         "//vendor/google.golang.org/grpc/credentials:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
@@ -31,6 +33,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "deadline_resetting_reader_test.go",
+        "migration-proxy_test.go",
         "synchronization-controller_suite_test.go",
         "synchronization-controller_test.go",
     ],

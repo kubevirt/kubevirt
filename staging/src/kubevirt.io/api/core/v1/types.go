@@ -1441,6 +1441,9 @@ const (
 	// MigrationInterfaceName is an arbitrary name used in virt-handler to connect it to a dedicated migration network
 	MigrationInterfaceName string = "migration0"
 
+	// CrossClusterMigrationInterfaceName is the name of the interface used for cross-cluster migration
+	CrossClusterMigrationInterfaceName string = "crosscluster0"
+
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
 
@@ -2619,6 +2622,12 @@ type KubeVirtSpec struct {
 	// +optional
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
+	// SynchronizationPlacement allows customization of node placement for synchronization controllers.
+	// This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to
+	// the cross-cluster migration network). By default, sync controllers use control-plane placement.
+	// +optional
+	SynchronizationPlacement *ComponentConfig `json:"synchronizationPlacement,omitempty"`
+
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
 
@@ -3603,6 +3612,11 @@ type MigrationConfiguration struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations.
+	// When specified, synchronization controllers will attach to this network in addition to the
+	// in-cluster migration network, and will proxy migration traffic between the two networks.
+	// This reduces IP address requirements on the cross-cluster network. By default, not set.
+	CrossClusterNetwork *string `json:"crossClusterNetwork,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

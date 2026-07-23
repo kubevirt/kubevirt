@@ -579,6 +579,10 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	delete(vmi.Labels, v1.MigrationTargetNodeNameLabel)
 	if !vmi.Status.MigrationState.Failed {
 		delete(vmi.Annotations, v1.CreateMigrationTarget)
+		// Clear ephemeral migration state now that migration is complete
+		// This allows the regular VM controller to take over and transition the VMI to Running
+		vmi.Status.MigrationState.SourceState = nil
+		vmi.Status.MigrationState.TargetState = nil
 	}
 	return c.updateVMI(vmi, oldSpec, oldStatus, oldLabels, false)
 }

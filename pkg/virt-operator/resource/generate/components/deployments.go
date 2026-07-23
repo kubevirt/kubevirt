@@ -772,6 +772,20 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 		deployment.Spec.Template.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
 	}
 
+	// Add cross-cluster network if configured
+	crossClusterNetwork := config.GetCrossClusterMigrationNetwork()
+	if crossClusterNetwork != nil {
+		existing := deployment.Spec.Template.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot]
+		if existing != "" {
+			// Append cross-cluster network with interface name "crosscluster0"
+			deployment.Spec.Template.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] =
+				existing + "," + *crossClusterNetwork + "@" + virtv1.CrossClusterMigrationInterfaceName
+		} else {
+			deployment.Spec.Template.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] =
+				*crossClusterNetwork + "@" + virtv1.CrossClusterMigrationInterfaceName
+		}
+	}
+
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerCertSecretName, "/etc/virt-sync-controller/clientcertificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerServerCertSecretName, "/etc/virt-sync-controller/servercertificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
@@ -836,6 +850,23 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 			Drop: []corev1.Capability{"ALL"},
 		},
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+	}
+
+	// Apply synchronization placement configuration
+	syncPlacement := config.GetSynchronizationPlacement()
+	if syncPlacement != nil && syncPlacement.NodePlacement != nil {
+		// Apply custom placement if configured
+		if syncPlacement.NodePlacement.NodeSelector != nil {
+			deployment.Spec.Template.Spec.NodeSelector = syncPlacement.NodePlacement.NodeSelector
+		}
+		if syncPlacement.NodePlacement.Tolerations != nil {
+			deployment.Spec.Template.Spec.Tolerations = syncPlacement.NodePlacement.Tolerations
+		}
+		if syncPlacement.NodePlacement.Affinity != nil {
+			deployment.Spec.Template.Spec.Affinity = syncPlacement.NodePlacement.Affinity
+		}
+	} else {
+		placement.InjectPlacementMetadata(nil, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
 	}
 
 	return deployment

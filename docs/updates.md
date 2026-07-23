@@ -129,3 +129,34 @@ accommodate the eventual removal of the `v1alpha3` version with KubeVirt >=
 tool within their environment. This will ensure any existing `v1alpha3`
 stored objects are migrated to `v1` well in advance of the removal of the
 underlying `v1alpha3` version.
+
+### `v1.9.0` "description is too long" when using `kubectl apply`
+
+Starting with KubeVirt `v1.9.0`, the `kubevirt-operator.yaml` release manifest is large
+enough that `kubectl apply` can fail with an error like `description is too long`.
+
+This happens because client-side `kubectl apply` stores the last applied configuration
+in the `kubectl.kubernetes.io/last-applied-configuration` annotation on each resource.
+Kubernetes enforces a maximum annotation value size (256 KiB), and the operator manifest
+for `v1.9.0` and later exceeds that limit once the annotation is written.
+
+**Example failure:**
+
+```bash
+export RELEASE=v1.9.0
+kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+```
+
+**Workarounds:**
+
+- Use server-side apply, which does not add the last-applied-configuration annotation:
+
+  ```bash
+  kubectl apply --server-side -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+  ```
+
+- Use `kubectl create` for a fresh install (this also avoids the annotation):
+
+  ```bash
+  kubectl create -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+  ```
