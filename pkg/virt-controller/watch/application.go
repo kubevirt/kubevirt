@@ -95,6 +95,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -745,6 +746,7 @@ func (vca *VirtControllerApp) initCommon() {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
 		netmigration.NewEvaluator(),
+		vsock.NewCIDsMap(),
 		vca.additionalLauncherAnnotationsSync,
 		vca.additionalLauncherLabelsSync,
 	)

@@ -45,7 +45,6 @@ import (
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 )
 
 const (
@@ -74,6 +73,7 @@ func NewController(templateService templateService,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
+	vsockCIDAllocator vsockAllocator,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
@@ -99,7 +99,7 @@ func NewController(templateService templateService,
 		cdiConfigStore:                    cdiConfigInformer.GetStore(),
 		clusterConfig:                     clusterConfig,
 		topologyHinter:                    topologyHinter,
-		cidsMap:                           vsock.NewCIDsMap(),
+		cidsMap:                           vsockCIDAllocator,
 		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
 		storageAnnotationsGenerator:       storageAnnotationsGenerator,
