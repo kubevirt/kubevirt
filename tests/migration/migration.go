@@ -2214,6 +2214,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 
 		Context("with migration compression", Serial, func() {
+			BeforeEach(func() {
+				kvconfig.EnableFeatureGate(featuregate.MigrationCompression)
+			})
+			AfterEach(func() {
+				kvconfig.DisableFeatureGate(featuregate.MigrationCompression)
+			})
+
 			It("should migrate with zstd compression and confirm via API and logs", func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
