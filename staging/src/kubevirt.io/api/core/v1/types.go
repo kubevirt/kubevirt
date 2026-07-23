@@ -672,12 +672,22 @@ func (v *VirtualMachineInstance) IsTargetPreparing(migration *VirtualMachineInst
 	}
 }
 
+// IsDecentralizedMigration reports whether this VMI is participating in a
+// decentralized live migration. SyncAddress on SourceState/TargetState is only
+// populated for decentralized migrations; local migrations never set it.
+//
+// Historically this used SyncAddress XOR (exactly one side set), which only
+// matches the pre-sync handshake. Once both sides have published a SyncAddress,
+// XOR becomes false and callers incorrectly treat a still-decentralized VMI as
+// local (for example skipping the source Succeeded transition after handoff).
+// Presence of either SyncAddress is the durable signal for the full lifetime
+// until SourceState/TargetState are cleared on the target after success.
 func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
 	return v.Status.MigrationState != nil &&
 		v.Status.MigrationState.TargetState != nil &&
 		v.Status.MigrationState.SourceState != nil &&
-		((v.Status.MigrationState.SourceState.SyncAddress == nil && v.Status.MigrationState.TargetState.SyncAddress != nil) ||
-			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
+		(v.Status.MigrationState.SourceState.SyncAddress != nil ||
+			v.Status.MigrationState.TargetState.SyncAddress != nil)
 }
 
 type VirtualMachineInstanceConditionType string
