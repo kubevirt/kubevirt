@@ -872,18 +872,31 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 }
 
 func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	// Priority order for determining the synchronization address, this does not affect the actual migration network:
-	// 1. If CrossClusterMigrationProxy is enabled, prefer crosscluster network
-	// 2. Else use migration network
+	// Priority for advertised SynchronizationAddresses (must match where the
+	// sync controller actually listens for peer gRPC):
+	// 1. crosscluster0 when Proxy datapath is enabled and the iface is present
+	// 2. migration0 when present
+	// 3. (caller falls back to pod IP)
 
-	// Check for crosscluster network first if feature gate is enabled
-	if r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
+	if r.isDecentralizedLiveMigrationProxyEnabled() {
 		ips := multus.GetMigrationNetworkIPs(pod, v1.CrossClusterMigrationInterfaceName)
 		if len(ips) > 0 {
 			return ips
 		}
 	}
 
-	// Fall back to migration network
 	return multus.GetMigrationNetworkIPs(pod, v1.MigrationInterfaceName)
+}
+
+// isDecentralizedLiveMigrationProxyEnabled mirrors virtconfig.DecentralizedLiveMigrationProxyEnabled:
+// CrossClusterMigrationProxy feature gate + decentralizedLiveMigrationDatapath=Proxy.
+func (r *Reconciler) isDecentralizedLiveMigrationProxyEnabled() bool {
+	if !r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
+		return false
+	}
+	mig := r.kv.Spec.Configuration.MigrationConfiguration
+	if mig == nil || mig.DecentralizedLiveMigrationDatapath == nil {
+		return false
+	}
+	return *mig.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy
 }

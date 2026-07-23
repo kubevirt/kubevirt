@@ -201,9 +201,11 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		}
 	}
 
-	// Only enable cross-cluster migration proxy if feature gate is enabled
+	// Only attach cross-cluster Multus network when Proxy datapath is selected
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.CrossClusterMigrationProxy) {
 		if kv.Spec.Configuration.MigrationConfiguration != nil &&
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath != nil &&
+			*kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy &&
 			kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork != nil {
 			additionalProperties[AdditionalPropertiesCrossClusterMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork
 		}

@@ -3574,6 +3574,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.DecentralizedLiveMigrationDatapath != nil {
+		in, out := &in.DecentralizedLiveMigrationDatapath, &out.DecentralizedLiveMigrationDatapath
+		*out = new(DecentralizedLiveMigrationDatapath)
+		**out = **in
+	}
 	return
 }
 
