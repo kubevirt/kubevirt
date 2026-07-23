@@ -888,7 +888,7 @@ var _ = Describe("Live migration source", func() {
 
 		BeforeEach(func() {
 			options := &cmdclient.MigrationOptions{
-				StallDetectorOptions: cmdclient.StallDetectorOptions{
+				StallDetectorOptions: &cmdclient.StallDetectorOptions{
 					StallMargin:               float64(4) / 100,
 					StallProgressTimeout:      25,
 					SwitchoverTimeout:         testSwitchoverTimeout,
@@ -901,7 +901,7 @@ var _ = Describe("Live migration source", func() {
 				MaxDowntimeMs: testMaxDowntimeMs,
 			}
 			sd = &stallDetector{
-				stallDetectorOptions: options.StallDetectorOptions,
+				stallDetectorOptions: *options.StallDetectorOptions,
 				maxDowntimeMs:        options.MaxDowntimeMs,
 			}
 			monitor = &migrationMonitor{
@@ -1648,9 +1648,8 @@ var _ = Describe("Live migration source", func() {
 
 		It("newMigrationMonitor should pass StallDetectorOptions to the stall detector", func() {
 			customOptions := &cmdclient.MigrationOptions{
-				StallDetectionEnabled: true,
-				MaxDowntimeMs:         testMaxDowntimeMs,
-				StallDetectorOptions: cmdclient.StallDetectorOptions{
+				MaxDowntimeMs: testMaxDowntimeMs,
+				StallDetectorOptions: &cmdclient.StallDetectorOptions{
 					StallMargin:             0.08,
 					StallProgressTimeout:    10,
 					SwitchoverTimeout:       42,
@@ -1661,7 +1660,7 @@ var _ = Describe("Live migration source", func() {
 				},
 			}
 			m := newMigrationMonitor(vmi, libvirtDomainManager, customOptions, make(chan struct{}, 1))
-			Expect(m.stallDetector.stallDetectorOptions).To(Equal(customOptions.StallDetectorOptions))
+			Expect(m.stallDetector.stallDetectorOptions).To(Equal(*customOptions.StallDetectorOptions))
 			Expect(m.stallDetector.maxDowntimeMs).To(Equal(customOptions.MaxDowntimeMs))
 		})
 	})
