@@ -20,7 +20,7 @@ type Allocator interface {
 type randCIDFunc func() uint32
 type nextCIDFunc func(uint32) uint32
 
-type cidsMap struct {
+type CIDsMap struct {
 	mu      sync.Mutex
 	cids    map[string]uint32
 	reverse map[uint32]string
@@ -28,8 +28,8 @@ type cidsMap struct {
 	nextCID nextCIDFunc
 }
 
-func NewCIDsMap() *cidsMap {
-	return &cidsMap{
+func NewCIDsMap() *CIDsMap {
+	return &CIDsMap{
 		cids:    make(map[string]uint32),
 		reverse: make(map[uint32]string),
 		randCID: func() uint32 {
@@ -50,7 +50,7 @@ func NewCIDsMap() *cidsMap {
 }
 
 // Sync loads the allocated CIDs from VMIs.
-func (m *cidsMap) Sync(vmis []*virtv1.VirtualMachineInstance) {
+func (m *CIDsMap) Sync(vmis []*virtv1.VirtualMachineInstance) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, vmi := range vmis {
@@ -64,7 +64,7 @@ func (m *cidsMap) Sync(vmis []*virtv1.VirtualMachineInstance) {
 }
 
 // Allocate select a new CID and set it to the status of the given VMI.
-func (m *cidsMap) Allocate(vmi *virtv1.VirtualMachineInstance) error {
+func (m *CIDsMap) Allocate(vmi *virtv1.VirtualMachineInstance) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	key := controller.VirtualMachineInstanceKey(vmi)
@@ -91,7 +91,7 @@ func (m *cidsMap) Allocate(vmi *virtv1.VirtualMachineInstance) error {
 }
 
 // Remove cleans the CID for given VMI.
-func (m *cidsMap) Remove(key string) {
+func (m *CIDsMap) Remove(key string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if cid, exist := m.cids[key]; exist {
