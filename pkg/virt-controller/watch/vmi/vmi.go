@@ -210,6 +210,12 @@ type migrationEvaluator interface {
 	Evaluate(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) k8sv1.ConditionStatus
 }
 
+type vsockAllocator interface {
+	Sync(vmis []*virtv1.VirtualMachineInstance)
+	Allocate(vmi *virtv1.VirtualMachineInstance) error
+	Remove(key string)
+}
+
 type Controller struct {
 	templateService                   templateService
 	clientset                         kubecli.KubevirtClient
@@ -228,7 +234,7 @@ type Controller struct {
 	cdiStore                          cache.Store
 	cdiConfigStore                    cache.Store
 	clusterConfig                     *virtconfig.ClusterConfig
-	cidsMap                           vsock.Allocator
+	cidsMap                           vsockAllocator
 	backendStorage                    *backendstorage.BackendStorage
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
