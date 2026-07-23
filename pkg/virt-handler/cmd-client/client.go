@@ -83,6 +83,7 @@ type MigrationOptions struct {
 	ProgressTimeout          int64
 	CompletionTimeoutPerGiB  int64
 	MaxDowntimeMs            uint64
+	MaxDowntimeSteps         uint32
 	UnsafeMigration          bool
 	AllowAutoConverge        bool
 	AllowPostCopy            bool

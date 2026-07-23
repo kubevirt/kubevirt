@@ -98,6 +98,80 @@ type migrationMonitor struct {
 	progressWatermark  uint64
 	remainingData      uint64
 	progressTimeout    int64
+
+	// downtimeSteps is the remaining schedule of migration max downtime
+	// values to apply while the migration is running. See
+	// calculateMigrationDowntimeSteps. Empty when stepping is not enabled
+	// (options.MaxDowntimeSteps unset or 0).
+	downtimeSteps []migrationDowntimeStep
+	// downtimeSteppingActive tracks whether the max downtime is driven by the
+	// stepping schedule, so other initial max downtime handling (e.g. the
+	// stall detector's) does not override it.
+	downtimeSteppingActive bool
+}
+
+// migrationDowntimeStep is a migration max downtime value to apply once the
+// migration has been running for AfterElapsedSeconds.
+type migrationDowntimeStep struct {
+	AfterElapsedSeconds int64
+	DowntimeMS          uint64
+}
+
+// migrationDowntimeStepDelaySecondsPerGiB is the time to wait between
+// migration downtime step increases, per GiB of migration data. Mirrors
+// OpenStack Nova's live_migration_downtime_delay default.
+const migrationDowntimeStepDelaySecondsPerGiB = int64(75)
+
+// calculateMigrationDowntimeSteps builds a linear schedule of migration max
+// downtime values from downtime/steps up to downtime, mirroring OpenStack
+// Nova's downtime stepping algorithm: idle guests converge within the first,
+// smallest step (minimizing the switchover pause), while busy guests get
+// progressively larger downtime allowances so the migration can complete.
+// Returns nil when stepping is not requested (steps == 0) or no downtime is
+// configured.
+func calculateMigrationDowntimeSteps(downtimeMS uint64, steps int64, dataGiB int64) []migrationDowntimeStep {
+	if downtimeMS == 0 || steps < 1 {
+		return nil
+	}
+	if steps == 1 {
+		return []migrationDowntimeStep{{AfterElapsedSeconds: 0, DowntimeMS: downtimeMS}}
+	}
+	if dataGiB < 1 {
+		dataGiB = 1
+	}
+	delay := migrationDowntimeStepDelaySecondsPerGiB * dataGiB
+
+	base := downtimeMS / uint64(steps)
+	if base == 0 {
+		base = 1
+	}
+	offset := (downtimeMS - base) / uint64(steps)
+
+	schedule := make([]migrationDowntimeStep, 0, steps+1)
+	for i := int64(0); i <= steps; i++ {
+		schedule = append(schedule, migrationDowntimeStep{
+			AfterElapsedSeconds: delay * i,
+			DowntimeMS:          base + offset*uint64(i),
+		})
+	}
+	// make sure the last step is the exact requested downtime
+	schedule[len(schedule)-1].DowntimeMS = downtimeMS
+	return schedule
+}
+
+// processDowntimeSteps applies any due migration max downtime step to the
+// in-flight migration.
+func (m *migrationMonitor) processDowntimeSteps(dom cli.VirDomain, elapsedSeconds int64) {
+	logger := log.Log.Object(m.vmi)
+	for len(m.downtimeSteps) > 0 && m.downtimeSteps[0].AfterElapsedSeconds <= elapsedSeconds {
+		step := m.downtimeSteps[0]
+		if err := dom.MigrateSetMaxDowntime(step.DowntimeMS, 0); err != nil {
+			logger.Reason(err).Warningf("failed setting migration max downtime to %dms, will retry", step.DowntimeMS)
+			return
+		}
+		logger.Infof("set migration max downtime to %dms (%d steps left)", step.DowntimeMS, len(m.downtimeSteps)-1)
+		m.downtimeSteps = m.downtimeSteps[1:]
+	}
 }
 
 var libvirtCompressionMethods = map[v1.MigrationCompression]string{
@@ -439,6 +513,10 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationA
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
 	stallDetectorEnabled := options.StallDetectorOptions != nil
+	downtimeSteps := calculateMigrationDowntimeSteps(
+		options.MaxDowntimeMs,
+		int64(options.MaxDowntimeSteps),
+		getVMIMigrationDataSize(vmi, l.ephemeralDiskDir))
 	monitor := &migrationMonitor{
 		l:                        l,
 		vmi:                      vmi,
@@ -449,6 +527,8 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
 		stallDetectionEnabled:    stallDetectorEnabled,
+		downtimeSteps:            downtimeSteps,
+		downtimeSteppingActive:   len(downtimeSteps) > 0,
 		logger:                   log.Log.Object(vmi),
 	}
 
@@ -681,14 +761,20 @@ func (m *migrationMonitor) handleStallDetection(dom cli.VirDomain, stats *libvir
 	sd := m.stallDetector
 
 	if !sd.initialMaxDowntimeSet {
-		initialMaxDowntime := m.options.MaxDowntimeMs
-		if initialMaxDowntime > migrationutils.QEMUDefaultTargetDowntimeMS {
-			initialMaxDowntime = migrationutils.QEMUDefaultTargetDowntimeMS
-		}
-		if err := dom.MigrateSetMaxDowntime(initialMaxDowntime, 0); err != nil {
-			logger.Reason(err).Warning("failed to set initial max downtime")
-		} else {
+		if m.downtimeSteppingActive {
+			// the downtime stepping schedule owns the max downtime value;
+			// don't override its (smaller) first step
 			sd.initialMaxDowntimeSet = true
+		} else {
+			initialMaxDowntime := m.options.MaxDowntimeMs
+			if initialMaxDowntime > migrationutils.QEMUDefaultTargetDowntimeMS {
+				initialMaxDowntime = migrationutils.QEMUDefaultTargetDowntimeMS
+			}
+			if err := dom.MigrateSetMaxDowntime(initialMaxDowntime, 0); err != nil {
+				logger.Reason(err).Warning("failed to set initial max downtime")
+			} else {
+				sd.initialMaxDowntimeSet = true
+			}
 		}
 	}
 
@@ -918,6 +1004,8 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 			loopLogger.Reason(err).Info("failed to get domain job info")
 			jobStats = nil
 		}
+
+		m.processDowntimeSteps(dom, (time.Now().UTC().UnixNano()-m.start)/int64(time.Second))
 
 		m.processInflightMigration(dom, jobStats, isIterationBoundary, loopLogger)
 
@@ -1327,6 +1415,21 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return fmt.Errorf("failed to retrive domain state")
 	}
 	migrateFlags := generateMigrationFlags(vmi.IsBlockMigration(), migratePaused, options)
+
+	// Apply the first migration max downtime step before the migration starts
+	// so it takes effect even for migrations that converge faster than the
+	// migration monitor's first tick. Best effort: the migration monitor
+	// (re)applies the downtime schedule while the migration is running.
+	if schedule := calculateMigrationDowntimeSteps(
+		options.MaxDowntimeMs,
+		int64(options.MaxDowntimeSteps),
+		getVMIMigrationDataSize(vmi, l.ephemeralDiskDir)); len(schedule) > 0 {
+		if err := dom.MigrateSetMaxDowntime(schedule[0].DowntimeMS, 0); err != nil {
+			log.Log.Object(vmi).Reason(err).Warningf("failed setting initial migration max downtime to %dms", schedule[0].DowntimeMS)
+		} else {
+			log.Log.Object(vmi).Infof("set initial migration max downtime to %dms", schedule[0].DowntimeMS)
+		}
+	}
 
 	// anything that modifies the domain needs to be performed with the domainModifyLock held
 	// The domain params and unHotplug need to be performed in a critical section together.

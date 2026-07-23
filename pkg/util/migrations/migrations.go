@@ -174,6 +174,7 @@ func ToVMIMConfigurationOptions(cfg *v1.MigrationConfiguration) *v1.VMIMConfigur
 		BandwidthPerMigration:             cfg.BandwidthPerMigration,
 		CompletionTimeoutPerGiB:           cfg.CompletionTimeoutPerGiB,
 		MaxDowntimeMs:                     cfg.MaxDowntimeMs,
+		MaxDowntimeSteps:                  cfg.MaxDowntimeSteps,
 		ProgressTimeout:                   cfg.ProgressTimeout,
 		UtilityVolumesTimeout:             cfg.UtilityVolumesTimeout,
 		UnsafeMigrationOverride:           cfg.UnsafeMigrationOverride,
