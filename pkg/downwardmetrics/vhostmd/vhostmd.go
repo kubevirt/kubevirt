@@ -1,13 +1,7 @@
 package vhostmd
 
-import "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
+import "kubevirt.io/kubevirt/pkg/safepath"
 
-type MetricsIO interface {
-	Create() error
-	Read() (*api.Metrics, error)
-	Write(metrics *api.Metrics) error
-}
-
-func NewMetricsIODisk(filePath string) *vhostmd {
+func NewMetricsIODisk(filePath *safepath.Path) *vhostmd {
 	return &vhostmd{filePath: filePath}
 }
