@@ -26,11 +26,14 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 const logVerbosityInfo = 3
 
 type vmiQueue interface {
+	addCompletedStats(stats.DomainJobInfo)
 	all() ([]result, bool)
 	startPolling()
 }
@@ -42,7 +45,7 @@ type handler struct {
 	vmiStats map[string]vmiQueue
 }
 
-func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
+func newHandler(vmiInformer cache.SharedIndexInformer, domainInformer cache.SharedInformer) (*handler, error) {
 	h := handler{
 		vmiStore: vmiInformer.GetStore(),
 		vmiStats: make(map[string]vmiQueue),
@@ -52,8 +55,23 @@ func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
 		AddFunc:    h.handleVmiAdd,
 		UpdateFunc: h.handleVmiUpdate,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return &h, err
+	if domainInformer != nil {
+		_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: h.handleDomainCompletedMigrationStats,
+			UpdateFunc: func(_oldObj, newObj interface{}) {
+				h.handleDomainCompletedMigrationStats(newObj)
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &h, nil
 }
 
 func (h *handler) Collect() []result {
@@ -93,6 +111,61 @@ func (h *handler) handleVmiAdd(obj interface{}) {
 	}
 
 	h.addMigration(vmi)
+}
+
+func (h *handler) handleDomainCompletedMigrationStats(obj interface{}) {
+	domain := obj.(*api.Domain)
+	if domain.Status.MigrationStats == nil || !hasCompletedDowntimeStats(*domain.Status.MigrationStats) {
+		return
+	}
+
+	key := controller.NamespacedKey(domain.Namespace, domain.Name)
+
+	h.Lock()
+	q, ok := h.vmiStats[key]
+	h.Unlock()
+	if !ok {
+		vmi, exists := h.vmiForCompletedStats(key)
+		if !exists {
+			log.Log.V(logVerbosityInfo).Infof("dropping completed migration stats for VMI %s: VMI not found", key)
+			return
+		}
+
+		h.addMigration(vmi)
+
+		h.Lock()
+		q, ok = h.vmiStats[key]
+		h.Unlock()
+		if !ok {
+			log.Log.V(logVerbosityInfo).Infof("dropping completed migration stats for VMI %s: migration queue not found", key)
+			return
+		}
+	}
+
+	q.addCompletedStats(*domain.Status.MigrationStats)
+}
+
+func (h *handler) vmiForCompletedStats(key string) (*v1.VirtualMachineInstance, bool) {
+	if h.vmiStore == nil {
+		return nil, false
+	}
+
+	obj, exists, err := h.vmiStore.GetByKey(key)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to look up VMI %s for completed migration stats", key)
+		return nil, false
+	}
+	if !exists {
+		return nil, false
+	}
+
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok {
+		log.Log.Errorf("failed to look up VMI %s for completed migration stats: unexpected object type %T", key, obj)
+		return nil, false
+	}
+
+	return vmi, true
 }
 
 func (h *handler) addMigration(vmi *v1.VirtualMachineInstance) {

@@ -36,6 +36,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -440,6 +442,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	if fsFreezeStatus != nil {
 		domain.Status.FSFreezeStatus = *fsFreezeStatus
 	}
+	applyCompletedMigrationStats(domain, metadataCache)
 
 	event := watch.Event{Type: eventType, Object: domain}
 
@@ -609,9 +612,15 @@ func (n *Notifier) StartDomainNotifier(
 	}
 	domainEventJobCompletedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventJobCompleted) {
 		log.Log.Infof("Domain Job Completed event type %v received. Job operation: %v, succeeded: %t", event.Info.Type, event.Info.Operation, event.Info.JobSuccess)
+		if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
+			storeCompletedMigrationStats(&event.Info, metadataCache)
+		}
 		name, err := d.GetName()
 		if err != nil {
 			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
+		}
+		if name == "" {
+			name = domainName
 		}
 		select {
 		case eventChan <- libvirtEvent{JobCompletedEvent: event, Domain: name}:
@@ -760,6 +769,8 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		} else {
 			log.Log.Warning("Received migration completed event, but no migration is being tracked")
 		}
+		completedStats := storeCompletedMigrationStats(&jobCompletedEvent.Info, metadataCache)
+		domain.Status.MigrationStats = completedStats
 		return false
 	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
 		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
@@ -771,6 +782,26 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		log.Log.V(3).Infof("Received a job completion event for operation %v", jobCompletedEvent.Info.Operation)
 		return false
 	}
+}
+
+func storeCompletedMigrationStats(jobInfo *libvirt.DomainJobInfo, metadataCache *metadata.Cache) *stats.DomainJobInfo {
+	completedStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(jobInfo)
+	metadataCache.CompletedMigrationStats.Store(*completedStats)
+	return completedStats
+}
+
+func applyCompletedMigrationStats(domain *api.Domain, metadataCache *metadata.Cache) {
+	completedStats, exists := metadataCache.CompletedMigrationStats.Load()
+	if !exists || !hasCompletedMigrationDowntimeStats(completedStats) {
+		return
+	}
+
+	completedStatsCopy := completedStats
+	domain.Status.MigrationStats = &completedStatsCopy
+}
+
+func hasCompletedMigrationDowntimeStats(domainJobInfo stats.DomainJobInfo) bool {
+	return domainJobInfo.DowntimeSet || domainJobInfo.DowntimeNetSet
 }
 
 func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {

@@ -32,8 +32,11 @@ import (
 )
 
 func SetupMetrics(
-	nodeName string, maxRequestsInFlight int,
-	vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine,
+	nodeName string,
+	maxRequestsInFlight int,
+	vmiInformer cache.SharedIndexInformer,
+	domainInformer cache.SharedInformer,
+	machines []libvirtxml.CapsGuestMachine,
 ) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
@@ -56,7 +59,7 @@ func SetupMetrics(
 	domainstats.SetupDomainStatsCollector(maxRequestsInFlight, vmiInformer)
 	gpuinfo.Setup(nodeName)
 
-	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {
+	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer, domainInformer); err != nil {
 		return err
 	}
 

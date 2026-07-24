@@ -22,6 +22,8 @@ package migrationdomainstats
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
 )
 
 var (
@@ -34,6 +36,8 @@ var (
 			migrateVMIDataProcessed,
 			migrateVmiDirtyMemoryRate,
 			migrateVmiMemoryTransferRate,
+			migrateVmiDowntime,
+			migrateVmiDowntimeNet,
 		},
 		CollectCallback: migrationStatsCollectorCallback,
 	}
@@ -72,15 +76,29 @@ var (
 			Help: "The rate at which the memory is being transferred.",
 		},
 	)
+
+	migrateVmiDowntime = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_downtime_seconds",
+			Help: "Total time, in seconds, the guest was paused during the cut-over of its last completed live migration.",
+		},
+	)
+
+	migrateVmiDowntimeNet = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_downtime_net_seconds",
+			Help: "Time, in seconds, during which guest network traffic was interrupted during live migration cut-over.",
+		},
+	)
 )
 
-func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer) error {
+func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer, domainInformer cache.SharedInformer) error {
 	if vmiInformer == nil {
 		return nil
 	}
 
 	var err error
-	migrationdomainstatsHandler, err = newHandler(vmiInformer)
+	migrationdomainstatsHandler, err = newHandler(vmiInformer, domainInformer)
 	return err
 }
 
@@ -118,6 +136,14 @@ func parse(r *result) []operatormetrics.CollectorResult {
 
 	if jobInfo.MemoryBpsSet {
 		crs = append(crs, newCR(r, migrateVmiMemoryTransferRate, float64(jobInfo.MemoryBps)))
+	}
+
+	if jobInfo.DowntimeSet {
+		crs = append(crs, newCR(r, migrateVmiDowntime, domainstats.MillisecondsToSeconds(jobInfo.Downtime)))
+	}
+
+	if jobInfo.DowntimeNetSet {
+		crs = append(crs, newCR(r, migrateVmiDowntimeNet, domainstats.MillisecondsToSeconds(jobInfo.DowntimeNet)))
 	}
 
 	return crs

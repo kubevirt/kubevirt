@@ -229,11 +229,14 @@ type LibvirtDomainManager struct {
 	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker        converter.DirectIOChecker
 	disksInfo              map[string]*osdisk.DiskInfo
+	domainInfoStatsLock    sync.RWMutex
 	domainInfoStats        *stats.DomainJobInfo
 	diskMemoryLimitBytes   int64
 
 	metadataCache             *metadata.Cache
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
+	cachedDomainStatsLock     sync.Mutex
+	cachedDomainStats         *stats.DomainStats
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 	agentDataCaches           map[string]*virtcache.TimeDefinedCache[string]
 
@@ -411,6 +414,7 @@ func newLibvirtDomainManager(
 			return nil, errors.New("empty DomainStats")
 		}
 
+		manager.rememberDomainStats(list[0])
 		return list[0], nil
 	}
 
@@ -2352,6 +2356,10 @@ func (l *LibvirtDomainManager) GetQemuVersion() (string, error) {
 }
 
 func (l *LibvirtDomainManager) GetDomainStats() (*stats.DomainStats, error) {
+	if domainStats := l.completedMigrationDomainStats(); domainStats != nil {
+		return domainStats, nil
+	}
+
 	return l.domainStatsCache.Get()
 }
 
@@ -2429,7 +2437,7 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	domstats, err := l.virConn.GetDomainStats(statsTypes, l.domainInfoStats, flags)
+	domstats, err := l.virConn.GetDomainStats(statsTypes, l.getDomainInfoStats(), flags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get domain stats: %v", err)
 	}

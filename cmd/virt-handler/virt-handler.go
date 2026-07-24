@@ -536,7 +536,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
+	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, domainSharedInformer, machines); err != nil {
 		panic(err)
 	}
 

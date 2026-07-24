@@ -36,9 +36,10 @@ import (
 )
 
 const (
-	collectionTimeout = 10 * time.Second
-	pollingInterval   = 5 * time.Second
-	bufferSize        = 10
+	collectionTimeout     = 10 * time.Second
+	pollingInterval       = 5 * time.Second
+	bufferSize            = 10
+	completedStatsTimeout = 3 * time.Minute
 
 	logVerbosityWarning = 2
 	logVerbosityDebug   = 4
@@ -56,10 +57,14 @@ type result struct {
 type queue struct {
 	sync.Mutex
 
-	vmiStore  cache.Store
-	vmi       *v1.VirtualMachineInstance
-	collector domstatsCollector.Collector
-	results   *ring.Ring
+	vmiStore    cache.Store
+	vmi         *v1.VirtualMachineInstance
+	collector   domstatsCollector.Collector
+	results     *ring.Ring
+	finished    bool
+	completedAt *time.Time
+
+	completedResult *result
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -97,17 +102,21 @@ func (q *queue) startPolling() {
 }
 
 func (q *queue) collect() {
-	if q.isMigrationFinished() {
-		q.Lock()
-		defer q.Unlock()
-
-		q.ctxCancel()
+	if q.isFinished() {
 		return
 	}
+
+	// Check whether the VMI has already transitioned out of the migrating
+	// state, but keep scraping until virt-launcher's completed migration event
+	// stats (Downtime, DowntimeNet) are captured before the poller exits.
+	finished := q.isMigrationFinished()
 
 	values, err := q.scrapeDomainStats()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to scrape domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+		if q.shouldStopPolling(finished, stats.DomainJobInfo{}) {
+			q.stopPolling()
+		}
 		return
 	}
 
@@ -120,10 +129,24 @@ func (q *queue) collect() {
 		timestamp:     time.Now(),
 	}
 
+	hasCompletedStats := hasCompletedDowntimeStats(r.domainJobInfo)
+
 	q.Lock()
-	defer q.Unlock()
+	if q.finished {
+		q.Unlock()
+		return
+	}
 	q.results.Value = r
 	q.results = q.results.Next()
+	if hasCompletedStats {
+		completed := r
+		q.completedResult = &completed
+	}
+	q.Unlock()
+
+	if q.shouldStopPolling(finished, r.domainJobInfo) {
+		q.stopPolling()
+	}
 }
 
 func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
@@ -139,20 +162,112 @@ func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
 	return values[0].GetVmiStats().DomainStats, nil
 }
 
-func (q *queue) all() ([]result, bool) {
+func (q *queue) addCompletedStats(domainJobInfo stats.DomainJobInfo) {
+	r := result{
+		vmi:       q.vmi.Name,
+		namespace: q.vmi.Namespace,
+		node:      q.vmi.Status.NodeName,
+
+		domainJobInfo: domainJobInfo,
+		timestamp:     time.Now(),
+	}
+
+	q.Lock()
+	q.results.Value = r
+	q.results = q.results.Next()
+	q.completedResult = &r
+	q.finished = true
+	if q.ctxCancel != nil {
+		q.ctxCancel()
+	}
+	q.Unlock()
+}
+
+func (q *queue) isFinished() bool {
 	q.Lock()
 	defer q.Unlock()
 
+	return q.finished
+}
+
+func (q *queue) stopPolling() {
+	q.Lock()
+	defer q.Unlock()
+
+	if q.finished {
+		return
+	}
+
+	q.finished = true
+	if q.ctxCancel != nil {
+		q.ctxCancel()
+	}
+}
+
+func hasCompletedDowntimeStats(domainJobInfo stats.DomainJobInfo) bool {
+	return domainJobInfo.DowntimeSet || domainJobInfo.DowntimeNetSet
+}
+
+func (q *queue) shouldStopPolling(finished bool, domainJobInfo stats.DomainJobInfo) bool {
+	if !finished {
+		q.completedAt = nil
+		return false
+	}
+
+	if hasCompletedDowntimeStats(domainJobInfo) {
+		return true
+	}
+
+	if q.completedAt == nil {
+		completedAt := time.Now()
+		q.completedAt = &completedAt
+		return false
+	}
+
+	return time.Since(*q.completedAt) >= completedStatsTimeout
+}
+
+func (q *queue) all() ([]result, bool) {
+	q.Lock()
+
 	var results []result
 
-	q.results.Do(func(r interface{}) {
-		if r != nil {
-			results = append(results, r.(result))
-		}
-	})
-	q.results = q.results.Unlink(q.results.Len())
+	if q.completedResult != nil {
+		// Keep completed migration stats visible across Prometheus scrapes until
+		// the migrated VMI is removed.
+		results = append(results, *q.completedResult)
+	} else {
+		q.results.Do(func(r interface{}) {
+			if r != nil {
+				results = append(results, r.(result))
+			}
+		})
+		q.results = q.results.Unlink(q.results.Len())
+	}
 
-	return results, q.isMigrationFinished()
+	finished := q.finished
+	retainCompleted := q.completedResult != nil
+	q.Unlock()
+
+	if retainCompleted {
+		finished = !q.vmiExists()
+	}
+
+	return results, finished
+}
+
+func (q *queue) vmiExists() bool {
+	if q.vmiStore == nil {
+		return false
+	}
+
+	_, exists, err := q.vmiStore.Get(q.vmi)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+		return false
+	}
+
+	return exists
 }
 
 func (q *queue) isMigrationFinished() bool {

@@ -54,6 +54,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -178,6 +179,86 @@ var _ = Describe("Live migration source", func() {
 			Expect(migrationMetadata.Failed).To(BeTrue())
 			Expect(migrationMetadata.FailureReason).To(Equal("client socket is closed"))
 			Expect(migrationMetadata.AbortStatus).To(BeEmpty())
+		})
+
+		It("should use completed migration job stats from metadata cache", func() {
+			libvirtDomainManager.metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{
+				DowntimeSet:    true,
+				Downtime:       150,
+				DowntimeNetSet: true,
+				DowntimeNet:    120,
+			})
+
+			domainInfoStats, exists := libvirtDomainManager.metadataCache.CompletedMigrationStats.Load()
+
+			Expect(exists).To(BeTrue())
+			Expect(domainInfoStats.DowntimeSet).To(BeTrue())
+			Expect(domainInfoStats.Downtime).To(Equal(uint64(150)))
+			Expect(domainInfoStats.DowntimeNetSet).To(BeTrue())
+			Expect(domainInfoStats.DowntimeNet).To(Equal(uint64(120)))
+		})
+
+		It("should not publish estimated downtime from inflight migration job stats", func() {
+			libvirtDomainManager.updateInflightMigrationStats(&libvirt.DomainJobInfo{
+				Type:           libvirt.DOMAIN_JOB_UNBOUNDED,
+				DowntimeSet:    true,
+				Downtime:       150,
+				DowntimeNetSet: true,
+				DowntimeNet:    120,
+			})
+
+			domainInfoStats := libvirtDomainManager.getDomainInfoStats()
+			Expect(domainInfoStats.DowntimeSet).To(BeFalse())
+			Expect(domainInfoStats.DowntimeNetSet).To(BeFalse())
+		})
+
+		It("should not overwrite completed migration job stats with inflight migration job stats", func() {
+			libvirtDomainManager.metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{
+				DowntimeSet:    true,
+				Downtime:       150,
+				DowntimeNetSet: true,
+				DowntimeNet:    120,
+			})
+
+			libvirtDomainManager.updateInflightMigrationStats(&libvirt.DomainJobInfo{
+				Type:           libvirt.DOMAIN_JOB_UNBOUNDED,
+				DowntimeSet:    true,
+				Downtime:       999,
+				DowntimeNetSet: true,
+				DowntimeNet:    888,
+			})
+
+			domainInfoStats, exists := libvirtDomainManager.metadataCache.CompletedMigrationStats.Load()
+
+			Expect(exists).To(BeTrue())
+			Expect(domainInfoStats.DowntimeSet).To(BeTrue())
+			Expect(domainInfoStats.Downtime).To(Equal(uint64(150)))
+			Expect(domainInfoStats.DowntimeNetSet).To(BeTrue())
+			Expect(domainInfoStats.DowntimeNet).To(Equal(uint64(120)))
+		})
+
+		It("should update cached domain stats with completed migration job stats from metadata cache", func() {
+			domainStats := &stats.DomainStats{
+				MigrateDomainJobInfo: &stats.DomainJobInfo{
+					DataTotalSet: true,
+					DataTotal:    3,
+				},
+			}
+			libvirtDomainManager.rememberDomainStats(domainStats)
+
+			libvirtDomainManager.metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{
+				DowntimeSet:    true,
+				Downtime:       150,
+				DowntimeNetSet: true,
+				DowntimeNet:    120,
+			})
+
+			domainStats, err := libvirtDomainManager.GetDomainStats()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainStats.MigrateDomainJobInfo.DowntimeSet).To(BeTrue())
+			Expect(domainStats.MigrateDomainJobInfo.Downtime).To(Equal(uint64(150)))
+			Expect(domainStats.MigrateDomainJobInfo.DowntimeNetSet).To(BeTrue())
+			Expect(domainStats.MigrateDomainJobInfo.DowntimeNet).To(Equal(uint64(120)))
 		})
 	})
 

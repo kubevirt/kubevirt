@@ -45,6 +45,10 @@ var _ = Describe("migration metrics", func() {
 				MemDirtyRate:     3,
 				MemoryBpsSet:     true,
 				MemoryBps:        4,
+				DowntimeSet:      true,
+				Downtime:         150,
+				DowntimeNetSet:   true,
+				DowntimeNet:      120,
 			},
 		}
 
@@ -57,6 +61,8 @@ var _ = Describe("migration metrics", func() {
 			Entry("kubevirt_vmi_migration_data_processed_bytes", migrateVMIDataProcessed, 2.0),
 			Entry("kubevirt_vmi_migration_dirty_memory_rate_bytes", migrateVmiDirtyMemoryRate, 3.0),
 			Entry("kubevirt_vmi_migration_memory_transfer_rate_bytes", migrateVmiMemoryTransferRate, 4.0),
+			Entry("kubevirt_vmi_migration_downtime_seconds", migrateVmiDowntime, 0.15),
+			Entry("kubevirt_vmi_migration_downtime_net_seconds", migrateVmiDowntimeNet, 0.12),
 		)
 
 		It("result should be empty if stat not populated or set is false", func() {
