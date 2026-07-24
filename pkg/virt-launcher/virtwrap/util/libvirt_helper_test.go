@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-kit/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -140,8 +139,7 @@ var _ = Describe("LibvirtHelper", func() {
 		buffer := bytes.NewBuffer(nil)
 
 		kubevirtlog.InitializeLogging("test")
-		logger := log.NewJSONLogger(buffer)
-		klog := kubevirtlog.MakeLogger(logger)
+		klog := kubevirtlog.MakeLogger(kubevirtlog.NewJSONLogger(buffer))
 
 		scanner := bufio.NewScanner(strings.NewReader(logs))
 		for scanner.Scan() {
@@ -177,8 +175,7 @@ var _ = Describe("LibvirtHelper", func() {
 		buffer := bytes.NewBuffer(nil)
 
 		kubevirtlog.InitializeLogging("virt-launcher")
-		logger := log.NewJSONLogger(buffer)
-		klog := kubevirtlog.MakeLogger(logger)
+		klog := kubevirtlog.MakeLogger(kubevirtlog.NewJSONLogger(buffer))
 
 		scanner := bufio.NewScanner(strings.NewReader(qemuLogs))
 		for scanner.Scan() {
