@@ -1,4 +1,4 @@
-//go:build (linux && amd64) || (linux && arm64) || (linux && s390x) || (linux && ppc64le)
+//go:build ppc64le
 
 /*
  * This file is part of the KubeVirt project
@@ -15,22 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors.
+ * Copyright 2021 Red Hat, Inc.
  *
  */
 
-package common
+package nodelabeller
 
-import (
-	"unsafe"
-
-	"golang.org/x/sys/unix"
-)
-
-func SchedSetScheduler(pid int, policy policy, param SchedParam) error {
-	_, _, e1 := unix.Syscall(unix.SYS_SCHED_SETSCHEDULER, uintptr(pid), uintptr(policy), uintptr(unsafe.Pointer(&param)))
-	if e1 != 0 {
-		return e1
-	}
-	return nil
+func getCapLabels() []string {
+	exposedCaps := []string{}
+	return exposedCaps
 }
