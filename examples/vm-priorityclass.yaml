@@ -4,7 +4,7 @@ kind: VirtualMachine
 metadata:
   labels:
     kubevirt.io/vm: vm-cirros
-  name: vm-non-preemtible
+  name: vm-non-preemptible
 spec:
   runStrategy: Halted
   template:
@@ -24,7 +24,7 @@ spec:
         memory:
           guest: 128Mi
         resources: {}
-      priorityClassName: non-preemtible
+      priorityClassName: non-preemptible
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:
