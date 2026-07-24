@@ -165,9 +165,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstBinding},
-			},
+			DeveloperConfiguration: &v1.DeveloperConfiguration{},
 		}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
 
@@ -588,7 +586,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	It("should put StallDetectorOptions on the wire when MigrationStallDetection feature gate is enabled", func() {
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstBinding, featuregate.MigrationStallDetection},
+				FeatureGates: []string{featuregate.MigrationStallDetection},
 			},
 		}
 		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
