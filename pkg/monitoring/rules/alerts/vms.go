@@ -35,6 +35,13 @@ import (
 const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|" +
 	"tracefs|configfs|binfmt_misc|bpf|devpts|mqueue|nsfs|rpc_pipefs|ramfs|rootfs|overlay|cgroup.*|fuse\\\\..*|fusectl"
 
+// withVMLabel wraps a PromQL expression with label_replace to add a "vm"
+// typed resource label derived from the "name" label. This enables the
+// monitoring-plugin to navigate from alerts to the VM resource page.
+func withVMLabel(expr string) string {
+	return fmt.Sprintf(`label_replace(%s, "vm", "$1", "name", "(.+)")`, expr)
+}
+
 var vmsAlerts = []promv1.Rule{
 	{
 		Alert: "VirtLauncherPodsStuckFailed",
@@ -66,10 +73,10 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "VMCannotBeEvicted",
-		Expr: intstr.FromString(
+		Expr: intstr.FromString(withVMLabel(
 			"kubevirt_vmi_non_evictable * on(name, namespace) group_left() " +
 				"topk by(name, namespace) (1, kubevirt_vmi_info{phase='running'}) == 1",
-		),
+		)),
 		For: ptr.To(promv1.Duration("1m")),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "Eviction policy for VirtualMachine {{ $labels.name }} in namespace {{ $labels.namespace }} " +
@@ -110,7 +117,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestVCPUQueueHighWarning",
-		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 10"),
+		Expr:  intstr.FromString(withVMLabel("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 10")),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} CPU queue length > 10",
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 10",
@@ -122,7 +129,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestVCPUQueueHighCritical",
-		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 20"),
+		Expr:  intstr.FromString(withVMLabel("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 20")),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} CPU queue length > 20",
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 20",
@@ -134,11 +141,11 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "VirtualMachineStuckInUnhealthyState",
-		Expr: intstr.FromString(
+		Expr: intstr.FromString(withVMLabel(
 			"sum by (name, namespace, status)(kubevirt_vm_info{status='provisioning'}==1 or kubevirt_vm_info{status='starting'} == 1 " +
 				"or kubevirt_vm_info{status='terminating'} == 1 or kubevirt_vm_info{status_group='error'} == 1) " +
 				"unless on(name, namespace) kubevirt_vmi_info",
-		),
+		)),
 		For: ptr.To(promv1.Duration("10m")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Virtual machine in {{ $labels.status }} state for more than 10 minutes",
@@ -152,13 +159,13 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "VirtualMachineStuckOnNode",
-		Expr: intstr.FromString(
+		Expr: intstr.FromString(withVMLabel(
 			"sum by (name, namespace, status, node)((kubevirt_vm_info{status='starting'} == 1 " +
 				"or kubevirt_vm_info{status='stopping'} == 1 or kubevirt_vm_info{status='terminating'} == 1 " +
 				"or (kubevirt_vm_info{status_group='error'} == 1 " +
 				"and on(name, namespace) kubevirt_vmi_info{phase=~'scheduled|running'}) ) " +
 				"* on(name, namespace) group_left(node) topk by(name, namespace) (1, kubevirt_vmi_info{phase=~'scheduled|running'}))",
-		),
+		)),
 		For: ptr.To(promv1.Duration("5m")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Virtual machine stuck in unhealthy state for more than 5 minutes",
@@ -194,11 +201,11 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestFilesystemAlmostOutOfSpace",
-		Expr: intstr.FromString(fmt.Sprintf(
+		Expr: intstr.FromString(withVMLabel(fmt.Sprintf(
 			"(kubevirt_vmi_filesystem_used_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'} / "+
 				"kubevirt_vmi_filesystem_capacity_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95",
 			excludedFilesystemTypesRegex, excludedFilesystemTypesRegex,
-		)),
+		))),
 		For: ptr.To(promv1.Duration("10m")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Guest filesystem is running out of space",
@@ -212,11 +219,11 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestFilesystemAlmostOutOfSpace",
-		Expr: intstr.FromString(fmt.Sprintf(
+		Expr: intstr.FromString(withVMLabel(fmt.Sprintf(
 			"(kubevirt_vmi_filesystem_used_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'} / "+
 				"kubevirt_vmi_filesystem_capacity_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95",
 			excludedFilesystemTypesRegex, excludedFilesystemTypesRegex,
-		)),
+		))),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Guest filesystem is critically low on space",
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has " +
@@ -251,7 +258,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "VMNonRecoverableOSPanic",
-		Expr:  intstr.FromString(`sum by (namespace, name) (increase(kubevirt_vmi_guest_os_panic_total[24h])) > 5`),
+		Expr:  intstr.FromString(withVMLabel("sum by (namespace, name) (increase(kubevirt_vmi_guest_os_panic_total[24h])) > 5")),
 		For:   ptr.To(promv1.Duration("1m")),
 		Annotations: map[string]string{
 			summaryAnnotationKey:     "VM {{ $labels.name }} in namespace {{ $labels.namespace }} experienced a non-recoverable guest OS panic",
