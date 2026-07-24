@@ -36,6 +36,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -123,6 +124,53 @@ func getPatchWithObjectMetaAndSpec(ops []patch.PatchOption, meta *metav1.ObjectM
 	ops = append(ops, createLabelsAndAnnotationsPatch(meta)...)
 	// and spec replacement to patch
 	return append(ops, patch.WithReplace("/spec", spec))
+}
+
+func (r *Reconciler) ensureKubeVirtStartupValidation() (bool, error) {
+	const startupValidationPatchTimeout = 10 * time.Second
+
+	targetID := r.kv.Status.TargetDeploymentID
+	if targetID == "" {
+		log.Log.V(4).Info("skip startup validation patch: status.targetDeploymentID is empty")
+		return false, nil
+	}
+	if r.kv.Annotations[v1.KubeVirtStartupValidationAnnotation] == targetID {
+		return false, nil
+	}
+
+	patchSet := patch.New()
+	if len(r.kv.Annotations) == 0 {
+		patchSet.AddOption(patch.WithAdd("/metadata/annotations",
+			map[string]string{v1.KubeVirtStartupValidationAnnotation: targetID}))
+	} else {
+		patchSet.AddOption(patch.WithAdd(
+			fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(v1.KubeVirtStartupValidationAnnotation)),
+			targetID))
+	}
+	payload, err := patchSet.GeneratePayload()
+	if err != nil {
+		return false, fmt.Errorf("failed to build startup validation patch: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), startupValidationPatchTimeout)
+	defer cancel()
+
+	log.Log.Infof("triggering KubeVirt startup semantic validation for target deployment ID %s", targetID)
+	kv, err := r.virtClient.KubeVirt(r.kv.Namespace).Patch(
+		ctx,
+		r.kv.Name,
+		types.JSONPatchType,
+		payload,
+		metav1.PatchOptions{},
+	)
+
+	if err != nil {
+		log.Log.Reason(err).Errorf("KubeVirt startup semantic validation failed, the KubeVirt CR has an invalid configuration")
+		return false, fmt.Errorf("startup validation patch rejected: %w", err)
+	}
+
+	r.kv = kv
+	return true, nil
 }
 
 func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
@@ -502,6 +550,16 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		err = r.removeKvServiceAccountsFromDefaultSCC(r.kv.Namespace)
 		if err != nil {
 			return false, err
+		}
+	}
+
+	if apiDeploymentsRolledOver {
+		patched, err := r.ensureKubeVirtStartupValidation()
+		if err != nil {
+			return false, err
+		}
+		if patched {
+			return false, nil
 		}
 	}
 

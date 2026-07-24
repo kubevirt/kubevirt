@@ -22,15 +22,19 @@ package apply
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
@@ -167,6 +171,79 @@ var _ = Describe("Apply", func() {
 			id, ok := deployment.Annotations["kubevirt.io/install-strategy-identifier"]
 			Expect(ok).To(BeTrue())
 			Expect(id).To(Equal("fakeid"))
+		})
+	})
+
+	Context("Ensuring KubeVirt startup validation", func() {
+		var (
+			ctrl        *gomock.Controller
+			virtClient  *kubecli.MockKubevirtClient
+			kvInterface *kubecli.MockKubeVirtInterface
+			kv          *v1.KubeVirt
+			reconciler  *Reconciler
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
+			virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+
+			kv = &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: Namespace,
+				},
+			}
+			reconciler = &Reconciler{
+				kv:         kv,
+				virtClient: virtClient,
+			}
+		})
+
+		It("should skip patching when the target deployment ID is empty", func() {
+			kvInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			patched, err := reconciler.ensureKubeVirtStartupValidation()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patched).To(BeFalse())
+		})
+
+		It("should skip patching when the annotation already matches the target deployment ID", func() {
+			kv.Status.TargetDeploymentID = Id
+			kv.Annotations = map[string]string{v1.KubeVirtStartupValidationAnnotation: Id}
+			kvInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+			patched, err := reconciler.ensureKubeVirtStartupValidation()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patched).To(BeFalse())
+		})
+
+		It("should patch and store the returned KubeVirt when validation is triggered", func() {
+			kv.Status.TargetDeploymentID = Id
+			patchedKv := kv.DeepCopy()
+			patchedKv.Annotations = map[string]string{v1.KubeVirtStartupValidationAnnotation: Id}
+
+			kvInterface.EXPECT().
+				Patch(gomock.Any(), kv.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
+				Return(patchedKv, nil)
+
+			patched, err := reconciler.ensureKubeVirtStartupValidation()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patched).To(BeTrue())
+			Expect(reconciler.kv.Annotations).To(HaveKeyWithValue(v1.KubeVirtStartupValidationAnnotation, Id))
+		})
+
+		It("should return an error when the patch is rejected", func() {
+			kv.Status.TargetDeploymentID = Id
+
+			kvInterface.EXPECT().
+				Patch(gomock.Any(), kv.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
+				Return(nil, fmt.Errorf("rejected by webhook"))
+
+			patched, err := reconciler.ensureKubeVirtStartupValidation()
+			Expect(err).To(HaveOccurred())
+			Expect(patched).To(BeFalse())
 		})
 	})
 })

@@ -407,6 +407,13 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reas
 }
 
 func (k *KubeVirtTestData) addKubeVirt(kv *v1.KubeVirt) {
+	if targetID := util.GetTargetConfigFromKV(kv).GetDeploymentID(); targetID != "" {
+		if kv.Annotations == nil {
+			kv.Annotations = map[string]string{}
+		}
+		kv.Annotations[v1.KubeVirtStartupValidationAnnotation] = targetID
+	}
+
 	k.controller.stores.KubeVirtCache.Add(kv)
 	key, err := kubecontroller.KeyFunc(kv)
 	Expect(err).To(Not(HaveOccurred()))
