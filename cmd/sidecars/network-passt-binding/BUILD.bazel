@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 go_library(
     name = "go_default_library",
@@ -35,20 +35,16 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+kubevirt_image(
     name = "version-container",
     base = "//:passwd-image",
-    tars = [
-        ":get-version",
-    ],
+    tars = [":get-version"],
 )
 
-oci_image(
+kubevirt_image(
     name = "network-passt-binding-image",
     base = ":version-container",
     entrypoint = ["/network-passt-binding"],
-    tars = [
-        ":network-passt-binding-tar",
-    ],
+    tars = [":network-passt-binding-tar"],
     visibility = ["//visibility:public"],
 )

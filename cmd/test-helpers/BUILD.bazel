@@ -1,5 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 pkg_tar(
     name = "test-pod-mutator-tar",
@@ -8,14 +8,10 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+kubevirt_image(
     name = "test-helpers-image",
     testonly = True,
     base = "//:passwd-image",
-    # No entrypoint - let the pod spec define which binary to run
-    # This allows multiple test helper binaries in the same image
-    tars = [
-        ":test-pod-mutator-tar",
-    ],
+    tars = [":test-pod-mutator-tar"],
     visibility = ["//visibility:public"],
 )

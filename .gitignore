@@ -39,6 +39,7 @@ coverage.html
 manifests/**/*.tmp
 /bazel-*
 /ci.bazelrc
+MODULE.bazel.lock
 _ci-configs/
 .history
 hack/builder/manifests/

@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 pkg_tar(
     name = "conformance-config",
@@ -19,24 +19,20 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+kubevirt_image(
     name = "conformance_image_base",
     testonly = True,
     base = "//:passwd-image",
-    tars = [
-        ":conformance-config",
-    ],
+    tars = [":conformance-config"],
     visibility = ["//visibility:public"],
 )
 
-oci_image(
+kubevirt_image(
     name = "conformance_image",
     testonly = True,
     base = ":conformance_image_base",
     entrypoint = ["/usr/bin/conformance"],
-    tars = [
-        ":conformance-tests",
-    ],
+    tars = [":conformance-tests"],
     visibility = ["//visibility:public"],
 )
 

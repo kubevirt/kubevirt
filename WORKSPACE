@@ -32,26 +32,84 @@ http_archive(
 )
 
 http_archive(
-    name = "rules_oci",
-    sha256 = "e987cab7a35475cb9c9060fc3f338a1fc8896c240295a3272968b217acefd0cb",
-    strip_prefix = "rules_oci-2.3.0",
-    urls = [
-        "https://github.com/bazel-contrib/rules_oci/releases/download/v2.3.0/rules_oci-v2.3.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/e987cab7a35475cb9c9060fc3f338a1fc8896c240295a3272968b217acefd0cb",
-    ],
+    name = "hermetic_launcher",
+    sha256 = "f6b5dbcf4c87561d85aa2ba9b14d70bd3f619ffb2d6eb3b15d93a6825ef75a7a",
+    urls = ["https://github.com/hermeticbuild/hermetic-launcher/releases/download/v0.0.6/hermetic_launcher-v0.0.6.tar.gz"],
 )
 
-load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
-
-rules_oci_dependencies()
-
-load("@rules_oci//oci:repositories.bzl", "oci_register_toolchains")
-
-oci_register_toolchains(
-    name = "oci",
+http_file(
+    name = "finalize_stub_x86_64_linux",
+    downloaded_file_path = "finalize-stub-x86_64-linux",
+    executable = True,
+    sha256 = "c7a09c660f998150305b32bdc619820ec1c7b4a8be153901cb1e32c3ba0e44e9",
+    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-x86_64-linux",
 )
 
-load("@rules_oci//oci:pull.bzl", "oci_pull")
+http_file(
+    name = "finalize_stub_aarch64_linux",
+    downloaded_file_path = "finalize-stub-aarch64-linux",
+    executable = True,
+    sha256 = "042bf32e5b511a8b2a346f34e79876e0ee252fea03a6c73bd16d23e5785b298c",
+    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-aarch64-linux",
+)
+
+http_file(
+    name = "finalize_stub_s390x_linux",
+    downloaded_file_path = "finalize-stub-s390x-linux",
+    executable = True,
+    sha256 = "ecce866232c2d058af04d629f49809775d24a380c33d90317eea4089b10a4bb7",
+    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-s390x-linux",
+)
+
+http_file(
+    name = "runfiles_stub_x86_64_linux",
+    downloaded_file_path = "runfiles-stub-x86_64-linux",
+    executable = True,
+    sha256 = "ec2f76990920622168febbf3e68f06b9918e18da7c692728d7c6f8aaedb497c7",
+    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-x86_64-linux",
+)
+
+http_file(
+    name = "runfiles_stub_aarch64_linux",
+    downloaded_file_path = "runfiles-stub-aarch64-linux",
+    executable = True,
+    sha256 = "678fa4c8eba9fddd95acd6588d3e4fe445da6199d8e7f3598373a27912e026e0",
+    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-aarch64-linux",
+)
+
+http_file(
+    name = "runfiles_stub_s390x_linux",
+    downloaded_file_path = "runfiles-stub-s390x-linux",
+    executable = True,
+    sha256 = "cca52171d1a4b513415517ffd31ec8c1954facc7d8513c539187a55bcb3af0c7",
+    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-s390x-linux",
+)
+
+http_archive(
+    name = "rules_img",
+    sha256 = "6ac03edbafc57f66dc267d649b1d4413001b53fa5c8c95ba4c5038a4575b0bb9",
+    urls = ["https://github.com/bazel-contrib/rules_img/releases/download/v0.3.9/rules_img-v0.3.9.tar.gz"],
+)
+
+load("@rules_img//img:dependencies.bzl", "rules_img_dependencies")
+
+rules_img_dependencies()
+
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+bazel_features_deps()
+
+load("@rules_img//img:repositories.bzl", "img_register_prebuilt_toolchains", "pull_tool_register_prebuilt_repositories")
+
+img_register_prebuilt_toolchains()
+
+register_toolchains("@img_toolchain//:all")
+
+register_toolchains("@hermetic_launcher//launcher/private/prebuilt:all")
+
+pull_tool_register_prebuilt_repositories()
+
+load("@rules_img//img:pull.bzl", "pull")
 
 # Bazel buildtools prebuilt binaries
 http_archive(
@@ -350,85 +408,99 @@ go_repository(
 )
 
 # Pull go_image_base
-oci_pull(
+pull(
     name = "go_image_base",
     digest = "sha256:6f23ea6c3ce8b2a62c92e3b59c076118a366fb470af3fbf7d149bb51b98234ed",
-    image = "gcr.io/distroless/base-debian12",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
 )
 
-oci_pull(
+pull(
     name = "go_image_base_aarch64",
     digest = "sha256:a09192f27226e9e704bf7b4d0d69368c4fa0df54b21bcaabbaf5cc54dec4d77c",
-    image = "gcr.io/distroless/base-debian12",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
 )
 
-oci_pull(
+pull(
     name = "go_image_base_s390x",
     digest = "sha256:7da65d894be967ee6cb28519bb0ae269c5521e22b88b2ce17b13aee259f3fa09",
-    image = "gcr.io/distroless/base-debian12",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
 )
 
 # Pull fedora container-disk preconfigured with ci tooling
 # like stress and qemu guest agent pre-configured
-oci_pull(
+# TODO build fedora_with_test_tooling for multi-arch
+pull(
     name = "fedora_with_test_tooling",
     digest = "sha256:a53fd982787799c2d8cfaa37a2b6fbac4f416437768a25d2eb246dff46bb9d79",
-    image = "quay.io/kubevirtci/fedora-with-test-tooling",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
 )
 
-oci_pull(
+pull(
     name = "alpine_with_test_tooling",
     digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
-    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
-oci_pull(
+pull(
     name = "alpine_with_test_tooling_arm64",
     digest = "sha256:5b443506b62f29f5ef5ac1bbf709338212b0b289ee2579e4feead42205685f43",
-    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
-oci_pull(
+pull(
     name = "alpine_with_test_tooling_s390x",
     digest = "sha256:1a52903133c00507607e8a82308a34923e89288d852762b9f4d5da227767e965",
-    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
-oci_pull(
+pull(
     name = "fedora_with_test_tooling_aarch64",
     digest = "sha256:0b29f1b32b2f8d75e35de165a121a9cb211741978972f27ed47e4879c1122b18",
-    image = "quay.io/kubevirtci/fedora-with-test-tooling",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
 )
 
-oci_pull(
+pull(
     name = "fedora_with_test_tooling_s390x",
     digest = "sha256:ae6d6510dfb1e1cbcf09ad85c2c0b3e58494fe10bdaa720362934422037d42a2",
-    image = "quay.io/kubevirtci/fedora-with-test-tooling",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
 )
 
-oci_pull(
+pull(
     name = "s390x-guestless-kernel",
     digest = "sha256:3bf6fc355fc9718c088c4c881b2d35a073ea274f6b16dc42236ef5e29db2215d",
-    image = "quay.io/kubevirt/s390x-guestless-kernel",
+    registry = "quay.io",
+    repository = "kubevirt/s390x-guestless-kernel",
 )
 
-oci_pull(
+pull(
     name = "alpine-ext-kernel-boot-demo-container-base",
     digest = "sha256:bccd990554f55623d96fa70bc7efc553dd617523ebca76919b917ad3ee616c1d",
-    image = "quay.io/kubevirt/alpine-ext-kernel-boot-demo",
+    registry = "quay.io",
+    repository = "kubevirt/alpine-ext-kernel-boot-demo",
 )
 
 # TODO build fedora_realtime for multi-arch
-oci_pull(
+pull(
     name = "fedora_realtime",
     digest = "sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565",
-    image = "quay.io/kubevirt/fedora-realtime-container-disk",
+    registry = "quay.io",
+    repository = "kubevirt/fedora-realtime-container-disk",
 )
 
-oci_pull(
+pull(
     name = "busybox",
     digest = "sha256:545e6a6310a27636260920bc07b994a299b6708a1b26910cfefd335fdfb60d2b",
-    image = "registry.k8s.io/busybox",
+    registry = "registry.k8s.io",
+    repository = "busybox",
 )
 
 load("//images/virt-template:deps.bzl", "virt_template_images")
