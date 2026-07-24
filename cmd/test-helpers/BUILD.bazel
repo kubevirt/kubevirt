@@ -8,6 +8,13 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
+pkg_tar(
+    name = "dra-test-driver-tar",
+    testonly = True,
+    srcs = ["//cmd/test-helpers/dra-test-driver/cmd:dra-test-driver"],
+    package_dir = "/usr/bin",
+)
+
 oci_image(
     name = "test-helpers-image",
     testonly = True,
@@ -16,6 +23,7 @@ oci_image(
     # This allows multiple test helper binaries in the same image
     tars = [
         ":test-pod-mutator-tar",
+        ":dra-test-driver-tar",
     ],
     visibility = ["//visibility:public"],
 )
