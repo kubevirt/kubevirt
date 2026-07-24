@@ -5,9 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	"kubevirt.io/kubevirt/pkg/tpm"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
@@ -15,16 +12,18 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/vmitrait"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type VolumeRendererOption func(renderer *VolumeRenderer) error

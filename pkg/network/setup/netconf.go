@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/vmitrait"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -37,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	converternet "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type cacheCreator interface {
