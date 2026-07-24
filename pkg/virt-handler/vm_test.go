@@ -523,6 +523,95 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
 		})
 
+		Context("When a Running VMI has no domain", func() {
+			It("should re-enqueue if the launcher client is not yet initialized", func() {
+				vmi := NewRunningVMI(vmiTestUUID, podTestUUID, host)
+
+				createVMI(vmi)
+
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{
+					Initialized: false,
+				}
+
+				sanityExecute()
+
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">", 0))
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI.Status.Phase).To(Equal(v1.Running))
+			})
+
+			It("should move to Failed if the launcher client is unresponsive", func() {
+				vmi := NewRunningVMI(vmiTestUUID, podTestUUID, host)
+
+				createVMI(vmi)
+
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{
+					Initialized:  true,
+					UnResponsive: true,
+				}
+
+				sanityExecute()
+
+				testutils.ExpectEvent(recorder, VMICrashed)
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
+			})
+
+			It("should stay Running if the launcher client is responsive", func() {
+				vmi := NewRunningVMI(vmiTestUUID, podTestUUID, host)
+
+				createVMI(vmi)
+
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{
+					Initialized:  true,
+					UnResponsive: false,
+				}
+
+				sanityExecute()
+				testutils.ExpectEvent(recorder, v1.SyncFailed.String())
+
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI.Status.Phase).To(Equal(v1.Running))
+			})
+
+			It("should move to WaitingForSync if the VMI is a migration target and launcher is unresponsive", func() {
+				vmi := NewRunningVMI(vmiTestUUID, podTestUUID, host)
+				vmi.Annotations = map[string]string{
+					v1.CreateMigrationTarget: "true",
+				}
+
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{
+					Initialized:  true,
+					UnResponsive: true,
+				}
+
+				phase, err := controller.calculateVmPhaseForStatusReason(nil, vmi)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(phase).To(Equal(v1.WaitingForSync))
+			})
+
+			It("should propagate error from IsLauncherClientUnresponsive and keep the current phase", func() {
+				vmi := NewRunningVMI(vmiTestUUID, podTestUUID, host)
+
+				createVMI(vmi)
+
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{
+					UnResponsiveError: fmt.Errorf("test error"),
+				}
+
+				sanityExecute()
+
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI.Status.Phase).To(Equal(v1.Running))
+			})
+		})
+
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -1166,6 +1255,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Running
 
 			createVMI(vmi)
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
+				Initialized:  true,
+				UnResponsive: true,
+			}
 
 			sanityExecute()
 
@@ -3663,6 +3756,16 @@ func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Vi
 	vmi.UID = vmiUID
 	vmi.ObjectMeta.ResourceVersion = "1"
 	vmi.Status.Phase = v1.Scheduled
+
+	vmi = addActivePods(vmi, podUID, hostname)
+	return vmi
+}
+
+func NewRunningVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
+	vmi := api2.NewMinimalVMI("testvmi")
+	vmi.UID = vmiUID
+	vmi.ObjectMeta.ResourceVersion = "1"
+	vmi.Status.Phase = v1.Running
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
