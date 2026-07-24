@@ -106,6 +106,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/operator/resourcefiles"
 	"kubevirt.io/kubevirt/tests/operator/version"
+	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -1046,8 +1047,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false, originalKv.Name)
 		},
-			Entry("[QUARANTINE]from previous y release by patching KubeVirt CR", decorators.Quarantine, fromY, false),
-			Entry("[QUARANTINE]from previous y release by updating virt-operator", decorators.Quarantine, fromY, true),
+			Entry("from previous y release by patching KubeVirt CR", fromY, false),
+			Entry("from previous y release by updating virt-operator", fromY, true),
 			Entry("from previous z release by patching KubeVirt CR", fromZ, false),
 			Entry("from previous z release by updating virt-operator", fromZ, true),
 		)
@@ -3000,6 +3001,11 @@ func deleteVMIs(vmis []*v1.VirtualMachineInstance) {
 
 func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 	GinkgoHelper()
+
+	if p := reporter.ActiveEtcdProfiler; p != nil {
+		p.MonitorRanges("deleteAllKvAndWait", 5*time.Second)
+		defer p.StopMonitor()
+	}
 
 	virtClient := kubevirt.Client()
 	Eventually(func(g Gomega) {

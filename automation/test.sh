@@ -150,6 +150,7 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
     export KUBEVIRT_WITH_CNAO=true
     export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_PROFILE_ETCD=true
     ;;
   *sig-monitoring*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
