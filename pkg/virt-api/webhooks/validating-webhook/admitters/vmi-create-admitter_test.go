@@ -95,9 +95,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
-	disableSEVFeatureGate := func() {
+	disableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.WorkloadEncryptionSEV}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featureGate}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
@@ -1322,6 +1322,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		It("should reject host devices when feature gate is disabled", func() {
+			disableFeatureGate(featuregate.HostDevicesGate)
+
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{
@@ -1337,7 +1339,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA GPU", func() {
 			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.GPUsWithDRAGate)
-			defer disableFeatureGates()
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
 				{
@@ -1372,8 +1373,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
-			defer disableFeatureGates()
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesWithDRAGate)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
 				{
@@ -1409,7 +1409,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -1432,7 +1431,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept permitted host devices", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -2744,7 +2742,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-			disableSEVFeatureGate()
+			disableFeatureGate(featuregate.WorkloadEncryptionSEV)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
@@ -2827,7 +2825,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should reject when the feature gate is disabled", func() {
-				disableSEVFeatureGate()
+				disableFeatureGate(featuregate.WorkloadEncryptionSEV)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
@@ -4028,10 +4026,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a DRA-GPU when the feature-gate is NOT enabled", func() {
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.GPUsWithDRAGate}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			defer disableFeatureGates()
+			disableFeatureGate(featuregate.GPUsWithDRAGate)
 
 			vmi := libvmi.New()
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{

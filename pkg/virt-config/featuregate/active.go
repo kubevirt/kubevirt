@@ -24,7 +24,12 @@ const (
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
-	HostDevicesGate       = "HostDevices"
+
+	// HostDevicesGate allows users to create VMIs with generic PCI, mediated,
+	// and USB host devices listed under spec.domain.devices.hostDevices.
+	// Alpha: v0.36.0
+	// Beta: v1.9.0
+	HostDevicesGate = "HostDevices"
 
 	// Owner: sig-storage
 	// Alpha: v0.30.0
@@ -296,7 +301,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})

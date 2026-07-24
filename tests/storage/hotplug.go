@@ -2087,8 +2087,6 @@ var _ = Describe(SIG("Hotplug", func() {
 		const deviceName = "example.org/soundcard"
 
 		BeforeEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
-
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
@@ -2107,7 +2105,6 @@ var _ = Describe(SIG("Hotplug", func() {
 			config := kv.Spec.Configuration
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
 		})
 
 		It("should restart a VM after hotplugging a block volume", decorators.RequiresBlockStorage, func() {
