@@ -2065,6 +2065,29 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 		})
 
+		It("should clean up ghost record and domain cache for VMI that migrated to another node", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.NodeNameLabel] = "othernode"
+
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			now := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &now
+
+			addDomain(domain)
+			createVMI(vmi)
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+		})
+
 		It("should not try to migrate a vmi twice", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID

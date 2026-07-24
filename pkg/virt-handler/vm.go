@@ -413,6 +413,13 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 
 	if vmiExists && !c.isVMIOwnedByNode(vmi) {
+		if string(domainCachedUID) != "" {
+			c.launcherClients.CloseLauncherClient(vmi)
+			domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
+			if err := c.domainStore.Delete(domain); err != nil {
+				return err
+			}
+		}
 		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is not owned by this node")
 		return nil
 	}
