@@ -63,11 +63,10 @@ func isVgpuDisplayExplicitlyEnabled(display *v1.VGPUDisplayOptions) bool {
 }
 
 func isRamFBSet(hostDeviceMetadata HostDeviceMetaData) bool {
-	return hostDeviceMetadata.VirtualGPUOptions != nil &&
-		hostDeviceMetadata.VirtualGPUOptions.Display != nil &&
-		hostDeviceMetadata.VirtualGPUOptions.Display.RamFB != nil &&
-		hostDeviceMetadata.VirtualGPUOptions.Display.RamFB.Enabled != nil &&
-		*hostDeviceMetadata.VirtualGPUOptions.Display.RamFB.Enabled
+	return isVgpuDisplaySet(hostDeviceMetadata) &&
+		(hostDeviceMetadata.VirtualGPUOptions.Display.RamFB == nil ||
+			hostDeviceMetadata.VirtualGPUOptions.Display.RamFB.Enabled == nil ||
+			*hostDeviceMetadata.VirtualGPUOptions.Display.RamFB.Enabled)
 }
 func isVgpuDisplaySetIn(hostDevicesData []HostDeviceMetaData) bool {
 	for _, hostDeviceData := range hostDevicesData {
