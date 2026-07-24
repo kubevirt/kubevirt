@@ -75,8 +75,8 @@ metadata:
     pod-security.kubernetes.io/enforce: "privileged"
 EOF
 
-if [[ "$KUBEVIRT_PROVIDER" =~ kind.* || "$KUBEVIRT_PROVIDER" = "external" ]]; then
-    # Don't install CDI and loopback devices it's crashing with dind because loopback devices are shared with the host
+if [[ "$KUBEVIRT_PROVIDER" =~ ^(kind.*|external|minikube)$ ]]; then
+    # Don't install CDI: kind shares loopback devices with the host (kind/external), and minikube has no CDI deployment
     export KUBEVIRT_DEPLOY_CDI=false
 fi
 
