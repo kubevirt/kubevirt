@@ -3843,3 +3843,18 @@ func withFilesystemDevice(deviceName string) libvmi.Option {
 		})
 	}
 }
+
+var _ = Describe("selinuxContextHasCategories", func() {
+	DescribeTable("should detect MCS categories correctly",
+		func(ctx string, expected bool) {
+			Expect(selinuxContextHasCategories(ctx)).To(Equal(expected))
+		},
+		Entry("full context with categories", "system_u:object_r:container_file_t:s0:c1,c2", true),
+		Entry("full context without categories", "system_u:object_r:container_file_t:s0", false),
+		Entry("empty context", "", false),
+		Entry("none context", "none", false),
+		Entry("context with high categories", "system_u:system_r:container_t:s0:c123,c456", true),
+		Entry("context with single category", "system_u:system_r:container_t:s0:c7", true),
+		Entry("three-part context", "user:role:type", false),
+	)
+})
