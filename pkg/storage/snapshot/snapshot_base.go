@@ -498,6 +498,17 @@ func (ctrl *VMSnapshotController) handleVMI(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmSnapshotQueue.Add(k)
+
+			storeObj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(k)
+			if err != nil || !exists {
+				continue
+			}
+			vmSnapshot, ok := storeObj.(*snapshotv1.VirtualMachineSnapshot)
+			if !ok {
+				continue
+			}
+			contentName := GetVMSnapshotContentName(vmSnapshot)
+			ctrl.vmSnapshotContentQueue.Add(cacheKeyFunc(vmSnapshot.Namespace, contentName))
 		}
 	}
 }
