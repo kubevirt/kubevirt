@@ -410,6 +410,42 @@ var _ = Describe("Volume Migration", func() {
 			Entry("without any update", []string{"vol0"}, []string{"vol0"}, map[string]migVolumes{}),
 		)
 
+		It("should generate correct migrated volumes for two sequential migrations", func() {
+			// Migration 1: disk0 moves from pvc-a → pvc-b
+			shouldAddPVCsIntoTheStore([]string{"pvc-a"}, []string{"pvc-b"})
+			vmi := libvmi.New(append(addVMIOptionsForVolumes([]string{"pvc-a"}), libvmi.WithNamespace(ns))...)
+			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes([]string{"pvc-b"}), libvmi.WithNamespace(ns))...))
+			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			migVols1, err := volumemigration.GenerateMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migVols1).To(HaveLen(1))
+			Expect(migVols1[0].SourcePVCInfo.ClaimName).To(Equal("pvc-a"))
+			Expect(migVols1[0].DestinationPVCInfo.ClaimName).To(Equal("pvc-b"))
+
+			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, migVols1, vmi)).To(Succeed())
+			updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigratedVolumes).To(HaveLen(1))
+
+			// Simulate migration 1 completing: VMI volumes are now pvc-b
+			// and VMI still has migratedVolumes from migration 1
+			updatedVMI.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+
+			// Migration 2: disk0 moves from pvc-b → pvc-c
+			shouldAddPVCsIntoTheStore([]string{"pvc-b"}, []string{"pvc-c"})
+			vm2 := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes([]string{"pvc-c"}), libvmi.WithNamespace(ns))...))
+
+			migVols2, err := volumemigration.GenerateMigratedVolumes(pvcStore, updatedVMI, vm2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migVols2).To(HaveLen(1))
+			Expect(migVols2[0].SourcePVCInfo.ClaimName).To(Equal("pvc-b"),
+				"Migration 2 should use pvc-b as source, not stale pvc-a from migration 1")
+			Expect(migVols2[0].DestinationPVCInfo.ClaimName).To(Equal("pvc-c"),
+				"Migration 2 should use pvc-c as destination")
+		})
+
 	})
 
 	Context("ValidateVolumesUpdateMigration", func() {
