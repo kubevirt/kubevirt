@@ -2855,7 +2855,7 @@ var _ = Describe("Manager", func() {
 					libvirt.DOMAIN_STATS_INTERFACE |
 					libvirt.DOMAIN_STATS_BLOCK |
 					libvirt.DOMAIN_STATS_DIRTYRATE
-				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
+				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT
 			)
 			fakeDomainStats := []*stats.DomainStats{
 				{},
@@ -2879,7 +2879,7 @@ var _ = Describe("Manager", func() {
 				libvirt.DOMAIN_STATS_INTERFACE |
 				libvirt.DOMAIN_STATS_BLOCK |
 				libvirt.DOMAIN_STATS_DIRTYRATE
-			flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
+			flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT
 		)
 
 		It("should inject aliases from cached map into net and block stats", func() {
@@ -2928,7 +2928,7 @@ var _ = Describe("Manager", func() {
 					libvirt.DOMAIN_STATS_INTERFACE |
 					libvirt.DOMAIN_STATS_BLOCK |
 					libvirt.DOMAIN_STATS_DIRTYRATE
-				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
+				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT
 			)
 			fakeDomainStats := []*stats.DomainStats{}
 
@@ -2938,6 +2938,34 @@ var _ = Describe("Manager", func() {
 
 			Expect(domStats).To(BeNil())
 			Expect(err).To(MatchError("empty DomainStats"))
+		})
+	})
+
+	Context("when live migration is in progress", func() {
+		It("should still collect stats using NOWAIT flag", func() {
+			const (
+				domainStats = libvirt.DOMAIN_STATS_BALLOON |
+					libvirt.DOMAIN_STATS_CPU_TOTAL |
+					libvirt.DOMAIN_STATS_VCPU |
+					libvirt.DOMAIN_STATS_INTERFACE |
+					libvirt.DOMAIN_STATS_BLOCK |
+					libvirt.DOMAIN_STATS_DIRTYRATE
+				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT
+			)
+
+			now := metav1.Now()
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			metadataCache.Migration.Store(migrationMetadata)
+
+			fakeDomainStats := []*stats.DomainStats{{}}
+			mockLibvirt.ConnectionEXPECT().GetDomainStats(domainStats, gomock.Any(), flags).Return(fakeDomainStats, nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+			domStats, err := manager.GetDomainStats()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domStats).ToNot(BeNil())
 		})
 	})
 
