@@ -11,6 +11,7 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +69,7 @@ var _ = Describe("Workload Updater", func() {
 
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
-			controller.vmiStore, controller.podIndexer, controller.migrationIndexer, controller.kubeVirtStore,
+			controller.vmiStore, controller.podIndexer, controller.migrationIndexer, controller.kubeVirtStore, controller.daemonSetStore,
 		}, Default)
 	}
 
@@ -97,8 +98,9 @@ var _ = Describe("Workload Updater", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
+		daemonSetInformer, _ := testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 
-		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
+		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, daemonSetInformer, recorder, virtClient, config)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
@@ -106,6 +108,16 @@ var _ = Describe("Workload Updater", func() {
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
+
+		readyHandler := &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default"},
+			Status: appsv1.DaemonSetStatus{
+				DesiredNumberScheduled: 2,
+				UpdatedNumberScheduled: 2,
+				NumberReady:            2,
+			},
+		}
+		controller.daemonSetStore.Add(readyHandler)
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
@@ -144,6 +156,32 @@ var _ = Describe("Workload Updater", func() {
 			kv := newKubeVirt(1)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			kv.Status.ObservedDeploymentID = "something new"
+
+			addKubeVirt(kv)
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+
+			sanityExecute()
+			Expect(recorder.Events).To(BeEmpty())
+			Expect(fakeVirtClient.Actions()).To(BeEmpty())
+		})
+
+		It("should do nothing if virt-handler daemonset is rolling out", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "madeup")
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
+
+			rollingHandler := &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default"},
+				Status: appsv1.DaemonSetStatus{
+					DesiredNumberScheduled: 2,
+					UpdatedNumberScheduled: 1,
+					NumberReady:            2,
+				},
+			}
+			Expect(controller.daemonSetStore.Update(rollingHandler)).To(Succeed())
 
 			addKubeVirt(kv)
 			controller.vmiStore.Add(vmi)
