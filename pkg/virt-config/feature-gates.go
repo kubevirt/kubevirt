@@ -252,3 +252,7 @@ func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
 }
+
+func (config *ClusterConfig) MigrationCompressionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationCompression)
+}
