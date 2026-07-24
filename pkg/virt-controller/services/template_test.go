@@ -6331,49 +6331,6 @@ var _ = Describe("Template", func() {
 		})
 	})
 
-	Context("NAD query disablement", func() {
-		It("Should not query NAD when ExternalNetResourceInjection is enabled", func() {
-			config, kvStore, svc = configFactory(defaultArch)
-			enableFeatureGate(featuregate.ExternalNetResourceInjection)
-
-			svc = NewTemplateService("kubevirt/virt-launcher",
-				240,
-				"/var/run/kubevirt",
-				"/var/run/kubevirt-ephemeral-disks",
-				"/var/run/kubevirt/container-disks",
-				v1.HotplugDiskDir,
-				"pull-secret-1",
-				pvcCache,
-				virtClient,
-				config,
-				qemuGid,
-				"kubevirt/vmexport",
-				resourceQuotaStore,
-				namespaceStore,
-			)
-
-			const netName = "net1"
-
-			vmi := libvmi.New(
-				libvmi.WithNamespace("other-namespace"),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(netName)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(netName, "test1")),
-			)
-
-			pod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			computeContainer := pod.Spec.Containers[0]
-			Expect(computeContainer.Name).To(Equal("compute"))
-
-			_, reqExists := computeContainer.Resources.Requests[expectedNetworkResource]
-			Expect(reqExists).To(BeFalse())
-
-			_, limExists := computeContainer.Resources.Limits[expectedNetworkResource]
-			Expect(limExists).To(BeFalse())
-		})
-	})
-
 	Context("FirmwareAutoSelection feature gate", func() {
 		It("should pass --firmware-auto-selection flag to virt-launcher when enabled", func() {
 			config, kvStore, svc = configFactory(defaultArch)

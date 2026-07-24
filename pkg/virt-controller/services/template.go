@@ -54,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -424,15 +423,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		})
 	}
 
-	var networkToResourceMap map[string]string
-	if !t.clusterConfig.ExternalNetResourceInjectionEnabled() {
-		var err error
-		networkToResourceMap, err = multus.NetworkToResource(t.virtClient, vmi)
-		if err != nil {
-			return nil, err
-		}
-	}
-	resourceRenderer, err := t.newResourceRenderer(vmi, networkToResourceMap, memoryOverhead)
+	resourceRenderer, err := t.newResourceRenderer(vmi, memoryOverhead)
 	if err != nil {
 		return nil, err
 	}
@@ -1024,7 +1015,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	return volumeRenderer, nil
 }
 
-func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string, memoryOverhead resource.Quantity) (*ResourceRenderer, error) {
+func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
 	hypervisorResource := ConstructHypervisorResourceName(t.launcherHypervisorResources)
 	baseOptions := []ResourceRendererOption{
@@ -1036,7 +1027,7 @@ func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 		return nil, err
 	}
 
-	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap, memoryOverhead).Apply()...)
+	options := append(baseOptions, t.VMIResourcePredicates(vmi, memoryOverhead).Apply()...)
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
 
@@ -1641,7 +1632,7 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 	return false
 }
 
-func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string, memoryOverhead resource.Quantity) VMIResourcePredicates {
+func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) VMIResourcePredicates {
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	additionalCPUs := uint32(0)
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
@@ -1660,9 +1651,6 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
-			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
-				return len(networkToResourceMap) > 0
-			}, WithNetworkResources(networkToResourceMap)),
 			NewVMIResourceRule(isGPUVMIDevicePlugins, WithGPUsDevicePlugins(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
 				return t.clusterConfig.GPUsWithDRAGateEnabled() && isGPUVMIDRA(vmi)

@@ -157,12 +157,6 @@ const (
 	// Beta: v1.8
 	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
 
-	// ExternalNetResourceInjection disables the VMI controller query of NetworkAttachmentDefinition objects and
-	// the deployment of related RBAC rules by virt-operator.
-	// Owner: SIG network
-	// Beta: v1.8.0
-	ExternalNetResourceInjection = "ExternalNetResourceInjection"
-
 	// Owner: sig-compute / @MarSik
 	// Alpha: v1.8.0
 	// Beta: v1.9.0
@@ -320,7 +314,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Beta})
