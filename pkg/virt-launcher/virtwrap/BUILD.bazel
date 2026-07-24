@@ -119,6 +119,7 @@ go_test(
         "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/heap:go_default_library",
         "//pkg/util/migrations:go_default_library",

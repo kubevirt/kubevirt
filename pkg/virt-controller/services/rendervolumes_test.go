@@ -427,6 +427,33 @@ var _ = Describe("Container spec renderer", func() {
 			Entry("PullNever", k8sv1.PullNever),
 			Entry("PullIfNotPresent", k8sv1.PullIfNotPresent),
 		)
+
+		It("should not add launcher binary volume when skip-digest-resolution annotation is set", func() {
+			const imageVolumeFeatureGateEnabled = true
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("test-disk", "registry/image:tag"),
+				libvmi.WithAnnotation(v1.ImageVolumeSkipDigestResolutionAnnotation, "true"),
+			)
+
+			var err error
+			vsr, err = NewVolumeRenderer(
+				stubImagePullPolicyGetter{imagePullPolicy: k8sv1.PullAlways},
+				imageVolumeFeatureGateEnabled,
+				launcherImage,
+				make(map[string]string),
+				namespace,
+				ephemeralDisk,
+				containerDisk,
+				virtShareDir,
+				withImageVolumes(vmi),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, vol := range vsr.Volumes() {
+				Expect(vol.Name).ToNot(Equal(containerdisk.LauncherVolume),
+					"should not create launcher binary volume when digest resolution is skipped")
+			}
+		})
 	})
 })
 

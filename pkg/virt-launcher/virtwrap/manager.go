@@ -2945,17 +2945,40 @@ func getDiskTargetPathFromImageVolumeView(volumeIndex int, volumePath string) (*
 	if volumePath != "" {
 		return safepath.JoinAndResolveWithRelativeRoot(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), volumePath)
 	}
-	imageVolumeDir := filepath.Join(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), osdisk.DiskSourceFallbackPath)
-	files, err := os.ReadDir(imageVolumeDir)
+
+	baseDir := filepath.Join(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex))
+	return findDiskFileInImageVolume(baseDir)
+}
+
+func findDiskFileInImageVolume(baseDir string) (*safepath.Path, error) {
+	files, err := os.ReadDir(baseDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check ImageVolume path %s: %v", imageVolumeDir, err)
+		return nil, fmt.Errorf("failed to read image volume directory %s: %v", baseDir, err)
 	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no file found in folder %s, no disk present", imageVolumeDir)
-	} else if len(files) > 1 {
-		return nil, fmt.Errorf("more than one file found in folder %s, only one disk is allowed", imageVolumeDir)
+
+	// Prefer single file at the root (common case for ORAS-pushed artifacts)
+	if len(files) == 1 && !files[0].IsDir() {
+		log.Log.Infof("Using single file from root of image volume: %s", files[0].Name())
+		return safepath.JoinAndResolveWithRelativeRoot(baseDir, files[0].Name())
 	}
-	return safepath.JoinAndResolveWithRelativeRoot(imageVolumeDir, files[0].Name())
+
+	// Fallback to legacy /disk behavior for backward compatibility with classic container images
+	diskDir := filepath.Join(baseDir, osdisk.DiskSourceFallbackPath)
+	stat, err := os.Stat(diskDir)
+	if err != nil || !stat.IsDir() {
+		return nil, fmt.Errorf("could not determine disk file in image volume root %s (found %d entries, no %s directory)", baseDir, len(files), osdisk.DiskSourceFallbackPath)
+	}
+
+	diskFiles, err := os.ReadDir(diskDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read legacy /disk directory %s: %v", diskDir, err)
+	}
+	if len(diskFiles) != 1 || diskFiles[0].IsDir() {
+		return nil, fmt.Errorf("could not determine disk file in %s (expected exactly one non-directory entry, found %d)", diskDir, len(diskFiles))
+	}
+
+	log.Log.Infof("Using single file from /disk fallback in image volume: %s", diskFiles[0].Name())
+	return safepath.JoinAndResolveWithRelativeRoot(diskDir, diskFiles[0].Name())
 }
 
 func getKernelBootArtifactPathFromImageVolumeView(artifact string) (*safepath.Path, error) {

@@ -253,7 +253,8 @@ func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			renderer.addKernelBootVolumeMount()
 		}
 
-		if shouldAddLauncherBinaryVolume(vmi, renderer.imageIDs) {
+		if vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
+			shouldAddLauncherBinaryVolume(vmi, renderer.imageIDs) {
 			renderer.addLauncherBinaryVolume()
 		}
 
