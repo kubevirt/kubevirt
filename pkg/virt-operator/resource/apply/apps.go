@@ -50,7 +50,24 @@ const (
 	failed     canaryUpgradeStatus = "failed"
 )
 
-func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+// deploymentNodePlacement selects component config and default placement; export-proxy
+// uses spec.workloads so HPA scale-out can schedule on worker nodes.
+func deploymentNodePlacement(kv *v1.KubeVirt, deploymentName string) (*v1.ComponentConfig, placement.DefaultInfraComponentsNodePlacement) {
+	if deploymentName == components.VirtExportProxyName {
+		return kv.Spec.Workloads, placement.AnyNode
+	}
+
+	return kv.Spec.Infra, placement.RequireControlPlanePreferNonWorker
+}
+
+// exportProxyReplicaHeuristic carries the node-list replica heuristic computed once
+// per export-proxy sync pass and shared across deployment, PDB, and HPA sync.
+type exportProxyReplicaHeuristic struct {
+	replicas int32
+	err      error
+}
+
+func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment, exportProxyReplicas *exportProxyReplicaHeuristic) (*appsv1.Deployment, error) {
 	kv := r.kv
 
 	deployment := origDeployment.DeepCopy()
@@ -60,13 +77,29 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	placement.InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
+	componentConfig, placementOption := deploymentNodePlacement(kv, deployment.Name)
+	placement.InjectPlacementMetadata(componentConfig, &deployment.Spec.Template.Spec, placementOption)
+
+	var desiredExportProxyReplicas int32
+	if deployment.Name == components.VirtExportProxyName {
+		var replicaErr error
+		if exportProxyReplicas != nil {
+			desiredExportProxyReplicas = exportProxyReplicas.replicas
+			replicaErr = exportProxyReplicas.err
+		} else {
+			desiredExportProxyReplicas, replicaErr = getDesiredApiReplicas(r.k8sClient)
+		}
+		if replicaErr != nil {
+			return nil, fmt.Errorf("failed to determine export-proxy replicas: %w", replicaErr)
+		}
+	}
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)
 		if (deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != replicas) &&
 			deployment.Name != components.VirtTemplateApiserverDeploymentName &&
-			deployment.Name != components.VirtTemplateControllerDeploymentName {
+			deployment.Name != components.VirtTemplateControllerDeploymentName &&
+			deployment.Name != components.VirtExportProxyName {
 			deployment.Spec.Replicas = &replicas
 			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
 				"auto-scaling for core kubevirt components. Please use with caution!")
@@ -77,6 +110,10 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
 			deployment.Spec.Replicas = pointer.P(replicas)
+		}
+	} else if deployment.Name == components.VirtExportProxyName && !replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtExportProxyName) {
+		if desiredExportProxyReplicas == 1 {
+			deployment.Spec.Replicas = pointer.P(desiredExportProxyReplicas)
 		}
 	}
 
@@ -111,6 +148,15 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDeployment.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
+
+	// virt-exportproxy uses a single replica when virt-api would; otherwise HPA manages scaling.
+	if deployment.Name == components.VirtExportProxyName {
+		if desiredExportProxyReplicas == 1 {
+			deployment.Spec.Replicas = pointer.P(desiredExportProxyReplicas)
+		} else if cachedDeployment.Spec.Replicas != nil {
+			deployment.Spec.Replicas = pointer.P(*cachedDeployment.Spec.Replicas)
+		}
+	}
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
@@ -450,13 +496,30 @@ func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	return r.syncPodDisruptionBudget(deployment.Namespace, components.NewPodDisruptionBudgetForDeployment(deployment))
+}
+
+func (r *Reconciler) syncExportProxyPodDisruptionBudget(deployment *appsv1.Deployment, exportProxyReplicas *exportProxyReplicaHeuristic) error {
+	pdb := components.NewExportProxyPodDisruptionBudget(deployment)
+	// Single-replica clusters do not need disruption protection; HPA-managed clusters use a fixed minAvailable.
+	desiredReplicas, err := exportProxyReplicaHeuristicValues(exportProxyReplicas, r.k8sClient)
+	if err != nil {
+		return fmt.Errorf("failed to determine export-proxy replicas for PDB: %w", err)
+	}
+	if desiredReplicas <= 1 {
+		minAvailable := intstr.FromInt(0)
+		pdb.Spec.MinAvailable = &minAvailable
+	}
+	return r.syncPodDisruptionBudget(deployment.Namespace, pdb)
+}
+
+func (r *Reconciler) syncPodDisruptionBudget(namespace string, podDisruptionBudget *policyv1.PodDisruptionBudget) error {
 	kv := r.kv
-	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(namespace)
 
 	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
@@ -514,6 +577,13 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
 	return nil
+}
+
+func exportProxyReplicaHeuristicValues(exportProxyReplicas *exportProxyReplicaHeuristic, clientset kubernetes.Interface) (int32, error) {
+	if exportProxyReplicas != nil {
+		return exportProxyReplicas.replicas, exportProxyReplicas.err
+	}
+	return getDesiredApiReplicas(clientset)
 }
 
 func getDesiredApiReplicas(clientset kubernetes.Interface) (replicas int32, err error) {

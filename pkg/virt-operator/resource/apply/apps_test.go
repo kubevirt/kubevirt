@@ -1346,7 +1346,7 @@ var _ = Describe("Apply Apps", func() {
 				expectations: &util.Expectations{},
 				stores:       stores,
 			}
-			updatedDeploy, err := r.syncDeployment(strategyDeployment)
+			updatedDeploy, err := r.syncDeployment(strategyDeployment, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedDeploy.Annotations).ToNot(BeNil())
 			Expect(updatedDeploy.Annotations).To(HaveKeyWithValue(revisionAnnotation, "4"))
@@ -1364,7 +1364,7 @@ var _ = Describe("Apply Apps", func() {
 				stores:       stores,
 			}
 
-			updatedDeployment, err := r.syncDeployment(virtAPIDeployment)
+			updatedDeployment, err := r.syncDeployment(virtAPIDeployment, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*updatedDeployment.Spec.Replicas).To(BeEquivalentTo(expectedReplicas))
 		},
@@ -1376,6 +1376,108 @@ var _ = Describe("Apply Apps", func() {
 			Entry("large cluster with 1000 nodes", 1000, 0, 100),
 			Entry("large cluster with 10 schedulable nodes", 10, 990, 2),
 		)
+
+		Context("virt-exportproxy replica management", func() {
+			var reconciler *Reconciler
+			var exportProxyDeployment *appsv1.Deployment
+
+			BeforeEach(func() {
+				virtControllerConfig := &util.KubeVirtDeploymentConfig{
+					Registry:        Registry,
+					KubeVirtVersion: Version,
+					Namespace:       Namespace,
+				}
+				exportProxyDeployment = components.NewExportProxyDeployment(virtControllerConfig, "", "", "")
+
+				reconciler = &Reconciler{
+					virtClient: virtClient,
+					k8sClient:  k8sClient,
+					kv:         kv,
+					expectations: &util.Expectations{
+						Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
+					},
+					stores: stores,
+				}
+			})
+
+			DescribeTable("should set replica count to 1 when virt-api would run a single replica",
+				func(schedulableNodes, unschedulableNodes int) {
+					createFakeNodes(k8sClient, schedulableNodes, unschedulableNodes)
+					reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+					updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment, nil)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*updatedDeployment.Spec.Replicas).To(Equal(int32(1)))
+				},
+				Entry("single-node cluster", 1, 0),
+				Entry("single schedulable worker node", 1, 4),
+			)
+
+			It("should preserve existing replica count on sync", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				scaledReplicas := int32(5)
+				cachedExportProxy := exportProxyDeployment.DeepCopy()
+				cachedExportProxy.Spec.Replicas = &scaledReplicas
+				cachedExportProxy.Generation = 2
+				_, err := k8sClient.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedExportProxy, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: cachedExportProxy}}
+				kv.Status.Generations = []v1.GenerationStatus{{
+					Group:          "apps",
+					Resource:       "deployments",
+					Namespace:      exportProxyDeployment.Namespace,
+					Name:           exportProxyDeployment.Name,
+					LastGeneration: cachedExportProxy.Generation - 1,
+				}}
+
+				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(Equal(scaledReplicas))
+			})
+
+			It("should not apply infra replicas override", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				infraReplicas := uint8(7)
+				kv.Spec.Infra = &v1.ComponentConfig{Replicas: &infraReplicas}
+
+				clusterReplicas := int32(3)
+				cachedExportProxy := exportProxyDeployment.DeepCopy()
+				cachedExportProxy.Spec.Replicas = &clusterReplicas
+				cachedExportProxy.Generation = 2
+				_, err := k8sClient.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedExportProxy, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: cachedExportProxy}}
+				kv.Status.Generations = []v1.GenerationStatus{{
+					Group:          "apps",
+					Resource:       "deployments",
+					Namespace:      exportProxyDeployment.Namespace,
+					Name:           exportProxyDeployment.Name,
+					LastGeneration: cachedExportProxy.Generation,
+				}}
+
+				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(Equal(clusterReplicas))
+			})
+
+			It("should not require control-plane node affinity", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				affinity := updatedDeployment.Spec.Template.Spec.Affinity
+				Expect(affinity).NotTo(BeNil())
+				Expect(affinity.NodeAffinity).To(BeNil())
+				Expect(affinity.PodAntiAffinity).NotTo(BeNil())
+				Expect(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchExpressions[0].Values).
+					To(ConsistOf(components.VirtExportProxyName))
+			})
+		})
 
 		Context("virt-template TLS injection", func() {
 			const (
@@ -1403,7 +1505,7 @@ var _ = Describe("Apply Apps", func() {
 				deployment.Name = deploymentName
 				deployment.Spec.Template.Spec.Containers[0].Name = containerName
 
-				createdDeployment, err := reconciler.syncDeployment(deployment)
+				createdDeployment, err := reconciler.syncDeployment(deployment, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				containerIdx := slices.IndexFunc(createdDeployment.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
@@ -1463,7 +1565,7 @@ var _ = Describe("Apply Apps", func() {
 				}
 				deployment := strategyDeployment.DeepCopy()
 
-				createdDeployment, err := reconciler.syncDeployment(deployment)
+				createdDeployment, err := reconciler.syncDeployment(deployment, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				args := createdDeployment.Spec.Template.Spec.Containers[0].Args

@@ -20,13 +20,18 @@ package main
  */
 
 import (
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
+	"strconv"
+	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -42,6 +47,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	"kubevirt.io/kubevirt/pkg/service"
 )
 
@@ -52,7 +59,27 @@ const (
 	apiGroup           = "export.kubevirt.io"
 	apiVersions        = "v1beta1|v1"
 	exportResourceName = "virtualmachineexports"
+
+	backendIdleConnTimeout       = 90 * time.Second
+	backendDialTimeout           = 10 * time.Second
+	backendDialKeepAlive         = 30 * time.Second
+	backendResponseHeaderTimeout = 30 * time.Second
+	serverIdleTimeout            = 60 * time.Second
+	serverReadHeaderTimeout      = 10 * time.Second
+
+	directorErrorHost = "virt-exportproxy-director-error.invalid"
+
+	proxyRateLimitedBody = "rate limited"
 )
+
+type proxyTargetContextKey struct{}
+
+var proxyTargetContextKeyVar = proxyTargetContextKey{}
+
+type proxyTarget struct {
+	host string
+	path string
+}
 
 type exportProxyApp struct {
 	service.ServiceListen
@@ -62,6 +89,8 @@ type exportProxyApp struct {
 	caManager       kvtls.ClientCAManager
 	exportStore     cache.Store
 	kubeVirtStore   cache.Store
+	proxyTransport  *http.Transport
+	reverseProxy    *httputil.ReverseProxy
 }
 
 func NewExportProxyApp() service.Service {
@@ -86,11 +115,18 @@ func (app *exportProxyApp) Run() {
 	app.prepareCertManager()
 	go app.certManager.Start()
 
+	app.initReverseProxy()
+
+	if err := exportproxymetrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.proxyHandler)
-	mux.HandleFunc("/healthz", app.healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", app.healthzHandler)
+	mux.HandleFunc("/readyz", app.readyzHandler)
+	mux.HandleFunc("/api/", app.proxyHandler)
 
 	server := &http.Server{
 		Addr:      app.Address(),
@@ -110,6 +146,10 @@ func (app *exportProxyApp) healthzHandler(w http.ResponseWriter, r *http.Request
 	io.WriteString(w, "OK")
 }
 
+func (app *exportProxyApp) readyzHandler(w http.ResponseWriter, r *http.Request) {
+	exportproxymetrics.WriteReadyzResponse(w)
+}
+
 var proxyPathMatcher = regexp.MustCompile(`^/api/` + apiGroup + "/" + "(" + apiVersions + ")" + `/namespaces/([^/]+)/` + exportResourceName + `/([^/]+)/(.*)$`)
 
 func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,52 +159,151 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	key := fmt.Sprintf("%s/%s", match[2], match[3])
-	obj, exists, err := app.exportStore.GetByKey(key)
+	namespace := match[2]
+	exportName := match[3]
+	targetPath := "/" + match[4]
+
+	activeTransfer, ok := exportproxymetrics.TryRecordTransferStarted()
+	if !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+		w.Header().Set("Connection", "close")
+		w.WriteHeader(http.StatusTooManyRequests)
+		io.WriteString(w, proxyRateLimitedBody)
+		return
+	}
+	defer activeTransfer.Finish()
+
+	serviceName, ready, err := app.resolveServiceName(namespace, exportName)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	export := obj.(*exportv1.VirtualMachineExport)
-	if export.Status.Phase != exportv1.Ready {
+	if !ready {
+		if serviceName == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	host := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[2])
-	targetPath := "/" + match[4]
+	host := fmt.Sprintf("%s.%s.svc:443", serviceName, namespace)
+
+	ctx := context.WithValue(r.Context(), proxyTargetContextKeyVar, proxyTarget{
+		host: host,
+		path: targetPath,
+	})
+	app.reverseProxy.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func (app *exportProxyApp) initReverseProxy() {
+	app.proxyTransport = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   backendDialTimeout,
+			KeepAlive: backendDialKeepAlive,
+		}).DialContext,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			// #nosec cause: InsecureSkipVerify: true
+			// resolution: Neither the client nor the server should validate anything itself, `VerifyConnection` is still executed
+			InsecureSkipVerify: true,
+			VerifyConnection:   app.verifyBackendConnection,
+		},
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       backendIdleConnTimeout,
+		ResponseHeaderTimeout: backendResponseHeaderTimeout,
+	}
+	app.reverseProxy = &httputil.ReverseProxy{
+		Transport:      app.proxyTransport,
+		Director:       app.proxyDirector,
+		ErrorHandler:   app.proxyErrorHandler,
+		ModifyResponse: app.modifyProxyResponse,
+	}
+}
+
+func (app *exportProxyApp) modifyProxyResponse(resp *http.Response) error {
+	resp.Body = exportproxymetrics.NewCountingReadCloser(resp.Body)
+	return nil
+}
+
+func (app *exportProxyApp) verifyBackendConnection(cs tls.ConnectionState) error {
+	if len(cs.PeerCertificates) == 0 {
+		return fmt.Errorf("backend presented no certificate")
+	}
 
 	certPool, err := app.caManager.GetCurrent()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		return err
+	}
+
+	peer := cs.PeerCertificates[0]
+	intermediates := x509.NewCertPool()
+	for _, intermediate := range cs.PeerCertificates[1:] {
+		intermediates.AddCert(intermediate)
+	}
+
+	opts := x509.VerifyOptions{
+		Roots:         certPool,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	if cs.ServerName == "" {
+		return fmt.Errorf("backend TLS ServerName is required")
+	}
+	opts.DNSName = cs.ServerName
+
+	_, err = peer.Verify(opts)
+	if err != nil {
+		return fmt.Errorf("could not verify backend certificate: %w", err)
+	}
+	return nil
+}
+
+func (app *exportProxyApp) proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	if r != nil && r.URL != nil && r.URL.Host == directorErrorHost {
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		return
+	}
+	log.Log.Reason(err).Error("failed to proxy export backend request")
+	http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+}
+
+func (app *exportProxyApp) proxyDirector(req *http.Request) {
+	target, ok := req.Context().Value(proxyTargetContextKeyVar).(proxyTarget)
+	if !ok {
+		log.Log.Error("proxyDirector: missing proxyTarget in request context")
+		req.URL.Scheme = "https"
+		req.URL.Host = directorErrorHost
+		req.URL.Path = "/"
 		return
 	}
 
-	p := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "https"
-			req.URL.Host = host
-			req.URL.Path = targetPath
-			log.Log.Infof("Proxying to %s", req.URL.String())
-			if _, ok := req.Header["User-Agent"]; !ok {
-				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set("User-Agent", "")
-			}
-		},
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: certPool,
-			},
-		},
+	req.URL.Scheme = "https"
+	req.URL.Host = target.host
+	req.URL.Path = target.path
+	log.Log.V(4).Infof("Proxying to %s", req.URL.String())
+	if _, ok := req.Header["User-Agent"]; !ok {
+		// explicitly disable User-Agent so it's not set to default value
+		req.Header.Set("User-Agent", "")
+	}
+}
+
+func (app *exportProxyApp) resolveServiceName(namespace, exportName string) (serviceName string, ready bool, err error) {
+	key := fmt.Sprintf("%s/%s", namespace, exportName)
+	obj, exists, err := app.exportStore.GetByKey(key)
+	if err != nil {
+		return "", false, err
+	}
+	if !exists {
+		return "", false, nil
 	}
 
-	p.ServeHTTP(w, r)
+	export := obj.(*exportv1.VirtualMachineExport)
+	if export.Status.Phase != exportv1.Ready {
+		return export.Status.ServiceName, false, nil
+	}
+	return export.Status.ServiceName, true, nil
 }
 
 func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {

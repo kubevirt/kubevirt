@@ -4,6 +4,10 @@
 |------|------|------|-------------|
 | kubevirt_configuration_emulation_enabled | Metric | Gauge | Indicates whether the Software Emulation is enabled in the configuration. |
 | kubevirt_console_active_connections | Metric | Gauge | Amount of active Console connections, broken down by namespace and vmi name. |
+| kubevirt_exportproxy_active_transfers | Metric | Gauge | Number of export transfers currently being proxied. |
+| kubevirt_exportproxy_transfer_throughput_bytes_per_second | Metric | Gauge | Current aggregate export transfer throughput in bytes per second. |
+| kubevirt_exportproxy_transferred_bytes_total | Metric | Counter | Total number of bytes transferred by the export proxy since startup. |
+| kubevirt_exportproxy_transfers_total | Metric | Counter | Total number of export transfers handled by the proxy since startup, including active, completed, and failed transfers. |
 | kubevirt_info | Metric | Gauge | Version information. |
 | kubevirt_node_deprecated_machine_types | Metric | Gauge | List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. |
 | kubevirt_portforward_active_tunnels | Metric | Gauge | Amount of active portforward tunnels, broken down by namespace and vmi name. |

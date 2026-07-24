@@ -67,6 +67,12 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_console_active_connections":                true,
 			"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
 
+			// virt-exportproxy - not scraped by default cluster Prometheus in this suite
+			"kubevirt_exportproxy_active_transfers":                     true,
+			"kubevirt_exportproxy_transfers_total":                      true,
+			"kubevirt_exportproxy_transferred_bytes_total":              true,
+			"kubevirt_exportproxy_transfer_throughput_bytes_per_second": true,
+
 			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
 			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
 
