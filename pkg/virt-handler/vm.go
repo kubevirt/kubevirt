@@ -1517,8 +1517,33 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	if !domainAlive && domainExists && !vmi.IsFinal() {
-		c.logger.Object(vmi).V(3).Info("Deleting inactive domain for vmi.")
-		shouldDelete = true
+		// A freshly defined domain reports Shutoff/Unknown before it has been
+		// started. While the VMI is still Scheduled, this usually means
+		// CreateWithFlags is still in progress (for example large-memory
+		// VFIO VMs can take minutes to allocate and lock guest memory).
+		// Deleting in that window races with startup and can leave the
+		// domain running as transient, breaking later hotplug.
+		//
+		// Only defer for the ambiguous "no info yet" reason. Any other
+		// Shutoff reason (e.g. Failed, Crashed) is a definitive outcome
+		// reported by libvirt and must proceed to deletion immediately,
+		// otherwise a genuinely failed startup would be requeued forever
+		// instead of being cleaned up and marked Failed.
+		//
+		// The deferral is also bounded: if the VMI has been Scheduled for
+		// longer than slowStartupDeferralTimeout, give up waiting and fall
+		// through to deletion instead of retrying forever.
+		isAmbiguousStartup := domain.Status.Reason == api.ReasonUnknown || domain.Status.Reason == ""
+		if domain.Status.Status == api.Shutoff && vmi.IsScheduled() && isAmbiguousStartup &&
+			!hasExceededSlowStartupDeferralWindow(vmi) {
+			c.logger.Object(vmi).V(3).Info(
+				"Domain is Shutoff with no reason yet but VMI is Scheduled; " +
+					"deferring deletion as domain may still be starting.")
+			c.queue.AddAfter(key, 5*time.Second)
+		} else {
+			c.logger.Object(vmi).V(3).Info("Deleting inactive domain for vmi.")
+			shouldDelete = true
+		}
 	}
 
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
@@ -1662,6 +1687,28 @@ func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 }
 
 const firstGracefulShutdownAttempt = -1
+
+// slowStartupDeferralTimeout bounds how long virt-handler will keep
+// deferring deletion of a Shutoff domain while its VMI is still Scheduled
+// (see the shouldDelete guard in sync()). Without a bound, a domain whose
+// startup never resolves (for example a QEMU process wedged waiting on a
+// resource that will never become available) would be requeued forever
+// instead of eventually being cleaned up and reported as Failed.
+const slowStartupDeferralTimeout = 5 * time.Minute
+
+// hasExceededSlowStartupDeferralWindow reports whether the VMI has been in
+// the Scheduled phase for longer than slowStartupDeferralTimeout. It relies
+// on PhaseTransitionTimestamps, which virt-controller already records when
+// it transitions the VMI to Scheduled, before virt-handler ever sees it.
+func hasExceededSlowStartupDeferralWindow(vmi *v1.VirtualMachineInstance) bool {
+	for _, transition := range vmi.Status.PhaseTransitionTimestamps {
+		if transition.Phase == v1.Scheduled {
+			return time.Since(transition.PhaseTransitionTimestamp.Time) > slowStartupDeferralTimeout
+		}
+	}
+	// No recorded transition to Scheduled; be conservative and allow deferral.
+	return false
+}
 
 // Determines if a domain's grace period has expired during shutdown.
 // If the grace period has started but not expired, timeLeft represents
