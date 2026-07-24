@@ -42,6 +42,10 @@ environment.
 
 # Configuration
 
+This section first explains how to configure SR-IOV-capable hardware on a
+host. Later in this document, the recommended practical workflow for
+development and CI uses the emulated `igb` SR-IOV setup.
+
 > NOTE: steps to configure SR-IOV on a host are only applicable if you don't
 > use the SR-IOV Network Operator to deploy SR-IOV components. The operator
 > handles most of the steps discussed below, including configuring kernel
@@ -54,19 +58,10 @@ environment.
 > Just remember to set `SriovNetworkNodePolicy` to use `deviceType: vfio-pci`
 > when configuring the operator.
 >
-> For local development purposes, one should be able to (re)use the same
-> [kind](https://kind.sigs.k8s.io/) based provider that the official upstream
-> SR-IOV CI relies on:
->
-> ``` 
-> $ export KUBEVIRT_PROVIDER=kind-sriov
->
-> $ make cluster-up
-> ```
->
-> Assuming you run these commands on an SR-IOV-enabled host, they should bring
-> up a dockerized cluster with all SR-IOV components and resources set up and
-> ready to use.
+> For local development and CI, KubeVirt can exercise the SR-IOV flow in
+> emulated mode with an emulated `igb` NIC. The automation target for this
+> setup ends with `-emulated-igb` and runs the SR-IOV suite with
+> `-emulated-sriov=true`.
 >
 > If you know what you are doing and still would like to follow the manual
 > configuration path, keep reading.
@@ -125,26 +120,26 @@ you may need to configure the host as follows:
 $ echo "options vfio_iommu_type1 allow_unsafe_interrupts=1" > /etc/modprobe.d/iommu_unsafe_interrupts.conf
 ```
 
-Now you are ready to set up your cluster.
-
 # Set up a Kubernetes cluster
 
-You can use your preferred mechanism to deploy your Kubernetes cluster as long
-as you deploy on bare metal. Note that using virtualized environment is
-problematic with SR-IOV because to use SR-IOV PFs in such environment, one
-would first need to pass through PF devices from hypervisor level into the
-virtual machines.
+The recommended approach for development and CI is to use the emulated `igb`
+SR-IOV setup used by automation. It runs the SR-IOV suite in emulated mode,
+which is useful when no SR-IOV-capable NIC is available on the host.
 
-The recommended approach for development is to use the `kind-sriov` provider,
-which sets up a Kind-based cluster with all SR-IOV components pre-configured:
+The emulated `igb` flow is not a separate `KUBEVIRT_PROVIDER` value. In
+automation, it is expressed as a `*-emulated-igb` target suffix layered on top
+of a base provider such as `k8s-1.36`, and it enables SR-IOV emulation in tests with
+`-emulated-sriov=true`.
 
-``` 
-$ export KUBEVIRT_PROVIDER=kind-sriov
-$ make cluster-up
 ```
+export KUBEVIRT_PROVIDER=k8s-1.36
+export KUBEVIRT_NUM_NODES=3
+export KUBEVIRT_WITH_SRIOV=true
+export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
 
-See `kubevirtci/cluster-up/cluster/kind-sriov/README.md` for more details,
-including multi-cluster and custom-image configurations.
+make cluster-up
+```
 
 Once the cluster is deployed, we can move to SR-IOV specific components.
 
@@ -153,8 +148,8 @@ Once the cluster is deployed, we can move to SR-IOV specific components.
 > NOTE: manual deployment of SR-IOV components is not recommended. Please
 > consider using the
 > [SR-IOV Network Operator](https://github.com/k8snetworkplumbingwg/sriov-network-operator)
-> instead. The `kind-sriov` provider handles this automatically for development
-> clusters.
+> instead. The emulated `igb` SR-IOV setup used by automation handles this
+> automatically for development and CI environments.
 
 The following components must be deployed to support SR-IOV:
 
