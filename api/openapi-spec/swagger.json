@@ -20604,6 +20604,46 @@
      }
     }
    },
+   "v1alpha1.BackupLink": {
+    "description": "BackupLink contains a CA certificate and per-volume endpoints for one network path",
+    "type": "object",
+    "required": [
+     "cert"
+    ],
+    "properties": {
+     "cert": {
+      "description": "Cert is the CA certificate bundle for TLS verification",
+      "type": "string",
+      "default": ""
+     },
+     "volumes": {
+      "description": "Volumes lists the data and map endpoints for each backed-up volume",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeLink"
+      },
+      "x-kubernetes-list-map-keys": [
+       "volumeName"
+      ],
+      "x-kubernetes-list-type": "map"
+     }
+    }
+   },
+   "v1alpha1.BackupLinks": {
+    "description": "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
+    "type": "object",
+    "properties": {
+     "external": {
+      "description": "External contains endpoints reachable from outside the cluster",
+      "$ref": "#/definitions/v1alpha1.BackupLink"
+     },
+     "internal": {
+      "description": "Internal contains endpoints reachable from within the cluster",
+      "$ref": "#/definitions/v1alpha1.BackupLink"
+     }
+    }
+   },
    "v1alpha1.BackupOptions": {
     "description": "BackupOptions are options used to configure virtual machine backup job",
     "type": "object",
@@ -20655,7 +20695,7 @@
     ],
     "properties": {
      "dataEndpoint": {
-      "description": "DataEndpoint is the URL of the endpoint for read for pull mode",
+      "description": "DataEndpoint is the URL of the endpoint for read for pull mode Deprecated: still populated for backward compatibility Use Links.Internal or Links.External for structured endpoint access with explicit internal/external distinction",
       "type": "string"
      },
      "diskTarget": {
@@ -20664,11 +20704,37 @@
       "default": ""
      },
      "mapEndpoint": {
-      "description": "MapEndpoint is the URL of the endpoint for map for pull mode",
+      "description": "MapEndpoint is the URL of the endpoint for map for pull mode Deprecated: still populated for backward compatibility Use Links.Internal or Links.External for structured endpoint access with explicit internal/external distinction",
       "type": "string"
      },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1alpha1.BackupVolumeLink": {
+    "description": "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "dataEndpoint",
+     "mapEndpoint"
+    ],
+    "properties": {
+     "dataEndpoint": {
+      "description": "DataEndpoint is the URL for reading backup data",
+      "type": "string",
+      "default": ""
+     },
+     "mapEndpoint": {
+      "description": "MapEndpoint is the URL for reading the changed block map",
+      "type": "string",
+      "default": ""
+     },
+     "volumeName": {
+      "description": "VolumeName identifies the volume these endpoints belong to",
       "type": "string",
       "default": ""
      }
@@ -20907,7 +20973,7 @@
       "x-kubernetes-list-type": "map"
      },
      "endpointCert": {
-      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode. Deprecated: still populated for backward compatibility Use Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate",
       "type": "string"
      },
      "exportUID": {
@@ -20922,6 +20988,10 @@
        "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "links": {
+      "description": "Links contains structured internal and external endpoints for pull-mode backups Each link includes a CA certificate and per-volume data/map endpoint URLs Clients that need to distinguish between in-cluster and external access paths should use this field instead of the flat EndpointCert/IncludedVolumes fields",
+      "$ref": "#/definitions/v1alpha1.BackupLinks"
      },
      "type": {
       "description": "Type indicates if the backup was full or incremental",

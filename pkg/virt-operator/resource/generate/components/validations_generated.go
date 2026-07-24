@@ -8933,16 +8933,22 @@ var CRDsValidation map[string]string = map[string]string{
                       included in a backup
                     properties:
                       dataEndpoint:
-                        description: DataEndpoint is the URL of the endpoint for read
-                          for pull mode
+                        description: |-
+                          DataEndpoint is the URL of the endpoint for read for pull mode
+                          Deprecated: still populated for backward compatibility
+                          Use Links.Internal or Links.External for structured endpoint access
+                          with explicit internal/external distinction
                         type: string
                       diskTarget:
                         description: DiskTarget is the disk target device name at
                           backup time
                         type: string
                       mapEndpoint:
-                        description: MapEndpoint is the URL of the endpoint for map
-                          for pull mode
+                        description: |-
+                          MapEndpoint is the URL of the endpoint for map for pull mode
+                          Deprecated: still populated for backward compatibility
+                          Use Links.Internal or Links.External for structured endpoint access
+                          with explicit internal/external distinction
                         type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
@@ -9730,6 +9736,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             EndpointCert is the raw CACert that is to be used when connecting
             to an exported backup endpoint in pull mode.
+            Deprecated: still populated for backward compatibility
+            Use Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate
           type: string
         exportUID:
           description: |-
@@ -9744,15 +9752,21 @@ var CRDsValidation map[string]string = map[string]string{
               in a backup
             properties:
               dataEndpoint:
-                description: DataEndpoint is the URL of the endpoint for read for
-                  pull mode
+                description: |-
+                  DataEndpoint is the URL of the endpoint for read for pull mode
+                  Deprecated: still populated for backward compatibility
+                  Use Links.Internal or Links.External for structured endpoint access
+                  with explicit internal/external distinction
                 type: string
               diskTarget:
                 description: DiskTarget is the disk target device name at backup time
                 type: string
               mapEndpoint:
-                description: MapEndpoint is the URL of the endpoint for map for pull
-                  mode
+                description: |-
+                  MapEndpoint is the URL of the endpoint for map for pull mode
+                  Deprecated: still populated for backward compatibility
+                  Use Links.Internal or Links.External for structured endpoint access
+                  with explicit internal/external distinction
                 type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
@@ -9763,6 +9777,87 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        links:
+          description: |-
+            Links contains structured internal and external endpoints for pull-mode backups
+            Each link includes a CA certificate and per-volume data/map endpoint URLs
+            Clients that need to distinguish between in-cluster and external access paths
+            should use this field instead of the flat EndpointCert/IncludedVolumes fields
+          properties:
+            external:
+              description: External contains endpoints reachable from outside the
+                cluster
+              properties:
+                cert:
+                  description: Cert is the CA certificate bundle for TLS verification
+                  type: string
+                volumes:
+                  description: Volumes lists the data and map endpoints for each backed-up
+                    volume
+                  items:
+                    description: BackupVolumeLink contains the data and map endpoint
+                      URLs for a single volume
+                    properties:
+                      dataEndpoint:
+                        description: DataEndpoint is the URL for reading backup data
+                        type: string
+                      mapEndpoint:
+                        description: MapEndpoint is the URL for reading the changed
+                          block map
+                        type: string
+                      volumeName:
+                        description: VolumeName identifies the volume these endpoints
+                          belong to
+                        type: string
+                    required:
+                    - dataEndpoint
+                    - mapEndpoint
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - volumeName
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+            internal:
+              description: Internal contains endpoints reachable from within the cluster
+              properties:
+                cert:
+                  description: Cert is the CA certificate bundle for TLS verification
+                  type: string
+                volumes:
+                  description: Volumes lists the data and map endpoints for each backed-up
+                    volume
+                  items:
+                    description: BackupVolumeLink contains the data and map endpoint
+                      URLs for a single volume
+                    properties:
+                      dataEndpoint:
+                        description: DataEndpoint is the URL for reading backup data
+                        type: string
+                      mapEndpoint:
+                        description: MapEndpoint is the URL for reading the changed
+                          block map
+                        type: string
+                      volumeName:
+                        description: VolumeName identifies the volume these endpoints
+                          belong to
+                        type: string
+                    required:
+                    - dataEndpoint
+                    - mapEndpoint
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - volumeName
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+          type: object
         type:
           description: Type indicates if the backup was full or incremental
           type: string
@@ -9857,16 +9952,22 @@ var CRDsValidation map[string]string = map[string]string{
                   included in a backup
                 properties:
                   dataEndpoint:
-                    description: DataEndpoint is the URL of the endpoint for read
-                      for pull mode
+                    description: |-
+                      DataEndpoint is the URL of the endpoint for read for pull mode
+                      Deprecated: still populated for backward compatibility
+                      Use Links.Internal or Links.External for structured endpoint access
+                      with explicit internal/external distinction
                     type: string
                   diskTarget:
                     description: DiskTarget is the disk target device name at backup
                       time
                     type: string
                   mapEndpoint:
-                    description: MapEndpoint is the URL of the endpoint for map for
-                      pull mode
+                    description: |-
+                      MapEndpoint is the URL of the endpoint for map for pull mode
+                      Deprecated: still populated for backward compatibility
+                      Use Links.Internal or Links.External for structured endpoint access
+                      with explicit internal/external distinction
                     type: string
                   volumeName:
                     description: VolumeName is the volume name from VMI spec
@@ -15144,16 +15245,22 @@ var CRDsValidation map[string]string = map[string]string{
                       included in a backup
                     properties:
                       dataEndpoint:
-                        description: DataEndpoint is the URL of the endpoint for read
-                          for pull mode
+                        description: |-
+                          DataEndpoint is the URL of the endpoint for read for pull mode
+                          Deprecated: still populated for backward compatibility
+                          Use Links.Internal or Links.External for structured endpoint access
+                          with explicit internal/external distinction
                         type: string
                       diskTarget:
                         description: DiskTarget is the disk target device name at
                           backup time
                         type: string
                       mapEndpoint:
-                        description: MapEndpoint is the URL of the endpoint for map
-                          for pull mode
+                        description: |-
+                          MapEndpoint is the URL of the endpoint for map for pull mode
+                          Deprecated: still populated for backward compatibility
+                          Use Links.Internal or Links.External for structured endpoint access
+                          with explicit internal/external distinction
                         type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
@@ -32782,16 +32889,22 @@ var CRDsValidation map[string]string = map[string]string{
                                   about a volume included in a backup
                                 properties:
                                   dataEndpoint:
-                                    description: DataEndpoint is the URL of the endpoint
-                                      for read for pull mode
+                                    description: |-
+                                      DataEndpoint is the URL of the endpoint for read for pull mode
+                                      Deprecated: still populated for backward compatibility
+                                      Use Links.Internal or Links.External for structured endpoint access
+                                      with explicit internal/external distinction
                                     type: string
                                   diskTarget:
                                     description: DiskTarget is the disk target device
                                       name at backup time
                                     type: string
                                   mapEndpoint:
-                                    description: MapEndpoint is the URL of the endpoint
-                                      for map for pull mode
+                                    description: |-
+                                      MapEndpoint is the URL of the endpoint for map for pull mode
+                                      Deprecated: still populated for backward compatibility
+                                      Use Links.Internal or Links.External for structured endpoint access
+                                      with explicit internal/external distinction
                                     type: string
                                   volumeName:
                                     description: VolumeName is the volume name from

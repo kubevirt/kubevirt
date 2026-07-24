@@ -1778,6 +1778,40 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	Expect(volumeInfo.DataEndpoint).ToNot(BeEmpty(), "Data endpoint should be populated")
 	Expect(volumeInfo.MapEndpoint).ToNot(BeEmpty(), "Map endpoint should be populated")
 
+	By("Verifying structured Links field is populated and consistent with IncludedVolumes")
+	Expect(vmbackup.Status.Links).ToNot(BeNil(), "Links should be populated for pull mode backups")
+	hasInternal := vmbackup.Status.Links.Internal != nil
+	hasExternal := vmbackup.Status.Links.External != nil
+	Expect(hasInternal || hasExternal).To(BeTrue(), "Links should have at least one of internal or external")
+
+	expectedVolumeNames := make([]string, len(vmbackup.Status.IncludedVolumes))
+	for i, v := range vmbackup.Status.IncludedVolumes {
+		expectedVolumeNames[i] = v.VolumeName
+	}
+
+	if hasInternal {
+		Expect(vmbackup.Status.Links.Internal.Cert).ToNot(BeEmpty(), "Internal link cert should be populated")
+		Expect(vmbackup.Status.Links.Internal.Volumes).To(HaveLen(len(vmbackup.Status.IncludedVolumes)),
+			"Internal link should have the same number of volumes as IncludedVolumes")
+		for _, vol := range vmbackup.Status.Links.Internal.Volumes {
+			Expect(expectedVolumeNames).To(ContainElement(vol.VolumeName),
+				fmt.Sprintf("Internal link volume %q should be in IncludedVolumes", vol.VolumeName))
+			Expect(vol.DataEndpoint).ToNot(BeEmpty(), fmt.Sprintf("Internal data endpoint for %s should be populated", vol.VolumeName))
+			Expect(vol.MapEndpoint).ToNot(BeEmpty(), fmt.Sprintf("Internal map endpoint for %s should be populated", vol.VolumeName))
+		}
+	}
+	if hasExternal {
+		Expect(vmbackup.Status.Links.External.Cert).ToNot(BeEmpty(), "External link cert should be populated")
+		Expect(vmbackup.Status.Links.External.Volumes).To(HaveLen(len(vmbackup.Status.IncludedVolumes)),
+			"External link should have the same number of volumes as IncludedVolumes")
+		for _, vol := range vmbackup.Status.Links.External.Volumes {
+			Expect(expectedVolumeNames).To(ContainElement(vol.VolumeName),
+				fmt.Sprintf("External link volume %q should be in IncludedVolumes", vol.VolumeName))
+			Expect(vol.DataEndpoint).ToNot(BeEmpty(), fmt.Sprintf("External data endpoint for %s should be populated", vol.VolumeName))
+			Expect(vol.MapEndpoint).ToNot(BeEmpty(), fmt.Sprintf("External map endpoint for %s should be populated", vol.VolumeName))
+		}
+	}
+
 	By("Creating CA configmap and downloader pod")
 	Expect(vmbackup.Status.EndpointCert).ToNot(BeNil(), "EndpointCert should be populated")
 	caConfigMap := &corev1.ConfigMap{
