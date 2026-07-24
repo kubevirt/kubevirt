@@ -821,12 +821,11 @@ var _ = Describe(SIG("Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying launcher pod Velero annotations are removed")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				pod = getPodByVMI(vmi)
-				_, hasPreHook := pod.Annotations[velero.PreBackupHookContainerAnnotation]
-				_, hasPostHook := pod.Annotations[velero.PostBackupHookContainerAnnotation]
-				return !hasPreHook && !hasPostHook
-			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "Velero hook annotations should be removed from launcher pod when KubeVirt CR annotation is set")
+				g.Expect(pod.Annotations).ToNot(HaveKey(velero.PreBackupHookContainerAnnotation))
+				g.Expect(pod.Annotations).ToNot(HaveKey(velero.PostBackupHookContainerAnnotation))
+			}, 60*time.Second, 1*time.Second).Should(Succeed(), "Velero hook annotations should be removed from launcher pod when KubeVirt CR annotation is set")
 
 			By("Restoring KubeVirt CR annotations to original state")
 			if hadSkipAnnotation {
@@ -838,11 +837,11 @@ var _ = Describe(SIG("Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying launcher pod Velero annotations are added back")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				pod = getPodByVMI(vmi)
-				return pod.Annotations[velero.PreBackupHookContainerAnnotation] == "compute" &&
-					pod.Annotations[velero.PostBackupHookContainerAnnotation] == "compute"
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				g.Expect(pod.Annotations).To(HaveKeyWithValue(velero.PreBackupHookContainerAnnotation, "compute"))
+				g.Expect(pod.Annotations).To(HaveKeyWithValue(velero.PostBackupHookContainerAnnotation, "compute"))
+			}, 60*time.Second, 1*time.Second).Should(Succeed())
 		})
 
 		It("VMI annotation should take precedence over KubeVirt CR annotation", func() {

@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/events"
@@ -120,13 +119,15 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 		s, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), s, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse && vm.Status.SnapshotInProgress == nil
-		}, 180*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(s.Status).ToNot(BeNil())
+			g.Expect(s.Status.ReadyToUse).To(HaveValue(BeTrue()))
+			g.Expect(vm.Status.SnapshotInProgress).To(BeNil())
+		}, 180*time.Second, time.Second).Should(Succeed())
 
 		return s
 	}
@@ -139,37 +140,31 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
 		// sometimes it takes a bit for permission to actually be applied so eventually
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			if err != nil {
-				fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
-				return false
-			}
-			return true
-		}, 90*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+		}, 90*time.Second, time.Second).Should(Succeed())
 
 		vm, err := ThisVM(vm)()
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return vmi.Status.Phase == v1.Running
-		}, 360*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmi.Status.Phase).To(Equal(v1.Running))
+		}, 360*time.Second, time.Second).Should(Succeed())
 
 		return vm, vmi
 	}
 
 	waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore, vmName string, vmUID *types.UID) *snapshotv1.VirtualMachineRestore {
 		var err error
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			r, err = virtClient.VirtualMachineRestore(r.Namespace).Get(context.Background(), r.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return r.Status != nil && r.Status.Complete != nil && *r.Status.Complete
-		}, 180*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(r.Status).ToNot(BeNil())
+			g.Expect(r.Status.Complete).To(HaveValue(BeTrue()))
+		}, 180*time.Second, time.Second).Should(Succeed())
 		Expect(r.OwnerReferences).To(HaveLen(1))
 		Expect(r.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
 		Expect(r.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
@@ -417,16 +412,16 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return restore.Status != nil &&
-						len(restore.Status.Conditions) == 2 &&
-						restore.Status.Conditions[0].Status == corev1.ConditionFalse &&
-						restore.Status.Conditions[1].Status == corev1.ConditionFalse &&
-						strings.Contains(restore.Status.Conditions[0].Reason, whName) &&
-						strings.Contains(restore.Status.Conditions[1].Reason, whName)
-				}, 180*time.Second, time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(restore.Status).ToNot(BeNil())
+					g.Expect(restore.Status.Conditions).To(HaveLen(2))
+					g.Expect(restore.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
+					g.Expect(restore.Status.Conditions[1].Status).To(Equal(corev1.ConditionFalse))
+					g.Expect(restore.Status.Conditions[0].Reason).To(ContainSubstring(whName))
+					g.Expect(restore.Status.Conditions[1].Reason).To(ContainSubstring(whName))
+				}, 180*time.Second, time.Second).Should(Succeed())
 
 				r2 := restore.DeepCopy()
 				r2.ObjectMeta = metav1.ObjectMeta{
@@ -1573,20 +1568,19 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return restore.Status != nil &&
-						len(restore.Status.Conditions) == 2 &&
-						restore.Status.Conditions[0].Status == corev1.ConditionFalse &&
-						restore.Status.Conditions[1].Status == corev1.ConditionFalse &&
-						strings.Contains(restore.Status.Conditions[0].Reason, whName) &&
-						strings.Contains(restore.Status.Conditions[1].Reason, whName) &&
-						updatedVM.Status.RestoreInProgress != nil &&
-						*updatedVM.Status.RestoreInProgress == restore.Name
-				}, 180*time.Second, 3*time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(restore.Status).ToNot(BeNil())
+					g.Expect(restore.Status.Conditions).To(HaveLen(2))
+					g.Expect(restore.Status.Conditions[0].Status).To(Equal(corev1.ConditionFalse))
+					g.Expect(restore.Status.Conditions[1].Status).To(Equal(corev1.ConditionFalse))
+					g.Expect(restore.Status.Conditions[0].Reason).To(ContainSubstring(whName))
+					g.Expect(restore.Status.Conditions[1].Reason).To(ContainSubstring(whName))
+					g.Expect(updatedVM.Status.RestoreInProgress).To(HaveValue(Equal(restore.Name)))
+				}, 180*time.Second, 3*time.Second).Should(Succeed())
 
 				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot update VM runStrategy until restore %q completes", restore.Name)))
@@ -1603,11 +1597,11 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					Fail("Delete function not valid")
 				}
 
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return updatedVM.Status.RestoreInProgress == nil
-				}, 30*time.Second, 3*time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(updatedVM.Status.RestoreInProgress).To(BeNil())
+				}, 30*time.Second, 3*time.Second).Should(Succeed())
 
 				vm = libvmops.StartVirtualMachine(vm)
 				deleteRestore(restore)
@@ -1778,7 +1772,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						foundHotPlug = true
 					}
 				}
-				Expect(foundHotPlug).To(BeTrue())
+				Expect(foundHotPlug).To(BeTrue(), "expected restored VMI to include hotplug volume %s", persistVolName)
 			},
 				Entry("[test_id:7425] to the same VM", false),
 				Entry("to a new VM", true),
@@ -2112,16 +2106,12 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				}
 
 				waitMemoryDumpCompletion := func(vm *v1.VirtualMachine) {
-					Eventually(func() bool {
+					Eventually(func(g Gomega) {
 						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						if updatedVM.Status.MemoryDumpRequest == nil ||
-							updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
-							return false
-						}
-
-						return true
-					}, 60*time.Second, time.Second).Should(BeTrue())
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(updatedVM.Status.MemoryDumpRequest).ToNot(BeNil())
+						g.Expect(updatedVM.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpCompleted))
+					}, 60*time.Second, time.Second).Should(Succeed())
 				}
 
 				DescribeTable("should not restore memory dump volume", func(restoreToNewVM bool) {
@@ -2163,7 +2153,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							break
 						}
 					}
-					Expect(foundMemoryDump).To(BeFalse())
+					Expect(foundMemoryDump).To(BeFalse(), "expected restored VMI to exclude memory dump volume %s", memoryDumpPVCName)
 				},
 					Entry("[test_id:8923]to the same VM", false),
 					Entry("[test_id:8924]to a new VM", true),
