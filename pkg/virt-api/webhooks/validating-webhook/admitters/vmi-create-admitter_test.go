@@ -2161,6 +2161,84 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
+	Context("with virtiofs subPath", func() {
+		var vmi *v1.VirtualMachineInstance
+		validate := func() []metav1.StatusCause {
+			return validateVirtiofsSubPath(k8sfield.NewPath("fake"), &vmi.Spec)
+		}
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sharedvol",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+				},
+			})
+		})
+
+		setSubPath := func(subPath string) {
+			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{{
+				Name:     "sharedvol",
+				Virtiofs: &v1.FilesystemVirtiofs{SubPath: subPath},
+			}}
+		}
+
+		It("should accept an empty subPath", func() {
+			setSubPath("")
+			Expect(validate()).To(BeEmpty())
+		})
+
+		It("should accept a relative subPath", func() {
+			setSubPath("foo/bar")
+			Expect(validate()).To(BeEmpty())
+		})
+
+		It("should accept a subPath containing '..' inside a segment", func() {
+			// 'foo..bar' is a legal segment; K8s SubPath validation splits on '/'
+			// and only rejects '..' as a whole segment.
+			setSubPath("foo..bar")
+			Expect(validate()).To(BeEmpty())
+		})
+
+		It("should reject an absolute subPath", func() {
+			setSubPath("/abs/path")
+			causes := validate()
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("must be a relative path"))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems[0].virtiofs.subPath"))
+		})
+
+		It("should reject a subPath containing '..' as a segment", func() {
+			setSubPath("foo/../bar")
+			causes := validate()
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("must not contain '..'"))
+		})
+
+		It("should reject a subPath starting with '..'", func() {
+			setSubPath("../escape")
+			causes := validate()
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("must not contain '..'"))
+		})
+
+		It("should reject subPath when the referenced volume uses containerPath", func() {
+			vmi.Spec.Volumes = []v1.Volume{{
+				Name: "sharedvol",
+				VolumeSource: v1.VolumeSource{
+					ContainerPath: &v1.ContainerPathVolumeSource{
+						Path: "/injected/dir",
+					},
+				},
+			}}
+			setSubPath("foo/bar")
+			causes := validate()
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("not supported when volume"))
+		})
+	})
+
 	Context("with volume", func() {
 		var vmi *v1.VirtualMachineInstance
 

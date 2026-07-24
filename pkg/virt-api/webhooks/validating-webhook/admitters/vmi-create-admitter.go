@@ -236,6 +236,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
+	causes = append(causes, validateVirtiofsSubPath(field, spec)...)
 	causes = append(causes, validateVideoConfig(field, spec)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
@@ -263,6 +264,66 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",
 				Field:   field.Child("domain", "devices", "filesystems").String(),
+			})
+		}
+	}
+
+	return causes
+}
+
+// validateVirtiofsSubPath validates FilesystemVirtiofs.SubPath with the same semantics
+// as Kubernetes' validateLocalDescendingPath for VolumeMount.SubPath (see
+// k8s.io/kubernetes/pkg/apis/core/validation/validation.go):
+//   - must be a relative path (must not start with '/')
+//   - must not contain '..' as a path segment
+//
+// This is enforced here instead of in the CRD via x-kubernetes-validations to avoid
+// contributing to the CRD's CEL cost budget. At runtime the value is passed through
+// to Pod VolumeMount.SubPath, where kube-apiserver re-validates it and kubelet's
+// O_NOFOLLOW subpath resolution (CVE-2017-1002101 fix) provides defense-in-depth.
+//
+// It also rejects setting SubPath when the referenced volume uses ContainerPath,
+// because that volume type is handled by the virt-launcher pod mutating webhook,
+// which computes its own SubPath from ContainerPath.Path and would silently ignore
+// this field.
+func validateVirtiofsSubPath(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Devices.Filesystems == nil {
+		return causes
+	}
+
+	volumes := storagetypes.GetVolumesByName(spec)
+
+	for i, fs := range spec.Domain.Devices.Filesystems {
+		if fs.Virtiofs == nil || fs.Virtiofs.SubPath == "" {
+			continue
+		}
+
+		fsField := field.Child("domain", "devices", "filesystems").Index(i).Child("virtiofs", "subPath")
+
+		if strings.HasPrefix(fs.Virtiofs.SubPath, "/") {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("virtiofs subPath %q must be a relative path", fs.Virtiofs.SubPath),
+				Field:   fsField.String(),
+			})
+		}
+
+		for _, seg := range strings.Split(fs.Virtiofs.SubPath, "/") {
+			if seg == ".." {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("virtiofs subPath %q must not contain '..'", fs.Virtiofs.SubPath),
+					Field:   fsField.String(),
+				})
+				break
+			}
+		}
+
+		if volume, ok := volumes[fs.Name]; ok && volume.ContainerPath != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("virtiofs subPath is not supported when volume %q uses containerPath", fs.Name),
+				Field:   fsField.String(),
 			})
 		}
 	}

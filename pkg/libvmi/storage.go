@@ -142,6 +142,17 @@ func WithFilesystemPVC(claimName string) Option {
 	}
 }
 
+// WithFilesystemPVCVirtiofs specifies a virtiofs filesystem backed by a PVC with mount options.
+func WithFilesystemPVCVirtiofs(claimName string, virtiofs v1.FilesystemVirtiofs) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addFilesystem(vmi, v1.Filesystem{
+			Name:     claimName,
+			Virtiofs: &virtiofs,
+		})
+		addVolume(vmi, newPersistentVolumeClaimVolume(claimName, claimName, false))
+	}
+}
+
 // WithFilesystemDV specifies a filesystem backed by a DV to be used.
 func WithFilesystemDV(dataVolumeName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
