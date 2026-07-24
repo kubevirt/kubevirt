@@ -149,7 +149,6 @@ func isOwnedByClone(obj metav1.Object) (isOwned bool, key string) {
 	}
 
 	return false, ""
-	// TODO: Unit test this?
 }
 
 func updateCondition(conditions []clone.Condition, c clone.Condition, includeReason bool) []clone.Condition {
