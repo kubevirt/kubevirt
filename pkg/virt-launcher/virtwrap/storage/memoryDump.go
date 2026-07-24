@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -121,15 +122,27 @@ func (m *StorageManager) setMemoryDumpResult(failed bool, reason string) {
 }
 
 func removePreviousMemoryDump(dir string) {
-	files, err := os.ReadDir(dir)
+	dirPath, err := safepath.NewPathNoFollow(dir)
 	if err != nil {
+		log.Log.Reason(err).Errorf("failed to remove older memory dumps")
+		return
+	}
+	var files []os.DirEntry
+	if err := dirPath.ExecuteNoFollow(func(safePath string) (err error) {
+		files, err = os.ReadDir(safePath)
+		return err
+	}); err != nil {
 		log.Log.Reason(err).Errorf("failed to remove older memory dumps")
 		return
 	}
 	for _, file := range files {
 		if strings.Contains(file.Name(), "memory.dump") {
-			err = os.Remove(filepath.Join(dir, file.Name()))
+			filePath, err := dirPath.AppendAndResolveWithRelativeRoot(file.Name())
 			if err != nil {
+				log.Log.Reason(err).Errorf("failed to remove older memory dumps")
+				continue
+			}
+			if err := safepath.UnlinkAtNoFollow(filePath); err != nil {
 				log.Log.Reason(err).Errorf("failed to remove older memory dumps")
 			}
 		}

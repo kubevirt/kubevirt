@@ -35,7 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	kutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -140,19 +140,30 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 
 	var backupPath string
 	if backupOptions.TargetPath != nil {
+		targetSafePath, err := safepath.NewPathNoFollow(*backupOptions.TargetPath)
+		if err != nil {
+			return fmt.Errorf("error validating backup target path: %w", err)
+		}
 		backupPath = getBackupPath(backupOptions, vmi.Name)
-		if err := kutil.MkdirAllWithNosec(backupPath); err != nil {
-			logger.Reason(err).Error("error creating dir for backup")
+		if err := targetSafePath.ExecuteNoFollow(func(safePath string) error {
+			return os.MkdirAll(filepath.Join(safePath, vmi.Name, filepath.Base(backupPath)), 0750)
+		}); err != nil {
 			return fmt.Errorf("error creating dir for backup: %w", err)
 		}
-		defer func(path string) {
+		backupSafePath, err := safepath.JoinAndResolveWithRelativeRoot(*backupOptions.TargetPath, vmi.Name, filepath.Base(backupPath))
+		if err != nil {
+			return fmt.Errorf("error resolving backup path: %w", err)
+		}
+		defer func() {
 			if failed != nil {
 				logger.Reason(failed).Error("failed to run backup, cleaning up backup directory")
-				if err := os.RemoveAll(path); err != nil {
+				if err := backupSafePath.ExecuteNoFollow(func(safePath string) error {
+					return os.RemoveAll(safePath)
+				}); err != nil {
 					logger.Reason(err).Error("failed to clean up backup directory")
 				}
 			}
-		}(backupPath)
+		}()
 	}
 	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath)
 	backupXML, err := xml.Marshal(domainBackup)
