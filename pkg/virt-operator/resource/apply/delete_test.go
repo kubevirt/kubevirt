@@ -29,6 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
@@ -254,6 +255,85 @@ var _ = Describe("Deletion", func() {
 				return node3patchActions
 			}, BeEmpty()))
 
+		})
+	})
+
+	Context("storedGVR", func() {
+		It("should extract the storage version from a CRD", func() {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: "kubevirt.io",
+					Versions: []extv1.CustomResourceDefinitionVersion{
+						{Name: "v1alpha3", Storage: false},
+						{Name: "v1", Storage: true},
+					},
+				},
+				Status: extv1.CustomResourceDefinitionStatus{
+					AcceptedNames: extv1.CustomResourceDefinitionNames{
+						Plural: "virtualmachineinstances",
+					},
+				},
+			}
+			gvr, ok := storedGVR(crd)
+			Expect(ok).To(BeTrue())
+			Expect(gvr.Group).To(Equal("kubevirt.io"))
+			Expect(gvr.Version).To(Equal("v1"))
+			Expect(gvr.Resource).To(Equal("virtualmachineinstances"))
+		})
+
+		It("should return false when no storage version exists", func() {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: "kubevirt.io",
+					Versions: []extv1.CustomResourceDefinitionVersion{
+						{Name: "v1", Storage: false},
+					},
+				},
+				Status: extv1.CustomResourceDefinitionStatus{
+					AcceptedNames: extv1.CustomResourceDefinitionNames{
+						Plural: "virtualmachines",
+					},
+				},
+			}
+			_, ok := storedGVR(crd)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("should return false when plural name is empty", func() {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: "kubevirt.io",
+					Versions: []extv1.CustomResourceDefinitionVersion{
+						{Name: "v1", Storage: true},
+					},
+				},
+			}
+			_, ok := storedGVR(crd)
+			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Context("uniqueNamespaces", func() {
+		It("should extract unique namespaces from an unstructured list", func() {
+			list := &unstructured.UnstructuredList{
+				Items: []unstructured.Unstructured{
+					{Object: map[string]interface{}{"metadata": map[string]interface{}{"namespace": "ns-a"}}},
+					{Object: map[string]interface{}{"metadata": map[string]interface{}{"namespace": "ns-b"}}},
+					{Object: map[string]interface{}{"metadata": map[string]interface{}{"namespace": "ns-a"}}},
+				},
+			}
+			namespaces := uniqueNamespaces(list)
+			Expect(namespaces).To(ConsistOf("ns-a", "ns-b"))
+		})
+
+		It("should return empty for cluster-scoped resources", func() {
+			list := &unstructured.UnstructuredList{
+				Items: []unstructured.Unstructured{
+					{Object: map[string]interface{}{"metadata": map[string]interface{}{"name": "obj1"}}},
+				},
+			}
+			namespaces := uniqueNamespaces(list)
+			Expect(namespaces).To(BeEmpty())
 		})
 	})
 })
