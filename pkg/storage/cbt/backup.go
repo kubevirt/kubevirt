@@ -893,7 +893,7 @@ func (ctrl *VMBackupController) resolveCompletion(backup *backupv1.VirtualMachin
 		message := fmt.Sprintf(backupCompletedWithWarningMsg, *status.BackupMsg)
 		log.Log.Object(backup).Info(message)
 		setCompleteWithWarning(backup, message)
-		ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupCompletedWithWarningEvent, message)
+		ctrl.recorder.Event(backup, corev1.EventTypeWarning, backupCompletedWithWarningEvent, message)
 		return
 	}
 
@@ -1023,7 +1023,7 @@ func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBacku
 		if isPushMode(backup) {
 			eventSev = corev1.EventTypeWarning
 		}
-		ctrl.recorder.Eventf(backup, eventSev, backupAbortingEvent, message)
+		ctrl.recorder.Event(backup, eventSev, backupAbortingEvent, message)
 	}
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
@@ -1037,7 +1037,7 @@ func (ctrl *VMBackupController) setFailed(backup *backupv1.VirtualMachineBackup,
 		Reason: reason, Message: fmt.Sprintf(backupFailed, message),
 	})
 	markTerminal(backup, reason, fmt.Sprintf(backupFailed, message))
-	ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupFailedEvent, message)
+	ctrl.recorder.Event(backup, corev1.EventTypeWarning, backupFailedEvent, message)
 }
 
 func markTerminal(backup *backupv1.VirtualMachineBackup, reason, message string) {

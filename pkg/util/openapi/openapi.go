@@ -119,8 +119,14 @@ func CreateConfig() *common.Config {
 		},
 
 		GetDefinitionName: func(name string) (string, spec.Extensions) {
+			// Generated OpenAPIModelName for, e.g. "io.kubevirt.api.core.v1.StartOptions"
+			// Keep the published "<version>.<Kind> definition keys"
+			if strings.HasPrefix(name, "io.kubevirt.") {
+				parts := strings.Split(name, ".")
+				return parts[len(parts)-2] + "." + parts[len(parts)-1], nil
+			}
+			// Go-path form, e.g. "kubevirt.io/api/core/v1.StartOptions" (CDI Types, and kubevirt types should should any lose their generated model name)
 			if strings.Contains(name, "kubevirt.io") {
-				// keeping for validation
 				return name[strings.LastIndex(name, "/")+1:], nil
 			}
 			//adpting k8s style
@@ -205,12 +211,20 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 		}
 	}
 
-	const resourceQuantityDefinition = "k8s.io.apimachinery.pkg.api.resource.Quantity"
-
-	quantity, exists := openapispec.Definitions[resourceQuantityDefinition]
-	if exists {
-		quantity.Type = spec.StringOrArray{"string", "integer", "number"}
-		openapispec.Definitions[resourceQuantityDefinition] = quantity
+	// The definition key for Quantity depends on how kube-openapi renders the
+	// model name. Older versions produced the Go-import-path form
+	// ("k8s.io.apimachinery..."); newer ones use the reversed-domain
+	// OpenAPIModelName() form ("io.k8s.apimachinery..."). Patch whichever exists
+	// so Quantity keeps accepting integer and float values, not just strings.
+	for _, resourceQuantityDefinition := range []string{
+		"io.k8s.apimachinery.pkg.api.resource.Quantity",
+		"k8s.io.apimachinery.pkg.api.resource.Quantity",
+	} {
+		quantity, exists := openapispec.Definitions[resourceQuantityDefinition]
+		if exists {
+			quantity.Type = spec.StringOrArray{"string", "integer", "number"}
+			openapispec.Definitions[resourceQuantityDefinition] = quantity
+		}
 	}
 
 	objectMeta, exists := openapispec.Definitions[objectmeta]

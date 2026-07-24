@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "devicetaintrule.go",
         "expansion_generated.go",
+        "resourcepoolstatusrequest.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/listers/resource/v1alpha3",
     importpath = "k8s.io/client-go/listers/resource/v1alpha3",

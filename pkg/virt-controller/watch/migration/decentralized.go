@@ -146,7 +146,7 @@ func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *v1.VirtualMa
 	vmiCopy.Status.MigrationState.SourceState.NodeSelectors = nodeSelectors
 
 	if err := c.patchVMI(vmi, vmiCopy); err != nil {
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("failed to set migration SourceState in VMI status. :%v", err))
+		c.recorder.Event(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("failed to set migration SourceState in VMI status. :%v", err))
 		return err
 	}
 	return nil

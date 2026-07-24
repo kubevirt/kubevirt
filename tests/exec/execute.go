@@ -26,9 +26,9 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/streaming/pkg/httpstream"
 
 	"kubevirt.io/client-go/kubecli"
 )

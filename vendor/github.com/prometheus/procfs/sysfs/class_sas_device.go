@@ -1,4 +1,4 @@
-// Copyright 2022 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 
 	"github.com/prometheus/procfs/internal/util"
 )
@@ -42,7 +43,7 @@ type SASDeviceClass map[string]*SASDevice
 
 var (
 	sasTargetDeviceRegexp    = regexp.MustCompile(`^target[0-9:]+$`)
-	sasTargetSubDeviceRegexp = regexp.MustCompile(`[0-9]+:.*`)
+	sasTargetSubDeviceRegexp = regexp.MustCompile(`\d+:.*`)
 )
 
 // sasDeviceClasses reads all of the SAS devices from a specific set
@@ -185,10 +186,8 @@ func (sdc *SASDeviceClass) GetByName(name string) *SASDevice {
 // GetByPhy finds the SASDevice that contains the provided PHY name.
 func (sdc *SASDeviceClass) GetByPhy(name string) *SASDevice {
 	for _, d := range *sdc {
-		for _, p := range d.SASPhys {
-			if p == name {
-				return d
-			}
+		if slices.Contains(d.SASPhys, name) {
+			return d
 		}
 	}
 	return nil
@@ -197,10 +196,8 @@ func (sdc *SASDeviceClass) GetByPhy(name string) *SASDevice {
 // GetByPort finds the SASDevice that contains the provided SAS Port name.
 func (sdc *SASDeviceClass) GetByPort(name string) *SASDevice {
 	for _, d := range *sdc {
-		for _, p := range d.SASPorts {
-			if p == name {
-				return d
-			}
+		if slices.Contains(d.SASPorts, name) {
+			return d
 		}
 	}
 	return nil

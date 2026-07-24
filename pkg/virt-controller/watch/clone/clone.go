@@ -663,7 +663,7 @@ func (ctrl *VMCloneController) cleanupRestore(vmClone *clone.VirtualMachineClone
 }
 
 func (ctrl *VMCloneController) logAndRecord(vmClone *clone.VirtualMachineClone, event Event, msg string) {
-	ctrl.recorder.Eventf(vmClone, corev1.EventTypeNormal, string(event), msg)
+	ctrl.recorder.Event(vmClone, corev1.EventTypeNormal, string(event), msg)
 	log.Log.Object(vmClone).Infof("%s", msg)
 }
 

@@ -25,7 +25,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.RootPaths"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.RootPaths"
        }
       },
       "401": {
@@ -51,7 +51,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroupList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroupList"
        }
       },
       "401": {
@@ -77,7 +77,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -103,7 +103,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -259,7 +259,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -358,12 +358,7 @@
      "operationId": "deleteNamespacedVirtualMachineBackup",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -379,7 +374,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -402,12 +397,7 @@
      "operationId": "patchNamespacedVirtualMachineBackup",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -501,7 +491,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -553,7 +543,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -602,7 +592,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -628,7 +618,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -778,7 +768,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -877,12 +867,7 @@
      "operationId": "deleteVirtualMachineClone",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -898,7 +883,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -921,12 +906,7 @@
      "operationId": "patchVirtualMachineClone",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -966,7 +946,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -1015,7 +995,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -1041,7 +1021,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -1197,7 +1177,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -1296,12 +1276,7 @@
      "operationId": "deleteNamespacedVirtualMachineExport",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -1317,7 +1292,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -1340,12 +1315,7 @@
      "operationId": "patchNamespacedVirtualMachineExport",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -1439,7 +1409,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -1491,7 +1461,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -1540,7 +1510,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -1566,7 +1536,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -1722,7 +1692,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -1821,12 +1791,7 @@
      "operationId": "deleteNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -1842,7 +1807,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -1865,12 +1830,7 @@
      "operationId": "patchNamespacedVirtualMachineInstancetype",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -2043,7 +2003,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -2142,12 +2102,7 @@
      "operationId": "deleteNamespacedVirtualMachinePreference",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -2163,7 +2118,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -2186,12 +2141,7 @@
      "operationId": "patchNamespacedVirtualMachinePreference",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -2358,7 +2308,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -2457,12 +2407,7 @@
      "operationId": "deleteVirtualMachineClusterInstancetype",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -2478,7 +2423,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -2501,12 +2446,7 @@
      "operationId": "patchVirtualMachineClusterInstancetype",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -2670,7 +2610,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -2769,12 +2709,7 @@
      "operationId": "deleteVirtualMachineClusterPreference",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -2790,7 +2725,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -2813,12 +2748,7 @@
      "operationId": "patchVirtualMachineClusterPreference",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -2960,7 +2890,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -3012,7 +2942,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -3064,7 +2994,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -3113,7 +3043,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -3162,7 +3092,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -3211,7 +3141,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -3260,7 +3190,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -3286,7 +3216,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -3493,7 +3423,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -3592,12 +3522,7 @@
      "operationId": "deleteNamespacedKubeVirt",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -3613,7 +3538,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -3636,12 +3561,7 @@
      "operationId": "patchNamespacedKubeVirt",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -3814,7 +3734,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -3913,12 +3833,7 @@
      "operationId": "deleteNamespacedVirtualMachineInstanceMigration",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -3934,7 +3849,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -3957,12 +3872,7 @@
      "operationId": "patchNamespacedVirtualMachineInstanceMigration",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -4135,7 +4045,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -4234,12 +4144,7 @@
      "operationId": "deleteNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -4255,7 +4160,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -4278,12 +4183,7 @@
      "operationId": "patchNamespacedVirtualMachineInstancePreset",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -4456,7 +4356,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -4555,12 +4455,7 @@
      "operationId": "deleteNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -4576,7 +4471,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -4599,12 +4494,7 @@
      "operationId": "patchNamespacedVirtualMachineInstanceReplicaSet",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -4777,7 +4667,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -4876,12 +4766,7 @@
      "operationId": "deleteNamespacedVirtualMachineInstance",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -4897,7 +4782,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -4920,12 +4805,7 @@
      "operationId": "patchNamespacedVirtualMachineInstance",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -5098,7 +4978,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -5197,12 +5077,7 @@
      "operationId": "deleteNamespacedVirtualMachine",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -5218,7 +5093,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -5241,12 +5116,7 @@
      "operationId": "patchNamespacedVirtualMachine",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -5544,7 +5414,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5593,7 +5463,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5645,7 +5515,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5697,7 +5567,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5749,7 +5619,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5801,7 +5671,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5853,7 +5723,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5905,7 +5775,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -5954,7 +5824,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -6003,7 +5873,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -6052,7 +5922,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -6101,7 +5971,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -6150,7 +6020,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -6176,7 +6046,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -6326,7 +6196,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -6425,12 +6295,7 @@
      "operationId": "deleteMigrationPolicy",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -6446,7 +6311,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -6469,12 +6334,7 @@
      "operationId": "patchMigrationPolicy",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -6514,7 +6374,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -6563,7 +6423,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -6589,7 +6449,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -6745,7 +6605,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -6844,12 +6704,7 @@
      "operationId": "deleteNamespacedVirtualMachinePool",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -6865,7 +6720,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -6888,12 +6743,7 @@
      "operationId": "patchNamespacedVirtualMachinePool",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -6987,7 +6837,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -7039,7 +6889,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -7088,7 +6938,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -7114,7 +6964,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -7270,7 +7120,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -7369,12 +7219,7 @@
      "operationId": "deleteNamespacedVirtualMachineRestore",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -7390,7 +7235,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -7413,12 +7258,7 @@
      "operationId": "patchNamespacedVirtualMachineRestore",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -7591,7 +7431,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -7690,12 +7530,7 @@
      "operationId": "deleteNamespacedVirtualMachineSnapshotContent",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -7711,7 +7546,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -7734,12 +7569,7 @@
      "operationId": "patchNamespacedVirtualMachineSnapshotContent",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -7912,7 +7742,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -8011,12 +7841,7 @@
      "operationId": "deleteNamespacedVirtualMachineSnapshot",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
-       }
+       "$ref": "#/parameters/body-Gh-7VEKz"
       },
       {
        "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
@@ -8032,7 +7857,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Status"
        }
       },
       "401": {
@@ -8055,12 +7880,7 @@
      "operationId": "patchNamespacedVirtualMachineSnapshot",
      "parameters": [
       {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
-       }
+       "$ref": "#/parameters/body-78PwaGsr"
       }
      ],
      "responses": {
@@ -8256,7 +8076,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -8308,7 +8128,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -8360,7 +8180,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -8412,7 +8232,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -8461,7 +8281,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -8510,7 +8330,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent"
        }
       },
       "401": {
@@ -8559,7 +8379,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
        }
       },
       "401": {
@@ -8585,7 +8405,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -10416,7 +10236,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList"
        }
       },
       "401": {
@@ -12364,25 +12184,25 @@
    }
   },
   "definitions": {
-   "k8s.io.api.core.v1.Affinity": {
+   "io.k8s.api.core.v1.Affinity": {
     "description": "Affinity is a group of affinity scheduling rules.",
     "type": "object",
     "properties": {
      "nodeAffinity": {
       "description": "Describes node affinity scheduling rules for the pod.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.NodeAffinity"
+      "$ref": "#/definitions/io.k8s.api.core.v1.NodeAffinity"
      },
      "podAffinity": {
       "description": "Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PodAffinity"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PodAffinity"
      },
      "podAntiAffinity": {
       "description": "Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PodAntiAffinity"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PodAntiAffinity"
      }
     }
    },
-   "k8s.io.api.core.v1.DownwardAPIVolumeFile": {
+   "io.k8s.api.core.v1.DownwardAPIVolumeFile": {
     "description": "DownwardAPIVolumeFile represents information to create the file containing the pod field",
     "type": "object",
     "required": [
@@ -12391,7 +12211,7 @@
     "properties": {
      "fieldRef": {
       "description": "Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.ObjectFieldSelector"
+      "$ref": "#/definitions/io.k8s.api.core.v1.ObjectFieldSelector"
      },
      "mode": {
       "description": "Optional: mode bits used to set permissions on this file, must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
@@ -12405,11 +12225,11 @@
      },
      "resourceFieldRef": {
       "description": "Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceFieldSelector"
+      "$ref": "#/definitions/io.k8s.api.core.v1.ResourceFieldSelector"
      }
     }
    },
-   "k8s.io.api.core.v1.ExecAction": {
+   "io.k8s.api.core.v1.ExecAction": {
     "description": "ExecAction describes a \"run in container\" action.",
     "type": "object",
     "properties": {
@@ -12424,7 +12244,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.HTTPGetAction": {
+   "io.k8s.api.core.v1.HTTPGetAction": {
     "description": "HTTPGetAction describes an action based on HTTP Get requests.",
     "type": "object",
     "required": [
@@ -12440,7 +12260,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.HTTPHeader"
+       "$ref": "#/definitions/io.k8s.api.core.v1.HTTPHeader"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -12465,7 +12285,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.HTTPHeader": {
+   "io.k8s.api.core.v1.HTTPHeader": {
     "description": "HTTPHeader describes a custom header to be used in HTTP probes",
     "type": "object",
     "required": [
@@ -12485,7 +12305,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.LocalObjectReference": {
+   "io.k8s.api.core.v1.LocalObjectReference": {
     "description": "LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.",
     "type": "object",
     "properties": {
@@ -12497,7 +12317,7 @@
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.api.core.v1.NodeAffinity": {
+   "io.k8s.api.core.v1.NodeAffinity": {
     "description": "Node affinity is a group of node affinity scheduling rules.",
     "type": "object",
     "properties": {
@@ -12506,17 +12326,17 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.PreferredSchedulingTerm"
+       "$ref": "#/definitions/io.k8s.api.core.v1.PreferredSchedulingTerm"
       },
       "x-kubernetes-list-type": "atomic"
      },
      "requiredDuringSchedulingIgnoredDuringExecution": {
       "description": "If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelector"
+      "$ref": "#/definitions/io.k8s.api.core.v1.NodeSelector"
      }
     }
    },
-   "k8s.io.api.core.v1.NodeSelector": {
+   "io.k8s.api.core.v1.NodeSelector": {
     "description": "A node selector represents the union of the results of one or more label queries over a set of nodes; that is, it represents the OR of the selectors represented by the node selector terms.",
     "type": "object",
     "required": [
@@ -12528,14 +12348,14 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorTerm"
+       "$ref": "#/definitions/io.k8s.api.core.v1.NodeSelectorTerm"
       },
       "x-kubernetes-list-type": "atomic"
      }
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.api.core.v1.NodeSelectorRequirement": {
+   "io.k8s.api.core.v1.NodeSelectorRequirement": {
     "description": "A node selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
     "type": "object",
     "required": [
@@ -12572,7 +12392,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.NodeSelectorTerm": {
+   "io.k8s.api.core.v1.NodeSelectorTerm": {
     "description": "A null or empty node selector term matches no objects. The requirements of them are ANDed. The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.",
     "type": "object",
     "properties": {
@@ -12581,7 +12401,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorRequirement"
+       "$ref": "#/definitions/io.k8s.api.core.v1.NodeSelectorRequirement"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -12590,14 +12410,14 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorRequirement"
+       "$ref": "#/definitions/io.k8s.api.core.v1.NodeSelectorRequirement"
       },
       "x-kubernetes-list-type": "atomic"
      }
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.api.core.v1.ObjectFieldSelector": {
+   "io.k8s.api.core.v1.ObjectFieldSelector": {
     "description": "ObjectFieldSelector selects an APIVersioned field of an object.",
     "type": "object",
     "required": [
@@ -12616,7 +12436,7 @@
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.api.core.v1.PersistentVolumeClaimSpec": {
+   "io.k8s.api.core.v1.PersistentVolumeClaimSpec": {
     "description": "PersistentVolumeClaimSpec describes the common attributes of storage devices and allows a Source for provider-specific attributes",
     "type": "object",
     "properties": {
@@ -12637,20 +12457,20 @@
      },
      "dataSource": {
       "description": "dataSource field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified. If the namespace is specified, then dataSourceRef will not be copied to dataSource.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "dataSourceRef": {
       "description": "dataSourceRef specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the dataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, when namespace isn't specified in dataSourceRef, both fields (dataSource and dataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. When namespace is specified in dataSourceRef, dataSource isn't set to the same value and must be empty. There are three important differences between dataSource and dataSourceRef: * While dataSource only allows two specific types of objects, dataSourceRef\n  allows any non-core object, as well as PersistentVolumeClaim objects.\n* While dataSource ignores disallowed values (dropping them), dataSourceRef\n  preserves all values, and generates an error if a disallowed value is\n  specified.\n* While dataSource only allows local objects, dataSourceRef allows objects\n  in any namespaces.\n(Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled. (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedObjectReference"
      },
      "resources": {
-      "description": "resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
+      "description": "resources represents the minimum resources the volume should have. Users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.VolumeResourceRequirements"
+      "$ref": "#/definitions/io.k8s.api.core.v1.VolumeResourceRequirements"
      },
      "selector": {
       "description": "selector is a label query over volumes to consider for binding.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "storageClassName": {
       "description": "storageClassName is the name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1",
@@ -12675,7 +12495,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource": {
+   "io.k8s.api.core.v1.PersistentVolumeClaimVolumeSource": {
     "description": "PersistentVolumeClaimVolumeSource references the user's PVC in the same namespace. This volume finds the bound PV and mounts that volume for the pod. A PersistentVolumeClaimVolumeSource is, essentially, a wrapper around another type of volume that is owned by someone else (the system).",
     "type": "object",
     "required": [
@@ -12693,7 +12513,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PodAffinity": {
+   "io.k8s.api.core.v1.PodAffinity": {
     "description": "Pod affinity is a group of inter pod affinity scheduling rules.",
     "type": "object",
     "properties": {
@@ -12702,7 +12522,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.WeightedPodAffinityTerm"
+       "$ref": "#/definitions/io.k8s.api.core.v1.WeightedPodAffinityTerm"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -12711,13 +12531,13 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.PodAffinityTerm"
+       "$ref": "#/definitions/io.k8s.api.core.v1.PodAffinityTerm"
       },
       "x-kubernetes-list-type": "atomic"
      }
     }
    },
-   "k8s.io.api.core.v1.PodAffinityTerm": {
+   "io.k8s.api.core.v1.PodAffinityTerm": {
     "description": "Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key \u003ctopologyKey\u003e matches that of any node on which a pod of the set of pods is running",
     "type": "object",
     "required": [
@@ -12726,7 +12546,7 @@
     "properties": {
      "labelSelector": {
       "description": "A label query over a set of resources, in this case pods. If it's null, this PodAffinityTerm matches with no Pods.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "matchLabelKeys": {
       "description": "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both matchLabelKeys and labelSelector. Also, matchLabelKeys cannot be set when labelSelector isn't set.",
@@ -12748,7 +12568,7 @@
      },
      "namespaceSelector": {
       "description": "A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means \"this pod's namespace\". An empty selector ({}) matches all namespaces.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "namespaces": {
       "description": "namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means \"this pod's namespace\".",
@@ -12766,7 +12586,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PodAntiAffinity": {
+   "io.k8s.api.core.v1.PodAntiAffinity": {
     "description": "Pod anti affinity is a group of inter pod anti affinity scheduling rules.",
     "type": "object",
     "properties": {
@@ -12775,7 +12595,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.WeightedPodAffinityTerm"
+       "$ref": "#/definitions/io.k8s.api.core.v1.WeightedPodAffinityTerm"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -12784,13 +12604,13 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.PodAffinityTerm"
+       "$ref": "#/definitions/io.k8s.api.core.v1.PodAffinityTerm"
       },
       "x-kubernetes-list-type": "atomic"
      }
     }
    },
-   "k8s.io.api.core.v1.PodDNSConfig": {
+   "io.k8s.api.core.v1.PodDNSConfig": {
     "description": "PodDNSConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy.",
     "type": "object",
     "properties": {
@@ -12808,7 +12628,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.PodDNSConfigOption"
+       "$ref": "#/definitions/io.k8s.api.core.v1.PodDNSConfigOption"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -12823,7 +12643,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PodDNSConfigOption": {
+   "io.k8s.api.core.v1.PodDNSConfigOption": {
     "description": "PodDNSConfigOption defines DNS resolver options of a pod.",
     "type": "object",
     "properties": {
@@ -12837,7 +12657,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PreferredSchedulingTerm": {
+   "io.k8s.api.core.v1.PreferredSchedulingTerm": {
     "description": "An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).",
     "type": "object",
     "required": [
@@ -12848,7 +12668,7 @@
      "preference": {
       "description": "A node selector term, associated with the corresponding weight.",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorTerm"
+      "$ref": "#/definitions/io.k8s.api.core.v1.NodeSelectorTerm"
      },
      "weight": {
       "description": "Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.",
@@ -12858,7 +12678,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.ResourceFieldSelector": {
+   "io.k8s.api.core.v1.ResourceFieldSelector": {
     "description": "ResourceFieldSelector represents container resources (cpu, memory) and their output format",
     "type": "object",
     "required": [
@@ -12871,7 +12691,7 @@
      },
      "divisor": {
       "description": "Specifies the output format of the exposed resources, defaults to \"1\"",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "resource": {
       "description": "Required: resource to select",
@@ -12881,7 +12701,7 @@
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.api.core.v1.TCPSocketAction": {
+   "io.k8s.api.core.v1.TCPSocketAction": {
     "description": "TCPSocketAction describes an action based on opening a socket",
     "type": "object",
     "required": [
@@ -12901,7 +12721,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.Toleration": {
+   "io.k8s.api.core.v1.Toleration": {
     "description": "The pod this Toleration is attached to tolerates any taint that matches the triple \u003ckey,value,effect\u003e using the matching operator \u003coperator\u003e.",
     "type": "object",
     "properties": {
@@ -12919,11 +12739,13 @@
       "type": "string"
      },
      "operator": {
-      "description": "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.\n\nPossible enum values:\n - `\"Equal\"`\n - `\"Exists\"`",
+      "description": "Operator represents a key's relationship to the value. Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category. Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).\n\nPossible enum values:\n - `\"Equal\"`\n - `\"Exists\"`\n - `\"Gt\"`\n - `\"Lt\"`",
       "type": "string",
       "enum": [
        "Equal",
-       "Exists"
+       "Exists",
+       "Gt",
+       "Lt"
       ]
      },
      "tolerationSeconds": {
@@ -12937,7 +12759,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.TopologySpreadConstraint": {
+   "io.k8s.api.core.v1.TopologySpreadConstraint": {
     "description": "TopologySpreadConstraint specifies how to spread matching pods among the given topology.",
     "type": "object",
     "required": [
@@ -12948,7 +12770,7 @@
     "properties": {
      "labelSelector": {
       "description": "LabelSelector is used to find matching pods. Pods that match this label selector are counted to determine the number of pods in their corresponding topology domain.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "matchLabelKeys": {
       "description": "MatchLabelKeys is a set of pod label keys to select the pods over which spreading will be calculated. The keys are used to lookup values from the incoming pod labels, those key-value labels are ANDed with labelSelector to select the group of existing pods over which spreading will be calculated for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. MatchLabelKeys cannot be set when LabelSelector isn't set. Keys that don't exist in the incoming pod labels will be ignored. A null or empty list means only match against labelSelector.\n\nThis is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).",
@@ -13002,7 +12824,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.TypedLocalObjectReference": {
+   "io.k8s.api.core.v1.TypedLocalObjectReference": {
     "description": "TypedLocalObjectReference contains enough information to let you locate the typed referenced object inside the same namespace.",
     "type": "object",
     "required": [
@@ -13027,7 +12849,7 @@
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.api.core.v1.TypedObjectReference": {
+   "io.k8s.api.core.v1.TypedObjectReference": {
     "description": "TypedObjectReference contains enough information to let you locate the typed referenced object",
     "type": "object",
     "required": [
@@ -13055,7 +12877,7 @@
      }
     }
    },
-   "k8s.io.api.core.v1.VolumeResourceRequirements": {
+   "io.k8s.api.core.v1.VolumeResourceRequirements": {
     "description": "VolumeResourceRequirements describes the storage resource requirements for a volume.",
     "type": "object",
     "properties": {
@@ -13063,19 +12885,19 @@
       "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "requests": {
       "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      }
     }
    },
-   "k8s.io.api.core.v1.WeightedPodAffinityTerm": {
+   "io.k8s.api.core.v1.WeightedPodAffinityTerm": {
     "description": "The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)",
     "type": "object",
     "required": [
@@ -13086,7 +12908,7 @@
      "podAffinityTerm": {
       "description": "Required. A pod affinity term, associated with the corresponding weight.",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.PodAffinityTerm"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PodAffinityTerm"
      },
      "weight": {
       "description": "weight associated with matching the corresponding podAffinityTerm, in the range 1-100.",
@@ -13096,7 +12918,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.api.resource.Quantity": {
+   "io.k8s.apimachinery.pkg.api.resource.Quantity": {
     "description": "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` \u003cquantity\u003e        ::= \u003csignedNumber\u003e\u003csuffix\u003e\n\n\t(Note that \u003csuffix\u003e may be empty, from the \"\" case in \u003cdecimalSI\u003e.)\n\n\u003cdigit\u003e           ::= 0 | 1 | ... | 9 \u003cdigits\u003e          ::= \u003cdigit\u003e | \u003cdigit\u003e\u003cdigits\u003e \u003cnumber\u003e          ::= \u003cdigits\u003e | \u003cdigits\u003e.\u003cdigits\u003e | \u003cdigits\u003e. | .\u003cdigits\u003e \u003csign\u003e            ::= \"+\" | \"-\" \u003csignedNumber\u003e    ::= \u003cnumber\u003e | \u003csign\u003e\u003cnumber\u003e \u003csuffix\u003e          ::= \u003cbinarySI\u003e | \u003cdecimalExponent\u003e | \u003cdecimalSI\u003e \u003cbinarySI\u003e        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n\u003cdecimalSI\u003e       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n\u003cdecimalExponent\u003e ::= \"e\" \u003csignedNumber\u003e | \"E\" \u003csignedNumber\u003e ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation.",
     "type": [
      "string",
@@ -13104,7 +12926,7 @@
      "number"
     ]
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup": {
     "description": "APIGroup contains the name, the supported versions, and the preferred version of a group.",
     "type": "object",
     "required": [
@@ -13128,14 +12950,14 @@
      "preferredVersion": {
       "description": "preferredVersion is the version preferred by the API server, which probably is the storage version.",
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.GroupVersionForDiscovery"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.GroupVersionForDiscovery"
      },
      "serverAddressByClientCIDRs": {
       "description": "a map of client CIDR to server address that is serving this group. This is to help clients reach servers in the most network-efficient way possible. Clients can use the appropriate server address as per the CIDR that they match. In case of multiple matches, clients should use the longest matching CIDR. The server returns only those CIDRs that it thinks that the client can match. For example: the master will return an internal IP CIDR only, if the client reaches the server using an internal IP. Server looks at X-Forwarded-For header or X-Real-Ip header or request.RemoteAddr (in that order) to get the client IP.",
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -13144,13 +12966,13 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.GroupVersionForDiscovery"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.GroupVersionForDiscovery"
       },
       "x-kubernetes-list-type": "atomic"
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.APIGroupList": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.APIGroupList": {
     "description": "APIGroupList is a list of APIGroup, to allow clients to discover the API at /apis.",
     "type": "object",
     "required": [
@@ -13166,7 +12988,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -13176,7 +12998,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.APIResource": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.APIResource": {
     "description": "APIResource specifies the name of a resource and whether it is namespaced.",
     "type": "object",
     "required": [
@@ -13247,7 +13069,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.APIResourceList": {
     "description": "APIResourceList is a list of APIResource, it is used to expose the name of the resources supported in a specific group and version, and if the resource is namespaced.",
     "type": "object",
     "required": [
@@ -13273,13 +13095,13 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResource"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIResource"
       },
       "x-kubernetes-list-type": "atomic"
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.Condition": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.Condition": {
     "description": "Condition contains details for one aspect of the current state of this API Resource.",
     "type": "object",
     "required": [
@@ -13330,7 +13152,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.DeleteOptions": {
     "description": "DeleteOptions may be provided when deleting an API object.",
     "type": "object",
     "properties": {
@@ -13366,7 +13188,7 @@
      },
      "preconditions": {
       "description": "Must be fulfilled before a deletion is carried out. If not possible, a 409 Conflict status will be returned.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Preconditions"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Preconditions"
      },
      "propagationPolicy": {
       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
@@ -13374,15 +13196,15 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.Duration": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.Duration": {
     "description": "Duration is a wrapper around time.Duration which supports correct marshaling to YAML and JSON. In particular, it marshals into strings, which can be used as map keys in json.",
     "type": "string"
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.FieldsV1": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.FieldsV1": {
     "description": "FieldsV1 stores a set of fields in a data structure like a Trie, in JSON format.\n\nEach key is either a '.' representing the field itself, and will always map to an empty set, or a string representing a sub-field or item. The string will follow one of these four formats: 'f:\u003cname\u003e', where \u003cname\u003e is the name of a field in a struct, or key in a map 'v:\u003cvalue\u003e', where \u003cvalue\u003e is the exact json formatted value of a list item 'i:\u003cindex\u003e', where \u003cindex\u003e is position of a item in a list 'k:\u003ckeys\u003e', where \u003ckeys\u003e is a map of  a list item's key fields to their unique values If a key maps to an empty Fields value, the field that key represents is part of the set.\n\nThe exact format is defined in sigs.k8s.io/structured-merge-diff",
     "type": "object"
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.GroupVersionForDiscovery": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.GroupVersionForDiscovery": {
     "description": "GroupVersion contains the \"group/version\" and \"version\" string of a version. It is made a struct to keep extensibility.",
     "type": "object",
     "required": [
@@ -13402,7 +13224,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector": {
     "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
     "type": "object",
     "properties": {
@@ -13411,7 +13233,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -13426,7 +13248,7 @@
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement": {
     "description": "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
     "type": "object",
     "required": [
@@ -13455,7 +13277,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta": {
     "description": "ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}.",
     "type": "object",
     "properties": {
@@ -13475,10 +13297,14 @@
      "selfLink": {
       "description": "Deprecated: selfLink is a legacy read-only field that is no longer populated by the system.",
       "type": "string"
+     },
+     "shardInfo": {
+      "description": "shardInfo is set when the list is a filtered subset of the full collection, as selected by a shard selector on the request. It echoes back the selector so clients can verify which shard they received and merge sharded responses. Clients should not cache sharded list responses as a full representation of the collection.\n\nThis is an alpha field and requires enabling the ShardedListAndWatch feature gate.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ShardInfo"
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.ManagedFieldsEntry": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.ManagedFieldsEntry": {
     "description": "ManagedFieldsEntry is a workflow-id, a FieldSet and the group version of the resource that the fieldset applies to.",
     "type": "object",
     "properties": {
@@ -13492,7 +13318,7 @@
      },
      "fieldsV1": {
       "description": "FieldsV1 holds the first JSON version format as described in the \"FieldsV1\" type.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.FieldsV1"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.FieldsV1"
      },
      "manager": {
       "description": "Manager is an identifier of the workflow managing these fields.",
@@ -13508,11 +13334,11 @@
      },
      "time": {
       "description": "Time is the timestamp of when the ManagedFields entry was added. The timestamp will also be updated if a field is added, the manager changes any of the owned fields value or removes a field. The timestamp does not update when a field is removed from the entry because another manager took it over.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta": {
     "description": "ObjectMeta is metadata that all persisted resources must have, which includes all objects users must create.",
     "type": "object",
     "properties": {
@@ -13538,7 +13364,7 @@
      },
      "deletionTimestamp": {
       "description": "DeletionTimestamp is RFC 3339 date and time at which this resource will be deleted. This field is set by the server when a graceful deletion is requested by the user, and is not directly settable by a client. The resource is expected to be deleted (no longer visible from resource lists, and not reachable by name) after the time in this field, once the finalizers list is empty. As long as the finalizers list contains items, deletion is blocked. Once the deletionTimestamp is set, this value may not be unset or be set further into the future, although it may be shortened or the resource may be deleted prior to this time. For example, a user may request that a pod is deleted in 30 seconds. The Kubelet will react by sending a graceful termination signal to the containers in the pod. After that 30 seconds, the Kubelet will send a hard termination signal (SIGKILL) to the container and after cleanup, remove the pod from the API. In the presence of network partitions, this object may still exist after this timestamp, until an administrator or automated process can determine the resource is fully terminated. If not set, graceful deletion of the object has not been requested.\n\nPopulated by the system when a graceful deletion is requested. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "finalizers": {
       "description": "Must be empty before the object is deleted from the registry. Each entry is an identifier for the responsible component that will remove the entry from the list. If the deletionTimestamp of the object is non-nil, entries in this list can only be removed. Finalizers may be processed and removed in any order.  Order is NOT enforced because it introduces significant risk of stuck finalizers. finalizers is a shared field, any actor with permission can reorder it. If the finalizer list is processed in order, then this can lead to a situation in which the component responsible for the first finalizer in the list is waiting for a signal (field value, external system, or other) produced by a component responsible for a finalizer later in the list, resulting in a deadlock. Without enforced ordering finalizers are free to order amongst themselves and are not vulnerable to ordering changes in the list.",
@@ -13572,7 +13398,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ManagedFieldsEntry"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ManagedFieldsEntry"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -13589,7 +13415,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.OwnerReference"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.OwnerReference"
       },
       "x-kubernetes-list-map-keys": [
        "uid"
@@ -13612,7 +13438,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.OwnerReference": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.OwnerReference": {
     "description": "OwnerReference contains enough information to let you identify an owning object. An owning object must be in the same namespace as the dependent, or be cluster-scoped, so there is no namespace field.",
     "type": "object",
     "required": [
@@ -13653,11 +13479,11 @@
     },
     "x-kubernetes-map-type": "atomic"
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.Patch": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.Patch": {
     "description": "Patch is provided to give a concrete name and type to the Kubernetes PATCH request body.",
     "type": "object"
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.Preconditions": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.Preconditions": {
     "description": "Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.",
     "type": "object",
     "properties": {
@@ -13671,7 +13497,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.RootPaths": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.RootPaths": {
     "description": "RootPaths lists the paths available at root. For example: \"/healthz\", \"/apis\".",
     "type": "object",
     "required": [
@@ -13689,7 +13515,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
     "type": "object",
     "required": [
@@ -13709,7 +13535,21 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.Status": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.ShardInfo": {
+    "description": "ShardInfo describes the shard selector that was applied to produce a list response. Its presence on a list response indicates the list is a filtered subset.",
+    "type": "object",
+    "required": [
+     "selector"
+    ],
+    "properties": {
+     "selector": {
+      "description": "selector is the shard selector string from the request, echoed back so clients can verify which shard they received and merge responses from multiple shards.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "io.k8s.apimachinery.pkg.apis.meta.v1.Status": {
     "description": "Status is a return value for calls that don't return other objects.",
     "type": "object",
     "properties": {
@@ -13724,8 +13564,7 @@
      },
      "details": {
       "description": "Extended data associated with the reason.  Each reason may define its own extended details. This field is optional and the data returned is not guaranteed to conform to any schema except that defined by the reason type.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.StatusDetails",
-      "x-kubernetes-list-type": "atomic"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.StatusDetails"
      },
      "kind": {
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
@@ -13738,7 +13577,7 @@
      "metadata": {
       "description": "Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      },
      "reason": {
       "description": "A machine-readable description of why this operation is in the \"Failure\" status. If this value is empty there is no information available. A Reason clarifies an HTTP status code but does not override it.",
@@ -13750,7 +13589,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.StatusCause": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.StatusCause": {
     "description": "StatusCause provides more information about an api.Status failure, including cases when multiple errors are encountered.",
     "type": "object",
     "properties": {
@@ -13768,7 +13607,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.StatusDetails": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.StatusDetails": {
     "description": "StatusDetails is a set of additional properties that MAY be set by the server to provide additional information about a response. The Reason field of a Status object defines what attributes will be set. Clients must ignore fields that do not match the defined type of each attribute, and should assume that any attribute may be empty, invalid, or under defined.",
     "type": "object",
     "properties": {
@@ -13777,7 +13616,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.StatusCause"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.StatusCause"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -13804,12 +13643,12 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.Time": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.Time": {
     "description": "Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.",
     "type": "string",
     "format": "date-time"
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.WatchEvent": {
     "description": "Event represents a single event to a watched resource.",
     "type": "object",
     "required": [
@@ -13819,7 +13658,7 @@
     "properties": {
      "object": {
       "description": "Object is:\n * If Type is Added or Modified: the new state of the object.\n * If Type is Deleted: the state of the object immediately before deletion.\n * If Type is Error: *Status is recommended; other types may make sense\n   depending on context.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.runtime.RawExtension"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.runtime.RawExtension"
      },
      "type": {
       "type": "string",
@@ -13827,11 +13666,11 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.runtime.RawExtension": {
+   "io.k8s.apimachinery.pkg.runtime.RawExtension": {
     "description": "RawExtension is used to hold extensions in external versions.\n\nTo use this, make a field which has RawExtension as its type in your external, versioned struct, and Object in your internal struct. You also need to register your various plugin types.\n\n// Internal package:\n\n\ttype MyAPIObject struct {\n\t\truntime.TypeMeta `json:\",inline\"`\n\t\tMyPlugin runtime.Object `json:\"myPlugin\"`\n\t}\n\n\ttype PluginA struct {\n\t\tAOption string `json:\"aOption\"`\n\t}\n\n// External package:\n\n\ttype MyAPIObject struct {\n\t\truntime.TypeMeta `json:\",inline\"`\n\t\tMyPlugin runtime.RawExtension `json:\"myPlugin\"`\n\t}\n\n\ttype PluginA struct {\n\t\tAOption string `json:\"aOption\"`\n\t}\n\n// On the wire, the JSON will look something like this:\n\n\t{\n\t\t\"kind\":\"MyAPIObject\",\n\t\t\"apiVersion\":\"v1\",\n\t\t\"myPlugin\": {\n\t\t\t\"kind\":\"PluginA\",\n\t\t\t\"aOption\":\"foo\",\n\t\t},\n\t}\n\nSo what happens? Decode first uses json or yaml to unmarshal the serialized data into your external MyAPIObject. That causes the raw JSON to be stored, but not unpacked. The next step is to copy (using pkg/conversion) into the internal struct. The runtime package's DefaultScheme has conversion functions installed which will unpack the JSON stored in RawExtension, turning it into the correct object type, and storing it in the Object. (TODO: In the case where the object is of an unknown type, a runtime.Unknown object will be created and stored.)",
     "type": "object"
    },
-   "k8s.io.apimachinery.pkg.util.intstr.IntOrString": {
+   "io.k8s.apimachinery.pkg.util.intstr.IntOrString": {
     "description": "IntOrString is a type that can hold an int32 or a string.  When used in JSON or YAML marshalling and unmarshalling, it produces or consumes the inner type.  This allows you to have, for example, a JSON field that can accept a name or number.",
     "type": "string",
     "format": "int-or-string"
@@ -14101,11 +13940,11 @@
     "properties": {
      "duration": {
       "description": "The requested 'duration' (i.e. lifetime) of the Certificate.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "renewBefore": {
       "description": "The amount of time before the currently issued certificate's \"notAfter\" time that we will begin to attempt to renew the certificate.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -14114,11 +13953,11 @@
     "properties": {
      "namespaceLabelSelector": {
       "description": "NamespaceSelector will enable changedBlockTracking on all VMs running inside namespaces that match the label selector.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "virtualMachineLabelSelector": {
       "description": "VirtualMachineSelector will enable changedBlockTracking on all VMs that match the label selector.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },
@@ -14235,11 +14074,11 @@
      },
      "networkDataSecretRef": {
       "description": "NetworkDataSecretRef references a k8s secret that contains config drive networkdata.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
      },
      "secretRef": {
       "description": "UserDataSecretRef references a k8s secret that contains config drive userdata.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
      },
      "userData": {
       "description": "UserData contains config drive inline cloud-init userdata.",
@@ -14265,11 +14104,11 @@
      },
      "networkDataSecretRef": {
       "description": "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
      },
      "secretRef": {
       "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
      },
      "userData": {
       "description": "UserData contains NoCloud inline cloud-init userdata.",
@@ -14601,7 +14440,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "DataVolumeSpec contains the DataVolume specification.",
@@ -14950,7 +14789,7 @@
     ],
     "properties": {
      "memoryLimit": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -14964,11 +14803,11 @@
      },
      "endTimestamp": {
       "description": "EndTimestamp is the time when the memory dump completed",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "startTimestamp": {
       "description": "StartTimestamp is the time when the memory dump started",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "targetFileName": {
       "description": "TargetFileName is the name of the memory dump output",
@@ -15047,7 +14886,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.DownwardAPIVolumeFile"
+       "$ref": "#/definitions/io.k8s.api.core.v1.DownwardAPIVolumeFile"
       }
      },
      "volumeLabel": {
@@ -15086,7 +14925,7 @@
     "properties": {
      "capacity": {
       "description": "Capacity of the sparse disk.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -15095,7 +14934,7 @@
     "properties": {
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimVolumeSource"
      }
     }
    },
@@ -15378,7 +15217,7 @@
     ],
     "properties": {
      "unfreezeTimeout": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -15526,7 +15365,7 @@
     "properties": {
      "capacity": {
       "description": "Capacity of the sparse disk",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "path": {
       "description": "The path to HostDisk image located on the cluster",
@@ -15865,7 +15704,7 @@
     "properties": {
      "nodeLabelSelector": {
       "description": "NodeLabelSelector is a selector that filters in which nodes the KSM will be enabled. Empty NodeLabelSelector will enable ksm for every node.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },
@@ -15969,7 +15808,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -16041,7 +15880,7 @@
      },
      "autoCPULimitNamespaceLabelSelector": {
       "description": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside namespaces that match the label selector. The CPU limit will equal the number of requested vCPUs. This setting does not apply to VMIs with dedicated CPUs.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "changedBlockTrackingLabelSelectors": {
       "description": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled. Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.",
@@ -16062,7 +15901,7 @@
       "type": "string"
      },
      "cpuRequest": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "defaultRuntimeClass": {
       "type": "string"
@@ -16238,7 +16077,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -16251,15 +16090,15 @@
      },
      "caOverlapInterval": {
       "description": "Deprecated. Use CA.Duration and CA.RenewBefore instead",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "caRotateInterval": {
       "description": "Deprecated. Use CA.Duration instead",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "certRotateInterval": {
       "description": "Deprecated. Use Server.Duration instead",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "server": {
       "description": "Server configuration Certs are rotated and discarded",
@@ -16297,7 +16136,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+       "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -16433,7 +16272,7 @@
     "properties": {
      "batchEvictionInterval": {
       "description": "BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "batchEvictionSize": {
       "description": "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval\n\nDefaults to 10",
@@ -16478,7 +16317,7 @@
      },
      "maxGuest": {
       "description": "MaxGuest defines the maximum amount memory that can be allocated to the guest using hotplug.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "maxHotplugRatio": {
       "description": "MaxHotplugRatio is the ratio used to define the max amount of a hotplug resource that can be made available to a VM when the specific Max* setting is not defined (MaxCpuSockets, MaxGuest) Example: VM is configured with 512Mi of guest memory, if MaxGuest is not defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi defaults to 4",
@@ -16615,7 +16454,7 @@
     "properties": {
      "guest": {
       "description": "Guest allows to specifying the amount of memory which is visible inside the Guest OS. The Guest must lie between Requests and Limits from the resources section. Defaults to the requested memory in the resources section if not specified.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
@@ -16623,7 +16462,7 @@
      },
      "maxGuest": {
       "description": "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "reservedOverhead": {
       "description": "ReservedOverhead configures the memory overhead applied to a VM and its characteristics.",
@@ -16657,19 +16496,19 @@
     "properties": {
      "guestAtBoot": {
       "description": "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "guestCurrent": {
       "description": "GuestCurrent specifies how much memory is currently available for the VirtualMachine.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "guestRequested": {
       "description": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "memoryOverhead": {
       "description": "MemoryOverhead specifies the memory overhead added by the virtualization infrastructure for the virt-launcher pod.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -16722,7 +16561,7 @@
      },
      "bandwidthPerMigration": {
       "description": "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
       "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
@@ -16897,7 +16736,7 @@
     "properties": {
      "affinity": {
       "description": "affinity enables pod affinity/anti-affinity placement expanding the types of constraints that can be expressed with nodeSelector. affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity",
-      "$ref": "#/definitions/k8s.io.api.core.v1.Affinity"
+      "$ref": "#/definitions/io.k8s.api.core.v1.Affinity"
      },
      "nodeSelector": {
       "description": "nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector",
@@ -16912,7 +16751,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
+       "$ref": "#/definitions/io.k8s.api.core.v1.Toleration"
       }
      }
     }
@@ -16949,7 +16788,7 @@
      },
      "objectReference": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedObjectReference"
      },
      "optional": {
       "type": "boolean"
@@ -16966,7 +16805,7 @@
      },
      "labelSelector": {
       "description": "LabelSelector is used to filter nodes in the graph based on their labels.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },
@@ -17101,7 +16940,7 @@
       "description": "Capacity represents the capacity set on the corresponding PVC status",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "claimName": {
@@ -17120,7 +16959,7 @@
       "description": "Requests represents the resources requested by the corresponding PVC spec",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "volumeMode": {
@@ -17267,7 +17106,7 @@
     "properties": {
      "exec": {
       "description": "One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.ExecAction"
+      "$ref": "#/definitions/io.k8s.api.core.v1.ExecAction"
      },
      "failureThreshold": {
       "description": "Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.",
@@ -17280,7 +17119,7 @@
      },
      "httpGet": {
       "description": "HTTPGet specifies the http request to perform.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.HTTPGetAction"
+      "$ref": "#/definitions/io.k8s.api.core.v1.HTTPGetAction"
      },
      "initialDelaySeconds": {
       "description": "Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
@@ -17299,7 +17138,7 @@
      },
      "tcpSocket": {
       "description": "TCPSocket specifies an action involving a TCP port. TCP hooks not yet supported",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TCPSocketAction"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TCPSocketAction"
      },
      "timeoutSeconds": {
       "description": "Number of seconds after which the probe times out. For exec probes the timeout fails the probe but does not terminate the command running on the guest. This means a blocking command can result in an increasing load on the guest. A small buffer will be added to the resulting workload exec probe to compensate for delays caused by the qemu guest exec mechanism. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
@@ -17411,7 +17250,7 @@
     "properties": {
      "addedOverhead": {
       "description": "AddedOverhead determines the memory overhead that will be reserved for the VM. It increases the virt-launcher pod memory limit.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "memLock": {
       "description": "RequiresLock determines whether the VM's and its overhead memory need to be locked or not. It is a common practice to enable this if vDPA, VFIO or any other specialized hardware that depends on DMA is being used by the VM. False - (Default) memory lock RLimits are not modified. True - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead",
@@ -17426,7 +17265,7 @@
       "description": "Limits describes the maximum amount of compute resources allowed. Valid resource keys are \"memory\" and \"cpu\".",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "overcommitGuestOverhead": {
@@ -17437,7 +17276,7 @@
       "description": "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\" and \"cpu\".",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      }
     }
@@ -17450,14 +17289,14 @@
       "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      },
      "requests": {
       "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
       "type": "object",
       "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
       }
      }
     }
@@ -17899,11 +17738,11 @@
     "properties": {
      "configMap": {
       "description": "ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
      },
      "secret": {
       "description": "Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.LocalObjectReference"
      }
     }
    },
@@ -18207,7 +18046,7 @@
      },
      "bandwidthPerMigration": {
       "description": "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
       "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
@@ -18300,7 +18139,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "Spec contains the specification of VirtualMachineInstance created",
@@ -18367,7 +18206,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -18511,7 +18350,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -18544,7 +18383,7 @@
     "properties": {
      "source": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "tokenSecretRef": {
       "description": "TokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
@@ -18552,7 +18391,7 @@
      },
      "ttlDuration": {
       "description": "ttlDuration limits the lifetime of an export If this field is set, after this duration has passed from counting from CreationTimestamp, the export is eligible to be automatically deleted. If this field is omitted, a reasonable default is applied.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -18585,7 +18424,7 @@
      },
      "ttlExpirationTime": {
       "description": "The time at which the VM Export will be completely removed according to specified TTL Formula is CreationTimestamp + TTL",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "virtualMachineName": {
       "description": "VirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or a VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a VirtualMachineSnapshot",
@@ -18655,7 +18494,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -18690,7 +18529,7 @@
      },
      "endTimestamp": {
       "description": "EndTimestamp is the timestamp when the backup ended",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "failed": {
       "description": "Failed indicates that the backup failed",
@@ -18702,7 +18541,7 @@
      },
      "startTimestamp": {
       "description": "StartTimestamp is the timestamp when the backup started",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "volumes": {
       "description": "Volumes lists the volumes included in the backup",
@@ -18848,7 +18687,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -18991,7 +18830,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -19019,7 +18858,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -19040,7 +18879,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -19111,7 +18950,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -19125,7 +18964,7 @@
      },
      "phaseTransitionTimestamp": {
       "description": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
@@ -19243,7 +19082,7 @@
      },
      "endTimestamp": {
       "description": "The time the migration action ended",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "failed": {
       "description": "Indicates that the migration failed",
@@ -19290,7 +19129,7 @@
      },
      "startTimestamp": {
       "description": "The time the migration action began",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "targetAttachmentPodUID": {
       "description": "The UID of the target attachment pod for hotplug volumes",
@@ -19317,7 +19156,7 @@
      },
      "targetMemoryOverhead": {
       "description": "TargetMemoryOverhead is the memory overhead of the target virt-launcher pod",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "targetNode": {
       "description": "The target node that the VMI is moving to",
@@ -19333,7 +19172,7 @@
      },
      "targetNodeDomainReadyTimestamp": {
       "description": "The timestamp at which the target node detects the domain is active",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "targetNodeTopology": {
       "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
@@ -19445,7 +19284,7 @@
      },
      "domainReadyTimestamp": {
       "description": "The timestamp at which the target node detects the domain is active",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "migrationUID": {
       "description": "The Source VirtualMachineInstanceMigration object associated with this migration",
@@ -19541,7 +19380,7 @@
      },
      "phaseTransitionTimestamp": {
       "description": "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
@@ -19559,7 +19398,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -19592,7 +19431,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -19609,7 +19448,7 @@
      "selector": {
       "description": "Selector is a label query over a set of VMIs. Required.",
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      }
     }
    },
@@ -19639,7 +19478,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -19712,7 +19551,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -19734,7 +19573,7 @@
      },
      "selector": {
       "description": "Label selector for pods. Existing ReplicaSets whose pods are selected by this will be the ones affected by this deployment.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "template": {
       "description": "Template describes the pods that will be created.",
@@ -19808,7 +19647,7 @@
      },
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",
-      "$ref": "#/definitions/k8s.io.api.core.v1.Affinity"
+      "$ref": "#/definitions/io.k8s.api.core.v1.Affinity"
      },
      "architecture": {
       "description": "Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components",
@@ -19816,7 +19655,7 @@
      },
      "dnsConfig": {
       "description": "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PodDNSConfig"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PodDNSConfig"
      },
      "dnsPolicy": {
       "description": "Set DNS policy for the pod. Defaults to \"ClusterFirst\". Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to 'ClusterFirstWithHostNet'.\n\nPossible enum values:\n - `\"ClusterFirst\"` indicates that the pod should use cluster DNS first unless hostNetwork is true, if it is available, then fall back on the default (as determined by kubelet) DNS settings.\n - `\"ClusterFirstWithHostNet\"` indicates that the pod should use cluster DNS first, if it is available, then fall back on the default (as determined by kubelet) DNS settings.\n - `\"Default\"` indicates that the pod should use the default (as determined by kubelet) DNS settings.\n - `\"None\"` indicates that the pod should use empty DNS settings. DNS parameters such as nameservers and search paths should be defined via DNSConfig.",
@@ -19907,7 +19746,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
+       "$ref": "#/definitions/io.k8s.api.core.v1.Toleration"
       }
      },
      "topologySpreadConstraints": {
@@ -19915,7 +19754,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.TopologySpreadConstraint"
+       "$ref": "#/definitions/io.k8s.api.core.v1.TopologySpreadConstraint"
       },
       "x-kubernetes-list-map-keys": [
        "topologyKey",
@@ -20102,7 +19941,7 @@
     "properties": {
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -20134,7 +19973,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -20153,7 +19992,7 @@
      },
      "endTimestamp": {
       "description": "EndTimestamp represents the time the memory dump was completed",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "fileName": {
       "description": "FileName represents the name of the output file",
@@ -20174,7 +20013,7 @@
      },
      "startTimestamp": {
       "description": "StartTimestamp represents the time the memory dump started",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
@@ -20245,7 +20084,7 @@
       "type": "string"
      },
      "retryAfterTimestamp": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
@@ -20588,7 +20427,7 @@
     "type": "object",
     "properties": {
      "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "name": {
       "type": "string"
@@ -20618,7 +20457,7 @@
       "type": "string"
      },
      "backupStartTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "caCert": {
       "type": "string"
@@ -20691,7 +20530,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -20728,7 +20567,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -20748,7 +20587,7 @@
       "type": "boolean"
      },
      "bandwidthPerMigration": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
       "type": "integer",
@@ -20807,7 +20646,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -20844,7 +20683,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -20874,7 +20713,7 @@
      "source": {
       "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "tokenSecretRef": {
       "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
@@ -20882,7 +20721,7 @@
      },
      "ttlDuration": {
       "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -20899,7 +20738,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Condition"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Condition"
       },
       "x-kubernetes-list-map-keys": [
        "type"
@@ -21386,7 +21225,7 @@
      },
      "pvc": {
       "description": "PVC is the PVC specification",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimSpec"
      },
      "source": {
       "description": "Source is the src of the data for the requested DataVolume",
@@ -21520,7 +21359,7 @@
       "type": "string"
      },
      "time": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
@@ -21599,7 +21438,7 @@
     "properties": {
      "guest": {
       "description": "Required amount of memory which is visible inside the guest OS.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "hugepages": {
       "description": "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.",
@@ -21607,7 +21446,7 @@
      },
      "maxGuest": {
       "description": "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "overcommitPercent": {
       "description": "OvercommitPercent is the percentage of the guest memory which will be overcommitted. This means that the VMIs parent pod (virt-launcher) will request less physical memory by a factor specified by the OvercommitPercent. Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully. Defaults to 0",
@@ -21624,7 +21463,7 @@
     "properties": {
      "guest": {
       "description": "Minimal amount of memory required by the preference.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -21634,12 +21473,12 @@
      "metadata": {
       "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimSpec"
      }
     }
    },
@@ -21754,20 +21593,20 @@
      },
      "dataSource": {
       "description": "This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) * An existing custom resource that implements data population (Alpha) In order to use custom resource types that implement data population, the AnyVolumeDataSource feature gate must be enabled. If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the AnyVolumeDataSource feature gate is enabled, this field will always have the same contents as the DataSourceRef field.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "dataSourceRef": {
       "description": "Specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any local object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the DataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, both fields (DataSource and DataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. There are two important differences between DataSource and DataSourceRef: * While DataSource only allows two specific types of objects, DataSourceRef allows any non-core object, as well as PersistentVolumeClaim objects. * While DataSource ignores disallowed values (dropping them), DataSourceRef preserves all values, and generates an error if a disallowed value is specified. (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedObjectReference"
      },
      "resources": {
       "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.VolumeResourceRequirements"
+      "$ref": "#/definitions/io.k8s.api.core.v1.VolumeResourceRequirements"
      },
      "selector": {
       "description": "A label query over volumes to consider for binding.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "storageClassName": {
       "description": "Name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1",
@@ -21793,7 +21632,7 @@
     "properties": {
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "VirtualMachineSpec contains the VirtualMachine specification.",
@@ -21824,7 +21663,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -21861,7 +21700,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -21912,11 +21751,11 @@
      },
      "source": {
       "description": "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "target": {
       "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "template": {
       "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
@@ -21942,7 +21781,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "phase": {
       "type": "string"
@@ -21998,7 +21837,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "Required spec describing the instancetype",
@@ -22031,7 +21870,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22052,7 +21891,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "Required spec describing the preferences",
@@ -22086,7 +21925,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22107,7 +21946,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "Required spec describing the instancetype",
@@ -22140,7 +21979,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22234,7 +22073,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -22251,7 +22090,7 @@
     "properties": {
      "minFailingToStartDuration": {
       "description": "MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced. It measures the duration since the VM's Ready condition transitioned to False. Defaults to 5 minutes",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "startUpFailureThreshold": {
       "description": "StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM. Defaults to 3",
@@ -22319,7 +22158,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22406,14 +22245,14 @@
     "properties": {
      "labelSelector": {
       "description": "LabelSelector is a list of label selector for VMs.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "nodeSelectorRequirementMatcher": {
       "description": "NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.",
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorRequirement"
+       "$ref": "#/definitions/io.k8s.api.core.v1.NodeSelectorRequirement"
       }
      }
     }
@@ -22431,7 +22270,7 @@
      },
      "maxUnavailable": {
       "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.util.intstr.IntOrString"
      },
      "nameGeneration": {
       "description": "Options for the name generation in a pool.",
@@ -22452,7 +22291,7 @@
      },
      "selector": {
       "description": "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "updateStrategy": {
       "description": "UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool",
@@ -22528,7 +22367,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "Required spec describing the preferences",
@@ -22562,7 +22401,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22651,7 +22490,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -22687,7 +22526,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22711,7 +22550,7 @@
      "target": {
       "description": "initially only VirtualMachine type supported",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      },
      "targetReadinessPolicy": {
       "type": "string"
@@ -22762,7 +22601,7 @@
       "x-kubernetes-list-type": "set"
      },
      "restoreTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "restores": {
       "type": "array",
@@ -22791,7 +22630,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -22819,7 +22658,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "default": {},
@@ -22855,7 +22694,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22889,7 +22728,7 @@
     "nullable": true,
     "properties": {
      "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "error": {
       "$ref": "#/definitions/v1beta1.Error"
@@ -22932,7 +22771,7 @@
      },
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -22948,11 +22787,11 @@
      },
      "failureDeadline": {
       "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "source": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
      }
     }
    },
@@ -22970,7 +22809,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "error": {
       "$ref": "#/definitions/v1beta1.Error"
@@ -23014,7 +22853,7 @@
     "properties": {
      "metadata": {
       "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
      },
      "spec": {
       "description": "VirtualMachineSpec contains the VirtualMachine specification.",
@@ -23113,7 +22952,7 @@
     ],
     "properties": {
      "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
      "error": {
       "$ref": "#/definitions/v1beta1.Error"
@@ -23129,6 +22968,22 @@
    }
   },
   "parameters": {
+   "body-78PwaGsr": {
+    "name": "body",
+    "in": "body",
+    "required": true,
+    "schema": {
+     "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Patch"
+    }
+   },
+   "body-Gh-7VEKz": {
+    "name": "body",
+    "in": "body",
+    "required": true,
+    "schema": {
+     "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.DeleteOptions"
+    }
+   },
    "continue-tuthsW5V": {
     "uniqueItems": true,
     "type": "string",

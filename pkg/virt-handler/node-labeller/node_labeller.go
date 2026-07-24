@@ -417,7 +417,7 @@ func isNodeLabellerLabel(label string) bool {
 
 func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) {
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
-	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
+	n.recorder.Event(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
 }
 
 func (n *NodeLabeller) hasTSCCounter() bool {

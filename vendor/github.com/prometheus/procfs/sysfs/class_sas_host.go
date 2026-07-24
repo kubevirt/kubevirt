@@ -1,4 +1,4 @@
-// Copyright 2021 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 )
 
 const sasHostClassPath = "class/sas_host"
@@ -100,10 +101,8 @@ func (shc *SASHostClass) GetByName(hostName string) *SASHost {
 // GetByPhy finds the SASHost that contains the provided PHY name.
 func (shc *SASHostClass) GetByPhy(phyName string) *SASHost {
 	for _, h := range *shc {
-		for _, p := range h.SASPhys {
-			if p == phyName {
-				return h
-			}
+		if slices.Contains(h.SASPhys, phyName) {
+			return h
 		}
 	}
 	return nil
@@ -112,10 +111,8 @@ func (shc *SASHostClass) GetByPhy(phyName string) *SASHost {
 // GetByPort finds the SASHost that contains the provided SAS Port name.
 func (shc *SASHostClass) GetByPort(portName string) *SASHost {
 	for _, h := range *shc {
-		for _, p := range h.SASPorts {
-			if p == portName {
-				return h
-			}
+		if slices.Contains(h.SASPorts, portName) {
+			return h
 		}
 	}
 	return nil

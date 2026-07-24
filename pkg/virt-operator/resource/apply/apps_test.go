@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	secv1 "github.com/openshift/api/security/v1"
@@ -223,7 +222,7 @@ var _ = Describe("Apply Apps", func() {
 		var expectations *util.Expectations
 		var stores util.Stores
 		var mockDSCacheStore *MockStore
-		var mockPodCacheStore *cache.FakeCustomStore
+		var mockPodCacheStore *testutils.FakeStore
 		var k8sClient *fake.Clientset
 
 		var ctrl *gomock.Controller
@@ -302,7 +301,7 @@ var _ = Describe("Apply Apps", func() {
 			stores = util.Stores{}
 			mockDSCacheStore = &MockStore{}
 			stores.DaemonSetCache = mockDSCacheStore
-			mockPodCacheStore = &cache.FakeCustomStore{}
+			mockPodCacheStore = &testutils.FakeStore{}
 			stores.InfrastructurePodCache = mockPodCacheStore
 
 			expectations = &util.Expectations{}

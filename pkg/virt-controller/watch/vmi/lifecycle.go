@@ -615,7 +615,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 func (c *Controller) addTopologyHints(vmi *virtv1.VirtualMachineInstance, vmiCopy *virtv1.VirtualMachineInstance) error {
 	if vmi.Status.TopologyHints == nil {
 		if topologyHints, tscRequirement, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil && tscRequirement == topology.RequiredForBoot {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedGatherhingClusterTopologyHints, err.Error())
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedGatherhingClusterTopologyHints, err.Error())
 			return common.NewSyncError(err, controller.FailedGatherhingClusterTopologyHints)
 		} else if topologyHints != nil {
 			vmiCopy.Status.TopologyHints = topologyHints
