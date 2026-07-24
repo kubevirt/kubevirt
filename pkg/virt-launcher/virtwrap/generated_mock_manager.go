@@ -62,11 +62,9 @@ func (mr *MockDomainManagerMockRecorder) BackupVirtualMachine(arg0, arg1 any) *g
 }
 
 // CancelVMIMigration mocks base method.
-func (m *MockDomainManager) CancelVMIMigration(arg0 *v1.VirtualMachineInstance) error {
+func (m *MockDomainManager) CancelVMIMigration(arg0 *v1.VirtualMachineInstance) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CancelVMIMigration", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "CancelVMIMigration", arg0)
 }
 
 // CancelVMIMigration indicates an expected call of CancelVMIMigration.

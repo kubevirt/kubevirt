@@ -180,7 +180,7 @@ type DomainManager interface {
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() (*stats.DomainStats, error)
-	CancelVMIMigration(*v1.VirtualMachineInstance) error
+	CancelVMIMigration(*v1.VirtualMachineInstance)
 	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
 	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
@@ -871,8 +871,8 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance, ephemeralDiskDir st
 	return memory.ScaledValue(resource.Giga)
 }
 
-func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) error {
-	return l.cancelMigration(vmi)
+func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) {
+	l.cancelMigration(vmi)
 }
 
 func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {

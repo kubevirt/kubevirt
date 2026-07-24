@@ -427,22 +427,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 			Expect(controller.handleMigrationAbort(vmi, domain, client)).To(Succeed())
 		},
-			Entry("when VMI abort status is InProgress", libvmi.New(libvmi.WithUID(vmiTestUUID),
-				libvmistatus.WithStatus(libvmistatus.New(
-					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
-						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortSucceeded,
-					})))),
-				nil,
-			),
-			Entry("when VMI abort status is Succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
-				libvmistatus.WithStatus(libvmistatus.New(
-					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
-						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortInProgress,
-					})))),
-				nil,
-			),
 			Entry("when domain metadata has AbortInProgress", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{

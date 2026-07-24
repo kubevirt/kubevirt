@@ -371,7 +371,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	return false, nil
 }
 
-func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) {
 	l.metadataCache.Migration.WithSafeBlock(func(migration *api.MigrationMetadata, _ bool) {
 		if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
 			log.Log.Object(vmi).Infof("cancel migration ignored: vmi is not migrating")
@@ -390,7 +390,6 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 		migration.AbortStatus = string(v1.MigrationAbortInProgress)
 		l.asyncMigrationAbort(vmi)
 	})
-	return nil
 }
 
 func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string) {
@@ -407,7 +406,7 @@ func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string) {
 
 	if failed {
 		switch {
-		case strings.Contains(reason, "canceled by client"):
+		case v1.MigrationAbortStatus(migrationMetadata.AbortStatus) == v1.MigrationAbortSucceeded:
 			reason = "Live migration has been aborted"
 		case strings.Contains(standardizeSpaces(reason), "has to be smaller or equal to the actual size of the containing file"):
 			reason = fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v", reason)
