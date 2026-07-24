@@ -17,6 +17,7 @@ go_library(
         "sev.go",
         "streamer.go",
         "subresource.go",
+        "tdx.go",
         "usbredir.go",
         "vnc.go",
         "volumes.go",

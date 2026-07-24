@@ -516,6 +516,9 @@ type Firmware struct {
 	KernelBoot *KernelBoot `json:"kernelBoot,omitempty"`
 	// Information that can be set in the ACPI table
 	ACPI *ACPI `json:"acpi,omitempty"`
+	// OEM Strings to be set in the SMBIOS
+	// +listType=atomic
+	OEMStrings []string `json:"oemStrings,omitempty"`
 }
 
 type ACPI struct {
@@ -889,7 +892,17 @@ type SEVSNP struct {
 type SEVAttestation struct {
 }
 
+type TDXAttestation struct {
+}
+
 type TDX struct {
+	// Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+	// When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+	// +optional
+	MRConfigId string `json:"mrConfigId,omitempty"`
+	// If specified, run the attestation process for a vmi.
+	// +optional
+	Attestation *TDXAttestation `json:"attestation,omitempty"`
 }
 
 type LunTarget struct {

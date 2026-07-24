@@ -175,7 +175,10 @@
             "acpi": {
               "slicNameRef": "slicNameRefValue",
               "msdmNameRef": "msdmNameRefValue"
-            }
+            },
+            "oemStrings": [
+              "oemStringsValue"
+            ]
           },
           "clock": {
             "utc": {
@@ -469,7 +472,10 @@
               "dhCert": "dhCertValue"
             },
             "snp": {},
-            "tdx": {}
+            "tdx": {
+              "mrConfigId": "mrConfigIdValue",
+              "attestation": {}
+            }
           },
           "rebootPolicy": "rebootPolicyValue"
         },

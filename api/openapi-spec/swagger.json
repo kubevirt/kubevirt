@@ -9521,6 +9521,55 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/tdx/injectInitdata": {
+    "put": {
+     "description": "Inject TDX initdata into a Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1TDXInjectInitdataHandler",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.TDXInitdataOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze": {
     "put": {
      "description": "Unfreeze a VirtualMachineInstance object.",
@@ -11335,6 +11384,55 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/tdx/injectInitdata": {
+    "put": {
+     "description": "Inject TDX initdata into a Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3TDXInjectInitdataHandler",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.TDXInitdataOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -15333,6 +15431,15 @@
       "description": "Settings to set the kernel for booting.",
       "$ref": "#/definitions/v1.KernelBoot"
      },
+     "oemStrings": {
+      "description": "OEM Strings to be set in the SMBIOS",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "serial": {
       "description": "The system-serial-number in SMBIOS",
       "type": "string"
@@ -17908,6 +18015,19 @@
     }
    },
    "v1.TDX": {
+    "type": "object",
+    "properties": {
+     "attestation": {
+      "description": "If specified, run the attestation process for a vmi.",
+      "$ref": "#/definitions/v1.TDXAttestation"
+     },
+     "mrConfigId": {
+      "description": "Base64-encoded 48-byte value included in the TDX measurement (MRTD). When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.TDXAttestation": {
     "type": "object"
    },
    "v1.TDXAttestationConfiguration": {
@@ -17929,6 +18049,28 @@
     "properties": {
      "attestation": {
       "$ref": "#/definitions/v1.TDXAttestationConfiguration"
+     }
+    }
+   },
+   "v1.TDXInitdataOptions": {
+    "description": "TDXInitdataOptions is used to provide TDX initdata parameters.",
+    "type": "object",
+    "required": [
+     "mrConfigId",
+     "oemStrings"
+    ],
+    "properties": {
+     "mrConfigId": {
+      "type": "string",
+      "default": ""
+     },
+     "oemStrings": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },

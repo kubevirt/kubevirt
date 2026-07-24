@@ -615,6 +615,8 @@ spec:
               initrdPath: initrdPathValue
               kernelPath: kernelPathValue
             kernelArgs: kernelArgsValue
+          oemStrings:
+          - oemStringsValue
           serial: serialValue
           uuid: uuidValue
         ioThreads:
@@ -628,7 +630,9 @@ spec:
               encryptedState: true
             session: sessionValue
           snp: {}
-          tdx: {}
+          tdx:
+            attestation: {}
+            mrConfigId: mrConfigIdValue
         machine:
           type: typeValue
         memory:

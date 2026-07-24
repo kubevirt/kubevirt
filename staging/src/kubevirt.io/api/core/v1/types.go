@@ -4070,6 +4070,13 @@ type SEVSecretOptions struct {
 	Secret string `json:"secret,omitempty"`
 }
 
+// TDXInitdataOptions is used to provide TDX initdata parameters.
+type TDXInitdataOptions struct {
+	MRConfigId string `json:"mrConfigId"`
+	// +listType=atomic
+	OEMStrings []string `json:"oemStrings"`
+}
+
 // ObjectGraphNode represents an individual node in the graph.
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
