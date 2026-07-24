@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -94,6 +95,35 @@ var _ = Describe("virtiofs container", func() {
 		// Secret
 		Expect(container[1].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
 		Expect(container[1].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
+	})
+
+	It("should use the configured imagePullPolicy", func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.VirtIOFSStorageVolumeGate},
+					},
+					ImagePullPolicy: k8sv1.PullAlways,
+				},
+			},
+		})
+
+		vmi := api.NewMinimalVMI("testvm")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "sharedtestdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "sharedtestdisk",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		containers := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(containers).To(HaveLen(1))
+		Expect(containers[0].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 	})
 
 	It("should skip ContainerPath volumes", func() {
