@@ -35,25 +35,43 @@ import (
 )
 
 var _ = Describe("Validating VMI network spec", func() {
-	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  value,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
-			}),
-		)
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(BeEmpty())
-	},
-		Entry("is empty", v1.InterfaceState("")),
-		Entry("is absent when bridge binding is used", v1.InterfaceStateAbsent),
-		Entry("is up when bridge binding is used", v1.InterfaceStateLinkUp),
-		Entry("is down when bridge binding is used", v1.InterfaceStateLinkDown),
+	DescribeTable("link state is supported for bridge, masquerade, and binding plugin interfaces",
+		func(iface v1.Interface, network *v1.Network) {
+			vm := libvmi.New(
+				libvmi.WithInterface(iface),
+				libvmi.WithNetwork(network),
+			)
+			causes := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{}).Validate()
+			Expect(causes).To(BeEmpty())
+		},
+		Entry("masquerade up",
+			libvmi.NewInterface("foo", libvmi.WithMasqueradeBinding(), libvmi.WithState(v1.InterfaceStateLinkUp)),
+			&v1.Network{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+		),
+		Entry("masquerade down",
+			libvmi.NewInterface("foo", libvmi.WithMasqueradeBinding(), libvmi.WithState(v1.InterfaceStateLinkDown)),
+			&v1.Network{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+		),
+		Entry("bridge up",
+			libvmi.NewInterface("foo", libvmi.WithBridgeBinding(), libvmi.WithState(v1.InterfaceStateLinkUp)),
+			libvmi.MultusNetwork("foo", "net"),
+		),
+		Entry("bridge down",
+			libvmi.NewInterface("foo", libvmi.WithBridgeBinding(), libvmi.WithState(v1.InterfaceStateLinkDown)),
+			libvmi.MultusNetwork("foo", "net"),
+		),
+		Entry("bridge absent",
+			libvmi.NewInterface("foo", libvmi.WithBridgeBinding(), libvmi.WithState(v1.InterfaceStateAbsent)),
+			libvmi.MultusNetwork("foo", "net"),
+		),
+		Entry("binding plugin up",
+			libvmi.NewInterface("foo", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test"}), libvmi.WithState(v1.InterfaceStateLinkUp)),
+			libvmi.MultusNetwork("foo", "net"),
+		),
+		Entry("binding plugin down",
+			libvmi.NewInterface("foo", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test"}), libvmi.WithState(v1.InterfaceStateLinkDown)),
+			libvmi.MultusNetwork("foo", "net"),
+		),
 	)
 
 	It("network interface state value is invalid", func() {
@@ -77,29 +95,50 @@ var _ = Describe("Validating VMI network spec", func() {
 			}))
 	})
 
-	DescribeTable("network interface state ", func(state v1.InterfaceState, messageRegex types.GomegaMatcher) {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  state,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
-			}),
-		)
-		statusCause := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{}).Validate()
-		Expect(statusCause).To(HaveLen(1))
-		Expect(statusCause[0]).To(MatchAllFields(Fields{
-			"Type":    Equal(metav1.CauseType("FieldValueInvalid")),
-			"Field":   Equal("fake.domain.devices.interfaces[0].state"),
-			"Message": messageRegex,
-		}))
-	},
-		Entry("down is not supported for sriov", v1.InterfaceStateLinkDown, MatchRegexp("down.+SR-IOV")),
-		Entry("up is not supported for sriov", v1.InterfaceStateLinkUp, MatchRegexp("up.+SR-IOV")),
-		Entry("absent is not supported when bridge-binding is not used", v1.InterfaceStateAbsent, MatchRegexp("absent.+bridge")),
+	DescribeTable("network interface state is not supported",
+		func(iface v1.Interface, network *v1.Network, clusterConfig stubClusterConfigChecker, messageRegex types.GomegaMatcher) {
+			vm := libvmi.New(
+				libvmi.WithInterface(iface),
+				libvmi.WithNetwork(network),
+			)
+			statusCause := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig).Validate()
+			Expect(statusCause).To(HaveLen(1))
+			Expect(statusCause[0]).To(MatchAllFields(Fields{
+				"Type":    Equal(metav1.CauseType("FieldValueInvalid")),
+				"Field":   Equal("fake.domain.devices.interfaces[0].state"),
+				"Message": messageRegex,
+			}))
+		},
+		Entry("down is not supported for sriov",
+			libvmi.NewInterface("foo", libvmi.WithSRIOVBinding(), libvmi.WithState(v1.InterfaceStateLinkDown)),
+			libvmi.MultusNetwork("foo", "net"),
+			stubClusterConfigChecker{},
+			MatchRegexp("down.+binding type"),
+		),
+		Entry("up is not supported for sriov",
+			libvmi.NewInterface("foo", libvmi.WithSRIOVBinding(), libvmi.WithState(v1.InterfaceStateLinkUp)),
+			libvmi.MultusNetwork("foo", "net"),
+			stubClusterConfigChecker{},
+			MatchRegexp("up.+binding type"),
+		),
+		Entry("absent is not supported when bridge-binding is not used",
+			libvmi.NewInterface("foo", libvmi.WithSRIOVBinding(), libvmi.WithState(v1.InterfaceStateAbsent)),
+			libvmi.MultusNetwork("foo", "net"),
+			stubClusterConfigChecker{},
+			MatchRegexp("absent.+bridge"),
+		),
+		Entry("down is not supported for passt",
+			libvmi.NewInterface("foo", libvmi.WithPasstBinding(), libvmi.WithState(v1.InterfaceStateLinkDown)),
+			&v1.Network{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			stubClusterConfigChecker{passtBindingFeatureGateEnabled: true},
+			MatchRegexp("down.+binding type"),
+		),
+		Entry("up is not supported for passt",
+			libvmi.NewInterface("foo", libvmi.WithPasstBinding(), libvmi.WithState(v1.InterfaceStateLinkUp)),
+			&v1.Network{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			stubClusterConfigChecker{passtBindingFeatureGateEnabled: true},
+			MatchRegexp("up.+binding type"),
+		),
 	)
 
 	It("network interface state value of absent is not supported on the default network", func() {

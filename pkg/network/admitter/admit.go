@@ -32,42 +32,56 @@ import (
 
 func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+	defaultNetwork := vmispec.LookUpDefaultNetwork(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
-		if iface.State != "" &&
-			iface.State != v1.InterfaceStateAbsent &&
-			iface.State != v1.InterfaceStateLinkDown &&
-			iface.State != v1.InterfaceStateLinkUp {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("logical %s interface state value is unsupported: %s", iface.Name, iface.State),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
-			})
-		}
-
-		if iface.SRIOV != nil &&
-			(iface.State == v1.InterfaceStateLinkDown || iface.State == v1.InterfaceStateLinkUp) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%q interface's state %q is not supported for SR-IOV NICs", iface.Name, iface.State),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
-			})
-		}
-
-		if iface.State == v1.InterfaceStateAbsent && iface.Bridge == nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%q interface's state %q is supported only for bridge binding", iface.Name, iface.State),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
-			})
-		}
-		defaultNetwork := vmispec.LookUpDefaultNetwork(spec.Networks)
-		if iface.State == v1.InterfaceStateAbsent && defaultNetwork != nil && defaultNetwork.Name == iface.Name {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%q interface's state %q is not supported on default networks", iface.Name, iface.State),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
-			})
-		}
+		causes = append(causes, validateSingleInterfaceState(field, idx, iface, defaultNetwork)...)
 	}
+	return causes
+}
+
+func validateSingleInterfaceState(field *k8sfield.Path, idx int, iface v1.Interface, defaultNetwork *v1.Network) []metav1.StatusCause {
+	if iface.State == "" {
+		return nil
+	}
+
+	stateField := field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String()
+
+	if iface.State != v1.InterfaceStateAbsent &&
+		iface.State != v1.InterfaceStateLinkDown &&
+		iface.State != v1.InterfaceStateLinkUp {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("logical %s interface state value is unsupported: %s", iface.Name, iface.State),
+			Field:   stateField,
+		}}
+	}
+
+	var causes []metav1.StatusCause
+
+	if iface.Bridge == nil && iface.Masquerade == nil && iface.Binding == nil &&
+		(iface.State == v1.InterfaceStateLinkDown || iface.State == v1.InterfaceStateLinkUp) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%q interface's state %q is not supported for this binding type", iface.Name, iface.State),
+			Field:   stateField,
+		})
+	}
+
+	if iface.State == v1.InterfaceStateAbsent && iface.Bridge == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%q interface's state %q is supported only for bridge binding", iface.Name, iface.State),
+			Field:   stateField,
+		})
+	}
+
+	if iface.State == v1.InterfaceStateAbsent && defaultNetwork != nil && defaultNetwork.Name == iface.Name {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%q interface's state %q is not supported on default networks", iface.Name, iface.State),
+			Field:   stateField,
+		})
+	}
+
 	return causes
 }
