@@ -45,6 +45,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -111,6 +112,12 @@ const (
 	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
 	// dataVolume is successfully created
 	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
+	// FailedResourceClaimCreateReason is added in an event when creating a ResourceClaim
+	// from a ResourceClaimTemplate fails.
+	FailedResourceClaimCreateReason = "FailedResourceClaimCreate"
+	// SuccessfulResourceClaimCreateReason is added in an event when a ResourceClaim is
+	// successfully created from a ResourceClaimTemplate.
+	SuccessfulResourceClaimCreateReason = "SuccessfulResourceClaimCreate"
 	// SourcePVCNotAvailabe is added in an event when the source PVC of a valid
 	// clone Datavolume doesn't exist
 	SourcePVCNotAvailabe = "SourcePVCNotAvailabe"
@@ -139,6 +146,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	namespaceInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
+	resourceClaimInformer cache.SharedIndexInformer,
+	resourceClaimTemplateInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -154,18 +163,21 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
 		),
-		vmiIndexer:             vmiInformer.GetIndexer(),
-		vmIndexer:              vmInformer.GetIndexer(),
-		dataVolumeStore:        dataVolumeInformer.GetStore(),
-		dataSourceStore:        dataSourceInformer.GetStore(),
-		namespaceStore:         namespaceInformer.GetStore(),
-		pvcStore:               pvcInformer.GetStore(),
-		crIndexer:              crInformer.GetIndexer(),
-		instancetypeController: instancetypeController,
-		recorder:               recorder,
-		clientset:              clientset,
-		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiIndexer:                 vmiInformer.GetIndexer(),
+		vmIndexer:                  vmInformer.GetIndexer(),
+		dataVolumeStore:            dataVolumeInformer.GetStore(),
+		dataSourceStore:            dataSourceInformer.GetStore(),
+		namespaceStore:             namespaceInformer.GetStore(),
+		pvcStore:                   pvcInformer.GetStore(),
+		resourceClaimStore:         resourceClaimInformer.GetStore(),
+		resourceClaimTemplateStore: resourceClaimTemplateInformer.GetStore(),
+		crIndexer:                  crInformer.GetIndexer(),
+		instancetypeController:     instancetypeController,
+		recorder:                   recorder,
+		clientset:                  clientset,
+		expectations:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		resourceClaimExpectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
@@ -180,7 +192,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() && vmInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && dataSourceInformer.HasSynced() &&
-			pvcInformer.HasSynced() && crInformer.HasSynced()
+			pvcInformer.HasSynced() && crInformer.HasSynced() &&
+			resourceClaimInformer.HasSynced() && resourceClaimTemplateInformer.HasSynced()
 	}
 
 	_, err := vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -205,6 +218,15 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = resourceClaimInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addResourceClaim,
+		DeleteFunc: c.deleteResourceClaim,
+		UpdateFunc: c.updateResourceClaim,
 	})
 	if err != nil {
 		return nil, err
@@ -281,22 +303,25 @@ type instancetypeHandler interface {
 }
 
 type Controller struct {
-	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.TypedRateLimitingInterface[string]
-	vmiIndexer             cache.Indexer
-	vmIndexer              cache.Indexer
-	dataVolumeStore        cache.Store
-	dataSourceStore        cache.Store
-	namespaceStore         cache.Store
-	pvcStore               cache.Store
-	crIndexer              cache.Indexer
-	instancetypeController instancetypeHandler
-	recorder               record.EventRecorder
-	expectations           *controller.UIDTrackingControllerExpectations
-	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
-	cloneAuthFunc          CloneAuthFunc
-	clusterConfig          *virtconfig.ClusterConfig
-	hasSynced              func() bool
+	clientset                  kubecli.KubevirtClient
+	Queue                      workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer                 cache.Indexer
+	vmIndexer                  cache.Indexer
+	dataVolumeStore            cache.Store
+	dataSourceStore            cache.Store
+	namespaceStore             cache.Store
+	pvcStore                   cache.Store
+	resourceClaimStore         cache.Store
+	resourceClaimTemplateStore cache.Store
+	crIndexer                  cache.Indexer
+	instancetypeController     instancetypeHandler
+	recorder                   record.EventRecorder
+	expectations               *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations     *controller.UIDTrackingControllerExpectations
+	resourceClaimExpectations  *controller.UIDTrackingControllerExpectations
+	cloneAuthFunc              CloneAuthFunc
+	clusterConfig              *virtconfig.ClusterConfig
+	hasSynced                  func() bool
 
 	netSynchronizer      synchronizer
 	firmwareSynchronizer synchronizer
@@ -328,7 +353,7 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) satisfiedExpectations(key string) bool {
-	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
+	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key) && c.resourceClaimExpectations.SatisfiedExpectations(key)
 }
 
 var virtControllerVMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
@@ -567,6 +592,46 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 			}
 			// ready = false because encountered DataVolume that is not populated yet
 			ready = false
+		}
+	}
+	return ready, nil
+}
+
+func (c *Controller) handleResourceClaims(vm *virtv1.VirtualMachine) (bool, error) {
+	ready := true
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+		_, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil {
+			return false, err
+		}
+		if !exists {
+			ready = false
+			templateKey := fmt.Sprintf("%s/%s", vm.Namespace, entry.ResourceClaimTemplateName)
+			templateObj, templateExists, err := c.resourceClaimTemplateStore.GetByKey(templateKey)
+			if err != nil {
+				return false, err
+			}
+			if !templateExists {
+				log.Log.Object(vm).Warningf("ResourceClaimTemplate %s not found, waiting", entry.ResourceClaimTemplateName)
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimCreateReason, "ResourceClaimTemplate %s not found", entry.ResourceClaimTemplateName)
+				continue
+			}
+			claimTemplate := templateObj.(*resourcev1.ResourceClaimTemplate)
+			newClaim := watchutil.CreateResourceClaimManifest(entry, claimTemplate, vm)
+			c.resourceClaimExpectations.ExpectCreations(vmKey, 1)
+			_, err = c.clientset.ResourceV1().ResourceClaims(vm.Namespace).Create(context.Background(), newClaim, metav1.CreateOptions{})
+			if err != nil {
+				c.resourceClaimExpectations.CreationObserved(vmKey)
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimCreateReason, "Error creating ResourceClaim %s: %v", claimName, err)
+				return false, fmt.Errorf("failed to create ResourceClaim: %v", err)
+			}
+			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulResourceClaimCreateReason, "Created ResourceClaim %s", claimName)
 		}
 	}
 	return ready, nil
@@ -1265,6 +1330,15 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, nil
 	}
 
+	rcReady, err := c.handleResourceClaims(vm)
+	if err != nil {
+		return vm, err
+	}
+	if !rcReady {
+		log.Log.Object(vm).V(4).Info("Waiting for ResourceClaims to be allocated, delaying start")
+		return vm, nil
+	}
+
 	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
 		log.Log.Object(vm).Reason(err).Error(failedManualRecoveryRequiredCondSetErrMsg)
 		return vm, nil
@@ -1893,6 +1967,19 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 
 	util.SetDefaultVolumeDisk(&vmi.Spec)
 
+	for i, rc := range vmi.Spec.ResourceClaims {
+		if rc.ResourceClaimTemplateName != nil {
+			for _, rct := range vm.Spec.ResourceClaimTemplates {
+				if rct.Name == rc.Name {
+					derivedName := watchutil.ResourceClaimNameForVM(vm.Name, rct.Name)
+					vmi.Spec.ResourceClaims[i].ResourceClaimName = &derivedName
+					vmi.Spec.ResourceClaims[i].ResourceClaimTemplateName = nil
+					break
+				}
+			}
+		}
+	}
+
 	return vmi
 }
 
@@ -2277,6 +2364,85 @@ func (c *Controller) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 				log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
 				c.enqueueVm(vm)
 			}
+		}
+	}
+}
+
+func (c *Controller) addResourceClaim(obj interface{}) {
+	rc := obj.(*resourcev1.ResourceClaim)
+	if rc.DeletionTimestamp != nil {
+		c.deleteResourceClaim(rc)
+		return
+	}
+	controllerRef := metav1.GetControllerOf(rc)
+	if controllerRef != nil {
+		vm := c.resolveControllerRef(rc.Namespace, controllerRef)
+		if vm != nil {
+			vmKey, err := controller.KeyFunc(vm)
+			if err != nil {
+				log.Log.Object(rc).Errorf("Cannot parse key of VM: %s for ResourceClaim: %s", vm.Name, rc.Name)
+			} else {
+				c.resourceClaimExpectations.CreationObserved(vmKey)
+			}
+		}
+	}
+	c.queueVMsForResourceClaim(rc)
+}
+
+func (c *Controller) updateResourceClaim(old, cur interface{}) {
+	curRC := cur.(*resourcev1.ResourceClaim)
+	oldRC := old.(*resourcev1.ResourceClaim)
+	if curRC.ResourceVersion == oldRC.ResourceVersion {
+		return
+	}
+	labelChanged := !equality.Semantic.DeepEqual(curRC.Labels, oldRC.Labels)
+	if curRC.DeletionTimestamp != nil {
+		c.deleteResourceClaim(curRC)
+		if labelChanged {
+			c.deleteResourceClaim(oldRC)
+		}
+		return
+	}
+	curControllerRef := metav1.GetControllerOf(curRC)
+	oldControllerRef := metav1.GetControllerOf(oldRC)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged && oldControllerRef != nil {
+		if vm := c.resolveControllerRef(oldRC.Namespace, oldControllerRef); vm != nil {
+			c.enqueueVm(vm)
+		}
+	}
+	c.queueVMsForResourceClaim(curRC)
+}
+
+func (c *Controller) deleteResourceClaim(obj interface{}) {
+	rc, ok := obj.(*resourcev1.ResourceClaim)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(failedProcessDeleteNotificationErrMsg)
+			return
+		}
+		rc, ok = tombstone.Obj.(*resourcev1.ResourceClaim)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a ResourceClaim %#v", obj)).Error(failedProcessDeleteNotificationErrMsg)
+			return
+		}
+	}
+	if controllerRef := metav1.GetControllerOf(rc); controllerRef != nil {
+		if vm := c.resolveControllerRef(rc.Namespace, controllerRef); vm != nil {
+			if vmKey, err := controller.KeyFunc(vm); err == nil {
+				c.resourceClaimExpectations.DeletionObserved(vmKey, controller.ResourceClaimKey(rc))
+			}
+		}
+	}
+	c.queueVMsForResourceClaim(rc)
+}
+
+func (c *Controller) queueVMsForResourceClaim(rc *resourcev1.ResourceClaim) {
+	if controllerRef := metav1.GetControllerOf(rc); controllerRef != nil {
+		if vm := c.resolveControllerRef(rc.Namespace, controllerRef); vm != nil {
+			log.Log.V(4).Object(rc).Infof("ResourceClaim updated for vm %s", vm.Name)
+			c.enqueueVm(vm)
 		}
 	}
 }

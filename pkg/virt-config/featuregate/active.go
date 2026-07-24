@@ -106,6 +106,14 @@ const (
 	// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 	HostDevicesWithDRAGate = "HostDevicesWithDRA"
 
+	// Owner: @johnahull
+	// Alpha: v1.10.0
+	//
+	// PersistentDRAClaimsGate enables VM-scoped persistent ResourceClaims
+	// via spec.resourceClaimTemplates, so DRA device allocations survive
+	// VM restarts.
+	PersistentDRAClaimsGate = "PersistentDRAClaims"
+
 	// Owner: @mresvanis
 	// Alpha: v1.6.0
 	//
@@ -310,6 +318,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: PersistentDRAClaimsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
