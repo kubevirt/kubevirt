@@ -205,6 +205,146 @@ var _ = Describe("Domain translation", func() {
 		})
 	})
 
+	Context("TransferQEMUCommandline", func() {
+		It("should extract args and envs from domain XML", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:commandline>
+					<qemu:arg value="-fw_cfg"/>
+					<qemu:arg value="name=opt/com.coreos/config,file=/data.ign"/>
+					<qemu:env name="QEMU_AUDIO_DRV" value="none"/>
+				</qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
+			Expect(spec.QEMUCmd).NotTo(BeNil())
+			Expect(spec.QEMUCmd.QEMUArg).To(HaveLen(2))
+			Expect(spec.QEMUCmd.QEMUArg[0].Value).To(Equal("-fw_cfg"))
+			Expect(spec.QEMUCmd.QEMUArg[1].Value).To(Equal("name=opt/com.coreos/config,file=/data.ign"))
+			Expect(spec.QEMUCmd.QEMUEnv).To(HaveLen(1))
+			Expect(spec.QEMUCmd.QEMUEnv[0].Name).To(Equal("QEMU_AUDIO_DRV"))
+			Expect(spec.QEMUCmd.QEMUEnv[0].Value).To(Equal("none"))
+		})
+
+		It("should set XmlNS but not QEMUCmd for empty commandline", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:commandline></qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
+			Expect(spec.QEMUCmd).To(BeNil())
+		})
+
+		It("should not modify spec when no qemu namespace is present", func() {
+			domainXML := `<domain type="kvm">
+				<name>test-vm</name>
+				<devices><disk type="file"/></devices>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.XmlNS).To(BeEmpty())
+			Expect(spec.QEMUCmd).To(BeNil())
+		})
+
+		It("should handle envs without value attribute", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:commandline>
+					<qemu:env name="DISPLAY"/>
+				</qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.QEMUCmd).NotTo(BeNil())
+			Expect(spec.QEMUCmd.QEMUEnv).To(HaveLen(1))
+			Expect(spec.QEMUCmd.QEMUEnv[0].Name).To(Equal("DISPLAY"))
+			Expect(spec.QEMUCmd.QEMUEnv[0].Value).To(BeEmpty())
+		})
+
+		It("should skip env entries without a name attribute", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:commandline>
+					<qemu:env value="orphan"/>
+					<qemu:env name="VALID" value="yes"/>
+				</qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.QEMUCmd).NotTo(BeNil())
+			Expect(spec.QEMUCmd.QEMUEnv).To(HaveLen(1))
+			Expect(spec.QEMUCmd.QEMUEnv[0].Name).To(Equal("VALID"))
+		})
+
+		It("should include arg with empty value attribute", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:commandline>
+					<qemu:arg value=""/>
+					<qemu:arg value="-nographic"/>
+				</qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.QEMUCmd).NotTo(BeNil())
+			Expect(spec.QEMUCmd.QEMUArg).To(HaveLen(2))
+			Expect(spec.QEMUCmd.QEMUArg[0].Value).To(BeEmpty())
+			Expect(spec.QEMUCmd.QEMUArg[1].Value).To(Equal("-nographic"))
+		})
+
+		It("should aggregate args across multiple commandline blocks", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:commandline>
+					<qemu:arg value="-fw_cfg"/>
+				</qemu:commandline>
+				<qemu:commandline>
+					<qemu:arg value="-device"/>
+				</qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.QEMUCmd).NotTo(BeNil())
+			Expect(spec.QEMUCmd.QEMUArg).To(HaveLen(2))
+			Expect(spec.QEMUCmd.QEMUArg[0].Value).To(Equal("-fw_cfg"))
+			Expect(spec.QEMUCmd.QEMUArg[1].Value).To(Equal("-device"))
+		})
+
+		It("should skip qemu elements outside commandline block", func() {
+			domainXML := `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+				<name>test-vm</name>
+				<qemu:arg value="stray"/>
+				<qemu:commandline>
+					<qemu:arg value="real"/>
+				</qemu:commandline>
+			</domain>`
+
+			spec := &api.DomainSpec{}
+			TransferQEMUCommandline(domainXML, spec)
+
+			Expect(spec.QEMUCmd).NotTo(BeNil())
+			Expect(spec.QEMUCmd.QEMUArg).To(HaveLen(1))
+			Expect(spec.QEMUCmd.QEMUArg[0].Value).To(Equal("real"))
+		})
+	})
+
 	Context("Round-trip fidelity", func() {
 		It("should round-trip a DomainSpec with metadata", func() {
 			spec := api.NewMinimalDomainSpec("test-vm")
