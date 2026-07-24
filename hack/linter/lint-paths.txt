@@ -58,6 +58,7 @@ pkg/virtctl/ssh
 pkg/virtctl/template
 pkg/virtctl/testing
 pkg/virtctl/version
+pkg/virtctl/vsock
 pkg/virt-handler/cgroup/constants
 pkg/virt-handler/ksm
 pkg/virt-handler/node-labeller/util

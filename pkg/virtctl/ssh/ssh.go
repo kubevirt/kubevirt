@@ -45,6 +45,8 @@ const (
 	knownHostsFilePathFlag                          = "known-hosts"
 	commandToExecute, commandToExecuteShort         = "command", "c"
 	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
+	vsockFlag                                       = "vsock"
+	vsockTLSFlag                                    = "vsock-tls"
 )
 
 type ssh struct {
@@ -60,6 +62,8 @@ type SSHOptions struct {
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
 	AdditionalSSHLocalOptions []string
+	UseVsock                  bool
+	VsockUseTLS               bool
 }
 
 func NewSSH(opts *SSHOptions) *ssh {
@@ -100,6 +104,12 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
 	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
 		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh client`, additionalOpts))
+	flagset.BoolVar(&opts.UseVsock, vsockFlag, opts.UseVsock,
+		fmt.Sprintf(`--%s: Use VSOCK to connect to the VM instead of port-forward`, vsockFlag))
+	flagset.BoolVar(&opts.VsockUseTLS, vsockTLSFlag, opts.VsockUseTLS,
+		fmt.Sprintf(`--%s=false: Use TLS for the VSOCK connection established via --%s. Defaults to false since `+
+			`SSH already encrypts its own traffic end-to-end; enable this to add a TLS layer around the VSOCK `+
+			`tunnel itself`, vsockTLSFlag, vsockFlag))
 }
 
 func DefaultSSHOptions() *SSHOptions {
@@ -116,6 +126,9 @@ func DefaultSSHOptions() *SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
+		// SSH already encrypts its own traffic end-to-end, so the VSOCK tunnel
+		// used as its ProxyCommand does not need a second TLS layer by default.
+		VsockUseTLS: false,
 	}
 
 	if homeDir != "" {
@@ -238,8 +251,25 @@ func ParseTarget(arg string) (kind, namespace, name, username string, err error)
 	return kind, namespace, name, username, err
 }
 
+// proxySettings returns the virtctl subcommand to use as the SSH ProxyCommand and the resolved
+// target kind. VSOCK only operates on VirtualMachineInstances, so a "vm" kind is resolved to "vmi"
+// (a VM always shares its name with its VMI).
+func proxySettings(kind string, options *SSHOptions) (subcommand, resolvedKind string) {
+	if !options.UseVsock {
+		return "port-forward --stdio=true", kind
+	}
+
+	resolvedKind = kind
+	if resolvedKind == "vm" {
+		resolvedKind = "vmi"
+	}
+	return fmt.Sprintf("vsock --tls=%t", options.VsockUseTLS), resolvedKind
+}
+
 func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
-	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort)}
+	subcommand, kind := proxySettings(kind, options)
+	proxyCommandOption := buildProxyCommandOption(subcommand, kind, namespace, name, options.SSHPort)
+	args := []string{"-o", proxyCommandOption}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
 	}
@@ -259,10 +289,16 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 }
 
 func BuildProxyCommandOption(kind, namespace, name string, port int) string {
+	return buildProxyCommandOption("port-forward --stdio=true", kind, namespace, name, port)
+}
+
+func buildProxyCommandOption(subcommand, kind, namespace, name string, port int) string {
 	proxyCommand := strings.Builder{}
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
-	proxyCommand.WriteString(" port-forward --stdio=true ")
+	proxyCommand.WriteRune(' ')
+	proxyCommand.WriteString(subcommand)
+	proxyCommand.WriteRune(' ')
 	proxyCommand.WriteString(kind)
 	proxyCommand.WriteRune('/')
 	proxyCommand.WriteString(name)

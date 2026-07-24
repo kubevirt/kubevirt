@@ -39,6 +39,8 @@ import (
 const (
 	forwardToStdioFlag = "stdio"
 	addressFlag        = "address"
+	vsockFlag          = "vsock"
+	vsockTLSFlag       = "vsock-tls"
 
 	vm  = "vm"
 	vmi = "vmi"
@@ -47,6 +49,8 @@ const (
 var (
 	forwardToStdio bool
 	address        string = "127.0.0.1"
+	useVsock       bool
+	vsockUseTLS    bool = true
 )
 
 func NewCommand() *cobra.Command {
@@ -73,6 +77,11 @@ func NewCommand() *cobra.Command {
 		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
 	cmd.Flags().StringVar(&address, addressFlag, address,
 		fmt.Sprintf("--%s=: Set this to the address the local ports should be opened on", addressFlag))
+	cmd.Flags().BoolVar(&useVsock, vsockFlag, useVsock,
+		fmt.Sprintf("--%s: Use VSOCK to connect to the VirtualMachineInstance instead of the Kubernetes API server", vsockFlag))
+	cmd.Flags().BoolVar(&vsockUseTLS, vsockTLSFlag, vsockUseTLS,
+		fmt.Sprintf(`--%s: Use TLS for the VSOCK connection established via --%s; requires the application listening on `+
+			`the VSOCK port to support TLS`, vsockTLSFlag, vsockFlag))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -94,14 +103,20 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := o.setResource(kind, namespace, client); err != nil {
+
+	if forwardToStdio && len(ports) != 1 {
+		return errors.New("only one port supported when forwarding to stdout")
+	}
+
+	if useVsock {
+		if err := o.setVsockResource(cmd.Context(), client, namespace, name, ports); err != nil {
+			return err
+		}
+	} else if err := o.setResource(kind, namespace, client); err != nil {
 		return err
 	}
 
 	if forwardToStdio {
-		if len(ports) != 1 {
-			return errors.New("only one port supported when forwarding to stdout")
-		}
 		return o.startStdoutStream(namespace, name, ports[0])
 	}
 
@@ -208,6 +223,10 @@ Protocol supports TCP (default) and UDP.
 
 Portforwards get established over the Kubernetes control-plane using websocket streams.
 Usage can be restricted by the cluster administrator through the /portforward subresource.
+
+The --vsock flag establishes the forward over VSOCK instead, connecting directly to the
+VirtualMachineInstance's VSOCK device. Only TCP is supported over VSOCK; the target is
+always resolved to a VirtualMachineInstance, and it must be Running.
 `
 }
 
@@ -220,6 +239,9 @@ func examples() string {
 
   # Forward the local port 8080 to the vmi port 9090 as a UDP connection:
   {{ProgramName}} port-forward vmi/testvmi/mynamespace udp/8080:9090
+
+  # Forward the local port 8080 to the vmi's VSOCK port 9090:
+  {{ProgramName}} port-forward vmi/testvmi 8080:9090 --vsock
 
   # Forward the local port 8080 to the vm port
   {{ProgramName}} port-forward vm/testvm 8080
