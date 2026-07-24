@@ -21,28 +21,35 @@ package apimachinery
 
 import (
 	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
+	"hash"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-// CalculateVirtualMachineInstanceID calculates a stable and unique identifier for a VMI based on its name attribute.
-// For VMI names longer than 63 characters, the name is a truncated and hashed to ensure uniqueness.
-func CalculateVirtualMachineInstanceID(vmiName string) string {
-	if len(vmiName) <= validation.DNS1035LabelMaxLength {
-		return vmiName
+const truncateHashLength = 8
+
+func truncateWithHasher(value string, maxLength int, hasher hash.Hash) string {
+	if len(value) <= maxLength {
+		return value
 	}
+	hasher.Write([]byte(value))
+	h := fmt.Sprintf("%x", hasher.Sum(nil))
+	return fmt.Sprintf("%s-%s", value[:maxLength-truncateHashLength-1], h[:truncateHashLength])
+}
 
-	const (
-		hashLength             = 8
-		vmiNamePrefixMaxLength = validation.DNS1035LabelMaxLength - hashLength - 1
-	)
+func TruncateWithHash(value string, maxLength int) string {
+	return truncateWithHasher(value, maxLength, sha256.New())
+}
 
-	truncatedVMIName := vmiName[:vmiNamePrefixMaxLength]
+func TruncateLabelValue(value string) string {
+	return TruncateWithHash(value, validation.LabelValueMaxLength)
+}
 
-	hasher := sha1.New()
-	hasher.Write([]byte(vmiName))
-	vmiNameHash := fmt.Sprintf("%x", hasher.Sum(nil))
-
-	return fmt.Sprintf("%s-%s", truncatedVMIName, vmiNameHash[:hashLength])
+// CalculateVirtualMachineInstanceID calculates a stable and unique identifier for a VMI based on its name attribute.
+// For VMI names longer than 63 characters, the name is truncated and hashed to ensure uniqueness.
+// This uses SHA1 for backward compatibility with existing pod labels (shipped in v1.7.0).
+func CalculateVirtualMachineInstanceID(vmiName string) string {
+	return truncateWithHasher(vmiName, validation.DNS1035LabelMaxLength, sha1.New())
 }
