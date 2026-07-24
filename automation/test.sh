@@ -56,11 +56,20 @@ add_feature_gate() {
   fi
 }
 
+get_sig_network_sriov_provider() {
+  local provider_dirs=()
+  mapfile -t provider_dirs < <(printf '%s\n' kubevirtci/cluster-up/cluster/k8s-*/ | sort -V)
+  basename "${provider_dirs[-2]}"
+}
+
 export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
   add_feature_gate "NodeRestriction"
   export KUBEVIRT_PSA="true"
 fi
+
+# auto detect the penultimate provider
+readonly SIG_NETWORK_SRIOV_PROVIDER="$(get_sig_network_sriov_provider)"
 
 case "$TARGET" in
   *windows*)
@@ -75,8 +84,16 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    if [[ "${KUBEVIRT_PROVIDER}" == "${SIG_NETWORK_SRIOV_PROVIDER}" ]]; then
+      export KUBEVIRT_NUM_VCPU=8
+      export KUBEVIRT_WITH_SRIOV=true
+      export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+      export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
+      add_feature_gate "ExternalNetResourceInjection"
+    fi
     ;;
   *emulated-igb*)
+    export KUBEVIRT_NUM_VCPU=8
     export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
     export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
     export KUBEVIRT_WITH_SRIOV=true
@@ -543,8 +560,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(Windows)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
-    # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
-    add_to_label_filter "(!SRIOV)" "&&"
+    if [[ "${KUBEVIRT_PROVIDER}" != "${SIG_NETWORK_SRIOV_PROVIDER}" ]]; then
+      add_to_label_filter "(!SRIOV)" "&&"
+    fi
     if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
       add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
     else
