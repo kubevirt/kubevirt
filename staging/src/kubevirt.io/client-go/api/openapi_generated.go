@@ -21351,6 +21351,22 @@ func schema_kubevirtio_api_core_v1_FilesystemVirtiofs(ref common.ReferenceCallba
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReadOnly mounts the filesystem as read-only inside the guest. Defaults to false (read-write).",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"subPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SubPath specifies a sub-directory within the source volume to be exposed to the guest, instead of the volume's root. Must be a relative path and must not contain '..' path elements. Defaults to \"\" (volume's root).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
