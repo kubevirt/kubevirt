@@ -32,7 +32,7 @@ spec:
       serviceAccount: network-resources-injector-sa
       containers:
       - name: webhook-server
-        image: ghcr.io/k8snetworkplumbingwg/network-resources-injector:v1.8.0
+        image: ghcr.io/k8snetworkplumbingwg/network-resources-injector:v1.9.0
         imagePullPolicy: Always
         command:
         - webhook
@@ -77,7 +77,7 @@ spec:
           periodSeconds: 5
       initContainers:
       - name: installer
-        image: ghcr.io/k8snetworkplumbingwg/network-resources-injector:v1.8.0
+        image: ghcr.io/k8snetworkplumbingwg/network-resources-injector:v1.9.0
         imagePullPolicy: Always
         command:
         - installer
