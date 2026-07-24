@@ -1260,7 +1260,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, rbac.GetAllCluster()...)
 	all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 	all = append(all, rbac.GetAllHandler(NAMESPACE)...)
-	all = append(all, rbac.GetAllController(NAMESPACE, true)...)
+	all = append(all, rbac.GetAllController(NAMESPACE, true, true)...)
 	all = append(all, rbac.GetAllExportProxy(NAMESPACE)...)
 	all = append(all, rbac.GetAllSynchronizationController(NAMESPACE)...)
 
@@ -1686,7 +1686,7 @@ func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.Vali
 
 func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentConfig) {
 	// install strategy config
-	resource, err := install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
+	resource, err := install.NewInstallStrategyConfigMap(config, true, "openshift-monitoring", NAMESPACE)
 	Expect(err).ToNot(HaveOccurred())
 
 	resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
@@ -4152,7 +4152,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addKubeVirt(kv)
 
 			// install strategy config
-			resource, _ := install.NewInstallStrategyConfigMap(kvTestData.defaultConfig, "", NAMESPACE)
+			resource, _ := install.NewInstallStrategyConfigMap(kvTestData.defaultConfig, true, "", NAMESPACE)
 			resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 			kvTestData.addResource(resource, kvTestData.defaultConfig, nil)
 
