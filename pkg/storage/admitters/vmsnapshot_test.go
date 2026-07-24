@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -39,74 +39,28 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	vmName := "vm"
 	apiGroup := "kubevirt.io"
 
-	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
 	Context("With a disabled feature gate", func() {
 		It("should reject anything", func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							DisabledFeatureGates: []string{featuregate.SnapshotGate},
-						},
-					},
-				},
-			})
-
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			}
 
 			ar := createSnapshotAdmissionReview(snapshot)
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{}, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("snapshot feature gate not enabled"))
 		})
 	})
 
 	Context("With feature gate enabled", func() {
-		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featureGate},
-						},
-					},
-				},
-			})
-		}
-		disableFeatureGates := func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates:         make([]string, 0),
-							DisabledFeatureGates: []string{featuregate.SnapshotGate},
-						},
-					},
-				},
-			})
-		}
-
-		BeforeEach(func() {
-			enableFeatureGate("Snapshot")
-		})
-
-		AfterEach(func() {
-			disableFeatureGates()
-		})
-
 		It("should reject invalid request resource", func() {
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{
@@ -114,7 +68,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
@@ -125,7 +79,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			}
 
 			ar := createSnapshotAdmissionReview(snapshot)
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
@@ -143,7 +97,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			}
 
 			ar := createSnapshotAdmissionReview(snapshot)
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -169,7 +123,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			}
 
 			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
@@ -200,7 +154,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			}
 
 			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, nil).Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -229,7 +183,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
-				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
+				resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, vm).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
@@ -247,7 +201,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
-				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
+				resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, vm).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
@@ -268,7 +222,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
-				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
+				resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, vm).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
@@ -298,7 +252,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				}
 
 				ar := createSnapshotAdmissionReview(snapshot)
-				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
+				resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, vm).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			},
 				Entry("when VM is running", v1.RunStrategyAlways),
@@ -319,7 +273,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
 
 				ar := createSnapshotAdmissionReview(snapshot)
-				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
+				resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, vm).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
 		})
@@ -370,7 +324,7 @@ func createSnapshotUpdateAdmissionReview(old, current *snapshotv1.VirtualMachine
 	return ar
 }
 
-func createTestVMSnapshotAdmitter(config *virtconfig.ClusterConfig, vm *v1.VirtualMachine) *VMSnapshotAdmitter {
+func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.VirtualMachine) *admitters.VMSnapshotAdmitter {
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
@@ -381,5 +335,11 @@ func createTestVMSnapshotAdmitter(config *virtconfig.ClusterConfig, vm *v1.Virtu
 	} else {
 		vmInterface.EXPECT().Get(gomock.Any(), vm.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 	}
-	return &VMSnapshotAdmitter{Config: config, Client: virtClient}
+	return admitters.NewVMSnapshotAdmitter(config, virtClient)
 }
+
+type stubVMSnapshotConfigChecker struct {
+	snapshotEnabled bool
+}
+
+func (s stubVMSnapshotConfigChecker) SnapshotEnabled() bool { return s.snapshotEnabled }
