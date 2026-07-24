@@ -30,7 +30,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 var _ = Describe("GraceIOVirtualization admission", func() {
@@ -87,13 +88,13 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	}
 
 	It("accepts a Grace GPU request that satisfies the static baseline", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 
 		Expect(graceCauses(newGraceSpec(), config)).To(BeEmpty())
 	})
 
 	It("accepts a versioned virt machine type", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Domain.Machine.Type = "virt-6.2"
 
@@ -101,7 +102,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("accepts a Grace host device request that satisfies the static baseline", func() {
-		config := newGraceConfig("10DE:2941", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2941", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Domain.Devices.GPUs = nil
 		spec.Domain.Devices.HostDevices = []v1.HostDevice{{Name: "hostdev1", DeviceName: graceResourceName}}
@@ -110,25 +111,25 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("requires the GraceIOVirtualization feature gate for Grace GPU resources", func() {
-		config := newGraceConfig("10DE:2342", featuregate.PCINUMAAwareTopologyEnabled)
+		config := newGraceConfig("10DE:2342", legacy.PCINUMAAwareTopologyEnabled)
 
 		causes := graceCauses(newGraceSpec(), config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].deviceName"))
-		Expect(causes[0].Message).To(ContainSubstring(featuregate.GraceIOVirtualization))
+		Expect(causes[0].Message).To(ContainSubstring(compute.GraceIOVirtualization))
 	})
 
 	It("requires the PCI NUMA-aware topology feature gate", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, compute.IOMMUFDGate)
 
 		causes := graceCauses(newGraceSpec(), config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(Equal("spec.domain.devices"))
-		Expect(causes[0].Message).To(ContainSubstring(featuregate.PCINUMAAwareTopologyEnabled))
+		Expect(causes[0].Message).To(ContainSubstring(legacy.PCINUMAAwareTopologyEnabled))
 	})
 
 	It("requires arm64 architecture", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Architecture = "amd64"
 
@@ -139,7 +140,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("uses the effective default architecture and machine type", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Architecture = ""
 		spec.Domain.Machine = nil
@@ -148,7 +149,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("requires virt machine type", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Domain.Machine.Type = "q35"
 
@@ -159,7 +160,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("requires dedicated CPU placement", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Domain.CPU.DedicatedCPUPlacement = false
 
@@ -169,16 +170,16 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("requires the IOMMUFD feature gate", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled)
 
 		causes := graceCauses(newGraceSpec(), config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(Equal("spec.domain.devices"))
-		Expect(causes[0].Message).To(ContainSubstring(featuregate.IOMMUFDGate))
+		Expect(causes[0].Message).To(ContainSubstring(compute.IOMMUFDGate))
 	})
 
 	It("rejects placing Grace PCI devices on the root complex", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 
 		causes := validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), newGraceSpec(), map[string]string{v1.PlacePCIDevicesOnRootComplex: "true"}, config)
 		Expect(causes).To(HaveLen(1))
@@ -187,7 +188,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("rejects disabling PCI hole64 for Grace PCI devices", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 
 		causes := validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), newGraceSpec(), map[string]string{v1.DisablePCIHole64: "true"}, config)
 		Expect(causes).To(HaveLen(1))
@@ -196,7 +197,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("does not classify DRA claim requests as Grace PCI host devices", func() {
-		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2342", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 		spec := newGraceSpec()
 		spec.Domain.Devices.GPUs = []v1.GPU{
 			{
@@ -209,7 +210,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("rejects ambiguous NVIDIA wildcard PCI selectors when GraceIOVirtualization is enabled", func() {
-		config := newGraceConfig("10DE:*", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:*", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 
 		causes := graceCauses(newGraceSpec(), config)
 		Expect(causes).To(HaveLen(1))
@@ -218,7 +219,7 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 	})
 
 	It("does not classify non-Grace NVIDIA PCI selectors", func() {
-		config := newGraceConfig("10DE:2330", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		config := newGraceConfig("10DE:2330", compute.GraceIOVirtualization, legacy.PCINUMAAwareTopologyEnabled, compute.IOMMUFDGate)
 
 		Expect(graceCauses(newGraceSpec(), config)).To(BeEmpty())
 	})
@@ -237,6 +238,6 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 			}
 		}
 		Expect(graceCause).ToNot(BeNil())
-		Expect(graceCause.Message).To(ContainSubstring(featuregate.GraceIOVirtualization))
+		Expect(graceCause.Message).To(ContainSubstring(compute.GraceIOVirtualization))
 	})
 })

@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -71,6 +72,9 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		})
 
 	It("[QUARANTINE]should enforce TLS configuration on virt-template components", decorators.Quarantine, func() {
+		By("Enabling the Template feature gate")
+		config.EnableFeatureGate(compute.Template)
+
 		podsToTest := listPods(
 			"app.kubernetes.io/name=virt-template,control-plane=apiserver",
 			"app.kubernetes.io/name=virt-template,control-plane=controller-manager",

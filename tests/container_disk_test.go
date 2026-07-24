@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -171,9 +171,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, decorators.WgArm64, func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", Serial, func() {
-				if checks.HasFeature(featuregate.ImageVolume) {
-					config.DisableFeatureGate(featuregate.ImageVolume)
-					DeferCleanup(config.EnableFeatureGate, featuregate.ImageVolume)
+				if checks.HasFeature(legacy.ImageVolume) {
+					config.DisableFeatureGate(legacy.ImageVolume)
+					DeferCleanup(config.EnableFeatureGate, legacy.ImageVolume)
 				}
 
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), flags.StartupTimeoutSecondsSmall())
@@ -266,13 +266,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) {
-			config.DisableFeatureGate(featuregate.ImageVolume)
+			config.DisableFeatureGate(legacy.ImageVolume)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			By("Fetching virt-launcher pod without ImageVolume")
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(sourcePod.Spec.InitContainers).To(ContainElement(HaveField("Name", "container-disk-binary")),
 				"without ImageVolume should include container-disk-binary init container to copy the container-disk binary")
-			config.EnableFeatureGate(featuregate.ImageVolume)
+			config.EnableFeatureGate(legacy.ImageVolume)
 			By("Starting new migration and waiting for it to succeed")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)

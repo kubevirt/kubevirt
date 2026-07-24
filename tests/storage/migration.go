@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -945,8 +945,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		enableLegacyHotplug := func() {
 			// even if DeclarativeHotplugVolumesGate is enabled this takes precedence
-			if !checks.HasFeature(featuregate.HotplugVolumesGate) {
-				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
+			if !checks.HasFeature(storage.HotplugVolumesGate) {
+				config.EnableFeatureGate(storage.HotplugVolumesGate)
 			}
 		}
 

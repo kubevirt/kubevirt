@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -307,8 +307,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		})
 
 		It("should reset SEV allocatable devices when the feature gate is disabled", func() {
-			By(fmt.Sprintf("Disabling %s feature gate", featuregate.WorkloadEncryptionSEV))
-			config.DisableFeatureGate(featuregate.WorkloadEncryptionSEV)
+			By(fmt.Sprintf("Disabling %s feature gate", legacy.WorkloadEncryptionSEV))
+			config.DisableFeatureGate(legacy.WorkloadEncryptionSEV)
 			Eventually(func() bool {
 				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

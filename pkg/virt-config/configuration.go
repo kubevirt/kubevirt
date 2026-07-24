@@ -35,6 +35,10 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 const (
@@ -77,6 +81,10 @@ func NewClusterConfigWithCPUArch(crdInformer cache.SharedIndexInformer,
 		lastValidConfig: defaultConfig,
 		defaultConfig:   defaultConfig,
 	}
+	c.ComputeFeatureGates = compute.ComputeFeatureGates{ConfigReader: c}
+	c.StorageFeatureGates = storage.StorageFeatureGates{ConfigReader: c}
+	c.NetworkFeatureGates = network.NetworkFeatureGates{ConfigReader: c}
+	c.LegacyFeatureGates = legacy.LegacyFeatureGates{ConfigReader: c}
 
 	_, err := crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.crdAddedDeleted,
@@ -294,6 +302,11 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 }
 
 type ClusterConfig struct {
+	compute.ComputeFeatureGates
+	storage.StorageFeatureGates
+	network.NetworkFeatureGates
+	legacy.LegacyFeatureGates
+
 	crdStore                         cache.Store
 	kubeVirtStore                    cache.Store
 	namespace                        string

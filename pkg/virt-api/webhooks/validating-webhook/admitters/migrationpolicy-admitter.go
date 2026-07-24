@@ -35,7 +35,7 @@ import (
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 // MigrationPolicyAdmitter validates MigrationPolicy resources
@@ -87,7 +87,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", compute.MigrationStallDetection),
 				Field:   sourceField.Child("maxDowntimeMs").String(),
 			})
 		}
@@ -107,7 +107,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("experimental.stallDetector cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("experimental.stallDetector cannot be modified without enabling the %s feature gate", compute.MigrationStallDetection),
 				Field:   sourceField.Child("experimental", "stallDetector").String(),
 			})
 		}

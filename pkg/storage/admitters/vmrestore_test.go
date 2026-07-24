@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
@@ -84,7 +84,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							DisabledFeatureGates: []string{featuregate.SnapshotGate},
+							DisabledFeatureGates: []string{storage.SnapshotGate},
 						},
 					},
 				},
@@ -123,7 +123,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
 							FeatureGates:         make([]string, 0),
-							DisabledFeatureGates: []string{featuregate.SnapshotGate},
+							DisabledFeatureGates: []string{storage.SnapshotGate},
 						},
 					},
 				},

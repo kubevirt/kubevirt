@@ -89,7 +89,7 @@ go_test(
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/tls:go_default_library",
-        "//pkg/virt-config/featuregate:go_default_library",
+        "//pkg/virt-config/featuregate/compute:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",

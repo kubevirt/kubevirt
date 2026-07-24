@@ -40,7 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -888,13 +889,13 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			Context("with legacy hotplug", Serial, func() {
 				BeforeEach(func() {
-					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+					kvconfig.DisableFeatureGate(storage.DeclarativeHotplugVolumesGate)
+					kvconfig.EnableFeatureGate(storage.HotplugVolumesGate)
 				})
 
 				AfterEach(func() {
-					kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+					kvconfig.DisableFeatureGate(storage.HotplugVolumesGate)
+					kvconfig.EnableFeatureGate(storage.DeclarativeHotplugVolumesGate)
 				})
 
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
@@ -2087,7 +2088,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		const deviceName = "example.org/soundcard"
 
 		BeforeEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+			kvconfig.EnableFeatureGate(legacy.HostDevicesGate)
 
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
@@ -2107,7 +2108,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			config := kv.Spec.Configuration
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+			kvconfig.DisableFeatureGate(legacy.HostDevicesGate)
 		})
 
 		It("should restart a VM after hotplugging a block volume", decorators.RequiresBlockStorage, func() {

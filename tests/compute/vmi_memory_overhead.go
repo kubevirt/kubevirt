@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -52,7 +52,7 @@ var _ = Describe(SIG("VMI Memory Overhead Reporting", decorators.RequiresTwoSche
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		kvconfig.EnableFeatureGate(featuregate.VmiMemoryOverheadReport)
+		kvconfig.EnableFeatureGate(compute.VmiMemoryOverheadReport)
 	})
 
 	DescribeTable("memory overhead after CPU hotplug and migration", func(migrationShouldFail bool) {

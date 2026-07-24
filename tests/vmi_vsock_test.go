@@ -39,7 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -58,7 +58,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 	var err error
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.VSOCKGate)
+		config.EnableFeatureGate(legacy.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})
 

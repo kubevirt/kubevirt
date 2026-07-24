@@ -49,7 +49,7 @@ go_test(
         "//pkg/safepath:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/unsafepath:go_default_library",
-        "//pkg/virt-config/featuregate:go_default_library",
+        "//pkg/virt-config/featuregate/compute:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",

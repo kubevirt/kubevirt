@@ -73,7 +73,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -1312,7 +1312,7 @@ func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, conf
 	}
 
 	if len(vmi.Spec.Domain.Devices.GPUs) == 1 && !config.VGPULiveMigrationEnabled() {
-		return "VMI specifies a GPU but feature gate " + featuregate.VGPULiveMigration + " is not enabled", true
+		return "VMI specifies a GPU but feature gate " + legacy.VGPULiveMigration + " is not enabled", true
 	}
 
 	if len(vmi.Spec.Domain.Devices.GPUs) == 1 && !isMdevGPU(vmi.Spec.Domain.Devices.GPUs[0], config.GetConfig()) {

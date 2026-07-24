@@ -17,19 +17,24 @@
  *
  */
 
-package featuregate
+package legacy
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+// Owner: @alaypatel07
+// Alpha: v1.6.0
+// Beta: v1.9.0
+//
+// GPUsWithDRAGate allows users to create VMIs with DRA provisioned GPU devices.
+const GPUsWithDRAGate = "GPUsWithDRA"
 
-func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedMacvtap != nil {
-			return true
-		}
-	}
-	return false
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: GPUsWithDRAGate, State: featuregate.Beta})
+}
+
+// GPUsWithDRAGateEnabled returns true when the GPUsWithDRA feature gate is enabled.
+func (g LegacyFeatureGates) GPUsWithDRAGateEnabled() bool {
+	return featuregate.GateEnabled(GPUsWithDRAGate, g.ConfigReader)
 }

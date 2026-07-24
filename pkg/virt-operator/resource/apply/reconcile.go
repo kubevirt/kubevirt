@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -395,7 +396,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
-	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	synchronizationControllerEnabled := r.isFeatureGateEnabled(compute.DecentralizedLiveMigration)
 	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	virtTemplateDeploymentEnabled := r.virtTemplateDeploymentEnabled()
 	virtTemplateDeploymentsRolledOver := !virtTemplateDeploymentEnabled || haveVirtTemplateDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
@@ -613,7 +614,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
-		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		if r.isFeatureGateEnabled(compute.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
@@ -1246,7 +1247,7 @@ func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
 }
 
 func (r *Reconciler) virtTemplateDeploymentEnabled() bool {
-	if !r.isFeatureGateEnabled(featuregate.Template) {
+	if !r.isFeatureGateEnabled(compute.Template) {
 		return false
 	}
 	virtTemplateDeployment := r.kv.Spec.Configuration.VirtTemplateDeployment

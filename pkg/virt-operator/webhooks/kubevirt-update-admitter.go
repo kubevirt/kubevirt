@@ -28,6 +28,8 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	"kubevirt.io/client-go/log"
 
@@ -541,14 +543,14 @@ func validateVirtTemplateDeployment(config *v1.KubeVirtConfiguration) []metav1.S
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.Template) {
+	if hasFeatureGateEnabled(config, compute.Template) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.virtTemplateDeployment.enabled",
-		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", featuregate.Template),
+		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", compute.Template),
 	}}
 }
 
@@ -557,14 +559,14 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.OptOutRoleAggregation) {
+	if hasFeatureGateEnabled(config, legacy.OptOutRoleAggregation) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.roleAggregationStrategy",
-		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
+		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", legacy.OptOutRoleAggregation),
 	}}
 }
 
@@ -582,11 +584,11 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 			oldMaxDowntimeMs = oldConfig.MigrationConfiguration.MaxDowntimeMs
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) {
+			!hasFeatureGateEnabled(newConfig, compute.MigrationStallDetection) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", compute.MigrationStallDetection),
 			})
 		}
 	}

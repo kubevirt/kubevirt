@@ -12,7 +12,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var _ = Describe("virtiofs container", func() {
@@ -51,7 +51,7 @@ var _ = Describe("virtiofs container", func() {
 	}
 
 	BeforeEach(func() {
-		enableFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
+		enableFeatureGate(storage.VirtIOFSStorageVolumeGate)
 	})
 
 	AfterEach(func() {

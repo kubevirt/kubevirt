@@ -17,6 +17,23 @@
  *
  */
 
-package featuregate
+package network
 
-const VirtioFsFeatureGateDiscontinueMessage = "Virtiofs ExperimentalVirtiofsSupport feature gate is discontinued since v1.7. Please use EnableVirtioFsConfigVolumes or EnableVirtioFsPVC feature gates instead"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
+
+// HotplugNetworkIfacesGate controls the network interface hotplug feature lifecycle.
+// Alpha: v1.1.0
+// Beta: v1.3.0
+// GA: v1.4.0
+const HotplugNetworkIfacesGate = "HotplugNICs"
+
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HotplugNetworkIfacesGate, State: featuregate.GA})
+}
+
+// HotplugNetworkIfacesEnabled returns true when the HotplugNICs feature gate is enabled.
+func (g NetworkFeatureGates) HotplugNetworkIfacesEnabled() bool {
+	return featuregate.GateEnabled(HotplugNetworkIfacesGate, g.ConfigReader)
+}

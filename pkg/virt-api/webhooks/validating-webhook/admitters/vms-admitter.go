@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
@@ -253,7 +254,7 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, conf
 			}
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid RunStrategy (%s), %s feature gate is not enabled in kubevirt resource", *spec.RunStrategy, featuregate.DecentralizedLiveMigration),
+				Message: fmt.Sprintf("Invalid RunStrategy (%s), %s feature gate is not enabled in kubevirt resource", *spec.RunStrategy, compute.DecentralizedLiveMigration),
 				Field:   field.Child("runStrategy").String(),
 			})
 		} else {

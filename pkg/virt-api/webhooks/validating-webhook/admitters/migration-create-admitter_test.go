@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
@@ -230,7 +230,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 			if featureGateEnabled {
-				enableFeatureGate(featuregate.DecentralizedLiveMigration)
+				enableFeatureGate(compute.DecentralizedLiveMigration)
 			}
 			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			resp := admitter.Admit(context.Background(), ar)

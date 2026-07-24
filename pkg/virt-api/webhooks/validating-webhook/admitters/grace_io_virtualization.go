@@ -30,7 +30,8 @@ import (
 
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 const graceVirtMachineType = "virt"
@@ -65,7 +66,7 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 		for _, request := range graceRequests {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate must be enabled for NVIDIA Grace GPU passthrough resource %q", featuregate.GraceIOVirtualization, request.resourceName),
+				Message: fmt.Sprintf("%s feature gate must be enabled for NVIDIA Grace GPU passthrough resource %q", compute.GraceIOVirtualization, request.resourceName),
 				Field:   request.path.String(),
 			})
 		}
@@ -100,7 +101,7 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate must be enabled when GraceIOVirtualization is used",
-				featuregate.PCINUMAAwareTopologyEnabled),
+				legacy.PCINUMAAwareTopologyEnabled),
 			Field: field.Child("domain", "devices").String(),
 		})
 	}
@@ -109,7 +110,7 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate must be enabled when GraceIOVirtualization is used",
-				featuregate.IOMMUFDGate),
+				compute.IOMMUFDGate),
 			Field: field.Child("domain", "devices").String(),
 		})
 	}

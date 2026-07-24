@@ -41,7 +41,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -106,23 +108,23 @@ func AdjustKubeVirtResource() {
 	// Disable CPUManager Featuregate for s390x as it is not supported.
 	if translateBuildArch() != "s390x" {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			featuregate.CPUManager,
+			legacy.CPUManager,
 		)
 	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		featuregate.IgnitionGate,
-		featuregate.SidecarGate,
-		featuregate.IncrementalBackupGate,
-		featuregate.HostDiskGate,
-		featuregate.VirtIOFSStorageVolumeGate,
-		featuregate.DownwardMetricsFeatureGate,
-		featuregate.WorkloadEncryptionSEV,
-		featuregate.ObjectGraph,
-		featuregate.DeclarativeHotplugVolumesGate,
-		featuregate.DecentralizedLiveMigration,
-		featuregate.UtilityVolumesGate,
-		featuregate.RebootPolicy,
-		featuregate.ContainerPathVolumesGate,
+		legacy.IgnitionGate,
+		legacy.SidecarGate,
+		storage.IncrementalBackupGate,
+		legacy.HostDiskGate,
+		storage.VirtIOFSStorageVolumeGate,
+		legacy.DownwardMetricsFeatureGate,
+		legacy.WorkloadEncryptionSEV,
+		storage.ObjectGraph,
+		storage.DeclarativeHotplugVolumesGate,
+		compute.DecentralizedLiveMigration,
+		storage.UtilityVolumesGate,
+		compute.RebootPolicy,
+		storage.ContainerPathVolumesGate,
 	)
 
 	// ImageVolume is enabled by default for k8s 1.35+ (image volume feature gate in kubelet).
@@ -132,7 +134,7 @@ func AdjustKubeVirtResource() {
 	if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
 		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
 			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-			featuregate.ImageVolume,
+			legacy.ImageVolume,
 		)
 	}
 	kv.Spec.Configuration.ChangedBlockTrackingLabelSelectors = &v1.ChangedBlockTrackingSelectors{

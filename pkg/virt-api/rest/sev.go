@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 
 func (app *SubresourceAPIApp) ensureSEVEnabled(response *restful.Response) bool {
 	if !app.clusterConfig.WorkloadEncryptionSEVEnabled() {
-		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, featuregate.WorkloadEncryptionSEV)), response)
+		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, legacy.WorkloadEncryptionSEV)), response)
 		return false
 	}
 	return true

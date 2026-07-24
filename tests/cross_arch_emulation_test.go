@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -45,7 +45,7 @@ import (
 var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, decorators.SigCompute, decorators.RequiresCrossArchEmulation, func() {
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.CrossArchitectureVirtualization)
+		config.EnableFeatureGate(compute.CrossArchitectureVirtualization)
 	})
 
 	DescribeTable("should boot a guest using QEMU TCG emulation on a cross-architecture host",
