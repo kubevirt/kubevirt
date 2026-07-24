@@ -2000,7 +2000,7 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_vmi_guest_os_panic_total{namespace="test", name="vm-01", type="unknown", bugcheck_code="unknown"}'
-        values: '0 0 6 6 6 6 6'
+        values: '_ _ 6 6 6 6 6'
 
     alert_rule_test:
       - eval_time: 1m
