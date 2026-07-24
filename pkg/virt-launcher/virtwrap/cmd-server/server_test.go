@@ -363,8 +363,8 @@ var _ = Describe("Virt remote commands", func() {
 					Name:         "checkpoint-1",
 					CreationTime: &creationTime,
 					Volumes: []backupv1.BackupVolumeInfo{
-						{VolumeName: "disk1", DiskTarget: "vda"},
-						{VolumeName: "disk2", DiskTarget: "vdb"},
+						{VolumeName: "disk1"},
+						{VolumeName: "disk2"},
 					},
 				}
 			})
@@ -376,7 +376,6 @@ var _ = Describe("Virt remote commands", func() {
 						Expect(cpArg.Name).To(Equal("checkpoint-1"))
 						Expect(cpArg.Volumes).To(HaveLen(2))
 						Expect(cpArg.Volumes[0].VolumeName).To(Equal("disk1"))
-						Expect(cpArg.Volumes[0].DiskTarget).To(Equal("vda"))
 						Expect(cpArg.CreationTime.Unix()).To(Equal(int64(1234567890)))
 						return false, nil
 					})
