@@ -25,6 +25,9 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
+
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -63,7 +66,7 @@ func AgentDataCommandKeys() []string {
 
 func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest) (*cmdv1.VMStatsResponse, error) {
 	if !l.vmStatsCollectorEnabled {
-		return nil, fmt.Errorf("VMStatsCollector feature gate is not enabled")
+		return nil, grpcstatus.Errorf(codes.FailedPrecondition, "VMStatsCollector feature gate is not enabled")
 	}
 
 	start := time.Now()
@@ -89,16 +92,26 @@ func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest
 	var errs []string
 
 	if request.GetDomainStats() != nil {
-		response.DomainStats, _ = l.GetDomainStats(ctx, &cmdv1.EmptyRequest{})
-		if !response.GetDomainStats().GetResponse().GetSuccess() {
-			errs = append(errs, fmt.Sprintf("domain stats: %s", response.GetDomainStats().GetResponse().GetMessage()))
+		domainStatsResp, domainStatsErr := l.GetDomainStats(ctx, &cmdv1.EmptyRequest{})
+		if domainStatsErr != nil {
+			response.DomainStats = &cmdv1.DomainStatsResponse{
+				Response: &cmdv1.Response{Success: false, Message: domainStatsErr.Error()},
+			}
+			errs = append(errs, fmt.Sprintf("domain stats: %s", domainStatsErr.Error()))
+		} else {
+			response.DomainStats = domainStatsResp
 		}
 	}
 
 	if request.GetDirtyRate() != nil {
-		response.DirtyRateStats, _ = l.GetDomainDirtyRateStats(ctx, &cmdv1.EmptyRequest{})
-		if !response.GetDirtyRateStats().GetResponse().GetSuccess() {
-			errs = append(errs, fmt.Sprintf("dirty rate stats: %s", response.GetDirtyRateStats().GetResponse().GetMessage()))
+		dirtyRateResp, dirtyRateErr := l.GetDomainDirtyRateStats(ctx, &cmdv1.EmptyRequest{})
+		if dirtyRateErr != nil {
+			response.DirtyRateStats = &cmdv1.DirtyRateStatsResponse{
+				Response: &cmdv1.Response{Success: false, Message: dirtyRateErr.Error()},
+			}
+			errs = append(errs, fmt.Sprintf("dirty rate stats: %s", dirtyRateErr.Error()))
+		} else {
+			response.DirtyRateStats = dirtyRateResp
 		}
 	}
 
@@ -127,6 +140,14 @@ func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest
 	if len(errs) > 0 {
 		response.Response.Success = false
 		response.Response.Message = strings.Join(errs, "; ")
+
+		log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=%d", time.Since(start), len(errs))
+
+		st := grpcstatus.New(codes.Internal, response.Response.Message)
+		if detailed, err := st.WithDetails(response); err == nil {
+			return nil, detailed.Err()
+		}
+		return nil, st.Err()
 	}
 
 	log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=%d", time.Since(start), len(errs))
