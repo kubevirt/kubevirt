@@ -1,0 +1,60 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+ARG LAUNCHERBASE_IMAGE=quay.io/vamsi_siddu/launcherbase:bazeldnf
+ARG LIBVIRT_DEVEL_IMAGE=quay.io/vamsi_siddu/libvirt-devel:bazeldnf
+
+FROM ${LIBVIRT_DEVEL_IMAGE} AS devel-deps
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY --from=devel-deps /usr/lib64/pkgconfig /devel/usr/lib64/pkgconfig
+COPY --from=devel-deps /usr/include /devel/usr/include
+COPY --from=devel-deps /usr/lib64 /devel/usr/lib64
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    export PKG_CONFIG_PATH="/devel/usr/lib64/pkgconfig:${PKG_CONFIG_PATH}" && \
+    export CGO_CFLAGS="-I/devel/usr/include" && \
+    export CGO_LDFLAGS="-L/devel/usr/lib64" && \
+    KUBEVIRT_NO_BAZEL=true hack/build-go.sh install \
+    cmd/virt-launcher cmd/virt-launcher-monitor cmd/virt-freezer cmd/virt-probe cmd/virt-tail && \
+    CGO_ENABLED=0 go build -o _out/cmd/libvirt-hook-client/libvirt-hook-client ./cmd/virt-launcher/libvirt-hook-client
+
+RUN mkdir -p _out/cmd/container-disk-v2alpha && \
+    gcc -static -o _out/cmd/container-disk-v2alpha/container-disk \
+        cmd/container-disk-v2alpha/main.c && \
+    chmod +x _out/cmd/container-disk-v2alpha/container-disk
+
+RUN VL_MONITOR_BIN=$(readlink -f _out/cmd/virt-launcher-monitor/virt-launcher-monitor) && \
+    setcap cap_net_bind_service=+ep "$VL_MONITOR_BIN"
+
+FROM ${LAUNCHERBASE_IMAGE}
+
+RUN chmod 755 /etc/libvirt && \
+    mkdir -p /etc/libvirt/hooks && \
+    chown 107:107 /etc/libvirt/hooks && \
+    mkdir -p /usr/lib64/qemu-kvm
+
+COPY --from=builder --chmod=644 /workspace/cmd/virt-launcher/qemu.conf /etc/libvirt/qemu.conf
+COPY --from=builder --chmod=644 /workspace/cmd/virt-launcher/virtqemud.conf /etc/libvirt/virtqemud.conf
+COPY --from=builder --chmod=644 /workspace/cmd/virt-launcher/nsswitch.conf /etc/nsswitch.conf
+COPY --from=builder --chmod=755 --chown=107:107 /workspace/cmd/virt-launcher/qemu /etc/libvirt/hooks/qemu
+
+COPY --from=builder /workspace/_out/cmd/virt-launcher/virt-launcher /usr/bin/virt-launcher
+COPY --from=builder /workspace/_out/cmd/virt-launcher-monitor/virt-launcher-monitor /usr/bin/virt-launcher-monitor
+COPY --from=builder /workspace/_out/cmd/virt-freezer/virt-freezer /usr/bin/virt-freezer
+COPY --from=builder /workspace/_out/cmd/virt-probe/virt-probe /usr/bin/virt-probe
+COPY --from=builder /workspace/_out/cmd/virt-tail/virt-tail /usr/bin/virt-tail
+COPY --from=builder /workspace/_out/cmd/libvirt-hook-client/libvirt-hook-client /usr/bin/libvirt-hook-client
+COPY --from=builder /workspace/_out/cmd/container-disk-v2alpha/container-disk /usr/bin/container-disk
+
+COPY --from=builder /workspace/cmd/virt-launcher/node-labeller/node-labeller.sh /usr/bin/node-labeller.sh
+COPY --from=builder /workspace/.version /.version
+
+USER 107
+ENTRYPOINT ["/usr/bin/virt-launcher"]

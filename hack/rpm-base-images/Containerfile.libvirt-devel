@@ -1,0 +1,26 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+
+FROM --platform=linux/amd64 ${BUILDER_IMAGE} AS setup
+
+ARG BUILD_ARCH=amd64
+ARG CENTOS_STREAM_VERSION=9
+
+RUN case ${BUILD_ARCH} in \
+        amd64|x86_64) BAZEL_ARCH="x86_64" ;; \
+        arm64|aarch64|crossbuild-aarch64) BAZEL_ARCH="aarch64" ;; \
+        s390x|crossbuild-s390x) BAZEL_ARCH="s390x" ;; \
+        *) echo "ERROR: Unsupported BUILD_ARCH: ${BUILD_ARCH}"; exit 1 ;; \
+    esac && \
+    echo "${BAZEL_ARCH}" > /tmp/bazel_arch
+
+COPY _out/rpm-tars/libvirt-devel_*_cs${CENTOS_STREAM_VERSION}.tar /tmp/
+
+RUN BAZEL_ARCH=$(cat /tmp/bazel_arch) && \
+    mkdir -p /devel && \
+    tar -xf /tmp/libvirt-devel_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /devel --overwrite
+
+FROM scratch
+
+COPY --from=setup /devel/usr/lib64/pkgconfig /usr/lib64/pkgconfig
+COPY --from=setup /devel/usr/include /usr/include
+COPY --from=setup /devel/usr/lib64 /usr/lib64
