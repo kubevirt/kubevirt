@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -1587,6 +1588,37 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes).To(HaveLen(1))
 		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+	})
+
+	It("should invoke injected SpecValidators", func() {
+		called := false
+		stub := func(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+			called = true
+			return nil
+		}
+		vmsAdmitter.SpecValidators = []SpecValidator{stub}
+
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testdisk",
+			VolumeSource: v1.VolumeSource{
+				ContainerDisk: testutils.NewFakeContainerDiskSource(),
+			},
+		})
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.P(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		admitVm(vmsAdmitter, vm)
+		Expect(called).To(BeTrue())
 	})
 
 	Context("run strategy", func() {

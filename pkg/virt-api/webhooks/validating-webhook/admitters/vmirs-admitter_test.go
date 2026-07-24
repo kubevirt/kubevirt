@@ -28,6 +28,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/client-go/api"
 
@@ -35,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating VMIRS Admitter", func() {
@@ -140,6 +142,41 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 
 		resp := vmirsAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("should invoke injected SpecValidators", func() {
+		called := false
+		stub := func(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+			called = true
+			return nil
+		}
+
+		vmirs := &v1.VirtualMachineInstanceReplicaSet{
+			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				Template: newVirtualMachineBuilder().
+					WithDisk(v1.Disk{Name: "testdisk"}).
+					WithVolume(v1.Volume{
+						Name:         "testdisk",
+						VolumeSource: v1.VolumeSource{ContainerDisk: testutils.NewFakeContainerDiskSource()},
+					}).
+					WithLabel("match", "me").
+					BuildTemplate(),
+			},
+		}
+		vmirsBytes, _ := json.Marshal(&vmirs)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
+				Object:   runtime.RawExtension{Raw: vmirsBytes},
+			},
+		}
+
+		admitter := &VMIRSAdmitter{ClusterConfig: config, SpecValidators: []SpecValidator{stub}}
+		admitter.Admit(context.Background(), ar)
+		Expect(called).To(BeTrue())
 	})
 })
 
