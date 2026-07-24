@@ -97,11 +97,10 @@ import (
 )
 
 const (
-	fedoraVMSize               = "512Mi"
-	secretDiskSerial           = "D23YZ9W6WA5DJ487"
-	stressDefaultVMSize        = "100M"
-	stressLargeVMSize          = "400M"
-	stressDefaultSleepDuration = 15
+	fedoraVMSize        = "512Mi"
+	secretDiskSerial    = "D23YZ9W6WA5DJ487"
+	stressDefaultVMSize = "100M"
+	stressLargeVMSize   = "400M"
 )
 
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
@@ -3159,21 +3158,7 @@ func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfigurat
 }
 
 func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
-	By("Run a stress test to dirty some pages and slow down the migration")
-	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
-	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: ""},
-		&expect.BSnd{S: "command -v stress-ng\n"},
-		&expect.BExp{R: ""},
-		&expect.BSnd{S: console.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-		&expect.BSnd{S: stressCmd},
-		&expect.BExp{R: ""},
-	}, 15)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
-
-	// give stress tool some time to trash more memory pages before returning control to next steps
-	time.Sleep(stressDefaultSleepDuration * time.Second)
+	libmigration.RunStressTest(vmi, vmsize)
 }
 
 func stopStressTest(vmi *v1.VirtualMachineInstance) {
