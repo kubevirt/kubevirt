@@ -21,6 +21,7 @@ package cbt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -32,7 +33,12 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
+
+func isTrackerDeleting(tracker *backupv1.VirtualMachineBackupTracker) bool {
+	return tracker != nil && tracker.DeletionTimestamp != nil
+}
 
 func trackerNeedsCheckpointRedefinition(tracker *backupv1.VirtualMachineBackupTracker) bool {
 	return tracker != nil &&
@@ -57,10 +63,14 @@ func (ctrl *VMBackupController) ExecuteTracker() bool {
 
 	err := ctrl.executeTracker(key)
 	if err != nil {
-		log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackupTracker %v for redefinition", key)
+		if errors.Is(err, errActiveBackups) {
+			log.Log.V(4).Infof("reenqueuing VirtualMachineBackupTracker %v: %v", key, err)
+		} else {
+			log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackupTracker %v", key)
+		}
 		ctrl.trackerQueue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineBackupTracker redefinition %v", key)
+		log.Log.V(4).Infof("processed VirtualMachineBackupTracker %v", key)
 		ctrl.trackerQueue.Forget(key)
 	}
 	return true
@@ -68,7 +78,7 @@ func (ctrl *VMBackupController) ExecuteTracker() bool {
 
 func (ctrl *VMBackupController) executeTracker(key string) error {
 	logger := log.Log.With("VirtualMachineBackupTracker", key)
-	logger.V(3).Infof("Processing tracker checkpoint redefinition %s", key)
+	logger.V(3).Infof("Processing tracker %s", key)
 
 	storeObj, exists, err := ctrl.backupTrackerInformer.GetStore().GetByKey(key)
 	if err != nil {
@@ -84,6 +94,10 @@ func (ctrl *VMBackupController) executeTracker(key string) error {
 	if !ok {
 		logger.Errorf("Unexpected resource type: %T", storeObj)
 		return fmt.Errorf("unexpected resource %+v", storeObj)
+	}
+
+	if isTrackerDeleting(tracker) && controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
+		return ctrl.handleTrackerDeletion(tracker)
 	}
 
 	if !trackerNeedsCheckpointRedefinition(tracker) {
@@ -116,6 +130,48 @@ func (ctrl *VMBackupController) handleCheckpointRedefinition(tracker *backupv1.V
 
 	logger.Infof("Checkpoint redefinition successful for tracker %s/%s", tracker.Namespace, tracker.Name)
 	return ctrl.clearRedefinitionFlag(tracker)
+}
+
+func (ctrl *VMBackupController) handleTrackerDeletion(tracker *backupv1.VirtualMachineBackupTracker) error {
+	logger := log.Log.With("VirtualMachineBackupTracker", tracker.Name)
+	logger.Infof("Handling deletion for tracker %s/%s", tracker.Namespace, tracker.Name)
+
+	hasActiveBackups, err := ctrl.trackerHasActiveBackups(tracker)
+	if err != nil {
+		return fmt.Errorf("failed to check active backups for tracker %s/%s: %w", tracker.Namespace, tracker.Name, err)
+	}
+	if hasActiveBackups {
+		return fmt.Errorf("tracker %s/%s has active backups, cannot remove finalizer: %w", tracker.Namespace, tracker.Name, errActiveBackups)
+	}
+
+	return ctrl.removeTrackerFinalizer(tracker)
+}
+
+func (ctrl *VMBackupController) trackerHasActiveBackups(tracker *backupv1.VirtualMachineBackupTracker) (bool, error) {
+	trackerKey := fmt.Sprintf("%s/%s", tracker.Namespace, tracker.Name)
+	backupKeys, err := ctrl.backupInformer.GetIndexer().IndexKeys("backupTracker", trackerKey)
+	if err != nil {
+		return false, err
+	}
+
+	for _, key := range backupKeys {
+		obj, exists, err := ctrl.backupInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return false, fmt.Errorf("failed to get backup %s from store: %w", key, err)
+		}
+		if !exists {
+			continue
+		}
+		backup, ok := obj.(*backupv1.VirtualMachineBackup)
+		if !ok {
+			continue
+		}
+		if !IsBackupTerminal(backup) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (ctrl *VMBackupController) handleRedefinitionError(tracker *backupv1.VirtualMachineBackupTracker, err error) error {
