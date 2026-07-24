@@ -712,6 +712,8 @@ spec:
       serviceAccountName: serviceAccountNameValue
       startStrategy: startStrategyValue
       subdomain: subdomainValue
+      supplementalGroups:
+      - -18
       terminationGracePeriodSeconds: -29
       tolerations:
       - effect: effectValue
