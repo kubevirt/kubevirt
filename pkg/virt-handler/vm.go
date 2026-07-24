@@ -125,7 +125,7 @@ type VirtualMachineController struct {
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
-	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation)
+	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation, true)
 }
 
 func NewVirtualMachineController(

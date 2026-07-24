@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cgroup.go",
+        "ebpf_device_map.go",
         "main.go",
         "mdev-handler.go",
         "selinux.go",
@@ -18,6 +19,7 @@ go_library(
         "//vendor/github.com/cilium/ebpf:go_default_library",
         "//vendor/github.com/cilium/ebpf/asm:go_default_library",
         "//vendor/github.com/cilium/ebpf/link:go_default_library",
+        "//vendor/github.com/coreos/go-systemd/v22/dbus:go_default_library",
         "//vendor/github.com/opencontainers/cgroups:go_default_library",
         "//vendor/github.com/opencontainers/cgroups/devices:go_default_library",
         "//vendor/github.com/opencontainers/cgroups/fs:go_default_library",
