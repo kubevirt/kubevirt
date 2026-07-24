@@ -192,9 +192,9 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, fetchErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if fetchErr != nil {
+				return nil, fetchErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
@@ -221,7 +221,6 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 
 		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-
 	})
 }))
 
