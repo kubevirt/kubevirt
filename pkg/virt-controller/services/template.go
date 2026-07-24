@@ -130,10 +130,6 @@ type annotationsGenerator interface {
 	Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error)
 }
 
-type targetAnnotationsGenerator interface {
-	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
-}
-
 type TemplateService struct {
 	launcherImage              string
 	exporterImage              string
@@ -150,11 +146,10 @@ type TemplateService struct {
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
 
-	sidecarCreators               []SidecarCreatorFunc
-	netMemoryCalculator           netMemoryCalculator
-	annotationsGenerators         []annotationsGenerator
-	netTargetAnnotationsGenerator targetAnnotationsGenerator
-	launcherHypervisorResources   hypervisor.LauncherHypervisorResources
+	sidecarCreators             []SidecarCreatorFunc
+	netMemoryCalculator         netMemoryCalculator
+	annotationsGenerators       []annotationsGenerator
+	launcherHypervisorResources hypervisor.LauncherHypervisorResources
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -340,15 +335,6 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, err
 	}
 
-	if t.netTargetAnnotationsGenerator != nil {
-		netAnnotations, err := t.netTargetAnnotationsGenerator.GenerateFromSource(vmi, sourcePod)
-		if err != nil {
-			return nil, err
-		}
-
-		maps.Copy(targetPod.Annotations, netAnnotations)
-	}
-
 	return targetPod, err
 }
 
@@ -480,9 +466,6 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 		if t.clusterConfig.LibvirtHooksServerAndClientEnabled() {
 			args = append(args, "--libvirt-hook-server-and-client")
-		}
-		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
-			args = append(args, "--upgrade-ordinal-ifaces")
 		}
 		if t.clusterConfig.VGPULiveMigrationEnabled() {
 			args = append(args, "--vgpu-dedicated-hook")
@@ -1767,12 +1750,6 @@ func WithNetMemoryCalculator(netMemoryCalculator netMemoryCalculator) templateSe
 func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServiceOption {
 	return func(service *TemplateService) {
 		service.annotationsGenerators = append(service.annotationsGenerators, generators...)
-	}
-}
-
-func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) templateServiceOption {
-	return func(service *TemplateService) {
-		service.netTargetAnnotationsGenerator = generator
 	}
 }
 

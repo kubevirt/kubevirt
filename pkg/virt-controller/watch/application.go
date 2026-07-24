@@ -717,7 +717,6 @@ func (vca *VirtControllerApp) initCommon() {
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 		services.WithNetMemoryCalculator(netresources.MemoryCalculator{}),
 		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
-		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)

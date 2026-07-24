@@ -529,7 +529,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should work", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
+				disableFeatureGate(featuregate.ImageVolume)
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -1156,7 +1156,7 @@ var _ = Describe("Template", func() {
 		Context("with node selectors", func() {
 			DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
+				disableFeatureGate(featuregate.ImageVolume)
 
 				nodeSelector := map[string]string{
 					k8sv1.LabelHostname: "master",
@@ -6268,88 +6268,6 @@ var _ = Describe("Template", func() {
 		})
 	})
 
-	Context("Network target annotations generation", func() {
-		const (
-			testNamespace = "default"
-
-			testKey = "netAnnotation"
-
-			initialValue = "netAnnotationInitial"
-			updatedValue = "netAnnotationUpdated"
-		)
-
-		It("Should call network target annotations generator when templating a migration target pod", func() {
-			generator := stubTargetAnnotationsGenerator{
-				annotations: map[string]string{testKey: updatedValue},
-			}
-
-			svc = NewTemplateService("kubevirt/virt-launcher",
-				240,
-				"/var/run/kubevirt",
-				"/var/run/kubevirt-ephemeral-disks",
-				"/var/run/kubevirt/container-disks",
-				v1.HotplugDiskDir,
-				"pull-secret-1",
-				pvcCache,
-				virtClient,
-				config,
-				qemuGid,
-				"kubevirt/vmexport",
-				resourceQuotaStore,
-				namespaceStore,
-				WithNetTargetAnnotationsGenerator(generator),
-			)
-
-			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
-
-			sourcePod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			sourcePod.Annotations[testKey] = initialValue
-
-			targetPod, err := svc.RenderMigrationManifest(vmi, nil, sourcePod)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(targetPod.Annotations).To(HaveKeyWithValue(testKey, updatedValue))
-		})
-
-		It("Should fail templating a migration target pod when network target annotations generator fails", func() {
-			expectedErr := errors.New("some err")
-
-			generator := stubTargetAnnotationsGenerator{
-				annotations:   map[string]string{testKey: updatedValue},
-				generationErr: expectedErr,
-			}
-
-			svc = NewTemplateService("kubevirt/virt-launcher",
-				240,
-				"/var/run/kubevirt",
-				"/var/run/kubevirt-ephemeral-disks",
-				"/var/run/kubevirt/container-disks",
-				v1.HotplugDiskDir,
-				"pull-secret-1",
-				pvcCache,
-				virtClient,
-				config,
-				qemuGid,
-				"kubevirt/vmexport",
-				resourceQuotaStore,
-				namespaceStore,
-				WithNetTargetAnnotationsGenerator(generator),
-			)
-
-			vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
-
-			sourcePod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			sourcePod.Annotations[testKey] = initialValue
-
-			_, err = svc.RenderMigrationManifest(vmi, nil, sourcePod)
-			Expect(err).To(MatchError(expectedErr))
-		})
-	})
-
 	Context("NAD query disablement", func() {
 		It("Should not query NAD when ExternalNetResourceInjection is enabled", func() {
 			config, kvStore, svc = configFactory(defaultArch)
@@ -6587,13 +6505,4 @@ type stubAnnotationsGenerator struct {
 
 func (sag stubAnnotationsGenerator) Generate(_ *v1.VirtualMachineInstance) (map[string]string, error) {
 	return sag.annotations, sag.generationErr
-}
-
-type stubTargetAnnotationsGenerator struct {
-	annotations   map[string]string
-	generationErr error
-}
-
-func (stag stubTargetAnnotationsGenerator) GenerateFromSource(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) (map[string]string, error) {
-	return stag.annotations, stag.generationErr
 }

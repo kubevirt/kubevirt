@@ -187,6 +187,13 @@ const (
 	// Beta: v1.8.0
 	// GA: v1.9.0
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// PodSecondaryInterfaceNamingUpgrade enables the upgrade mechanism for VMs
+	// stuck with the obsolete ordinal naming scheme for their pod secondary networks
+	// Owner: SIG network
+	// Beta: v1.8.0
+	// GA: v1.10.0
+	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
 )
 
 func init() {
@@ -231,4 +238,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: GA})
 }
