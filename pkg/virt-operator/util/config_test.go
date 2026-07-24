@@ -182,6 +182,46 @@ var _ = Describe("Operator Config", func() {
 
 	})
 
+	Describe("GetKubeletRootDir()", func() {
+		It("should default to /var/lib/kubelet when unset", func() {
+			config := &KubeVirtDeploymentConfig{}
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/kubelet"))
+		})
+
+		It("should return the configured value when set", func() {
+			config := &KubeVirtDeploymentConfig{KubeletRootDir: "/var/lib/k0s/kubelet"}
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/k0s/kubelet"))
+		})
+
+		It("should default when the config is read without the env var", func() {
+			parsedConfig := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+			Expect(parsedConfig.KubeletRootDir).To(BeEmpty())
+			Expect(parsedConfig.GetKubeletRootDir()).To(Equal("/var/lib/kubelet"))
+		})
+
+		It("should be sourced from the KUBELET_ROOT_DIR env var", func() {
+			const customRoot = "/var/lib/rancher/rke2/agent/kubelet"
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, customRoot)).To(Succeed())
+			defer func() { _ = envVarManager.Unsetenv(KubeletRootDirEnvName) }()
+
+			parsedConfig := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+			Expect(parsedConfig.KubeletRootDir).To(Equal(customRoot))
+			Expect(parsedConfig.GetKubeletRootDir()).To(Equal(customRoot))
+		})
+
+		It("should result in different install strategy IDs for different kubelet roots", func() {
+			cfgDefault := &KubeVirtDeploymentConfig{}
+			cfgDefault.generateInstallStrategyID()
+
+			cfgCustom := &KubeVirtDeploymentConfig{KubeletRootDir: "/var/lib/k0s/kubelet"}
+			cfgCustom.generateInstallStrategyID()
+
+			Expect(cfgDefault.ID).ToNot(BeEmpty())
+			Expect(cfgCustom.ID).ToNot(BeEmpty())
+			Expect(cfgCustom.ID).ToNot(Equal(cfgDefault.ID))
+		})
+	})
+
 	Context("Product Names and Versions", func() {
 		DescribeTable("label validation", func(testVector string, expectedResult bool) {
 			Expect(IsValidLabel(testVector)).To(Equal(expectedResult))

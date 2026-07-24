@@ -22,7 +22,6 @@ import (
 
 const (
 	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
 	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName                   = "pr-helper"
 	prVolumeName                   = "pr-helper-socket-vol"
@@ -315,6 +314,13 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 
 	bidi := corev1.MountPropagationBidirectional
 	hostToContainer := corev1.MountPropagationHostToContainer
+	// The host kubelet root directory is configurable to support distributions
+	// with a non-standard kubelet root (e.g. k0s, RKE2). It is always mounted
+	// at util.KubeletRoot inside the container so that in-container lookups
+	// (e.g. cpu_manager_state) keep resolving to the same path regardless of
+	// where the kubelet root lives on the host.
+	kubeletRootDir := config.GetKubeletRootDir()
+	kubeletPodsPath := kubeletRootDir + "/pods"
 	// NOTE: the 'kubelet-pods' volume mount exists because that path holds unix socket files.
 	// Socket files fail when their path is longer than 108 characters,
 	//   so that shortened volume path is to allow domain socket connections.
@@ -324,7 +330,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &hostToContainer},
+		{"kubelet", kubeletRootDir, util.KubeletRoot, &hostToContainer},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 
