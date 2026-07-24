@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,29 +54,19 @@ type Notify struct {
 }
 
 func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
-	response := &notifyv1.Response{
-		Success: true,
-	}
-
 	domain := &api.Domain{}
 	status := &metav1.Status{}
 
 	if len(request.DomainJSON) > 0 {
-		err := json.Unmarshal(request.DomainJSON, domain)
-		if err != nil {
+		if err := json.Unmarshal(request.DomainJSON, domain); err != nil {
 			log.Log.Errorf("Failed to unmarshal domain json object")
-			response.Success = false
-			response.Message = err.Error()
-			return response, nil
+			return nil, grpcstatus.Errorf(codes.InvalidArgument, "failed to unmarshal domain json: %v", err)
 		}
 	}
 	if len(request.StatusJSON) > 0 {
-		err := json.Unmarshal(request.StatusJSON, status)
-		if err != nil {
+		if err := json.Unmarshal(request.StatusJSON, status); err != nil {
 			log.Log.Errorf("Failed to unmarshal status json object")
-			response.Success = false
-			response.Message = err.Error()
-			return response, nil
+			return nil, grpcstatus.Errorf(codes.InvalidArgument, "failed to unmarshal status json: %v", err)
 		}
 	}
 
@@ -90,37 +82,29 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 		log.Log.Object(domain).Errorf("Domain error event with message: %s", status.Message)
 		n.EventChan <- watch.Event{Type: watch.Error, Object: status}
 	}
-	return response, nil
+	return &notifyv1.Response{Success: true}, nil
 }
 
 func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
-	response := &notifyv1.Response{
-		Success: true,
-	}
-
-	// unmarshal k8s event
 	var event k8sv1.Event
-	err := json.Unmarshal(request.EventJSON, &event)
-	if err != nil {
-		response.Success = false
-		response.Message = fmt.Sprintf("Error unmarshalling k8s event: %v", err)
-		return response, nil
+	if err := json.Unmarshal(request.EventJSON, &event); err != nil {
+		return nil, grpcstatus.Errorf(codes.InvalidArgument, "failed to unmarshal k8s event: %v", err)
 	}
 
-	// get vmi and record event
 	involvedObj := event.InvolvedObject
+	key := involvedObj.Namespace + "/" + involvedObj.Name
 
-	if obj, exists, err := n.vmiStore.GetByKey(involvedObj.Namespace + "/" + involvedObj.Name); err != nil {
-		response.Success = false
-		response.Message = fmt.Sprintf("Error getting VMI: %v", err)
+	if obj, exists, err := n.vmiStore.GetByKey(key); err != nil {
+		log.Log.Errorf("Failed to get VMI from store for key %q: %v", key, err)
+		return nil, grpcstatus.Errorf(codes.Internal, "failed to get VMI: %v", err)
 	} else if !exists || obj.(*v1.VirtualMachineInstance).UID != involvedObj.UID {
-		response.Success = false
-		response.Message = "VMI not found"
+		log.Log.Warningf("VMI not found or UID mismatch for key %q (expected UID=%s)", key, involvedObj.UID)
+		return nil, grpcstatus.Errorf(codes.NotFound, "VMI not found")
 	} else {
 		vmi := obj.(*v1.VirtualMachineInstance)
 		n.recorder.Event(vmi, event.Type, event.Reason, event.Message)
 	}
-	return response, nil
+	return &notifyv1.Response{Success: true}, nil
 }
 
 func RunServer(virtShareDir string, stopChan <-chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store, watchInterval ...time.Duration) error {
