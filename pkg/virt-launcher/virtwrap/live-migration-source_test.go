@@ -1889,3 +1889,20 @@ var _ = Describe("migratableDomXML", func() {
 		Expect(newXML).To(Equal(expectedXML))
 	})
 })
+
+var _ = Describe("newDowntimeTuningConfig", func() {
+	It("returns nil when DowntimeTuning is absent", func() {
+		Expect(newDowntimeTuningConfig(300, nil)).To(BeNil())
+	})
+
+	It("applies defaults and clamps InitialMs to MaxDowntimeMs", func() {
+		cfg := newDowntimeTuningConfig(100, &v1.DowntimeTuningOptions{
+			InitialMs: pointer.P(int64(5000)),
+		})
+		Expect(cfg).ToNot(BeNil())
+		Expect(cfg.InitialMs).To(Equal(uint64(100)), "InitialMs should be clamped to MaxDowntimeMs")
+		Expect(cfg.Steps).To(Equal(int(defaultDowntimeSteps)))
+		Expect(cfg.StartAfterIteration).To(Equal(uint64(defaultStartAfterIteration)))
+		Expect(cfg.CooldownSeconds).To(Equal(int(defaultCooldownSeconds)))
+	})
+})

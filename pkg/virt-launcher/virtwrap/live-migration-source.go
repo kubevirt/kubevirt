@@ -65,6 +65,21 @@ const (
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
 )
 
+const (
+	defaultInitialDowntimeMs   int64 = 150
+	defaultDowntimeSteps       int32 = 7
+	defaultStartAfterIteration int64 = 3
+	defaultCooldownSeconds     int32 = 10
+)
+
+type downtimeTuningConfig struct {
+	MaxDowntimeMs       uint64
+	InitialMs           uint64
+	Steps               int
+	StartAfterIteration uint64
+	CooldownSeconds     int
+}
+
 type migrationDisks struct {
 	shared         map[string]bool
 	generated      map[string]bool
@@ -92,6 +107,10 @@ type migrationMonitor struct {
 
 	stallDetector *stallDetector
 	logger        *log.FilteredLogger
+
+	downtimeTuning    *downtimeTuningConfig
+	currentDowntimeMs uint64
+	lastTunedAt       time.Time
 
 	// TODO: fields used by legacy stall detector; to be removed
 	lastProgressUpdate int64
@@ -486,7 +505,80 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		}
 	}
 
+	monitor.downtimeTuning = newDowntimeTuningConfig(options.MaxDowntimeMs, options.DowntimeTuning)
+	if monitor.downtimeTuning != nil {
+		monitor.logger.Infof("downtime tuning enabled: initial=%dms steps=%d startAfterIteration=%d cooldown=%ds ceiling=%dms",
+			monitor.downtimeTuning.InitialMs, monitor.downtimeTuning.Steps,
+			monitor.downtimeTuning.StartAfterIteration, monitor.downtimeTuning.CooldownSeconds,
+			monitor.downtimeTuning.MaxDowntimeMs)
+	}
+
 	return monitor
+}
+
+func newDowntimeTuningConfig(maxDowntimeMs uint64, dt *v1.DowntimeTuningOptions) *downtimeTuningConfig {
+	if dt == nil {
+		return nil
+	}
+
+	cfg := &downtimeTuningConfig{
+		MaxDowntimeMs:       maxDowntimeMs,
+		InitialMs:           uint64(defaultInitialDowntimeMs),
+		Steps:               int(defaultDowntimeSteps),
+		StartAfterIteration: uint64(defaultStartAfterIteration),
+		CooldownSeconds:     int(defaultCooldownSeconds),
+	}
+	if dt.InitialMs != nil && *dt.InitialMs >= 0 {
+		cfg.InitialMs = uint64(*dt.InitialMs)
+	}
+	if dt.Steps != nil {
+		cfg.Steps = max(int(*dt.Steps), 1)
+	}
+	if dt.StartAfterIteration != nil && *dt.StartAfterIteration >= 0 {
+		cfg.StartAfterIteration = uint64(*dt.StartAfterIteration)
+	}
+	if dt.CooldownSeconds != nil {
+		cfg.CooldownSeconds = max(int(*dt.CooldownSeconds), 1)
+	}
+	if cfg.InitialMs > cfg.MaxDowntimeMs {
+		cfg.InitialMs = cfg.MaxDowntimeMs
+	}
+	return cfg
+}
+
+func (m *migrationMonitor) tuneDowntime(dom cli.VirDomain, stats *libvirt.DomainJobInfo, logger *log.FilteredLogger) {
+	cfg := m.downtimeTuning
+	if cfg == nil {
+		return
+	}
+
+	var newDowntime uint64
+	switch {
+	case m.currentDowntimeMs == 0:
+		m.currentDowntimeMs = migrationutils.QEMUDefaultTargetDowntimeMS
+		newDowntime = cfg.InitialMs
+	case stats == nil || !stats.MemIterationSet:
+		return
+	case stats.MemIteration < cfg.StartAfterIteration:
+		return
+	case time.Since(m.lastTunedAt) < time.Duration(cfg.CooldownSeconds)*time.Second:
+		return
+	default:
+		step := max((cfg.MaxDowntimeMs-cfg.InitialMs)/uint64(cfg.Steps), 1)
+		newDowntime = min(m.currentDowntimeMs+step, cfg.MaxDowntimeMs)
+		if newDowntime <= m.currentDowntimeMs {
+			return
+		}
+	}
+
+	if err := dom.MigrateSetMaxDowntime(newDowntime, 0); err != nil {
+		logger.Reason(err).Warningf("downtime tuning: failed to set max_downtime to %dms", newDowntime)
+		return
+	}
+	logger.V(2).Infof("downtime tuning: max_downtime %dms -> %dms (ceiling=%dms)",
+		m.currentDowntimeMs, newDowntime, cfg.MaxDowntimeMs)
+	m.currentDowntimeMs = newDowntime
+	m.lastTunedAt = time.Now()
 }
 
 func (m *migrationMonitor) isMigrationPostCopy() bool {
@@ -834,6 +926,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		m.handleStallDetection(dom, stats, elapsedNs, isIterationBoundary, logger)
 	} else {
 		// TODO: to be removed once stall detection graduates
+		m.tuneDowntime(dom, stats, logger)
 		m.handleLegacyConvergence(dom, elapsedNs, logger)
 	}
 }

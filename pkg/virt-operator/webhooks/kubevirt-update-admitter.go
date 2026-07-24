@@ -582,11 +582,12 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 			oldMaxDowntimeMs = oldConfig.MigrationConfiguration.MaxDowntimeMs
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) {
+			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) &&
+			!hasFeatureGateEnabled(newConfig, featuregate.MigrationDowntimeTuning) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", featuregate.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
 			})
 		}
 	}

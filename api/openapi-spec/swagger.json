@@ -15038,6 +15038,32 @@
      }
     }
    },
+   "v1.DowntimeTuningOptions": {
+    "description": "DowntimeTuningOptions controls how virt-launcher gradually increases QEMU's max_downtime during live migration to help convergence.",
+    "type": "object",
+    "properties": {
+     "cooldownSeconds": {
+      "description": "CooldownSeconds is the minimum interval in seconds between successive downtime increases. Defaults to 10.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "initialMs": {
+      "description": "InitialMs is the initial max_downtime value in milliseconds set at the start of migration. Tuning steps increase from this value. Defaults to 150.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "startAfterIteration": {
+      "description": "StartAfterIteration is the memory copy iteration after which downtime tuning begins. Defaults to 3.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "steps": {
+      "description": "Steps is the number of equal increments used to ramp from InitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.",
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
    "v1.DownwardAPIVolumeSource": {
     "description": "DownwardAPIVolumeSource represents a volume containing downward API info.",
     "type": "object",
@@ -15136,6 +15162,10 @@
      "compression": {
       "description": "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
       "type": "string"
+     },
+     "downtimeTuning": {
+      "description": "DowntimeTuning configures iteration-aware downtime ramping for live migration convergence.",
+      "$ref": "#/definitions/v1.DowntimeTuningOptions"
      },
      "stallDetector": {
       "$ref": "#/definitions/v1.StallDetectorOptions"

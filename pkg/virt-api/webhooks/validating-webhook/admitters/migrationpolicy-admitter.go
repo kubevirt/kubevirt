@@ -84,11 +84,32 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			}
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, spec.MaxDowntimeMs) &&
-			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
+			!admitter.clusterConfig.MigrationStallDetectionEnabled() &&
+			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", featuregate.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
 				Field:   sourceField.Child("maxDowntimeMs").String(),
+			})
+		}
+	}
+
+	if spec.ExperimentalMigrationOptions != nil && spec.ExperimentalMigrationOptions.DowntimeTuning != nil {
+		var oldDowntimeTuning any
+		if ar.Request.OldObject.Raw != nil {
+			oldPolicy := &migrationsv1.MigrationPolicy{}
+			if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPolicy); err == nil {
+				if oldPolicy.Spec.ExperimentalMigrationOptions != nil {
+					oldDowntimeTuning = oldPolicy.Spec.ExperimentalMigrationOptions.DowntimeTuning
+				}
+			}
+		}
+		if !equality.Semantic.DeepEqual(oldDowntimeTuning, spec.ExperimentalMigrationOptions.DowntimeTuning) &&
+			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("experimental.downtimeTuning cannot be modified without enabling the %s feature gate", featuregate.MigrationDowntimeTuning),
+				Field:   sourceField.Child("experimental", "downtimeTuning").String(),
 			})
 		}
 	}

@@ -4149,6 +4149,39 @@ var CRDsValidation map[string]string = map[string]string{
               - none
               - zstd
               type: string
+            downtimeTuning:
+              description: |-
+                DowntimeTuning configures iteration-aware downtime ramping for live
+                migration convergence.
+              properties:
+                cooldownSeconds:
+                  description: |-
+                    CooldownSeconds is the minimum interval in seconds
+                    between successive downtime increases. Defaults to 10.
+                  format: int32
+                  minimum: 1
+                  type: integer
+                initialMs:
+                  description: |-
+                    InitialMs is the initial max_downtime value in milliseconds
+                    set at the start of migration. Tuning steps increase from this value.
+                    Defaults to 150.
+                  format: int64
+                  type: integer
+                startAfterIteration:
+                  description: |-
+                    StartAfterIteration is the memory copy iteration after which
+                    downtime tuning begins. Defaults to 3.
+                  format: int64
+                  type: integer
+                steps:
+                  description: |-
+                    Steps is the number of equal increments used to ramp from
+                    InitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.
+                  format: int32
+                  minimum: 1
+                  type: integer
+              type: object
             stallDetector:
               properties:
                 completionTimeoutFactor:
@@ -15577,6 +15610,39 @@ var CRDsValidation map[string]string = map[string]string{
                       - none
                       - zstd
                       type: string
+                    downtimeTuning:
+                      description: |-
+                        DowntimeTuning configures iteration-aware downtime ramping for live
+                        migration convergence.
+                      properties:
+                        cooldownSeconds:
+                          description: |-
+                            CooldownSeconds is the minimum interval in seconds
+                            between successive downtime increases. Defaults to 10.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        initialMs:
+                          description: |-
+                            InitialMs is the initial max_downtime value in milliseconds
+                            set at the start of migration. Tuning steps increase from this value.
+                            Defaults to 150.
+                          format: int64
+                          type: integer
+                        startAfterIteration:
+                          description: |-
+                            StartAfterIteration is the memory copy iteration after which
+                            downtime tuning begins. Defaults to 3.
+                          format: int64
+                          type: integer
+                        steps:
+                          description: |-
+                            Steps is the number of equal increments used to ramp from
+                            InitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                      type: object
                     stallDetector:
                       properties:
                         completionTimeoutFactor:
@@ -16265,6 +16331,39 @@ var CRDsValidation map[string]string = map[string]string{
                       - none
                       - zstd
                       type: string
+                    downtimeTuning:
+                      description: |-
+                        DowntimeTuning configures iteration-aware downtime ramping for live
+                        migration convergence.
+                      properties:
+                        cooldownSeconds:
+                          description: |-
+                            CooldownSeconds is the minimum interval in seconds
+                            between successive downtime increases. Defaults to 10.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        initialMs:
+                          description: |-
+                            InitialMs is the initial max_downtime value in milliseconds
+                            set at the start of migration. Tuning steps increase from this value.
+                            Defaults to 150.
+                          format: int64
+                          type: integer
+                        startAfterIteration:
+                          description: |-
+                            StartAfterIteration is the memory copy iteration after which
+                            downtime tuning begins. Defaults to 3.
+                          format: int64
+                          type: integer
+                        steps:
+                          description: |-
+                            Steps is the number of equal increments used to ramp from
+                            InitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                      type: object
                     stallDetector:
                       properties:
                         completionTimeoutFactor:

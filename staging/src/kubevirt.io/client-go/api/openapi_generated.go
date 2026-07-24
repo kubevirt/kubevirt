@@ -407,6 +407,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DiskVerification":                                                        schema_kubevirtio_api_core_v1_DiskVerification(ref),
 		"kubevirt.io/api/core/v1.DomainMemoryDumpInfo":                                                    schema_kubevirtio_api_core_v1_DomainMemoryDumpInfo(ref),
 		"kubevirt.io/api/core/v1.DomainSpec":                                                              schema_kubevirtio_api_core_v1_DomainSpec(ref),
+		"kubevirt.io/api/core/v1.DowntimeTuningOptions":                                                   schema_kubevirtio_api_core_v1_DowntimeTuningOptions(ref),
 		"kubevirt.io/api/core/v1.DownwardAPIVolumeSource":                                                 schema_kubevirtio_api_core_v1_DownwardAPIVolumeSource(ref),
 		"kubevirt.io/api/core/v1.DownwardMetrics":                                                         schema_kubevirtio_api_core_v1_DownwardMetrics(ref),
 		"kubevirt.io/api/core/v1.DownwardMetricsVolumeSource":                                             schema_kubevirtio_api_core_v1_DownwardMetricsVolumeSource(ref),
@@ -20836,6 +20837,47 @@ func schema_kubevirtio_api_core_v1_DomainSpec(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DowntimeTuningOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DowntimeTuningOptions controls how virt-launcher gradually increases QEMU's max_downtime during live migration to help convergence.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"initialMs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InitialMs is the initial max_downtime value in milliseconds set at the start of migration. Tuning steps increase from this value. Defaults to 150.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"steps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Steps is the number of equal increments used to ramp from InitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"startAfterIteration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartAfterIteration is the memory copy iteration after which downtime tuning begins. Defaults to 3.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"cooldownSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CooldownSeconds is the minimum interval in seconds between successive downtime increases. Defaults to 10.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DownwardAPIVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21029,6 +21071,12 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 							Ref: ref("kubevirt.io/api/core/v1.StallDetectorOptions"),
 						},
 					},
+					"downtimeTuning": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DowntimeTuning configures iteration-aware downtime ramping for live migration convergence.",
+							Ref:         ref("kubevirt.io/api/core/v1.DowntimeTuningOptions"),
+						},
+					},
 					"compression": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
@@ -21040,7 +21088,7 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.StallDetectorOptions"},
+			"kubevirt.io/api/core/v1.DowntimeTuningOptions", "kubevirt.io/api/core/v1.StallDetectorOptions"},
 	}
 }
 
