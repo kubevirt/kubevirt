@@ -202,11 +202,13 @@ type DomainManager interface {
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	GetGuestAgentVersion() string
+	EnableAgentData(dataKey string, enabled bool) error
 	GetAgentData(dataKey string) (string, error)
 }
 
 type LibvirtDomainManager struct {
-	virConn cli.Connection
+	virConn    cli.Connection
+	domainName string
 
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
@@ -236,6 +238,7 @@ type LibvirtDomainManager struct {
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 	agentDataCaches           map[string]*virtcache.TimeDefinedCache[string]
+	agentDataCacheLock        sync.RWMutex
 
 	// Device aliasas are updated only through hotplug events and SyncVMI
 	devAliasMap  map[string]string
@@ -368,6 +371,7 @@ func newLibvirtDomainManager(
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
+		domainName:           domainName,
 		virtShareDir:         virtShareDir,
 		ephemeralDiskDir:     ephemeralDiskDir,
 		paused: pausedVMIs{
@@ -429,16 +433,6 @@ func newLibvirtDomainManager(
 
 	if vmStatsCollectorEnabled {
 		manager.agentDataCaches = make(map[string]*virtcache.TimeDefinedCache[string], len(agentDataCommandTTLs))
-		for cmd, ttl := range agentDataCommandTTLs {
-			reCalcFunc := func() (string, error) {
-				return connection.QemuAgentCommand(`{"execute":"`+string(cmd)+`"}`, domainName)
-			}
-			cache, err := virtcache.NewTimeDefinedCache(ttl, true, reCalcFunc)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create agent data cache for %s: %w", cmd, err)
-			}
-			manager.agentDataCaches[cmd] = cache
-		}
 	}
 
 	return &manager, nil
@@ -2707,12 +2701,54 @@ func (l *LibvirtDomainManager) GetGuestAgentVersion() string {
 	return l.agentData.GetGA().Version
 }
 
+func (l *LibvirtDomainManager) EnableAgentData(dataKey string, enabled bool) error {
+	if l.agentDataCaches == nil {
+		return fmt.Errorf("agent data caches not initialized")
+	}
+
+	if !enabled {
+		l.agentDataCacheLock.Lock()
+		delete(l.agentDataCaches, dataKey)
+		l.agentDataCacheLock.Unlock()
+		return nil
+	}
+
+	l.agentDataCacheLock.RLock()
+	_, exists := l.agentDataCaches[dataKey]
+	l.agentDataCacheLock.RUnlock()
+	if exists {
+		return nil
+	}
+
+	ttl, ok := agentDataCommandTTLs[dataKey]
+	if !ok {
+		return fmt.Errorf("agent data command %s undefined", dataKey)
+	}
+
+	reCalcFunc := func() (string, error) {
+		return l.virConn.QemuAgentCommand(`{"execute":"`+dataKey+`"}`, l.domainName)
+	}
+
+	cache, err := virtcache.NewTimeDefinedCache(ttl, true, reCalcFunc)
+	if err != nil {
+		return fmt.Errorf("failed to create agent data cache for %s: %w", dataKey, err)
+	}
+
+	l.agentDataCacheLock.Lock()
+	l.agentDataCaches[dataKey] = cache
+	l.agentDataCacheLock.Unlock()
+
+	return nil
+}
+
 func (l *LibvirtDomainManager) GetAgentData(dataKey string) (string, error) {
 	if l.agentDataCaches == nil {
 		return "", fmt.Errorf("agent data caches not initialized")
 	}
 
+	l.agentDataCacheLock.RLock()
 	cache, exists := l.agentDataCaches[dataKey]
+	l.agentDataCacheLock.RUnlock()
 	if !exists {
 		return "", fmt.Errorf("cache not found for data key: %s", dataKey)
 	}

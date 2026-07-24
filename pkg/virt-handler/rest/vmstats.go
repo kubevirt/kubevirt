@@ -162,6 +162,49 @@ func (h *VMStatsHandler) GetVMStats(request *restful.Request, response *restful.
 	response.WriteEntity(results)
 }
 
+func (h *VMStatsHandler) EnableVMStats(request *restful.Request, response *restful.Response) {
+	if !h.clusterConfig.VMStatsCollectorEnabled() {
+		response.WriteError(http.StatusForbidden, fmt.Errorf("VMStatsCollector feature gate is not enabled"))
+		return
+	}
+
+	statsRequest := &cmdv1.VMStatsRequest{}
+	if err := request.ReadEntity(statsRequest); err != nil {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to parse request body: %v", err))
+		return
+	}
+
+	vmi, code, err := getVMI(request, h.vmiStore)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		response.WriteError(code, err)
+		return
+	}
+
+	sockFile, err := cmdclient.FindSocket(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client socket")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to connect to cmd client socket")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	defer client.Close()
+
+	if err := client.EnableVMStats(statsRequest); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to enable VM stats")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+}
+
 func buildVMStatsRequestFromQuery(request *restful.Request) *cmdv1.VMStatsRequest {
 	query := request.Request.URL.Query()
 	req := &cmdv1.VMStatsRequest{}

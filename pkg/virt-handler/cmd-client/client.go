@@ -130,6 +130,7 @@ type LauncherClient interface {
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
 	RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
 	GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error)
+	EnableVMStats(request *cmdv1.VMStatsRequest) error
 }
 
 type VirtLauncherClient struct {
@@ -548,6 +549,14 @@ func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.V
 	result.GuestGetMemoryBlocks = vmstatsResponse.GetGuestGetMemoryBlocks().GetMessage()
 
 	return result, err
+}
+
+func (c *VirtLauncherClient) EnableVMStats(request *cmdv1.VMStatsRequest) error {
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	response, err := c.v1client.EnableVMStats(ctx, request)
+	return handleError(err, "EnableVMStats", response)
 }
 
 func (c *VirtLauncherClient) GetQemuVersion() (string, error) {

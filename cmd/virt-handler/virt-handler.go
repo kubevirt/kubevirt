@@ -673,6 +673,10 @@ func (app *virtHandlerApp) runVMStatsServer(vmStatsHandler *rest.VMStatsHandler)
 		Produces(restful.MIME_JSON).
 		Consumes(restful.MIME_JSON).
 		Returns(http.StatusOK, "OK", map[string]*rest.VMStatsResult{}))
+	webService.Route(webService.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vmstats/enable").
+		To(vmStatsHandler.EnableVMStats).
+		Produces(restful.MIME_JSON).
+		Consumes(restful.MIME_JSON))
 	mux.Add(webService)
 	server := http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.vmStatsServerPort),
