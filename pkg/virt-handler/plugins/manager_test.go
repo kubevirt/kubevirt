@@ -113,6 +113,24 @@ var _ = Describe("NodeHookManager", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("should skip plugin when plugin-level condition does not match", func() {
+			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
+			plugin.Spec.Condition = "vmi.metadata.name == 'nonexistent'"
+			Expect(pluginStore.Add(plugin)).To(Succeed())
+
+			Expect(manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")).To(Succeed())
+		})
+
+		It("should attempt to call plugin when plugin-level condition matches", func() {
+			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
+			plugin.Spec.Condition = "vmi.metadata.name == 'test-vmi'"
+			Expect(pluginStore.Add(plugin)).To(Succeed())
+
+			err := manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to dial plugin"))
+		})
+
 		It("should process plugins in alphabetical order", func() {
 			pluginC := newPlugin("charlie", pluginv1alpha1.NodeHookPreVMStart)
 			pluginC.Spec.NodeHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyFail
