@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"reflect"
 
+	. "github.com/onsi/ginkgo/v2"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,6 +16,7 @@ import (
 )
 
 func AddLabelToNamespace(client kubecli.KubevirtClient, namespace, key, value string) error {
+	DeferCleanup(RemoveLabelFromNamespace, client, namespace, key)
 	return PatchNamespace(client, namespace, func(ns *v1.Namespace) {
 		if ns.Labels == nil {
 			ns.Labels = map[string]string{}
