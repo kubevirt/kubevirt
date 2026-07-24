@@ -20,11 +20,14 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -54,6 +57,11 @@ const (
 	ServiceAccount Type = "serviceaccount"
 
 	mountBaseDir = "/var/run/kubevirt-private"
+)
+
+var (
+	sourceReadyTimeout      = 5 * time.Second
+	sourceReadyPollInterval = 200 * time.Millisecond
 )
 
 var (
@@ -190,6 +198,48 @@ type volumeInfo interface {
 	getSourcePath(*v1.Volume) string
 	getIsoPath(*v1.Volume) string
 	getLabel(*v1.Volume) string
+}
+
+// WaitForVolumeMountSources polls until all config volume source
+// directories (ConfigMap, Secret, DownwardAPI, Sysprep) are present
+// on the filesystem. Projected volumes may not be available immediately
+// after the pod starts due to asynchronous kubelet propagation.
+func WaitForVolumeMountSources(vmi *v1.VirtualMachineInstance) error {
+	for i := range vmi.Spec.Volumes {
+		vol := &vmi.Spec.Volumes[i]
+		var sourcePath string
+		switch {
+		case vol.ConfigMap != nil:
+			sourcePath = GetConfigMapSourcePath(vol.Name)
+		case vol.Secret != nil:
+			sourcePath = GetSecretSourcePath(vol.Name)
+		case vol.DownwardAPI != nil:
+			sourcePath = GetDownwardAPISourcePath(vol.Name)
+		case vol.Sysprep != nil:
+			sourcePath = GetSysprepSourcePath(vol.Name)
+		default:
+			continue
+		}
+		if err := waitForSourceReady(sourcePath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func waitForSourceReady(path string) error {
+	if err := virtwait.PollImmediately(sourceReadyPollInterval, sourceReadyTimeout, func(_ context.Context) (bool, error) {
+		if _, err := os.Stat(path); err == nil {
+			return true, nil
+		} else if os.IsNotExist(err) {
+			return false, nil
+		} else {
+			return false, fmt.Errorf("checking volume source %s: %w", path, err)
+		}
+	}); err != nil {
+		return fmt.Errorf("volume source %s not ready after %v: %w", path, sourceReadyTimeout, err)
+	}
+	return nil
 }
 
 func createIsoDisksForConfigVolumes(vmi *v1.VirtualMachineInstance, emptyIso bool, info volumeInfo) error {
