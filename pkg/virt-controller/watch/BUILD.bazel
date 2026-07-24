@@ -43,6 +43,7 @@ go_library(
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-controller/watch/vm:go_default_library",
         "//pkg/virt-controller/watch/vmi:go_default_library",
+        "//pkg/virt-controller/watch/vsock:go_default_library",
         "//pkg/virt-controller/watch/workload-updater:go_default_library",
         "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",

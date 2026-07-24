@@ -252,6 +252,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
 			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+			&fakeAllocator{},
 			[]string{},
 			[]string{},
 		)
@@ -5623,8 +5624,10 @@ func (alc *fakeAllocator) Sync(_ []*virtv1.VirtualMachineInstance) {
 	alc.calls = append(alc.calls, "Sync")
 }
 
-func (alc *fakeAllocator) Allocate(_ *virtv1.VirtualMachineInstance) error {
+func (alc *fakeAllocator) Allocate(vmi *virtv1.VirtualMachineInstance) error {
 	alc.calls = append(alc.calls, "Allocate")
+	cid := uint32(3)
+	vmi.Status.VSOCKCID = &cid
 	return nil
 }
 

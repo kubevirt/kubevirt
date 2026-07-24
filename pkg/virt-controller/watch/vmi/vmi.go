@@ -45,7 +45,6 @@ import (
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 )
 
 const (
@@ -74,6 +73,7 @@ func NewController(templateService templateService,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
+	vsockCIDAllocator vsockAllocator,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
@@ -99,7 +99,7 @@ func NewController(templateService templateService,
 		cdiConfigStore:                    cdiConfigInformer.GetStore(),
 		clusterConfig:                     clusterConfig,
 		topologyHinter:                    topologyHinter,
-		cidsMap:                           vsock.NewCIDsMap(),
+		cidsMap:                           vsockCIDAllocator,
 		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
 		storageAnnotationsGenerator:       storageAnnotationsGenerator,
@@ -210,6 +210,12 @@ type migrationEvaluator interface {
 	Evaluate(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) k8sv1.ConditionStatus
 }
 
+type vsockAllocator interface {
+	Sync(vmis []*virtv1.VirtualMachineInstance)
+	Allocate(vmi *virtv1.VirtualMachineInstance) error
+	Remove(key string)
+}
+
 type Controller struct {
 	templateService                   templateService
 	clientset                         kubecli.KubevirtClient
@@ -228,7 +234,7 @@ type Controller struct {
 	cdiStore                          cache.Store
 	cdiConfigStore                    cache.Store
 	clusterConfig                     *virtconfig.ClusterConfig
-	cidsMap                           vsock.Allocator
+	cidsMap                           vsockAllocator
 	backendStorage                    *backendstorage.BackendStorage
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
