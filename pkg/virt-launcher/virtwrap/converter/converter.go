@@ -906,7 +906,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 		Source: &api.DiskSource{},
 	}
 
-	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+	source := containerdisk.GetDiskTargetPathFromLauncherView(volumeName)
 	if info := c.DisksInfo[volumeName]; info != nil {
 		disk.BackingStore.Format.Type = info.Format
 	} else {
@@ -1190,6 +1190,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	domain.Spec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
 	return nil
 }
 

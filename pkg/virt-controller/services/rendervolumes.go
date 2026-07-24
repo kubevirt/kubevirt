@@ -240,10 +240,10 @@ func withVMIConfigVolumes(vmiDisks []v1.Disk, vmiVolumes []v1.Volume) VolumeRend
 
 func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		for i, volume := range vmi.Spec.Volumes {
+		for _, volume := range vmi.Spec.Volumes {
 			if volume.ContainerDisk != nil {
 				renderer.addContainerDiskVolume(volume)
-				renderer.addContainerDiskVolumeMount(volume, i)
+				renderer.addContainerDiskVolumeMount(volume)
 			}
 		}
 
@@ -741,10 +741,10 @@ func (vr *VolumeRenderer) addContainerDiskVolume(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume, volumeIndex int) {
+func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: filepath.Join(filepath.Join(util.VirtImageVolumeDir), fmt.Sprintf("disk_%d", volumeIndex)),
+		MountPath: filepath.Join(util.VirtImageVolumeDir, fmt.Sprintf("disk_%s", volume.Name)),
 		ReadOnly:  true,
 	})
 }

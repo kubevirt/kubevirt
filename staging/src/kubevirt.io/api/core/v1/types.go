@@ -1471,6 +1471,11 @@ const (
 	// Remove the annotation (or set to a falsy value) to resume normal probe behavior.
 	PauseGuestAgentProbesAnnotation string = "kubevirt.io/pause-guest-agent-probes"
 
+	// ContainerDiskPathsAnnotation maps volume name to the actual container disk
+	// file path for VMs using legacy index-based naming (pre-v2).
+	// Written by source virt-handler, consumed by target virt-handler on migration.
+	ContainerDiskPathsAnnotation = "kubevirt.io/containerdisk-paths"
+
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
 	// This label will be applied to the following virt pods:

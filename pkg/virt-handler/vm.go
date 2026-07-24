@@ -1077,8 +1077,14 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	if err = c.cbtHandler.HandleChangedBlockTracking(vmi, domain); err != nil {
 		return err
 	}
-	err = c.netStat.UpdateStatus(vmi, domain)
-	return err
+	if err := c.netStat.UpdateStatus(vmi, domain); err != nil {
+		return err
+	}
+
+	if err := c.syncContainerDiskPathAnnotation(vmi, domain); err != nil {
+		return fmt.Errorf("failed to sync container disk path annotation: %w", err)
+	}
+	return nil
 }
 
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {

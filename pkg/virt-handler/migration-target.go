@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -44,11 +45,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-
+	cdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -57,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -816,6 +818,10 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 		return err
 	}
 
+	if err := c.setupLegacyContainerDiskBindMounts(vmi); err != nil {
+		return fmt.Errorf("failed to set up legacy container disk bind mounts: %v", err)
+	}
+
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
 		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
@@ -830,6 +836,78 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 	return nil
 }
 
+func (c *MigrationTargetController) setupLegacyContainerDiskBindMounts(vmi *v1.VirtualMachineInstance) error {
+	annotation, ok := vmi.Annotations[v1.ContainerDiskPathsAnnotation]
+	if !ok {
+		return nil
+	}
+
+	var pathMap map[string]string
+	if err := json.Unmarshal([]byte(annotation), &pathMap); err != nil {
+		return fmt.Errorf("failed to parse %s annotation: %v", v1.ContainerDiskPathsAnnotation, err)
+	}
+
+	diskTargetDir, err := cdisk.GetDiskTargetDirFromHostView(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to get disk target dir: %v", err)
+	}
+
+	for volumeName, oldPath := range pathMap {
+		newStyleName := cdisk.GetDiskTargetName(volumeName)
+
+		newStyleFile, err := safepath.JoinNoFollow(diskTargetDir, newStyleName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve new-style path for volume %s: %v", volumeName, err)
+		}
+
+		oldStyleBase := filepath.Base(oldPath)
+
+		// Create the old-style file as a bind mount target if it doesn't exist
+		oldStyleFile, err := safepath.JoinNoFollow(diskTargetDir, oldStyleBase)
+		if err != nil {
+			if !goerror.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("failed to resolve legacy path for volume %s: %v", volumeName, err)
+			}
+			// File genuinely doesn't exist — create it as a bind mount target
+			if err2 := newStyleFile.ExecuteNoFollow(func(newSafe string) error {
+				f, err := os.OpenFile(
+					filepath.Join(filepath.Dir(newSafe), oldStyleBase),
+					os.O_CREATE|os.O_RDONLY, 0644)
+				if err != nil && !goerror.Is(err, os.ErrExist) {
+					return err
+				}
+				if f != nil {
+					f.Close()
+				}
+				return nil
+			}); err2 != nil {
+				return fmt.Errorf("failed to create bind mount target for %s: %v", oldStyleBase, err2)
+			}
+			oldStyleFile, err = safepath.JoinNoFollow(diskTargetDir, oldStyleBase)
+			if err != nil {
+				return fmt.Errorf("failed to resolve legacy path after creation for volume %s: %v", volumeName, err)
+			}
+		}
+
+		if err := newStyleFile.ExecuteNoFollow(func(newSafe string) error {
+			return oldStyleFile.ExecuteNoFollow(func(oldSafe string) error {
+				err := unix.Mount(newSafe, oldSafe, "", unix.MS_BIND, "")
+				if err != nil && !goerror.Is(err, unix.EBUSY) {
+					return err
+				}
+				return nil
+			})
+		}); err != nil {
+			return fmt.Errorf("failed to bind mount %s → %s for volume %s: %v",
+				newStyleName, oldStyleBase, volumeName, err)
+		}
+
+		c.logger.Object(vmi).Infof("Bind mounted legacy container disk: %s to %s (volume %s)",
+			newStyleName, oldStyleBase, volumeName)
+	}
+	return nil
+}
+
 func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachineInstance) error {
 	// The VolumeStatus is used to retrieve additional information for the volume handling.
 	// For example, for filesystem PVC, the information is used to create a right size image.
@@ -840,6 +918,14 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 	err := hostdisk.ReplacePVCByHostDisk(vmiCopy)
 	if err != nil {
 		return err
+	}
+
+	// Tear down legacy container disk bind mounts before unmounting the underlying disks.
+	// These bind mounts point old-style index-based paths (disk_2.img) to new-style
+	// volume-name-based paths (disk_myvolume.img) and must be removed first.
+	if err := c.teardownLegacyContainerDiskBindMounts(originalVMI); err != nil {
+		c.logger.Object(originalVMI).Warningf(
+			"failed to tear down legacy container disk bind mounts: %v", err)
 	}
 
 	if err = c.containerDiskMounter.Unmount(vmiCopy); err != nil {
@@ -857,6 +943,47 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 		}
 	}
 
+	return nil
+}
+
+func (c *MigrationTargetController) teardownLegacyContainerDiskBindMounts(vmi *v1.VirtualMachineInstance) error {
+	annotation, ok := vmi.Annotations[v1.ContainerDiskPathsAnnotation]
+	if !ok {
+		return nil
+	}
+
+	var pathMap map[string]string
+	if err := json.Unmarshal([]byte(annotation), &pathMap); err != nil {
+		return fmt.Errorf("failed to parse %s annotation: %v", v1.ContainerDiskPathsAnnotation, err)
+	}
+
+	diskTargetDir, err := cdisk.GetDiskTargetDirFromHostView(vmi)
+	if err != nil {
+		// If the dir doesn't exist, nothing to unmount
+		if goerror.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to get disk target dir for teardown: %v", err)
+	}
+
+	for volumeName, oldPath := range pathMap {
+		oldStyleBase := filepath.Base(oldPath)
+		oldStyleFile, err := safepath.JoinNoFollow(diskTargetDir, oldStyleBase)
+		if err != nil {
+			// File doesn't exist, nothing to unmount
+			continue
+		}
+		if err := oldStyleFile.ExecuteNoFollow(func(oldSafe string) error {
+			err := unix.Unmount(oldSafe, unix.MNT_DETACH)
+			if err != nil && !goerror.Is(err, unix.EINVAL) && !goerror.Is(err, unix.ENOENT) {
+				return err
+			}
+			return nil
+		}); err != nil {
+			c.logger.Object(vmi).Warningf("failed to unmount legacy container disk bind mount %s for volume %s: %v",
+				oldStyleBase, volumeName, err)
+		}
+	}
 	return nil
 }
 

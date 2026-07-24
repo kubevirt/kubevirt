@@ -429,12 +429,13 @@ type Metadata struct {
 }
 
 type KubeVirtMetadata struct {
-	UID              types.UID                 `xml:"uid"`
-	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
-	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
-	Backup           *BackupMetadata           `xml:"backup,omitempty"`
-	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
-	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
+	UID                 types.UID                 `xml:"uid"`
+	GracePeriod         *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
+	Migration           *MigrationMetadata        `xml:"migration,omitempty"`
+	Backup              *BackupMetadata           `xml:"backup,omitempty"`
+	AccessCredential    *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
+	MemoryDump          *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
+	ContainerDiskNaming string                    `xml:"containerDiskNaming,omitempty"`
 }
 
 type AccessCredentialMetadata struct {
