@@ -4466,3 +4466,65 @@ func newValidateStub(statusCauses ...metav1.StatusCause) SpecValidator {
 		return statusCauses
 	}
 }
+
+var _ = Describe("validateHugepagesMemoryRequests", func() {
+	newHugepagesSpec := func(pageSize string, guest *resource.Quantity, requestMemory string) *v1.VirtualMachineInstanceSpec {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Memory = &v1.Memory{
+			Hugepages: &v1.Hugepages{PageSize: pageSize},
+			Guest:     guest,
+		}
+		if requestMemory != "" {
+			spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse(requestMemory),
+			}
+		}
+		return spec
+	}
+
+	It("does not panic and returns no error when guest memory is nil and no memory request is set", func() {
+		spec := newHugepagesSpec("2Mi", nil, "")
+		var causes []metav1.StatusCause
+		Expect(func() {
+			causes = validateHugepagesMemoryRequests(k8sfield.NewPath("spec"), spec)
+		}).ToNot(Panic())
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("accepts a valid page size with a matching memory request", func() {
+		spec := newHugepagesSpec("2Mi", nil, "64Mi")
+		Expect(validateHugepagesMemoryRequests(k8sfield.NewPath("spec"), spec)).To(BeEmpty())
+	})
+
+	It("does not reject a MaxInt64 page size as non-representable", func() {
+		spec := newHugepagesSpec("9223372036854775807", nil, "64Mi")
+		for _, cause := range validateHugepagesMemoryRequests(k8sfield.NewPath("spec"), spec) {
+			Expect(cause.Message).NotTo(ContainSubstring("representable"))
+		}
+	})
+
+	It("accepts a realistic decimal page size that is a whole number of bytes (10.1M = 10,100,000, with a matching request)", func() {
+		spec := newHugepagesSpec("10.1M", nil, "101M")
+		Expect(validateHugepagesMemoryRequests(k8sfield.NewPath("spec"), spec)).To(BeEmpty())
+	})
+
+	DescribeTable("rejects an invalid page size with a field-scoped error instead of panicking or bypassing validation",
+		func(pageSize string) {
+			spec := newHugepagesSpec(pageSize, nil, "64Mi")
+			var causes []metav1.StatusCause
+			Expect(func() {
+				causes = validateHugepagesMemoryRequests(k8sfield.NewPath("spec"), spec)
+			}).ToNot(Panic())
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.domain.memory.hugepages.pageSize"))
+			Expect(causes[0].Message).To(ContainSubstring("representable"))
+		},
+		Entry("zero", "0"),
+		Entry("negative", "-2Mi"),
+		Entry("overflows int64 to zero", "10E"),
+		Entry("overflows int64 aliasing to a small value", "18446744073711648768"),
+		Entry("fractional byte value", "0.1"),
+		Entry("fractional bytes from a binary suffix", "10.1Mi"),
+	)
+})
