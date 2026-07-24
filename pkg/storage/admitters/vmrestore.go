@@ -39,22 +39,25 @@ import (
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+type vmRestoreConfigChecker interface {
+	SnapshotEnabled() bool
+}
 
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
-	Config            *virtconfig.ClusterConfig
-	Client            kubecli.KubevirtClient
-	VMRestoreInformer cache.SharedIndexInformer
+	config            vmRestoreConfigChecker
+	client            kubecli.KubevirtClient
+	vmRestoreInformer cache.SharedIndexInformer
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(config vmRestoreConfigChecker, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
-		Config:            config,
-		Client:            client,
-		VMRestoreInformer: vmRestoreInformer,
+		config:            config,
+		client:            client,
+		vmRestoreInformer: vmRestoreInformer,
 	}
 }
 
@@ -65,7 +68,7 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
+	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Snapshot/Restore feature gate not enabled"))
 	}
 
@@ -134,7 +137,7 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 			}
 		}
 
-		objects, err := admitter.VMRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
+		objects, err := admitter.vmRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
@@ -188,7 +191,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 
 	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
 
-	vmSnapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
+	vmSnapshot, err := admitter.client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
@@ -196,7 +199,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 		return nil, err
 	}
 
-	target, err := admitter.Client.VirtualMachine(namespace).Get(ctx, targetName, metav1.GetOptions{})
+	target, err := admitter.client.VirtualMachine(namespace).Get(ctx, targetName, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -208,7 +211,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 			return nil, fmt.Errorf("snapshot content name is nil in vmSnapshot status")
 		}
 
-		vmSnapshotContent, err := admitter.Client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
+		vmSnapshotContent, err := admitter.client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
