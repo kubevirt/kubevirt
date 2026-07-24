@@ -30,8 +30,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Disk Validation", func() {
@@ -302,7 +300,7 @@ var _ = Describe("Disk Validation", func() {
 
 		DescribeTable("should reject disk with invalid errorPolicy", func(policy string) {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk", ErrorPolicy: pointer.P(v1.DiskErrorPolicy(policy)), DiskDevice: v1.DiskDevice{
+				Name: "testdisk", ErrorPolicy: new(v1.DiskErrorPolicy(policy)), DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{}}})
 
 			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -317,7 +315,7 @@ var _ = Describe("Disk Validation", func() {
 
 		DescribeTable("It should accept a disk with a valid errorPolicy", func(mode v1.DiskErrorPolicy) {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk", ErrorPolicy: pointer.P(mode), DiskDevice: v1.DiskDevice{
+				Name: "testdisk", ErrorPolicy: new(mode), DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{}}})
 
 			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -385,21 +383,21 @@ var _ = Describe("Disk Validation", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 				v1.Disk{
 					Name:              "disk-with-dedicated-io-thread-and-sata",
-					DedicatedIOThread: pointer.P(true),
+					DedicatedIOThread: new(true),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
 						Bus: bus,
 					}},
 				},
 				v1.Disk{
 					Name:              "disk-with-dedicated-io-thread-and-virtio",
-					DedicatedIOThread: pointer.P(true),
+					DedicatedIOThread: new(true),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
 						Bus: v1.DiskBusVirtio,
 					}},
 				},
 				v1.Disk{
 					Name:              "disk-without-dedicated-io-thread-and-with-sata",
-					DedicatedIOThread: pointer.P(false),
+					DedicatedIOThread: new(false),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
 						Bus: v1.DiskBusSATA,
 					}},
@@ -482,7 +480,7 @@ var _ = Describe("Disk Validation", func() {
 					Name: "blockdisk",
 					BlockSize: &v1.BlockSize{
 						MatchVolume: &v1.FeatureState{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					},
 				})
@@ -500,7 +498,7 @@ var _ = Describe("Disk Validation", func() {
 							Physical: 1234,
 						},
 						MatchVolume: &v1.FeatureState{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					},
 				})
@@ -519,7 +517,7 @@ var _ = Describe("Disk Validation", func() {
 							Physical: 4096,
 						},
 						MatchVolume: &v1.FeatureState{
-							Enabled: pointer.P(false),
+							Enabled: new(false),
 						},
 					},
 				})
@@ -555,7 +553,7 @@ var _ = Describe("Disk Validation", func() {
 						Custom: &v1.CustomBlockSize{
 							Logical:            4096,
 							Physical:           4096,
-							DiscardGranularity: pointer.P[uint](512),
+							DiscardGranularity: new(uint(512)),
 						},
 					},
 				})

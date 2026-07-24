@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.Features", func() {
@@ -50,26 +49,26 @@ var _ = Describe("Preference.Features", func() {
 			Features: &v1beta1.FeaturePreferences{
 				PreferredAcpi: &virtv1.FeatureState{},
 				PreferredApic: &virtv1.FeatureAPIC{
-					FeatureState:   virtv1.FeatureState{Enabled: pointer.P(true)},
+					FeatureState:   virtv1.FeatureState{Enabled: new(true)},
 					EndOfInterrupt: false,
 				},
 				PreferredHyperv: &virtv1.FeatureHyperv{
 					Relaxed: &virtv1.FeatureState{},
 					VAPIC:   &virtv1.FeatureState{},
 					Spinlocks: &virtv1.FeatureSpinlocks{
-						FeatureState: virtv1.FeatureState{Enabled: pointer.P(true)},
+						FeatureState: virtv1.FeatureState{Enabled: new(true)},
 						Retries:      &spinLockRetries,
 					},
 					VPIndex: &virtv1.FeatureState{},
 					Runtime: &virtv1.FeatureState{},
 					SyNIC:   &virtv1.FeatureState{},
 					SyNICTimer: &virtv1.SyNICTimer{
-						FeatureState: virtv1.FeatureState{Enabled: pointer.P(true)},
+						FeatureState: virtv1.FeatureState{Enabled: new(true)},
 						Direct:       &virtv1.FeatureState{},
 					},
 					Reset: &virtv1.FeatureState{},
 					VendorID: &virtv1.FeatureVendorID{
-						FeatureState: virtv1.FeatureState{Enabled: pointer.P(true)},
+						FeatureState: virtv1.FeatureState{Enabled: new(true)},
 						VendorID:     "1234",
 					},
 					Frequencies:     &virtv1.FeatureState{},
@@ -102,7 +101,7 @@ var _ = Describe("Preference.Features", func() {
 		vmi.Spec.Domain.Features = &virtv1.Features{
 			Hyperv: &virtv1.FeatureHyperv{
 				EVMCS: &virtv1.FeatureState{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			},
 		}

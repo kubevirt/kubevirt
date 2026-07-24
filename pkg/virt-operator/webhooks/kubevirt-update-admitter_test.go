@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -60,7 +59,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 						DisabledFeatureGates: []string{featuregate.Template},
 					},
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -73,7 +72,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 						FeatureGates: []string{featuregate.Template},
 					},
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -99,7 +98,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-						Enabled: pointer.P(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -123,7 +122,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
 					},
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyManual),
 				},
 			},
 			true,
@@ -131,7 +130,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation enabled by default (Beta)",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyManual),
 				},
 			},
 			false,
@@ -145,7 +144,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should allow when RoleAggregationStrategy is AggregateToDefault without feature gate",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyAggregateToDefault),
 				},
 			},
 			false,
@@ -156,7 +155,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
 					},
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyAggregateToDefault),
 				},
 			},
 			false,
@@ -176,14 +175,14 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should reject when MaxDowntimeMs is newly set without feature gate",
 			&v1.KubeVirtConfiguration{},
 			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: new(uint64(900))},
 			},
 			true,
 		),
 		Entry("should allow when MaxDowntimeMs is set with feature gate",
 			&v1.KubeVirtConfiguration{},
 			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: new(uint64(900))},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
 					FeatureGates: []string{featuregate.MigrationStallDetection},
 				},
@@ -192,19 +191,19 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 		Entry("should allow unrelated update when MaxDowntimeMs is unchanged and feature gate is disabled",
 			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: new(uint64(900))},
 			},
 			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: new(uint64(900))},
 			},
 			false,
 		),
 		Entry("should reject changing MaxDowntimeMs when feature gate is disabled",
 			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(500))},
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: new(uint64(500))},
 			},
 			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: new(uint64(900))},
 			},
 			true,
 		),
@@ -227,7 +226,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 				CustomProfile: &v1.CustomProfile{
 					RuntimeDefaultProfile: true,
-					LocalhostProfile:      pointer.P("somethingNotImportant"),
+					LocalhostProfile:      new("somethingNotImportant"),
 				},
 			},
 		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),

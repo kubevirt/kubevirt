@@ -15,7 +15,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -82,7 +81,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
 						Kind: "VirtualMachineInstancetype",
 					},
@@ -125,7 +124,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
 						Kind: "VirtualMachineInstancetype",
 					},
@@ -159,7 +158,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -185,7 +184,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+						PreferredCPUTopology: new(instancetypev1beta1.Cores),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -199,7 +198,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -236,7 +235,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -256,7 +255,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
+						PreferredCPUTopology: new(instancetypev1beta1.Threads),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -270,7 +269,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -296,7 +295,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
+						PreferredCPUTopology: new(instancetypev1beta1.Any),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -310,7 +309,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -347,7 +346,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -410,7 +409,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
 						Kind: "VirtualMachineInstancetype",
 					},
@@ -454,7 +453,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
 						Kind: "VirtualMachineInstancetype",
 					},
@@ -489,7 +488,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -516,7 +515,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+						PreferredCPUTopology: new(instancetypev1beta1.Cores),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -530,7 +529,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -557,7 +556,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
+						PreferredCPUTopology: new(instancetypev1beta1.Threads),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -571,7 +570,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -598,7 +597,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
+						PreferredCPUTopology: new(instancetypev1beta1.Any),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -612,7 +611,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -650,7 +649,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},
@@ -686,7 +685,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					GenerateName: "vm-",
 				},
 				Spec: virtv1.VirtualMachineSpec{
-					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+					RunStrategy: new(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
 						Kind: "VirtualMachinePreference",
 					},

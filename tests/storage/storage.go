@@ -45,7 +45,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -201,7 +200,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi = libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
 				for i, d := range vmi.Spec.Domain.Devices.Disks {
 					if d.Name == diskName {
-						vmi.Spec.Domain.Devices.Disks[i].ErrorPolicy = pointer.P(v1.DiskErrorPolicyReport)
+						vmi.Spec.Domain.Devices.Disks[i].ErrorPolicy = new(v1.DiskErrorPolicyReport)
 					}
 				}
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, flags.StartupTimeoutSecondsXLarge())

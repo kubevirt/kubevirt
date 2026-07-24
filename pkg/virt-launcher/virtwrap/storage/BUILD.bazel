@@ -55,7 +55,6 @@ go_test(
     deps = [
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/filewatcher:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/volumepath:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",

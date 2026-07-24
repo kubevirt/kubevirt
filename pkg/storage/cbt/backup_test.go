@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -112,12 +111,12 @@ var _ = Describe("Backup Controller", func() {
 			},
 			Spec: backupv1.VirtualMachineBackupSpec{
 				Source: corev1.TypedLocalObjectReference{
-					APIGroup: pointer.P("kubevirt.io"),
+					APIGroup: new("kubevirt.io"),
 					Kind:     "VirtualMachine",
 					Name:     vmName,
 				},
-				PvcName: pointer.P(pvcName),
-				Mode:    pointer.P(mode),
+				PvcName: new(pvcName),
+				Mode:    new(mode),
 			},
 		}
 	}
@@ -125,7 +124,7 @@ var _ = Describe("Backup Controller", func() {
 	createBackupWithTracker := func(name, vmName, pvcName string) *backupv1.VirtualMachineBackup {
 		backup := createBackup(name, vmName, pvcName, backupv1.PushMode)
 		backup.Spec.Source = corev1.TypedLocalObjectReference{
-			APIGroup: pointer.P("backup.kubevirt.io"),
+			APIGroup: new("backup.kubevirt.io"),
 			Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
 			Name:     backupTrackerName,
 		}
@@ -170,7 +169,7 @@ var _ = Describe("Backup Controller", func() {
 				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvcName,
 				},
-				Type: pointer.P(v1.Backup),
+				Type: new(v1.Backup),
 			},
 		}
 		vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -188,7 +187,7 @@ var _ = Describe("Backup Controller", func() {
 		vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 			BackupName:     backupName,
 			Completed:      false,
-			CheckpointName: pointer.P(checkpointName),
+			CheckpointName: new(checkpointName),
 		}
 		return vmi
 	}
@@ -201,7 +200,7 @@ var _ = Describe("Backup Controller", func() {
 			},
 			Spec: backupv1.VirtualMachineBackupTrackerSpec{
 				Source: corev1.TypedLocalObjectReference{
-					APIGroup: pointer.P("kubevirt.io"),
+					APIGroup: new("kubevirt.io"),
 					Kind:     "VirtualMachine",
 					Name:     vmName,
 				},
@@ -234,7 +233,7 @@ var _ = Describe("Backup Controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
-				VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem),
+				VolumeMode: new(corev1.PersistentVolumeFilesystem),
 			},
 		}
 	}
@@ -264,7 +263,7 @@ var _ = Describe("Backup Controller", func() {
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
 				Source: corev1.TypedLocalObjectReference{
-					APIGroup: pointer.P(backupv1.VirtualMachineBackupGroupVersionKind.Group),
+					APIGroup: new(backupv1.VirtualMachineBackupGroupVersionKind.Group),
 					Kind:     backupv1.VirtualMachineBackupGroupVersionKind.Kind,
 					Name:     backup.Name,
 				},
@@ -431,7 +430,7 @@ var _ = Describe("Backup Controller", func() {
 
 	It("should wait when backupTracker needs checkpoint redefinition", func() {
 		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
-		backupTracker.Status.CheckpointRedefinitionRequired = pointer.P(true)
+		backupTracker.Status.CheckpointRedefinitionRequired = new(true)
 		controller.backupTrackerInformer.GetStore().Add(backupTracker)
 
 		backup := createBackupWithTracker(backupName, vmName, pvcName)
@@ -882,7 +881,7 @@ var _ = Describe("Backup Controller", func() {
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 				BackupName:     backupName,
 				Completed:      true,
-				CheckpointName: pointer.P(checkpointName),
+				CheckpointName: new(checkpointName),
 				Volumes:        volumesInfo,
 				QuiesceStatus:  string(backupv1.QuiesceSucceeded),
 			}
@@ -918,7 +917,7 @@ var _ = Describe("Backup Controller", func() {
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 				BackupName:     backupName,
 				Completed:      true,
-				CheckpointName: pointer.P(checkpointName),
+				CheckpointName: new(checkpointName),
 			}
 			controller.vmiStore.Add(vmi)
 			pvc := createPVC(pvcName)
@@ -1013,7 +1012,7 @@ var _ = Describe("Backup Controller", func() {
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: pvcName,
 					},
-					Type: pointer.P(v1.Backup),
+					Type: new(v1.Backup),
 				},
 			}
 			controller.vmiStore.Add(vmi)
@@ -1089,7 +1088,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.backupTrackerInformer.GetStore().Add(backupTracker)
 
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
-			backup.Spec.Mode = pointer.P(backupv1.PushMode)
+			backup.Spec.Mode = new(backupv1.PushMode)
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
 				Conditions: []metav1.Condition{
@@ -1162,7 +1161,7 @@ var _ = Describe("Backup Controller", func() {
 			vmiCanceled.Status.VolumeStatus = nil
 			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Completed = true
 			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Failed = true
-			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.BackupMsg = pointer.P("backup aborted")
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.BackupMsg = new("backup aborted")
 			controller.vmiStore.Add(vmiCanceled)
 
 			vmiInterface.EXPECT().
@@ -1292,7 +1291,7 @@ var _ = Describe("Backup Controller", func() {
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 				BackupName:     "other-backup",
 				Completed:      false,
-				CheckpointName: pointer.P("other-checkpoint"),
+				CheckpointName: new("other-checkpoint"),
 			}
 
 			err := controller.updateSourceBackupInProgress(vmi, backupName, metav1.Now())
@@ -1326,7 +1325,7 @@ var _ = Describe("Backup Controller", func() {
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 				BackupName:     backupName,
 				Completed:      false,
-				CheckpointName: pointer.P(checkpointName),
+				CheckpointName: new(checkpointName),
 			}
 
 			vmiInterface.EXPECT().
@@ -1358,7 +1357,7 @@ var _ = Describe("Backup Controller", func() {
 				Eventually(recorder.Events).Should(Receive(ContainSubstring(expectedEvent)))
 			},
 			Entry("failure with a message",
-				true, pointer.P("disk error"),
+				true, new("disk error"),
 				backupv1.ConditionFailed, backupv1.ReasonFailed, "disk error", backupFailedEvent,
 			),
 			Entry("failure without a message (nil check)",
@@ -1366,7 +1365,7 @@ var _ = Describe("Backup Controller", func() {
 				backupv1.ConditionFailed, backupv1.ReasonFailed, "unknown, no completion message", backupFailedEvent,
 			),
 			Entry("success with a warning message",
-				false, pointer.P("quiesce failed"),
+				false, new("quiesce failed"),
 				backupv1.ConditionComplete, backupv1.ReasonCompletedWithWarning, "quiesce failed", backupCompletedWithWarningEvent,
 			),
 			Entry("success",
@@ -1594,7 +1593,7 @@ var _ = Describe("Backup Controller", func() {
 		vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 			BackupName:     backupName,
 			Completed:      true,
-			CheckpointName: pointer.P(checkpointName),
+			CheckpointName: new(checkpointName),
 			Volumes:        volumesInfo,
 		}
 		controller.vmiStore.Add(vmi)
@@ -1647,7 +1646,7 @@ var _ = Describe("Backup Controller", func() {
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 				BackupName:     backupName,
 				Completed:      true,
-				CheckpointName: pointer.P(checkpointName),
+				CheckpointName: new(checkpointName),
 				Volumes:        volumesInfo,
 			}
 			controller.vmiStore.Add(vmi)

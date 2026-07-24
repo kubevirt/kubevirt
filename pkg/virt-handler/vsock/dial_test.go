@@ -33,7 +33,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virthandlervsock "kubevirt.io/kubevirt/pkg/virt-handler/vsock"
@@ -65,7 +64,7 @@ var _ = Describe("Dialer", func() {
 		procPath = GinkgoT().TempDir()
 
 		vmi = libvmi.New()
-		vmi.Status.VSOCKCID = pointer.P(testCID)
+		vmi.Status.VSOCKCID = new(testCID)
 
 		fakeIsolation = &fakeIsolationDetector{
 			pidResult: testPid,

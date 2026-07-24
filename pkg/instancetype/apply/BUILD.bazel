@@ -21,7 +21,6 @@ go_library(
     deps = [
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/preference/apply:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
@@ -51,7 +50,6 @@ go_test(
         ":go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/libvmi:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

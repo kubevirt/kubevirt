@@ -52,7 +52,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/os/disk"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -391,7 +390,7 @@ var _ = Describe("Converter", func() {
 					Custom: &v1.CustomBlockSize{
 						Logical:            logical,
 						Physical:           physical,
-						DiscardGranularity: pointer.P(physical),
+						DiscardGranularity: new(physical),
 					},
 				},
 			}
@@ -428,7 +427,7 @@ var _ = Describe("Converter", func() {
 						Bus: v1.VirtIO,
 					},
 				},
-				Shareable: pointer.P(true),
+				Shareable: new(true),
 			}
 			var expectedXML = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
   <source></source>
@@ -465,23 +464,23 @@ var _ = Describe("Converter", func() {
 				},
 				Timer: &v1.Timer{
 					HPET: &v1.HPETTimer{
-						Enabled:    pointer.P(false),
+						Enabled:    new(false),
 						TickPolicy: v1.HPETTickPolicyDelay,
 					},
 					KVM: &v1.KVMTimer{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 					PIT: &v1.PITTimer{
-						Enabled:    pointer.P(false),
+						Enabled:    new(false),
 						TickPolicy: v1.PITTickPolicyDiscard,
 					},
 					RTC: &v1.RTCTimer{
-						Enabled:    pointer.P(true),
+						Enabled:    new(true),
 						TickPolicy: v1.RTCTickPolicyCatchup,
 						Track:      v1.TrackGuest,
 					},
 					Hyperv: &v1.HypervTimer{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 				},
 			}
@@ -489,27 +488,27 @@ var _ = Describe("Converter", func() {
 				APIC:       &v1.FeatureAPIC{},
 				SMM:        &v1.FeatureState{},
 				KVM:        &v1.FeatureKVM{Hidden: true},
-				Pvspinlock: &v1.FeatureState{Enabled: pointer.P(false)},
+				Pvspinlock: &v1.FeatureState{Enabled: new(false)},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:   &v1.FeatureState{Enabled: pointer.P(false)},
-					VAPIC:     &v1.FeatureState{Enabled: pointer.P(true)},
-					Spinlocks: &v1.FeatureSpinlocks{FeatureState: v1.FeatureState{Enabled: pointer.P(true)}},
-					VPIndex:   &v1.FeatureState{Enabled: pointer.P(true)},
-					Runtime:   &v1.FeatureState{Enabled: pointer.P(false)},
-					SyNIC:     &v1.FeatureState{Enabled: pointer.P(true)},
+					Relaxed:   &v1.FeatureState{Enabled: new(false)},
+					VAPIC:     &v1.FeatureState{Enabled: new(true)},
+					Spinlocks: &v1.FeatureSpinlocks{FeatureState: v1.FeatureState{Enabled: new(true)}},
+					VPIndex:   &v1.FeatureState{Enabled: new(true)},
+					Runtime:   &v1.FeatureState{Enabled: new(false)},
+					SyNIC:     &v1.FeatureState{Enabled: new(true)},
 					SyNICTimer: &v1.SyNICTimer{
-						FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
-						Direct:       &v1.FeatureState{Enabled: pointer.P(true)},
+						FeatureState: v1.FeatureState{Enabled: new(true)},
+						Direct:       &v1.FeatureState{Enabled: new(true)},
 					},
-					Reset: &v1.FeatureState{Enabled: pointer.P(true)},
+					Reset: &v1.FeatureState{Enabled: new(true)},
 					VendorID: &v1.FeatureVendorID{
-						FeatureState: v1.FeatureState{Enabled: pointer.P(false)},
+						FeatureState: v1.FeatureState{Enabled: new(false)},
 						VendorID:     "myvendor"},
-					Frequencies:     &v1.FeatureState{Enabled: pointer.P(false)},
-					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(false)},
-					TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.P(true)}},
-					IPI:             &v1.FeatureState{Enabled: pointer.P(true)},
-					EVMCS:           &v1.FeatureState{Enabled: pointer.P(false)},
+					Frequencies:     &v1.FeatureState{Enabled: new(false)},
+					Reenlightenment: &v1.FeatureState{Enabled: new(false)},
+					TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: new(true)}},
+					IPI:             &v1.FeatureState{Enabled: new(true)},
+					EVMCS:           &v1.FeatureState{Enabled: new(false)},
 				},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
@@ -530,7 +529,7 @@ var _ = Describe("Converter", func() {
 							Bus: v1.VirtIO,
 						},
 					},
-					DedicatedIOThread: pointer.P(true),
+					DedicatedIOThread: new(true),
 				},
 				{
 					Name: "nocloud",
@@ -539,16 +538,16 @@ var _ = Describe("Converter", func() {
 							Bus: v1.VirtIO,
 						},
 					},
-					DedicatedIOThread: pointer.P(true),
+					DedicatedIOThread: new(true),
 				},
 				{
 					Name: "cdrom_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: pointer.P(false),
+							ReadOnly: new(false),
 						},
 					},
-					DedicatedIOThread: pointer.P(false),
+					DedicatedIOThread: new(false),
 				},
 				{
 					Name: "cdrom_tray_open",
@@ -588,19 +587,19 @@ var _ = Describe("Converter", func() {
 					Name: "sysprep",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: pointer.P(false),
+							ReadOnly: new(false),
 						},
 					},
-					DedicatedIOThread: pointer.P(false),
+					DedicatedIOThread: new(false),
 				},
 				{
 					Name: "sysprep_secret",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
-							ReadOnly: pointer.P(false),
+							ReadOnly: new(false),
 						},
 					},
-					DedicatedIOThread: pointer.P(false),
+					DedicatedIOThread: new(false),
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
@@ -734,7 +733,7 @@ var _ = Describe("Converter", func() {
 				Serial: "e4686d2c-6e8d-4335-b8fd-81bee22f4815",
 			}
 
-			vmi.Spec.TerminationGracePeriodSeconds = pointer.P(int64(5))
+			vmi.Spec.TerminationGracePeriodSeconds = new(int64(5))
 
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
@@ -813,7 +812,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should use panic devices if requested", func() {
-			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
+			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: new(v1.Hyperv)}}
 			xml := vmiToDomainXML(vmi, c)
 			Expect(xml).To(ContainSubstring(`<panic model="hyperv"></panic>`))
 		})
@@ -1482,7 +1481,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Devices.Disks[0] = v1.Disk{
 				Name:              "disk",
-				DedicatedIOThread: pointer.P(true),
+				DedicatedIOThread: new(true),
 				IO:                ioPolicy,
 			}
 			domain := vmiToDomain(vmi, c)
@@ -1701,8 +1700,8 @@ var _ = Describe("Converter", func() {
 				Expect(os.MkdirAll(vsockPath, 0755)).To(Succeed())
 				Expect(os.WriteFile(filepath.Join(vsockPath, "ns_mode"), []byte("global\n"), 0600)).To(Succeed())
 
-				vmi.Status.VSOCKCID = pointer.P(uint32(100))
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+				vmi.Status.VSOCKCID = new(uint32(100))
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = new(true)
 				c.UseVirtioTransitional = useVirtioTransitional
 				c.VSOCKProcPath = fakeProc
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
@@ -1738,10 +1737,10 @@ var _ = Describe("Converter", func() {
 			Expect(string(domainSpec.Devices.Disks[0].Driver.ErrorPolicy)).To(Equal(expected))
 		},
 			Entry("ErrorPolicy not specified", nil, "stop"),
-			Entry("ErrorPolicy equal to stop", pointer.P(v1.DiskErrorPolicyStop), "stop"),
-			Entry("ErrorPolicy equal to ignore", pointer.P(v1.DiskErrorPolicyIgnore), "ignore"),
-			Entry("ErrorPolicy equal to report", pointer.P(v1.DiskErrorPolicyReport), "report"),
-			Entry("ErrorPolicy equal to enospace", pointer.P(v1.DiskErrorPolicyEnospace), "enospace"),
+			Entry("ErrorPolicy equal to stop", new(v1.DiskErrorPolicyStop), "stop"),
+			Entry("ErrorPolicy equal to ignore", new(v1.DiskErrorPolicyIgnore), "ignore"),
+			Entry("ErrorPolicy equal to report", new(v1.DiskErrorPolicyReport), "report"),
+			Entry("ErrorPolicy equal to enospace", new(v1.DiskErrorPolicyEnospace), "enospace"),
 		)
 		DescribeTable("Should set the vmport by arch", func(arch string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1762,7 +1761,7 @@ var _ = Describe("Converter", func() {
 				v1Disk := v1.Disk{
 					Name: "test",
 					BlockSize: &v1.BlockSize{
-						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+						MatchVolume: &v1.FeatureState{Enabled: new(true)},
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
@@ -1784,7 +1783,7 @@ var _ = Describe("Converter", func() {
 				v1Disk := v1.Disk{
 					Name: "test",
 					BlockSize: &v1.BlockSize{
-						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+						MatchVolume: &v1.FeatureState{Enabled: new(true)},
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{}}
@@ -1796,7 +1795,7 @@ var _ = Describe("Converter", func() {
 				v1Disk := v1.Disk{
 					Name: "test",
 					BlockSize: &v1.BlockSize{
-						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+						MatchVolume: &v1.FeatureState{Enabled: new(true)},
 					},
 				}
 				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, nil, amd64)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
@@ -2235,8 +2234,8 @@ var _ = Describe("Converter", func() {
 			}
 		},
 			MultiArchEntry("and add the graphics and video device if it is not set", nil, 1),
-			MultiArchEntry("and add the graphics and video device if it is set to true", pointer.P(true), 1),
-			MultiArchEntry("and not add the graphics and video device if it is set to false", pointer.P(false), 0),
+			MultiArchEntry("and add the graphics and video device if it is set to true", new(true), 1),
+			MultiArchEntry("and not add the graphics and video device if it is set to false", new(false), 0),
 		)
 
 		DescribeTable("should check video device", func(arch string) {
@@ -2323,9 +2322,9 @@ var _ = Describe("Converter", func() {
 			}),
 			Entry("Convert TLBFlush with enabled features", &v1.FeatureHyperv{
 				TLBFlush: &v1.TLBFlush{
-					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
-					Direct:       &v1.FeatureState{Enabled: pointer.P(true)},
-					Extended:     &v1.FeatureState{Enabled: pointer.P(true)},
+					FeatureState: v1.FeatureState{Enabled: new(true)},
+					Direct:       &v1.FeatureState{Enabled: new(true)},
+					Extended:     &v1.FeatureState{Enabled: new(true)},
 				},
 			}, &api.FeatureHyperv{
 				TLBFlush: &api.TLBFlush{
@@ -2346,7 +2345,7 @@ var _ = Describe("Converter", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Features: &v1.Features{
-							HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)},
+							HypervPassthrough: &v1.HyperVPassthrough{Enabled: new(true)},
 						},
 					},
 				},
@@ -2388,8 +2387,8 @@ var _ = Describe("Converter", func() {
 
 		},
 			Entry("and add the serial console if it is not set", nil, 1),
-			Entry("and add the serial console if it is set to true", pointer.P(true), 1),
-			Entry("and not add the serial console if it is set to false", pointer.P(false), 0),
+			Entry("and add the serial console if it is set to true", new(true), 1),
+			Entry("and not add the serial console if it is set to false", new(false), 0),
 		)
 	})
 
@@ -2428,7 +2427,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: pointer.P(true),
+									DedicatedIOThread: new(true),
 								},
 								{
 									Name: "shared",
@@ -2437,7 +2436,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: pointer.P(false),
+									DedicatedIOThread: new(false),
 								},
 								{
 									Name: "omitted1",
@@ -2597,7 +2596,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: pointer.P(true),
+									DedicatedIOThread: new(true),
 								},
 								{
 									Name: sharedDiskName,
@@ -2606,7 +2605,7 @@ var _ = Describe("Converter", func() {
 											Bus: v1.VirtIO,
 										},
 									},
-									DedicatedIOThread: pointer.P(false),
+									DedicatedIOThread: new(false),
 								},
 								{
 									Name: incompatibleDiskName,
@@ -2671,7 +2670,7 @@ var _ = Describe("Converter", func() {
 			count := uint32(4)
 			vmi := libvmi.New(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
-				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(count)}),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: new(count)}),
 				libvmi.WithPersistentVolumeClaim("disk0", "pvc0", libvmi.WithDedicatedIOThreads(true)),
 			)
 			iothreads := &api.DiskIOThreads{}
@@ -2891,7 +2890,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = new(true)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
@@ -2978,7 +2977,7 @@ var _ = Describe("Converter", func() {
 				vmi := libvmi.New(
 					libvmi.WithCPUCount(1, 1, vCPUs),
 					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
-					libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(iothreadCount)}),
+					libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: new(iothreadCount)}),
 					libvmi.WithDedicatedCPUPlacement(),
 				)
 				for key, value := range vmiAnnotations {
@@ -3547,7 +3546,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = new(true)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
@@ -3715,10 +3714,10 @@ var _ = Describe("Converter", func() {
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		},
-			Entry("should use SecureBoot", pointer.P(true), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
+			Entry("should use SecureBoot", new(true), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
 			Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
-			Entry("should not use SecureBoot", pointer.P(false), "OVMF_CODE.fd", "OVMF_VARS.fd"),
-			Entry("should not use SecureBoot when OVMF_CODE.fd not present", pointer.P(true), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
+			Entry("should not use SecureBoot", new(false), "OVMF_CODE.fd", "OVMF_VARS.fd"),
+			Entry("should not use SecureBoot when OVMF_CODE.fd not present", new(true), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
 		)
 
 		It("EFI vars should be in the right place when running as root", func() {
@@ -3731,7 +3730,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
+						SecureBoot: new(false),
 					},
 				},
 			}
@@ -3753,7 +3752,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(true),
+						SecureBoot: new(true),
 					},
 				},
 			}
@@ -4132,7 +4131,7 @@ var _ = Describe("Converter", func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(true)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = new(true)
 			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
 			secondaryNetwork := v1.Network{Name: "red"}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -4146,13 +4145,13 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
+						SecureBoot: new(false),
 					},
 				},
 			}
@@ -4181,7 +4180,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.P(true),
+						EncryptedState: new(true),
 					},
 				},
 			}
@@ -4250,7 +4249,7 @@ var _ = Describe("Converter", func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(true)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = new(true)
 			virtioIface := v1.Interface{Name: "red", Model: "virtio"}
 			secondaryNetwork := v1.Network{Name: "red"}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -4350,13 +4349,13 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.P(false),
+					Enabled: new(false),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
+						SecureBoot: new(false),
 					},
 				},
 			}
@@ -4387,7 +4386,7 @@ var _ = Describe("Converter", func() {
 		BeforeEach(func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(fakeFrequency))}
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: new(int64(fakeFrequency))}
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				AllowEmulation: true,
@@ -4425,7 +4424,7 @@ var _ = Describe("Converter", func() {
 			It("hyperV reenlightenment", func() {
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
-						Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)},
+						Reenlightenment: &v1.FeatureState{Enabled: new(true)},
 					},
 				}
 
@@ -4498,7 +4497,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			if startPaused {
-				vmi.Spec.StartStrategy = pointer.P(v1.StartStrategyPaused)
+				vmi.Spec.StartStrategy = new(v1.StartStrategyPaused)
 			}
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
@@ -4541,7 +4540,7 @@ var _ = Describe("Converter", func() {
 				}),
 			),
 			Entry("be enabled within domain when device provided and explicitly enabled in VMI",
-				&v1.TPMDevice{Enabled: pointer.P(true)},
+				&v1.TPMDevice{Enabled: new(true)},
 				ContainElement(api.TPM{
 					Model: "tpm-tis",
 					Backend: api.TPMBackend{
@@ -4551,7 +4550,7 @@ var _ = Describe("Converter", func() {
 				}),
 			),
 			Entry("be enabled within domain when device provided in VMI with persistent=true",
-				&v1.TPMDevice{Persistent: pointer.P(true)},
+				&v1.TPMDevice{Persistent: new(true)},
 				ContainElement(api.TPM{
 					Model: "tpm-crb",
 					Backend: api.TPMBackend{
@@ -4566,7 +4565,7 @@ var _ = Describe("Converter", func() {
 				BeEmpty(),
 			),
 			Entry("not be present within domain when explicitly disabled in VMI",
-				&v1.TPMDevice{Enabled: pointer.P(false), Persistent: pointer.P(true)},
+				&v1.TPMDevice{Enabled: new(false), Persistent: new(true)},
 				BeEmpty(),
 			),
 		)

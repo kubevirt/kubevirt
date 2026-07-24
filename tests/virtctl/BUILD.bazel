@@ -18,7 +18,6 @@ go_library(
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/virtctl:go_default_library",
         "//pkg/virtctl/create:go_default_library",
         "//pkg/virtctl/create/vm:go_default_library",

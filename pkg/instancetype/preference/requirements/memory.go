@@ -27,7 +27,6 @@ import (
 	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -42,7 +41,7 @@ func checkMemory(
 ) (conflict.Conflicts, error) {
 	errFmt := InsufficientVMMemoryResourcesErrorFmt
 	errConflict := conflict.New("spec", "template", "spec", "domain", "memory")
-	providedMemory := pointer.P(resource.MustParse("0Mi"))
+	providedMemory := new(resource.MustParse("0Mi"))
 
 	if instancetypeSpec != nil {
 		errConflict = conflict.New("spec", "instancetype")

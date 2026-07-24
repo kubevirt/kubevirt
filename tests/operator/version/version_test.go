@@ -23,8 +23,6 @@ import (
 	"github.com/google/go-github/v83/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -35,9 +33,9 @@ const (
 // Helper function to create mock releases
 func createMockRelease(tagName string, isDraft, isPrerelease bool, assetCount int) *github.RepositoryRelease {
 	release := &github.RepositoryRelease{
-		TagName:    pointer.P(tagName),
-		Draft:      pointer.P(isDraft),
-		Prerelease: pointer.P(isPrerelease),
+		TagName:    new(tagName),
+		Draft:      new(isDraft),
+		Prerelease: new(isPrerelease),
 	}
 
 	// Add mock assets

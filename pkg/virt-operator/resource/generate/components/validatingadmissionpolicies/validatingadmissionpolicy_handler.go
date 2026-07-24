@@ -26,8 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -92,7 +90,7 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 			Name: validatingAdmissionPolicyName,
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: pointer.P(admissionregistrationv1.Fail),
+			FailurePolicy: new(admissionregistrationv1.Fail),
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -161,37 +159,37 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 				{
 					Expression: "variables.hasNode && variables.requestMatchNode",
 					Message:    NodeRestrictionErrModifyAnother,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 				{
 					Expression: "object.spec == oldObject.spec",
 					Message:    NodeRestrictionErrModifySpec,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 				{
 					Expression: `oldObject.metadata.filter(k, k != "labels" && k != "annotations" && k != "managedFields" && k != "resourceVersion").all(k, k in object.metadata) && object.metadata.filter(k, k != "labels" && k != "annotations" && k != "managedFields" && k != "resourceVersion").all(k, k in oldObject.metadata && oldObject.metadata[k] == object.metadata[k])`,
 					Message:    NodeRestrictionErrChangeMetadataFields,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 				{
 					Expression: `size(variables.newNonKubevirtLabels) == size(variables.oldNonKubevirtLabels)`,
 					Message:    NodeRestrictionErrAddDeleteLabels,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 				{
 					Expression: `variables.newNonKubevirtLabels.all(k, k in variables.oldNonKubevirtLabels && variables.newLabels[k] == variables.oldLabels[k])`,
 					Message:    NodeRestrictionErrUpdateLabels,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 				{
 					Expression: `size(variables.newNonKubevirtAnnotations) == size(variables.oldNonKubevirtAnnotations)`,
 					Message:    NodeRestrictionErrAddDeleteAnnotations,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 				{
 					Expression: `variables.newNonKubevirtAnnotations.all(k, k in variables.oldNonKubevirtAnnotations && variables.newAnnotations[k] == variables.oldAnnotations[k])`,
 					Message:    NodeRestrictionErrUpdateAnnotations,
-					Reason:     pointer.P(metav1.StatusReasonForbidden),
+					Reason:     new(metav1.StatusReasonForbidden),
 				},
 			},
 		},

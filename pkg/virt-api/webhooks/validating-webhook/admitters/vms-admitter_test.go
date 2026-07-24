@@ -50,7 +50,6 @@ import (
 	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -88,7 +87,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	}
 	enableLiveUpdate := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
-		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		kv.Spec.Configuration.VMRolloutStrategy = new(v1.VMRolloutStrategyLiveUpdate)
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
@@ -136,7 +135,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: pointer.P(false),
+					Running: new(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -173,7 +172,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: pointer.P(false),
+					Running: new(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -195,7 +194,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				DeletionTimestamp: &now,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -215,7 +214,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -239,7 +238,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -262,7 +261,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -288,7 +287,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -323,7 +322,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: vmi.Namespace,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: *vmi.Spec.DeepCopy(),
 				},
@@ -431,7 +430,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: vmi.Namespace,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: *vmi.Spec.DeepCopy(),
 				},
@@ -603,7 +602,7 @@ var _ = Describe("Validating VM Admitter", func() {
 								Bus: "scsi",
 							},
 						},
-						DedicatedIOThread: pointer.P(true),
+						DedicatedIOThread: new(true),
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
@@ -625,7 +624,7 @@ var _ = Describe("Validating VM Admitter", func() {
 								Bus: "virtio",
 							},
 						},
-						DedicatedIOThread: pointer.P(true),
+						DedicatedIOThread: new(true),
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
@@ -782,7 +781,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: vmi.Namespace,
 			},
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -1364,7 +1363,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			enableLiveUpdate()
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: pointer.P(false),
+					Running: new(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -1501,8 +1500,8 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.HotplugBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("guest memory with hugepages is not properly aligned", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("2G"))
-					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = pointer.P(resource.MustParse("16Gi"))
+					vm.Spec.Template.Spec.Domain.Memory.Guest = new(resource.MustParse("2G"))
+					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = new(resource.MustParse("16Gi"))
 					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1517,7 +1516,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is only available for x86_64 VMs",
 				}),
 				Entry("guest memory is less than 1Gi", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
+					vm.Spec.Template.Spec.Domain.Memory.Guest = new(resource.MustParse("512Mi"))
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.template.spec.domain.memory.guest",
@@ -1542,7 +1541,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},
@@ -1573,7 +1572,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
+				Running: new(false),
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: vmi.Spec,
 				},

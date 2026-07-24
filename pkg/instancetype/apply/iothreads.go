@@ -23,7 +23,6 @@ import (
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func applyIOThreads(
@@ -43,7 +42,7 @@ func applyIOThreads(
 		vmiSpec.Domain.IOThreads = &virtv1.DiskIOThreads{}
 	}
 
-	vmiSpec.Domain.IOThreads.SupplementalPoolThreadCount = pointer.P(*instancetypeSpec.IOThreads.SupplementalPoolThreadCount)
+	vmiSpec.Domain.IOThreads.SupplementalPoolThreadCount = new(*instancetypeSpec.IOThreads.SupplementalPoolThreadCount)
 
 	return nil
 }

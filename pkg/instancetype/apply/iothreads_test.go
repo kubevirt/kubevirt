@@ -28,7 +28,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("instancetype.spec.ioThreads", func() {
@@ -42,7 +41,7 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 		field            = k8sfield.NewPath("spec", "template", "spec")
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
 			IOThreads: &virtv1.DiskIOThreads{
-				SupplementalPoolThreadCount: pointer.P(expectedThreadCount),
+				SupplementalPoolThreadCount: new(expectedThreadCount),
 			},
 		}
 	)
@@ -58,7 +57,7 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 	)
 
 	It("should not apply SupplementalPoolThreadCount when SupplementalPoolThreadCount provided within VMI", func() {
-		vmi := libvmi.New(libvmi.WithIOThreads(virtv1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(userProvidedThreadCount)}))
+		vmi := libvmi.New(libvmi.WithIOThreads(virtv1.DiskIOThreads{SupplementalPoolThreadCount: new(userProvidedThreadCount)}))
 
 		Expect(applier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)).To(
 			ContainElement(conflict.New("spec", "template", "spec", "domain", "ioThreads", "supplementalPoolThreadCount")))

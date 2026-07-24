@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/api/instancetype"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -555,7 +554,7 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 			Name: c.name,
 		},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy)),
+			RunStrategy: new(v1.VirtualMachineRunStrategy(c.runStrategy)),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				Spec: v1.VirtualMachineInstanceSpec{
 					TerminationGracePeriodSeconds: &c.terminationGracePeriod,
@@ -852,7 +851,7 @@ func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
 
 	for _, runStrategy := range runStrategies {
 		if strings.EqualFold(runStrategy, c.runStrategy) {
-			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(runStrategy))
+			vm.Spec.RunStrategy = new(v1.VirtualMachineRunStrategy(runStrategy))
 			return nil
 		}
 	}

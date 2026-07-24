@@ -22,8 +22,6 @@ package apply
 import (
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func applyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
@@ -54,7 +52,7 @@ func applyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, 
 			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil &&
 				vmiDisk.DedicatedIOThread == nil &&
 				vmiDisk.DiskDevice.Disk.Bus == virtv1.DiskBusVirtio {
-				vmiDisk.DedicatedIOThread = pointer.P(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
+				vmiDisk.DedicatedIOThread = new(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
 			}
 		} else if vmiDisk.DiskDevice.CDRom != nil {
 			if preferenceSpec.Devices.PreferredCdromBus != "" && vmiDisk.DiskDevice.CDRom.Bus == "" {

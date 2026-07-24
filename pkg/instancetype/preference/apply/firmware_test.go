@@ -30,7 +30,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.Firmware", func() {
@@ -50,10 +49,10 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should apply BIOS preferences full to VMI", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
-				PreferredUseBios:                 pointer.P(true),
-				PreferredUseBiosSerial:           pointer.P(true),
-				DeprecatedPreferredUseEfi:        pointer.P(false),
-				DeprecatedPreferredUseSecureBoot: pointer.P(false),
+				PreferredUseBios:                 new(true),
+				PreferredUseBiosSerial:           new(true),
+				DeprecatedPreferredUseEfi:        new(false),
+				DeprecatedPreferredUseSecureBoot: new(false),
 			},
 		}
 
@@ -65,10 +64,10 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should apply SecureBoot preferences full to VMI", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
-				PreferredUseBios:                 pointer.P(false),
-				PreferredUseBiosSerial:           pointer.P(false),
-				DeprecatedPreferredUseEfi:        pointer.P(true),
-				DeprecatedPreferredUseSecureBoot: pointer.P(true),
+				PreferredUseBios:                 new(false),
+				PreferredUseBiosSerial:           new(false),
+				DeprecatedPreferredUseEfi:        new(true),
+				DeprecatedPreferredUseSecureBoot: new(true),
 			},
 		}
 
@@ -80,14 +79,14 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should not overwrite user defined Bootloader.BIOS with DeprecatedPreferredUseEfi - bug #10313", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
-				DeprecatedPreferredUseEfi:        pointer.P(true),
-				DeprecatedPreferredUseSecureBoot: pointer.P(true),
+				DeprecatedPreferredUseEfi:        new(true),
+				DeprecatedPreferredUseSecureBoot: new(true),
 			},
 		}
 		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 			Bootloader: &virtv1.Bootloader{
 				BIOS: &virtv1.BIOS{
-					UseSerial: pointer.P(false),
+					UseSerial: new(false),
 				},
 			},
 		}
@@ -99,14 +98,14 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should not overwrite user defined value with PreferredUseBiosSerial - bug #10313", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
-				PreferredUseBios:       pointer.P(true),
-				PreferredUseBiosSerial: pointer.P(true),
+				PreferredUseBios:       new(true),
+				PreferredUseBiosSerial: new(true),
 			},
 		}
 		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 			Bootloader: &virtv1.Bootloader{
 				BIOS: &virtv1.BIOS{
-					UseSerial: pointer.P(false),
+					UseSerial: new(false),
 				},
 			},
 		}
@@ -117,14 +116,14 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should not overwrite user defined Bootloader.EFI with PreferredUseBios - bug #10313", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
-				PreferredUseBios:       pointer.P(true),
-				PreferredUseBiosSerial: pointer.P(true),
+				PreferredUseBios:       new(true),
+				PreferredUseBiosSerial: new(true),
 			},
 		}
 		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 			Bootloader: &virtv1.Bootloader{
 				EFI: &virtv1.EFI{
-					SecureBoot: pointer.P(false),
+					SecureBoot: new(false),
 				},
 			},
 		}
@@ -136,14 +135,14 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should not overwrite user defined value with DeprecatedPreferredUseSecureBoot - bug #10313", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
-				DeprecatedPreferredUseEfi:        pointer.P(true),
-				DeprecatedPreferredUseSecureBoot: pointer.P(true),
+				DeprecatedPreferredUseEfi:        new(true),
+				DeprecatedPreferredUseSecureBoot: new(true),
 			},
 		}
 		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 			Bootloader: &virtv1.Bootloader{
 				EFI: &virtv1.EFI{
-					SecureBoot: pointer.P(false),
+					SecureBoot: new(false),
 				},
 			},
 		}
@@ -155,8 +154,8 @@ var _ = Describe("Preference.Firmware", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
 				PreferredEfi: &virtv1.EFI{
-					Persistent: pointer.P(true),
-					SecureBoot: pointer.P(true),
+					Persistent: new(true),
+					SecureBoot: new(true),
 				},
 			},
 		}
@@ -170,10 +169,10 @@ var _ = Describe("Preference.Firmware", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
 				PreferredEfi: &virtv1.EFI{
-					Persistent: pointer.P(true),
+					Persistent: new(true),
 				},
-				DeprecatedPreferredUseEfi:        pointer.P(false),
-				DeprecatedPreferredUseSecureBoot: pointer.P(false),
+				DeprecatedPreferredUseEfi:        new(false),
+				DeprecatedPreferredUseSecureBoot: new(false),
 			},
 		}
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
@@ -186,15 +185,15 @@ var _ = Describe("Preference.Firmware", func() {
 		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
 			Bootloader: &virtv1.Bootloader{
 				EFI: &virtv1.EFI{
-					SecureBoot: pointer.P(false),
+					SecureBoot: new(false),
 				},
 			},
 		}
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Firmware: &v1beta1.FirmwarePreferences{
 				PreferredEfi: &virtv1.EFI{
-					SecureBoot: pointer.P(true),
-					Persistent: pointer.P(true),
+					SecureBoot: new(true),
+					Persistent: new(true),
 				},
 			},
 		}

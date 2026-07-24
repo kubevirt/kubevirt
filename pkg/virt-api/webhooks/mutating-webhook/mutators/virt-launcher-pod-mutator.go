@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -121,7 +120,7 @@ func (m *VirtLauncherPodMutator) Mutate(ar *admissionv1.AdmissionReview) *admiss
 	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,
-		PatchType: pointer.P(admissionv1.PatchTypeJSONPatch),
+		PatchType: new(admissionv1.PatchTypeJSONPatch),
 	}
 }
 
@@ -239,10 +238,10 @@ func (m *VirtLauncherPodMutator) createVirtiofsContainer(
 		VolumeMounts:    volumeMounts,
 		Resources:       resources,
 		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser:                pointer.P(int64(util.NonRootUID)),
-			RunAsGroup:               pointer.P(int64(util.NonRootUID)),
-			RunAsNonRoot:             pointer.P(true),
-			AllowPrivilegeEscalation: pointer.P(false),
+			RunAsUser:                new(int64(util.NonRootUID)),
+			RunAsGroup:               new(int64(util.NonRootUID)),
+			RunAsNonRoot:             new(true),
+			AllowPrivilegeEscalation: new(false),
 			Capabilities: &k8sv1.Capabilities{
 				Drop: []k8sv1.Capability{"ALL"},
 			},

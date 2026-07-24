@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
@@ -76,7 +75,7 @@ var _ = Describe("Console Domain Configurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		},
 		Entry("when AutoattachSerialConsole is nil", nil),
-		Entry("when AutoattachSerialConsole is true", pointer.P(true)),
+		Entry("when AutoattachSerialConsole is true", new(true)),
 	)
 
 	It("should NOT configure serial console when AutoattachSerialConsole is explicitly false", func() {

@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
@@ -331,9 +330,9 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 							Name:  "compute",
 							Image: "busybox",
 							SecurityContext: &k8sv1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.P(false),
-								RunAsNonRoot:             pointer.P(true),
-								RunAsUser:                pointer.P(int64(1000)),
+								AllowPrivilegeEscalation: new(false),
+								RunAsNonRoot:             new(true),
+								RunAsUser:                new(int64(1000)),
 								SeccompProfile:           &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 								Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 							},
@@ -698,8 +697,8 @@ func createPluginDaemonSet(virtClient kubecli.KubevirtClient, name, socketPath, 
 							Image: image,
 							Args:  []string{"--socket", socketPath},
 							SecurityContext: &k8sv1.SecurityContext{
-								Privileged: pointer.P(true),
-								RunAsUser:  pointer.P(int64(0)),
+								Privileged: new(true),
+								RunAsUser:  new(int64(0)),
 							},
 							VolumeMounts: []k8sv1.VolumeMount{
 								{
@@ -719,7 +718,7 @@ func createPluginDaemonSet(virtClient kubecli.KubevirtClient, name, socketPath, 
 							VolumeSource: k8sv1.VolumeSource{
 								HostPath: &k8sv1.HostPathVolumeSource{
 									Path: "/var/run/kubevirt/plugins",
-									Type: pointer.P(k8sv1.HostPathDirectoryOrCreate),
+									Type: new(k8sv1.HostPathDirectoryOrCreate),
 								},
 							},
 						},
@@ -728,7 +727,7 @@ func createPluginDaemonSet(virtClient kubecli.KubevirtClient, name, socketPath, 
 							VolumeSource: k8sv1.VolumeSource{
 								HostPath: &k8sv1.HostPathVolumeSource{
 									Path: markerDir,
-									Type: pointer.P(k8sv1.HostPathDirectoryOrCreate),
+									Type: new(k8sv1.HostPathDirectoryOrCreate),
 								},
 							},
 						},

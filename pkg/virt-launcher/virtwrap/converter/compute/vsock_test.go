@@ -30,7 +30,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/vsock"
@@ -56,7 +55,7 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 	It("Should configure VSOCK when VSOCKCID is present in global mode", func() {
 		const expectedVSOCKID = uint32(50)
 		vmiStatus := v1.VirtualMachineInstanceStatus{
-			VSOCKCID: pointer.P(expectedVSOCKID),
+			VSOCKCID: new(expectedVSOCKID),
 		}
 		vmi := libvmi.New(
 			libvmistatus.WithStatus(vmiStatus),
@@ -86,7 +85,7 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 
 	It("Should configure VSOCK when VSOCKCID is present in local mode", func() {
 		vmiStatus := v1.VirtualMachineInstanceStatus{
-			VSOCKCID: pointer.P[uint32](1234),
+			VSOCKCID: new(uint32(1234)),
 		}
 		vmi := libvmi.New(
 			libvmistatus.WithStatus(vmiStatus),

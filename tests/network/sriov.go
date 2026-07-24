@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -331,7 +330,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 					WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 				}
-				rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+				rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 				err := config.RegisterKubevirtConfigChange(
 					config.WithWorkloadUpdateStrategy(updateStrategy),
 					config.WithVMRolloutStrategy(rolloutStrategy),

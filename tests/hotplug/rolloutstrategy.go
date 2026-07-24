@@ -15,7 +15,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -36,7 +35,7 @@ var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Seri
 
 	Context("When using the Stage rollout strategy", func() {
 		BeforeEach(func() {
-			rolloutStrategy := pointer.P(v1.VMRolloutStrategyStage)
+			rolloutStrategy := new(v1.VMRolloutStrategyStage)
 			err := config.RegisterKubevirtConfigChange(
 				config.WithVMRolloutStrategy(rolloutStrategy),
 			)

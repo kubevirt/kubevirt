@@ -20,8 +20,6 @@ import (
 	exportv1 "kubevirt.io/api/export/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const timestamp = "2025-01-01T12:34:56Z"
@@ -215,7 +213,7 @@ var _ = Describe("CRDs", func() {
 					CreationTimestamp: createTime(),
 				},
 				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
-					Replicas: pointer.P(int32(2)),
+					Replicas: new(int32(2)),
 				},
 				Status: v1.VirtualMachineInstanceReplicaSetStatus{
 					Replicas:      int32(4),
@@ -252,7 +250,7 @@ var _ = Describe("CRDs", func() {
 					CreationTimestamp: createTime(),
 				},
 				Spec: poolv1.VirtualMachinePoolSpec{
-					Replicas: pointer.P(int32(2)),
+					Replicas: new(int32(2)),
 				},
 				Status: poolv1.VirtualMachinePoolStatus{
 					Replicas:      int32(4),
@@ -271,10 +269,10 @@ var _ = Describe("CRDs", func() {
 				},
 				Status: &snapshotv1beta1.VirtualMachineSnapshotStatus{
 					Phase:        snapshotv1beta1.InProgress,
-					ReadyToUse:   pointer.P(false),
-					CreationTime: pointer.P(createTime()),
+					ReadyToUse:   new(false),
+					CreationTime: new(createTime()),
 					Error: &snapshotv1beta1.Error{
-						Message: pointer.P("test-error"),
+						Message: new("test-error"),
 					},
 				},
 			},
@@ -283,10 +281,10 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd,
 			snapshotv1beta1.VirtualMachineSnapshotContent{
 				Status: &snapshotv1beta1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse:   pointer.P(false),
-					CreationTime: pointer.P(createTime()),
+					ReadyToUse:   new(false),
+					CreationTime: new(createTime()),
 					Error: &snapshotv1beta1.Error{
-						Message: pointer.P("test-error"),
+						Message: new("test-error"),
 					},
 				},
 			},
@@ -301,8 +299,8 @@ var _ = Describe("CRDs", func() {
 					},
 				},
 				Status: &snapshotv1beta1.VirtualMachineRestoreStatus{
-					Complete:    pointer.P(false),
-					RestoreTime: pointer.P(createTime()),
+					Complete:    new(false),
+					RestoreTime: new(createTime()),
 				},
 			},
 			"VirtualMachine", "test-vm", "false", timestamp,
@@ -347,7 +345,7 @@ var _ = Describe("CRDs", func() {
 				},
 				Status: &backupv1alpha1.VirtualMachineBackupStatus{
 					Type:           backupv1alpha1.Full,
-					CheckpointName: pointer.P("test-checkpoint"),
+					CheckpointName: new("test-checkpoint"),
 				},
 			},
 			"VirtualMachineBackupTracker", "test-tracker", "Full", "test-checkpoint",
@@ -363,7 +361,7 @@ var _ = Describe("CRDs", func() {
 				Status: &backupv1alpha1.VirtualMachineBackupTrackerStatus{
 					LatestCheckpoint: &backupv1alpha1.BackupCheckpoint{
 						Name:         "test-checkpoint",
-						CreationTime: pointer.P(createTime()),
+						CreationTime: new(createTime()),
 					},
 				},
 			},

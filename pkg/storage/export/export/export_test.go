@@ -51,8 +51,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -547,7 +545,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Status: &snapshotv1.VirtualMachineSnapshotStatus{
-				ReadyToUse: pointer.P(false),
+				ReadyToUse: new(false),
 			},
 		}
 		syncCaches(stop)
@@ -603,7 +601,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.P(true),
+						Controller: new(true),
 					},
 				},
 			},
@@ -640,7 +638,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.P(true),
+						Controller: new(true),
 					},
 				},
 			},
@@ -848,7 +846,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(new(string(k8sv1.PersistentVolumeBlock))),
 			},
 		}
 		testVMExport := populateExportFunc()
@@ -1164,7 +1162,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(new(string(k8sv1.PersistentVolumeBlock))),
 			},
 		}
 		populateInitialVMExportStatus(testVMExport)
@@ -1775,7 +1773,7 @@ var _ = Describe("Export controller", func() {
 					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Kind:      "",
 						Name:      "test",
-						Namespace: pointer.P("default"),
+						Namespace: new("default"),
 					},
 				},
 			},
@@ -1818,7 +1816,7 @@ var _ = Describe("Export controller", func() {
 		pvc := createPVC("pvc", string(cdiv1.DataVolumeKubeVirt))
 		pvc.Spec.DataSource = &k8sv1.TypedLocalObjectReference{}
 		pvc.Spec.DataSourceRef = &k8sv1.TypedObjectReference{}
-		pvc.Spec.StorageClassName = pointer.P("somesc")
+		pvc.Spec.StorageClassName = new("somesc")
 		pvcCopy := pvc.DeepCopy()
 		pvcInformer.GetStore().Add(pvc)
 		vm := createVMWithDVTemplateAndPVC()
@@ -2095,7 +2093,7 @@ func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
 			},
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			VolumeMode:  pointer.P(k8sv1.PersistentVolumeMode("testvolumemode")),
+			VolumeMode:  new(k8sv1.PersistentVolumeMode("testvolumemode")),
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode("testaccessmode")},
 			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{

@@ -17,7 +17,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -124,14 +123,14 @@ var _ = Describe("[sig-compute]VM state", func() {
 			if withTPM {
 				By("with persistent TPM enabled")
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-					Persistent: pointer.P(true),
+					Persistent: new(true),
 				}
 			}
 			if withEFI {
 				By("with persistent EFI enabled")
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
-						EFI: &v1.EFI{SecureBoot: pointer.P(false), Persistent: pointer.P(true)},
+						EFI: &v1.EFI{SecureBoot: new(false), Persistent: new(true)},
 					},
 				}
 			}
@@ -205,7 +204,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 			By("Creating a VMI with persistent TPM enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-				Persistent: pointer.P(true),
+				Persistent: new(true),
 			}
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

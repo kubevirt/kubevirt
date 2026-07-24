@@ -26,7 +26,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -161,13 +160,13 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 			Relaxed:    &kvirtv1.FeatureState{},
 			SyNICTimer: &kvirtv1.SyNICTimer{Direct: &kvirtv1.FeatureState{}},
 			VAPIC:      &kvirtv1.FeatureState{},
-			Spinlocks:  &kvirtv1.FeatureSpinlocks{Retries: pointer.P(uint32(featureSpinlocks))},
+			Spinlocks:  &kvirtv1.FeatureSpinlocks{Retries: new(uint32(featureSpinlocks))},
 		},
 	}
 	vmi.Spec.Domain.Clock = &kvirtv1.Clock{
 		ClockOffset: kvirtv1.ClockOffset{UTC: &kvirtv1.ClockOffsetUTC{}},
 		Timer: &kvirtv1.Timer{
-			HPET:   &kvirtv1.HPETTimer{Enabled: pointer.P(false)},
+			HPET:   &kvirtv1.HPETTimer{Enabled: new(false)},
 			PIT:    &kvirtv1.PITTimer{TickPolicy: kvirtv1.PITTickPolicyDelay},
 			RTC:    &kvirtv1.RTCTimer{TickPolicy: kvirtv1.RTCTickPolicyCatchup},
 			Hyperv: &kvirtv1.HypervTimer{},

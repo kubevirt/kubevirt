@@ -20,7 +20,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -110,7 +109,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		preference = builder.NewPreference()
 		preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 			CPU: &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+				PreferredCPUTopology: new(instancetypev1beta1.Cores),
 			},
 		}
 		preference, err = virtClient.VirtualMachinePreference(namespace).Create(context.Background(), preference, metav1.CreateOptions{})

@@ -31,7 +31,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 )
 
@@ -215,7 +214,7 @@ func (c *createClone) newClone() (*clone.VirtualMachineClone, error) {
 	}
 
 	if c.newSmbiosSerial != "" {
-		vmClone.Spec.NewSMBiosSerial = pointer.P(c.newSmbiosSerial)
+		vmClone.Spec.NewSMBiosSerial = new(c.newSmbiosSerial)
 	}
 
 	return vmClone, nil

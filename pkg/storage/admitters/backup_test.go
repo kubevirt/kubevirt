@@ -37,7 +37,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -61,7 +60,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 		vmBackupInformer = createTestVMBackupInformer()
 		admitter = createTestVMBackupAdmitter(config, vmBackupInformer)
 		sourceRef = corev1.TypedLocalObjectReference{
-			APIGroup: pointer.P(apiGroup),
+			APIGroup: new(apiGroup),
 			Kind:     "VirtualMachine",
 			Name:     vmName,
 		}
@@ -115,7 +114,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 			},
 			Spec: backupv1.VirtualMachineBackupSpec{
 				Source:  sourceRef,
-				PvcName: pointer.P("test-pvc"),
+				PvcName: new("test-pvc"),
 			},
 		}
 
@@ -137,11 +136,11 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source: corev1.TypedLocalObjectReference{
-						APIGroup: pointer.P(apiGroup),
+						APIGroup: new(apiGroup),
 						Kind:     "VirtualMachine",
 						Name:     vmName,
 					},
-					PvcName: pointer.P("test-pvc"),
+					PvcName: new("test-pvc"),
 				},
 			}
 
@@ -154,11 +153,11 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source: corev1.TypedLocalObjectReference{
-						APIGroup: pointer.P(apiGroup),
+						APIGroup: new(apiGroup),
 						Kind:     "VirtualMachine",
 						Name:     vmName,
 					},
-					PvcName: pointer.P("test-pvc"),
+					PvcName: new("test-pvc"),
 				},
 			}
 
@@ -180,7 +179,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source:  sourceRef,
-					PvcName: pointer.P("test-pvc"),
+					PvcName: new("test-pvc"),
 				},
 				Status: &backupv1.VirtualMachineBackupStatus{
 					Conditions: []metav1.Condition{
@@ -201,7 +200,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source:  sourceRef,
-					PvcName: pointer.P("test-pvc"),
+					PvcName: new("test-pvc"),
 				},
 			}
 
@@ -222,7 +221,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source:  sourceRef,
-					PvcName: pointer.P("test-pvc"),
+					PvcName: new("test-pvc"),
 				},
 				Status: &backupv1.VirtualMachineBackupStatus{
 					Conditions: []metav1.Condition{
@@ -243,7 +242,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source:  sourceRef,
-					PvcName: pointer.P("test-pvc"),
+					PvcName: new("test-pvc"),
 				},
 			}
 
@@ -438,7 +437,7 @@ var _ = Describe("Validating VirtualMachineBackupTracker Admitter", func() {
 			},
 			Spec: backupv1.VirtualMachineBackupTrackerSpec{
 				Source: corev1.TypedLocalObjectReference{
-					APIGroup: pointer.P(apiGroup),
+					APIGroup: new(apiGroup),
 					Kind:     "VirtualMachine",
 					Name:     vmName,
 				},

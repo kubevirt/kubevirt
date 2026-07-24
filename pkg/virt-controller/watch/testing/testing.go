@@ -28,7 +28,6 @@ import (
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func MarkAsReady(vmi *v1.VirtualMachineInstance) {
@@ -95,8 +94,8 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 		Name:               vm.ObjectMeta.Name,
 		UID:                vm.ObjectMeta.UID,
-		Controller:         pointer.P(true),
-		BlockOwnerDeletion: pointer.P(true),
+		Controller:         new(true),
+		BlockOwnerDeletion: new(true),
 	}}
 	controller.SetLatestApiVersionAnnotation(vmi)
 	controller.SetLatestApiVersionAnnotation(vm)

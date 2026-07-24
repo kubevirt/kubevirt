@@ -31,7 +31,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/common"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -111,7 +110,7 @@ var _ = Describe("AdjustResources", func() {
 					func(vmi *v1.VirtualMachineInstance) {
 						vmi.Spec.Domain.Memory = &v1.Memory{
 							ReservedOverhead: &v1.ReservedOverhead{
-								MemLock: pointer.P(v1.MemLockRequirement(v1.MemLockRequired)),
+								MemLock: new(v1.MemLockRequirement(v1.MemLockRequired)),
 							},
 						}
 					},

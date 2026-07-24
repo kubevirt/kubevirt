@@ -36,7 +36,6 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Validating Preference Admitter", func() {
@@ -70,7 +69,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
 			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(unsupportedTopology),
+					PreferredCPUTopology: new(unsupportedTopology),
 				},
 			},
 		}
@@ -92,7 +91,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredCPUTopology,
 					SpreadOptions: &instancetypev1beta1.SpreadOptions{
-						Across: pointer.P(unsupportedAcrossValue),
+						Across: new(unsupportedAcrossValue),
 					},
 				},
 			},
@@ -126,9 +125,9 @@ var _ = Describe("Validating Preference Admitter", func() {
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(3),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						PreferredCPUTopology: new(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -139,9 +138,9 @@ var _ = Describe("Validating Preference Admitter", func() {
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(3),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.DeprecatedPreferSpread),
+						PreferredCPUTopology: new(instancetypev1beta1.DeprecatedPreferSpread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -151,10 +150,10 @@ var _ = Describe("Validating Preference Admitter", func() {
 			instancetypev1beta1.VirtualMachinePreference{
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						PreferredCPUTopology: new(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -164,10 +163,10 @@ var _ = Describe("Validating Preference Admitter", func() {
 			instancetypev1beta1.VirtualMachinePreference{
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.DeprecatedPreferSpread),
+						PreferredCPUTopology: new(instancetypev1beta1.DeprecatedPreferSpread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -179,7 +178,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 		preferenceObj := &instancetypev1beta1.VirtualMachinePreference{
 			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(deprecatedTopology),
+					PreferredCPUTopology: new(deprecatedTopology),
 				},
 			},
 		}
@@ -240,7 +239,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 					CPU: &instancetypev1beta1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(unsupportedAcrossValue),
+							Across: new(unsupportedAcrossValue),
 						},
 					},
 				},
@@ -274,9 +273,9 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(3),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						PreferredCPUTopology: new(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -287,9 +286,9 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(3),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.DeprecatedPreferSpread),
+						PreferredCPUTopology: new(instancetypev1beta1.DeprecatedPreferSpread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -299,10 +298,10 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			instancetypev1beta1.VirtualMachineClusterPreference{
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
+						PreferredCPUTopology: new(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -312,10 +311,10 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			instancetypev1beta1.VirtualMachineClusterPreference{
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.DeprecatedPreferSpread),
+						PreferredCPUTopology: new(instancetypev1beta1.DeprecatedPreferSpread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
-							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(instancetypev1beta1.SpreadAcrossCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -328,7 +327,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			preferenceObj := &instancetypev1beta1.VirtualMachineClusterPreference{
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(deprecatedTopology),
+						PreferredCPUTopology: new(deprecatedTopology),
 					},
 				},
 			}

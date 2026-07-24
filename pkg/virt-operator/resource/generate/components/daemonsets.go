@@ -14,7 +14,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -51,7 +50,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			{
 				Name:             devDirVol,
 				MountPath:        "/dev",
-				MountPropagation: pointer.P(corev1.MountPropagationHostToContainer),
+				MountPropagation: new(corev1.MountPropagationHostToContainer),
 			},
 			{
 				Name:             etcMultipath,
@@ -60,8 +59,8 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.P(int64(util.RootUser)),
-			Privileged: pointer.P(true),
+			RunAsUser:  new(int64(util.RootUser)),
+			Privileged: new(true),
 		},
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
@@ -163,8 +162,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: pointer.P(true),
-				RunAsUser:  pointer.P(int64(0)),
+				Privileged: new(true),
+				RunAsUser:  new(int64(0)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -243,7 +242,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
-		Privileged: pointer.P(true),
+		Privileged: new(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},
@@ -404,7 +403,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/etc/multipath",
-					Type: pointer.P(corev1.HostPathDirectoryOrCreate),
+					Type: new(corev1.HostPathDirectoryOrCreate),
 				},
 			}})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, config.GetImagePullPolicy()))

@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -261,7 +260,7 @@ var _ = Describe("Live migration source", func() {
 
 		It("cancelMigration should no-op when migration already has EndTimestamp", func() {
 			libvirtDomainManager.metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, _ bool) {
-				m.EndTimestamp = pointer.P(metav1.Now())
+				m.EndTimestamp = new(metav1.Now())
 			})
 
 			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
@@ -754,8 +753,8 @@ var _ = Describe("Live migration source", func() {
 			shouldConfigure, _ := shouldConfigureParallelMigration(options)
 			Expect(shouldConfigure).To(BeTrue())
 		},
-			Entry("with non-nil migration threads and post-copy not allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: pointer.P(uint(3)), AllowPostCopy: false}),
-			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: pointer.P(uint(3)), AllowPostCopy: true}),
+			Entry("with non-nil migration threads and post-copy not allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: new(uint(3)), AllowPostCopy: false}),
+			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: new(uint(3)), AllowPostCopy: true}),
 		)
 	})
 
@@ -825,7 +824,7 @@ var _ = Describe("Live migration source", func() {
 
 				shouldConfigureParallel, parallelMigrationThreads := shouldConfigureParallelMigration(options)
 				if shouldConfigureParallel {
-					options.ParallelMigrationThreads = pointer.P(uint(parallelMigrationThreads))
+					options.ParallelMigrationThreads = new(uint(parallelMigrationThreads))
 				}
 
 				flags := generateMigrationFlags(isBlockMigration, isVmiPaused, options)
@@ -1804,11 +1803,11 @@ var _ = Describe("migratableDomXML", func() {
 				VolumeName: volName,
 				SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
 					ClaimName:  sourcePvcName,
-					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode: new(k8sv1.PersistentVolumeFilesystem),
 				},
 				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
 					ClaimName:  destPvcName,
-					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode: new(k8sv1.PersistentVolumeFilesystem),
 				},
 			},
 		}

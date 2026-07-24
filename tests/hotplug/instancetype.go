@@ -19,7 +19,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -49,7 +48,7 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 		updateStrategy := &virtv1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(virtv1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),
@@ -90,7 +89,7 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 			},
 		}
 		if withMaxGuestSockets {
-			originalInstancetype.Spec.CPU.MaxSockets = pointer.P(maxSockets)
+			originalInstancetype.Spec.CPU.MaxSockets = new(maxSockets)
 			originalInstancetype.Spec.Memory.MaxGuest = &maxGuest
 		}
 		originalInstancetype, err := virtClient.VirtualMachineInstancetype(vmi.Namespace).Create(context.Background(), originalInstancetype, metav1.CreateOptions{})
@@ -111,7 +110,7 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 			},
 		}
 		if withMaxGuestSockets {
-			maxInstancetype.Spec.CPU.MaxSockets = pointer.P(maxSockets)
+			maxInstancetype.Spec.CPU.MaxSockets = new(maxSockets)
 			maxInstancetype.Spec.Memory.MaxGuest = &maxGuest
 		}
 		maxInstancetype, err = virtClient.VirtualMachineInstancetype(vmi.Namespace).Create(context.Background(), maxInstancetype, metav1.CreateOptions{})

@@ -22,7 +22,6 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -279,16 +278,16 @@ var _ = Describe("LibvirtHelper", func() {
 	Context("getLibvirtLogFilters()", func() {
 
 		DescribeTable("should return customLogFilters if defined and not empty with", func(libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) {
-			customLogFilters := pointer.P("3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access")
+			customLogFilters := new("3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access")
 
 			logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined)
 			Expect(enableDebugLogs).To(BeTrue())
 			Expect(logFilters).To(Equal(*customLogFilters))
 		},
 			Entry("libvirtLogVerbosityEnvVar not defined, libvirtDebugLogsEnvVarDefined false", nil, false),
-			Entry("libvirtLogVerbosityEnvVar defined, libvirtDebugLogsEnvVarDefined false", pointer.P("2"), false),
+			Entry("libvirtLogVerbosityEnvVar defined, libvirtDebugLogsEnvVarDefined false", new("2"), false),
 			Entry("libvirtLogVerbosityEnvVar not defined, libvirtDebugLogsEnvVarDefined true", nil, true),
-			Entry("libvirtLogVerbosityEnvVar defined, libvirtDebugLogsEnvVarDefined true", pointer.P("1"), true),
+			Entry("libvirtLogVerbosityEnvVar defined, libvirtDebugLogsEnvVarDefined true", new("1"), true),
 		)
 
 		Context("with customLogFilters not defined", func() {
@@ -299,8 +298,8 @@ var _ = Describe("LibvirtHelper", func() {
 				_, enableDebugLogs := getLibvirtLogFilters(nil, libvirtLogVerbosityEnvVar, true)
 				Expect(enableDebugLogs).To(BeTrue())
 			},
-				Entry("libvirtLogVerbosityEnvVar defined to 8", pointer.P("8")),
-				Entry("libvirtLogVerbosityEnvVar defined to 3", pointer.P("3")),
+				Entry("libvirtLogVerbosityEnvVar defined to 8", new("8")),
+				Entry("libvirtLogVerbosityEnvVar defined to 3", new("3")),
 				Entry("libvirtLogVerbosityEnvVar is not defined", nil),
 			)
 
@@ -308,15 +307,15 @@ var _ = Describe("LibvirtHelper", func() {
 
 				var libvirtLogVerbosityEnvVar *string
 				if libvirtLogVerbosity != nil {
-					libvirtLogVerbosityEnvVar = pointer.P(fmt.Sprintf("%d", *libvirtLogVerbosity))
+					libvirtLogVerbosityEnvVar = new(fmt.Sprintf("%d", *libvirtLogVerbosity))
 				}
 
 				_, enableDebugLogs := getLibvirtLogFilters(nil, libvirtLogVerbosityEnvVar, false)
 				Expect(enableDebugLogs).To(Equal(expectedEnableDebugLogs))
 			},
-				Entry("be disabled when libvirt log verbosity is below threshold", pointer.P(verbosityThreshold-1), false),
-				Entry("be disabled when libvirt log verbosity is equal to threshold", pointer.P(verbosityThreshold), true),
-				Entry("be enabled when libvirt log verbosity is above threshold", pointer.P(verbosityThreshold+1), true),
+				Entry("be disabled when libvirt log verbosity is below threshold", new(verbosityThreshold-1), false),
+				Entry("be disabled when libvirt log verbosity is equal to threshold", new(verbosityThreshold), true),
+				Entry("be enabled when libvirt log verbosity is above threshold", new(verbosityThreshold+1), true),
 				Entry("be disabled when libvirt log verbosity is not defined", nil, false),
 			)
 

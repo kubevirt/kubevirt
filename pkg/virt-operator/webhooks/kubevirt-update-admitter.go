@@ -44,7 +44,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -391,7 +390,7 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 			Name: deploymentName,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.P(int32(1)),
+			Replicas: new(int32(1)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					mockLabel: "",

@@ -8,8 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
 
@@ -160,7 +158,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: operatorNamespace,
 						Name:      VirtOperatorServiceName,
-						Path:      pointer.P(KubeVirtCreateValidatePath),
+						Path:      new(KubeVirtCreateValidatePath),
 					},
 				},
 			},
@@ -284,7 +282,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 					Service: &admissionregistrationv1.ServiceReference{
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
-						Path:      pointer.P(VMCloneCreateMutatePath),
+						Path:      new(VMCloneCreateMutatePath),
 					},
 				},
 			},

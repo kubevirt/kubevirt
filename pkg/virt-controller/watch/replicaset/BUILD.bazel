@@ -33,7 +33,6 @@ go_test(
     race = "on",
     deps = [
         "//pkg/controller:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-controller/watch/common:go_default_library",
         "//pkg/virt-controller/watch/testing:go_default_library",

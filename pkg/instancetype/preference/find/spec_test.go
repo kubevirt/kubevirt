@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -259,7 +258,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := clusterPreference.DeepCopy()
 			stored.ObjectMeta.Name = storedName
-			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+			stored.Spec.CPU.PreferredCPUTopology = new(v1beta1.Threads)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
 			Expect(err).ToNot(HaveOccurred())
@@ -427,7 +426,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := preference.DeepCopy()
 			stored.ObjectMeta.Name = storedName
-			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+			stored.Spec.CPU.PreferredCPUTopology = new(v1beta1.Threads)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
 			Expect(err).ToNot(HaveOccurred())

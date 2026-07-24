@@ -34,8 +34,6 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/controller"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -94,7 +92,7 @@ func (s *VMSnapshotSource) ConfigureExportLink(exportLink *exportv1.VirtualMachi
 }
 
 func (s *VMSnapshotSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
-	vmExport.Status.VirtualMachineName = pointer.P(s.vmName)
+	vmExport.Status.VirtualMachineName = new(s.vmName)
 
 	if err := s.updateVMSnapshotExportStatusConditions(vmExport); err != nil {
 		return 0, err
@@ -266,8 +264,8 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 			Kind:               exportGVK.Kind,
 			Name:               vmExport.Name,
 			UID:                vmExport.UID,
-			Controller:         pointer.P(true),
-			BlockOwnerDeletion: pointer.P(true),
+			Controller:         new(true),
+			BlockOwnerDeletion: new(true),
 		},
 	})
 

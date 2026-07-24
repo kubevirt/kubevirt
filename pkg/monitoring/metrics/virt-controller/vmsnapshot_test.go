@@ -30,7 +30,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("VMSnapshot Metrics Collector", func() {
@@ -45,14 +44,14 @@ var _ = Describe("VMSnapshot Metrics Collector", func() {
 				},
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
-						APIGroup: pointer.P("kubevirt.io"),
+						APIGroup: new("kubevirt.io"),
 						Kind:     "VirtualMachine",
 						Name:     "vm-name",
 					},
 				},
 				Status: &snapshotv1.VirtualMachineSnapshotStatus{
 					CreationTime: &fixedTime,
-					ReadyToUse:   pointer.P(true),
+					ReadyToUse:   new(true),
 					Phase:        snapshotv1.Succeeded,
 				},
 			}

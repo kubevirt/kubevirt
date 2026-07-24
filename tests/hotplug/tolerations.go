@@ -36,7 +36,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -73,7 +72,7 @@ var _ = Describe("[sig-compute]VM Tolerations", decorators.SigCompute, decorator
 					Effect:            k8sv1.TaintEffectNoExecute,
 					Key:               "testTaint",
 					Operator:          k8sv1.TolerationOpExists,
-					TolerationSeconds: pointer.P(int64(300)),
+					TolerationSeconds: new(int64(300)),
 				},
 			}
 			patchSet := patch.New(patch.WithAdd("/spec/template/spec/tolerations", tolerations))
@@ -88,7 +87,7 @@ var _ = Describe("[sig-compute]VM Tolerations", decorators.SigCompute, decorator
 				Effect:            k8sv1.TaintEffectNoExecute,
 				Key:               "testTaint2",
 				Operator:          k8sv1.TolerationOpExists,
-				TolerationSeconds: pointer.P(int64(300)),
+				TolerationSeconds: new(int64(300)),
 			}
 			tolerations = append(tolerations, newToleration)
 

@@ -50,7 +50,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -163,11 +162,11 @@ var _ = Describe(SIG("Backup", func() {
 		backupName := backupName(vm.Name)
 		backup := NewBackup(backupName, vm.Namespace, targetPVC.Name)
 		backup.Spec.Source = corev1.TypedLocalObjectReference{
-			APIGroup: pointer.P(backupapi.GroupName),
+			APIGroup: new(backupapi.GroupName),
 			Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
 			Name:     tracker.Name,
 		}
-		backup.Spec.Mode = pointer.P(backupv1.PullMode)
+		backup.Spec.Mode = new(backupv1.PullMode)
 		backup.Spec.TokenSecretRef = tokenSecret.Name
 		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -928,7 +927,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating Full Pull Mode Backup")
 		fullBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
-		fullBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		fullBackup.Spec.Mode = new(backupv1.PullMode)
 		fullBackup.Spec.TokenSecretRef = tokenSecret.Name
 
 		fullBackup, err = virtClient.VirtualMachineBackup(fullBackup.Namespace).Create(context.Background(), fullBackup, metav1.CreateOptions{})
@@ -955,7 +954,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating Incremental Pull Mode Backup")
 		incBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
-		incBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		incBackup.Spec.Mode = new(backupv1.PullMode)
 		incBackup.Spec.TokenSecretRef = tokenSecret.Name
 
 		incBackup, err = virtClient.VirtualMachineBackup(incBackup.Namespace).Create(context.Background(), incBackup, metav1.CreateOptions{})
@@ -1040,7 +1039,7 @@ var _ = Describe(SIG("Backup", func() {
 		By("Creating a Full Pull Mode Backup")
 		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), scratchPVCSize, libstorage.WithStorageProfile())
 		fullBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
-		fullBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		fullBackup.Spec.Mode = new(backupv1.PullMode)
 		fullBackup.Spec.TokenSecretRef = tokenSecret.Name
 
 		fullBackup, err = virtClient.VirtualMachineBackup(fullBackup.Namespace).Create(context.Background(), fullBackup, metav1.CreateOptions{})
@@ -1070,7 +1069,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating Incremental Pull Mode Backup")
 		incBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
-		incBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		incBackup.Spec.Mode = new(backupv1.PullMode)
 		incBackup.Spec.TokenSecretRef = tokenSecret.Name
 
 		incBackup, err = virtClient.VirtualMachineBackup(incBackup.Namespace).Create(context.Background(), incBackup, metav1.CreateOptions{})
@@ -1120,7 +1119,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating Pull Mode Backup with a short TTL")
 		backup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, scratchPVC.Name)
-		backup.Spec.Mode = pointer.P(backupv1.PullMode)
+		backup.Spec.Mode = new(backupv1.PullMode)
 		backup.Spec.TokenSecretRef = tokenSecret.Name
 
 		ttlDuration := 15 * time.Second
@@ -1183,7 +1182,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating Pull Mode Backup")
 		backup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, scratchPVC.Name)
-		backup.Spec.Mode = pointer.P(backupv1.PullMode)
+		backup.Spec.Mode = new(backupv1.PullMode)
 		backup.Spec.TokenSecretRef = tokenSecret.Name
 
 		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
@@ -1401,7 +1400,7 @@ func createBackupTracker(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachin
 		},
 		Spec: backupv1.VirtualMachineBackupTrackerSpec{
 			Source: corev1.TypedLocalObjectReference{
-				APIGroup: pointer.P(core.GroupName),
+				APIGroup: new(core.GroupName),
 				Kind:     "VirtualMachine",
 				Name:     vm.Name,
 			},
@@ -1428,7 +1427,7 @@ func NewBackup(backupName, namespace, pvcName string) *backupv1.VirtualMachineBa
 func newBackupWithSource(backupName, vmName, namespace, pvcName string) *backupv1.VirtualMachineBackup {
 	vmBackup := NewBackup(backupName, namespace, pvcName)
 	vmBackup.Spec.Source = corev1.TypedLocalObjectReference{
-		APIGroup: pointer.P(core.GroupName),
+		APIGroup: new(core.GroupName),
 		Kind:     "VirtualMachine",
 		Name:     vmName,
 	}
@@ -1438,7 +1437,7 @@ func newBackupWithSource(backupName, vmName, namespace, pvcName string) *backupv
 func newBackupWithTracker(backupName, namespace, pvcName, trackerName string) *backupv1.VirtualMachineBackup {
 	vmBackup := NewBackup(backupName, namespace, pvcName)
 	vmBackup.Spec.Source = corev1.TypedLocalObjectReference{
-		APIGroup: pointer.P(backupapi.GroupName),
+		APIGroup: new(backupapi.GroupName),
 		Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
 		Name:     trackerName,
 	}

@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -350,7 +349,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				Kind:       "VirtualMachine",
 				Name:       request.PathParameter("name"),
 				UID:        types.UID("1234"),
-				Controller: pointer.P(true),
+				Controller: new(true),
 			},
 		}
 

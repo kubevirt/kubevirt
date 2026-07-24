@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
@@ -422,9 +421,9 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				if err := source.Freeze(); err != nil {
 					contentCpy.Status.Error = &snapshotv1.Error{
 						Time:    currentTime(),
-						Message: pointer.P(err.Error()),
+						Message: new(err.Error()),
 					}
-					contentCpy.Status.ReadyToUse = pointer.P(false)
+					contentCpy.Status.ReadyToUse = new(false)
 					// Retry again in 5 seconds
 					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 				}
@@ -489,7 +488,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				contentCpy.Status.CreationTime = nil
 				contentCpy.Status.Error = &snapshotv1.Error{
 					Time:    currentTime(),
-					Message: pointer.P(err.Error()),
+					Message: new(err.Error()),
 				}
 				return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 			}

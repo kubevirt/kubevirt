@@ -32,7 +32,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.Devices", func() {
@@ -117,11 +116,11 @@ var _ = Describe("Preference.Devices", func() {
 
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			Devices: &v1beta1.DevicePreferences{
-				PreferredDiskDedicatedIoThread:      pointer.P(true),
-				PreferredDisableHotplug:             pointer.P(true),
-				PreferredUseVirtioTransitional:      pointer.P(true),
-				PreferredNetworkInterfaceMultiQueue: pointer.P(true),
-				PreferredBlockMultiQueue:            pointer.P(true),
+				PreferredDiskDedicatedIoThread:      new(true),
+				PreferredDisableHotplug:             new(true),
+				PreferredUseVirtioTransitional:      new(true),
+				PreferredNetworkInterfaceMultiQueue: new(true),
+				PreferredBlockMultiQueue:            new(true),
 				PreferredDiskBlockSize: &virtv1.BlockSize{
 					Custom: &virtv1.CustomBlockSize{
 						Logical:  4096,
@@ -139,7 +138,7 @@ var _ = Describe("Preference.Devices", func() {
 				PreferredSoundModel:          "ac97",
 				PreferredRng:                 &virtv1.Rng{},
 				PreferredInterfaceMasquerade: &virtv1.InterfaceMasquerade{},
-				PreferredPanicDeviceModel:    pointer.P(virtv1.Hyperv),
+				PreferredPanicDeviceModel:    new(virtv1.Hyperv),
 			},
 		}
 	})
@@ -236,14 +235,14 @@ var _ = Describe("Preference.Devices", func() {
 			}),
 			Entry("false", &v1beta1.VirtualMachinePreferenceSpec{
 				Devices: &v1beta1.DevicePreferences{
-					PreferredDiskDedicatedIoThread: pointer.P(false),
+					PreferredDiskDedicatedIoThread: new(false),
 				},
 			}),
 		)
 		It("should only apply to virtio disk devices", func() {
 			preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 				Devices: &v1beta1.DevicePreferences{
-					PreferredDiskDedicatedIoThread: pointer.P(true),
+					PreferredDiskDedicatedIoThread: new(true),
 				},
 			}
 			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
@@ -269,23 +268,23 @@ var _ = Describe("Preference.Devices", func() {
 			},
 			Entry("only apply when TPM device is nil within VMI spec",
 				nil,
-				&virtv1.TPMDevice{Persistent: pointer.P(true)},
-				&virtv1.TPMDevice{Persistent: pointer.P(true)},
+				&virtv1.TPMDevice{Persistent: new(true)},
+				&virtv1.TPMDevice{Persistent: new(true)},
 			),
 			Entry("not apply when TPM device is provided within VMI spec",
-				&virtv1.TPMDevice{Persistent: pointer.P(true)},
+				&virtv1.TPMDevice{Persistent: new(true)},
 				&virtv1.TPMDevice{},
-				&virtv1.TPMDevice{Persistent: pointer.P(true)},
+				&virtv1.TPMDevice{Persistent: new(true)},
 			),
 			Entry("not apply when TPM device is provided in the preference but disabled within VMI spec",
-				&virtv1.TPMDevice{Enabled: pointer.P(false)},
+				&virtv1.TPMDevice{Enabled: new(false)},
 				&virtv1.TPMDevice{},
-				&virtv1.TPMDevice{Enabled: pointer.P(false)},
+				&virtv1.TPMDevice{Enabled: new(false)},
 			),
 			Entry("not apply when TPM device is explicitly Enabled in the preference but disabled within VMI spec",
-				&virtv1.TPMDevice{Enabled: pointer.P(false)},
-				&virtv1.TPMDevice{Enabled: pointer.P(true)},
-				&virtv1.TPMDevice{Enabled: pointer.P(false)},
+				&virtv1.TPMDevice{Enabled: new(false)},
+				&virtv1.TPMDevice{Enabled: new(true)},
+				&virtv1.TPMDevice{Enabled: new(false)},
 			),
 		)
 	})
@@ -300,21 +299,21 @@ var _ = Describe("Preference.Devices", func() {
 			},
 			Entry("not apply when preferredPanicDeviceModel is nil",
 				nil,
-				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
-				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
+				[]virtv1.PanicDevice{{Model: new(virtv1.Hyperv)}},
+				[]virtv1.PanicDevice{{Model: new(virtv1.Hyperv)}},
 			),
 			Entry("create a panic device when none are provided in the VMI spec",
-				pointer.P(virtv1.Hyperv),
+				new(virtv1.Hyperv),
 				[]virtv1.PanicDevice{},
-				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
+				[]virtv1.PanicDevice{{Model: new(virtv1.Hyperv)}},
 			),
 			Entry("only apply when  panic device model is nil for a panic device provided in the VMI spec",
-				pointer.P(virtv1.Isa),
-				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}, {}, {Model: pointer.P(virtv1.PanicDeviceModel(""))}},
+				new(virtv1.Isa),
+				[]virtv1.PanicDevice{{Model: new(virtv1.Hyperv)}, {}, {Model: new(virtv1.PanicDeviceModel(""))}},
 				[]virtv1.PanicDevice{
-					{Model: pointer.P(virtv1.Hyperv)},
-					{Model: pointer.P(virtv1.Isa)},
-					{Model: pointer.P(virtv1.PanicDeviceModel(""))},
+					{Model: new(virtv1.Hyperv)},
+					{Model: new(virtv1.Isa)},
+					{Model: new(virtv1.PanicDeviceModel(""))},
 				},
 			),
 		)
@@ -329,17 +328,17 @@ var _ = Describe("Preference.Devices", func() {
 				Expect(vmi.Spec.Domain.Devices.Video).To(Equal(expectedVideo))
 			},
 			Entry("only apply when video device type is empty within VMI spec",
-				pointer.P("virtio"),
+				new("virtio"),
 				&virtv1.VideoDevice{},
 				&virtv1.VideoDevice{Type: "virtio"},
 			),
 			Entry("not apply when video device type is already set within VMI spec",
-				pointer.P("virtio"),
+				new("virtio"),
 				&virtv1.VideoDevice{Type: "vga"},
 				&virtv1.VideoDevice{Type: "vga"},
 			),
 			Entry("create video device and apply when video device is not provided in the VMI spec",
-				pointer.P("virtio"),
+				new("virtio"),
 				nil,
 				&virtv1.VideoDevice{Type: "virtio"},
 			),
@@ -390,12 +389,12 @@ var _ = Describe("Preference.Devices", func() {
 			Expect(*f.vmi).To(match, fmt.Sprintf("%s not applied correctly", name))
 		}
 	},
-		Entry("apply true when VMI value is nil", pointer.P(true), nil, HaveValue(BeTrue())),
-		Entry("apply false when VMI value is nil", pointer.P(false), nil, HaveValue(BeFalse())),
+		Entry("apply true when VMI value is nil", new(true), nil, HaveValue(BeTrue())),
+		Entry("apply false when VMI value is nil", new(false), nil, HaveValue(BeFalse())),
 		Entry("not apply nil when VMI value is nil", nil, nil, BeNil()),
-		Entry("not apply nil when VMI value is true", nil, pointer.P(true), HaveValue(BeTrue())),
-		Entry("not apply nil when VMI value is false", nil, pointer.P(false), HaveValue(BeFalse())),
-		Entry("not apply true when VMI value is false", pointer.P(true), pointer.P(false), HaveValue(BeFalse())),
-		Entry("not apply false when VMI value is true", pointer.P(false), pointer.P(true), HaveValue(BeTrue())),
+		Entry("not apply nil when VMI value is true", nil, new(true), HaveValue(BeTrue())),
+		Entry("not apply nil when VMI value is false", nil, new(false), HaveValue(BeFalse())),
+		Entry("not apply true when VMI value is false", new(true), new(false), HaveValue(BeFalse())),
+		Entry("not apply false when VMI value is true", new(false), new(true), HaveValue(BeTrue())),
 	)
 })

@@ -28,7 +28,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -140,9 +139,9 @@ var _ = Describe("VirtTemplate", func() {
 			Expect(updateDeployment(dep, testConfig)).To(expectedMatcher)
 		},
 		Entry("nil replicas", nil, Succeed()),
-		Entry("one replicas", pointer.P(int32(1)), Succeed()),
-		Entry("zero replicas", pointer.P(int32(0)), MatchError(ContainSubstring("expected exactly 1 replica"))),
-		Entry("two replicas", pointer.P(int32(2)), MatchError(ContainSubstring("expected exactly 1 replica"))),
+		Entry("one replicas", new(int32(1)), Succeed()),
+		Entry("zero replicas", new(int32(0)), MatchError(ContainSubstring("expected exactly 1 replica"))),
+		Entry("two replicas", new(int32(2)), MatchError(ContainSubstring("expected exactly 1 replica"))),
 	)
 
 	DescribeTable("should require exactly one container in deployments",

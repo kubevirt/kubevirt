@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -122,7 +121,7 @@ func withReEnlightenment() libvmi.Option {
 			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
 		}
 
-		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: virtpointer.P(true)}
+		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: new(true)}
 	}
 }
 
@@ -134,6 +133,6 @@ func withHypervPassthrough() libvmi.Option {
 		if vmi.Spec.Domain.Features.HypervPassthrough == nil {
 			vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
 		}
-		vmi.Spec.Domain.Features.HypervPassthrough.Enabled = virtpointer.P(true)
+		vmi.Spec.Domain.Features.HypervPassthrough.Enabled = new(true)
 	}
 }

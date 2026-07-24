@@ -40,7 +40,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -487,9 +486,9 @@ func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config *virt
 		Args:            []string{"--no-op"},
 		Resources:       resources,
 		SecurityContext: &kubev1.SecurityContext{
-			RunAsUser:                pointer.P(int64(util.NonRootUID)),
-			RunAsNonRoot:             pointer.P(true),
-			AllowPrivilegeEscalation: pointer.P(false),
+			RunAsUser:                new(int64(util.NonRootUID)),
+			RunAsNonRoot:             new(true),
+			AllowPrivilegeEscalation: new(false),
 			Capabilities: &kubev1.Capabilities{
 				Drop: []kubev1.Capability{"ALL"},
 			},

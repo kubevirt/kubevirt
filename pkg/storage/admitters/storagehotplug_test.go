@@ -34,7 +34,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -277,7 +276,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 	makeDisksWithIOThreadsAndBus := func(bus v1.DiskBus, indexes ...int) []v1.Disk {
 		res := makeDisksWithBus(bus, indexes...)
 		if len(res) > 0 {
-			res[len(res)-1].DedicatedIOThread = pointer.P(true)
+			res[len(res)-1].DedicatedIOThread = new(true)
 		}
 		return res
 	}
@@ -285,7 +284,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 	makeDisksWithIOThreads := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
 		if len(res) > 0 {
-			res[len(res)-1].DedicatedIOThread = pointer.P(true)
+			res[len(res)-1].DedicatedIOThread = new(true)
 		}
 		return res
 	}
@@ -293,7 +292,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 	makeDisksInvalidBootOrder := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
 		if len(res) > 0 {
-			res[len(res)-1].BootOrder = pointer.P(uint(0))
+			res[len(res)-1].BootOrder = new(uint(0))
 		}
 		return res
 	}

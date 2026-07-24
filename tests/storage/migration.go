@@ -51,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -99,7 +98,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		updateStrategy := &virtv1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(virtv1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),
@@ -256,13 +255,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					"VolumeName": Equal(volName),
 					"SourcePVCInfo": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"ClaimName":   Equal(src),
-						"VolumeMode":  Equal(pointer.P(k8sv1.PersistentVolumeFilesystem)),
+						"VolumeMode":  Equal(new(k8sv1.PersistentVolumeFilesystem)),
 						"AccessModes": Not(BeEmpty()),
 						"Requests":    HaveLen(1),
 					})),
 					"DestinationPVCInfo": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"ClaimName":   Equal(dst),
-						"VolumeMode":  Equal(pointer.P(k8sv1.PersistentVolumeFilesystem)),
+						"VolumeMode":  Equal(new(k8sv1.PersistentVolumeFilesystem)),
 						"AccessModes": Not(BeEmpty()),
 						"Requests":    HaveLen(1),
 					})),
@@ -357,7 +356,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		DescribeTable("should migrate the source volume from a source DV to a destination DV", func(allowPostCopy bool) {
 			policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 			migrationPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
-			migrationPolicy.Spec.AllowPostCopy = pointer.P(allowPostCopy)
+			migrationPolicy.Spec.AllowPostCopy = new(allowPostCopy)
 
 			volName := "disk0"
 			srcDV := createDV()
@@ -759,12 +758,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 
 			By("Restarting the VM during the volume migration")
-			restartOptions := &virtv1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))}
+			restartOptions := &virtv1.RestartOptions{GracePeriodSeconds: new(int64(0))}
 			err := virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, restartOptions)
 			Expect(err).To(MatchError(ContainSubstring("VM recovery required")))
 
 			By("Stopping the VM during the volume migration")
-			stopOptions := &virtv1.StopOptions{GracePeriod: pointer.P(int64(0))}
+			stopOptions := &virtv1.StopOptions{GracePeriod: new(int64(0))}
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
 			Expect(err).ToNot(HaveOccurred())
 			checkVolumeMigrationOnVM(vm, volName, dv.Name, destPVC)
@@ -814,13 +813,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					"VolumeName": Equal(volName),
 					"SourcePVCInfo": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"ClaimName":   Equal(dv.Name),
-						"VolumeMode":  Equal(pointer.P(k8sv1.PersistentVolumeFilesystem)),
+						"VolumeMode":  Equal(new(k8sv1.PersistentVolumeFilesystem)),
 						"AccessModes": Not(BeEmpty()),
 						"Requests":    HaveLen(1),
 					})),
 					"DestinationPVCInfo": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"ClaimName":   Equal(destPVC),
-						"VolumeMode":  Equal(pointer.P(k8sv1.PersistentVolumeFilesystem)),
+						"VolumeMode":  Equal(new(k8sv1.PersistentVolumeFilesystem)),
 						"AccessModes": Not(BeEmpty()),
 						"Requests":    HaveLen(1),
 					})),
@@ -915,7 +914,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-					GracePeriodSeconds: pointer.P(int64(0)),
+					GracePeriodSeconds: new(int64(0)),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -1279,10 +1278,10 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 	smallerSize := q.AsApproximateFloat64()
 	Expect(smallerSize).Should(BeNumerically(">", 0))
 	securityContext := k8sv1.SecurityContext{
-		Privileged:               pointer.P(false),
-		RunAsUser:                pointer.P(int64(util.NonRootUID)),
-		AllowPrivilegeEscalation: pointer.P(false),
-		RunAsNonRoot:             pointer.P(true),
+		Privileged:               new(false),
+		RunAsUser:                new(int64(util.NonRootUID)),
+		AllowPrivilegeEscalation: new(false),
+		RunAsNonRoot:             new(true),
 		SeccompProfile: &k8sv1.SeccompProfile{
 			Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 		},
@@ -1316,7 +1315,7 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 		},
 	}
 	podSecurityContext := k8sv1.PodSecurityContext{
-		FSGroup: pointer.P(int64(util.NonRootUID)),
+		FSGroup: new(int64(util.NonRootUID)),
 	}
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

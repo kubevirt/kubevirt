@@ -17,8 +17,6 @@ package defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func setDefaultS390xDisksBus(spec *v1.VirtualMachineInstanceSpec) {
@@ -41,13 +39,13 @@ func setDefaultS390xDisksBus(spec *v1.VirtualMachineInstanceSpec) {
 
 // Disable ACPI Feature by default on s390x, since it is not supported
 func setS390xDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
-	featureStateDisabled := v1.FeatureState{Enabled: pointer.P[bool](false)}
+	featureStateDisabled := v1.FeatureState{Enabled: new(false)}
 	if spec.Domain.Features == nil {
 		spec.Domain.Features = &v1.Features{
 			ACPI: featureStateDisabled,
 		}
 	} else if spec.Domain.Features.ACPI.Enabled == nil {
-		spec.Domain.Features.ACPI.Enabled = pointer.P[bool](false)
+		spec.Domain.Features.ACPI.Enabled = new(false)
 	}
 }
 

@@ -53,7 +53,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -1657,7 +1656,7 @@ var _ = Describe("Manager", func() {
 				mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(domainSpecXML), nil)
 
 				// hotplug to MaxGuest
-				vmi.Spec.Domain.Memory.Guest = virtpointer.P(resource.MustParse("256Mi"))
+				vmi.Spec.Domain.Memory.Guest = new(resource.MustParse("256Mi"))
 
 				memoryDevice, err := memory.BuildMemoryDevice(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1793,7 +1792,7 @@ var _ = Describe("Manager", func() {
 			const updatedGracePeriod int64 = 0
 
 			vmi := newVMI(testNamespace, testVmName)
-			vmi.Spec.TerminationGracePeriodSeconds = virtpointer.P(updatedGracePeriod)
+			vmi.Spec.TerminationGracePeriodSeconds = new(updatedGracePeriod)
 
 			metadataCache.GracePeriod.WithSafeBlock(func(gp *api.GracePeriodMetadata, _ bool) {
 				gp.DeletionGracePeriodSeconds = initialGracePeriod
@@ -1865,7 +1864,7 @@ var _ = Describe("Manager", func() {
 			manager.MarkGracefulShutdownVMI()
 
 			gracePeriod, _ := metadataCache.GracePeriod.Load()
-			Expect(gracePeriod.MarkedForGracefulShutdown).To(Equal(virtpointer.P(true)))
+			Expect(gracePeriod.MarkedForGracefulShutdown).To(Equal(new(true)))
 		})
 
 		It("Should signal graceful shutdown after marked for shutdown", func() {
@@ -3515,7 +3514,7 @@ var _ = Describe("Manager", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: virtpointer.P(true),
+						SecureBoot: new(true),
 					},
 				},
 			}
@@ -3541,7 +3540,7 @@ var _ = Describe("Manager", func() {
 		})
 
 		DescribeTable("should use explicit EFI paths when firmware auto-selection does not apply", func(arch string, secureBoot bool, firmwareAutoSelection bool, efiCodeFile, efiVarsFile string, expectedSecureLoader bool) {
-			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = virtpointer.P(secureBoot)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = new(secureBoot)
 
 			ovmfDir, err := os.MkdirTemp("", "ovmfdir")
 			Expect(err).ToNot(HaveOccurred())
@@ -3575,7 +3574,7 @@ var _ = Describe("Manager", func() {
 		)
 
 		DescribeTable("should not use firmware auto-selection for confidential computing VMs even when feature gate is enabled", func(launchSecurity *v1.LaunchSecurity, efiFiles []string) {
-			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = virtpointer.P(false)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = new(false)
 			vmi.Spec.Domain.LaunchSecurity = launchSecurity
 
 			ovmfDir, err := os.MkdirTemp("", "ovmfdir")
@@ -4683,8 +4682,8 @@ var _ = Describe("shouldExpandOnline", func() {
 		),
 		Entry("expand for fie backed disk where possibleGuestSize > capacity",
 			api.Disk{
-				FilesystemOverhead: virtpointer.P(fakePercent),
-				Capacity:           virtpointer.P(int64(2 * gb)),
+				FilesystemOverhead: new(fakePercent),
+				Capacity:           new(int64(2 * gb)),
 				Source:             api.DiskSource{File: "/disks/disk.img"},
 				Alias:              api.NewUserDefinedAlias("test-disk"),
 			},
@@ -4693,8 +4692,8 @@ var _ = Describe("shouldExpandOnline", func() {
 		),
 		Entry("not expand for file backed disk where possibleGuestSize <= capacity",
 			api.Disk{
-				FilesystemOverhead: virtpointer.P(fakePercent),
-				Capacity:           virtpointer.P(int64(gb)),
+				FilesystemOverhead: new(fakePercent),
+				Capacity:           new(int64(gb)),
 				Source:             api.DiskSource{File: "/disks/disk.img"},
 				Alias:              api.NewUserDefinedAlias("test-disk"),
 			},

@@ -39,7 +39,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -420,7 +419,7 @@ func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string) {
 			migrationMetadata.FailureReason = reason
 		}
 
-		migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
+		migrationMetadata.EndTimestamp = new(metav1.Now())
 	})
 
 	logger := log.Log.V(2)

@@ -35,7 +35,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
@@ -124,8 +123,8 @@ var _ = Describe("VirtLauncherPodMutator", func() {
 				Expect(response.Patch).To(BeNil())
 			}
 		},
-			Entry("should inject when readOnly is true", pointer.P(true), true),
-			Entry("should not inject when readOnly is false", pointer.P(false), false),
+			Entry("should inject when readOnly is true", new(true), true),
+			Entry("should not inject when readOnly is false", new(false), false),
 			Entry("should not inject when readOnly is nil", nil, false),
 		)
 
@@ -258,7 +257,7 @@ func newVMIWithContainerPath() *v1.VirtualMachineInstance {
 					VolumeSource: v1.VolumeSource{
 						ContainerPath: &v1.ContainerPathVolumeSource{
 							Path:     "/var/run/secrets/token",
-							ReadOnly: pointer.P(true),
+							ReadOnly: new(true),
 						},
 					},
 				},
@@ -347,7 +346,7 @@ func newVirtLauncherPodWithProjectedSAToken(vmi *v1.VirtualMachineInstance) *k8s
 					Sources: []k8sv1.VolumeProjection{
 						{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
 							Audience:          "sts.amazonaws.com",
-							ExpirationSeconds: pointer.P(int64(3600)),
+							ExpirationSeconds: new(int64(3600)),
 							Path:              "token",
 						}},
 					},

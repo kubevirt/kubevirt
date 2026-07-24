@@ -45,7 +45,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -187,18 +186,18 @@ var _ = Describe("Pod eviction admitter", func() {
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is migratable",
-			pointer.P(virtv1.EvictionStrategyLiveMigrate),
+			new(virtv1.EvictionStrategyLiveMigrate),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is migratable",
-			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
+			new(virtv1.EvictionStrategyLiveMigrateIfPossible),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is missing and VMI is not migratable",
-			pointer.P(virtv1.EvictionStrategyExternal),
+			new(virtv1.EvictionStrategyExternal),
 		),
 		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is missing and VMI is migratable",
-			pointer.P(virtv1.EvictionStrategyExternal),
+			new(virtv1.EvictionStrategyExternal),
 			withLiveMigratableCondition(),
 		),
 	)
@@ -248,14 +247,14 @@ var _ = Describe("Pod eviction admitter", func() {
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrateIfPossible),
 		),
 		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is not migratable",
-			pointer.P(virtv1.EvictionStrategyNone),
+			new(virtv1.EvictionStrategyNone),
 		),
 		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is migratable",
-			pointer.P(virtv1.EvictionStrategyNone),
+			new(virtv1.EvictionStrategyNone),
 			withLiveMigratableCondition(),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is not migratable",
-			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
+			new(virtv1.EvictionStrategyLiveMigrateIfPossible),
 		),
 	)
 
@@ -292,7 +291,7 @@ var _ = Describe("Pod eviction admitter", func() {
 			libvmi.WithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate),
 		),
 		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is not migratable",
-			pointer.P(virtv1.EvictionStrategyLiveMigrate),
+			new(virtv1.EvictionStrategyLiveMigrate),
 		),
 	)
 
@@ -308,7 +307,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
 		admitter := admitters.NewPodEvictionAdmitter(
-			newClusterConfig(pointer.P(virtv1.EvictionStrategyLiveMigrate)),
+			newClusterConfig(new(virtv1.EvictionStrategyLiveMigrate)),
 			kubeClient,
 			virtClient,
 		)
@@ -568,7 +567,7 @@ func newHotplugPod(virtLauncherPod *k8sv1.Pod) *k8sv1.Pod {
 			Name:       virtLauncherPod.Name,
 			Kind:       "Pod",
 			APIVersion: "v1",
-			Controller: pointer.P(true),
+			Controller: new(true),
 			UID:        virtLauncherPod.UID,
 		},
 	})
@@ -606,7 +605,7 @@ func newAdmissionReview(evictedPodNamespace, evictedPodName string, requestOpts 
 		Request: &admissionv1.AdmissionRequest{
 			Namespace: evictedPodNamespace,
 			Name:      evictedPodName,
-			DryRun:    pointer.P(requestOpts.dryRunInRequest),
+			DryRun:    new(requestOpts.dryRunInRequest),
 			Kind: metav1.GroupVersionKind{
 				Group:   "policy",
 				Version: "v1",

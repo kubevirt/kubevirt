@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -129,8 +128,8 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 					Image:   image,
 					Command: cmd,
 					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: pointer.P(true),
-						RunAsUser:  pointer.P(int64(0)),
+						Privileged: new(true),
+						RunAsUser:  new(int64(0)),
 					},
 				},
 			},

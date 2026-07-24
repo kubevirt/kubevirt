@@ -64,7 +64,6 @@ import (
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -329,7 +328,7 @@ var _ = Describe(SIG("Export", func() {
 		Expect(md5sum).To(HaveLen(32))
 
 		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: virtpointer.P(int64(0)),
+			GracePeriodSeconds: new(int64(0)),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		return pvc, md5sum
@@ -662,7 +661,7 @@ var _ = Describe(SIG("Export", func() {
 	It("should export a VM and verify swtpm directories in the gz archive", func() {
 		// Create a VM with a persistent TPM device
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: virtpointer.P(true)}
+		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -808,7 +807,7 @@ var _ = Describe(SIG("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: virtpointer.P(token.Name),
+				TokenSecretRef: new(token.Name),
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineSnapshot",
@@ -852,7 +851,7 @@ var _ = Describe(SIG("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: virtpointer.P(token.Name),
+				TokenSecretRef: new(token.Name),
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineTemplate",
@@ -1185,7 +1184,7 @@ var _ = Describe(SIG("Export", func() {
 					Namespace: flags.KubeVirtInstallNamespace,
 				},
 				Spec: networkingv1.IngressSpec{
-					IngressClassName: virtpointer.P("ingress-class-name"),
+					IngressClassName: new("ingress-class-name"),
 					DefaultBackend: &networkingv1.IngressBackend{
 						Service: &networkingv1.IngressServiceBackend{
 							Name: "virt-exportproxy",
@@ -1451,7 +1450,7 @@ var _ = Describe(SIG("Export", func() {
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+			vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		}
 		vm = createVM(vm)
 		vm = libvmops.StopVirtualMachine(vm)
@@ -1508,7 +1507,7 @@ var _ = Describe(SIG("Export", func() {
 			},
 			Spec: snapshotv1.VirtualMachineRestoreSpec{
 				Target: k8sv1.TypedLocalObjectReference{
-					APIGroup: virtpointer.P("kubevirt.io"),
+					APIGroup: new("kubevirt.io"),
 					Kind:     "VirtualMachine",
 					Name:     vm.Name,
 				},
@@ -1606,7 +1605,7 @@ var _ = Describe(SIG("Export", func() {
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+			vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		}
 		vm = createVM(vm)
 		vm = libvmops.StopVirtualMachine(vm)
@@ -1669,7 +1668,7 @@ var _ = Describe(SIG("Export", func() {
 			Fail("Fail test when Filesystem storage is not present")
 		}
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Eventually(func() v1.VirtualMachineInstancePhase {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1917,7 +1916,7 @@ var _ = Describe(SIG("Export", func() {
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
-		resVM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		resVM.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
@@ -1980,7 +1979,7 @@ var _ = Describe(SIG("Export", func() {
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
-		resVM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		resVM.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
@@ -2004,7 +2003,7 @@ var _ = Describe(SIG("Export", func() {
 				libdv.StorageWithVolumeSize("1024Mi")),
 		))
 
-		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = libvmops.StopVirtualMachine(vm)
@@ -2051,7 +2050,7 @@ var _ = Describe(SIG("Export", func() {
 				libdv.StorageWithVolumeSize("1024Mi")),
 		))
 
-		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = libvmops.StopVirtualMachine(vm)
@@ -2241,7 +2240,7 @@ var _ = Describe(SIG("Export", func() {
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
-		resVM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		resVM.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
@@ -2409,7 +2408,7 @@ var _ = Describe(SIG("Export", func() {
 				libvmi.WithDataVolumeTemplate(dv0),
 				libvmi.WithDataVolumeTemplate(dv1),
 			)
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+			vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 			vm = createVM(vm)
 			return libvmops.StopVirtualMachine(vm)
 		}

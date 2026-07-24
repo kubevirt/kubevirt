@@ -28,7 +28,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Architecture requirements", func() {
@@ -43,7 +42,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires amd64 and vmi uses amd64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("amd64"),
+					Architecture: new("amd64"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
@@ -53,7 +52,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires arm64 and vmi uses arm64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("arm64"),
+					Architecture: new("arm64"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
@@ -63,7 +62,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires s390x and vmi uses s390x",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("s390x"),
+					Architecture: new("s390x"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
@@ -101,7 +100,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires amd64 but vmi uses arm64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("amd64"),
+					Architecture: new("amd64"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
@@ -113,7 +112,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires arm64 but vmi uses amd64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("arm64"),
+					Architecture: new("arm64"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
@@ -125,7 +124,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires s390x but vmi uses amd64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("s390x"),
+					Architecture: new("s390x"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
@@ -137,7 +136,7 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires amd64 but vmi uses empty architecture",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("amd64"),
+					Architecture: new("amd64"),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
