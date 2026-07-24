@@ -288,7 +288,7 @@ var _ = Describe(SIG("Storage", func() {
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
+			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", decorators.StorageCritical, func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = libvmifact.NewAlpineWithTestTooling(
@@ -325,7 +325,7 @@ var _ = Describe(SIG("Storage", func() {
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined and a specified serial number", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
+			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", decorators.StorageCritical, func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
@@ -391,7 +391,7 @@ var _ = Describe(SIG("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				It("[test_id:3136]started with Ephemeral PVC", func() {
+				It("[test_id:3136]started with Ephemeral PVC", decorators.StorageCritical, func() {
 					pvName = diskAlpineHostPath
 
 					vmi = libvmi.New(
@@ -1083,7 +1083,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi2.Spec.Affinity = affinityRule
 			})
 
-			It("should successfully start 2 VMs with a shareable disk", func() {
+			It("should successfully start 2 VMs with a shareable disk", decorators.StorageCritical, func() {
 				setShareable(vmi1, "disk0")
 				setShareable(vmi2, "disk0")
 
@@ -1093,7 +1093,7 @@ var _ = Describe(SIG("Storage", func() {
 			})
 		})
 		Context("write and read data from a shared disk", func() {
-			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
+			It("should successfully write and read data", decorators.RequiresBlockStorage, decorators.StorageCritical, func() {
 				const diskName = "disk1"
 				const pvcClaim = "pvc-test-disk1"
 				const labelKey = "testshareablekey"
