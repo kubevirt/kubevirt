@@ -30,10 +30,11 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtHandlerDown",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_handler_pods_running:count == 0"),
+			Expr:  intstr.FromString(daemonSetDownExpr(namespace, "handler")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "No running virt-handler pods were detected for the last 10 min.",
+				summaryAnnotationKey:     "No running virt-handler pods were detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-handler", " on node {{ $labels.node }}"),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -42,13 +43,12 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowReadyVirtHandlerCount",
-			Expr: intstr.FromString(
-				"cluster:kubevirt_virt_handler_ready:sum < cluster:kubevirt_virt_handler_pods_running:count " +
-					"and cluster:kubevirt_virt_handler_ready:sum > 0",
-			),
-			For: ptr.To(promv1.Duration("10m")),
+			Expr:  intstr.FromString(lowReadyWithNodeAlertExpr(namespace, "handler")),
+			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Some virt-handlers are running but not ready.",
+				descriptionAnnotationKey: "virt-handler pod {{ $labels.pod }} on node " +
+					"{{ $labels.node }} has been running but not ready for more than 10 minutes.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -57,7 +57,7 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtHandler",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_handler_ready:sum == 0"),
+			Expr:  intstr.FromString(noReadyAlertExpr(namespace, "handler")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-handler was detected for the last 10 min.",
