@@ -94,7 +94,7 @@ type MigrationTargetController struct {
 
 func NewMigrationTargetController(
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	host string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
@@ -126,7 +126,7 @@ func NewMigrationTargetController(
 		logger,
 		host,
 		recorder,
-		clientset,
+		virtClient,
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -502,7 +502,7 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 		if shouldExpect {
 			c.vmiExpectations.SetExpectations(key, 1, 0)
 		}
-		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			if shouldExpect {
 				c.vmiExpectations.SetExpectations(key, 0, 0)

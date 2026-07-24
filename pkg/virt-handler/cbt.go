@@ -36,16 +36,16 @@ import (
 )
 
 type CBTHandler struct {
-	clientset       kubecli.KubevirtClient
+	virtClient      kubecli.KubevirtClient
 	trackerInformer cache.SharedIndexInformer
 }
 
 func NewCBTHandler(
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	trackerInformer cache.SharedIndexInformer,
 ) *CBTHandler {
 	return &CBTHandler{
-		clientset:       clientset,
+		virtClient:      virtClient,
 		trackerInformer: trackerInformer,
 	}
 }
@@ -117,8 +117,8 @@ func (h *CBTHandler) backupTrackersForVMI(vmi *v1.VirtualMachineInstance) []*bac
 }
 
 func (h *CBTHandler) markTrackersForRedefinition(vmi *v1.VirtualMachineInstance) error {
-	if h.trackerInformer == nil || h.clientset == nil {
-		return fmt.Errorf("tracker informer or clientset is nil")
+	if h.trackerInformer == nil || h.virtClient == nil {
+		return fmt.Errorf("tracker informer or virtClient is nil")
 	}
 
 	trackers := h.backupTrackersForVMI(vmi)
@@ -132,7 +132,7 @@ func (h *CBTHandler) markTrackersForRedefinition(vmi *v1.VirtualMachineInstance)
 		}
 
 		patch := []byte(`{"status":{"checkpointRedefinitionRequired":true}}`)
-		_, err := h.clientset.VirtualMachineBackupTracker(tracker.Namespace).Patch(
+		_, err := h.virtClient.VirtualMachineBackupTracker(tracker.Namespace).Patch(
 			context.Background(),
 			tracker.Name,
 			types.MergePatchType,

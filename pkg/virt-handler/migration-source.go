@@ -70,7 +70,7 @@ type MigrationSourceController struct {
 
 func NewMigrationSourceController(
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	host string,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
@@ -97,7 +97,7 @@ func NewMigrationSourceController(
 		logger,
 		host,
 		recorder,
-		clientset,
+		virtClient,
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -372,7 +372,7 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err

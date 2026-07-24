@@ -43,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -105,7 +106,7 @@ type downwardMetricsManager interface {
 type VirtualMachineController struct {
 	*BaseController
 	capabilities             *libvirtxml.Caps
-	clientset                kubecli.KubevirtClient
+	virtClient               kubecli.KubevirtClient
 	containerDiskMounter     containerdisk.Mounter
 	downwardMetricsManager   downwardMetricsManager
 	hotplugVolumeMounter     hotplugvolume.VolumeMounter
@@ -130,7 +131,8 @@ var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervi
 
 func NewVirtualMachineController(
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	nodeStore cache.Store,
 	host string,
 	virtPrivateDir string,
@@ -165,7 +167,7 @@ func NewVirtualMachineController(
 		logger,
 		host,
 		recorder,
-		clientset,
+		virtClient,
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -196,7 +198,7 @@ func NewVirtualMachineController(
 	c := &VirtualMachineController{
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
-		clientset:                clientset,
+		virtClient:               virtClient,
 		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
@@ -249,7 +251,7 @@ func NewVirtualMachineController(
 		deviceManager.PermanentHostDevicePlugins(c.hypervisorNodeInfo.GetHypervisorDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
-	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.heartBeat = heartbeat.NewHeartBeat(k8sClient.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c, nil
 }
@@ -1136,7 +1138,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
