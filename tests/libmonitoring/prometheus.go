@@ -44,6 +44,8 @@ const (
 	defaultAlertWaitTimeout         = 5 * time.Minute
 	defaultMetricsPort              = 8443
 	prometheusPortForwardTargetPort = 9090
+	prometheusRequestTimeout        = 30 * time.Second
+	prometheusHTTPTimeout           = 10 * time.Second
 )
 
 var (
@@ -242,7 +244,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 			promURL := fmt.Sprintf("http://localhost:%d", sourcePort)
 			result = doHTTPRequest(promURL, endpoint, token)
 			return nil
-		}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
+		}, prometheusRequestTimeout, time.Second).ShouldNot(HaveOccurred())
 	}
 	return result
 }
@@ -264,15 +266,20 @@ func doHTTPRequest(promURL, endpoint, token string) []byte {
 	var result []byte
 	client := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-			ForceAttemptHTTP2: true,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			// Do NOT set ForceAttemptHTTP2: port-forwarded connections use
+			// plain HTTP, where HTTP/2 requires h2c. Forcing HTTP/2 causes
+			// "malformed HTTP status code" errors.
 		},
 	}
 	Eventually(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), prometheusHTTPTimeout)
+		defer cancel()
+
 		req, err := http.NewRequestWithContext(
-			context.Background(),
+			ctx,
 			"GET",
-			fmt.Sprintf("%s/api/v1/%s", promURL, endpoint),
+			fmt.Sprintf("%s/api/v1/%s", promURL, strings.TrimLeft(endpoint, "/")),
 			http.NoBody,
 		)
 		if err != nil {
@@ -289,7 +296,7 @@ func doHTTPRequest(promURL, endpoint, token string) []byte {
 		}
 		result, err = io.ReadAll(resp.Body)
 		return err
-	}, 10*time.Second, 1*time.Second).Should(Not(HaveOccurred()))
+	}, prometheusRequestTimeout, 1*time.Second).Should(Not(HaveOccurred()))
 
 	return result
 }
