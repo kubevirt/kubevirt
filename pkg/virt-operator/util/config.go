@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -38,6 +39,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -60,6 +62,7 @@ const (
 	VirtTemplateApiserverImageEnvName         = "VIRT_TEMPLATE_APISERVER_IMAGE"
 	VirtTemplateControllerImageEnvName        = "VIRT_TEMPLATE_CONTROLLER_IMAGE"
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
+	KubeletRootDirEnvName                     = "KUBELET_ROOT_DIR"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
@@ -105,6 +108,9 @@ const (
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesPluginsEnabled = "PluginsEnabled"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesKubeletRootDir = "KubeletRootDir"
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
@@ -349,6 +355,17 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	GsImage := envVarManager.Getenv(GsImageEnvName)
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
+
+	// Read kubelet root directory from environment variable.
+	// Validate it is an absolute path to prevent relative paths or .. traversal from
+	// silently propagating; normalize with filepath.Clean to strip trailing slashes.
+	if kubeletRootDir := envVarManager.Getenv(KubeletRootDirEnvName); kubeletRootDir != "" {
+		if !strings.HasPrefix(kubeletRootDir, "/") {
+			log.Log.Errorf("ignoring %s=%q: must be an absolute path", KubeletRootDirEnvName, kubeletRootDir)
+		} else {
+			additionalProperties[AdditionalPropertiesKubeletRootDir] = filepath.Clean(kubeletRootDir)
+		}
+	}
 
 	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
 }
@@ -667,6 +684,14 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 		return c.GetKubeVirtVersion()
 	}
 	return productVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletRootDir() string {
+	kubeletRootDir, ok := c.AdditionalProperties[AdditionalPropertiesKubeletRootDir]
+	if !ok || kubeletRootDir == "" {
+		return virtutil.KubeletRoot
+	}
+	return kubeletRootDir
 }
 
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {

@@ -134,6 +134,7 @@ func NewVirtualMachineController(
 	nodeStore cache.Store,
 	host string,
 	virtPrivateDir string,
+	kubeletRoot string,
 	kubeletPodsDir string,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
@@ -194,10 +195,13 @@ func NewVirtualMachineController(
 	}
 
 	c := &VirtualMachineController{
-		BaseController:           baseCtrl,
-		capabilities:             capabilities,
-		clientset:                clientset,
-		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		BaseController: baseCtrl,
+		capabilities:   capabilities,
+		clientset:      clientset,
+		// Socket paths must use the short /pods container alias (kubelet-pods volume mount)
+		// to stay under the 108-byte Unix socket path limit; the real host path flows
+		// separately via containerdisk.SetKubeletPodsDirectory for host-namespace bind-mounts.
+		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig, "/pods"),
 		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		hostCpuModel:             hostCpuModel,
@@ -249,7 +253,7 @@ func NewVirtualMachineController(
 		deviceManager.PermanentHostDevicePlugins(c.hypervisorNodeInfo.GetHypervisorDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
-	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host, kubeletRoot)
 
 	return c, nil
 }

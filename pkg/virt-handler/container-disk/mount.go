@@ -110,15 +110,15 @@ type KernelBootChecksum struct {
 	Kernel *uint32
 }
 
-func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
+func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig, kubeletPodsDir string) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
 		podIsolationDetector:       isoDetector,
 		checkpointManager:          checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		suppressWarningTimeout:     1 * time.Minute,
-		needsBindMountFunc:         newNeedsBindMountFunc(""),
-		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
-		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
+		needsBindMountFunc:         newNeedsBindMountFunc(kubeletPodsDir),
+		socketPathGetter:           containerdisk.NewSocketPathGetter(kubeletPodsDir),
+		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(kubeletPodsDir),
 		clusterConfig:              clusterConfig,
 		nodeIsolationResult:        isolation.NodeIsolationResult(),
 	}
@@ -759,7 +759,7 @@ func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksu
 
 type needsBindMountFunc func(vmi *v1.VirtualMachineInstance) (bool, error)
 
-func newNeedsBindMountFunc(baseDir string) needsBindMountFunc {
+func newNeedsBindMountFunc(kubeletPodsDir string) needsBindMountFunc {
 	return func(vmi *v1.VirtualMachineInstance) (bool, error) {
 		for podUID := range vmi.Status.ActivePods {
 			virtLauncherSocketPath := cmdclient.SocketDirectoryOnHost(string(podUID))
@@ -767,7 +767,7 @@ func newNeedsBindMountFunc(baseDir string) needsBindMountFunc {
 			if err != nil {
 				return false, err
 			}
-			basePath := fmt.Sprintf("%s/pods/%s/containers", baseDir, string(podUID))
+			basePath := filepath.Join(kubeletPodsDir, string(podUID), "containers")
 			containerDiskPath := filepath.Join(basePath, "container-disk-binary")
 			containerDiskInitContainerExists, err := diskutils.FileExists(containerDiskPath)
 			if err != nil {
