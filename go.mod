@@ -74,6 +74,7 @@ require (
 	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
+	k8s.io/kubelet v0.0.0-00010101000000-000000000000
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	kubevirt.io/api v1.8.0
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000

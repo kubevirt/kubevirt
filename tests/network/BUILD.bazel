@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bindingplugin.go",
+        "bindingplugin_dra.go",
         "bindingplugin_macvtap.go",
         "bindingplugin_slirp.go",
         "dual_stack_cluster.go",
@@ -54,6 +55,7 @@ go_library(
         "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/infrastructure:go_default_library",
         "//tests/libdomain:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
@@ -80,6 +82,7 @@ go_library(
         "//vendor/k8s.io/api/batch/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/networking/v1:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -88,5 +91,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
