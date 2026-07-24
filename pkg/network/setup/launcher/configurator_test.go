@@ -37,6 +37,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const defaultNetworkName = "default"
+
 var _ = Describe("SetupPodNetworkPhase2", func() {
 	const podIfaceName = "eth0"
 
@@ -52,15 +54,19 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		},
 		Entry("SR-IOV", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov")),
+			libvmi.WithInterface(libvmi.NewInterface("sriov", libvmi.WithSRIOVBinding())),
 			libvmi.WithNetwork(libvmi.MultusNetwork("sriov", "sriov-nad")),
 		), domainWithSRIOVHostDevice()),
 		Entry("Passt", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				defaultNetworkName, libvmi.WithPasstBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), domainWithPasstInterface()),
 		Entry("binding plugin without tap domain attachment", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("foo", v1.PluginBinding{Name: "foo"})),
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "foo"}),
+			)),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foo", "foo-nad")),
 		), &api.Domain{}),
 	)
@@ -70,7 +76,7 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			domain := domainWithDefaultInterface()
 			configurator := launcher.NewVMNetworkConfigurator(vmi, nil,
 				launcher.WithNetworkHandler(newStubNetworkHandler(podIfaceName)),
-				launcher.WithDomainAttachments(map[string]string{v1.DefaultPodNetwork().Name: string(v1.Tap)}),
+				launcher.WithDomainAttachments(map[string]string{defaultNetworkName: string(v1.Tap)}),
 				launcher.WithDHCPConfiguratorFactory(dhcpFactory),
 			)
 
@@ -83,15 +89,22 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		},
 		Entry("bridge", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				defaultNetworkName, libvmi.WithBridgeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), stubDHCPFactory(&stubDHCPConfigurator{})),
 		Entry("masquerade", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(
+				defaultNetworkName, libvmi.WithMasqueradeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), stubDHCPFactory(&stubDHCPConfigurator{})),
 		Entry("macvtap", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceWithMacvtapBindingPlugin(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				defaultNetworkName,
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), nil),
 	)
@@ -100,7 +113,7 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 		func(vmi *v1.VirtualMachineInstance) {
 			configurator := launcher.NewVMNetworkConfigurator(vmi, nil,
 				launcher.WithNetworkHandler(newStubNetworkHandler(podIfaceName)),
-				launcher.WithDomainAttachments(map[string]string{v1.DefaultPodNetwork().Name: string(v1.Tap)}),
+				launcher.WithDomainAttachments(map[string]string{defaultNetworkName: string(v1.Tap)}),
 				launcher.WithDHCPConfiguratorFactory(stubDHCPFactory(&stubDHCPConfigurator{
 					ensureErr: fmt.Errorf("DHCP start failure"),
 				})),
@@ -111,11 +124,15 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			}).To(Panic())
 		},
 		Entry("bridge", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				defaultNetworkName, libvmi.WithBridgeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)),
 		Entry("masquerade", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(
+				defaultNetworkName, libvmi.WithMasqueradeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)),
 	)
@@ -154,7 +171,7 @@ func domainWithPasstInterface() *api.Domain {
 	domain.Spec.Devices.Interfaces = []api.Interface{{
 		Model: &api.Model{Type: v1.VirtIO},
 		Type:  "vhostuser",
-		Alias: api.NewUserDefinedAlias(v1.DefaultPodNetwork().Name),
+		Alias: api.NewUserDefinedAlias(defaultNetworkName),
 	}}
 	return domain
 }
@@ -164,7 +181,7 @@ func domainWithDefaultInterface() *api.Domain {
 	domain.Spec.Devices.Interfaces = []api.Interface{{
 		Model: &api.Model{Type: v1.VirtIO},
 		Type:  "ethernet",
-		Alias: api.NewUserDefinedAlias(v1.DefaultPodNetwork().Name),
+		Alias: api.NewUserDefinedAlias(defaultNetworkName),
 	}}
 	return domain
 }

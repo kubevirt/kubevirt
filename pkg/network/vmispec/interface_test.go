@@ -106,7 +106,7 @@ var _ = Describe("VMI network spec", func() {
 			),
 			Entry("when the VMI uses passtBinding to connect to the pod network",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(podNet0)),
+					libvmi.WithInterface(libvmi.NewInterface(podNet0, libvmi.WithPasstBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 			),
@@ -143,7 +143,7 @@ var _ = Describe("VMI network spec", func() {
 	Context("binding plugin network with device info", func() {
 		It("returns false given non binding-plugin interface", func() {
 			Expect(netvmispec.HasBindingPluginDeviceInfo(
-				libvmi.InterfaceDeviceWithBridgeBinding("net1"),
+				libvmi.NewInterface("net1", libvmi.WithBridgeBinding()),
 				bindingPlugins,
 			)).To(BeFalse())
 		})
