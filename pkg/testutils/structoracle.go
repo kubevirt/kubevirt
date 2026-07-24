@@ -20,40 +20,63 @@
 package testutils
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
+
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/randfill"
 )
 
-// WithAllFieldsSet returns a pointer to a new instance of the type described by t
-// with every pointer field set to a non-nil zero value, including nested structs.
-// It is intended for use in tests that need a fully-populated struct to exercise
-// field-coverage assertions.
-func WithAllFieldsSet(t reflect.Type) interface{} {
-	v := reflect.New(t).Elem()
-	populateAllPointerFields(v)
-	return v.Addr().Interface()
-}
+const withAllFieldsSetMaxSeedAttempts = 50
 
-// populateAllPointerFields recursively initializes every nil pointer in v,
-// descending into struct fields to cover nested types.
-func populateAllPointerFields(v reflect.Value) {
-	switch v.Kind() {
-	case reflect.Ptr:
-		if v.IsNil() {
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		populateAllPointerFields(v.Elem())
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			f := v.Field(i)
-			if !f.CanSet() {
-				continue
-			}
-			if f.Kind() == reflect.Ptr || f.Kind() == reflect.Struct {
-				populateAllPointerFields(f)
-			}
+// WithAllFieldsSet returns a pointer to a new instance of the type described by t
+// with every field populated with random non-default values, including nested
+// structs. It is intended for use in tests that need a fully-populated struct to
+// exercise field-coverage assertions.
+func WithAllFieldsSet(t reflect.Type) interface{} {
+	// Seeds are deterministic: this loop asserts that structRandfill's Funcs
+	// produce all-non-default values, panicking if they don't.
+	for seed := int64(0); seed < withAllFieldsSetMaxSeedAttempts; seed++ {
+		v := reflect.New(t).Elem()
+		structRandfill(seed).Fill(v.Addr().Interface())
+		if areAllFieldsNonDefault(v) {
+			return v.Addr().Interface()
 		}
 	}
+	// if you hit this panic, you likely need to add a custom fill function
+	// for the type in structRandfill that returns a non-default value for the type
+	panic(fmt.Sprintf("testutils.WithAllFieldsSet: could not populate non-default values for %v", t))
+}
+
+func structRandfill(seed int64) *randfill.Filler {
+	return randfill.NewWithSeed(seed).NilChance(0).Funcs(
+		func(b *bool, c randfill.Continue) { *b = true },
+		func(t **metav1.Time, c randfill.Continue) {
+			if *t == nil {
+				*t = &metav1.Time{}
+			}
+			(*t).RandFill(c.Rand)
+		},
+		func(q **resource.Quantity, c randfill.Continue) {
+			*q = resource.NewQuantity(1, resource.DecimalSI)
+		},
+	)
+}
+
+func areAllFieldsNonDefault(v reflect.Value) bool {
+	zero := reflect.Zero(v.Type())
+	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).PkgPath != "" {
+			continue
+		}
+		if apiequality.Semantic.DeepEqual(v.Field(i).Interface(), zero.Field(i).Interface()) {
+			return false
+		}
+	}
+	return true
 }
 
 // CopyByJSONTag copies fields from src (a pointer to a struct) into a new instance
@@ -92,6 +115,11 @@ func copyStructByJSONTag(src, dst reflect.Value) {
 		}
 
 		srcField, dstField := src.Field(i), dst.Field(di)
+
+		if srcField.Type() == dstField.Type() {
+			dstField.Set(srcField)
+			continue
+		}
 
 		if srcField.Kind() == reflect.Ptr {
 			if srcField.IsNil() {
