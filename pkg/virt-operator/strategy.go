@@ -53,7 +53,11 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 
 func (c *KubeVirtController) deleteAllOldInstallStrategies(kvVersion string) error {
 	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
-		configMap := obj.(*k8sv1.ConfigMap)
+		configMap, ok := obj.(*k8sv1.ConfigMap)
+		if !ok {
+			log.Log.Errorf("Unexpected object type %T in install strategy config map cache, skipping", obj)
+			continue
+		}
 		version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 		if ok && configMap.DeletionTimestamp == nil && version != kvVersion {
 			err := c.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
