@@ -104,11 +104,41 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
 		),
 
-		Entry("invalid precopyPossibleFactor",
+		Entry("negative precopyPossibleFactor",
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PrecopyPossibleFactor: pointer.P("not-a-number"),
+						PrecopyPossibleFactor: resource.NewQuantity(-1, resource.DecimalSI),
+					},
+				},
+			},
+		),
+
+		Entry("ewmaAlpha zero",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						EwmaAlpha: pointer.P(resource.MustParse("0")),
+					},
+				},
+			},
+		),
+
+		Entry("ewmaAlpha above maximum",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						EwmaAlpha: pointer.P(resource.MustParse("1.1")),
+					},
+				},
+			},
+		),
+
+		Entry("ewmaAlpha with excessive decimal precision",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						EwmaAlpha: pointer.P(resource.MustParse("0.123456")),
 					},
 				},
 			},
@@ -118,7 +148,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PrecopyPossibleFactor: pointer.P("0.5"),
+						PrecopyPossibleFactor: pointer.P(resource.MustParse("0.5")),
 					},
 				},
 			},
@@ -128,7 +158,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PatienceWindowDecayFactor: pointer.P("1.5"),
+						PatienceWindowDecayFactor: pointer.P(resource.MustParse("1.5")),
 					},
 				},
 			},
@@ -171,7 +201,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						CompletionTimeoutFactor: pointer.P("3"),
+						CompletionTimeoutFactor: pointer.P(resource.MustParse("3")),
 					},
 				},
 			},
@@ -181,7 +211,17 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PrecopyPossibleFactor: pointer.P("2"),
+						PrecopyPossibleFactor: pointer.P(resource.MustParse("2")),
+					},
+				},
+			},
+		),
+
+		Entry("ewmaAlpha with milli DecimalSI form",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						EwmaAlpha: pointer.P(resource.MustParse("500m")),
 					},
 				},
 			},
@@ -284,3 +324,22 @@ func (admitter *MigrationPolicyAdmitter) admitUpdateAndExpect(oldPolicy, newPoli
 	resp := admitter.Admit(context.Background(), ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }
+
+var _ = Describe("parseScalarFloatFromQuantity", func() {
+	DescribeTable("parseScalarFloatFromQuantity", func(value string, precision int, expected float64, expectError bool) {
+		q := resource.MustParse(value)
+		result, err := parseScalarFloatFromQuantity(&q, precision)
+		if expectError {
+			Expect(err).To(HaveOccurred())
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(expected))
+	},
+		Entry("accepts integer quantity", "2", 3, 2.0, false),
+		Entry("accepts decimal within precision", "1.5", 1, 1.5, false),
+		Entry("rejects negative quantity", "-1", 3, 0.0, true),
+		Entry("rejects too many decimal places", "1.55", 1, 0.0, true),
+		Entry("accepts exponential notation when value fits precision", "1.5e1", 0, 15.0, false),
+	)
+})
