@@ -56,7 +56,7 @@ type KvmDomainConfigurator struct {
 }
 
 // NewKvmDomainConfigurator creates a new hypervisor domain configurator
-func NewKvmDomainConfigurator(allowEmulation bool, kvmAvailable bool) KvmDomainConfigurator {
+func NewKvmDomainConfigurator(allowEmulation, kvmAvailable bool) KvmDomainConfigurator {
 	return KvmDomainConfigurator{
 		allowEmulation: allowEmulation,
 		kvmAvailable:   kvmAvailable,
@@ -64,7 +64,10 @@ func NewKvmDomainConfigurator(allowEmulation bool, kvmAvailable bool) KvmDomainC
 }
 
 // NewKvmDomainConfiguratorWithCrossArch creates a new hypervisor domain configurator with cross-architecture emulation support
-func NewKvmDomainConfiguratorWithCrossArch(allowEmulation, kvmAvailable, allowCrossArchEmulation bool, hostArchitecture string) KvmDomainConfigurator {
+func NewKvmDomainConfiguratorWithCrossArch(
+	allowEmulation, kvmAvailable, allowCrossArchEmulation bool,
+	hostArchitecture string,
+) KvmDomainConfigurator {
 	return KvmDomainConfigurator{
 		allowEmulation:          allowEmulation,
 		kvmAvailable:            kvmAvailable,

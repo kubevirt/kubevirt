@@ -34,7 +34,7 @@ type MshvDomainConfigurator struct {
 }
 
 // NewMshvDomainConfigurator creates a new MSHV domain configurator
-func NewMshvDomainConfigurator(allowEmulation bool, mshvAvailable bool) MshvDomainConfigurator {
+func NewMshvDomainConfigurator(allowEmulation, mshvAvailable bool) MshvDomainConfigurator {
 	return MshvDomainConfigurator{
 		allowEmulation: allowEmulation,
 		mshvAvailable:  mshvAvailable,

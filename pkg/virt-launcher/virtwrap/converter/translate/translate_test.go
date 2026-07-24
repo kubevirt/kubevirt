@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Domain translation", func() {
-
 	Context("ToLibvirtDomain", func() {
 		It("should convert a minimal DomainSpec", func() {
 			spec := api.NewMinimalDomainSpec("test-vm")

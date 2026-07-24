@@ -53,7 +53,6 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal(""))
 			Expect(domain).To(Equal(api.Domain{}))
-
 		})
 
 		It("Should not modify domain type even when emulation is allowed", func() {
