@@ -912,6 +912,47 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
+			DescribeTable("should migrate a vmi with a shared block disk and preserve data", decorators.StorageReq, decorators.RequiresRWXBlock, func(cacheMode v1.DriverCache) {
+				sc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Fail("Failed test when RWX Block storage is not present")
+				}
+
+				By("Starting the VirtualMachineInstance")
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
+				vmi.Spec.Domain.Devices.Disks[0].Cache = cacheMode
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+
+				By("Logging in")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Writing test data to disk without sync")
+				testData := "migration-cache-test-data-1234567890"
+				Expect(console.RunCommand(vmi, fmt.Sprintf("echo '%s' > /testfile", testData), 30*time.Second)).To(Succeed())
+
+				By("Verifying cache mode in domain XML before migration")
+				runningSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(runningSpec.Devices.Disks[0].Driver.Cache).To(Equal(string(cacheMode)))
+
+				By("Starting a Migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				By("Verifying cache mode after migration")
+				runningSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(runningSpec.Devices.Disks[0].Driver.Cache).To(Equal(string(cacheMode)))
+
+				By("Verifying test data survived migration")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("grep -q '%s' /testfile", testData), 30*time.Second)).To(Succeed())
+			},
+				Entry("using writethrough cache", v1.CacheWriteThrough),
+				Entry("using writeback cache", v1.CacheWriteBack),
+			)
+
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
