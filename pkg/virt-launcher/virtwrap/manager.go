@@ -1357,14 +1357,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, err
 		}
 
-		sriovDRADevices, err := sriov.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
-		if err != nil {
-			return nil, err
-		}
-		// The two builders partition SR-IOV interfaces by source: Multus-backed vs DRA-backed.
-		// They are mutually exclusive, so appending cannot introduce duplicates.
-		sriovDevices = append(sriovDevices, sriovDRADevices...)
-
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
 
