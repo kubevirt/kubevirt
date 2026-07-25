@@ -1,0 +1,22 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+ARG PR_HELPER_BASE_IMAGE=quay.io/vamsi_siddu/pr-helper:bazeldnf
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+FROM ${PR_HELPER_BASE_IMAGE}
+
+COPY --from=builder /workspace/cmd/pr-helper/multipath.conf /etc/multipath.conf
+COPY --from=builder --chmod=0755 /workspace/cmd/pr-helper/entrypoint.sh /entrypoint.sh
+
+COPY --from=builder /workspace/.version /.version
+
+USER 1001
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,0 +1,24 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    CGO_ENABLED=0 KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/plugin-sidecars/test-domain-hook
+
+RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
+
+FROM scratch
+
+COPY --from=builder /workspace/_out/cmd/test-domain-hook/test-domain-hook /usr/bin/test-domain-hook-sidecar
+COPY --from=builder /tmp/passwd /etc/passwd
+
+USER 1001
+
+ENTRYPOINT ["/usr/bin/test-domain-hook-sidecar"]
