@@ -1261,6 +1261,54 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
 
+		vgpuRamfbSpec := func(displays ...*v1.VGPUDisplayOptions) *v1.VirtualMachineInstanceSpec {
+			vmi := api.NewMinimalVMI("testvm")
+			for i, display := range displays {
+				vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, v1.GPU{
+					Name:              fmt.Sprintf("gpu%d", i),
+					DeviceName:        fmt.Sprintf("vendor.com/gpu%d", i),
+					VirtualGPUOptions: &v1.VGPUOptions{Display: display},
+				})
+			}
+			return &vmi.Spec
+		}
+
+		DescribeTable("rejecting more than one vGPU display that enables ramfb", func(displays ...*v1.VGPUDisplayOptions) {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), vgpuRamfbSpec(displays...), config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.GPUs"))
+		},
+			Entry("two vGPUs whose ramFB is present with enabled unset",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}},
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}}),
+			Entry("an unset ramFB alongside an absent ramFB",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}},
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: nil}),
+			Entry("an unset ramFB alongside an explicitly enabled ramFB",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}},
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{Enabled: pointer.P(true)}}),
+			Entry("an unset display defaults to enabled so its ramFB is counted",
+				&v1.VGPUDisplayOptions{Enabled: nil, RamFB: &v1.FeatureState{}},
+				&v1.VGPUDisplayOptions{Enabled: nil, RamFB: &v1.FeatureState{}}),
+		)
+
+		DescribeTable("allowing at most one vGPU display that enables ramfb", func(displays ...*v1.VGPUDisplayOptions) {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), vgpuRamfbSpec(displays...), config)
+			Expect(causes).To(BeEmpty())
+		},
+			Entry("a single vGPU whose ramFB is present with enabled unset",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}}),
+			Entry("two vGPUs with ramFB explicitly disabled",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{Enabled: pointer.P(false)}},
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{Enabled: pointer.P(false)}}),
+			Entry("a disabled display is not counted even with ramFB enabled",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(false), RamFB: &v1.FeatureState{Enabled: pointer.P(true)}},
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(false), RamFB: &v1.FeatureState{Enabled: pointer.P(true)}}),
+			Entry("a disabled display is not counted even with ramFB unset",
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(false), RamFB: &v1.FeatureState{}},
+				&v1.VGPUDisplayOptions{Enabled: pointer.P(false), RamFB: nil}),
+		)
+
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{

@@ -527,10 +527,14 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 func countConfiguredMDEVRamFBs(spec *v1.VirtualMachineInstanceSpec) int {
 	count := 0
 	for _, device := range spec.Domain.Devices.GPUs {
+		// Treat an unset Display.Enabled or RamFB.Enabled as enabled, per the
+		// "Defaults to true" API contract on both fields. RamFB.Enabled gets
+		// that default from SetDefaults_FeatureState; Display.Enabled has no
+		// defaulter and is enabled-when-unset by convention.
 		if device.VirtualGPUOptions != nil &&
 			device.VirtualGPUOptions.Display != nil &&
 			(device.VirtualGPUOptions.Display.Enabled == nil || *device.VirtualGPUOptions.Display.Enabled) &&
-			(device.VirtualGPUOptions.Display.RamFB == nil || (device.VirtualGPUOptions.Display.RamFB.Enabled != nil && *device.VirtualGPUOptions.Display.RamFB.Enabled)) {
+			(device.VirtualGPUOptions.Display.RamFB == nil || device.VirtualGPUOptions.Display.RamFB.Enabled == nil || *device.VirtualGPUOptions.Display.RamFB.Enabled) {
 			count++
 		}
 	}
