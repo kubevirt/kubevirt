@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -37,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating Pool Admitter", func() {
@@ -316,5 +318,26 @@ var _ = Describe("Validating Pool Admitter", func() {
 
 		resp := poolAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("should invoke injected SpecValidators", func() {
+		called := false
+		stub := func(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+			called = true
+			return nil
+		}
+
+		pool := newValidVMPool()
+		poolBytes, _ := json.Marshal(&pool)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachinePoolGroupVersionResource,
+				Object:   runtime.RawExtension{Raw: poolBytes},
+			},
+		}
+
+		admitter := &VMPoolAdmitter{ClusterConfig: config, SpecValidators: []SpecValidator{stub}}
+		admitter.Admit(context.Background(), ar)
+		Expect(called).To(BeTrue())
 	})
 })

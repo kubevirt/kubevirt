@@ -45,6 +45,7 @@ import (
 type VMPoolAdmitter struct {
 	ClusterConfig           *virtconfig.ClusterConfig
 	KubeVirtServiceAccounts map[string]struct{}
+	SpecValidators          []SpecValidator
 }
 
 func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -83,6 +84,10 @@ func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig, isKubeVirtServiceAccount)
+
+	for _, validator := range admitter.SpecValidators {
+		causes = append(causes, validator(k8sfield.NewPath("spec", "virtualMachineTemplate", "spec", "template", "spec"), &pool.Spec.VirtualMachineTemplate.Spec.Template.Spec, admitter.ClusterConfig)...)
+	}
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()

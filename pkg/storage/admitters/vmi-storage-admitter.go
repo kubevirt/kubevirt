@@ -26,11 +26,9 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func Validate(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVMISpec(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, ValidateContainerDisks(field, vmiSpec)...)
-	causes = append(causes, ValidateUtilityVolumesNotPresentOnCreation(field, vmiSpec)...)
 	causes = append(causes, ValidateDisks(field.Child("domain", "devices", "disks"), vmiSpec.Domain.Devices.Disks)...)
 
 	return causes
