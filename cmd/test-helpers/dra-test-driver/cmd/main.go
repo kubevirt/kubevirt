@@ -21,19 +21,25 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 
 	"kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/pkg/driver"
 )
 
-const driverName = "hostpath.dra.kubevirt.io"
+const (
+	driverName = "hostpath.dra.kubevirt.io"
+	maxDevices = 5
+)
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -59,6 +65,25 @@ func main() {
 		kubeletplugin.NodeName(nodeName),
 	)
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	var devices []resourceapi.Device
+	for index := 0; index < maxDevices; index++ {
+		devices = append(devices, resourceapi.Device{
+			Name: fmt.Sprintf("hostpath-%d", index),
+		})
+	}
+
+	if err := helper.PublishResources(ctx, resourceslice.DriverResources{
+		Pools: map[string]resourceslice.Pool{
+			"hostpath": {
+				Slices: []resourceslice.Slice{{
+					Devices: devices,
+				}},
+			},
+		},
+	}); err != nil {
 		log.Fatal(err)
 	}
 
