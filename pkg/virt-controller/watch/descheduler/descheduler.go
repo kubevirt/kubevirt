@@ -61,7 +61,9 @@ func MarkEvictionInProgress(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.
 		return nil, err
 	}
 
-	pod, err := virtClient.CoreV1().Pods(sourcePod.Namespace).Patch(context.Background(), sourcePod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	pod, err := virtClient.CoreV1().Pods(sourcePod.Namespace).Patch(
+		context.Background(), sourcePod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{},
+	)
 	if err != nil {
 		log.Log.Object(sourcePod).Errorf("failed to add %s pod annotation: %v", EvictionInProgressAnnotation, err)
 		return nil, err
@@ -71,7 +73,6 @@ func MarkEvictionInProgress(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.
 }
 
 func MarkEvictionCompleted(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
-
 	if value, exists := sourcePod.GetAnnotations()[EvictionInProgressAnnotation]; exists {
 		patchSet := patch.New(
 			patch.WithTest(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(EvictionInProgressAnnotation)), value),
@@ -82,7 +83,9 @@ func MarkEvictionCompleted(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.P
 			return nil, err
 		}
 
-		pod, err := virtClient.CoreV1().Pods(sourcePod.Namespace).Patch(context.Background(), sourcePod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		pod, err := virtClient.CoreV1().Pods(sourcePod.Namespace).Patch(
+			context.Background(), sourcePod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{},
+		)
 		if err != nil {
 			log.Log.Object(sourcePod).Errorf("failed to remove %s pod annotation : %v", EvictionInProgressAnnotation, err)
 			return nil, err
