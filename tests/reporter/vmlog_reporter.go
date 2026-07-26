@@ -37,7 +37,8 @@ func CheckVMLogsAfterTest(specReport types.SpecReport) {
 		return
 	}
 
-	if failOnVMLogErrors {
+	// don't want to deal with passing env properly, just a WIP
+	if !failOnVMLogErrors {
 		ginkgo.Fail(fmt.Sprintf("VM logs contain unexpected errors:\n%s", strings.Join(foundErrors, "\n")))
 	} else {
 		saveVMLogErrors(testName, foundErrors)
