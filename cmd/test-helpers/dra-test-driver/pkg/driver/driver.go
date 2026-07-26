@@ -21,6 +21,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	resourceapi "k8s.io/api/resource/v1"
@@ -31,13 +32,26 @@ import (
 type Driver struct{}
 
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
-	log.Println("PrepareResourceClaims called")
-	return nil, nil
+	results := make(map[types.UID]kubeletplugin.PrepareResult)
+	for _, claim := range claims {
+		var devices []kubeletplugin.Device
+		for _, result := range claim.Status.Allocation.Devices.Results {
+			devices = append(devices, kubeletplugin.Device{
+				PoolName:   result.Pool,
+				DeviceName: result.Device,
+			})
+		}
+		results[claim.UID] = kubeletplugin.PrepareResult{Devices: devices}
+	}
+	return results, nil
 }
 
 func (d *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[types.UID]error, error) {
-	log.Println("UnprepareResourceClaims called")
-	return nil, nil
+	results := make(map[types.UID]error)
+	for _, claim := range claims {
+		results[claim.UID] = nil
+	}
+	return results, nil
 }
 
 func (d *Driver) HandleError(ctx context.Context, err error, msg string) {
