@@ -19,7 +19,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -68,7 +67,7 @@ var _ = Describe("Credentials set-password", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.P(true),
+					Controller: new(true),
 				}},
 			},
 		}
@@ -160,7 +159,7 @@ var _ = Describe("Credentials set-password", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.P(true),
+					Controller: new(true),
 				}},
 			},
 		}

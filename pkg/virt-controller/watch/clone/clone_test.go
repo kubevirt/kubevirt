@@ -48,7 +48,6 @@ import (
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -176,7 +175,7 @@ var _ = Describe("Clone", func() {
 
 	setSnapshotSource := func(vmClone *clone.VirtualMachineClone, snapshotName string) {
 		source := vmClone.Spec.Source
-		source.APIGroup = pointer.P(snapshotAPIGroup)
+		source.APIGroup = new(snapshotAPIGroup)
 		source.Kind = "VirtualMachineSnapshot"
 		source.Name = snapshotName
 	}
@@ -191,7 +190,7 @@ var _ = Describe("Clone", func() {
 
 		vmClone = kubecli.NewMinimalCloneWithNS("testclone", metav1.NamespaceDefault)
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(vmAPIGroup),
+			APIGroup: new(vmAPIGroup),
 			Kind:     "VirtualMachine",
 			Name:     sourceVM.Name,
 		}
@@ -268,7 +267,7 @@ var _ = Describe("Clone", func() {
 
 			It("clone should fail if source VM has backendstorage", func() {
 				sourceVM.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
-					Persistent: pointer.P(true),
+					Persistent: new(true),
 				}
 				addVM(sourceVM)
 				vmClone.Status.Phase = clone.PhaseUnset
@@ -344,9 +343,9 @@ var _ = Describe("Clone", func() {
 				})
 
 				It("and is not ready yet - should not do anything", func() {
-					snapshot.Status.ReadyToUse = pointer.P(false)
+					snapshot.Status.ReadyToUse = new(false)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
 					vmClone.Status.Phase = clone.SnapshotInProgress
 
 					addVM(sourceVM)
@@ -362,9 +361,9 @@ var _ = Describe("Clone", func() {
 				It("and is ready - should update status and create restore", func() {
 					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
 					vmClone.Status.Phase = clone.SnapshotInProgress
 
 					addVM(sourceVM)
@@ -388,15 +387,15 @@ var _ = Describe("Clone", func() {
 
 				BeforeEach(func() {
 					snapshot = createVirtualMachineSnapshot(sourceVM)
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 					restore = createVirtualMachineRestore(sourceVM, snapshot.Name)
 				})
 
 				It("and is not ready yet - should do nothing", func() {
-					restore.Status.Complete = pointer.P(false)
+					restore.Status.Complete = new(false)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
-					vmClone.Status.RestoreName = pointer.P(restore.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
+					vmClone.Status.RestoreName = new(restore.Name)
 					vmClone.Status.Phase = clone.RestoreInProgress
 
 					addVM(sourceVM)
@@ -410,10 +409,10 @@ var _ = Describe("Clone", func() {
 				})
 
 				It("and is ready - should update status", func() {
-					restore.Status.Complete = pointer.P(true)
+					restore.Status.Complete = new(true)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
-					vmClone.Status.RestoreName = pointer.P(restore.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
+					vmClone.Status.RestoreName = new(restore.Name)
 					vmClone.Status.Phase = clone.RestoreInProgress
 
 					addVM(sourceVM)
@@ -432,7 +431,7 @@ var _ = Describe("Clone", func() {
 
 				BeforeEach(func() {
 					snapshot = createVirtualMachineSnapshot(sourceVM)
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 				})
 
 				It("should propagate VolumeNamePolicy to VirtualMachineRestore", func() {
@@ -441,7 +440,7 @@ var _ = Describe("Clone", func() {
 
 					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
 					vmClone.Status.Phase = clone.SnapshotInProgress
 
 					addVM(sourceVM)
@@ -471,7 +470,7 @@ var _ = Describe("Clone", func() {
 
 					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
 					vmClone.Status.Phase = clone.SnapshotInProgress
 
 					addVM(sourceVM)
@@ -504,11 +503,11 @@ var _ = Describe("Clone", func() {
 
 				BeforeEach(func() {
 					snapshot = createVirtualMachineSnapshot(sourceVM)
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 					restore = createVirtualMachineRestore(sourceVM, snapshot.Name)
-					restore.Status.Complete = pointer.P(true)
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
-					vmClone.Status.RestoreName = pointer.P(restore.Name)
+					restore.Status.Complete = new(true)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
+					vmClone.Status.RestoreName = new(restore.Name)
 					vmClone.Status.Phase = clone.CreatingTargetVM
 				})
 
@@ -550,20 +549,20 @@ var _ = Describe("Clone", func() {
 
 				BeforeEach(func() {
 					snapshot = createVirtualMachineSnapshot(sourceVM, createOwnerReference(vmClone))
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 
 					pvc = createPVC(sourceVM.Namespace, k8sv1.ClaimPending)
 
 					restore = createVirtualMachineRestore(sourceVM, snapshot.Name, createOwnerReference(vmClone))
-					restore.Status.Complete = pointer.P(true)
+					restore.Status.Complete = new(true)
 					restore.Status.Restores = []snapshotv1.VolumeRestore{
 						{PersistentVolumeClaimName: pvc.Name},
 					}
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
-					vmClone.Status.RestoreName = pointer.P(restore.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
+					vmClone.Status.RestoreName = new(restore.Name)
 					vmClone.Status.Phase = clone.Succeeded
-					vmClone.Status.TargetName = pointer.P(vmClone.Spec.Target.Name)
+					vmClone.Status.TargetName = new(vmClone.Spec.Target.Name)
 
 					targetVM := sourceVM.DeepCopy()
 					targetVM.Name = vmClone.Spec.Target.Name
@@ -596,10 +595,10 @@ var _ = Describe("Clone", func() {
 
 			It("when snapshot is deleted before restore is ready - should fail", func() {
 				restore := createVirtualMachineRestore(sourceVM, testSnapshotName)
-				restore.Status.Complete = pointer.P(false)
+				restore.Status.Complete = new(false)
 
-				vmClone.Status.SnapshotName = pointer.P(testSnapshotName)
-				vmClone.Status.RestoreName = pointer.P(restore.Name)
+				vmClone.Status.SnapshotName = new(testSnapshotName)
+				vmClone.Status.RestoreName = new(restore.Name)
 				vmClone.Status.Phase = clone.RestoreInProgress
 
 				addVM(sourceVM)
@@ -628,12 +627,12 @@ var _ = Describe("Clone", func() {
 			When("restore already exists and vmclone is not updated yet", func() {
 				It("should update the clone phase", func() {
 					snapshot := createVirtualMachineSnapshot(sourceVM)
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
 					restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
 
 					vmClone.Status.Phase = clone.SnapshotInProgress
 
@@ -653,10 +652,10 @@ var _ = Describe("Clone", func() {
 				It("should fire the related event", func() {
 					snapshot := createVirtualMachineSnapshot(sourceVM)
 					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
-					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshot.Status.ReadyToUse = new(true)
 					restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
 
-					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.SnapshotName = new(snapshot.Name)
 
 					vmClone.Status.Phase = clone.SnapshotInProgress
 
@@ -675,7 +674,7 @@ var _ = Describe("Clone", func() {
 
 			When("target VM is deleted", func() {
 				It("should delete the vm clone resource", func() {
-					vmClone.Status.TargetName = pointer.P("target-vm-name")
+					vmClone.Status.TargetName = new("target-vm-name")
 					vmClone.Status.Phase = clone.Succeeded
 
 					addVM(sourceVM)
@@ -703,11 +702,11 @@ var _ = Describe("Clone", func() {
 
 			It("when snapshot is not ready yet - should not do anything", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.P(false)
+				snapshot.Status.ReadyToUse = new(false)
 
 				setSnapshotSource(vmClone, snapshot.Name)
 
-				vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+				vmClone.Status.SnapshotName = new(snapshot.Name)
 				vmClone.Status.Phase = clone.SnapshotInProgress
 
 				addClone(vmClone)
@@ -721,7 +720,7 @@ var _ = Describe("Clone", func() {
 
 			It("should fail clone if snaphshot ready - but snapshotcontent is invalid", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshot.Status.ReadyToUse = new(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 				snapshotContent.Spec.VirtualMachineSnapshotName = nil
 				setSnapshotSource(vmClone, snapshot.Name)
@@ -737,10 +736,10 @@ var _ = Describe("Clone", func() {
 
 			It("clone should fail if source VMSnapshot has backendstorage", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshot.Status.ReadyToUse = new(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
-					Persistent: pointer.P(true),
+					Persistent: new(true),
 				}
 
 				setSnapshotSource(vmClone, snapshot.Name)
@@ -756,7 +755,7 @@ var _ = Describe("Clone", func() {
 
 			It("should fail clone if snaphshot ready - but not all volumes were snapshoted", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshot.Status.ReadyToUse = new(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = append(snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes, virtv1.Volume{
 					Name: "vol1",
@@ -779,7 +778,7 @@ var _ = Describe("Clone", func() {
 
 			It("when snapshot is ready - should update status and create restore", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshot.Status.ReadyToUse = new(true)
 				setSnapshotSource(vmClone, snapshot.Name)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
@@ -796,14 +795,14 @@ var _ = Describe("Clone", func() {
 
 			It("when restore already exists and vmclone is not update yet - should update the clone phase", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshot.Status.ReadyToUse = new(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
 				setSnapshotSource(vmClone, snapshot.Name)
 
 				restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
 
-				vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+				vmClone.Status.SnapshotName = new(snapshot.Name)
 				vmClone.Status.Phase = clone.PhaseUnset
 
 				addClone(vmClone)
@@ -820,9 +819,9 @@ var _ = Describe("Clone", func() {
 	Context("generation of target VM", func() {
 		BeforeEach(func() {
 			snapshot := createVirtualMachineSnapshot(sourceVM)
-			snapshot.Status.ReadyToUse = pointer.P(true)
+			snapshot.Status.ReadyToUse = new(true)
 
-			vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+			vmClone.Status.SnapshotName = new(snapshot.Name)
 			vmClone.Status.Phase = clone.RestoreInProgress
 
 			addVM(sourceVM)
@@ -990,7 +989,7 @@ var _ = Describe("Clone", func() {
 			})
 
 			It("if serial is defined in clone spec - should use the one in clone spec", func() {
-				vmClone.Spec.NewSMBiosSerial = pointer.P(manuallySetSerial)
+				vmClone.Spec.NewSMBiosSerial = new(manuallySetSerial)
 				addClone(vmClone)
 				sanityExecute()
 				expectSMbiosSerial(manuallySetSerial)
@@ -1205,7 +1204,7 @@ var _ = Describe("Clone", func() {
 
 			It("should generate target vm name if it is not provided", func() {
 				vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.P(vmAPIGroup),
+					APIGroup: new(vmAPIGroup),
 					Kind:     "VirtualMachine",
 				}
 				addClone(vmClone)
@@ -1228,7 +1227,7 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.Own
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.P(vmAPIGroup),
+				APIGroup: new(vmAPIGroup),
 				Kind:     "VirtualMachine",
 				Name:     vm.Name,
 			},
@@ -1252,7 +1251,7 @@ func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.
 					Status:     vm.Status,
 				},
 			},
-			VirtualMachineSnapshotName: pointer.P(testSnapshotName),
+			VirtualMachineSnapshotName: new(testSnapshotName),
 		},
 	}
 }
@@ -1267,7 +1266,7 @@ func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string,
 		},
 		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target: k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.P(vmAPIGroup),
+				APIGroup: new(vmAPIGroup),
 				Kind:     "VirtualMachine",
 				Name:     vm.Name,
 			},
@@ -1309,7 +1308,7 @@ func createOwnerReference(owner metav1.Object) metav1.OwnerReference {
 		Name:               owner.GetName(),
 		Kind:               clone.VirtualMachineCloneKind.Kind,
 		APIVersion:         clone.VirtualMachineCloneKind.GroupVersion().String(),
-		BlockOwnerDeletion: pointer.P(true),
-		Controller:         pointer.P(true),
+		BlockOwnerDeletion: new(true),
+		Controller:         new(true),
 	}
 }

@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -92,7 +91,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	scalePool := func(name string, scale int32) *poolv1.VirtualMachinePool {
 		patchSet := patch.New()
-		patchSet.AddOption(patch.WithReplace("/spec/replicas", pointer.P(scale)))
+		patchSet.AddOption(patch.WithReplace("/spec/replicas", new(scale)))
 		patchData, err := patchSet.GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -155,7 +154,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			Spec:       vm.Spec.Template.Spec,
 		})
 		newPool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = vm.Spec.DataVolumeTemplates
-		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 		return newPool
 	}
@@ -163,7 +162,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
-		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		return createVirtualMachinePool(pool)
 	}
 
@@ -440,7 +439,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	DescribeTable("should handle VMI template changes based on update strategy",
 		func(test updateStrategyTest) {
 			pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
-			pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+			pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = new(v1.RunStrategyAlways)
 			pool.Spec.UpdateStrategy = test.updateStrategy
 
 			if test.initialVMLabels != nil {
@@ -566,7 +565,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	It("should auto-heal consistently failing VMs when autohealing is enabled", func() {
 		By("Creating a pool with autohealing enabled and VMs that will crash loop")
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
-		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
 
 		// Add the fail-fast annotation to the VMI template so VMIs will crash loop
@@ -640,7 +639,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should auto-heal VMs when VM is in not ready state for too long when pvc is not found", decorators.WgS390x, func() {
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
-		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
 			{
 				Name: "non-existent-pvc",
@@ -759,7 +758,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, pointer.P(1))
+		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, new(1))
 		Expect(err).ToNot(HaveOccurred())
 		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -804,11 +803,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
+					SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
 				},
 			},
 		}
-		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		pool = createVirtualMachinePool(pool)
 
 		By("Scaling pool to 5 replicas")
@@ -883,9 +882,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["app"] = "test"
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
-				StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+				StatePreservation: new(poolv1.StatePreservationOffline),
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyAscendingOrder),
+					SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyAscendingOrder),
 				},
 			},
 		}
@@ -1004,8 +1003,8 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 	},
 		Entry("do not append index by default", nil),
-		Entry("do not append index if set to false", pointer.P(false)),
-		Entry("append index if set to true", pointer.P(true)),
+		Entry("do not append index if set to false", new(false)),
+		Entry("append index if set to true", new(true)),
 	)
 
 	It("should respect maxUnavailable strategy during updates", func() {
@@ -1085,7 +1084,7 @@ func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 					Labels: map[string]string{"select": selector},
 				},
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyManual),
+					RunStrategy: new(v1.RunStrategyManual),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"select": selector},

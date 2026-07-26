@@ -25,7 +25,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
@@ -54,7 +53,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		preference := builder.NewPreference()
 		preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 			CPU: &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+				PreferredCPUTopology: new(instancetypev1beta1.Sockets),
 			},
 		}
 		preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).

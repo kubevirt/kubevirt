@@ -23,7 +23,6 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
@@ -192,11 +191,11 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 			}
 		},
-			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", new(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
 			Entry("PvcVolumeFlag and explicit inference", "my-pvc", nil, setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")),
-			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", "my-pvc", new(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")),
 			Entry("VolumeImportFlag and explicit inference with pvc source", "my-pvc", nil, setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")),
-			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", "my-containerdisk", new(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")),
 			Entry("VolumeImportFlag and explicit inference with registry source", "my-containerdisk", nil, setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferInstancetypeFlag, "true")),
 		)
 
@@ -315,11 +314,11 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(*inferFromVolumePolicy)))
 			}
 		},
-			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", "my-pvc", new(v1.IgnoreInferFromVolumeFailure), setFlag(PvcVolumeFlag, "src:my-pvc")),
 			Entry("PvcVolumeFlag and explicit inference", "my-pvc", nil, setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")),
-			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", "my-pvc", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")),
+			Entry("VolumeImportFlag and implicit inference with pvc source (enabled by default)", "my-pvc", new(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")),
 			Entry("VolumeImportFlag and explicit inference with pvc source", "my-pvc", nil, setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferPreferenceFlag, "true")),
-			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", "my-containerdisk", pointer.P(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")),
+			Entry("VolumeImportFlag and implicit inference with registry source (enabled by default)", "my-containerdisk", new(v1.IgnoreInferFromVolumeFailure), setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk")),
 			Entry("VolumeImportFlag and explicit inference with registry source", "my-containerdisk", nil, setFlag(VolumeImportFlag, "type:registry,size:1Gi,url:docker://my-containerdisk,name:my-containerdisk"), setFlag(InferPreferenceFlag, "true")),
 		)
 
@@ -402,7 +401,7 @@ chpasswd: { expire: False }`
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 					Name:      volName,
-					BootOrder: pointer.P(uint(bootOrder)),
+					BootOrder: new(uint(bootOrder)),
 				}))
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
@@ -456,7 +455,7 @@ chpasswd: { expire: False }`
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 					Name:      vm.Spec.DataVolumeTemplates[0].Name,
-					BootOrder: pointer.P(uint(bootOrder)),
+					BootOrder: new(uint(bootOrder)),
 				}))
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
@@ -529,7 +528,7 @@ chpasswd: { expire: False }`
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 					Name:      vm.Spec.DataVolumeTemplates[0].Name,
-					BootOrder: pointer.P(uint(bootOrder)),
+					BootOrder: new(uint(bootOrder)),
 				}))
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
@@ -562,8 +561,8 @@ chpasswd: { expire: False }`
 			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc", "", "256Mi", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
 			Entry("with PVC source and bootorder", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume,bootorder:5", "imported-volume", "256Mi", 5, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
 			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
-			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume,bootorder:6", "imported-volume", "256Mi", 6, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
+			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: new("my-cert"), PullMethod: new(cdiv1.RegistryPullMethod("pod")), URL: new("http://url.com"), SecretRef: new("secret-ref")}}, nil),
+			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume,bootorder:6", "imported-volume", "256Mi", 6, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: new("my-cert"), PullMethod: new(cdiv1.RegistryPullMethod("pod")), URL: new("http://url.com"), SecretRef: new("secret-ref")}}, nil),
 			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "", "256Mi", 0, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
 			Entry("with S3 source and bootorder", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref,bootorder:7", "", "256Mi", 7, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
 			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "", "256Mi", 0, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
@@ -571,9 +570,9 @@ chpasswd: { expire: False }`
 			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
 			Entry("with Snapshot source and bootorder", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume,bootorder:9", "imported-volume", "256Mi", 9, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
 			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with DataSource source", "type:ds,src:default/datasource,name:imported-ds", "imported-ds", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
+			Entry("with DataSource source", "type:ds,src:default/datasource,name:imported-ds", "imported-ds", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: new("default")}),
 			Entry("with DataSource source without namespace", "type:ds,src:datasource", "", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource"}),
-			Entry("with DataSource source and bootorder", "type:ds,src:default/datasource,name:imported-ds,bootorder:1", "imported-ds", "", 1, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
+			Entry("with DataSource source and bootorder", "type:ds,src:default/datasource,name:imported-ds,bootorder:1", "imported-ds", "", 1, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: new("default")}),
 		)
 
 		DescribeTable("VM with multiple volume-import sources and name", func(params1, params2 string, src1, src2 *cdiv1.DataVolumeSource) {
@@ -648,7 +647,7 @@ chpasswd: { expire: False }`
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 					Name:      vm.Spec.DataVolumeTemplates[0].Name,
-					BootOrder: pointer.P(uint(bootOrder)),
+					BootOrder: new(uint(bootOrder)),
 				}))
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
@@ -697,7 +696,7 @@ chpasswd: { expire: False }`
 			if bootOrder > 0 {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 					Name:      volName,
-					BootOrder: pointer.P(uint(bootOrder)),
+					BootOrder: new(uint(bootOrder)),
 				}))
 			} else {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(BeEmpty())
@@ -1264,7 +1263,7 @@ chpasswd: { expire: False }`
 
 			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 				Name:      pvcName,
-				BootOrder: pointer.P(uint(pvcBootOrder)),
+				BootOrder: new(uint(pvcBootOrder)),
 			}))
 		})
 

@@ -79,7 +79,6 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup/launcher"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -2184,7 +2183,7 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 
 func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
 	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
-		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.P(true)
+		gracePeriodMetadata.MarkedForGracefulShutdown = new(true)
 	})
 	log.Log.V(4).Infof("Marked for graceful shutdown in metadata: %s", l.metadataCache.GracePeriod.String())
 }

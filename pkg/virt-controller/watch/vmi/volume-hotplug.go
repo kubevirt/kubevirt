@@ -33,7 +33,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
@@ -402,7 +401,7 @@ func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachm
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 
 	err := c.deletePod(vmiKey, attachmentPod, metav1.DeleteOptions{
-		GracePeriodSeconds: pointer.P(int64(0)),
+		GracePeriodSeconds: new(int64(0)),
 	})
 	if err != nil {
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete attachment pod %s", attachmentPod.Name)

@@ -5,8 +5,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,7 +83,7 @@ func generateSnapshot(vmClone *clone.VirtualMachineClone, sourceVM *v1.VirtualMa
 			Source: corev1.TypedLocalObjectReference{
 				Kind:     vmKind,
 				Name:     sourceVM.Name,
-				APIGroup: pointer.P(kubevirtApiGroup),
+				APIGroup: new(kubevirtApiGroup),
 			},
 		},
 	}
@@ -126,8 +124,8 @@ func getCloneOwnerReference(cloneName string, cloneUID types.UID) metav1.OwnerRe
 		Kind:               clone.VirtualMachineCloneKind.Kind,
 		Name:               cloneName,
 		UID:                cloneUID,
-		Controller:         pointer.P(true),
-		BlockOwnerDeletion: pointer.P(true),
+		Controller:         new(true),
+		BlockOwnerDeletion: new(true),
 	}
 }
 

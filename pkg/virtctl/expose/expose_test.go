@@ -19,7 +19,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
@@ -401,16 +400,16 @@ var _ = Describe("Expose", func() {
 		},
 			Entry("with VirtualMachineInstance and IPFamily IPv4", "vmi", "ipv4", nil, k8sv1.IPv4Protocol),
 			Entry("with VirtualMachineInstance and IPFamily IPv6", "vmi", "ipv6", nil, k8sv1.IPv6Protocol),
-			Entry("with VirtualMachineInstance and IPFamily IPv4,IPv6", "vmi", "ipv4,ipv6", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
-			Entry("with VirtualMachineInstance and IPFamily IPv6,IPv4", "vmi", "ipv6,ipv4", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachineInstance and IPFamily IPv4,IPv6", "vmi", "ipv4,ipv6", new(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachineInstance and IPFamily IPv6,IPv4", "vmi", "ipv6,ipv4", new(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
 			Entry("with VirtualMachine and IPFamily IPv4", "vm", "ipv4", nil, k8sv1.IPv4Protocol),
 			Entry("with VirtualMachine and IPFamily IPv6", "vm", "ipv6", nil, k8sv1.IPv6Protocol),
-			Entry("with VirtualMachine and IPFamily IPv4,IPv6", "vm", "ipv4,ipv6", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
-			Entry("with VirtualMachine and IPFamily IPv6,IPv4", "vm", "ipv6,ipv4", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachine and IPFamily IPv4,IPv6", "vm", "ipv4,ipv6", new(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachine and IPFamily IPv6,IPv4", "vm", "ipv6,ipv4", new(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv4", "vmirs", "ipv4", nil, k8sv1.IPv4Protocol),
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv6", "vmirs", "ipv6", nil, k8sv1.IPv6Protocol),
-			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv4,IPv6", "vmirs", "ipv4,ipv6", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
-			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv6,IPv4", "vmirs", "ipv6,ipv4", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv4,IPv6", "vmirs", "ipv4,ipv6", new(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv6,IPv4", "vmirs", "ipv6,ipv4", new(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
 		)
 
 		DescribeTable("creating a service", func(resType string, ipFamilyPolicy k8sv1.IPFamilyPolicy) {
@@ -450,8 +449,8 @@ var _ = Describe("Expose", func() {
 					Kind:               expectedKind,
 					Name:               resName,
 					UID:                types.UID(getResUID(resType)),
-					Controller:         pointer.P(true),
-					BlockOwnerDeletion: pointer.P(false),
+					Controller:         new(true),
+					BlockOwnerDeletion: new(false),
 				},
 			))
 		},

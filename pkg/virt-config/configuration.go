@@ -33,8 +33,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -232,8 +230,8 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		CPURequest: &cpuRequestDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			NetworkInterface:                  defaultNetworkInterface,
-			DeprecatedPermitSlirpInterface:    pointer.P(DefaultPermitSlirpInterface),
-			PermitBridgeInterfaceOnPodNetwork: pointer.P(DefaultPermitBridgeInterfaceOnPodNetwork),
+			DeprecatedPermitSlirpInterface:    new(DefaultPermitSlirpInterface),
+			PermitBridgeInterfaceOnPodNetwork: new(DefaultPermitBridgeInterfaceOnPodNetwork),
 		},
 		SMBIOSConfig:                SmbiosDefaultConfig,
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
@@ -284,7 +282,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
 			MaxHotplugRatio: DefaultMaxHotplugRatio,
 		},
-		VMRolloutStrategy: pointer.P(DefaultVMRolloutStrategy),
+		VMRolloutStrategy: new(DefaultVMRolloutStrategy),
 		Hypervisors: []v1.HypervisorConfiguration{
 			{
 				Name: v1.KvmHypervisorName,

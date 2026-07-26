@@ -26,7 +26,6 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -233,8 +232,8 @@ var _ = Describe("Evacuation", func() {
 
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
-					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+					ParallelMigrationsPerCluster:      new(maxParallelMigrationsPerCluster),
+					ParallelOutboundMigrationsPerNode: new(maxParallelMigrationsPerSourceNode),
 				}
 			})
 
@@ -359,8 +358,8 @@ var _ = Describe("Evacuation", func() {
 
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
-					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+					ParallelMigrationsPerCluster:      new(maxParallelMigrationsPerCluster),
+					ParallelOutboundMigrationsPerNode: new(maxParallelMigrationsPerSourceNode),
 				}
 			})
 

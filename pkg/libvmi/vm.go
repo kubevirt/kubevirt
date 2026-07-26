@@ -24,8 +24,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 type VMOption func(vm *v1.VirtualMachine)
@@ -41,7 +39,7 @@ func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.Vir
 			Namespace: vmi.Namespace,
 		},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.RunStrategyHalted),
+			RunStrategy: new(v1.RunStrategyHalted),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: vmi.ObjectMeta.Annotations,
@@ -200,6 +198,6 @@ func WithPreferenceRevision(revisionName string) VMOption {
 
 func WithUpdateVolumeStrategy(strategy v1.UpdateVolumesStrategy) VMOption {
 	return func(vm *v1.VirtualMachine) {
-		vm.Spec.UpdateVolumesStrategy = pointer.P(strategy)
+		vm.Spec.UpdateVolumesStrategy = new(strategy)
 	}
 }

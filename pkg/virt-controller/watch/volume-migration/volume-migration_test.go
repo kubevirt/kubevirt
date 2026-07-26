@@ -42,8 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/pointer"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	volumemigration "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
@@ -80,7 +78,7 @@ var _ = Describe("Volume Migration", func() {
 					Namespace: ns,
 				},
 				Spec: k8sv1.PersistentVolumeClaimSpec{
-					DataSourceRef: pointer.P(k8sv1.TypedObjectReference{}),
+					DataSourceRef: new(k8sv1.TypedObjectReference{}),
 				}}
 			pvcNOCSI := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
@@ -100,7 +98,7 @@ var _ = Describe("Volume Migration", func() {
 						Namespace: ns,
 					},
 					Spec: k8sv1.PersistentVolumeClaimSpec{
-						VolumeMode: pointer.P(k8sv1.PersistentVolumeBlock),
+						VolumeMode: new(k8sv1.PersistentVolumeBlock),
 					},
 				})).To(Succeed())
 			}
@@ -181,7 +179,7 @@ var _ = Describe("Volume Migration", func() {
 					Namespace: ns,
 				},
 				Spec: k8sv1.PersistentVolumeClaimSpec{
-					DataSourceRef: pointer.P(k8sv1.TypedObjectReference{}),
+					DataSourceRef: new(k8sv1.TypedObjectReference{}),
 				},
 			}
 			Expect(dataVolumeStore.Add(dv)).To(Succeed())
@@ -316,7 +314,7 @@ var _ = Describe("Volume Migration", func() {
 				pvcStore.Add(&k8sv1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{Name: v, Namespace: ns},
 					Spec: k8sv1.PersistentVolumeClaimSpec{
-						VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+						VolumeMode: new(k8sv1.PersistentVolumeFilesystem),
 						Resources: k8sv1.VolumeResourceRequirements{
 							Requests: k8sv1.ResourceList{
 								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
@@ -339,7 +337,7 @@ var _ = Describe("Volume Migration", func() {
 				pvcStore.Add(&k8sv1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{Name: v, Namespace: ns},
 					Spec: k8sv1.PersistentVolumeClaimSpec{
-						VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+						VolumeMode: new(k8sv1.PersistentVolumeFilesystem),
 						Resources: k8sv1.VolumeResourceRequirements{
 							Requests: k8sv1.ResourceList{
 								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
@@ -628,7 +626,7 @@ var _ = Describe("Volume Migration", func() {
 			// on the VMI spec.
 			Entry("without any updates with a VM using a PVC and a containerdisk", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{VolumeName: "vol0"}))),
-				withContainerDisk("vol1", virtpointer.P(k8sv1.PullIfNotPresent))),
+				withContainerDisk("vol1", new(k8sv1.PullIfNotPresent))),
 				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
 					withContainerDisk("vol1", nil))),
 			),
@@ -670,13 +668,13 @@ var _ = Describe("Volume Migration", func() {
 		It("should generate migrated volumes with source and destination info when VMI has migrated volumes status", func() {
 			// Create PVCs
 			sourcePVC := createPVCAndAddToStore("source-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 			)
 			_ = createPVCAndAddToStore("dest-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeBlock),
+				new(k8sv1.PersistentVolumeBlock),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
@@ -724,7 +722,7 @@ var _ = Describe("Volume Migration", func() {
 
 		It("should generate migrated volumes without source info when VMI has no migrated volumes status", func() {
 			_ = createPVCAndAddToStore("dest-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
@@ -753,7 +751,7 @@ var _ = Describe("Volume Migration", func() {
 
 		It("should generate migrated volumes without source info when migrated volume has no SourcePVCInfo", func() {
 			_ = createPVCAndAddToStore("dest-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
@@ -797,25 +795,25 @@ var _ = Describe("Volume Migration", func() {
 		It("should handle multiple volumes with mixed migration scenarios", func() {
 			// Create PVCs
 			sourcePVC1 := createPVCAndAddToStore("source-pvc-1",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 			)
 			_ = createPVCAndAddToStore("dest-pvc-1",
-				virtpointer.P(k8sv1.PersistentVolumeBlock),
+				new(k8sv1.PersistentVolumeBlock),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
 			)
 			_ = createPVCAndAddToStore("dest-pvc-2",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("15Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("15Gi")},
 			)
 			_ = createPVCAndAddToStore("dest-pvc-3",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("5Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("5Gi")},
@@ -915,7 +913,7 @@ var _ = Describe("Volume Migration", func() {
 
 		It("should handle volumes with same PVC names (no migration)", func() {
 			_ = createPVCAndAddToStore("same-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
@@ -942,7 +940,7 @@ var _ = Describe("Volume Migration", func() {
 
 		It("should correctly populate all PVC info fields", func() {
 			sourcePVC := createPVCAndAddToStore("source-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				new(k8sv1.PersistentVolumeFilesystem),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce, k8sv1.ReadOnlyMany},
 				k8sv1.ResourceList{
 					k8sv1.ResourceStorage: resource.MustParse("10Gi"),
@@ -954,7 +952,7 @@ var _ = Describe("Volume Migration", func() {
 				},
 			)
 			destPVC := createPVCAndAddToStore("dest-pvc",
-				virtpointer.P(k8sv1.PersistentVolumeBlock),
+				new(k8sv1.PersistentVolumeBlock),
 				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
 				k8sv1.ResourceList{
 					k8sv1.ResourceStorage: resource.MustParse("20Gi"),
@@ -1027,7 +1025,7 @@ func withShareableVolume(diskName, claim string) libvmi.Option {
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},
-				Shareable: virtpointer.P(true),
+				Shareable: new(true),
 			})
 		addPVC(vmi, diskName, claim)
 	}

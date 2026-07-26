@@ -42,8 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -134,7 +132,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 	createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 		var vmi *v1.VirtualMachineInstance
 
-		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+		vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 		var gracePeriod int64 = 10
 		vm.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
@@ -1111,7 +1109,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				By("Creating VM clone")
 				vmClone := kubecli.NewMinimalCloneWithNS("testclone", testsuite.GetTestNamespace(nil))
 				cloneSourceRef := &corev1.TypedLocalObjectReference{
-					APIGroup: virtpointer.P(groupName),
+					APIGroup: new(groupName),
 					Kind:     "VirtualMachine",
 					Name:     sourceVMName,
 				}
@@ -1178,7 +1176,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 				restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
-				restore.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restore.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1383,7 +1381,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory))
-				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 				vm, vmi = createAndStartVM(vm)
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
@@ -1449,7 +1447,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				DescribeTable("Should restore a VM when backend storage PVC was not included in snapshot", func(restoreToSameVM bool) {
 					vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
-					vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+					vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 					vm, vmi = createAndStartVM(vm)
 					Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
@@ -1794,7 +1792,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				// Create the restore definition of the VM, change the name of the restored volume
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
 					{
 						VolumeName:  "disk0",
@@ -1834,10 +1832,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
-				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+				restoreDef.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyInPlace)
 
 				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
 				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
@@ -1924,10 +1922,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
-				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+				restoreDef.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyInPlace)
 
 				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
 				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
@@ -1995,10 +1993,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want to overwrite existing volumes during the restore, that means deleting the existing PVCs
-				restoreDef.Spec.VolumeRestorePolicy = virtpointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+				restoreDef.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyInPlace)
 
 				// We're about to restore a VM in such a way that the restored volumes are identical to the source volumes.
 				// We need to make sure they're indeed new, and not that nothing happened during the test. We add
@@ -2059,10 +2057,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 
 				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
-				restoreDef.Spec.TargetReadinessPolicy = virtpointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 
 				// We want the restored PVC to not be owned by the restored VM
-				restoreDef.Spec.VolumeOwnershipPolicy = virtpointer.P(snapshotv1.VolumeOwnershipPolicyNone)
+				restoreDef.Spec.VolumeOwnershipPolicy = new(snapshotv1.VolumeOwnershipPolicyNone)
 
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2097,7 +2095,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(restoredVM.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyRerunOnFailure)))
+				Expect(restoredVM.Spec.RunStrategy).To(Equal(new(v1.RunStrategyRerunOnFailure)))
 			})
 
 			Context("with memory dump", func() {

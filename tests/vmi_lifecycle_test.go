@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
@@ -1563,7 +1562,7 @@ func waitForBootIDChange(vmi *v1.VirtualMachineInstance, login console.LoginToFu
 func withoutACPI() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Features = &v1.Features{
-			ACPI: v1.FeatureState{Enabled: pointer.P(false)},
+			ACPI: v1.FeatureState{Enabled: new(false)},
 		}
 	}
 }

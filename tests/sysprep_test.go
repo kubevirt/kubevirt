@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -274,13 +273,13 @@ var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Seria
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:   &v1.FeatureState{},
 					VAPIC:     &v1.FeatureState{},
-					Spinlocks: &v1.FeatureSpinlocks{Retries: pointer.P(uint32(8191))},
+					Spinlocks: &v1.FeatureSpinlocks{Retries: new(uint32(8191))},
 				},
 			}),
 			libvmi.WithClock(v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
+					HPET:   &v1.HPETTimer{Enabled: new(false)},
 					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
 					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
 					Hyperv: &v1.HypervTimer{},
@@ -341,13 +340,13 @@ func winRMCliPod() *k8sv1.Pod {
 					Command: []string{"sleep"},
 					Args:    []string{"3600"},
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
+						AllowPrivilegeEscalation: new(false),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 				},
 			},
 			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsNonRoot:   pointer.P(true),
+				RunAsNonRoot:   new(true),
 				RunAsUser:      &user,
 				SeccompProfile: &k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeRuntimeDefault},
 			},

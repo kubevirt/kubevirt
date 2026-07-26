@@ -38,7 +38,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -101,14 +100,14 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 
 		Entry("negative CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: new(int64(-1))},
 		),
 
 		Entry("invalid precopyPossibleFactor",
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PrecopyPossibleFactor: pointer.P("not-a-number"),
+						PrecopyPossibleFactor: new("not-a-number"),
 					},
 				},
 			},
@@ -118,7 +117,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PrecopyPossibleFactor: pointer.P("0.5"),
+						PrecopyPossibleFactor: new("0.5"),
 					},
 				},
 			},
@@ -128,7 +127,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PatienceWindowDecayFactor: pointer.P("1.5"),
+						PatienceWindowDecayFactor: new("1.5"),
 					},
 				},
 			},
@@ -148,15 +147,15 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 
 		Entry("greater than zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(1))},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: new(int64(1))},
 		),
 
 		Entry("zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(0))},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: new(int64(0))},
 		),
 
 		Entry("valid MaxDowntimeMs",
-			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(900))},
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: new(uint64(900))},
 		),
 
 		Entry("zero BandwidthPerMigration",
@@ -171,7 +170,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						CompletionTimeoutFactor: pointer.P("3"),
+						CompletionTimeoutFactor: new("3"),
 					},
 				},
 			},
@@ -181,7 +180,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					StallDetector: &v1.StallDetectorOptions{
-						PrecopyPossibleFactor: pointer.P("2"),
+						PrecopyPossibleFactor: new("2"),
 					},
 				},
 			},
@@ -200,13 +199,13 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			oldPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
 			oldPolicy.Spec.MaxDowntimeMs = oldMs
 			if expectAllowed {
-				newPolicy.Spec.AllowAutoConverge = pointer.P(true)
+				newPolicy.Spec.AllowAutoConverge = new(true)
 			}
 			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
 		},
-		Entry("reject on create", false, nil, pointer.P(uint64(900)), false),
-		Entry("allow unchanged update", true, pointer.P(uint64(900)), pointer.P(uint64(900)), true),
-		Entry("reject changing value on update", true, pointer.P(uint64(500)), pointer.P(uint64(900)), false),
+		Entry("reject on create", false, nil, new(uint64(900)), false),
+		Entry("allow unchanged update", true, new(uint64(900)), new(uint64(900)), true),
+		Entry("reject changing value on update", true, new(uint64(500)), new(uint64(900)), false),
 	)
 
 	DescribeTable("experimental.stallDetector feature gate validation when feature gate is disabled",
@@ -229,21 +228,21 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 				}
 			}
 			if expectAllowed {
-				newPolicy.Spec.AllowAutoConverge = pointer.P(true)
+				newPolicy.Spec.AllowAutoConverge = new(true)
 			}
 			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
 		},
 		Entry("reject on create", false, nil, &v1.StallDetectorOptions{
-			StallMargin: pointer.P(int64(4)),
+			StallMargin: new(int64(4)),
 		}, false),
 		Entry("allow unchanged update", true,
-			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
-			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
+			&v1.StallDetectorOptions{StallMargin: new(int64(4))},
+			&v1.StallDetectorOptions{StallMargin: new(int64(4))},
 			true,
 		),
 		Entry("reject changing value on update", true,
-			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
-			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(8))},
+			&v1.StallDetectorOptions{StallMargin: new(int64(4))},
+			&v1.StallDetectorOptions{StallMargin: new(int64(8))},
 			false,
 		),
 	)

@@ -25,8 +25,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -117,7 +115,7 @@ var _ = DescribeTable("memory overhead reservation requirements",
 				Domain: v1.DomainSpec{
 					Memory: &v1.Memory{
 						ReservedOverhead: &v1.ReservedOverhead{
-							AddedOverhead: pointer.P(resource.MustParse("1Gi")),
+							AddedOverhead: new(resource.MustParse("1Gi")),
 						},
 					},
 				},
@@ -168,7 +166,7 @@ var _ = DescribeTable("memory lock limit requirements",
 				Domain: v1.DomainSpec{
 					Memory: &v1.Memory{
 						ReservedOverhead: &v1.ReservedOverhead{
-							MemLock: pointer.P(v1.MemLockRequirement("notExpectedValue")),
+							MemLock: new(v1.MemLockRequirement("notExpectedValue")),
 						},
 					},
 				},
@@ -183,7 +181,7 @@ var _ = DescribeTable("memory lock limit requirements",
 				Domain: v1.DomainSpec{
 					Memory: &v1.Memory{
 						ReservedOverhead: &v1.ReservedOverhead{
-							MemLock: pointer.P(v1.MemLockRequirement(v1.MemLockNotRequired)),
+							MemLock: new(v1.MemLockRequirement(v1.MemLockNotRequired)),
 						},
 					},
 				},
@@ -198,7 +196,7 @@ var _ = DescribeTable("memory lock limit requirements",
 				Domain: v1.DomainSpec{
 					Memory: &v1.Memory{
 						ReservedOverhead: &v1.ReservedOverhead{
-							MemLock: pointer.P(v1.MemLockRequirement(v1.MemLockRequired)),
+							MemLock: new(v1.MemLockRequirement(v1.MemLockRequired)),
 						},
 					},
 				},

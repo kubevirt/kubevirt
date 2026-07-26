@@ -46,7 +46,6 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/tests/console"
@@ -341,7 +340,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 			Name:      pvc.Name,
-			BootOrder: pointer.P(uint(pvcBootOrder)),
+			BootOrder: new(uint(pvcBootOrder)),
 		}))
 	})
 
@@ -443,7 +442,7 @@ chpasswd: { expire: False }`
 
 		Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(ConsistOf(v1.Disk{
 			Name:      vm.Spec.DataVolumeTemplates[1].Name,
-			BootOrder: pointer.P(uint(pvcBootOrder)),
+			BootOrder: new(uint(pvcBootOrder)),
 		}))
 	})
 

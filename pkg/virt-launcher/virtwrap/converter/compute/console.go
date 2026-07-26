@@ -24,7 +24,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -57,8 +56,8 @@ func (c ConsoleDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 		{
 			Type: consoleType,
 			Target: &api.ConsoleTarget{
-				Type: pointer.P(serialType),
-				Port: pointer.P(serialPortIndex),
+				Type: new(serialType),
+				Port: new(serialPortIndex),
 			},
 		},
 	}
@@ -67,7 +66,7 @@ func (c ConsoleDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	serial := api.Serial{
 		Type: serialTypeUnix,
 		Target: &api.SerialTarget{
-			Port: pointer.P(serialPortIndex),
+			Port: new(serialPortIndex),
 		},
 		Source: &api.SerialSource{
 			Mode: bindMode,

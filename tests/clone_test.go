@@ -10,7 +10,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -371,7 +370,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 					Expect(err).ShouldNot(HaveOccurred())
 
 					vmClone = generateCloneFromVM()
-					vmClone.Spec.NewSMBiosSerial = pointer.P(targetSerial)
+					vmClone.Spec.NewSMBiosSerial = new(targetSerial)
 
 					createCloneAndWaitForCompletion(vmClone)
 
@@ -731,7 +730,7 @@ func generateSnapshot(vmName, vmNamespace string) *snapshotv1.VirtualMachineSnap
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.P(vmAPIGroup),
+				APIGroup: new(vmAPIGroup),
 				Kind:     "VirtualMachine",
 				Name:     vmName,
 			},
@@ -744,13 +743,13 @@ func generateCloneFromSnapshot(snapshotName, namespace, targetVMName string) *cl
 	vmClone := kubecli.NewMinimalCloneWithNS("testclone", namespace)
 
 	cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.P(virtsnapshot.GroupName),
+		APIGroup: new(virtsnapshot.GroupName),
 		Kind:     "VirtualMachineSnapshot",
 		Name:     snapshotName,
 	}
 
 	cloneTargetRef := &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.P(vmAPIGroup),
+		APIGroup: new(vmAPIGroup),
 		Kind:     "VirtualMachine",
 		Name:     targetVMName,
 	}
@@ -765,7 +764,7 @@ func generateCloneFromVMWithParams(sourceVMName, sourceVMNamespace, targetVMName
 	vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVMNamespace)
 
 	cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.P(vmAPIGroup),
+		APIGroup: new(vmAPIGroup),
 		Kind:     "VirtualMachine",
 		Name:     sourceVMName,
 	}

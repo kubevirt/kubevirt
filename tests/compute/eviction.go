@@ -35,7 +35,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -84,7 +83,7 @@ var _ = Describe(SIG("Eviction", func() {
 						Preconditions: &metav1.Preconditions{
 							UID: &pod.UID,
 						},
-						GracePeriodSeconds: pointer.P(int64(0)),
+						GracePeriodSeconds: new(int64(0)),
 					},
 				})
 				if err != nil && !k8serrors.IsTooManyRequests(err) {

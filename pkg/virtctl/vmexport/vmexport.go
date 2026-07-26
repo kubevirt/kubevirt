@@ -53,7 +53,6 @@ import (
 	templateapi "kubevirt.io/virt-template-api/core"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -861,7 +860,7 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		Kind:    "VirtualMachineExport",
 	})
 	// This requires more RBAC on certain k8s distributions and isn't really needed
-	ownerRef.BlockOwnerDeletion = pointer.P(false)
+	ownerRef.BlockOwnerDeletion = new(false)
 	secret := &k8sv1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getExportSecretName(vmexport.Name),

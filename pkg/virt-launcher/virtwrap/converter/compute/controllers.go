@@ -25,7 +25,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -235,7 +234,7 @@ func assignSCSIControllerIOThread(
 	}
 
 	scsiControllerDriver.IOThread = computeScsiControllerThread(autoThreads, vmi.Spec.Domain.Devices.Disks)
-	scsiControllerDriver.Queues = pointer.P(vcpus)
+	scsiControllerDriver.Queues = new(vcpus)
 
 	return scsiControllerDriver
 }

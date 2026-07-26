@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -59,7 +58,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Force restarting the VM with grace period of 0")
-		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))})
+		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{GracePeriodSeconds: new(int64(0))})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Checks if the old VMI Pod still exists after the force restart
@@ -106,7 +105,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		go terminationGracePeriodUpdated(done, lw.ResultChan(), updated)
 
 		By("Stopping the VM")
-		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{GracePeriod: pointer.P(int64(0))})
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{GracePeriod: new(int64(0))})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Ensuring the VirtualMachineInstance is removed")
@@ -218,7 +217,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
+				withStartStrategy(new(v1.StartStrategyPaused))),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
 			)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -244,7 +243,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
+				withStartStrategy(new(v1.StartStrategyPaused))),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
 			)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -347,7 +346,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
 		},
 			Entry("[test_id:7529]with no other flags", nil),
-			Entry("[test_id:7604]with grace period", pointer.P[int64](10)),
+			Entry("[test_id:7604]with grace period", new(int64(10))),
 		)
 
 		It("[test_id:7528]when restarting a VM", func() {

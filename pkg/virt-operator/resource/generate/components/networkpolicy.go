@@ -24,8 +24,6 @@ import (
 	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -100,12 +98,12 @@ func newIngressToMetricsNP(namespace string) *networkv1.NetworkPolicy {
 				{
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8443)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8443)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 						{
-							Port:     pointer.P(intstr.FromInt32(8187)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8187)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -127,8 +125,8 @@ func newVirtApiWebhookNP(namespace string) *networkv1.NetworkPolicy {
 				{
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8443)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8443)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -168,8 +166,8 @@ func newVirtApiToComponentsNP(namespace string) *networkv1.NetworkPolicy {
 					},
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8443)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8443)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -223,7 +221,7 @@ func newVirtApiToHandlersNP(namespace string) *networkv1.NetworkPolicy {
 					},
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -252,7 +250,7 @@ func newHandlersToVirtApiNP(namespace string) *networkv1.NetworkPolicy {
 					},
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -274,8 +272,8 @@ func newVirtOperatorWebhookNP(namespace string) *networkv1.NetworkPolicy {
 				{
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8444)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8444)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -297,8 +295,8 @@ func newExportProxyNP(namespace string) *networkv1.NetworkPolicy {
 				{
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8443)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8443)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -320,8 +318,8 @@ func newExportProxyNP(namespace string) *networkv1.NetworkPolicy {
 					},
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8443)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8443)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -378,8 +376,8 @@ func newHandlerToPrometheusNP(namespace string) *networkv1.NetworkPolicy {
 				{
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8443)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8443)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},
@@ -408,8 +406,8 @@ func newObservabilityToHandlersNP(namespace string) *networkv1.NetworkPolicy {
 					},
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     pointer.P(intstr.FromInt32(8187)),
-							Protocol: pointer.P(k8sv1.ProtocolTCP),
+							Port:     new(intstr.FromInt32(8187)),
+							Protocol: new(k8sv1.ProtocolTCP),
 						},
 					},
 				},

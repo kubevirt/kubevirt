@@ -8,7 +8,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/wait:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/templates:go_default_library",

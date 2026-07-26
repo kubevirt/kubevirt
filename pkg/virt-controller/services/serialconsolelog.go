@@ -3,8 +3,6 @@ package services
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
@@ -35,14 +33,14 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			},
 			Resources: resources,
 			SecurityContext: &k8sv1.SecurityContext{
-				RunAsUser:                pointer.P(int64(util.NonRootUID)),
-				RunAsNonRoot:             pointer.P(true),
-				AllowPrivilegeEscalation: pointer.P(false),
+				RunAsUser:                new(int64(util.NonRootUID)),
+				RunAsNonRoot:             new(true),
+				AllowPrivilegeEscalation: new(false),
 				Capabilities: &k8sv1.Capabilities{
 					Drop: []k8sv1.Capability{"ALL"},
 				},
 			},
-			RestartPolicy: pointer.P(k8sv1.ContainerRestartPolicyAlways),
+			RestartPolicy: new(k8sv1.ContainerRestartPolicyAlways),
 		}
 
 		guestConsoleLog.Env = append(guestConsoleLog.Env, k8sv1.EnvVar{Name: util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: fmt.Sprint(virtLauncherLogVerbosity)})

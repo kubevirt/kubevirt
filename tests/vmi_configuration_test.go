@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -114,7 +113,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithTablet("tablet", "virtio"),
 				libvmi.WithTablet("tablet1", "usb"),
 			)
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = new(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
@@ -192,7 +191,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						BIOS: &v1.BIOS{
-							UseSerial: pointer.P(true),
+							UseSerial: new(true),
 						},
 					},
 				}
@@ -842,7 +841,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				kvmLauncherRenderer := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
 				overheadWithoutHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
-				overheadWithHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio))
+				overheadWithHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, new(ratio))
 
 				expectedDiffBetweenRequests := overheadWithHeadroom.DeepCopy()
 				expectedDiffBetweenRequests.Sub(overheadWithoutHeadroom)
@@ -1583,7 +1582,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithMemoryRequest("1024M"),
 			)
-			vmi.Spec.Domain.Devices.Disks[0].BootOrder = pointer.P(bootOrder)
+			vmi.Spec.Domain.Devices.Disks[0].BootOrder = new(bootOrder)
 
 			currentDisks := len(vmi.Spec.Domain.Devices.Disks)
 			numOfDisksToAdd := numOfDevices - currentDisks
@@ -1760,7 +1759,7 @@ func withSerialBIOS() libvmi.Option {
 		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
 			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
 		}
-		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
+		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = new(true)
 	}
 }
 

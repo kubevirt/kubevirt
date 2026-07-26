@@ -25,8 +25,6 @@ import (
 
 	v13 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -44,7 +42,7 @@ func RenderPrivilegedPod(name string, cmd, args []string) *v1.Pod {
 			RestartPolicy: v1.RestartPolicyNever,
 			HostPID:       true,
 			SecurityContext: &v1.PodSecurityContext{
-				RunAsUser: pointer.P(int64(0)),
+				RunAsUser: new(int64(0)),
 			},
 			Containers: []v1.Container{
 				renderPrivilegedContainerSpec(
@@ -89,9 +87,9 @@ func renderContainerSpec(imgPath, name string, cmd, args []string) v1.Container 
 		Command: cmd,
 		Args:    args,
 		SecurityContext: &v1.SecurityContext{
-			Privileged:               pointer.P(false),
-			AllowPrivilegeEscalation: pointer.P(false),
-			RunAsNonRoot:             pointer.P(true),
+			Privileged:               new(false),
+			AllowPrivilegeEscalation: new(false),
+			RunAsNonRoot:             new(true),
 			SeccompProfile: &v1.SeccompProfile{
 				Type: v1.SeccompProfileTypeRuntimeDefault,
 			},
@@ -109,7 +107,7 @@ func renderPrivilegedContainerSpec(imgPath, name string, cmd, args []string) v1.
 		Command: cmd,
 		Args:    args,
 		SecurityContext: &v1.SecurityContext{
-			Privileged: pointer.P(true),
+			Privileged: new(true),
 			RunAsUser:  new(int64),
 		},
 	}

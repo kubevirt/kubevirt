@@ -24,8 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -48,7 +46,7 @@ func NewPluginValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdm
 			Name: pluginValidationPolicyName,
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: pointer.P(admissionregistrationv1.Fail),
+			FailurePolicy: new(admissionregistrationv1.Fail),
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -102,7 +100,7 @@ func NewPluginWarningAdmissionPolicy() *admissionregistrationv1.ValidatingAdmiss
 			Name: pluginWarningPolicyName,
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: pointer.P(admissionregistrationv1.Ignore),
+			FailurePolicy: new(admissionregistrationv1.Ignore),
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{

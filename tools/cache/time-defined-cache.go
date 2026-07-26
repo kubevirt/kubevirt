@@ -26,8 +26,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"kubevirt.io/client-go/log"
-
-	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
 type TimeDefinedCache[T any] struct {
@@ -115,7 +113,7 @@ func (t *TimeDefinedCache[T]) setWithoutLock(value T) {
 	t.value = value
 
 	if t.lastRefresh == nil || t.minRefreshDuration.Nanoseconds() != 0 {
-		t.lastRefresh = k6tpointer.P(time.Now())
+		t.lastRefresh = new(time.Now())
 	}
 }
 

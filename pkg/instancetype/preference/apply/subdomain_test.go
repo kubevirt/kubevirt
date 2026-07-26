@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.PreferredSubdomain", func() {
@@ -48,7 +47,7 @@ var _ = Describe("Preference.PreferredSubdomain", func() {
 
 	It("should apply to VMI", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredSubdomain: pointer.P("kubevirt.io"),
+			PreferredSubdomain: new("kubevirt.io"),
 		}
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 		Expect(vmi.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
@@ -58,7 +57,7 @@ var _ = Describe("Preference.PreferredSubdomain", func() {
 		const userDefinedValue = "foo.com"
 		vmi.Spec.Subdomain = userDefinedValue
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			PreferredSubdomain: pointer.P("kubevirt.io"),
+			PreferredSubdomain: new("kubevirt.io"),
 		}
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 		Expect(vmi.Spec.Subdomain).To(Equal(userDefinedValue))

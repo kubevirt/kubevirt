@@ -27,8 +27,6 @@ import (
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -236,7 +234,7 @@ func WithDataVolumeSourceRef(kind, namespace, name string) dvOption {
 	return func(dv *v1beta1.DataVolume) {
 		var sourceRefNamespace *string
 		if namespace != "" {
-			sourceRefNamespace = pointer.P(namespace)
+			sourceRefNamespace = new(namespace)
 		}
 		dv.Spec.SourceRef = &v1beta1.DataVolumeSourceRef{
 			Kind:      kind,

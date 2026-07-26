@@ -27,8 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("GetVolumes", func() {
@@ -69,13 +67,13 @@ var _ = Describe("GetVolumes", func() {
 
 		if hasEFI {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{
-				Persistent: pointer.P(true),
+				Persistent: new(true),
 			}
 		}
 
 		if hasTPM {
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-				Persistent: pointer.P(true),
+				Persistent: new(true),
 			}
 		}
 

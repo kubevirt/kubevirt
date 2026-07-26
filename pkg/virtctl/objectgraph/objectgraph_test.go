@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -63,7 +62,7 @@ var _ = Describe("Object graph command", func() {
 
 		It("should fail with non-existing VM", func() {
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(true),
+				IncludeOptionalNodes: new(true),
 			}
 
 			vmInterface.EXPECT().ObjectGraph(gomock.Any(), vmName, opts).Return(v1.ObjectGraphNode{}, fmt.Errorf("test-error")).Times(1)
@@ -74,7 +73,7 @@ var _ = Describe("Object graph command", func() {
 
 		It("should return object graph from VM", func() {
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(true),
+				IncludeOptionalNodes: new(true),
 			}
 			objectGraph := v1.ObjectGraphNode{}
 
@@ -87,7 +86,7 @@ var _ = Describe("Object graph command", func() {
 		It("should apply label selectors and exclude optional flags", func() {
 			objectGraph := v1.ObjectGraphNode{}
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(false),
+				IncludeOptionalNodes: new(false),
 				LabelSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"kubevirt.io/dependency-type": "storage",
@@ -108,7 +107,7 @@ var _ = Describe("Object graph command", func() {
 		It("should return object graph in YAML format", func() {
 			objectGraph := v1.ObjectGraphNode{}
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(true),
+				IncludeOptionalNodes: new(true),
 			}
 
 			vmInterface.EXPECT().
@@ -123,7 +122,7 @@ var _ = Describe("Object graph command", func() {
 		It("should fail with unsupported output format", func() {
 			objectGraph := v1.ObjectGraphNode{}
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(true),
+				IncludeOptionalNodes: new(true),
 			}
 			vmInterface.EXPECT().
 				ObjectGraph(gomock.Any(), vmName, opts).
@@ -138,7 +137,7 @@ var _ = Describe("Object graph command", func() {
 	Context("For VMI", func() {
 		It("should return object graph from VMI", func() {
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(true),
+				IncludeOptionalNodes: new(true),
 			}
 			objectGraph := v1.ObjectGraphNode{}
 
@@ -150,7 +149,7 @@ var _ = Describe("Object graph command", func() {
 
 		It("should fail with non-existing VMI", func() {
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(true),
+				IncludeOptionalNodes: new(true),
 			}
 
 			vmiInterface.EXPECT().ObjectGraph(gomock.Any(), vmName, opts).Return(v1.ObjectGraphNode{}, fmt.Errorf("test-error")).Times(1)
@@ -162,7 +161,7 @@ var _ = Describe("Object graph command", func() {
 		It("should apply label selectors and exclude optional flags for VMI", func() {
 			objectGraph := v1.ObjectGraphNode{}
 			opts := &v1.ObjectGraphOptions{
-				IncludeOptionalNodes: pointer.P(false),
+				IncludeOptionalNodes: new(false),
 				LabelSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"kubevirt.io/dependency-type": "storage",

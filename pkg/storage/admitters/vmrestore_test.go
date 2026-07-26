@@ -42,7 +42,6 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -72,7 +71,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		},
 		Status: &snapshotv1.VirtualMachineSnapshotStatus{
 			SourceUID:  &vmUID,
-			ReadyToUse: pointer.P(true),
+			ReadyToUse: new(true),
 		},
 	}
 
@@ -294,7 +293,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -317,7 +316,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
+				vm.Spec.RunStrategy = new(v1.RunStrategyManual)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -340,7 +339,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -366,7 +365,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -391,7 +390,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 
 				restoreInProcess := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
@@ -431,7 +430,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
@@ -480,7 +479,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 							Name:     vmName,
 						},
 						VirtualMachineSnapshotName: vmSnapshotName,
-						VolumeRestorePolicy:        pointer.P(snapshotv1.VolumeRestorePolicyInPlace),
+						VolumeRestorePolicy:        new(snapshotv1.VolumeRestorePolicyInPlace),
 					},
 				}
 
@@ -502,7 +501,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 							Name:     vmName,
 						},
 						VirtualMachineSnapshotName: vmSnapshotName,
-						VolumeRestorePolicy:        pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName),
+						VolumeRestorePolicy:        new(snapshotv1.VolumeRestorePolicyPrefixTargetName),
 					},
 				}
 
@@ -524,7 +523,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 							Name:     vmName,
 						},
 						VirtualMachineSnapshotName: vmSnapshotName,
-						VolumeRestorePolicy:        pointer.P(snapshotv1.VolumeRestorePolicy("invalid")),
+						VolumeRestorePolicy:        new(snapshotv1.VolumeRestorePolicy("invalid")),
 					},
 				}
 
@@ -550,7 +549,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 							Name:     vmName,
 						},
 						VirtualMachineSnapshotName: vmSnapshotName,
-						VolumeOwnershipPolicy:      pointer.P(snapshotv1.VolumeOwnershipPolicyNone),
+						VolumeOwnershipPolicy:      new(snapshotv1.VolumeOwnershipPolicyNone),
 					},
 				}
 
@@ -572,7 +571,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 							Name:     vmName,
 						},
 						VirtualMachineSnapshotName: vmSnapshotName,
-						VolumeOwnershipPolicy:      pointer.P(snapshotv1.VolumeOwnershipPolicy("invalid")),
+						VolumeOwnershipPolicy:      new(snapshotv1.VolumeOwnershipPolicy("invalid")),
 					},
 				}
 
@@ -594,7 +593,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								TPM: &v1.TPMDevice{
-									Persistent: pointer.P(true),
+									Persistent: new(true),
 								},
 							},
 						},
@@ -623,7 +622,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					},
 				}
 
-				snapshot.Status.VirtualMachineSnapshotContentName = pointer.P(vmSnapshotContent.Name)
+				snapshot.Status.VirtualMachineSnapshotContentName = new(vmSnapshotContent.Name)
 
 				restore := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{

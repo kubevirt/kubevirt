@@ -5,10 +5,7 @@ go_library(
     srcs = ["params.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/create/params",
     visibility = ["//visibility:public"],
-    deps = [
-        "//pkg/pointer:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
-    ],
+    deps = ["//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library"],
 )
 
 go_test(
@@ -20,7 +17,6 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
-        "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preference.Clock", func() {
@@ -51,7 +50,7 @@ var _ = Describe("Preference.Clock", func() {
 			Clock: &v1beta1.ClockPreferences{
 				PreferredClockOffset: &virtv1.ClockOffset{
 					UTC: &virtv1.ClockOffsetUTC{
-						OffsetSeconds: pointer.P(30),
+						OffsetSeconds: new(30),
 					},
 				},
 				PreferredTimer: &virtv1.Timer{

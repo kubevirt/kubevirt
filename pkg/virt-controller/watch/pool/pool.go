@@ -33,8 +33,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -752,7 +750,7 @@ func calculateNewVMNames(count int, baseName string, namespace string, vmStore c
 }
 
 func poolOwnerRef(pool *poolv1.VirtualMachinePool) metav1.OwnerReference {
-	t := pointer.P(true)
+	t := new(true)
 	gvk := schema.GroupVersionKind{Group: poolv1.SchemeGroupVersion.Group, Version: poolv1.SchemeGroupVersion.Version, Kind: poolv1.VirtualMachinePoolKind}
 	return metav1.OwnerReference{
 		APIVersion:         gvk.GroupVersion().String(),
@@ -1635,7 +1633,7 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 		err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 	case proactiveUpdateTypeVMDelete:
-		err = c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)})
+		err = c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: new(metav1.DeletePropagationForeground)})
 		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
 	case proactiveUpdateTypePatchRevisionLabel:
 		patchSet := patch.New()

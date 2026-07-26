@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -121,7 +120,7 @@ func syncInferFromVolumeFailurePolicy(matcher virtv1.Matcher, statusRef *virtv1.
 	if matcherInferFromVolumeFailurePolicy != nil {
 		if statusRef.InferFromVolumeFailurePolicy == nil || (statusRef.InferFromVolumeFailurePolicy != nil &&
 			*matcherInferFromVolumeFailurePolicy != *statusRef.InferFromVolumeFailurePolicy) {
-			statusRef.InferFromVolumeFailurePolicy = pointer.P(*matcherInferFromVolumeFailurePolicy)
+			statusRef.InferFromVolumeFailurePolicy = new(*matcherInferFromVolumeFailurePolicy)
 		}
 	}
 }

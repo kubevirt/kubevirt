@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -91,8 +90,8 @@ var _ = Describe("MemoryDump", func() {
 					Name:  testPVCName,
 					Phase: v1.MemoryDumpVolumeCompleted,
 					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-						StartTimestamp: pointer.P(now),
-						EndTimestamp:   pointer.P(now),
+						StartTimestamp: new(now),
+						EndTimestamp:   new(now),
 						ClaimName:      testPVCName,
 						TargetFileName: targetFileName,
 					},
@@ -102,8 +101,8 @@ var _ = Describe("MemoryDump", func() {
 			updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName:      testPVCName,
 				Phase:          v1.MemoryDumpUnmounting,
-				EndTimestamp:   pointer.P(now),
-				StartTimestamp: pointer.P(now),
+				EndTimestamp:   new(now),
+				StartTimestamp: new(now),
 				FileName:       &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
 			}
 
@@ -121,7 +120,7 @@ var _ = Describe("MemoryDump", func() {
 					Message: "Memory dump failed",
 					MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
 						ClaimName:    testPVCName,
-						EndTimestamp: pointer.P(now),
+						EndTimestamp: new(now),
 					},
 				},
 			}
@@ -130,7 +129,7 @@ var _ = Describe("MemoryDump", func() {
 				ClaimName:    testPVCName,
 				Phase:        v1.MemoryDumpFailed,
 				Message:      vmi.Status.VolumeStatus[0].Message,
-				EndTimestamp: pointer.P(now),
+				EndTimestamp: new(now),
 			}
 
 			UpdateRequest(vm, vmi)
@@ -146,8 +145,8 @@ var _ = Describe("MemoryDump", func() {
 			updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
 				ClaimName:    testPVCName,
 				Phase:        v1.MemoryDumpCompleted,
-				EndTimestamp: pointer.P(now),
-				FileName:     pointer.P(targetFileName),
+				EndTimestamp: new(now),
+				FileName:     new(targetFileName),
 			}
 
 			UpdateRequest(vm, vmi)
@@ -229,7 +228,7 @@ func createVirtualMachineWithMemoryDump(memoryDumpPhase v1.MemoryDumpPhase) (*v1
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: vmName, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.RunStrategyAlways),
+			RunStrategy: new(v1.RunStrategyAlways),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   vmi.ObjectMeta.Name,
@@ -252,8 +251,8 @@ func createVirtualMachineWithMemoryDump(memoryDumpPhase v1.MemoryDumpPhase) (*v1
 	case v1.MemoryDumpUnmounting:
 		ApplyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
 		vmi.Spec = vm.Spec.Template.Spec
-		vm.Status.MemoryDumpRequest.EndTimestamp = pointer.P(now)
-		vm.Status.MemoryDumpRequest.FileName = pointer.P(targetFileName)
+		vm.Status.MemoryDumpRequest.EndTimestamp = new(now)
+		vm.Status.MemoryDumpRequest.FileName = new(targetFileName)
 	}
 	return vm, vmi
 }

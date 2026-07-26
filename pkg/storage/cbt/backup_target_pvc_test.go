@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -145,7 +144,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "existing-pvc",
 				},
-				Type: pointer.P(v1.MemoryDump),
+				Type: new(v1.MemoryDump),
 			}
 			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{existingVolume}
 
@@ -182,14 +181,14 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: testPVCName,
 				},
-				Type: pointer.P(v1.Backup),
+				Type: new(v1.Backup),
 			}
 			otherVolume := v1.UtilityVolume{
 				Name: "other-utility-volume",
 				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "other-pvc",
 				},
-				Type: pointer.P(v1.MemoryDump),
+				Type: new(v1.MemoryDump),
 			}
 
 			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{backupVolume, otherVolume}
@@ -219,7 +218,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: testPVCName,
 					},
-					Type: pointer.P(v1.Backup),
+					Type: new(v1.Backup),
 				},
 			}
 
@@ -263,7 +262,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 					Namespace: "default",
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					VolumeMode: pointer.P(corev1.PersistentVolumeBlock),
+					VolumeMode: new(corev1.PersistentVolumeBlock),
 				},
 			}
 			backupController.pvcStore.Add(pvc)
@@ -281,7 +280,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 					Namespace: "default",
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem),
+					VolumeMode: new(corev1.PersistentVolumeFilesystem),
 				},
 			}
 			backupController.pvcStore.Add(pvc)
@@ -316,7 +315,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: testPVCName,
 					},
-					Type: pointer.P(v1.Backup),
+					Type: new(v1.Backup),
 				},
 			}
 

@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Preferences - Requirement - CPU", func() {
@@ -62,7 +61,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Sockets),
+					PreferredCPUTopology: new(v1beta1.Sockets),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -82,7 +81,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Cores),
+					PreferredCPUTopology: new(v1beta1.Cores),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -102,7 +101,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Threads),
+					PreferredCPUTopology: new(v1beta1.Threads),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -122,7 +121,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: new(v1beta1.Spread),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -143,9 +142,9 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: new(v1beta1.Spread),
 					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+						Across: new(v1beta1.SpreadAcrossCoresThreads),
 					},
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
@@ -167,9 +166,9 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: new(v1beta1.Spread),
 					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+						Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
 					},
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
@@ -192,7 +191,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Any),
+					PreferredCPUTopology: new(v1beta1.Any),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -242,7 +241,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Sockets),
+					PreferredCPUTopology: new(v1beta1.Sockets),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -264,7 +263,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Cores),
+					PreferredCPUTopology: new(v1beta1.Cores),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -286,7 +285,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Threads),
+					PreferredCPUTopology: new(v1beta1.Threads),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -308,7 +307,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: new(v1beta1.Spread),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -335,9 +334,9 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
 					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+						Across: new(v1beta1.SpreadAcrossCoresThreads),
 					},
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: new(v1beta1.Spread),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -364,9 +363,9 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
 					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+						Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
 					},
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: new(v1beta1.Spread),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{
@@ -394,7 +393,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			nil,
 			&v1beta1.VirtualMachinePreferenceSpec{
 				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Any),
+					PreferredCPUTopology: new(v1beta1.Any),
 				},
 				Requirements: &v1beta1.PreferenceRequirements{
 					CPU: &v1beta1.CPUPreferenceRequirement{

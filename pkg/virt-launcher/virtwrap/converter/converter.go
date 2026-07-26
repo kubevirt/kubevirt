@@ -47,7 +47,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/os/disk"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -268,7 +267,7 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch s
 		// which means that a discard_granularity value of 0 is omitted.
 		// remove this comment once upgraded.
 		if blockSize.DiscardGranularity != nil {
-			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
+			disk.BlockIO.DiscardGranularity = new(*blockSize.DiscardGranularity)
 		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
 		blockIO, err := getOptimalBlockIO(disk)
@@ -336,7 +335,7 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	blockIO := &api.BlockIO{
 		LogicalBlockSize:   uint(logicalSize),
 		PhysicalBlockSize:  uint(physicalSize),
-		DiscardGranularity: pointer.P(uint(discardGranularity)),
+		DiscardGranularity: new(uint(discardGranularity)),
 	}
 	if logicalSize == 0 || physicalSize == 0 {
 		if logicalSize > physicalSize {
@@ -349,7 +348,7 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	}
 	if *blockIO.DiscardGranularity%blockIO.LogicalBlockSize != 0 {
 		log.Log.Infof("Invalid discard granularity %d. Matching it to physical size %d", *blockIO.DiscardGranularity, blockIO.PhysicalBlockSize)
-		blockIO.DiscardGranularity = pointer.P(uint(physicalSize))
+		blockIO.DiscardGranularity = new(uint(physicalSize))
 	}
 	return blockIO, nil
 }
@@ -950,10 +949,10 @@ func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads 
 			apiDisk.Driver.IOThreads = supplementalIOThreads
 		} else {
 			if iothreads.HasDedicatedIOThread(*disk) {
-				apiDisk.Driver.IOThread = pointer.P(currentDedicatedThread)
+				apiDisk.Driver.IOThread = new(currentDedicatedThread)
 				currentDedicatedThread += 1
 			} else {
-				apiDisk.Driver.IOThread = pointer.P(currentAutoThread)
+				apiDisk.Driver.IOThread = new(currentAutoThread)
 				// increment the threadId to be used next but wrap around at the thread limit
 				// the odd math here is because thread ID's start at 1, not 0
 				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1

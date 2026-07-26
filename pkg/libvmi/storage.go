@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -191,7 +189,7 @@ type HostDiskOption func(v *v1.Volume)
 
 func WithSharedHostDisk(shared bool) HostDiskOption {
 	return func(v *v1.Volume) {
-		v.HostDisk.Shared = pointer.P(shared)
+		v.HostDisk.Shared = new(shared)
 	}
 }
 
@@ -204,7 +202,7 @@ func WithIOThreadsPolicy(policy v1.IOThreadsPolicy) Option {
 
 func WithIOThreads(iothreads v1.DiskIOThreads) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.IOThreads = pointer.P(iothreads)
+		vmi.Spec.Domain.IOThreads = new(iothreads)
 	}
 }
 
@@ -284,7 +282,7 @@ func newDisk(name string, bus v1.DiskBus, opts ...DiskOption) v1.Disk {
 
 func WithDedicatedIOThreads(enabled bool) DiskOption {
 	return func(d *v1.Disk) {
-		d.DedicatedIOThread = pointer.P(enabled)
+		d.DedicatedIOThread = new(enabled)
 	}
 }
 
@@ -428,6 +426,6 @@ func WithSupplementalPoolThreadCount(count uint32) Option {
 		if vmi.Spec.Domain.IOThreads == nil {
 			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{}
 		}
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount = pointer.P(count)
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount = new(count)
 	}
 }

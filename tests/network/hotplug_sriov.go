@@ -32,7 +32,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -61,7 +60,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),

@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -521,7 +520,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				if vmiCopy.Status.MigrationState != nil {
 					vmiCopy.Status.MigrationState.Failed = true
 					vmiCopy.Status.MigrationState.Completed = true
-					vmiCopy.Status.MigrationState.EndTimestamp = pointer.P(metav1.Now())
+					vmiCopy.Status.MigrationState.EndTimestamp = new(metav1.Now())
 				}
 				break
 			}

@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -238,7 +237,7 @@ var _ = Describe("Replicaset", func() {
 				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi.DeletionTimestamp = pointer.P(metav1.Now())
+				vmi.DeletionTimestamp = new(metav1.Now())
 				addVMI(vmi)
 			}
 
@@ -291,7 +290,7 @@ var _ = Describe("Replicaset", func() {
 				vmi := api.NewMinimalVMI(fmt.Sprintf("testvmi%d", x))
 				vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 				vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi.DeletionTimestamp = pointer.P(metav1.Now())
+				vmi.DeletionTimestamp = new(metav1.Now())
 				addVMI(vmi)
 			}
 

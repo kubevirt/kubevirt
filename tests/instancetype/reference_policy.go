@@ -15,7 +15,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -37,7 +36,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		DescribeTable("should result in running VirtualMachine when set to", func(policy virtv1.InstancetypeReferencePolicy) {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.Instancetype = &virtv1.InstancetypeConfiguration{
-				ReferencePolicy: pointer.P(policy),
+				ReferencePolicy: new(policy),
 			}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 			testsuite.EnsureKubevirtReady()

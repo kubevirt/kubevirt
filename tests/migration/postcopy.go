@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -77,9 +76,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		By("Allowing post-copy and limiting migration bandwidth")
 		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 		migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
-		migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
-		migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
-		migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+		migrationPolicy.Spec.AllowPostCopy = new(true)
+		migrationPolicy.Spec.CompletionTimeoutPerGiB = new(int64(1))
+		migrationPolicy.Spec.BandwidthPerMigration = new(resource.MustParse("5Mi"))
 	})
 
 	Context("with datavolume", decorators.RequiresRWXFilesystemStorage, func() {
@@ -263,8 +262,8 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				Expect(err).ToNot(HaveOccurred())
 
 				By("updating the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation")
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(5))
-				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = new(int64(5))
+				migrationPolicy.Spec.BandwidthPerMigration = new(resource.MustParse("1Mi"))
 				applyKubevirtCR()
 
 				By("Waiting for the VirtualMachine to be ready")

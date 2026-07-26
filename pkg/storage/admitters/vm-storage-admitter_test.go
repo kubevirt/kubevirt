@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -82,7 +81,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: pointer.P(false),
+					Running: new(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -130,7 +129,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Namespace: "vm-namespace",
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running: pointer.P(false),
+					Running: new(false),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -412,7 +411,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			}),
 			Entry("reject update to running state, when switch state type", func(vm *v1.VirtualMachine) bool {
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
+				vm.Spec.RunStrategy = new(v1.RunStrategyManual)
 				return false
 			}),
 			Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
@@ -438,7 +437,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			}
 			if updateRunStrategy {
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 			} else {
 				vm.Spec.Running = &[]bool{false}[0]
 			}
@@ -461,7 +460,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				return false
 			}, false),
 			Entry("reject update of runStrategy", func(vm *v1.VirtualMachine) bool {
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
+				vm.Spec.RunStrategy = new(v1.RunStrategyManual)
 				return false
 			}, true),
 			Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {

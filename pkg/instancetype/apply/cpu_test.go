@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
@@ -51,16 +50,16 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
 			CPU: v1beta1.CPUInstancetype{
 				Guest:                 uint32(2),
-				Model:                 pointer.P("host-passthrough"),
-				DedicatedCPUPlacement: pointer.P(true),
-				IsolateEmulatorThread: pointer.P(true),
+				Model:                 new("host-passthrough"),
+				DedicatedCPUPlacement: new(true),
+				IsolateEmulatorThread: new(true),
 				NUMA: &virtv1.NUMA{
 					GuestMappingPassthrough: &virtv1.NUMAGuestMappingPassthrough{},
 				},
 				Realtime: &virtv1.Realtime{
 					Mask: "0-3,^1",
 				},
-				MaxSockets: pointer.P(uint32(6)),
+				MaxSockets: new(uint32(6)),
 			},
 		}
 
@@ -84,7 +83,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	})
 
 	It("should default to Sockets, when instancetype is used with PreferAny", func() {
-		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Any)
+		preferenceSpec.CPU.PreferredCPUTopology = new(v1beta1.Any)
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
@@ -94,7 +93,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	})
 
 	It("should apply in full with PreferCores selected", func() {
-		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Cores)
+		preferenceSpec.CPU.PreferredCPUTopology = new(v1beta1.Cores)
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
@@ -109,7 +108,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	})
 
 	It("should apply in full with PreferThreads selected", func() {
-		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+		preferenceSpec.CPU.PreferredCPUTopology = new(v1beta1.Threads)
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
@@ -124,7 +123,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	})
 
 	It("should apply in full with PreferSockets selected", func() {
-		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Sockets)
+		preferenceSpec.CPU.PreferredCPUTopology = new(v1beta1.Sockets)
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
@@ -144,7 +143,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			if preferenceSpec.CPU == nil {
 				preferenceSpec.CPU = &v1beta1.CPUPreferences{}
 			}
-			preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Spread)
+			preferenceSpec.CPU.PreferredCPUTopology = new(v1beta1.Spread)
 
 			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, &preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(expectedCPU.Sockets))
@@ -181,7 +180,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(3)),
+							Ratio: new(uint32(3)),
 						},
 					},
 				},
@@ -192,7 +191,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(3)),
+							Ratio: new(uint32(3)),
 						},
 					},
 				},
@@ -203,7 +202,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(3)),
+							Ratio: new(uint32(3)),
 						},
 					},
 				},
@@ -214,7 +213,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(3)),
+							Ratio: new(uint32(3)),
 						},
 					},
 				},
@@ -225,7 +224,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(4)),
+							Ratio: new(uint32(4)),
 						},
 					},
 				},
@@ -236,7 +235,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(4)),
+							Ratio: new(uint32(4)),
 						},
 					},
 				},
@@ -247,7 +246,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(4)),
+							Ratio: new(uint32(4)),
 						},
 					},
 				},
@@ -258,7 +257,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Ratio: pointer.P(uint32(4)),
+							Ratio: new(uint32(4)),
 						},
 					},
 				},
@@ -269,7 +268,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
 						},
 					},
 				},
@@ -280,7 +279,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
 						},
 					},
 				},
@@ -291,7 +290,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
 						},
 					},
 				},
@@ -302,7 +301,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
 						},
 					},
 				},
@@ -313,8 +312,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -325,8 +324,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -337,8 +336,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -349,8 +348,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(3)),
 						},
 					},
 				},
@@ -361,8 +360,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(4)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(4)),
 						},
 					},
 				},
@@ -373,8 +372,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(4)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(4)),
 						},
 					},
 				},
@@ -385,8 +384,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(4)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(4)),
 						},
 					},
 				},
@@ -397,8 +396,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
-							Ratio:  pointer.P(uint32(4)),
+							Across: new(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  new(uint32(4)),
 						},
 					},
 				},
@@ -409,7 +408,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Across: new(v1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -420,7 +419,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Across: new(v1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -431,7 +430,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Across: new(v1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},
@@ -442,7 +441,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{
-							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Across: new(v1beta1.SpreadAcrossCoresThreads),
 						},
 					},
 				},

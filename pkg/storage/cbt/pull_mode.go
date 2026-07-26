@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -131,9 +130,9 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 		Mode:             *backup.Spec.Mode,
 		ExportServerAddr: &exportAddr,
 		ExportServerName: &serverName,
-		BackupKey:        pointer.P(string(cert.EncodePrivateKeyPEM(keyPair.Key))),
-		BackupCert:       pointer.P(string(cert.EncodeCertPEM(keyPair.Cert))),
-		CACert:           pointer.P(string(ca)),
+		BackupKey:        new(string(cert.EncodePrivateKeyPEM(keyPair.Key))),
+		BackupCert:       new(string(cert.EncodeCertPEM(keyPair.Cert))),
+		CACert:           new(string(ca)),
 	}
 	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
 		return err
@@ -171,7 +170,7 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 			TokenSecretRef: &backup.Spec.TokenSecretRef,
 			TTLDuration:    getPullBackupRemainingTTL(backup),
 			Source: corev1.TypedLocalObjectReference{
-				APIGroup: pointer.P(backupv1.VirtualMachineBackupGroupVersionKind.Group),
+				APIGroup: new(backupv1.VirtualMachineBackupGroupVersionKind.Group),
 				Kind:     backupv1.VirtualMachineBackupGroupVersionKind.Kind,
 				Name:     backup.Name,
 			},

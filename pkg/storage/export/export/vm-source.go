@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -83,7 +82,7 @@ func (s *VMSource) ConfigureExportLink(exportLink *exportv1.VirtualMachineExport
 func (s *VMSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
 	var requeue time.Duration
 
-	vmExport.Status.VirtualMachineName = pointer.P(vmExport.Spec.Source.Name)
+	vmExport.Status.VirtualMachineName = new(vmExport.Spec.Source.Name)
 
 	if !s.HasContent() {
 		vmExport.Status.Phase = exportv1.Skipped

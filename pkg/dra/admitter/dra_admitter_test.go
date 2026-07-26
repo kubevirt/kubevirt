@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -47,7 +46,7 @@ type fakeConfigChecker struct {
 func resourceClaim(name string) v1.VirtualMachineInstanceResourceClaim {
 	return v1.VirtualMachineInstanceResourceClaim{
 		Name:              name,
-		ResourceClaimName: pointer.P(name),
+		ResourceClaimName: new(name),
 	}
 }
 
@@ -171,7 +170,7 @@ var _ = Describe("DRA Admitter", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 					Name:                      claim1,
-					ResourceClaimTemplateName: pointer.P(template1),
+					ResourceClaimTemplateName: new(template1),
 				}},
 			}
 
@@ -182,7 +181,7 @@ var _ = Describe("DRA Admitter", func() {
 		It("should reject a resource claim without name", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					ResourceClaimName: pointer.P(claim1),
+					ResourceClaimName: new(claim1),
 				}},
 			}
 
@@ -215,7 +214,7 @@ var _ = Describe("DRA Admitter", func() {
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{
 						Name:              "../claim1",
-						ResourceClaimName: pointer.P(claim1),
+						ResourceClaimName: new(claim1),
 					},
 				},
 			}
@@ -228,7 +227,7 @@ var _ = Describe("DRA Admitter", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 					Name:              claim1,
-					ResourceClaimName: pointer.P("../claim1"),
+					ResourceClaimName: new("../claim1"),
 				}},
 			}
 
@@ -240,7 +239,7 @@ var _ = Describe("DRA Admitter", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 					Name:                      claim1,
-					ResourceClaimTemplateName: pointer.P("../claim-template"),
+					ResourceClaimTemplateName: new("../claim-template"),
 				}},
 			}
 
@@ -252,8 +251,8 @@ var _ = Describe("DRA Admitter", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 					Name:                      claim1,
-					ResourceClaimName:         pointer.P(claim1),
-					ResourceClaimTemplateName: pointer.P(template1),
+					ResourceClaimName:         new(claim1),
+					ResourceClaimTemplateName: new(template1),
 				}},
 			}
 

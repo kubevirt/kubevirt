@@ -35,7 +35,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
 )
@@ -319,7 +318,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	}
 	if isInPhase(vmClone, clone.SnapshotInProgress) {
 		if snapshotName := syncInfo.snapshotName; snapshotName != "" {
-			vmClone.Status.SnapshotName = pointer.P(snapshotName)
+			vmClone.Status.SnapshotName = new(snapshotName)
 		}
 
 		if syncInfo.snapshotReady {
@@ -328,7 +327,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	}
 	if isInPhase(vmClone, clone.RestoreInProgress) {
 		if restoreName := syncInfo.restoreName; restoreName != "" {
-			vmClone.Status.RestoreName = pointer.P(restoreName)
+			vmClone.Status.RestoreName = new(restoreName)
 		}
 
 		if syncInfo.restoreReady {
@@ -337,7 +336,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	}
 	if isInPhase(vmClone, clone.CreatingTargetVM) {
 		if targetVMName := syncInfo.targetVMName; targetVMName != "" {
-			vmClone.Status.TargetName = pointer.P(targetVMName)
+			vmClone.Status.TargetName = new(targetVMName)
 		}
 
 		if syncInfo.targetVMCreated {

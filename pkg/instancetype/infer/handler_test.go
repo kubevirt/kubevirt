@@ -41,7 +41,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 type inferHandler interface {
@@ -784,13 +783,13 @@ var _ = Describe("InferFromVolume", func() {
 		Entry("for InstancetypeMatcher with IgnoreInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil,
 		),
 		Entry("for InstancetypeMatcher with RejectInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil,
 		),
 		Entry("for PreferenceMatcher",
@@ -803,14 +802,14 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			},
 		),
 		Entry("for PreferenceMatcher with RejectInferFromVolumeFailure",
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			},
 		),
 	)
@@ -863,7 +862,7 @@ var _ = Describe("InferFromVolume", func() {
 			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("with unknown PersistentVolumeClaim for InstancetypeMatcher with RejectInferFromVolumeFailure",
@@ -877,7 +876,7 @@ var _ = Describe("InferFromVolume", func() {
 			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("with unknown PersistentVolumeClaim for PreferenceMatcher",
@@ -906,7 +905,7 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, false,
 		),
 		Entry("with unknown PersistentVolumeClaim for PreferenceMatcher with RejectInferFromVolumeFailure",
@@ -921,7 +920,7 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, false,
 		),
 		Entry("with unknown DataVolume and PersistentVolumeClaim for InstancetypeMatcher",
@@ -942,7 +941,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("with unknown DataVolume and PersistentVolumeClaim for InstancetypeMatcher with RejectInferFromVolumeFailure",
@@ -953,7 +952,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("with unknown DataVolume and PersistentVolumeClaim for PreferenceMatcher",
@@ -976,7 +975,7 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, false,
 		),
 		Entry("with unknown DataVolume and PersistentVolumeClaim for PreferenceMatcher with RejectInferFromVolumeFailure",
@@ -988,7 +987,7 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, false,
 		),
 		Entry("with unsupported VolumeSource type for InstancetypeMatcher",
@@ -1006,7 +1005,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, "",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, true,
 		),
 		Entry("with unsupported VolumeSource type for InstancetypeMatcher with RejectInferFromVolumeFailure",
@@ -1016,7 +1015,7 @@ var _ = Describe("InferFromVolume", func() {
 			fmt.Sprintf("unable to infer defaults from volume %s as type is not supported", inferVolumeName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("with unsupported VolumeSource type for PreferenceMatcher",
@@ -1035,7 +1034,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, "", nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, true,
 		),
 		Entry("with unsupported VolumeSource type for PreferenceMatcher with RejectInferFromVolumeFailure",
@@ -1046,7 +1045,7 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, false,
 		),
 	)
@@ -1097,13 +1096,13 @@ var _ = Describe("InferFromVolume", func() {
 		Entry("but still admit for InstancetypeMatcher with IgnoreInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, true,
 		),
 		Entry("for InstancetypeMatcher with RejectInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("for PreferenceMatcher",
@@ -1116,14 +1115,14 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, true,
 		),
 		Entry("for PreferenceMatcher with RejectInferFromVolumeFailure",
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, false,
 		),
 	)
@@ -1174,13 +1173,13 @@ var _ = Describe("InferFromVolume", func() {
 		Entry("but still admit for InstancetypeMatcher with IgnoreInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, true,
 		),
 		Entry("for InstancetypeMatcher with RejectInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("for PreferenceMatcher",
@@ -1193,14 +1192,14 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, true,
 		),
 		Entry("for PreferenceMatcher with RejectInferFromVolumeFailure",
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, false,
 		),
 	)
@@ -1261,13 +1260,13 @@ var _ = Describe("InferFromVolume", func() {
 		Entry("but still admit for InstancetypeMatcher with IgnoreInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, true,
 		),
 		Entry("for InstancetypeMatcher with RejectInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, false,
 		),
 		Entry("for PreferenceMatcher",
@@ -1280,14 +1279,14 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, true,
 		),
 		Entry("for PreferenceMatcher with RejectInferFromVolumeFailure",
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, false,
 		),
 	)
@@ -1333,13 +1332,13 @@ var _ = Describe("InferFromVolume", func() {
 		Entry("but still admit for InstancetypeMatcher with IgnoreInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, nil, apiinstancetype.DefaultInstancetypeLabel, true,
 		),
 		Entry("for InstancetypeMatcher with RejectInferFromVolumeFailure",
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, nil, apiinstancetype.DefaultInstancetypeLabel, false,
 		),
 		Entry("for PreferenceMatcher",
@@ -1352,14 +1351,14 @@ var _ = Describe("InferFromVolume", func() {
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.IgnoreInferFromVolumeFailure),
 			}, apiinstancetype.DefaultPreferenceLabel, true,
 		),
 		Entry("for PreferenceMatcher with RejectInferFromVolumeFailure",
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
-				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
+				InferFromVolumeFailurePolicy: new(v1.RejectInferFromVolumeFailure),
 			}, apiinstancetype.DefaultPreferenceLabel, false,
 		),
 	)

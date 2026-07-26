@@ -8,7 +8,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -120,10 +119,10 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 		VolumeMounts:    volumeMounts,
 		Resources:       resources,
 		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser:                pointer.P(int64(util.NonRootUID)),
-			RunAsGroup:               pointer.P(int64(util.NonRootUID)),
-			RunAsNonRoot:             pointer.P(true),
-			AllowPrivilegeEscalation: pointer.P(false),
+			RunAsUser:                new(int64(util.NonRootUID)),
+			RunAsGroup:               new(int64(util.NonRootUID)),
+			RunAsNonRoot:             new(true),
+			AllowPrivilegeEscalation: new(false),
 			Capabilities: &k8sv1.Capabilities{
 				Drop: []k8sv1.Capability{
 					"ALL",

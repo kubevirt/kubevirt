@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -214,7 +213,7 @@ var _ = Describe("Workload Updater", func() {
 
 			updatedKV, err := fakeVirtClient.KubevirtV1().KubeVirts(k8sv1.NamespaceDefault).Get(context.Background(), kv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedKV.Status.OutdatedVirtualMachineInstanceWorkloads).To(Equal(pointer.P(100)))
+			Expect(updatedKV.Status.OutdatedVirtualMachineInstanceWorkloads).To(Equal(new(100)))
 
 			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -643,10 +642,10 @@ var _ = Describe("Workload Updater", func() {
 						libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
 							Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue}),
 						libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
-							StartTimestamp:                 pointer.P(metav1.Now()),
+							StartTimestamp:                 new(metav1.Now()),
 							Completed:                      false,
 							Failed:                         false,
-							TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+							TargetNodeDomainReadyTimestamp: new(metav1.Now()),
 						}),
 					),
 				),

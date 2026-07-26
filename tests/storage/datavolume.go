@@ -49,8 +49,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -634,7 +632,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			By("Deleting VM with background propagation policy")
 			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{
-				PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+				PropagationPolicy: new(metav1.DeletePropagationBackground),
 			})).To(Succeed())
 
 			By("Waiting for the VM to be deleted")
@@ -661,7 +659,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			// Delete the VM with orphan Propagation
 			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{
-				PropagationPolicy: pointer.P(metav1.DeletePropagationOrphan),
+				PropagationPolicy: new(metav1.DeletePropagationOrphan),
 			})).To(Succeed())
 
 			// Wait for the VM to be deleted

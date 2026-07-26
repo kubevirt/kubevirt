@@ -33,7 +33,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
@@ -52,7 +51,7 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		Expect(mutator.Mutate(admissionReview)).To(Equal(
 			&admissionv1.AdmissionResponse{
 				Allowed:   true,
-				PatchType: pointer.P(admissionv1.PatchTypeJSONPatch),
+				PatchType: new(admissionv1.PatchTypeJSONPatch),
 				Patch:     expectedJSONPatch,
 			},
 		))

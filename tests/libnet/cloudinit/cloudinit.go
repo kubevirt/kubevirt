@@ -22,7 +22,6 @@ package cloudinit
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libnet/dns"
 
@@ -83,28 +82,28 @@ func WithAddresses(addresses ...string) NetworkDataInterfaceOption {
 
 func WithDHCP4Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		networkDataInterface.DHCP4 = pointer.P(true)
+		networkDataInterface.DHCP4 = new(true)
 		return nil
 	}
 }
 
 func WithDHCP6Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		networkDataInterface.DHCP6 = pointer.P(true)
+		networkDataInterface.DHCP6 = new(true)
 		return nil
 	}
 }
 
 func WithDHCP4Disabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		networkDataInterface.DHCP4 = pointer.P(false)
+		networkDataInterface.DHCP4 = new(false)
 		return nil
 	}
 }
 
 func WithDHCP6Disabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		networkDataInterface.DHCP6 = pointer.P(false)
+		networkDataInterface.DHCP6 = new(false)
 		return nil
 	}
 }

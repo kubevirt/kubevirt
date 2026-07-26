@@ -20,7 +20,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -41,7 +40,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 
 	BeforeEach(func() {
 		alpineVmi = libvmifact.NewAlpine(libvmi.WithLogSerialConsole(true))
-		alpineVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
+		alpineVmi.Spec.Domain.Devices.AutoattachSerialConsole = new(true)
 	})
 
 	Describe("[level:component] Guest console log container", func() {

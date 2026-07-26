@@ -44,7 +44,6 @@ import (
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libdv"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1153,7 +1152,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 
-			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, pointer.P(0))
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, new(0))
 
 			addVirtualMachine(vm)
 			sanityExecute(vm)
@@ -2026,8 +2025,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Equal(desiredErr))
 				}
 			},
-				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, pointer.P("6"), nil),
-				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, pointer.P("5"), nil),
+				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, new("6"), nil),
+				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, new("5"), nil),
 				Entry("with no generation annotation existing", map[string]string{"test": "testing"}, nil, nil),
 				Entry("with empty annotations map", map[string]string{}, nil, nil),
 			)
@@ -2041,8 +2040,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), pointer.P(int64(3))),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5), pointer.P(int64(5))),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), new(int64(3))),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5), new(int64(5))),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
@@ -2455,7 +2454,7 @@ var _ = Describe("VirtualMachine", func() {
 							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
 							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
 							revisionVmSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
+								Running: new(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
 									ObjectMeta: metav1.ObjectMeta{
 										Name:   vmi.ObjectMeta.Name,
@@ -2471,7 +2470,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 							},
 							newVMSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
+								Running: new(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
 									ObjectMeta: metav1.ObjectMeta{
 										Name:   vmi.ObjectMeta.Name,
@@ -2667,7 +2666,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = pointer.P(metav1.Now())
+			vm.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2688,7 +2687,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
 			//watchtesting.DefaultVirtualMachine already set finalizer
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = pointer.P(metav1.Now())
+			vm.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2726,7 +2725,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(false)
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -4160,9 +4159,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				DescribeTable("Should set a appropriate status when DataVolume exists but not bound", func(running bool, phase cdiv1.DataVolumePhase, status v1.VirtualMachinePrintableStatus) {
 					if running {
-						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+						vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 					} else {
-						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+						vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 					}
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4774,7 +4773,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							DeprecatedPreferredUseEfi: pointer.P(true),
+							DeprecatedPreferredUseEfi: new(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4838,7 +4837,7 @@ var _ = Describe("VirtualMachine", func() {
 					Name: preference.Name,
 					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 
 				var err error
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4855,7 +4854,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm.Spec.Instancetype = nil
 				vm.Spec.Preference = nil
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -4903,7 +4902,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1beta1.FirmwarePreferences{
-								DeprecatedPreferredUseEfi: pointer.P(true),
+								DeprecatedPreferredUseEfi: new(true),
 							},
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4960,7 +4959,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachPodInterface: pointer.P(false),
+								PreferredAutoattachPodInterface: new(false),
 							},
 						},
 					}
@@ -5055,7 +5054,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = new(true)
 
 					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
@@ -5089,7 +5088,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.P(true),
+								PreferredAutoattachInputDevice: new(true),
 								PreferredInputBus:              v1.InputBusVirtio,
 								PreferredInputType:             v1.InputTypeTablet,
 							},
@@ -5135,7 +5134,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.P(false),
+								PreferredAutoattachInputDevice: new(false),
 							},
 						},
 					}
@@ -5211,7 +5210,7 @@ var _ = Describe("VirtualMachine", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
 							NetworkInterface:               string(v1.DeprecatedSlirpInterface),
-							DeprecatedPermitSlirpInterface: pointer.P(true),
+							DeprecatedPermitSlirpInterface: new(true),
 						},
 					},
 				},
@@ -5344,15 +5343,15 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi.Spec.Domain.Devices.Inputs).To(matcher)
 
 		},
-			Entry("add default input device when enabled in VirtualMachine", pointer.P(true), []v1.Input{},
+			Entry("add default input device when enabled in VirtualMachine", new(true), []v1.Input{},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("default-0"),
 				}))),
-			Entry("not add default input device when disabled by VirtualMachine", pointer.P(false), []v1.Input{},
+			Entry("not add default input device when disabled by VirtualMachine", new(false), []v1.Input{},
 				BeEmpty()),
 			Entry("not add default input device by default", nil, []v1.Input{},
 				BeEmpty()),
-			Entry("not add default input device when devices already present in VirtualMachine", pointer.P(true), []v1.Input{{Name: "existing-0"}},
+			Entry("not add default input device when devices already present in VirtualMachine", new(true), []v1.Input{{Name: "existing-0"}},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("existing-0"),
 				}))),
@@ -5380,7 +5379,7 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
-									MaxCpuSockets: pointer.P(maxSocketsFromConfig),
+									MaxCpuSockets: new(maxSocketsFromConfig),
 								},
 								VMRolloutStrategy: &liveUpdate,
 							},
@@ -6078,7 +6077,7 @@ var _ = Describe("VirtualMachine", func() {
 								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "updated-vol3"}},
 						},
 					})
-					vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
+					vm.Spec.UpdateVolumesStrategy = new(v1.UpdateVolumesStrategyMigration)
 					vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems,
 						v1.Filesystem{
 							Name:     "vol3",
@@ -6272,7 +6271,7 @@ var _ = Describe("VirtualMachine", func() {
 					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
 
 					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
-					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
+					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = new(true)
 
 					updatedRevision, err := revision.CreateControllerRevision(originalVM, updatedInstancetype)
 					Expect(err).ToNot(HaveOccurred())
@@ -6351,7 +6350,7 @@ var _ = Describe("VirtualMachine", func() {
 				var maxSockets uint32 = 8
 
 				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(maxSockets)
+				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = new(maxSockets)
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
@@ -6543,7 +6542,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("for hotplugged volumes", func() {
 				BeforeEach(func() {
-					kv.Spec.Configuration.VMRolloutStrategy = pointer.P(stage)
+					kv.Spec.Configuration.VMRolloutStrategy = new(stage)
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 				})
@@ -6633,8 +6632,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
-					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
-					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+					Entry("with Stage rollout strategy", new(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", new(v1.VMRolloutStrategyLiveUpdate)),
 				)
 
 				DescribeTable("should NOT appear for hotpluggable PVC regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
@@ -6681,8 +6680,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
-					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
-					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+					Entry("with Stage rollout strategy", new(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", new(v1.VMRolloutStrategyLiveUpdate)),
 				)
 
 				DescribeTable("should appear for non-hotpluggable volumes regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
@@ -6727,8 +6726,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
-					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
-					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+					Entry("with Stage rollout strategy", new(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", new(v1.VMRolloutStrategyLiveUpdate)),
 				)
 
 				DescribeTable("should appear when mixing hotpluggable and non-hotpluggable volumes", func(strategy *v1.VMRolloutStrategy) {
@@ -6792,8 +6791,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
-					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
-					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+					Entry("with Stage rollout strategy", new(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", new(v1.VMRolloutStrategyLiveUpdate)),
 				)
 			})
 
@@ -6862,7 +6861,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("when starting a VM with RerunOnFailure the VM should get started", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = new(v1.RunStrategyRerunOnFailure)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6878,7 +6877,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("when starting a VM with Manual and DVs are not ready the start request should not get trimmed", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
+				vm.Spec.RunStrategy = new(v1.RunStrategyManual)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "test1",
 					VolumeSource: v1.VolumeSource{
@@ -6928,7 +6927,7 @@ var _ = Describe("VirtualMachine", func() {
 			DescribeTable("The VM should get started when switching to RerunOnFailure from", func(runStrategy v1.VirtualMachineRunStrategy) {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(runStrategy)
+				vm.Spec.RunStrategy = new(runStrategy)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6940,7 +6939,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 				By("Change RunStrategy")
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = new(v1.RunStrategyRerunOnFailure)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6959,7 +6958,7 @@ var _ = Describe("VirtualMachine", func() {
 			PIt("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = new(v1.RunStrategyRerunOnFailure)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6981,7 +6980,7 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 
 				By("Change RunStrategy to Halted")
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -7000,7 +6999,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 				By("Change RunStrategy back to RerunOnFailure")
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Spec.RunStrategy = new(v1.RunStrategyRerunOnFailure)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -7016,7 +7015,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("when issuing a restart a VM with Always should get restarted", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				key, err := virtcontroller.KeyFunc(vm)
 				Expect(err).To(Not(HaveOccurred()))
@@ -7133,7 +7132,7 @@ var _ = Describe("VirtualMachine", func() {
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
 						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
 							MigrationUID: "123",
-							SyncAddress:  pointer.P("127.0.0.1:5900"),
+							SyncAddress:  new("127.0.0.1:5900"),
 						},
 					},
 				}
@@ -7148,7 +7147,7 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vm.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyHalted)))
+				Expect(vm.Spec.RunStrategy).To(Equal(new(v1.RunStrategyHalted)))
 			})
 		})
 	})
@@ -7317,7 +7316,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		}
 		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, condMatcher gomegatypes.GomegaMatcher) {
-			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
+			vm.Spec.UpdateVolumesStrategy = new(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
 			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
 			Expect(vm).To(condMatcher)
@@ -7414,27 +7413,27 @@ var _ = Describe("VirtualMachine", func() {
 			}, false),
 			Entry("when RunStrategy is Always", &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyAlways),
+					RunStrategy: new(v1.RunStrategyAlways),
 				},
 			}, false),
 			Entry("when RunStrategy is RerunOnFailure", &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyRerunOnFailure),
+					RunStrategy: new(v1.RunStrategyRerunOnFailure),
 				},
 			}, false),
 			Entry("when RunStrategy is Manual", &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyManual),
+					RunStrategy: new(v1.RunStrategyManual),
 				},
 			}, false),
 			Entry("when RunStrategy is Halted", &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyHalted),
+					RunStrategy: new(v1.RunStrategyHalted),
 				},
 			}, false),
 			Entry("when RunStrategy is WaitAsReceiver", &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					RunStrategy: pointer.P(v1.RunStrategyWaitAsReceiver),
+					RunStrategy: new(v1.RunStrategyWaitAsReceiver),
 				},
 			}, true),
 		)
@@ -7492,7 +7491,7 @@ var _ = Describe("VirtualMachine", func() {
 			pvcStore.Add(&k8sv1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 				Spec: k8sv1.PersistentVolumeClaimSpec{
-					VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode:  new(k8sv1.PersistentVolumeFilesystem),
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 					Resources: k8sv1.VolumeResourceRequirements{
 						Requests: k8sv1.ResourceList{

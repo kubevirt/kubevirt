@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -72,7 +71,7 @@ var _ = Describe("CBTHandler", func() {
 			},
 			Spec: backupv1.VirtualMachineBackupTrackerSpec{
 				Source: corev1.TypedLocalObjectReference{
-					APIGroup: pointer.P("kubevirt.io"),
+					APIGroup: new("kubevirt.io"),
 					Kind:     "VirtualMachine",
 					Name:     vmName,
 				},
@@ -83,7 +82,7 @@ var _ = Describe("CBTHandler", func() {
 				LatestCheckpoint: &backupv1.BackupCheckpoint{
 					Name: "checkpoint-1",
 				},
-				CheckpointRedefinitionRequired: pointer.P(alreadyMarked),
+				CheckpointRedefinitionRequired: new(alreadyMarked),
 			}
 		}
 		return tracker
@@ -176,13 +175,13 @@ var _ = Describe("CBTHandler", func() {
 					Expect(vmi.Status.ChangedBlockTracking.State).To(Equal(*cbtState))
 				}
 			},
-			Entry("domain is nil", pointer.P(v1.ChangedBlockTrackingInitializing), true),
+			Entry("domain is nil", new(v1.ChangedBlockTrackingInitializing), true),
 			Entry("status is nil", nil, false),
-			Entry("status is Undefined", pointer.P(v1.ChangedBlockTrackingUndefined), false),
-			Entry("status is Enabled", pointer.P(v1.ChangedBlockTrackingEnabled), false),
-			Entry("status is Disabled", pointer.P(v1.ChangedBlockTrackingDisabled), false),
-			Entry("status is PendingRestart", pointer.P(v1.ChangedBlockTrackingPendingRestart), false),
-			Entry("status is FGDisabled", pointer.P(v1.ChangedBlockTrackingFGDisabled), false),
+			Entry("status is Undefined", new(v1.ChangedBlockTrackingUndefined), false),
+			Entry("status is Enabled", new(v1.ChangedBlockTrackingEnabled), false),
+			Entry("status is Disabled", new(v1.ChangedBlockTrackingDisabled), false),
+			Entry("status is PendingRestart", new(v1.ChangedBlockTrackingPendingRestart), false),
+			Entry("status is FGDisabled", new(v1.ChangedBlockTrackingFGDisabled), false),
 		)
 	})
 
@@ -231,7 +230,7 @@ var _ = Describe("CBTHandler", func() {
 					LatestCheckpoint: &backupv1.BackupCheckpoint{
 						Name: "checkpoint-1",
 					},
-					CheckpointRedefinitionRequired: pointer.P(true),
+					CheckpointRedefinitionRequired: new(true),
 				}
 			}),
 		)

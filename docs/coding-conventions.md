@@ -270,8 +270,6 @@ coding conventions](#detailed-coding-conventions).
     - Use helpers or builders when available.
         - Build patches with the `PatchSet` interface.
         - Construct paths with the `path` package.
-- Use the `kubevirt.io/kubevirt/pkg/pointer` package when pointers are
-  required.
 - Keep function signatures lean.
     - E.g. use `kubevirt.Client()` in test functions instead of passing the
       client as an additional function call argument.

@@ -36,7 +36,6 @@ import (
 	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
@@ -55,7 +54,7 @@ var _ = Describe("Clone mutating webhook", func() {
 
 		expectedVirtualMachineCloneSpec := vmClone.Spec.DeepCopy()
 		expectedVirtualMachineCloneSpec.Target = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(virtualMachineAPIGroup),
+			APIGroup: new(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     fmt.Sprintf("clone-%s-%s", expectedVirtualMachineCloneSpec.Source.Name, expectedTargetSuffix),
 		}
@@ -66,7 +65,7 @@ var _ = Describe("Clone mutating webhook", func() {
 		Expect(mutator.Mutate(admissionReview)).To(Equal(
 			&admissionv1.AdmissionResponse{
 				Allowed:   true,
-				PatchType: pointer.P(admissionv1.PatchTypeJSONPatch),
+				PatchType: new(admissionv1.PatchTypeJSONPatch),
 				Patch:     expectedJSONPatch,
 			},
 		))
@@ -144,7 +143,7 @@ const (
 func withVirtualMachineSource(virtualMachineName string) option {
 	return func(vmClone *clone.VirtualMachineClone) {
 		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(virtualMachineAPIGroup),
+			APIGroup: new(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     virtualMachineName,
 		}
@@ -154,7 +153,7 @@ func withVirtualMachineSource(virtualMachineName string) option {
 func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option {
 	return func(vmClone *clone.VirtualMachineClone) {
 		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(virtualMachineSnapshotAPIGroup),
+			APIGroup: new(virtualMachineSnapshotAPIGroup),
 			Kind:     virtualMachineSnapshotKind,
 			Name:     virtualMachineSnapshotName,
 		}
@@ -164,7 +163,7 @@ func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option 
 func withVirtualMachineTarget(virtualMachineName string) option {
 	return func(vmClone *clone.VirtualMachineClone) {
 		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(virtualMachineAPIGroup),
+			APIGroup: new(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     virtualMachineName,
 		}

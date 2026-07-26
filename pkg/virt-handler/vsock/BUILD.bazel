@@ -36,7 +36,6 @@ go_test(
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/vsock:go_default_library",

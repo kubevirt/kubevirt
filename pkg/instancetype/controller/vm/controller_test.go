@@ -48,7 +48,6 @@ import (
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
@@ -192,7 +191,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			},
 			Spec: v1beta1.VirtualMachinePreferenceSpec{
 				Firmware: &v1beta1.FirmwarePreferences{
-					DeprecatedPreferredUseEfi: pointer.P(true),
+					DeprecatedPreferredUseEfi: new(true),
 				},
 				Devices: &v1beta1.DevicePreferences{
 					PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -504,7 +503,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				},
 				Spec: v1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &v1beta1.FirmwarePreferences{
-						DeprecatedPreferredUseEfi: pointer.P(true),
+						DeprecatedPreferredUseEfi: new(true),
 					},
 					Devices: &v1beta1.DevicePreferences{
 						PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -702,7 +701,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		It("should fail to sync if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 			unexpectedPreference := preference.DeepCopy()
 			unexpectedPreference.Spec.Firmware = &v1beta1.FirmwarePreferences{
-				PreferredUseBios: pointer.P(true),
+				PreferredUseBios: new(true),
 			}
 
 			preferenceRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
@@ -755,7 +754,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Spec: virtv1.KubeVirtSpec{
 				Configuration: virtv1.KubeVirtConfiguration{
 					Instancetype: &virtv1.InstancetypeConfiguration{
-						ReferencePolicy: pointer.P(virtv1.Expand),
+						ReferencePolicy: new(virtv1.Expand),
 					},
 				},
 			},
@@ -765,7 +764,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Spec: virtv1.KubeVirtSpec{
 				Configuration: virtv1.KubeVirtConfiguration{
 					Instancetype: &virtv1.InstancetypeConfiguration{
-						ReferencePolicy: pointer.P(virtv1.ExpandAll),
+						ReferencePolicy: new(virtv1.ExpandAll),
 					},
 				},
 			},
@@ -812,7 +811,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 					Spec: virtv1.KubeVirtSpec{
 						Configuration: virtv1.KubeVirtConfiguration{
 							Instancetype: &virtv1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(virtv1.Reference),
+								ReferencePolicy: new(virtv1.Reference),
 							},
 						},
 					},

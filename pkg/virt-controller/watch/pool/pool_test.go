@@ -55,7 +55,6 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -313,7 +312,7 @@ var _ = Describe("Pool", func() {
 		It("should delete controller revisions when pool is being deleted", func() {
 			pool, _ := DefaultPool(1)
 			pool.Status.Replicas = 0
-			pool.DeletionTimestamp = pointer.P(metav1.Now())
+			pool.DeletionTimestamp = new(metav1.Now())
 
 			poolRevision := createPoolRevision(pool)
 
@@ -523,7 +522,7 @@ var _ = Describe("Pool", func() {
 				if i >= 5 {
 					break
 				}
-				vm.DeletionTimestamp = pointer.P(metav1.Now())
+				vm.DeletionTimestamp = new(metav1.Now())
 				_, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -831,7 +830,7 @@ var _ = Describe("Pool", func() {
 			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
 				Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
 					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyNewest),
+						SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyNewest),
 					},
 				},
 			}
@@ -895,7 +894,7 @@ var _ = Describe("Pool", func() {
 			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyOldest),
+						SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyOldest),
 					},
 				},
 			}
@@ -939,7 +938,7 @@ var _ = Describe("Pool", func() {
 			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
+						SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
 					},
 				},
 			}
@@ -974,7 +973,7 @@ var _ = Describe("Pool", func() {
 
 			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 				Opportunistic: &poolv1.VirtualMachinePoolOpportunisticScaleInStrategy{
-					StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+					StatePreservation: new(poolv1.StatePreservationOffline),
 				},
 			}
 
@@ -986,7 +985,7 @@ var _ = Describe("Pool", func() {
 			vm1.Name = fmt.Sprintf("%s-0", pool.Name)
 			vm1.Spec = *indexVMSpec(&pool.Spec, 0)
 			vm1.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
-			vm1.DeletionTimestamp = pointer.P(metav1.Now())
+			vm1.DeletionTimestamp = new(metav1.Now())
 			vm1.UID = k8stypes.UID("123")
 
 			vm2 := vm.DeepCopy()
@@ -1029,9 +1028,9 @@ var _ = Describe("Pool", func() {
 			pool, vm := DefaultPoolWithDataVolume(3)
 			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
-					StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+					StatePreservation: new(poolv1.StatePreservationOffline),
 					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-						SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
+						SortPolicy: new(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
 					},
 				},
 			}
@@ -1049,7 +1048,7 @@ var _ = Describe("Pool", func() {
 				addDataVolume(createDataVolume(fmt.Sprintf("alpine-dv-%d", i), &vmlist.Items[i]))
 			}
 
-			pool.Spec.Replicas = pointer.P(int32(2))
+			pool.Spec.Replicas = new(int32(2))
 
 			_, err = fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1133,8 +1132,8 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		},
 			Entry("do not append index by default", nil),
-			Entry("do not append index if set to false", pointer.P(false)),
-			Entry("append index if set to true", pointer.P(true)),
+			Entry("do not append index if set to false", new(false)),
+			Entry("append index if set to true", new(true)),
 		)
 
 		DescribeTable("should respect name generation settings for CloudInit volumes", func(appendIndex *bool) {
@@ -1197,8 +1196,8 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		},
 			Entry("do not append index by default", nil),
-			Entry("do not append index if set to false", pointer.P(false)),
-			Entry("append index if set to true", pointer.P(true)),
+			Entry("do not append index if set to false", new(false)),
+			Entry("append index if set to true", new(true)),
 		)
 
 		DescribeTable("should respect name generation settings for CloudInitConfigDrive volumes", func(appendIndex *bool) {
@@ -1261,8 +1260,8 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		},
 			Entry("do not append index by default", nil),
-			Entry("do not append index if set to false", pointer.P(false)),
-			Entry("append index if set to true", pointer.P(true)),
+			Entry("do not append index if set to false", new(false)),
+			Entry("append index if set to true", new(true)),
 		)
 
 		It("should remove finalizer on vms when pool is marked for deletion and VMs are orphaned", func() {
@@ -1272,7 +1271,7 @@ var _ = Describe("Pool", func() {
 			vm.OwnerReferences = []metav1.OwnerReference{}
 			createVMsWithOrdinal(pool, 3, poolRevision, poolRevision, vm)
 
-			pool.DeletionTimestamp = pointer.P(metav1.Now())
+			pool.DeletionTimestamp = new(metav1.Now())
 			pool.ObjectMeta.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
 
 			_, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Update(context.TODO(), pool, metav1.UpdateOptions{})
@@ -1429,7 +1428,7 @@ var _ = Describe("Pool", func() {
 			vm1 := vm.DeepCopy()
 			vm1.Name = fmt.Sprintf("%s-0", pool.Name)
 			vm1.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
-			vm1.DeletionTimestamp = pointer.P(metav1.Now())
+			vm1.DeletionTimestamp = new(metav1.Now())
 
 			vm2 := vm.DeepCopy()
 			vm2.Name = fmt.Sprintf("%s-1", pool.Name)
@@ -1449,7 +1448,7 @@ var _ = Describe("Pool", func() {
 		It("should cleanup VMs with autohealing when the threshold for Consecutive failures is exceeded", func() {
 			pool, vm := DefaultPool(1)
 			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{
-				StartUpFailureThreshold: pointer.P(uint32(3)),
+				StartUpFailureThreshold: new(uint32(3)),
 			}
 
 			addPool(pool)
@@ -1590,7 +1589,7 @@ func DefaultPoolWithDataVolume(replicas int32) (*poolv1.VirtualMachinePool, *v1.
 			Spec: cdiv1.DataVolumeSpec{
 				Source: &cdiv1.DataVolumeSource{
 					Registry: &cdiv1.DataVolumeSourceRegistry{
-						URL: pointer.P("docker://registry:5000/kubevirt/alpine-container-disk-demo:devel"),
+						URL: new("docker://registry:5000/kubevirt/alpine-container-disk-demo:devel"),
 					},
 				},
 				PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -1600,7 +1599,7 @@ func DefaultPoolWithDataVolume(replicas int32) (*poolv1.VirtualMachinePool, *v1.
 							"storage": resource.MustParse("2Gi"),
 						},
 					},
-					StorageClassName: pointer.P("local"),
+					StorageClassName: new("local"),
 				},
 			},
 		},
@@ -1671,8 +1670,8 @@ func createReadyVMI(vm *v1.VirtualMachine, poolRevision *appsv1.ControllerRevisi
 		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 		Name:               vm.ObjectMeta.Name,
 		UID:                vm.ObjectMeta.UID,
-		Controller:         pointer.P(true),
-		BlockOwnerDeletion: pointer.P(true),
+		Controller:         new(true),
+		BlockOwnerDeletion: new(true),
 	}}
 	vmi.Status.Phase = v1.Running
 	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -1695,15 +1694,15 @@ func createDataVolume(name string, vm *v1.VirtualMachine) *cdiv1.DataVolume {
 					Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 					Name:               vm.Name,
 					UID:                vm.UID,
-					Controller:         pointer.P(true),
-					BlockOwnerDeletion: pointer.P(true),
+					Controller:         new(true),
+					BlockOwnerDeletion: new(true),
 				},
 			},
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
 				Registry: &cdiv1.DataVolumeSourceRegistry{
-					URL: pointer.P("docker://registry:5000/kubevirt/alpine-container-disk-demo:devel"),
+					URL: new("docker://registry:5000/kubevirt/alpine-container-disk-demo:devel"),
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -1713,7 +1712,7 @@ func createDataVolume(name string, vm *v1.VirtualMachine) *cdiv1.DataVolume {
 						"storage": resource.MustParse("2Gi"),
 					},
 				},
-				StorageClassName: pointer.P("local"),
+				StorageClassName: new("local"),
 			},
 		},
 	}

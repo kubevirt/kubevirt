@@ -54,7 +54,6 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -107,12 +106,12 @@ var _ = Describe("Restore controller", func() {
 				Kind:               "VirtualMachine",
 				Name:               vmName,
 				UID:                vmUID,
-				Controller:         pointer.P(true),
-				BlockOwnerDeletion: pointer.P(true),
+				Controller:         new(true),
+				BlockOwnerDeletion: new(true),
 			},
 		}
 		r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-			Complete: pointer.P(false),
+			Complete: new(false),
 		}
 		return r
 	}
@@ -132,7 +131,7 @@ var _ = Describe("Restore controller", func() {
 				VolumeName:                diskName,
 				PersistentVolumeClaimName: "restore-uid-disk1",
 				VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-				DataVolumeName:            pointer.P("restore-uid-disk1"),
+				DataVolumeName:            new("restore-uid-disk1"),
 			},
 		}
 	}
@@ -159,7 +158,7 @@ var _ = Describe("Restore controller", func() {
 		s := createVirtualMachineSnapshot(testNamespace, vmSnapshotName, vmName)
 		s.Finalizers = []string{"snapshot.kubevirt.io/vmsnapshot-protection"}
 		s.Status = &snapshotv1.VirtualMachineSnapshotStatus{
-			ReadyToUse:   pointer.P(ready),
+			ReadyToUse:   new(ready),
 			CreationTime: timeFunc(),
 			SourceUID:    &vmUID,
 			Phase:        phase,
@@ -355,7 +354,7 @@ var _ = Describe("Restore controller", func() {
 				s.Status.VirtualMachineSnapshotContentName = &sc.Name
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
-					ReadyToUse:   pointer.P(true),
+					ReadyToUse:   new(true),
 				}
 				Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
 				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
@@ -368,7 +367,7 @@ var _ = Describe("Restore controller", func() {
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, expectedError),
 						newReadyCondition(corev1.ConditionFalse, expectedError),
@@ -400,7 +399,7 @@ var _ = Describe("Restore controller", func() {
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "restore source and restore target are different but restore target already exists"),
 						newReadyCondition(corev1.ConditionFalse, "restore source and restore target are different but restore target already exists"),
@@ -426,7 +425,7 @@ var _ = Describe("Restore controller", func() {
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
 						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
@@ -446,7 +445,7 @@ var _ = Describe("Restore controller", func() {
 				ownerRefs := r.OwnerReferences
 				r.OwnerReferences = nil
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
 						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
@@ -461,7 +460,7 @@ var _ = Describe("Restore controller", func() {
 
 				rc2 := rc.DeepCopy()
 				rc2.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore, or the operation will fail after 5m0s"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore, or the operation will fail after 5m0s"),
@@ -485,7 +484,7 @@ var _ = Describe("Restore controller", func() {
 				ownerRefs := r.OwnerReferences
 				r.OwnerReferences = nil
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
 						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
@@ -497,7 +496,7 @@ var _ = Describe("Restore controller", func() {
 
 				rc2 := rc.DeepCopy()
 				rc2.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -526,7 +525,7 @@ var _ = Describe("Restore controller", func() {
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -543,7 +542,7 @@ var _ = Describe("Restore controller", func() {
 			It("should return error if volumesnapshot doesnt exist", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -554,7 +553,7 @@ var _ = Describe("Restore controller", func() {
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "missing volumeSnapshot vmsnapshot-snapshot-uid-volume-disk1"),
 						newReadyCondition(corev1.ConditionFalse, "missing volumeSnapshot vmsnapshot-snapshot-uid-volume-disk1"),
@@ -574,7 +573,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				vm := createRestoreInProgressVM()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -594,7 +593,7 @@ var _ = Describe("Restore controller", func() {
 			It("should create pvcs for both datavolume and pvc restore volumes", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -649,7 +648,7 @@ var _ = Describe("Restore controller", func() {
 				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
-					ReadyToUse:   pointer.P(true),
+					ReadyToUse:   new(true),
 				}
 				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 				pvcSize := resource.MustParse("2Gi")
@@ -670,7 +669,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				vm := createRestoreInProgressVM()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -691,7 +690,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				vm := createRestoreInProgressVM()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -712,7 +711,7 @@ var _ = Describe("Restore controller", func() {
 			It("should wait for bound", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -735,7 +734,7 @@ var _ = Describe("Restore controller", func() {
 				// to show the resulted VM has the expected run stratgey as before
 				// the restore and doesnt have both running and runstrategy
 				sc.Spec.Source.VirtualMachine.Spec.RunStrategy = nil
-				sc.Spec.Source.VirtualMachine.Spec.Running = pointer.P(true)
+				sc.Spec.Source.VirtualMachine.Spec.Running = new(true)
 				Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
 
 				r := createRestoreWithOwner()
@@ -752,7 +751,7 @@ var _ = Describe("Restore controller", func() {
 				}
 
 				vm := createSnapshotVM()
-				vm.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyManual)
+				vm.Spec.RunStrategy = new(kubevirtv1.RunStrategyManual)
 				vm.Status.RestoreInProgress = &vmRestoreName
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 				uvm := vm.DeepCopy()
@@ -781,7 +780,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.ResourceVersion = "1"
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -789,7 +788,7 @@ var _ = Describe("Restore controller", func() {
 				}
 
 				// We could omit this, as it is the default policy
-				r.Spec.VolumeOwnershipPolicy = pointer.P(snapshotv1.VolumeOwnershipPolicyVm)
+				r.Spec.VolumeOwnershipPolicy = new(snapshotv1.VolumeOwnershipPolicyVm)
 
 				addInitialVolumeRestores(r)
 				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, resource.MustParse("2Gi"))
@@ -813,13 +812,13 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.ResourceVersion = "1"
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 					},
 				}
-				r.Spec.VolumeOwnershipPolicy = pointer.P(snapshotv1.VolumeOwnershipPolicyNone)
+				r.Spec.VolumeOwnershipPolicy = new(snapshotv1.VolumeOwnershipPolicyNone)
 				addInitialVolumeRestores(r)
 				vs := createVolumeSnapshot(r.Status.Restores[0].VolumeSnapshotName, resource.MustParse("2Gi"))
 				fakeVolumeSnapshotProvider.Add(vs)
@@ -840,7 +839,7 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 				}
-				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+				r.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyInPlace)
 				r.Status.Restores = []snapshotv1.VolumeRestore{
 					{
 						VolumeName:                diskName,
@@ -881,7 +880,7 @@ var _ = Describe("Restore controller", func() {
 						VolumeName:                diskName,
 						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						DataVolumeName:            pointer.P("alpine-dv"),
+						DataVolumeName:            new("alpine-dv"),
 					},
 				}
 
@@ -902,13 +901,13 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 				}
-				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+				r.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyInPlace)
 				r.Status.Restores = []snapshotv1.VolumeRestore{
 					{
 						VolumeName:                diskName,
 						PersistentVolumeClaimName: "alpine-dv", // Name is identical to the original PVC
 						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
-						DataVolumeName:            pointer.P(diskName),
+						DataVolumeName:            new(diskName),
 					},
 				}
 
@@ -970,7 +969,7 @@ var _ = Describe("Restore controller", func() {
 					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 				}
-				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyInPlace)
+				r.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyInPlace)
 				r.Status.Restores = []snapshotv1.VolumeRestore{
 					{
 						VolumeName:                diskName,
@@ -1001,7 +1000,7 @@ var _ = Describe("Restore controller", func() {
 
 			It("PrefixTargetName policy creates volume name from target VM and volume name", func() {
 				r := createRestoreWithOwner()
-				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyPrefixTargetName)
 				r.Spec.Target.Name = "my-vm"
 
 				volumeName := "disk1"
@@ -1015,7 +1014,7 @@ var _ = Describe("Restore controller", func() {
 
 			It("PrefixTargetName policy handles long names correctly", func() {
 				r := createRestoreWithOwner()
-				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyPrefixTargetName)
 
 				// Create a name that would exceed DNS1035LabelMaxLength (63 chars)
 				longVMName := "very-long-virtual-machine-name-that-exceeds-limits"
@@ -1030,7 +1029,7 @@ var _ = Describe("Restore controller", func() {
 
 			It("PrefixTargetName policy respects VolumeRestoreOverride", func() {
 				r := createRestoreWithOwner()
-				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyPrefixTargetName)
 				r.Spec.Target.Name = "my-vm"
 
 				volumeName := "disk1"
@@ -1055,7 +1054,7 @@ var _ = Describe("Restore controller", func() {
 
 				// First restore to vm1
 				r1 := createRestoreWithOwner()
-				r1.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r1.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyPrefixTargetName)
 				r1.Spec.Target.Name = "vm1"
 
 				name1 := restoreVolumeName(r1, volumeName, claimName)
@@ -1063,7 +1062,7 @@ var _ = Describe("Restore controller", func() {
 
 				// Second restore to vm2
 				r2 := createRestoreWithOwner()
-				r2.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r2.Spec.VolumeRestorePolicy = new(snapshotv1.VolumeRestorePolicyPrefixTargetName)
 				r2.Spec.Target.Name = "vm2"
 
 				name2 := restoreVolumeName(r2, volumeName, claimName)
@@ -1112,7 +1111,7 @@ var _ = Describe("Restore controller", func() {
 			It("should override pvcs and volumes", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -1189,7 +1188,7 @@ var _ = Describe("Restore controller", func() {
 				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
-					ReadyToUse:   pointer.P(true),
+					ReadyToUse:   new(true),
 				}
 				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 				pvcSize := resource.MustParse("2Gi")
@@ -1212,7 +1211,7 @@ var _ = Describe("Restore controller", func() {
 			It("should update PVCs and restores to have datavolumename", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
@@ -1283,13 +1282,13 @@ var _ = Describe("Restore controller", func() {
 				sc = createVirtualMachineSnapshotContent(s, vm, pvcs)
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
-					ReadyToUse:   pointer.P(true),
+					ReadyToUse:   new(true),
 				}
 				Expect(controller.VMSnapshotContentInformer.GetStore().Add(sc)).To(Succeed())
 
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -1333,7 +1332,7 @@ var _ = Describe("Restore controller", func() {
 			It("should cleanup, unlock vm and mark restore completed", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete:           pointer.P(false),
+					Complete:           new(false),
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Updating target spec"),
@@ -1371,7 +1370,7 @@ var _ = Describe("Restore controller", func() {
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"
-				ur.Status.Complete = pointer.P(true)
+				ur.Status.Complete = new(true)
 				ur.Status.RestoreTime = timeFunc()
 				ur.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
@@ -1395,7 +1394,7 @@ var _ = Describe("Restore controller", func() {
 			It("should complete restore", func() {
 				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete:           pointer.P(false),
+					Complete:           new(false),
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Updating target status"),
@@ -1420,7 +1419,7 @@ var _ = Describe("Restore controller", func() {
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"
-				ur.Status.Complete = pointer.P(true)
+				ur.Status.Complete = new(true)
 				ur.Status.RestoreTime = timeFunc()
 				ur.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
@@ -1445,7 +1444,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.DeletionTimestamp = timeFunc()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete:           pointer.P(true),
+					Complete:           new(true),
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
@@ -1476,7 +1475,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.DeletionTimestamp = timeFunc()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete:           pointer.P(true),
+					Complete:           new(true),
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"),
@@ -1503,7 +1502,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.DeletionTimestamp = timeFunc()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Updating target status"),
 						newReadyCondition(corev1.ConditionFalse, "Waiting for target update"),
@@ -1536,7 +1535,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.DeletionTimestamp = timeFunc()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "VM restore is deleting"),
 						newReadyCondition(corev1.ConditionFalse, "VM restore is deleting"),
@@ -1609,7 +1608,7 @@ var _ = Describe("Restore controller", func() {
 
 					addVirtualMachineRestore(r)
 					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-					updateVMCalls := pointer.P(0)
+					updateVMCalls := new(0)
 					if expecteUpdateVM {
 						updatedVM := vm.DeepCopy()
 						updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
@@ -1680,7 +1679,7 @@ var _ = Describe("Restore controller", func() {
 				It("should be able to restore to a new VM", func() {
 					// Update snapshoted VM to have runstrategy Always
 					// and see the resulted new VM has Halted
-					sc.Spec.Source.VirtualMachine.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyAlways)
+					sc.Spec.Source.VirtualMachine.Spec.RunStrategy = new(kubevirtv1.RunStrategyAlways)
 					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
 					By("Creating new VM")
 					newVM := createVirtualMachine(testNamespace, newVMName)
@@ -1699,11 +1698,11 @@ var _ = Describe("Restore controller", func() {
 					}
 
 					Expect(vmRestore.Status.Restores).To(HaveLen(1))
-					vmRestore.Status.Restores[0].DataVolumeName = pointer.P(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName, ""))
+					vmRestore.Status.Restores[0].DataVolumeName = new(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName, ""))
 					pvcUpdateCalls := expectPVCUpdates(k8sClient, vmRestore)
 
 					By("Making sure right VM update occurs")
-					newVM.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyHalted)
+					newVM.Spec.RunStrategy = new(kubevirtv1.RunStrategyHalted)
 					newVM.Spec.DataVolumeTemplates[0].Name = *vmRestore.Status.Restores[0].DataVolumeName
 					newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = *vmRestore.Status.Restores[0].DataVolumeName
 					newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
@@ -1739,7 +1738,7 @@ var _ = Describe("Restore controller", func() {
 					vmRestore.Finalizers = []string{"snapshot.kubevirt.io/vmrestore-protection"}
 					vmRestore.Spec.Target.Name = newVM.Name
 					vmRestore.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
 							newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
@@ -1755,14 +1754,14 @@ var _ = Describe("Restore controller", func() {
 							Kind:               "VirtualMachine",
 							Name:               newVM.Name,
 							UID:                newVMUID,
-							Controller:         pointer.P(true),
-							BlockOwnerDeletion: pointer.P(true),
+							Controller:         new(true),
+							BlockOwnerDeletion: new(true),
 						},
 					}
 
 					updatedVMRestore2 := updatedVMRestore.DeepCopy()
 					updatedVMRestore2.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 							newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -1795,7 +1794,7 @@ var _ = Describe("Restore controller", func() {
 						r = createRestore()
 						r.Spec.Target.Name = "nonexistent-vm"
 						r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-							Complete: pointer.P(false),
+							Complete: new(false),
 						}
 						addVolumeRestores(r)
 
@@ -1893,7 +1892,7 @@ var _ = Describe("Restore controller", func() {
 			Describe("restore vm with TargetReadinessPolicy", func() {
 				It("WaitEventually - should not fail even if grace period passed", func() {
 					r := createRestoreWithOwner()
-					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreWaitEventually)
+					r.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreWaitEventually)
 					//change creation time such that it will make the default grace period pass
 					// with TargetReadinessPolicy waitEventually restore should not fail
 					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}
@@ -1902,7 +1901,7 @@ var _ = Describe("Restore controller", func() {
 					rc := r.DeepCopy()
 					rc.ResourceVersion = "1"
 					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionFalse, "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"),
 							newReadyCondition(corev1.ConditionFalse, "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"),
@@ -1919,13 +1918,13 @@ var _ = Describe("Restore controller", func() {
 
 				It("StopTarget - should call stop on VM target", func() {
 					r := createRestoreWithOwner()
-					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					r.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreStopTarget)
 					vm := createModifiedVM()
 					vmi := createVMI(vm)
 					rc := r.DeepCopy()
 					rc.ResourceVersion = "1"
 					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
 							newReadyCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
@@ -1954,7 +1953,7 @@ var _ = Describe("Restore controller", func() {
 					rc := r.DeepCopy()
 					rc.ResourceVersion = "1"
 					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionFalse, "Restore target failed to be ready within 5m0s. Please power off the target VM before attempting restore"),
 							newReadyCondition(corev1.ConditionFalse, "Restore target failed to be ready within 5m0s. Please power off the target VM before attempting restore"),
@@ -1973,7 +1972,7 @@ var _ = Describe("Restore controller", func() {
 				It("default - GracePeriodAndFail - should not fail if grace period passed but target became ready", func() {
 					r := createRestoreWithOwner()
 					r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionFalse, "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore, or the operation will fail after 5m0s"),
 							newReadyCondition(corev1.ConditionFalse, "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore, or the operation will fail after 5m0s"),
@@ -1986,7 +1985,7 @@ var _ = Describe("Restore controller", func() {
 
 					rc := r.DeepCopy()
 					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 							newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -2005,13 +2004,13 @@ var _ = Describe("Restore controller", func() {
 
 				It("FailImmediate - should fail immediately", func() {
 					r := createRestoreWithOwner()
-					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreFailImmediate)
+					r.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreFailImmediate)
 					vm := createModifiedVM()
 					vmi := createVMI(vm)
 					rc := r.DeepCopy()
 					rc.ResourceVersion = "1"
 					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionFalse, "Restore target VMI must be powered off before restore operation"),
 							newReadyCondition(corev1.ConditionFalse, "Restore target VMI must be powered off before restore operation"),
@@ -2029,10 +2028,10 @@ var _ = Describe("Restore controller", func() {
 
 				It("should not change from failure status even if VM becomes ready", func() {
 					r := createRestoreWithOwner()
-					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreFailImmediate)
+					r.Spec.TargetReadinessPolicy = new(snapshotv1.VirtualMachineRestoreFailImmediate)
 					// Set up restore with failure condition already present
 					r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-						Complete: pointer.P(false),
+						Complete: new(false),
 						Conditions: []snapshotv1.Condition{
 							newProgressingCondition(corev1.ConditionFalse, "Restore target VMI must be powered off before restore operation"),
 							newReadyCondition(corev1.ConditionFalse, "Restore target VMI must be powered off before restore operation"),
@@ -2056,7 +2055,7 @@ var _ = Describe("Restore controller", func() {
 				r := createRestoreWithOwner()
 				r.OwnerReferences = nil
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
+					Complete: new(false),
 					Conditions: []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionFalse, "Restore target VMI must be powered off before restore operation"),
 						newReadyCondition(corev1.ConditionFalse, "Restore target VMI must be powered off before restore operation"),
@@ -2082,7 +2081,7 @@ var _ = Describe("Restore controller", func() {
 			s.Status.VirtualMachineSnapshotContentName = &sc.Name
 			sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 				CreationTime: timeFunc(),
-				ReadyToUse:   pointer.P(true),
+				ReadyToUse:   new(true),
 			}
 			Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 			Expect(controller.VMSnapshotInformer.GetStore().Add(s)).To(Succeed())
@@ -2092,7 +2091,7 @@ var _ = Describe("Restore controller", func() {
 			// Actual test
 			r := createRestoreWithOwner()
 			r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-				Complete: pointer.P(false),
+				Complete: new(false),
 				Conditions: []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
 					newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
@@ -2158,7 +2157,7 @@ var _ = Describe("Restore controller", func() {
 				vmSnapshotContent = createVirtualMachineSnapshotContent(vmSnapshot, originalVM, nil)
 				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
-					ReadyToUse:   pointer.P(true),
+					ReadyToUse:   new(true),
 				}
 
 				vmSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name

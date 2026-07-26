@@ -15,7 +15,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	fake2 "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -171,7 +170,7 @@ var _ = Describe("Apply Instancetypes", func() {
 				preference.Labels["test"] = "modified"
 			}),
 			Entry("on modified spec", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
-				preference.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.Spread)
+				preference.Spec.CPU.PreferredCPUTopology = new(instancetypev1beta1.Spread)
 			}),
 		)
 

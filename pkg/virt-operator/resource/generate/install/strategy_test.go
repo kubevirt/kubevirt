@@ -39,7 +39,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	//"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -264,25 +263,25 @@ var _ = Describe("Install Strategy", func() {
 			Entry("by default", config, "true"),
 			Entry("when OptOutRoleAggregation FG is enabled (Beta default) and strategy is Manual",
 				getConfigWith(v1.KubeVirtConfiguration{
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyManual),
 				}), "false"),
 			Entry("when strategy is Manual but FG is disabled",
 				getConfigWith(v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						DisabledFeatureGates: []string{"OptOutRoleAggregation"},
 					},
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyManual),
 				}), "true"),
 			Entry("when FG is enabled (Beta default) but strategy is AggregateToDefault",
 				getConfigWith(v1.KubeVirtConfiguration{
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyAggregateToDefault),
 				}), "true"),
 			Entry("when FG is explicitly disabled and strategy is AggregateToDefault",
 				getConfigWith(v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						DisabledFeatureGates: []string{"OptOutRoleAggregation"},
 					},
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+					RoleAggregationStrategy: new(v1.RoleAggregationStrategyAggregateToDefault),
 				}), "true"),
 		)
 	})

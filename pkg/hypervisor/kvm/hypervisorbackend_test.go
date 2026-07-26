@@ -26,7 +26,6 @@ import (
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
-	"kubevirt.io/kubevirt/pkg/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,16 +67,16 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 				},
 			},
 		}
-		staticOverhead = pointer.P(resource.MustParse(staticOverheadString))
+		staticOverhead = new(resource.MustParse(staticOverheadString))
 		// MemoryReq / 512bit
-		baseOverhead = pointer.P(resource.MustParse("7Mi"))
-		coresOverhead = pointer.P(resource.MustParse("8Mi"))
-		videoRAMOverhead = pointer.P(resource.MustParse("32Mi"))
-		cpuArchOverhead = pointer.P(resource.MustParse("128Mi"))
-		vfioOverhead = pointer.P(resource.MustParse("1Gi"))
-		downwardmetricsOverhead = pointer.P(resource.MustParse("1Mi"))
-		sevOverhead = pointer.P(resource.MustParse("256Mi"))
-		tpmOverhead = pointer.P(resource.MustParse("53Mi"))
+		baseOverhead = new(resource.MustParse("7Mi"))
+		coresOverhead = new(resource.MustParse("8Mi"))
+		videoRAMOverhead = new(resource.MustParse("32Mi"))
+		cpuArchOverhead = new(resource.MustParse("128Mi"))
+		vfioOverhead = new(resource.MustParse("1Gi"))
+		downwardmetricsOverhead = new(resource.MustParse("1Mi"))
+		sevOverhead = new(resource.MustParse("256Mi"))
+		tpmOverhead = new(resource.MustParse("53Mi"))
 	})
 
 	When("the vmi is not requesting any specific device or cpu or whatever", func() {
@@ -139,7 +138,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 
 	When("the vmi does not require auto attach graphics device", func() {
 		BeforeEach(func() {
-			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = new(false)
 		})
 
 		It("should not add videoRAMOverhead", func() {
@@ -272,7 +271,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 				expected = kvm.MultiplyMemory(*base, ratio)
 			}
 
-			overhead := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, "amd64", pointer.P(additionalOverheadRatio))
+			overhead := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, "amd64", new(additionalOverheadRatio))
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		},
 			Entry("with the given value if the given value is a float", "3.2", false),
@@ -351,7 +350,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			originalOverhead := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, defaultArch, nil)
-			actualOverheadWithHeadroom := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, defaultArch, pointer.P(ratioStr))
+			actualOverheadWithHeadroom := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, defaultArch, new(ratioStr))
 			expectedOverheadWithHeadroom := kvm.MultiplyMemory(originalOverhead, ratio)
 
 			const errFmt = "overhead without headroom: %s, ratio: %s, actual overhead with headroom: %s, expected overhead with headroom: %s"

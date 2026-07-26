@@ -44,7 +44,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -250,7 +249,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.Failed = true
 		if vmi.Status.MigrationState.EndTimestamp == nil {
-			vmi.Status.MigrationState.EndTimestamp = pointer.P(metav1.NewTime(time.Now()))
+			vmi.Status.MigrationState.EndTimestamp = new(metav1.NewTime(time.Now()))
 		}
 
 		c.logger.Object(vmi).Warning("the vmi migrated to an unknown host")
@@ -261,7 +260,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			vmi.Status.MigrationState.Completed = true
 			vmi.Status.MigrationState.Failed = true
 			if vmi.Status.MigrationState.EndTimestamp == nil {
-				vmi.Status.MigrationState.EndTimestamp = pointer.P(metav1.NewTime(time.Now()))
+				vmi.Status.MigrationState.EndTimestamp = new(metav1.NewTime(time.Now()))
 			}
 
 			c.logger.Object(vmi).Warning("the domain was never observed on the taget after the migration completed within the timeout period")
@@ -527,10 +526,10 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	// updated later the virt-handler.
 	// This check can be removed in future
 	if migrationConfiguration.AllowWorkloadDisruption == nil {
-		migrationConfiguration.AllowWorkloadDisruption = pointer.P(*migrationConfiguration.AllowPostCopy)
+		migrationConfiguration.AllowWorkloadDisruption = new(*migrationConfiguration.AllowPostCopy)
 	}
 	if migrationConfiguration.MaxDowntimeMs == nil {
-		migrationConfiguration.MaxDowntimeMs = pointer.P(virtconfig.DefaultMigrationMaxDowntimeMs)
+		migrationConfiguration.MaxDowntimeMs = new(virtconfig.DefaultMigrationMaxDowntimeMs)
 	}
 
 	options := &cmdclient.MigrationOptions{
@@ -576,7 +575,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil && exp.Compression != nil {
-		options.Compression = pointer.P(string(*exp.Compression))
+		options.Compression = new(string(*exp.Compression))
 	}
 
 	configureParallelMigrationThreads(options, vmi)
@@ -705,28 +704,28 @@ func applyStallDetectorDefaults(sd *v1.StallDetectorOptions) *v1.StallDetectorOp
 		sd = &v1.StallDetectorOptions{}
 	}
 	if sd.StallMargin == nil {
-		sd.StallMargin = pointer.P(virtconfig.DefaultStallMargin)
+		sd.StallMargin = new(virtconfig.DefaultStallMargin)
 	}
 	if sd.StallProgressTimeout == nil {
-		sd.StallProgressTimeout = pointer.P(virtconfig.DefaultStallProgressTimeout)
+		sd.StallProgressTimeout = new(virtconfig.DefaultStallProgressTimeout)
 	}
 	if sd.SwitchoverTimeout == nil {
-		sd.SwitchoverTimeout = pointer.P(virtconfig.DefaultSwitchoverTimeout)
+		sd.SwitchoverTimeout = new(virtconfig.DefaultSwitchoverTimeout)
 	}
 	if sd.EwmaAlpha == nil {
-		sd.EwmaAlpha = pointer.P(virtconfig.DefaultEwmaAlpha)
+		sd.EwmaAlpha = new(virtconfig.DefaultEwmaAlpha)
 	}
 	if sd.PrecopyPossibleFactor == nil {
-		sd.PrecopyPossibleFactor = pointer.P(virtconfig.DefaultPrecopyPossibleFactor)
+		sd.PrecopyPossibleFactor = new(virtconfig.DefaultPrecopyPossibleFactor)
 	}
 	if sd.PatienceWindowDecayFactor == nil {
-		sd.PatienceWindowDecayFactor = pointer.P(virtconfig.DefaultPatienceWindowDecayFactor)
+		sd.PatienceWindowDecayFactor = new(virtconfig.DefaultPatienceWindowDecayFactor)
 	}
 	if sd.SearchLocalMinima == nil {
-		sd.SearchLocalMinima = pointer.P(virtconfig.DefaultSearchLocalMinima)
+		sd.SearchLocalMinima = new(virtconfig.DefaultSearchLocalMinima)
 	}
 	if sd.CompletionTimeoutFactor == nil {
-		sd.CompletionTimeoutFactor = pointer.P(virtconfig.DefaultCompletionTimeoutFactor)
+		sd.CompletionTimeoutFactor = new(virtconfig.DefaultCompletionTimeoutFactor)
 	}
 	return sd
 }
@@ -742,5 +741,5 @@ func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *
 		return
 	}
 
-	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
+	options.ParallelMigrationThreads = new(parallelMultifdMigrationThreads)
 }

@@ -38,7 +38,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -226,7 +225,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
@@ -244,7 +243,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
@@ -265,7 +264,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)
@@ -280,13 +279,13 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								TPM: &v1.TPMDevice{
-									Persistent: pointer.P(true),
+									Persistent: new(true),
 								},
 							},
 						},
 					},
 				}
-				vm.Spec.RunStrategy = pointer.P(runStrategy)
+				vm.Spec.RunStrategy = new(runStrategy)
 				snapshot := &snapshotv1.VirtualMachineSnapshot{
 					Spec: snapshotv1.VirtualMachineSnapshotSpec{
 						Source: corev1.TypedLocalObjectReference{
@@ -316,7 +315,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 					},
 				}
 
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 
 				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(context.Background(), ar)

@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -59,7 +58,7 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 
 		cfg := getCurrentKvConfig(virtClient)
 		cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-			ParallelMigrationsPerCluster: pointer.P(uint32(1)),
+			ParallelMigrationsPerCluster: new(uint32(1)),
 		}
 		cfg.DeveloperConfiguration.LogVerbosity = &v1.LogVerbosity{
 			VirtController: 9,
@@ -109,7 +108,7 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 		// - Start a vmim for the vmis[0]
 		By("Creating a migration policy that overrides cluster policy")
 		policy := GeneratePolicyAndAlignVMI(vmis[0])
-		policy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("1Ki"))
+		policy.Spec.BandwidthPerMigration = new(resource.MustParse("1Ki"))
 		_, err = virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

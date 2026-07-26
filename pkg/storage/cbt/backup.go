@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 )
@@ -626,7 +625,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	if backup.Spec.Mode == nil {
-		backup.Spec.Mode = pointer.P(backupv1.PushMode)
+		backup.Spec.Mode = new(backupv1.PushMode)
 	}
 	switch *backup.Spec.Mode {
 	case backupv1.PushMode, backupv1.PullMode:
@@ -644,7 +643,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 			return ctrl.attachBackupTargetPVC(vmi, *backup.Spec.PvcName, volumeName)
 		}
 		backupOptions.Mode = *backup.Spec.Mode
-		backupOptions.TargetPath = pointer.P(hotplugdisk.GetVolumeMountDir(volumeName))
+		backupOptions.TargetPath = new(hotplugdisk.GetVolumeMountDir(volumeName))
 	default:
 		log.Log.Object(backup).Errorf(invalidBackupModeMsg, *backup.Spec.Mode)
 		return fmt.Errorf(invalidBackupModeMsg, *backup.Spec.Mode)
@@ -653,7 +652,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	log.Log.Object(backup).Infof("Starting backup for VMI %s with mode %s", vmi.Name, backupOptions.Mode)
 	backupType := backupv1.Full
 	if isIncrementalBackup(backup, backupTracker) {
-		backupOptions.Incremental = pointer.P(backupTracker.Status.LatestCheckpoint.Name)
+		backupOptions.Incremental = new(backupTracker.Status.LatestCheckpoint.Name)
 		backupType = backupv1.Incremental
 		log.Log.Object(backup).Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
 	}

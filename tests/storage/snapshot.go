@@ -27,8 +27,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -241,7 +239,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 		Context("With online vm snapshot", func() {
 			createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 				var vmi *v1.VirtualMachineInstance
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
@@ -810,9 +808,9 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				if wffcSC {
 					// with wffc need to start the virtual machine
 					// in order for the pvc to be populated
-					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+					vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 				} else {
-					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
+					vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
 				}
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -1344,9 +1342,9 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
 				)
-				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 				vm = libvmi.NewVirtualMachine(vmi)
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
@@ -1410,7 +1408,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+				vm.Spec.RunStrategy = new(v1.RunStrategyAlways)
 				By("Starting the VM and expecting it to run")
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())

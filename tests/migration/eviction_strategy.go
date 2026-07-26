@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -137,7 +136,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						GenerateName: "kubevirt-disruption-budget-",
 					},
 					Spec: policyv1.PodDisruptionBudgetSpec{
-						MinAvailable: pointer.P(intstr.FromInt32(2)),
+						MinAvailable: new(intstr.FromInt32(2)),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								v1.CreatedByLabel: string(vmi.UID),
@@ -238,7 +237,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
 					if libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable" {
 						cfg := getCurrentKvConfig(virtClient)
-						cfg.MigrationConfiguration.NodeDrainTaintKey = pointer.P("kubevirt.io/drain")
+						cfg.MigrationConfiguration.NodeDrainTaintKey = new("kubevirt.io/drain")
 						config.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 
@@ -316,7 +315,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
 					cfg := getCurrentKvConfig(virtClient)
-					cfg.MigrationConfiguration.NodeDrainTaintKey = pointer.P("kubevirt.io/alt-drain")
+					cfg.MigrationConfiguration.NodeDrainTaintKey = new("kubevirt.io/alt-drain")
 					config.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
@@ -527,7 +526,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			originalKV = kv.DeepCopy()
 
-			kv.Spec.Configuration.EvictionStrategy = pointer.P(v1.EvictionStrategyLiveMigrate)
+			kv.Spec.Configuration.EvictionStrategy = new(v1.EvictionStrategyLiveMigrate)
 			config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 		})
 

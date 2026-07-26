@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -203,7 +202,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+						PreferredCPUTopology: new(instancetypev1beta1.Cores),
 					},
 					Devices: &instancetypev1beta1.DevicePreferences{
 						PreferredDiskBus: v1.DiskBusVirtio,
@@ -347,7 +346,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+						PreferredCPUTopology: new(instancetypev1beta1.Cores),
 					},
 					Devices: &instancetypev1beta1.DevicePreferences{
 						PreferredDiskBus: v1.DiskBusVirtio,

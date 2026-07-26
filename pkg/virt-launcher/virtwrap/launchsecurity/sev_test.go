@@ -25,7 +25,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -42,12 +41,12 @@ var _ = Describe("LaunchSecurity: AMD Secure Encrypted Virtualization (SEV)", fu
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
 
 			policy = v1.SEVPolicy{
-				EncryptedState: pointer.P(false),
+				EncryptedState: new(false),
 			}
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
 
 			policy = v1.SEVPolicy{
-				EncryptedState: pointer.P(true),
+				EncryptedState: new(true),
 			}
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).ToNot(Equal(launchsecurity.SEVPolicyNoDebug))
 			Expect(launchsecurity.SEVPolicyToBits(&policy) & launchsecurity.SEVPolicyNoDebug).To(Equal(launchsecurity.SEVPolicyNoDebug))
@@ -57,9 +56,9 @@ var _ = Describe("LaunchSecurity: AMD Secure Encrypted Virtualization (SEV)", fu
 			Expect(field).ToNot(BeNil())
 			*field = nil
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
-			*field = pointer.P(true)
+			*field = new(true)
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug | expectedBit))
-			*field = pointer.P(false)
+			*field = new(false)
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
 		},
 			Entry("EncryptedState", launchsecurity.SEVPolicyEncryptedState, &policy.EncryptedState),

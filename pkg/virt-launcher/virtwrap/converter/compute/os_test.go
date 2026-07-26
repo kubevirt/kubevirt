@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -79,7 +78,7 @@ var _ = Describe("OS Domain Configurator", func() {
 			libvmi.New(withStartStrategy(v1.StartStrategyPaused)),
 			&api.BootMenu{
 				Enable:  "yes",
-				Timeout: pointer.P(uint(10000)),
+				Timeout: new(uint(10000)),
 			},
 		),
 	)
@@ -293,7 +292,7 @@ func withBIOSUseSerial(useSerial bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{
-			UseSerial: pointer.P(useSerial),
+			UseSerial: new(useSerial),
 		}
 	}
 }
@@ -313,7 +312,7 @@ func withEFIBootloader(secureBoot bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{
-			SecureBoot: pointer.P(secureBoot),
+			SecureBoot: new(secureBoot),
 		}
 	}
 }

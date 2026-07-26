@@ -41,7 +41,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -135,7 +134,7 @@ var _ = Describe("Backend Storage", func() {
 			sp.Name = "onlyrwo"
 			sp.Status.ClaimPropertySets = []cdiv1.ClaimPropertySet{{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
+				VolumeMode:  new(v1.PersistentVolumeFilesystem),
 			}}
 			err = storageProfileStore.Add(sp)
 			Expect(err).NotTo(HaveOccurred())
@@ -145,7 +144,7 @@ var _ = Describe("Backend Storage", func() {
 			sp.Name = "both"
 			sp.Status.ClaimPropertySets = []cdiv1.ClaimPropertySet{{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany, v1.ReadWriteOnce},
-				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
+				VolumeMode:  new(v1.PersistentVolumeFilesystem),
 			}}
 			err = storageProfileStore.Add(sp)
 			Expect(err).NotTo(HaveOccurred())
@@ -371,14 +370,14 @@ var _ = Describe("Backend Storage", func() {
 			Entry("be false when no cbt and no persistent feature is set", false, func(_ *virtv1.VirtualMachineInstanceSpec) {
 			}),
 			Entry("be true when persistent TPM is set", true, func(spec *virtv1.VirtualMachineInstanceSpec) {
-				spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+				spec.Domain.Devices.TPM.Persistent = new(true)
 			}),
 			Entry("be true when persistent EFI is set", true, func(spec *virtv1.VirtualMachineInstanceSpec) {
-				spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 			}),
 			Entry("be true when persistent TPM and EFI are set no cbt", true, func(spec *virtv1.VirtualMachineInstanceSpec) {
-				spec.Domain.Devices.TPM.Persistent = pointer.P(true)
-				spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				spec.Domain.Devices.TPM.Persistent = new(true)
+				spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 			}),
 		)
 
@@ -402,22 +401,22 @@ var _ = Describe("Backend Storage", func() {
 			Entry("be true when persistent TPM and CBT are set", true, func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 				cbt.SetCBTState(&vm.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
 				cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
-				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
-				vmi.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = new(true)
+				vmi.Spec.Domain.Devices.TPM.Persistent = new(true)
 			}),
 			Entry("be true when persistent EFI and CBT are set", true, func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 				cbt.SetCBTState(&vm.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
 				cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
-				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
-				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 			}),
 			Entry("be true when persistent TPM, EFI and CBT are set", true, func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 				cbt.SetCBTState(&vm.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
 				cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
-				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
-				vmi.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
-				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
-				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = new(true)
+				vmi.Spec.Domain.Devices.TPM.Persistent = new(true)
+				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 			}),
 		)
 		DescribeTable("should with VMSnapshot", func(expected bool, alter func(snapshotVM *snapshotv1.VirtualMachine)) {
@@ -429,11 +428,11 @@ var _ = Describe("Backend Storage", func() {
 			}),
 			Entry("be true when persistent TPM and CBT are set", true, func(snapshotVM *snapshotv1.VirtualMachine) {
 				cbt.SetCBTState(&snapshotVM.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
-				snapshotVM.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+				snapshotVM.Spec.Template.Spec.Domain.Devices.TPM.Persistent = new(true)
 			}),
 			Entry("be true when persistent EFI and CBT are set", true, func(snapshotVM *snapshotv1.VirtualMachine) {
 				cbt.SetCBTState(&snapshotVM.Status.ChangedBlockTracking, virtv1.ChangedBlockTrackingEnabled)
-				snapshotVM.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				snapshotVM.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(true)
 			}),
 		)
 	})

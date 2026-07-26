@@ -31,8 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -72,10 +70,10 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 				By("enable AllowWorkloadDisruption and limit migration bandwidth")
 				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
-				migrationPolicy.Spec.AllowWorkloadDisruption = kvpointer.P(true)
-				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(false)
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
-				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+				migrationPolicy.Spec.AllowWorkloadDisruption = new(true)
+				migrationPolicy.Spec.AllowPostCopy = new(false)
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = new(int64(20))
+				migrationPolicy.Spec.BandwidthPerMigration = new(resource.MustParse("5Mi"))
 			})
 
 			Context("should migrate paused", func() {
@@ -111,7 +109,7 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 							libvmi.WithRng())
 
 						// update the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation.
-						migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse(bandwidth))
+						migrationPolicy.Spec.BandwidthPerMigration = new(resource.MustParse(bandwidth))
 						switch settingsType {
 						case applyWithMigrationPolicy:
 							applyMigrationPolicy(vmi)

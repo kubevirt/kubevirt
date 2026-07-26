@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -70,7 +69,7 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		rolloutStrategy := new(v1.VMRolloutStrategyLiveUpdate)
 		err := config.RegisterKubevirtConfigChange(
 			config.WithWorkloadUpdateStrategy(updateStrategy),
 			config.WithVMRolloutStrategy(rolloutStrategy),

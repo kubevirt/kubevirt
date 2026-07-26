@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -176,7 +175,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 					Namespace: metav1.NamespaceDefault,
 				},
 				Status: &snapshotv1.VirtualMachineSnapshotStatus{
-					VirtualMachineSnapshotContentName: pointer.P("snapshot-contents"),
+					VirtualMachineSnapshotContentName: new("snapshot-contents"),
 				},
 			}
 			return true, snapshot, nil
@@ -191,7 +190,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 			contents := &snapshotv1.VirtualMachineSnapshotContent{
 				Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-					VirtualMachineSnapshotName: pointer.P("test-vm"),
+					VirtualMachineSnapshotName: new("test-vm"),
 					Source: snapshotv1.SourceSpec{
 						VirtualMachine: &snapshotv1.VirtualMachine{
 							Spec: vm.Spec,
@@ -235,7 +234,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		}),
 		Entry("Source with empty APIGroup", func() *k8sv1.TypedLocalObjectReference {
 			source := newValidObjReference()
-			source.APIGroup = pointer.P("")
+			source.APIGroup = new("")
 			return source
 		}),
 		Entry("Source with bad kind", func() *k8sv1.TypedLocalObjectReference {
@@ -336,7 +335,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				contents := &snapshotv1.VirtualMachineSnapshotContent{
 					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-						VirtualMachineSnapshotName: pointer.P("test-vm"),
+						VirtualMachineSnapshotName: new("test-vm"),
 						Source: snapshotv1.SourceSpec{
 							VirtualMachine: &snapshotv1.VirtualMachine{
 								Spec: vm.Spec,
@@ -475,7 +474,7 @@ func newValidClone() *clone.VirtualMachineClone {
 
 func newValidObjReference() *k8sv1.TypedLocalObjectReference {
 	return &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.P(core.GroupName),
+		APIGroup: new(core.GroupName),
 		Kind:     virtualMachineKind,
 		Name:     "clone-source-vm",
 	}

@@ -47,8 +47,6 @@ import (
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -231,14 +229,14 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
 				Served:             true,
 				Storage:            false,
 				Deprecated:         true,
-				DeprecationWarning: pointer.P("kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
+				DeprecationWarning: new("kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
 			},
 			{
 				Name:               "v1alpha3",
 				Served:             true,
 				Storage:            true,
 				Deprecated:         true,
-				DeprecationWarning: pointer.P("kubevirt.io/v1alpha3 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
+				DeprecationWarning: new("kubevirt.io/v1alpha3 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
 			},
 		},
 		Scope: "Namespaced",
@@ -628,7 +626,7 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 				Served:             true,
 				Storage:            false,
 				Deprecated:         true,
-				DeprecationWarning: pointer.P("export.kubevirt.io/v1beta1 VirtualMachineExport is now deprecated and will be removed in a future version."),
+				DeprecationWarning: new("export.kubevirt.io/v1beta1 VirtualMachineExport is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},

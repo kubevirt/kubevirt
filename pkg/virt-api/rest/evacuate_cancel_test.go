@@ -45,7 +45,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -72,7 +71,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{},
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						NodeDrainTaintKey: pointer.P(taintKey),
+						NodeDrainTaintKey: new(taintKey),
 					},
 				},
 			},

@@ -50,7 +50,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -274,7 +273,7 @@ var _ = Describe("Backup source", func() {
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
-			pointer.P(testBackupCheckpointName),
+			new(testBackupCheckpointName),
 		)
 		addTestVMI("test-vm")
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
@@ -354,7 +353,7 @@ var _ = Describe("Backup source", func() {
 
 			if hasContent {
 				volumes = []backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}}
-				checkpoint = pointer.P(testBackupCheckpointName)
+				checkpoint = new(testBackupCheckpointName)
 			}
 			addTestVMI("test-vm")
 
@@ -505,7 +504,7 @@ var _ = Describe("Backup source", func() {
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
-			pointer.P(testBackupCheckpointName),
+			new(testBackupCheckpointName),
 		)
 		vmBackup.Spec.Source = k8sv1.TypedLocalObjectReference{
 			APIGroup: &virtv1.SchemeGroupVersion.Group,
@@ -620,7 +619,7 @@ var _ = Describe("Backup source", func() {
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
 					Source: k8sv1.TypedLocalObjectReference{
-						APIGroup: pointer.P(backupv1.SchemeGroupVersion.Group),
+						APIGroup: new(backupv1.SchemeGroupVersion.Group),
 						Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
 						Name:     "missing-tracker",
 					},

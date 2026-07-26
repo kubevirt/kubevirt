@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -919,7 +918,7 @@ var _ = Describe("Apply", func() {
 					Namespace: kubevirtNamespace,
 				},
 				Spec: coordinationv1.LeaseSpec{
-					HolderIdentity: pointer.P(holder),
+					HolderIdentity: new(holder),
 				},
 			}
 		}
@@ -975,7 +974,7 @@ var _ = Describe("Apply", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              synchronizationControllerPodName,
 					Namespace:         kubevirtNamespace,
-					DeletionTimestamp: pointer.P(metav1.Now()),
+					DeletionTimestamp: new(metav1.Now()),
 				},
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{

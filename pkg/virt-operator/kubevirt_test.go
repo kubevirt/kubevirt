@@ -72,7 +72,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -1921,7 +1920,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:              v1.KubeVirtPhaseDeleted,
-					ObservedGeneration: pointer.P(int64(1)),
+					ObservedGeneration: new(int64(1)),
 				},
 			}
 			configureTestFeatureGates(kv)
@@ -1992,7 +1991,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{
 					Phase:              v1.KubeVirtPhaseDeployed,
 					OperatorVersion:    version.Get().String(),
-					ObservedGeneration: pointer.P(int64(1)),
+					ObservedGeneration: new(int64(1)),
 				},
 			}
 			configureTestFeatureGates(kv)
@@ -2035,7 +2034,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{
 					Phase:              v1.KubeVirtPhaseDeployed,
 					OperatorVersion:    version.Get().String(),
-					ObservedGeneration: pointer.P(int64(1)),
+					ObservedGeneration: new(int64(1)),
 				},
 			}
 			configureTestFeatureGates(kv)
@@ -2194,17 +2193,17 @@ var _ = Describe("KubeVirt Operator", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						// Disable to avoid instancetype create/update noise across both Execute cycles.
 						CommonInstancetypesDeployment: &v1.CommonInstancetypesDeployment{
-							Enabled: pointer.P(false),
+							Enabled: new(false),
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-							Enabled: pointer.P(false),
+							Enabled: new(false),
 						},
 					},
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:              v1.KubeVirtPhaseDeployed,
 					OperatorVersion:    version.Get().String(),
-					ObservedGeneration: pointer.P(int64(1)),
+					ObservedGeneration: new(int64(1)),
 				},
 			}
 			oldConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
@@ -2222,7 +2221,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvNoTemplate := kv.DeepCopy()
 
 			// Enable virt-template - changes TargetDeploymentID but not version/registry.
-			kv.Spec.Configuration.VirtTemplateDeployment.Enabled = pointer.P(true)
+			kv.Spec.Configuration.VirtTemplateDeployment.Enabled = new(true)
 			initialObservedID := kv.Status.ObservedDeploymentID
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -2286,7 +2285,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{
 					Phase:              v1.KubeVirtPhaseDeployed,
 					OperatorVersion:    version.Get().String(),
-					ObservedGeneration: pointer.P(int64(1)),
+					ObservedGeneration: new(int64(1)),
 				},
 			}
 			configureTestFeatureGates(kv)
@@ -2351,7 +2350,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{
 					Phase:              v1.KubeVirtPhaseDeployed,
 					OperatorVersion:    version.Get().String(),
-					ObservedGeneration: pointer.P(int64(1)),
+					ObservedGeneration: new(int64(1)),
 				},
 			}
 			configureTestFeatureGates(kv)
@@ -3174,7 +3173,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					}
 
 					patchedDeployment := apiDeployment.DeepCopy()
-					patchedDeployment.Spec.Replicas = pointer.P(replicas)
+					patchedDeployment.Spec.Replicas = new(replicas)
 
 					Expect(*patchedDeployment.Spec.Replicas).To(Equal(CustomizedReplicas))
 					return true, patchedDeployment, nil
@@ -3426,7 +3425,7 @@ var _ = Describe("KubeVirt Operator", func() {
 						ProductComponent: productComponent,
 						Configuration: v1.KubeVirtConfiguration{
 							PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
-								Enabled: pointer.P(false),
+								Enabled: new(false),
 							},
 						},
 					},
@@ -3889,7 +3888,7 @@ var _ = Describe("KubeVirt Operator", func() {
 							DisabledFeatureGates: []string{featuregate.Template, featuregate.DecentralizedLiveMigration},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					},
 				},
@@ -3906,7 +3905,7 @@ var _ = Describe("KubeVirt Operator", func() {
 							DisabledFeatureGates: []string{featuregate.DecentralizedLiveMigration},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-							Enabled: pointer.P(false),
+							Enabled: new(false),
 						},
 					},
 				},
@@ -3924,7 +3923,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-							Enabled: pointer.P(true),
+							Enabled: new(true),
 						},
 					},
 				},
@@ -3936,7 +3935,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
 			newKv.Spec.Configuration.VirtTemplateDeployment = &v1.VirtTemplateDeployment{
-				Enabled: pointer.P(false),
+				Enabled: new(false),
 			}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 
@@ -3980,7 +3979,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
-							Enabled: pointer.P(false),
+							Enabled: new(false),
 						},
 					},
 				},
@@ -3992,7 +3991,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
 			newKv.Spec.Configuration.VirtTemplateDeployment = &v1.VirtTemplateDeployment{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 			}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 

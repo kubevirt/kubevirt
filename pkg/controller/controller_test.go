@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Controller", func() {
@@ -127,7 +126,7 @@ var _ = Describe("Controller", func() {
 			It("should return false if the pod is being deleted", func() {
 				pod := &k8sv1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
-						DeletionTimestamp: pointer.P(metav1.Now()),
+						DeletionTimestamp: new(metav1.Now()),
 					},
 				}
 				Expect(controller.IsPodReady(pod)).To(BeFalse())
@@ -171,7 +170,7 @@ var _ = Describe("Controller", func() {
 			It("should return true if the pod is being deleted", func() {
 				pod := &k8sv1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
-						DeletionTimestamp: pointer.P(metav1.Now()),
+						DeletionTimestamp: new(metav1.Now()),
 					},
 				}
 				Expect(controller.IsPodFailedOrGoingDown(pod)).To(BeTrue())

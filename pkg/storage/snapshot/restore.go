@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
@@ -205,7 +204,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 
 	if vmRestoreOut.Status == nil {
 		vmRestoreOut.Status = &snapshotv1.VirtualMachineRestoreStatus{
-			Complete: pointer.P(false),
+			Complete: new(false),
 		}
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"))
@@ -991,15 +990,15 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 			Status: kubevirtv1.VirtualMachineStatus{},
 		}
 		if newVM.Spec.Running != nil {
-			newVM.Spec.Running = pointer.P(false)
+			newVM.Spec.Running = new(false)
 		} else {
-			newVM.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyHalted)
+			newVM.Spec.RunStrategy = new(kubevirtv1.RunStrategyHalted)
 		}
 	} else {
 		newVM = t.vm.DeepCopy()
 		newVM.Spec = *snapshotVM.Spec.DeepCopy()
 		if t.vm.Spec.Running != nil {
-			newVM.Spec.Running = pointer.P(false)
+			newVM.Spec.Running = new(false)
 			newVM.Spec.RunStrategy = nil
 		} else {
 			runStrategy, err := t.vm.RunStrategy()
@@ -1007,7 +1006,7 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 				return nil, err
 			}
 			// make sure an existing VM keeps the same run strategy as before the restore
-			newVM.Spec.RunStrategy = pointer.P(runStrategy)
+			newVM.Spec.RunStrategy = new(runStrategy)
 			newVM.Spec.Running = nil
 		}
 	}
@@ -1323,8 +1322,8 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 			Kind:               "VirtualMachine",
 			Name:               t.vm.Name,
 			UID:                t.vm.UID,
-			Controller:         pointer.P(true),
-			BlockOwnerDeletion: pointer.P(true),
+			Controller:         new(true),
+			BlockOwnerDeletion: new(true),
 		},
 	})
 }

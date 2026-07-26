@@ -3,8 +3,6 @@ package topology_test
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -86,7 +84,7 @@ var _ = Describe("TSC", func() {
 
 		newVmi := func(options ...libvmi.Option) *v1.VirtualMachineInstance {
 			vmi := libvmi.New(options...)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(12345))}
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: new(int64(12345))}
 
 			return vmi
 		}
@@ -103,7 +101,7 @@ var _ = Describe("TSC", func() {
 			vmi := newVmi()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
-					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)},
+					Reenlightenment: &v1.FeatureState{Enabled: new(true)},
 				},
 			}
 

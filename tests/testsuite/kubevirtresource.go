@@ -39,7 +39,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -99,7 +98,7 @@ func AdjustKubeVirtResource() {
 	kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
 		VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 			CustomProfile: &v1.CustomProfile{
-				LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
+				LocalhostProfile: new("kubevirt/kubevirt.json"),
 			},
 		},
 	}

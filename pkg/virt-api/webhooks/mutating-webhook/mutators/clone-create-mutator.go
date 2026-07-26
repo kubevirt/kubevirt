@@ -33,7 +33,6 @@ import (
 	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -115,7 +114,7 @@ func generateDefaultTarget(cloneSpec *clone.VirtualMachineCloneSpec, targetSuffi
 	source := cloneSpec.Source
 
 	target = &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.P(virtualMachineAPIGroup),
+		APIGroup: new(virtualMachineAPIGroup),
 		Kind:     virtualMachineKind,
 		Name:     generateTargetName(source.Name, targetSuffix),
 	}

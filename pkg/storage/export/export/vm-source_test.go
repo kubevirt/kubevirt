@@ -50,7 +50,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -273,7 +272,7 @@ var _ = Describe("PVC source", func() {
 
 	createVMWithBackendPVC := func() *virtv1.VirtualMachine {
 		vm := createVMWithoutVolumes()
-		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 			Name: "volume1",
 			VolumeSource: virtv1.VolumeSource{

@@ -59,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -199,7 +198,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			assertConnectivityToService := func(msg string) {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
-				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
+				tcpJob.Spec.BackoffLimit = new(int32(3))
 				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -231,7 +230,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				patchPayload, err := patch.New(
-					patch.WithAdd("/spec/bandwidthPerMigration", pointer.P(bandwidth)),
+					patch.WithAdd("/spec/bandwidthPerMigration", new(bandwidth)),
 				).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -765,7 +764,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				// set autoconverge flag
 				config := getCurrentKvConfig(virtClient)
-				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
+				config.MigrationConfiguration.AllowAutoConverge = new(true)
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
@@ -1289,7 +1288,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Context(" with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", decorators.WgS390x, func() {
 					cfg := getCurrentKvConfig(virtClient)
-					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
+					cfg.MigrationConfiguration.DisableTLS = new(true)
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
@@ -1311,7 +1310,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				It("[test_id:6977]should not secure migrations with TLS", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
-					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
+					cfg.MigrationConfiguration.DisableTLS = new(true)
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
@@ -1480,7 +1479,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				createdPods = []string{}
 				cfg := getCurrentKvConfig(virtClient)
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-					CompletionTimeoutPerGiB: pointer.P(int64(5)),
+					CompletionTimeoutPerGiB: new(int64(5)),
 				}
 				kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
@@ -1489,8 +1488,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-						ProgressTimeout:         pointer.P(int64(5)),
-						CompletionTimeoutPerGiB: pointer.P(int64(5)),
+						ProgressTimeout:         new(int64(5)),
+						CompletionTimeoutPerGiB: new(int64(5)),
 						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
 					}
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -2104,7 +2103,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKvConfig(virtClient)
-				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
+				config.MigrationConfiguration.AllowAutoConverge = new(true)
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := libvmifact.NewAlpine(
@@ -2116,7 +2115,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
 					policy := GeneratePolicyAndAlignVMI(vmi)
-					policy.Spec.AllowAutoConverge = pointer.P(false)
+					policy.Spec.AllowAutoConverge = new(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -2154,7 +2153,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Creating a migration policy with compression enabled")
 				policy := GeneratePolicyAndAlignVMI(vmi)
 				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
-					Compression: pointer.P(v1.MigrationCompressionZstd),
+					Compression: new(v1.MigrationCompressionZstd),
 				}
 				policy = CreateMigrationPolicy(virtClient, policy)
 
@@ -2190,12 +2189,12 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Creating a migration policy with compression + postcopy + autoconverge")
 				policyName := fmt.Sprintf("testpolicy-combo-%s", rand.String(5))
 				policy := kubecli.NewMinimalMigrationPolicy(policyName)
-				policy.Spec.AllowAutoConverge = pointer.P(true)
-				policy.Spec.AllowPostCopy = pointer.P(true)
-				policy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1))
-				policy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("5Mi"))
+				policy.Spec.AllowAutoConverge = new(true)
+				policy.Spec.AllowPostCopy = new(true)
+				policy.Spec.CompletionTimeoutPerGiB = new(int64(1))
+				policy.Spec.BandwidthPerMigration = new(resource.MustParse("5Mi"))
 				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
-					Compression: pointer.P(v1.MigrationCompressionZstd),
+					Compression: new(v1.MigrationCompressionZstd),
 				}
 				AlignPolicyAndVmi(vmi, policy)
 				policy = CreateMigrationPolicy(virtClient, policy)
@@ -2794,7 +2793,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewWindows()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
-				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.P(true)}
+				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: new(true)}
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				expectTopologyHintsToBeSet(vmi)

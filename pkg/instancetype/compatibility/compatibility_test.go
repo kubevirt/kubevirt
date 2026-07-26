@@ -31,8 +31,6 @@ import (
 
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("compatibility", func() {
@@ -63,9 +61,9 @@ var _ = Describe("compatibility", func() {
 				CPU: v1beta1.CPUInstancetype{
 					Guest: 4,
 					// Set the following values to be compatible with objects converted from prior API versions
-					Model:                 pointer.P(""),
-					DedicatedCPUPlacement: pointer.P(false),
-					IsolateEmulatorThread: pointer.P(false),
+					Model:                 new(""),
+					DedicatedCPUPlacement: new(false),
+					IsolateEmulatorThread: new(false),
 				},
 				Memory: v1beta1.MemoryInstancetype{
 					Guest: resource.MustParse("128Mi"),

@@ -7,7 +7,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -127,7 +126,7 @@ func WithPreferredCPUTopology(topology instancetypev1beta1.PreferredCPUTopology)
 		if spec.CPU == nil {
 			spec.CPU = &instancetypev1beta1.CPUPreferences{}
 		}
-		spec.CPU.PreferredCPUTopology = pointer.P(topology)
+		spec.CPU.PreferredCPUTopology = new(topology)
 	}
 }
 

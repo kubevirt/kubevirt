@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -49,9 +48,9 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 		Capabilities: &k8sv1.Capabilities{
 			Drop: []k8sv1.Capability{"ALL"},
 		},
-		Privileged:   pointer.P(true),
-		RunAsUser:    pointer.P(int64(0)),
-		RunAsNonRoot: pointer.P(false),
+		Privileged:   new(true),
+		RunAsUser:    new(int64(0)),
+		RunAsNonRoot: new(false),
 	}
 
 	virtClient := kubevirt.Client()

@@ -18,7 +18,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -347,9 +346,9 @@ func GenerateNewMigration(vmi *virtv1.VirtualMachineInstance, key string) *virtv
 			VMIName: vmi.Name,
 		},
 	}
-	mig.Spec.Priority = pointer.P(virtv1.PrioritySystemCritical)
+	mig.Spec.Priority = new(virtv1.PrioritySystemCritical)
 	if value, exists := vmi.GetAnnotations()[virtv1.EvictionSourceAnnotation]; exists && value == "descheduler" {
-		mig.Spec.Priority = pointer.P(virtv1.PrioritySystemMaintenance)
+		mig.Spec.Priority = new(virtv1.PrioritySystemMaintenance)
 	}
 
 	return mig

@@ -24,8 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("GetIOThreadsCountType", func() {
@@ -33,10 +31,10 @@ var _ = Describe("GetIOThreadsCountType", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
-					IOThreadsPolicy: pointer.P(v1.IOThreadsPolicySupplementalPool),
+					IOThreadsPolicy: new(v1.IOThreadsPolicySupplementalPool),
 					Devices: v1.Devices{
 						Disks: []v1.Disk{
-							{Name: "disk0", DedicatedIOThread: pointer.P(true)},
+							{Name: "disk0", DedicatedIOThread: new(true)},
 						},
 					},
 				},
