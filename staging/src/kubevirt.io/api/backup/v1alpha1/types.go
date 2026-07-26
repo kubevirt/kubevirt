@@ -41,8 +41,6 @@ const (
 type BackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
-	// DiskTarget is the disk target device name at backup time
-	DiskTarget string `json:"diskTarget"`
 	// DataEndpoint is the URL of the endpoint for read for pull mode
 	DataEndpoint string `json:"dataEndpoint,omitempty"`
 	// MapEndpoint is the URL of the endpoint for map for pull mode
@@ -52,7 +50,7 @@ type BackupVolumeInfo struct {
 type BackupCheckpoint struct {
 	Name         string       `json:"name,omitempty"`
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
-	// Volumes lists volumes and their disk targets at backup time
+	// Volumes lists volumes included in the backup
 	// +optional
 	// +listType=atomic
 	Volumes []BackupVolumeInfo `json:"volumes,omitempty"`

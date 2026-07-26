@@ -776,9 +776,9 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmStore.Add(vm)
 
 			// VMI with backup in progress but volumes already populated by virt-launcher
-			volumesInfo := []backupv1.BackupVolumeInfo{
-				{VolumeName: "rootdisk", DiskTarget: "vda"},
-				{VolumeName: "datadisk", DiskTarget: "vdb"},
+			volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: "rootdisk"},
+				{VolumeName: "datadisk"},
 			}
 			vmi := createInitializedVMI()
 			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
@@ -796,25 +796,21 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should not update includedVolumes when already set in backup status", func() {
-			existingVolumes := []backupv1.BackupVolumeInfo{
-				{VolumeName: "rootdisk", DiskTarget: "vda"},
-			}
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
 				Conditions: []metav1.Condition{
 					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
-				IncludedVolumes: existingVolumes, // Already set
+				IncludedVolumes: []backupv1.BackupVolumeInfo{{VolumeName: "rootdisk"}},
 			}
 
 			vm := createVM(vmName)
 			controller.vmStore.Add(vm)
 
-			// VMI with backup in progress and volumes available
 			vmi := createInitializedVMI()
 			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
-			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = existingVolumes
+			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = []v1.VirtualMachineInstanceBackupVolumeInfo{{VolumeName: "rootdisk"}}
 			controller.vmiStore.Add(vmi)
 
 			pvc := createPVC(pvcName)
@@ -838,8 +834,8 @@ var _ = Describe("Backup Controller", func() {
 				vm := createVM(vmName)
 				controller.vmStore.Add(vm)
 
-				volumesInfo := []backupv1.BackupVolumeInfo{
-					{VolumeName: "rootdisk", DiskTarget: "vda"},
+				volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
+					{VolumeName: "rootdisk"},
 				}
 				vmi := createInitializedVMI()
 				vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
@@ -875,8 +871,8 @@ var _ = Describe("Backup Controller", func() {
 			vm := createVM(vmName)
 			controller.vmStore.Add(vm)
 
-			volumesInfo := []backupv1.BackupVolumeInfo{
-				{VolumeName: "rootdisk", DiskTarget: "vda"},
+			volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: "rootdisk"},
 			}
 			vmi := createVMI()
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
@@ -1586,9 +1582,9 @@ var _ = Describe("Backup Controller", func() {
 		controller.vmStore.Add(vm)
 
 		// VMI with backup completed and PVC already detached
-		volumesInfo := []backupv1.BackupVolumeInfo{
-			{VolumeName: "rootdisk", DiskTarget: "vda"},
-			{VolumeName: "datadisk", DiskTarget: "vdb"},
+		volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
+			{VolumeName: "rootdisk"},
+			{VolumeName: "datadisk"},
 		}
 		vmi := createVMI()
 		vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
@@ -1639,9 +1635,9 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmStore.Add(vm)
 
 			// VMI with backup completed, checkpoint name, and volumes info
-			volumesInfo := []backupv1.BackupVolumeInfo{
-				{VolumeName: "rootdisk", DiskTarget: "vda"},
-				{VolumeName: "datadisk", DiskTarget: "vdb"},
+			volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: "rootdisk"},
+				{VolumeName: "datadisk"},
 			}
 			vmi := createVMI()
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
@@ -1674,16 +1670,18 @@ var _ = Describe("Backup Controller", func() {
 				Expect(string(patchBytes)).To(ContainSubstring(checkpointName))
 				Expect(string(patchBytes)).To(ContainSubstring("volumes"))
 				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
-				Expect(string(patchBytes)).To(ContainSubstring("vda"))
+				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
 				Expect(string(patchBytes)).To(ContainSubstring("datadisk"))
-				Expect(string(patchBytes)).To(ContainSubstring("vdb"))
 
 				updatedTracker := backupTracker.DeepCopy()
 				updatedTracker.Status = &backupv1.VirtualMachineBackupTrackerStatus{
 					LatestCheckpoint: &backupv1.BackupCheckpoint{
 						Name:         checkpointName,
 						CreationTime: &metav1.Time{Time: metav1.Now().Time},
-						Volumes:      volumesInfo,
+						Volumes: []backupv1.BackupVolumeInfo{
+							{VolumeName: "rootdisk"},
+							{VolumeName: "datadisk"},
+						},
 					},
 				}
 				return true, updatedTracker, nil
@@ -1698,9 +1696,7 @@ var _ = Describe("Backup Controller", func() {
 			Expect(trackerPatched).To(BeTrue())
 			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
 			Expect(backupCopy.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
-			Expect(backupCopy.Status.IncludedVolumes[0].DiskTarget).To(Equal("vda"))
 			Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
-			Expect(backupCopy.Status.IncludedVolumes[1].DiskTarget).To(Equal("vdb"))
 		},
 		Entry("when tracker has no previous checkpoint", "", "\"op\":\"add\""),
 		Entry("when tracker already has a checkpoint", "old-checkpoint", "\"op\":\"replace\""),
@@ -1835,16 +1831,15 @@ var _ = Describe("Backup Controller", func() {
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Ready}
 			controller.vmExportStore.Add(vmExport)
 
-			volume := backupv1.BackupVolumeInfo{
+			volume := v1.VirtualMachineInstanceBackupVolumeInfo{
 				VolumeName: "datadisk",
-				DiskTarget: "vda",
 			}
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = append(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes, volume)
 			controller.vmiStore.Update(vmi)
 
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(backupCopy.Status.IncludedVolumes).To(ContainElement(volume))
+			Expect(backupCopy.Status.IncludedVolumes).To(ContainElement(backupv1.BackupVolumeInfo{VolumeName: "datadisk"}))
 		})
 
 		It("should return an error when export is ready but has no links", func() {
@@ -1852,7 +1847,6 @@ var _ = Describe("Backup Controller", func() {
 			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
-				DiskTarget: "vda",
 			})
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Ready, Links: nil}
 			controller.vmExportStore.Add(vmExport)
@@ -1867,7 +1861,6 @@ var _ = Describe("Backup Controller", func() {
 			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
-				DiskTarget: "vda",
 			})
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,

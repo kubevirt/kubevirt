@@ -672,13 +672,13 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(bootDiskTarget).ToNot(BeEmpty(), "Boot disk target should be found in VMI status")
 		Expect(hotplugDiskTarget).ToNot(BeEmpty(), "Hotplug disk target should be found in VMI status")
 
-		By("Verifying tracker checkpoint has matching disk targets")
-		trackerTargets := make(map[string]bool)
+		By("Verifying tracker checkpoint has matching volume names")
+		trackerVolumeNames := make(map[string]bool)
 		for _, vol := range firstCheckpoint.Volumes {
-			trackerTargets[vol.DiskTarget] = true
+			trackerVolumeNames[vol.VolumeName] = true
 		}
-		Expect(trackerTargets).To(HaveKey(bootDiskTarget), "Tracker checkpoint should have boot disk target")
-		Expect(trackerTargets).To(HaveKey(hotplugDiskTarget), "Tracker checkpoint should have hotplug disk target")
+		Expect(trackerVolumeNames).To(HaveKey(bootDiskName), "Tracker checkpoint should have boot disk volume")
+		Expect(trackerVolumeNames).To(HaveKey(hotplugVolumeName), "Tracker checkpoint should have hotplug disk volume")
 
 		By("Listing checkpoints before VM stop")
 		checkpointsBeforeStop := listDomainCheckpoints(vmi)
