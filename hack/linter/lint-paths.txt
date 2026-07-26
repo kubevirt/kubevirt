@@ -45,6 +45,7 @@ pkg/util/ratelimiter
 pkg/virt-controller/leaderelectionconfig
 pkg/virt-controller/watch/common
 pkg/virt-controller/watch/descheduler
+pkg/virt-controller/watch/testing
 pkg/virtctl/adm
 pkg/virtctl/clientconfig
 pkg/virtctl/configuration
