@@ -163,6 +163,7 @@ var _ = Describe("Application", func() {
 				return nil
 			},
 			stubMigrationEvaluator{},
+			stubVSOCKAllocator{},
 			[]string{},
 			[]string{},
 		)
@@ -389,6 +390,14 @@ var _ = Describe("Application", func() {
 		})
 	})
 })
+
+type stubVSOCKAllocator struct{}
+
+func (stubVSOCKAllocator) Sync(_ []*v1.VirtualMachineInstance) {}
+
+func (stubVSOCKAllocator) Allocate(_ *v1.VirtualMachineInstance) error { return nil }
+
+func (stubVSOCKAllocator) Remove(_ string) {}
 
 type stubMigrationEvaluator struct{}
 
