@@ -314,7 +314,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			),
 			Entry("passt without explicit NUMA",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 					libvmi.WithMemoryRequest("64Mi"),
 				),
 				&api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1},
