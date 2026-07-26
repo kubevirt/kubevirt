@@ -1416,6 +1416,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 	c.IOMMUFDEnabled = l.iommuFD != -1
+	if err := converter.ValidateGraceIOVirtualizationConversion(vmi, c); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 

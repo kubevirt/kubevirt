@@ -214,25 +214,25 @@ var _ = Describe("Grace conversion preflight", func() {
 		c := newGraceContext()
 		c.IOMMUFDEnabled = false
 
-		err := validateGraceIOVirtualizationConversion(newGraceVMI(), c)
+		err := ValidateGraceIOVirtualizationConversion(newGraceVMI(), c)
 
 		Expect(err).To(MatchError(ContainSubstring("requires an IOMMUFD file descriptor")))
 	})
 
-	It("rejects disabling the 64-bit PCI hole before domain mutation", func() {
+	It("rejects disabling the 64-bit PCI hole", func() {
 		vmi := newGraceVMI()
 		vmi.Annotations[v1.DisablePCIHole64] = "true"
 
-		err := validateGraceIOVirtualizationConversion(vmi, newGraceContext())
+		err := ValidateGraceIOVirtualizationConversion(vmi, newGraceContext())
 
 		Expect(err).To(MatchError(ContainSubstring("requires the 64-bit PCI hole")))
 	})
 
-	It("rejects root-complex placement before domain mutation", func() {
+	It("rejects root-complex placement", func() {
 		vmi := newGraceVMI()
 		vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] = "true"
 
-		err := validateGraceIOVirtualizationConversion(vmi, newGraceContext())
+		err := ValidateGraceIOVirtualizationConversion(vmi, newGraceContext())
 
 		Expect(err).To(MatchError(ContainSubstring("root-complex placement")))
 	})
