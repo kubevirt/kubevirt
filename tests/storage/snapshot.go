@@ -1218,7 +1218,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				)
 
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest(memory),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -1283,7 +1283,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -1338,7 +1338,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 				By("Creating a VMI with persistent TPM")
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),

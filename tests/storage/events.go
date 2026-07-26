@@ -74,7 +74,7 @@ var _ = Describe(SIG("K8s IO events", Serial, func() {
 	It("[test_id:6225]Should catch the IO error event", func() {
 		By("Creating VMI with faulty disk")
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
 			libvmi.WithMemoryRequest("128Mi"),

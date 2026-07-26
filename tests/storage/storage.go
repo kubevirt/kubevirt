@@ -548,7 +548,7 @@ var _ = Describe(SIG("Storage", func() {
 					DescribeTable("Should create a disk image and start", func(driver v1.DiskBus) {
 						By(startingVMInstance)
 						vmi = libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
@@ -579,7 +579,7 @@ var _ = Describe(SIG("Storage", func() {
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By(startingVMInstance)
 						vmi = libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
@@ -634,7 +634,7 @@ var _ = Describe(SIG("Storage", func() {
 					It("[test_id:2306]Should use existing disk image and start", func() {
 						By(startingVMInstance)
 						vmi = libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExists),
@@ -660,7 +660,7 @@ var _ = Describe(SIG("Storage", func() {
 					It("[test_id:847]Should fail with a capacity option", func() {
 						By(startingVMInstance)
 						vmi = libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExists),
@@ -683,7 +683,7 @@ var _ = Describe(SIG("Storage", func() {
 					It("[test_id:852]Should fail to start VMI", func() {
 						By(startingVMInstance)
 						vmi = libvmi.New(
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithMemoryRequest("128Mi"),
 							libvmi.WithHostDisk("host-disk", "/data/unknown.img", "unknown"),
@@ -727,7 +727,7 @@ var _ = Describe(SIG("Storage", func() {
 							libvmi.WithPersistentVolumeClaim("disk0", fmt.Sprintf("disk-%s", pvc)),
 							libvmi.WithMemoryRequest("256Mi"),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNodeSelectorFor(node))
 						vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 
@@ -813,7 +813,7 @@ var _ = Describe(SIG("Storage", func() {
 
 					By(startingVMInstance)
 					vmi = libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
@@ -840,7 +840,7 @@ var _ = Describe(SIG("Storage", func() {
 
 					By(startingVMInstance)
 					vmi = libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithMemoryRequest("128Mi"),
 						libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
@@ -1065,14 +1065,14 @@ var _ = Describe(SIG("Storage", func() {
 					},
 				}
 				vmi1 = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithMemoryRequest("1Gi"),
 					libvmi.WithLabel(labelKey, ""),
 				)
 				vmi2 = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume("disk0", dv.Name),
 					libvmi.WithMemoryRequest("1Gi"),

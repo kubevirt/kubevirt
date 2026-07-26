@@ -67,7 +67,7 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
 				libvmi.WithMemoryRequest("128Mi"),

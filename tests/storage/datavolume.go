@@ -391,7 +391,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				By("requiring a VM with 2 DataVolumes")
 				vmi := libvmi.New(
 					libvmi.WithMemoryRequest("128Mi"),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume(dataVolume1.Name, dataVolume1.Name),
 					libvmi.WithDataVolume(dataVolume2.Name, dataVolume2.Name),
