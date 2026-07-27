@@ -947,7 +947,7 @@ var _ = Describe("Export controller", func() {
 			HaveKeyWithValue(annCertParams, fmt.Sprintf("{\"Duration\":%d,\"RenewBefore\":%d}",
 				metav1.Duration{Duration: 2 * time.Hour}.Nanoseconds(),
 				metav1.Duration{Duration: 1 * time.Hour}.Nanoseconds())),
-			HaveKeyWithValue("k8s.ovn.org/open-default-ports", `[{"protocol":"tcp","port":8443}]`),
+			HaveKeyWithValue("k8s.ovn.org/open-default-ports", fmt.Sprintf(`[{"protocol":"tcp","port":%d}]`, ExportServerPort)),
 			HaveKeyWithValue(annotationKey, annotationValue)))
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
 		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())

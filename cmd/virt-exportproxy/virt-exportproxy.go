@@ -44,6 +44,8 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	exportpkg "kubevirt.io/kubevirt/pkg/storage/export/export"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -157,7 +159,7 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	backendHost := fmt.Sprintf("%s.%s.svc:8443", export.Status.ServiceName, match[2])
+	backendHost := fmt.Sprintf("%s.%s.svc:%d", export.Status.ServiceName, match[2], exportpkg.ExportServerPort)
 	backendPath := "/" + match[4]
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy
