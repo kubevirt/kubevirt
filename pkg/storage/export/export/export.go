@@ -1069,7 +1069,8 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 			Annotations: vmExport.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{exportPort()},
+			ClusterIP: corev1.ClusterIPNone,
+			Ports:     []corev1.ServicePort{exportPort()},
 			Selector: map[string]string{
 				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
@@ -1155,6 +1156,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		podManifest.Labels[key] = value
 	}
 	podManifest.Annotations = map[string]string{annCertParams: scp}
+	podManifest.Annotations["k8s.ovn.org/open-default-ports"] = `[{"protocol":"tcp","port":8443}]`
 	for key, value := range vmExport.Annotations {
 		podManifest.Annotations[key] = value
 	}
