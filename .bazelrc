@@ -2,6 +2,10 @@
 try-import ci.bazelrc
 try-import .bazeldnf/sandbox.bazelrc
 
+# Java 21 compatibility flags to prevent module access errors
+startup --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED
+startup --host_jvm_args=--add-opens=java.base/java.lang=ALL-UNNAMED
+
 # Set common values for all builds (run, test and coverage inherit from build)
 build --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
 
@@ -18,6 +22,10 @@ build:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 run:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 test:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo --host_javabase=@local_jdk//:jdk
 
+build:ppc64le --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo
+run:ppc64le --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo
+test:ppc64le --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo --host_javabase=@local_jdk//:jdk
+
 build:crossbuild-aarch64 --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 run:crossbuild-aarch64  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 test:crossbuild-aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo --host_javabase=@local_jdk//:jdk
@@ -25,6 +33,10 @@ test:crossbuild-aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64
 build:crossbuild-s390x --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:s390x-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 run:crossbuild-s390x  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:s390x-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
 test:crossbuild-s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo --host_javabase=@local_jdk//:jdk
+
+build:crossbuild-ppc64le --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:ppc64le-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo
+run:crossbuild-ppc64le  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:ppc64le-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo
+test:crossbuild-ppc64le --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo --host_javabase=@local_jdk//:jdk
 
 build --define gotags=selinux
 

@@ -65,6 +65,7 @@ oci_image(
     name = "version-container",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "//rpm:linux_ppc64le": "@go_image_base_ppc64le",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
@@ -77,6 +78,12 @@ oci_image(
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":passwd-tar",
             "//rpm:exportserverbase_s390x",
+            ":get-version",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":passwd-tar",
+            "//rpm:exportserverbase_ppc64le",
+            ":get-version",
         ],
         "//conditions:default": [
             "//rpm:exportserverbase_x86_64",

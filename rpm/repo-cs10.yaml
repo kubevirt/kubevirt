@@ -1,37 +1,53 @@
 repositories:
 - arch: x86_64
-  baseurl: http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/
   name: centos/stream10-baseos-x86_64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: x86_64
-  baseurl: http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/
   name: centos/stream10-appstream-x86_64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: x86_64
-  baseurl: http://mirror.stream.centos.org/10-stream/CRB/x86_64/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/CRB/x86_64/os/
   name: centos/stream10-crb-x86_64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: aarch64
-  baseurl: http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/
   name: centos/stream10-baseos-aarch64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: aarch64
-  baseurl: http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/
   name: centos/stream10-appstream-aarch64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: aarch64
-  baseurl: http://mirror.stream.centos.org/10-stream/CRB/aarch64/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/CRB/aarch64/os/
   name: centos/stream10-crb-aarch64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: s390x
-  baseurl: http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/
   name: centos/stream10-baseos-s390x
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: s390x
-  baseurl: http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/AppStream/s390x/os/
   name: centos/stream10-appstream-s390x
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
 - arch: s390x
-  baseurl: http://mirror.stream.centos.org/10-stream/CRB/s390x/os/
+  baseurl: https://mirror.stream.centos.org/10-stream/CRB/s390x/os/
   name: centos/stream10-crb-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/10-stream/BaseOS/ppc64le/os/
+  name: centos/stream10-baseos-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/SIGs/10-stream/virt/ppc64le/kvm-power/
+  name: centos/stream10-virt-kvm-power-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Virtualization-RH
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/10-stream/AppStream/ppc64le/os/
+  name: centos/stream10-appstream-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/10-stream/CRB/ppc64le/os/
+  name: centos/stream10-crb-ppc64le
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
