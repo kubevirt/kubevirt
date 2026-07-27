@@ -691,7 +691,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			})
 		})
 
-		It("should NOT assign new UUID or Serial when VM template spec lacks them on update", func() {
+		It("should assign new UUID and Serial when VM template spec lacks them on update", func() {
 			oldVM.Spec.Template.Spec.Domain.Firmware = nil
 			newVM.Spec.Template.Spec.Domain.Firmware = nil
 
@@ -707,7 +707,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			err := json.Unmarshal(resp.Patch, &patchOps)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patchOps).NotTo(BeEmpty())
-			Expect(vmSpec.Template.Spec.Domain.Firmware).To(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeEmpty())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.Serial).ToNot(BeEmpty())
 		})
 
 		It("should preserve existing UUID when VM template spec has one", func() {
