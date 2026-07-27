@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "gen.go",
+        "httpconv.go",
+        "netconv.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconvutil",
+    importpath = "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconvutil",
+    visibility = ["//vendor/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp:__subpackages__"],
+    deps = [
+        "//vendor/go.opentelemetry.io/otel/attribute:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/codes:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/semconv/v1.20.0:go_default_library",
+    ],
+)

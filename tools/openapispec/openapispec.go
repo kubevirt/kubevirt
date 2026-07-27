@@ -31,7 +31,6 @@ import (
 	klog "kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util/openapi"
-	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
@@ -56,8 +55,5 @@ func main() {
 
 	klog.InitializeLogging("openapispec")
 
-	// arguments for NewVirtAPIApp have no influence on the generated spec
-	app := virt_api.NewVirtApi()
-	app.Compose()
 	dumpOpenApiSpec(dumpapispecpath, definitions.ComposeAPIDefinitions())
 }
