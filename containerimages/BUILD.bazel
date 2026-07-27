@@ -6,6 +6,7 @@ pkg_tar(
     name = "alpine-image-tar",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["@alpine_image_aarch64//file"],
+        "//rpm:linux_ppc64le": ["@alpine_image_ppc64le//file"],
         "@io_bazel_rules_go//go/platform:linux_s390x": ["@alpine_image_s390x//file"],
         "//conditions:default": ["@alpine_image//file"],
     }),
@@ -79,6 +80,7 @@ kubevirt_image(
     name = "fedora-with-test-tooling",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_with_test_tooling_aarch64",
+        "//rpm:linux_ppc64le": "@fedora_with_test_tooling_ppc64le",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@fedora_with_test_tooling_s390x",
         "//conditions:default": "@fedora_with_test_tooling",
     }),
@@ -89,6 +91,7 @@ kubevirt_image(
     name = "alpine-with-test-tooling",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@alpine_with_test_tooling_arm64",
+        "//rpm:linux_ppc64le": "@alpine_with_test_tooling_ppc64le",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@alpine_with_test_tooling_s390x",
         "//conditions:default": "@alpine_with_test_tooling",
     }),

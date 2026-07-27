@@ -52,6 +52,20 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
+pkg_tar(
+    name = "appliance_layer_ppc64le",
+    srcs = [
+        ":done-file",
+        "@libguestfs-appliance-ppc64le//appliance:README.fixed",
+        "@libguestfs-appliance-ppc64le//appliance:initrd",
+        "@libguestfs-appliance-ppc64le//appliance:kernel",
+        "@libguestfs-appliance-ppc64le//appliance:root",
+    ],
+    mode = "0444",
+    package_dir = "/usr/local/lib/guestfs/appliance",
+    visibility = ["//visibility:public"],
+)
+
 layer_from_tar(
     name = "version-layer",
     src = ":version",
@@ -73,6 +87,11 @@ layer_from_tar(
 )
 
 layer_from_tar(
+    name = "appliance-layer-ppc64le",
+    src = ":appliance_layer_ppc64le",
+)
+
+layer_from_tar(
     name = "libguestfs-tools-rpm-layer-x86_64",
     src = "//rpm:libguestfs-tools_x86_64",
 )
@@ -80,6 +99,11 @@ layer_from_tar(
 layer_from_tar(
     name = "libguestfs-tools-rpm-layer-s390x",
     src = "//rpm:libguestfs-tools_s390x",
+)
+
+layer_from_tar(
+    name = "libguestfs-tools-rpm-layer-ppc64le",
+    src = "//rpm:libguestfs-tools_ppc64le",
 )
 
 image_manifest(
@@ -98,6 +122,11 @@ image_manifest(
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":appliance-layer-s390x",
             ":libguestfs-tools-rpm-layer-s390x",
+            ":entrypoint-layer",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":appliance-layer-ppc64le",
+            ":libguestfs-tools-rpm-layer-ppc64le",
             ":entrypoint-layer",
         ],
         "//conditions:default": [

@@ -78,6 +78,11 @@ layer_from_tar(
 )
 
 layer_from_tar(
+    name = "exportserverbase-layer-ppc64le",
+    src = "//rpm:exportserverbase_ppc64le",
+)
+
+layer_from_tar(
     name = "passwd-layer",
     src = ":passwd-tar",
 )
@@ -96,6 +101,7 @@ image_manifest(
     name = "version-container",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "//rpm:linux_ppc64le": "@go_image_base_ppc64le",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
@@ -107,6 +113,11 @@ image_manifest(
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":exportserverbase-layer-s390x",
+            ":passwd-layer",
+            ":get-version-layer",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":exportserverbase-layer-ppc64le",
             ":passwd-layer",
             ":get-version-layer",
         ],

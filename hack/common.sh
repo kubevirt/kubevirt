@@ -146,8 +146,17 @@ function format_archname() {
             fi
             echo ${arch}
             ;;
+        crossbuild-ppc64le | ppc64le)
+            [[ $tag ]] && echo "ppc64le" && return
+            if [ ${local_platform} != "ppc64le" ]; then
+                arch="crossbuild-ppc64le"
+            else
+                arch="ppc64le"
+            fi
+            echo ${arch}
+            ;;
         *)
-            echo "ERROR: invalid Arch, ${platform}, only support x86_64, aarch64 and s390x"
+            echo "ERROR: invalid Arch, ${platform}, only support x86_64, aarch64, s390x and ppc64le"
             exit 1
             ;;
         esac

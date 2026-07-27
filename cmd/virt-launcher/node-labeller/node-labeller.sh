@@ -19,6 +19,8 @@ if [ "$ARCH" == "aarch64" ]; then
   MACHINE=virt
 elif [ "$ARCH" == "s390x" ]; then
   MACHINE=s390-ccw-virtio
+elif [ "$ARCH" == "ppc64le" ]; then
+  MACHINE=pseries-rhel10.0.0
 elif [ "$ARCH" != "x86_64" ]; then
   exit 0
 fi
@@ -46,6 +48,9 @@ if [ -e /dev/sev ]; then
 fi
 
 virtqemud -d
+
+# Set the libvirt URI so virsh can connect to the daemon
+export LIBVIRT_DEFAULT_URI="qemu:///system"
 
 EXPAND_CPU_FEATURES=""
 if virsh domcapabilities --help 2>&1 | grep -q -- '--expand-cpu-features'; then
