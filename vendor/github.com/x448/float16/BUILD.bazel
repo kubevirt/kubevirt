@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["float16.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/x448/float16",
-    importpath = "github.com/x448/float16",
-    visibility = ["//visibility:public"],
-)

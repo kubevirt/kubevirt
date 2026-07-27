@@ -135,7 +135,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpRequest(vm *v1.VirtualMachine, m
 	return nil
 }
 
-func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) *errors.StatusError {
+func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(ctx context.Context, name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) *errors.StatusError {
 	vm, statErr := app.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
@@ -154,7 +154,7 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -166,14 +166,32 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	return nil
 }
 
+// MemoryDump requests a memory dump of a running VM to the given PVC
+func (app *SubresourceAPIApp) MemoryDump(ctx context.Context, namespace, name string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
+	if !app.clusterConfig.DeclarativeHotplugVolumesEnabled() && !app.clusterConfig.HotplugVolumesEnabled() {
+		return errors.NewBadRequest(hotplugVolumeNotEnabledError)
+	}
+
+	if memoryDumpReq == nil {
+		return errors.NewBadRequest("Request with no body")
+	}
+
+	memoryDumpReq.Phase = v1.MemoryDumpAssociating
+	return app.vmMemoryDumpRequestPatchStatus(ctx, name, namespace, memoryDumpReq, false)
+}
+
+// RemoveMemoryDump dissociates a previously requested memory dump from the VM
+func (app *SubresourceAPIApp) RemoveMemoryDump(ctx context.Context, namespace, name string) *errors.StatusError {
+	removeReq := &v1.VirtualMachineMemoryDumpRequest{
+		Phase:  v1.MemoryDumpDissociating,
+		Remove: true,
+	}
+	return app.vmMemoryDumpRequestPatchStatus(ctx, name, namespace, removeReq, true)
+}
+
 func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.clusterConfig.DeclarativeHotplugVolumesEnabled() && !app.clusterConfig.HotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body"), response)
@@ -186,26 +204,7 @@ func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Reques
 		return
 	}
 
-	memoryDumpReq.Phase = v1.MemoryDumpAssociating
-	isRemoveRequest := false
-	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, memoryDumpReq, isRemoveRequest); err != nil {
-		writeError(err, response)
-		return
-	}
-
-	response.WriteHeader(http.StatusAccepted)
-}
-
-func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.Request, response *restful.Response) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
-	removeReq := &v1.VirtualMachineMemoryDumpRequest{
-		Phase:  v1.MemoryDumpDissociating,
-		Remove: true,
-	}
-	isRemoveRequest := true
-	if err := app.vmMemoryDumpRequestPatchStatus(name, namespace, removeReq, isRemoveRequest); err != nil {
+	if err := app.MemoryDump(request.Request.Context(), namespace, name, memoryDumpReq); err != nil {
 		writeError(err, response)
 		return
 	}

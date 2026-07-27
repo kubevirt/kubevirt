@@ -14,15 +14,13 @@ go_library(
         "cel_listener.go",
         "cel_parser.go",
         "cel_visitor.go",
-        "doc.go",
     ],
     data = [
         "CEL.tokens",
         "CELLexer.tokens",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/parser/gen",
     importpath = "github.com/google/cel-go/parser/gen",
     deps = [
-        "//vendor/github.com/antlr4-go/antlr/v4:go_default_library",
+        "@com_github_antlr4_go_antlr_v4//:go_default_library",
     ],
 )

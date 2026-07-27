@@ -22,9 +22,8 @@ go_library(
         "traits.go",
         "zeroer.go",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/types/traits",
     importpath = "github.com/google/cel-go/common/types/traits",
     deps = [
-        "//vendor/github.com/google/cel-go/common/types/ref:go_default_library",
+        "//common/types/ref:go_default_library",
     ],
 )

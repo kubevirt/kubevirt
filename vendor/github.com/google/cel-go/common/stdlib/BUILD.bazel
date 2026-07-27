@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -7,17 +7,18 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = ["standard.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/stdlib",
+    srcs = [
+        "standard.go",
+    ],
     importpath = "github.com/google/cel-go/common/stdlib",
     deps = [
-        "//vendor/github.com/google/cel-go/common:go_default_library",
-        "//vendor/github.com/google/cel-go/common/decls:go_default_library",
-        "//vendor/github.com/google/cel-go/common/functions:go_default_library",
-        "//vendor/github.com/google/cel-go/common/operators:go_default_library",
-        "//vendor/github.com/google/cel-go/common/overloads:go_default_library",
-        "//vendor/github.com/google/cel-go/common/types:go_default_library",
-        "//vendor/github.com/google/cel-go/common/types/ref:go_default_library",
-        "//vendor/github.com/google/cel-go/common/types/traits:go_default_library",
+        "//common:go_default_library",
+        "//common/decls:go_default_library",
+        "//common/functions:go_default_library",
+        "//common/operators:go_default_library",
+        "//common/overloads:go_default_library",
+        "//common/types:go_default_library",
+        "//common/types/ref:go_default_library",
+        "//common/types/traits:go_default_library",
     ],
 )
