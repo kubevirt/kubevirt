@@ -157,7 +157,7 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	backendHost := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[2])
+	backendHost := fmt.Sprintf("%s.%s.svc:8443", export.Status.ServiceName, match[2])
 	backendPath := "/" + match[4]
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy

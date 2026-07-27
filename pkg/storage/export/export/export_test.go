@@ -754,6 +754,7 @@ var _ = Describe("Export controller", func() {
 			service.Status.Conditions[0].Type = "test"
 			Expect(service.GetName()).To(Equal("virt-export-test"))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Spec.ClusterIP).To(Equal(k8sv1.ClusterIPNone))
 			Expect(service.Labels).To(And(
 				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
 				HaveKeyWithValue(labelKey, labelValue)))
@@ -944,6 +945,7 @@ var _ = Describe("Export controller", func() {
 			HaveKeyWithValue(annCertParams, fmt.Sprintf("{\"Duration\":%d,\"RenewBefore\":%d}",
 				metav1.Duration{Duration: 2 * time.Hour}.Nanoseconds(),
 				metav1.Duration{Duration: 1 * time.Hour}.Nanoseconds())),
+			HaveKeyWithValue("k8s.ovn.org/open-default-ports", `[{"protocol":"tcp","port":8443}]`),
 			HaveKeyWithValue(annotationKey, annotationValue)))
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
 		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
