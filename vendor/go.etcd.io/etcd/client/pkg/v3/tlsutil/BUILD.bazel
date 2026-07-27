@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cipher_suites.go",
+        "doc.go",
+        "tlsutil.go",
+        "versions.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/go.etcd.io/etcd/client/pkg/v3/tlsutil",
+    importpath = "go.etcd.io/etcd/client/pkg/v3/tlsutil",
+    visibility = ["//visibility:public"],
+)

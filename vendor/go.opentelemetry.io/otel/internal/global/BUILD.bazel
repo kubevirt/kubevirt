@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "handler.go",
+        "instruments.go",
+        "internal_logging.go",
+        "meter.go",
+        "propagator.go",
+        "state.go",
+        "trace.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/otel/internal/global",
+    importpath = "go.opentelemetry.io/otel/internal/global",
+    visibility = ["//vendor/go.opentelemetry.io/otel:__subpackages__"],
+    deps = [
+        "//vendor/github.com/go-logr/logr:go_default_library",
+        "//vendor/github.com/go-logr/stdr:go_default_library",
+        "//vendor/go.opentelemetry.io/auto/sdk:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/attribute:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/codes:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/metric:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/metric/embedded:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/propagation:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/trace:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/trace/embedded:go_default_library",
+    ],
+)

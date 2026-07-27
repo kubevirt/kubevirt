@@ -68,14 +68,70 @@ func (app *SubresourceAPIApp) ephemeralHotplugSupported() bool {
 	return app.clusterConfig.HotplugVolumesEnabled()
 }
 
+// AddVolume hot-plugs a volume and disk.
+// ephemeral selects the VMI-only path instead of the VM path
+func (app *SubresourceAPIApp) AddVolume(ctx context.Context, namespace, name string, opts *v1.AddVolumeOptions, ephemeral bool) *errors.StatusError {
+	if !app.hotplugVolumesEnabled() {
+		return errors.NewBadRequest(hotplugVolumeNotEnabledError)
+	}
+
+	if opts == nil {
+		return errors.NewBadRequest("AddVolumeOptions are required")
+	}
+	if opts.Name == "" {
+		return errors.NewBadRequest("AddVolumeOptions requires name to be set")
+	} else if opts.Disk == nil {
+		return errors.NewBadRequest("AddVolumeOptions requires disk to not be nil")
+	} else if opts.VolumeSource == nil {
+		return errors.NewBadRequest("AddVolumeOptions requires VolumeSource to not be nil")
+	}
+
+	opts.Disk.Name = opts.Name
+	volumeRequest := v1.VirtualMachineVolumeRequest{
+		AddVolumeOptions: opts,
+	}
+	if opts.VolumeSource.DataVolume != nil {
+		opts.VolumeSource.DataVolume.Hotpluggable = true
+	} else if opts.VolumeSource.PersistentVolumeClaim != nil {
+		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
+	}
+
+	return app.dispatchVolumeRequest(ctx, name, namespace, &volumeRequest, ephemeral)
+}
+
+// RemoveVolume hot-unplugs a volume and disk.
+func (app *SubresourceAPIApp) RemoveVolume(ctx context.Context, namespace, name string, opts *v1.RemoveVolumeOptions, ephemeral bool) *errors.StatusError {
+	if !app.hotplugVolumesEnabled() {
+		return errors.NewBadRequest(hotplugVolumeNotEnabledError)
+	}
+
+	if opts == nil {
+		return errors.NewBadRequest("RemoveVolumeOptions are required")
+	}
+	if opts.Name == "" {
+		return errors.NewBadRequest("RemoveVolumeOptions requires name to be set")
+	}
+	volumeRequest := v1.VirtualMachineVolumeRequest{
+		RemoveVolumeOptions: opts,
+	}
+
+	return app.dispatchVolumeRequest(ctx, name, namespace, &volumeRequest, ephemeral)
+}
+
+// routes a volume request to the right patch path, inject into the VMI if ephemeral,
+// else set it as a request on the VM to both make it permanent and hotplug it
+func (app *SubresourceAPIApp) dispatchVolumeRequest(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest, ephemeral bool) *errors.StatusError {
+	if ephemeral {
+		return app.vmiVolumePatch(ctx, name, namespace, volumeRequest)
+	} else if app.clusterConfig.HotplugVolumesEnabled() {
+		return app.vmVolumePatchStatus(ctx, name, namespace, volumeRequest)
+	}
+	return app.vmVolumePatch(ctx, name, namespace, volumeRequest)
+}
+
 func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.hotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
@@ -89,43 +145,9 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 		return
 	}
 
-	if opts.Name == "" {
-		writeError(errors.NewBadRequest("AddVolumeOptions requires name to be set"), response)
+	if statusErr := app.AddVolume(request.Request.Context(), namespace, name, opts, ephemeral); statusErr != nil {
+		writeError(statusErr, response)
 		return
-	} else if opts.Disk == nil {
-		writeError(errors.NewBadRequest("AddVolumeOptions requires disk to not be nil"), response)
-		return
-	} else if opts.VolumeSource == nil {
-		writeError(errors.NewBadRequest("AddVolumeOptions requires VolumeSource to not be nil"), response)
-		return
-	}
-
-	opts.Disk.Name = opts.Name
-	volumeRequest := v1.VirtualMachineVolumeRequest{
-		AddVolumeOptions: opts,
-	}
-	if opts.VolumeSource.DataVolume != nil {
-		opts.VolumeSource.DataVolume.Hotpluggable = true
-	} else if opts.VolumeSource.PersistentVolumeClaim != nil {
-		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
-	}
-
-	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
-	if ephemeral {
-		if err := app.vmiVolumePatch(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else if app.clusterConfig.HotplugVolumesEnabled() {
-		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else {
-		if err := app.vmVolumePatch(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -134,11 +156,6 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.hotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
@@ -152,36 +169,15 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 		return
 	}
 
-	if opts.Name == "" {
-		writeError(errors.NewBadRequest("RemoveVolumeOptions requires name to be set"), response)
+	if statusErr := app.RemoveVolume(request.Request.Context(), namespace, name, opts, ephemeral); statusErr != nil {
+		writeError(statusErr, response)
 		return
-	}
-	volumeRequest := v1.VirtualMachineVolumeRequest{
-		RemoveVolumeOptions: opts,
-	}
-
-	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
-	if ephemeral {
-		if err := app.vmiVolumePatch(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else if app.clusterConfig.HotplugVolumesEnabled() {
-		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else {
-		if err := app.vmVolumePatch(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
 	}
 
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) vmVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+func (app *SubresourceAPIApp) vmVolumePatch(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
 	vm, statErr := app.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
@@ -199,7 +195,7 @@ func (app *SubresourceAPIApp) vmVolumePatch(name, namespace string, volumeReques
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", string(patchBytes))
-	if _, err := app.virtCli.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtCli.VirtualMachine(vm.Namespace).Patch(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -211,7 +207,7 @@ func (app *SubresourceAPIApp) vmVolumePatch(name, namespace string, volumeReques
 	return nil
 }
 
-func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+func (app *SubresourceAPIApp) vmiVolumePatch(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
 	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
 	if statErr != nil {
 		return statErr
@@ -237,7 +233,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", string(patchBytes))
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(ctx, vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -249,7 +245,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 	return nil
 }
 
-func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+func (app *SubresourceAPIApp) vmVolumePatchStatus(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
 	vm, statErr := app.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
@@ -267,7 +263,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {

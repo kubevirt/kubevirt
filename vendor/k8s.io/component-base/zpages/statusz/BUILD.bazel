@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "registry.go",
+        "statusz.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/component-base/zpages/statusz",
+    importpath = "k8s.io/component-base/zpages/statusz",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/util/version:go_default_library",
+        "//vendor/k8s.io/component-base/compatibility:go_default_library",
+        "//vendor/k8s.io/component-base/metrics:go_default_library",
+        "//vendor/k8s.io/component-base/version:go_default_library",
+        "//vendor/k8s.io/component-base/zpages/httputil:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+    ],
+)

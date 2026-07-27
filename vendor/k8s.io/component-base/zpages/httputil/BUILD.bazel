@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["httputil.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/component-base/zpages/httputil",
+    importpath = "k8s.io/component-base/zpages/httputil",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/munnerz/goautoneg:go_default_library"],
+)

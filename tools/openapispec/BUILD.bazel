@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/util/openapi:go_default_library",
-        "//pkg/virt-api:go_default_library",
         "//pkg/virt-api/definitions:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",

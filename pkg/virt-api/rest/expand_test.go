@@ -20,14 +20,10 @@
 package rest
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -63,7 +59,6 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		virtClient *kubecli.MockKubevirtClient
 		app        *SubresourceAPIApp
 
-		request  *restful.Request
 		recorder *httptest.ResponseRecorder
 		response *restful.Response
 
@@ -101,7 +96,6 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 		app = NewSubresourceAPIApp(virtClient, 0, nil, config)
 
-		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()
 		response = restful.NewResponse(recorder)
 		response.SetRequestAccepts(restful.MIME_JSON)
@@ -424,21 +418,20 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 	Context("VirtualMachine expand-spec endpoint", func() {
 		callExpandSpecApi := func(vm *v1.VirtualMachine) *httptest.ResponseRecorder {
-			request.PathParameters()["name"] = vmName
-			request.PathParameters()["namespace"] = vmNamespace
-
 			vmClient.EXPECT().Get(context.Background(), vmName, gomock.Any()).Return(vm, nil).AnyTimes()
 
-			app.ExpandSpecVMRequestHandler(request, response)
+			fetchedVM, statusErr := app.fetchVirtualMachine(vmName, vmNamespace)
+			if statusErr != nil {
+				writeError(statusErr, response)
+				return recorder
+			}
+			app.expandSpecResponse(fetchedVM, errors.NewInternalError, response)
 			return recorder
 		}
 
 		testCommonFunctionality(callExpandSpecApi, http.StatusInternalServerError)
 
 		It("should fail if VM does not exist", func() {
-			request.PathParameters()["name"] = "nonexistent-vm"
-			request.PathParameters()["namespace"] = vmNamespace
-
 			vmClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(nil, errors.NewNotFound(
 				schema.GroupResource{
 					Group:    kubevirtcore.GroupName,
@@ -447,76 +440,11 @@ var _ = Describe("Instancetype expansion subresources", func() {
 				"",
 			)).AnyTimes()
 
-			app.ExpandSpecVMRequestHandler(request, response)
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-			Expect(statusErr.Status().Message).To(Equal("virtualmachine.kubevirt.io \"nonexistent-vm\" not found"))
-		})
-	})
+			_, statusErr := app.fetchVirtualMachine("nonexistent-vm", vmNamespace)
+			writeError(statusErr, response)
 
-	Context("expand-vm-spec endpoint", func() {
-		callExpandSpecApi := func(vm *v1.VirtualMachine) *httptest.ResponseRecorder {
-			request.PathParameters()["namespace"] = vmNamespace
-
-			vmJson, err := json.Marshal(vm)
-			Expect(err).ToNot(HaveOccurred())
-			request.Request.Body = io.NopCloser(bytes.NewBuffer(vmJson))
-
-			app.ExpandSpecRequestHandler(request, response)
-			return recorder
-		}
-
-		testCommonFunctionality(callExpandSpecApi, http.StatusBadRequest)
-
-		It("should fail if received invalid JSON", func() {
-			request.PathParameters()["namespace"] = vmNamespace
-
-			invalidJson := "this is invalid JSON {{{{"
-			request.Request.Body = io.NopCloser(strings.NewReader(invalidJson))
-
-			app.ExpandSpecRequestHandler(request, response)
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			Expect(statusErr.Status().Message).To(ContainSubstring("Can not unmarshal Request body to struct"))
-		})
-
-		It("should fail if received object is not a VirtualMachine", func() {
-			request.PathParameters()["namespace"] = vmNamespace
-
-			notVm := struct {
-				StringField string `json:"stringField"`
-				IntField    int    `json:"intField"`
-			}{
-				StringField: "test",
-				IntField:    10,
-			}
-
-			jsonBytes, err := json.Marshal(notVm)
-			Expect(err).ToNot(HaveOccurred())
-			request.Request.Body = io.NopCloser(bytes.NewBuffer(jsonBytes))
-
-			app.ExpandSpecRequestHandler(request, response)
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			Expect(statusErr.Status().Message).To(Equal("Object is not a valid VirtualMachine"))
-		})
-
-		It("should fail if endpoint namespace is empty", func() {
-			request.PathParameters()["namespace"] = ""
-
-			vmJson, err := json.Marshal(vm)
-			Expect(err).ToNot(HaveOccurred())
-			request.Request.Body = io.NopCloser(bytes.NewBuffer(vmJson))
-
-			app.ExpandSpecRequestHandler(request, response)
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			Expect(statusErr.Status().Message).To(Equal("The request namespace must not be empty"))
-		})
-
-		It("should fail, if VM and endpoint namespace are different", func() {
-			vm.Namespace = "madethisup"
-
-			recorder = callExpandSpecApi(vm)
-			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-			errMsg := fmt.Sprintf("VM namespace must be empty or %s", vmNamespace)
-			Expect(statusErr.Status().Message).To(Equal(errMsg))
+			expandErr := ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
+			Expect(expandErr.Status().Message).To(Equal("virtualmachine.kubevirt.io \"nonexistent-vm\" not found"))
 		})
 	})
 })

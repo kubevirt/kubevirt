@@ -127,7 +127,7 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-	vmi, statusError := app.fetchAndValidateVirtualMachineInstance(namespace, name, validate)
+	vmi, statusError := app.fetchAndValidateVirtualMachineInstance(request.Request.Context(), namespace, name, validate)
 	if statusError != nil {
 		writeError(statusError, response)
 		return

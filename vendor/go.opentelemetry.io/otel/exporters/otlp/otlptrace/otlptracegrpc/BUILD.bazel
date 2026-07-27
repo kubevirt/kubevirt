@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client.go",
+        "doc.go",
+        "exporter.go",
+        "options.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
+    importpath = "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/go.opentelemetry.io/otel:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/otlpconfig:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/retry:go_default_library",
+        "//vendor/go.opentelemetry.io/proto/otlp/collector/trace/v1:go_default_library",
+        "//vendor/go.opentelemetry.io/proto/otlp/trace/v1:go_default_library",
+        "//vendor/google.golang.org/genproto/googleapis/rpc/errdetails:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
+        "//vendor/google.golang.org/grpc/credentials:go_default_library",
+        "//vendor/google.golang.org/grpc/metadata:go_default_library",
+        "//vendor/google.golang.org/grpc/status:go_default_library",
+    ],
+)

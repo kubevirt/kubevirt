@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
@@ -109,49 +110,69 @@ func getResourceDependencyType(resource string) DependencyType {
 	}
 }
 
-func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, response *restful.Response, fetchFunc func(string, string) (any, *apierrors.StatusError)) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
+func (app *SubresourceAPIApp) getObjectGraph(namespace, name string, body io.Reader, fetchFunc func(string, string) (any, *apierrors.StatusError)) (v1.ObjectGraphNode, *apierrors.StatusError) {
 	if !app.clusterConfig.ObjectGraphEnabled() {
-		writeError(apierrors.NewBadRequest("ObjectGraph feature gate not enabled: Unable to return object graph."), response)
-		return
+		return v1.ObjectGraphNode{}, apierrors.NewBadRequest("ObjectGraph feature gate not enabled: Unable to return object graph.")
 	}
 
 	obj, statErr := fetchFunc(namespace, name)
 	if statErr != nil {
-		writeError(statErr, response)
-		return
+		return v1.ObjectGraphNode{}, statErr
 	}
 
 	objectGraphOpts := &v1.ObjectGraphOptions{}
-	defer request.Request.Body.Close()
-	if err := decodeBody(request, objectGraphOpts); err != nil {
-		writeError(err, response)
-		return
+	if err := decodeBodyReader(body, objectGraphOpts); err != nil {
+		return v1.ObjectGraphNode{}, err
 	}
 
 	graph, err := NewObjectGraph(app.virtCli, objectGraphOpts).GetObjectGraph(obj)
 	if err != nil {
-		writeError(apierrors.NewInternalError(err), response)
-		return
+		return v1.ObjectGraphNode{}, apierrors.NewInternalError(err)
 	}
 
+	return graph, nil
+}
+
+// GetVMIObjectGraph returns the object graph of a VMI
+func (app *SubresourceAPIApp) GetVMIObjectGraph(namespace, name string, body io.Reader) (v1.ObjectGraphNode, *apierrors.StatusError) {
+	return app.getObjectGraph(namespace, name, body, func(ns, n string) (any, *apierrors.StatusError) {
+		return app.FetchVirtualMachineInstance(ns, n)
+	})
+}
+
+// GetVMObjectGraph returns the object graph of a VM
+func (app *SubresourceAPIApp) GetVMObjectGraph(namespace, name string, body io.Reader) (v1.ObjectGraphNode, *apierrors.StatusError) {
+	return app.getObjectGraph(namespace, name, body, func(ns, n string) (any, *apierrors.StatusError) {
+		return app.fetchVirtualMachine(n, ns)
+	})
+}
+
+func (app *SubresourceAPIApp) VMIObjectGraph(request *restful.Request, response *restful.Response) {
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+	}
+	graph, statErr := app.GetVMIObjectGraph(request.PathParameter("namespace"), request.PathParameter("name"), request.Request.Body)
+	if statErr != nil {
+		writeError(statErr, response)
+		return
+	}
 	if err := response.WriteEntity(graph); err != nil {
 		log.Log.Reason(err).Error("Failed to write HTTP response.")
 	}
 }
 
-func (app *SubresourceAPIApp) VMIObjectGraph(request *restful.Request, response *restful.Response) {
-	app.handleObjectGraph(request, response, func(ns, name string) (any, *apierrors.StatusError) {
-		return app.FetchVirtualMachineInstance(ns, name)
-	})
-}
-
 func (app *SubresourceAPIApp) VMObjectGraph(request *restful.Request, response *restful.Response) {
-	app.handleObjectGraph(request, response, func(ns, name string) (any, *apierrors.StatusError) {
-		return app.fetchVirtualMachine(name, ns)
-	})
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+	}
+	graph, statErr := app.GetVMObjectGraph(request.PathParameter("namespace"), request.PathParameter("name"), request.Request.Body)
+	if statErr != nil {
+		writeError(statErr, response)
+		return
+	}
+	if err := response.WriteEntity(graph); err != nil {
+		log.Log.Reason(err).Error("Failed to write HTTP response.")
+	}
 }
 
 func (og *ObjectGraph) newGraphNode(name, namespace, resource string, children []v1.ObjectGraphNode, optional bool) *v1.ObjectGraphNode {

@@ -74,7 +74,7 @@ func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 
 func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissionregistrationv1.ValidatingWebhookConfiguration {
 	failurePolicy := admissionregistrationv1.Fail
-	path := "/kubevirt-validate-delete"
+	path := KubeVirtDeleteValidatePath
 	kubevirtUpdatePath := KubeVirtUpdateValidatePath
 
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -937,6 +937,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 const KubeVirtUpdateValidatePath = "/kubevirt-validate-update"
 
 const KubeVirtCreateValidatePath = "/kubevirt-validate-create"
+
+const KubeVirtDeleteValidatePath = "/kubevirt-validate-delete"
 
 const VMICreateValidatePath = "/virtualmachineinstances-validate-create"
 
