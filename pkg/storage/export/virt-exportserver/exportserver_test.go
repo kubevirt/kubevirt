@@ -1355,7 +1355,7 @@ var _ = Describe("exportserver", func() {
 			server = &exportServer{
 				handler: baseHandler,
 				ExportServerConfig: ExportServerConfig{
-					ListenAddr:    ":8443",
+					ListenAddr:    fmt.Sprintf(":%d", export.ExportServerPort),
 					TLSMinVersion: tls.VersionTLS12,
 				},
 			}
@@ -1364,7 +1364,7 @@ var _ = Describe("exportserver", func() {
 		It("should return standard TLS config and unmodified base handler when BackupUID is empty", func() {
 			srv := server.buildServer(context.Background())
 
-			Expect(srv.Addr).To(Equal(":8443"))
+			Expect(srv.Addr).To(Equal(fmt.Sprintf(":%d", export.ExportServerPort)))
 			Expect(srv.Handler).To(BeIdenticalTo(baseHandler))
 			Expect(srv.TLSConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(srv.TLSConfig.NextProtos).To(ConsistOf("h2", "http/1.1"))
@@ -1394,7 +1394,7 @@ var _ = Describe("exportserver", func() {
 			})
 
 			srv := server.buildServer(context.Background())
-			Expect(srv.Addr).To(Equal(":8443"))
+			Expect(srv.Addr).To(Equal(fmt.Sprintf(":%d", export.ExportServerPort)))
 			Expect(srv.Handler).ToNot(BeIdenticalTo(baseHandler))
 			Expect(srv.TLSConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(srv.TLSConfig.NextProtos).To(ConsistOf("h2", "http/1.1"))
