@@ -26,7 +26,6 @@ pkg/virt-controller/watch/vsock/vsock_test.go
 tests/container_disk_test.go
 tests/hotplug/pci-ports.go
 tests/hotplug/pci_topology.go
-tests/network/bindingplugin_slirp.go
 tests/network/services.go
 tests/network/vmi_istio.go
 tests/network/vmi_lifecycle.go
