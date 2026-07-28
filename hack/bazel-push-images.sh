@@ -74,7 +74,6 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         cirros-custom-container-disk-demo
         virtio-container-disk
         winrmcli
-        network-slirp-binding
         network-passt-binding
     "
 fi
