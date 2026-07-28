@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -797,6 +798,118 @@ var _ = Describe("ImageUpload", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			assertDataSource(ds, targetName, targetNamespace)
+		})
+
+		Context("with token refresh", func() {
+			var postCount int
+
+			// creates upload server that takes in list of status codes that it will return as responses for each post request
+			newUploadServer := func(statusCodes ...int) *httptest.Server {
+				return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method == "POST" {
+						if postCount < len(statusCodes) {
+							w.WriteHeader(statusCodes[postCount])
+						} else {
+							// if we exhausted our statusCode list, repeat the last code
+							w.WriteHeader(statusCodes[len(statusCodes)-1])
+						}
+						postCount++
+					} else {
+						w.WriteHeader(http.StatusOK)
+					}
+				}))
+			}
+
+			BeforeEach(func() {
+				postCount = 0
+				testInit(http.StatusOK)
+				cdiClient.Fake.PrependReactor("create", "uploadtokenrequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					obj := action.(k8stesting.CreateAction).GetObject()
+					meta := obj.(metav1.ObjectMetaAccessor).GetObjectMeta()
+					if meta.GetGenerateName() != "" && meta.GetName() == "" {
+						meta.SetName(meta.GetGenerateName() + rand.String(5))
+					}
+					return false, obj, nil
+				})
+			})
+
+			It("Should retry with a new token on authorization error", func() {
+				tokenRequests := 0
+				cdiClient.Fake.PrependReactor("create", "uploadtokenrequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					tokenRequests++
+					return false, nil, nil
+				})
+
+				// return 400 on first POST, then 401 to trigger token refresh,
+				// then 400 for remaining retries
+				server := newUploadServer(http.StatusBadRequest, http.StatusUnauthorized, http.StatusBadRequest)
+				args := []string{
+					commandName,
+					"--pvc-name", targetName,
+					"--size", pvcSize,
+					"--uploadproxy-url", server.URL,
+					"--insecure",
+					"--image-path", imagePath,
+					"--retry=5"}
+
+				cmd := testing.NewRepeatableVirtctlCommand(args...)
+				reqErr := cmd()
+				Expect(reqErr).To(HaveOccurred())
+				Expect(reqErr.Error()).To(ContainSubstring("error uploading image after 5 retries"))
+				Expect(reqErr.Error()).To(ContainSubstring("unexpected return value 400"))
+				Expect(reqErr.Error()).NotTo(ContainSubstring("unexpected return value 401"))
+				// 1 initial token + 1 refresh from the 401
+				Expect(tokenRequests).To(Equal(2), "should have refreshed the token once")
+				Expect(postCount).To(Equal(5))
+			})
+
+			It("Should fail fast on first-attempt 401", func() {
+				server := newUploadServer(http.StatusUnauthorized)
+				args := []string{
+					commandName,
+					"--pvc-name", targetName,
+					"--size", pvcSize,
+					"--uploadproxy-url", server.URL,
+					"--insecure",
+					"--image-path", imagePath,
+					"--retry=5"}
+
+				cmd := testing.NewRepeatableVirtctlCommand(args...)
+				reqErr := cmd()
+				Expect(reqErr).To(HaveOccurred())
+				Expect(reqErr.Error()).To(ContainSubstring("authentication failed"))
+				Expect(reqErr.Error()).To(ContainSubstring("unexpected return value 401"))
+				Expect(postCount).To(Equal(1), "should fail fast on first-attempt 401")
+			})
+
+			It("Should not exceed max token refreshes", func() {
+				tokenRequests := 0
+				cdiClient.Fake.PrependReactor("create", "uploadtokenrequests", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					tokenRequests++
+					return false, nil, nil
+				})
+
+				// return 400 on first POST to get past fail-fast,
+				// then 401 on all remaining to exhaust token refreshes
+				server := newUploadServer(http.StatusBadRequest, http.StatusUnauthorized)
+				args := []string{
+					commandName,
+					"--pvc-name", targetName,
+					"--size", pvcSize,
+					"--uploadproxy-url", server.URL,
+					"--insecure",
+					"--image-path", imagePath,
+					"--retry=10"}
+
+				cmd := testing.NewRepeatableVirtctlCommand(args...)
+				reqErr := cmd()
+				Expect(reqErr).To(HaveOccurred())
+				Expect(reqErr.Error()).To(ContainSubstring("authentication failed"))
+				// 1 initial token + 3 refreshes (capped at maxTokenRefreshes)
+				Expect(tokenRequests).To(Equal(4), "should create initial token plus 3 refreshes")
+				// 1 POST(400) + 3 POST(401 with refresh) + 1 POST(401 fail fast)
+				Expect(postCount).To(Equal(5))
+			})
 		})
 
 		DescribeTable("Should retry on server returning error code", func(expected int, extraArgs ...string) {
