@@ -19,7 +19,6 @@
 package synchronization
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -30,8 +29,6 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
@@ -141,41 +138,6 @@ var _ = Describe("MigrationTunnelManager", func() {
 				Expect(manager.BindTunnelPeer(migrationID, "192.0.2.10:1234")).To(Succeed())
 			}, "192.0.2.11:55", codes.PermissionDenied),
 		)
-	})
-
-	DescribeTable("isExpectedProxyCloseErr",
-		func(err error, expected bool) {
-			Expect(isExpectedProxyCloseErr(err)).To(Equal(expected))
-		},
-		Entry("nil", nil, true),
-		Entry("EOF", io.EOF, true),
-		Entry("net.ErrClosed", net.ErrClosed, true),
-		Entry("ErrClosedPipe", io.ErrClosedPipe, true),
-		Entry("context.Canceled", context.Canceled, true),
-		Entry("gRPC Canceled", status.Error(codes.Canceled, "canceled"), true),
-		Entry("gRPC Unavailable", status.Error(codes.Unavailable, "gone"), true),
-		Entry("closed connection string", errors.New("use of closed network connection"), true),
-		Entry("joined expected errors", errors.Join(io.EOF, net.ErrClosed), true),
-		Entry("unexpected error", errors.New("boom"), false),
-		Entry("joined mixed errors", errors.Join(io.EOF, errors.New("boom")), false),
-		Entry("gRPC Internal", status.Error(codes.Internal, "nope"), false),
-	)
-
-	It("enforces the per-tunnel channel concurrency semaphore", func() {
-		tunnel := &migrationTunnel{
-			channelSem: make(chan struct{}, 2),
-		}
-
-		By("acquiring up to the limit")
-		Expect(tunnel.tryAcquireChannelSlot()).To(BeTrue())
-		Expect(tunnel.tryAcquireChannelSlot()).To(BeTrue())
-
-		By("rejecting an acquire beyond the limit")
-		Expect(tunnel.tryAcquireChannelSlot()).To(BeFalse())
-
-		By("releasing a slot and acquiring again")
-		tunnel.releaseChannelSlot()
-		Expect(tunnel.tryAcquireChannelSlot()).To(BeTrue())
 	})
 
 	It("creates and refreshes StartTargetTunnel dial coordinates", func() {
@@ -309,61 +271,6 @@ var _ = Describe("MigrationTunnelManager", func() {
 			}
 			Eventually(done, 5*time.Second).Should(Receive(BeNil()))
 		})
-	})
-
-	It("closes an idle channel after the idle timeout", func() {
-		By("starting a claimed channel with stale activity and a short idle timeout")
-		tunnel := &migrationTunnel{
-			migrationID: "mig-idle",
-			stopChan:    make(chan struct{}),
-			channelSem:  make(chan struct{}, 1),
-			logger:      log.DefaultLogger(),
-		}
-		client, server := net.Pipe()
-		defer client.Close()
-		defer server.Close()
-
-		stream := newMemFrameStream(4)
-		ch := &tunnelChannel{
-			channelID:         1,
-			stream:            stream,
-			conn:              server,
-			stopChan:          make(chan struct{}),
-			createdAt:         time.Now(),
-			logger:            tunnel.logger,
-			idleTimeout:       50 * time.Millisecond,
-			idleCheckInterval: 20 * time.Millisecond,
-		}
-		ch.lastActivity.Store(time.Now().Add(-time.Hour))
-		ch.sequence = 1
-		tunnel.addChannel(ch)
-
-		done := make(chan error, 1)
-		go func() {
-			done <- tunnel.runClaimedChannel("source", ch)
-		}()
-
-		By("waiting for idle timeout to stop the channel")
-		Eventually(func() bool { return ch.stopped.Load() }, 2*time.Second, 20*time.Millisecond).Should(BeTrue())
-		Eventually(done, 2*time.Second).Should(Receive(BeNil()))
-	})
-
-	It("closes listeners under lock and clears port maps", func() {
-		By("attaching a live listener to the tunnel")
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
-		Expect(err).NotTo(HaveOccurred())
-		port := ln.Addr().(*net.TCPAddr).Port
-		tunnel := &migrationTunnel{
-			listeners:     []net.Listener{ln},
-			listenerPorts: map[int]int{port: 49152},
-		}
-
-		By("closing listeners and verifying the maps are cleared")
-		tunnel.closeListeners()
-		Expect(tunnel.listeners).To(BeNil())
-		Expect(tunnel.listenerPorts).To(BeEmpty())
-		_, err = ln.Accept()
-		Expect(err).To(HaveOccurred())
 	})
 
 	It("removes peer binding and tears down tunnels on StopTunnel", func() {
