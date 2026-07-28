@@ -566,7 +566,7 @@ func (app *virtAPIApp) shouldChangeRateLimiter() {
 }
 
 func (app *virtAPIApp) AddFlags() {
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	flag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("kubeconfig"))
 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("master"))
 
