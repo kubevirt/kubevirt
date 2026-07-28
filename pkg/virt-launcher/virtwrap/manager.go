@@ -254,6 +254,7 @@ type LibvirtDomainManager struct {
 	hypervisorDeviceAvailable bool
 	hypervisorName            string
 	allowCrossArchEmulation   bool
+	archConverter             arch.Converter
 
 	guestAgentProbePaused atomic.Bool
 	abortWg               sync.WaitGroup
@@ -1306,7 +1307,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	// Map the VirtualMachineInstance to the Domain
 
 	c := &convertertypes.ConverterContext{
-		Architecture:              selectArchConverter(l.allowCrossArchEmulation, vmi.Spec.Architecture),
+		Architecture:              l.selectConverterArch(vmi.Spec.Architecture),
 		VirtualMachine:            vmi,
 		AllowEmulation:            allowEmulation,
 		AllowCrossArchEmulation:   l.allowCrossArchEmulation && vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH,
@@ -3036,9 +3037,12 @@ func selectEFIEnvironment(hostEFI *efi.EFIEnvironment, ovmfPath string, allowCro
 	return hostEFI
 }
 
-func selectArchConverter(allowCrossArchEmulation bool, guestArch string) arch.Converter {
+func (l *LibvirtDomainManager) selectConverterArch(guestArch string) arch.Converter {
+	if l.archConverter != nil {
+		return l.archConverter
+	}
 	vmArch := runtime.GOARCH
-	if allowCrossArchEmulation && guestArch != "" && guestArch != runtime.GOARCH {
+	if l.allowCrossArchEmulation && guestArch != "" && guestArch != runtime.GOARCH {
 		vmArch = guestArch
 	}
 	return arch.NewConverter(vmArch)
