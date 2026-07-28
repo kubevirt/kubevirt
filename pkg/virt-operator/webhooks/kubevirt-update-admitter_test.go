@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -267,6 +268,76 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 		}, 0),
+	)
+
+	DescribeTable("validateCertificates", func(certConfig *v1.KubeVirtSelfSignConfiguration, expectedCauses ...metav1.StatusCause) {
+		causes := validateCertificates(certConfig)
+		Expect(causes).To(ConsistOf(expectedCauses))
+	},
+		Entry("nil config accepted", nil),
+		Entry("valid cert rotation parameters accepted", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}),
+		Entry("combining deprecated and new cert rotation parameters rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+			CAOverlapInterval: &metav1.Duration{Duration: 8 * time.Hour},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters",
+		}),
+		Entry("CA expires before rotation rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 14 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)",
+		}),
+		Entry("Cert expires before rotation rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 8 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Cert RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)",
+		}),
+		Entry("Cert rotates after CA expires rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 36 * time.Hour},
+			},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)",
+		}),
 	)
 
 	Context("with TLSConfiguration", func() {
