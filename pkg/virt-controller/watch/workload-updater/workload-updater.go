@@ -579,12 +579,14 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 					VMIName: vmi.Name,
 				},
 			}
-			// default is upgrade
-			priority := v1.PrioritySystemCritical
-			if isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi) {
-				priority = v1.PriorityUserTriggered
+			if c.clusterConfig.MigrationPriorityQueueEnabled() {
+				// default is upgrade
+				priority := v1.PrioritySystemCritical
+				if isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi) {
+					priority = v1.PriorityUserTriggered
+				}
+				wuMigration.Spec.Priority = &priority
 			}
-			wuMigration.Spec.Priority = &priority
 			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), wuMigration, metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
