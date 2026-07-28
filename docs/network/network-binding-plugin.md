@@ -52,7 +52,6 @@ The following plugins are available:
 
 - [passt](https://kubevirt.io/user-guide/virtual_machines/net_binding_plugins/passt/) [v1.1.0]
 - [macvtap](https://kubevirt.io/user-guide/virtual_machines/net_binding_plugins/macvtap/) [v1.1.1]
-- [slirp](https://kubevirt.io/user-guide/virtual_machines/net_binding_plugins/slirp/) [v1.1.0]
 
 ## The Zero Code Plugin
 
