@@ -1912,7 +1912,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should be left if VM owner is present", true, true, true),
 		)
 
-		DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase, expectedVirtActions int) {
+		DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase, expectedVirtActions []expectedAction) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduled
 			pod := newPodForVirtualMachine(vmi, phase)
@@ -1928,18 +1928,28 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(pod)
 
 			sanityExecute()
-			Expect(virtClientset.Actions()).To(HaveLen(expectedVirtActions))
-			Expect(virtClientset.Actions()[0].GetVerb()).To(Equal("create"))
-			Expect(virtClientset.Actions()[0].GetResource().Resource).To(Equal("virtualmachineinstances"))
+			Expect(virtClientset.Actions()).To(WithTransform(actionsSummary, ConsistOf(expectedVirtActions)))
 			Expect(kubeClient.Actions()).To(HaveLen(1))
 			Expect(kubeClient.Actions()[0].GetVerb()).To(Equal("create"))
 			Expect(kubeClient.Actions()[0].GetResource().Resource).To(Equal("pods"))
 		},
-			Entry("and in running state", k8sv1.PodRunning, 1),
-			Entry("and in unknown state", k8sv1.PodUnknown, 1),
-			Entry("and in succeeded state", k8sv1.PodSucceeded, 2),
-			Entry("and in failed state", k8sv1.PodFailed, 2),
-			Entry("and in pending state", k8sv1.PodPending, 1),
+			Entry("and in running state", k8sv1.PodRunning, []expectedAction{
+				{Verb: "create", Resource: "virtualmachineinstances"},
+			}),
+			Entry("and in unknown state", k8sv1.PodUnknown, []expectedAction{
+				{Verb: "create", Resource: "virtualmachineinstances"},
+			}),
+			Entry("and in succeeded state", k8sv1.PodSucceeded, []expectedAction{
+				{Verb: "create", Resource: "virtualmachineinstances"},
+				{Verb: "patch", Resource: "virtualmachineinstances"},
+			}),
+			Entry("and in failed state", k8sv1.PodFailed, []expectedAction{
+				{Verb: "create", Resource: "virtualmachineinstances"},
+				{Verb: "patch", Resource: "virtualmachineinstances"},
+			}),
+			Entry("and in pending state", k8sv1.PodPending, []expectedAction{
+				{Verb: "create", Resource: "virtualmachineinstances"},
+			}),
 		)
 
 		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
@@ -5737,4 +5747,17 @@ type stubMigrationEvaluator struct {
 
 func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) k8sv1.ConditionStatus {
 	return e.result
+}
+
+type expectedAction struct {
+	Verb     string
+	Resource string
+}
+
+func actionsSummary(actions []testing.Action) []expectedAction {
+	result := make([]expectedAction, 0, len(actions))
+	for _, a := range actions {
+		result = append(result, expectedAction{Verb: a.GetVerb(), Resource: a.GetResource().Resource})
+	}
+	return result
 }
