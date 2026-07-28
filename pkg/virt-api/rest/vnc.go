@@ -20,9 +20,9 @@
 package rest
 
 import (
+	"context"
 	"fmt"
 
-	restful "github.com/emicklei/go-restful/v3"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -30,14 +30,29 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func (app *SubresourceAPIApp) ScreenshotRequestHandler(request *restful.Request, response *restful.Response) {
+// Screenshot proxies the VNC screenshot of a VirtualMachineInstance from
+// virt-handler and returns the raw image bytes. It is served by the aggregated
+// apiserver under the nested subresource path virtualmachineinstances/vnc/screenshot
+func (app *SubresourceAPIApp) Screenshot(ctx context.Context, namespace, name string) ([]byte, *errors.StatusError) {
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.ScreenshotURI(vmi)
 	}
 
 	// Screenshot without Display fails with:
 	//   `Requested operation is not valid: no screens to take screenshot from`
-	app.httpGetRequestBinaryHandler(request, response, vmiHasDisplay, getURL)
+	_, url, conn, statusErr := app.prepareConnection(ctx, namespace, name, vmiHasDisplay, getURL)
+	if statusErr != nil {
+		log.Log.Errorf(prepConnectionErrFmt, statusErr.Error())
+		return nil, statusErr
+	}
+
+	resp, conErr := conn.Get(url, "")
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		return nil, errors.NewInternalError(conErr)
+	}
+
+	return []byte(resp), nil
 }
 
 func vmiHasDisplay(vmi *v1.VirtualMachineInstance) *errors.StatusError {

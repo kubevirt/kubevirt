@@ -39,16 +39,19 @@ type vncStreamer interface {
 	StreamVNC(ctx context.Context, namespace, name string, preserveSession bool, w http.ResponseWriter, req *http.Request) *apierrors.StatusError
 }
 
-// VNCREST serves the virtualmachineinstances/vnc endpoint (GET) of the
-// subresources.kubevirt.io API group as a streaming rest.Connecter. The
-// websocket is upgraded on the native http.ResponseWriter and proxied to
-// virt-handler
-type VNCREST struct {
-	streamer vncStreamer
+type screenshotter interface {
+	Screenshot(ctx context.Context, namespace, name string) ([]byte, *apierrors.StatusError)
 }
 
-func NewVNCREST(streamer vncStreamer) *VNCREST {
-	return &VNCREST{streamer: streamer}
+const screenshotSubPath = "screenshot"
+
+type VNCREST struct {
+	streamer    vncStreamer
+	screenshots screenshotter
+}
+
+func NewVNCREST(streamer vncStreamer, screenshots screenshotter) *VNCREST {
+	return &VNCREST{streamer: streamer, screenshots: screenshots}
 }
 
 var (
@@ -67,13 +70,22 @@ func (r *VNCREST) ConnectMethods() []string {
 }
 
 func (r *VNCREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return nil, false, ""
+	return nil, true, "path"
 }
 
 func (r *VNCREST) Connect(ctx context.Context, name string, _ runtime.Object, responder rest.Responder) (http.Handler, error) {
 	namespace, ok := request.NamespaceFrom(ctx)
 	if !ok {
 		return nil, apierrors.NewBadRequest("namespace is required to open a VNC connection")
+	}
+
+	// [resource, name, subresource, extra...] i.e.
+	// [virtualmachineinstances, <name>, vnc] or [..., vnc, screenshot].
+	if requestInfo, ok := request.RequestInfoFrom(ctx); ok && len(requestInfo.Parts) > 3 {
+		if requestInfo.Parts[3] == screenshotSubPath {
+			return r.connectScreenshot(namespace, name, responder), nil
+		}
+		return nil, apierrors.NewNotFound(v1.Resource("virtualmachineinstances"), name)
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -90,4 +102,19 @@ func (r *VNCREST) Connect(ctx context.Context, name string, _ runtime.Object, re
 			responder.Error(statusErr)
 		}
 	}), nil
+}
+
+func (r *VNCREST) connectScreenshot(namespace, name string, responder rest.Responder) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		img, statusErr := r.screenshots.Screenshot(req.Context(), namespace, name)
+		if statusErr != nil {
+			responder.Error(statusErr)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(img); err != nil {
+			log.Log.Reason(err).Error("Failed to write screenshot response")
+		}
+	})
 }
