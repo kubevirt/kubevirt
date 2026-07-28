@@ -126,9 +126,10 @@ func newOfflineRenderConfig(opts Options) *offlineRenderConfig {
 
 	config := &virtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-			FeatureGates:       opts.FeatureGates,
-			MemoryOvercommit:   100,
-			CPUAllocationRatio: 10,
+			FeatureGates:         opts.FeatureGates,
+			DisabledFeatureGates: opts.DisabledFeatureGates,
+			MemoryOvercommit:     100,
+			CPUAllocationRatio:   10,
 			DiskVerification: &virtv1.DiskVerification{
 				MemoryLimit: diskVerifLimit,
 			},

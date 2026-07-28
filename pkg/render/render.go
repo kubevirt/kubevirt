@@ -45,7 +45,13 @@ type Options struct {
 	LauncherImage string
 
 	// FeatureGates lists KubeVirt feature gates to enable.
+	// Matches KubeVirtConfiguration.DeveloperConfiguration.FeatureGates.
 	FeatureGates []string
+
+	// DisabledFeatureGates lists KubeVirt feature gates to explicitly disable.
+	// This is useful for disabling Beta feature gates that are on by default.
+	// Matches KubeVirtConfiguration.DeveloperConfiguration.DisabledFeatureGates.
+	DisabledFeatureGates []string
 
 	// LauncherQemuTimeout is the QEMU process timeout in seconds.
 	// Default: 240
@@ -176,6 +182,29 @@ func newOfflineRenderer(vmi *virtv1.VirtualMachineInstance, config RenderConfig,
 }
 
 var firmwareUUIDns = uuid.MustParse("6a1a24a1-4061-4607-8bf4-a3963d0c5895")
+
+// VMIFromVM extracts a VirtualMachineInstance from a VirtualMachine definition,
+// applying VM defaults. The returned VMI has its name, namespace, labels, owner
+// references, firmware UUID, and volume-disk pairing set up from the VM.
+// No running Kubernetes cluster or KubeVirt controllers are required.
+func VMIFromVM(vm *virtv1.VirtualMachine, opts Options) (*virtv1.VirtualMachineInstance, error) {
+	opts = opts.withDefaults()
+
+	if vm.Spec.Template == nil {
+		return nil, fmt.Errorf("VM %q has no template spec", vm.Name)
+	}
+
+	config := newOfflineRenderConfig(opts)
+
+	vmCopy := vm.DeepCopy()
+	if vmCopy.Namespace == "" {
+		vmCopy.Namespace = "default"
+	}
+
+	defaults.SetVirtualMachineDefaults(vmCopy, config, nil)
+
+	return setupVMIFromVM(vmCopy), nil
+}
 
 func setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi := &virtv1.VirtualMachineInstance{
