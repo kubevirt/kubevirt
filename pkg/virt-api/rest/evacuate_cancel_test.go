@@ -25,17 +25,16 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"strings"
 
-	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 
 	k8scorev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
@@ -49,6 +48,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+func evacuateCancelStatusCode(statusErr *errors.StatusError) int {
+	if statusErr == nil {
+		return http.StatusOK
+	}
+	return int(statusErr.Status().Code)
+}
+
 var _ = Describe("EvacuateCancel Subresource API", func() {
 	const (
 		workerNode          = "test-worker-01"
@@ -56,9 +62,6 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		taintKey            = "test-node-drain-key"
 	)
 	var (
-		request  *restful.Request
-		response *restful.Response
-
 		virtClient *kubecli.MockKubevirtClient
 		kubeClient *k8sfake.Clientset
 		app        *SubresourceAPIApp
@@ -85,12 +88,6 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	BeforeEach(func() {
-		request = restful.NewRequest(&http.Request{})
-		request.PathParameters()["name"] = testVMName
-		request.PathParameters()["namespace"] = metav1.NamespaceDefault
-		recorder := httptest.NewRecorder()
-		response = restful.NewResponse(recorder)
-
 		backend := ghttp.NewTLSServer()
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
@@ -157,10 +154,9 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			if dryRun {
 				opt.DryRun = []string{metav1.DryRunAll}
 			}
-			request.Request.Body = newEvacuateCancelBody(opt)
 
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, newEvacuateCancelBody(opt))
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusOK))
 
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -179,8 +175,8 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				createVM(newVM(newVMI(false, workerNode)))
 			}
 
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusNotFound))
 		},
 			Entry("and VM exists", true),
 			Entry("and VM doesn't exists", false),
@@ -192,8 +188,8 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			vmi.SetOwnerReferences([]metav1.OwnerReference{{UID: vm.UID}})
 			vmi = createVMI(vmi)
 
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 
 		It("Should fail because opts is invalid", func() {
@@ -202,9 +198,8 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			vmi.SetOwnerReferences([]metav1.OwnerReference{{UID: vm.UID}})
 			vmi = createVMI(vmi)
 
-			request.Request.Body = newInvalidBody()
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, newInvalidBody())
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 	})
 
@@ -217,10 +212,9 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				opt.DryRun = []string{metav1.DryRunAll}
 
 			}
-			request.Request.Body = newEvacuateCancelBody(opt)
 
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, newEvacuateCancelBody(opt))
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusOK))
 
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -235,21 +229,20 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		)
 
 		It("should fail because vmi is not found", func() {
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusNotFound))
 		})
 
 		It("should fail because the node has taint", func() {
 			createVMI(newVMI(false, workerNodeWithTaint))
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 
 		It("Should fail because opts is invalid", func() {
 			createVMI(newVMI(true, workerNode))
-			request.Request.Body = newInvalidBody()
-			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, newInvalidBody())
+			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 	})
 })

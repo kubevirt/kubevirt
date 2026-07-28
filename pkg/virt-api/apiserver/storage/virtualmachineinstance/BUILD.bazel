@@ -6,6 +6,7 @@ go_library(
         "addvolume.go",
         "console.go",
         "dummy.go",
+        "evacuate.go",
         "filesystemlist.go",
         "freeze.go",
         "guestosinfo.go",

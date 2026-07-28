@@ -22,9 +22,7 @@ package rest
 import (
 	"context"
 	"fmt"
-	"net/http"
-
-	"github.com/emicklei/go-restful/v3"
+	"io"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,58 +35,54 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.RouteFunction {
-	return func(request *restful.Request, response *restful.Response) {
-		name := request.PathParameter("name")
-		namespace := request.PathParameter("namespace")
+// EvacuateCancelVMI cancels a pending evacuation of a VirtualMachineInstance.
+// It is served by the aggregated apiserver under the nested subresource path
+// virtualmachineinstances/evacuate/cancel
+func (app *SubresourceAPIApp) EvacuateCancelVMI(ctx context.Context, namespace, name string, body io.ReadCloser) *errors.StatusError {
+	return app.evacuateCancel(ctx, namespace, name, body, app.FetchVirtualMachineInstance)
+}
 
-		vmi, statusErr := fetcher(namespace, name)
-		if statusErr != nil {
-			writeError(statusErr, response)
-			return
-		}
+func (app *SubresourceAPIApp) EvacuateCancelVM(ctx context.Context, namespace, name string, body io.ReadCloser) *errors.StatusError {
+	return app.evacuateCancel(ctx, namespace, name, body, app.FetchVirtualMachineInstanceForVM)
+}
 
-		ctx := request.Request.Context()
-
-		if statusErr = app.validateEvacuationNode(ctx, vmi); statusErr != nil {
-			writeError(statusErr, response)
-			return
-		}
-
-		if vmi.Status.EvacuationNodeName == "" {
-			response.WriteHeader(http.StatusOK)
-			return
-		}
-
-		if request.Request.Body == nil {
-			writeError(errors.NewBadRequest("No body"), response)
-			return
-		}
-
-		opts := &v1.EvacuateCancelOptions{}
-		defer request.Request.Body.Close()
-		if err := decodeBody(request, opts); err != nil {
-			writeError(err, response)
-			return
-		}
-
-		const path = "/status/evacuationNodeName"
-		patchBytes, err := patch.New(patch.WithTest(path, opts.EvacuationNodeName),
-			patch.WithRemove(path)).GeneratePayload()
-		if err != nil {
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
-
-		_, err = app.virtClient.VirtualMachineInstance(namespace).Patch(ctx, vmi.GetName(), types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: opts.DryRun})
-		if err != nil {
-			log.Log.Object(vmi).V(2).Reason(err).Info("Failed to patching VMI")
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
-
-		response.WriteHeader(http.StatusOK)
+func (app *SubresourceAPIApp) evacuateCancel(ctx context.Context, namespace, name string, body io.ReadCloser, fetcher vmiFetcher) *errors.StatusError {
+	vmi, statusErr := fetcher(namespace, name)
+	if statusErr != nil {
+		return statusErr
 	}
+
+	if statusErr = app.validateEvacuationNode(ctx, vmi); statusErr != nil {
+		return statusErr
+	}
+
+	if vmi.Status.EvacuationNodeName == "" {
+		return nil
+	}
+
+	if body == nil {
+		return errors.NewBadRequest("No body")
+	}
+
+	opts := &v1.EvacuateCancelOptions{}
+	defer body.Close()
+	if statusErr = decodeBodyReader(body, opts); statusErr != nil {
+		return statusErr
+	}
+
+	const path = "/status/evacuationNodeName"
+	patchBytes, err := patch.New(patch.WithTest(path, opts.EvacuationNodeName),
+		patch.WithRemove(path)).GeneratePayload()
+	if err != nil {
+		return errors.NewInternalError(err)
+	}
+
+	if _, err = app.virtClient.VirtualMachineInstance(namespace).Patch(ctx, vmi.GetName(), types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: opts.DryRun}); err != nil {
+		log.Log.Object(vmi).V(2).Reason(err).Info("Failed to patching VMI")
+		return errors.NewInternalError(err)
+	}
+
+	return nil
 }
 
 // validateEvacuationNode checks if the node hosting a VirtualMachineInstance (VMI) has a taint
