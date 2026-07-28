@@ -1175,7 +1175,7 @@ var _ = Describe("exportserver", func() {
 		})
 
 		It("should reject requests without a client certificate", func() {
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), nil)
 			rec := httptest.NewRecorder()
 
 			server.handleTunnel(rec, req)
@@ -1185,7 +1185,7 @@ var _ = Describe("exportserver", func() {
 		})
 
 		It("should reject requests with an invalid client CN", func() {
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), nil)
 			req.TLS = &tls.ConnectionState{
 				PeerCertificates: []*x509.Certificate{
 					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:wrong-uid"}},
@@ -1202,7 +1202,7 @@ var _ = Describe("exportserver", func() {
 		It("should reject if a tunnel is already active", func() {
 			server.nbdClient = nbdv1.NewMockNBDClient(ctrl)
 
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), nil)
 			req.TLS = &tls.ConnectionState{
 				PeerCertificates: []*x509.Certificate{
 					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:test-uid"}},
@@ -1218,7 +1218,7 @@ var _ = Describe("exportserver", func() {
 
 		It("should accept valid connections, flush headers, and clean up on context cancel", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", http.NoBody).WithContext(ctx)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), http.NoBody).WithContext(ctx)
 			req.TLS = &tls.ConnectionState{
 				PeerCertificates: []*x509.Certificate{
 					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:test-uid"}},

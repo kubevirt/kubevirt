@@ -54,6 +54,7 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	exportpkg "kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -1171,7 +1172,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	}
 
 	// Set up the port forwarding ports
-	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, "443", *service, podList.Items[0])
+	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, strconv.Itoa(exportpkg.ExportServerPort), *service, podList.Items[0])
 	if err != nil {
 		return nil, err
 	}
