@@ -38,7 +38,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                NewDummyREST(),
 		"virtualmachineinstances/console":        NewConsoleREST(streamer),
-		"virtualmachineinstances/vnc":            NewVNCREST(streamer),
+		"virtualmachineinstances/vnc":            NewVNCREST(streamer, subresourceApp),
 		"virtualmachineinstances/usbredir":       NewUSBRedirREST(streamer),
 		"virtualmachineinstances/vsock":          NewVSOCKREST(streamer),
 		"virtualmachineinstances/portforward":    NewPortForwardREST(streamer),
@@ -54,5 +54,6 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/userlist":       NewUserListREST(subresourceApp),
 		"virtualmachineinstances/filesystemlist": NewFilesystemListREST(subresourceApp),
 		"virtualmachineinstances/objectgraph":    NewObjectGraphREST(subresourceApp),
+		"virtualmachineinstances/evacuate":       NewEvacuateCancelREST(subresourceApp),
 	}
 }

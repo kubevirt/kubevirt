@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "addvolume.go",
         "dummy.go",
+        "evacuate.go",
         "expandspec.go",
         "memorydump.go",
         "migrate.go",

@@ -43,5 +43,6 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachines/memorydump":       NewMemoryDumpREST(subresourceApp),
 		"virtualmachines/removememorydump": NewRemoveMemoryDumpREST(subresourceApp),
 		"virtualmachines/objectgraph":      NewObjectGraphREST(subresourceApp),
+		"virtualmachines/evacuate":         NewEvacuateCancelREST(subresourceApp),
 	}
 }
