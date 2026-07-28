@@ -77,5 +77,14 @@ var _ = Describe("Creating config images", func() {
 			_, err = os.Stat(imgPath)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("Should filter out kubernetes atomic writer entries", func() {
+			os.MkdirAll(filepath.Join(tempConfDir, "..2026_07_26_10_00_00.12345"), 0755)
+			os.Symlink("..2026_07_26_10_00_00.12345", filepath.Join(tempConfDir, "..data"))
+
+			fsLayout, err := getFilesLayout(tempConfDir)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fsLayout).To(Equal(expectedLayout))
+		})
 	})
 })
