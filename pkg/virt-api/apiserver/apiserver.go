@@ -70,10 +70,11 @@ type (
 		authnOpts         *options.DelegatingAuthenticationOptions
 		authzOpts         *options.DelegatingAuthorizationOptions
 
-		fallbackHandler http.Handler
-		bridgePaths     []string
-		apiHandlers     []ConditionalAPIHandler
-		muxHandlers     []MuxHandler
+		fallbackHandler  http.Handler
+		bridgePaths      []string
+		apiHandlers      []ConditionalAPIHandler
+		muxHandlers      []MuxHandler
+		alwaysAllowPaths []string
 
 		longRunningSubresources []string
 	}
@@ -134,6 +135,11 @@ func (a *APIServer) WithMuxHandlers(handlers ...MuxHandler) *APIServer {
 	return a
 }
 
+func (a *APIServer) WithAlwaysAllowPaths(paths ...string) *APIServer {
+	a.alwaysAllowPaths = append(a.alwaysAllowPaths, paths...)
+	return a
+}
+
 // marks the given subresources as long-running so the GenericAPIServer does not
 // enforce its default RequestTimeout on them.
 func (a *APIServer) WithLongRunningSubresources(subresources ...string) *APIServer {
@@ -177,6 +183,7 @@ func (a *APIServer) Run(
 	for _, mh := range a.muxHandlers {
 		a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, mh.Path)
 	}
+	a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, a.alwaysAllowPaths...)
 	bridgeEnabled := a.fallbackHandler != nil && len(a.bridgePaths) > 0
 	if bridgeEnabled || len(a.apiHandlers) > 0 {
 		matchesBridgePath := newPathMatcher(a.bridgePaths)
