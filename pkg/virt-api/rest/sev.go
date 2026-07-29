@@ -22,9 +22,7 @@ package rest
 import (
 	"context"
 	"fmt"
-	"net/http"
-
-	"github.com/emicklei/go-restful/v3"
+	"io"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,17 +41,19 @@ const (
 	vmiNoAttestationErr = "Attestation not requested for VMI"
 )
 
-func (app *SubresourceAPIApp) ensureSEVEnabled(response *restful.Response) bool {
+func (app *SubresourceAPIApp) sevEnabled() *errors.StatusError {
 	if !app.clusterConfig.WorkloadEncryptionSEVEnabled() {
-		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, featuregate.WorkloadEncryptionSEV)), response)
-		return false
+		return errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, featuregate.WorkloadEncryptionSEV))
 	}
-	return true
+	return nil
 }
 
-func (app *SubresourceAPIApp) SEVFetchCertChainRequestHandler(request *restful.Request, response *restful.Response) {
-	if !app.ensureSEVEnabled(response) {
-		return
+// SEVFetchCertChain proxies the SEV platform certificate chain of a VMI from
+// virt-handler. It is served by the aggregated apiserver under the nested
+// subresource path virtualmachineinstances/sev/fetchcertchain
+func (app *SubresourceAPIApp) SEVFetchCertChain(ctx context.Context, namespace, name string) (interface{}, *errors.StatusError) {
+	if statusErr := app.sevEnabled(); statusErr != nil {
+		return nil, statusErr
 	}
 
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
@@ -70,45 +70,55 @@ func (app *SubresourceAPIApp) SEVFetchCertChainRequestHandler(request *restful.R
 		return conn.SEVFetchCertChainURI(vmi)
 	}
 
-	app.httpGetRequestHandler(request, response, validate, getURL, v1.SEVPlatformInfo{})
+	result, err := app.httpGetVirtHandler(ctx, namespace, name, validate, getURL, v1.SEVPlatformInfo{})
+	if err != nil {
+		return nil, errors.NewInternalError(err)
+	}
+	return result, nil
 }
 
-func (app *SubresourceAPIApp) SEVQueryLaunchMeasurementHandler(request *restful.Request, response *restful.Response) {
-	if !app.ensureSEVEnabled(response) {
-		return
+// SEVQueryLaunchMeasurement proxies the SEV launch measurement of a VMI from
+// virt-handler. It is served under the nested subresource path
+// virtualmachineinstances/sev/querylaunchmeasurement
+func (app *SubresourceAPIApp) SEVQueryLaunchMeasurement(ctx context.Context, namespace, name string) (interface{}, *errors.StatusError) {
+	if statusErr := app.sevEnabled(); statusErr != nil {
+		return nil, statusErr
 	}
 
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.SEVQueryLaunchMeasurementURI(vmi)
 	}
 
-	app.httpGetRequestHandler(request, response, validateVMIForSEVAttestation, getURL, v1.SEVMeasurementInfo{})
+	result, err := app.httpGetVirtHandler(ctx, namespace, name, validateVMIForSEVAttestation, getURL, v1.SEVMeasurementInfo{})
+	if err != nil {
+		return nil, errors.NewInternalError(err)
+	}
+	return result, nil
 }
 
-func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, response *restful.Response) {
-	if !app.ensureSEVEnabled(response) {
-		return
+// SEVSetupSession patches the VMI with the SEV session parameters. It is served
+// under the nested subresource path virtualmachineinstances/sev/setupsession
+func (app *SubresourceAPIApp) SEVSetupSession(ctx context.Context, namespace, name string, body io.ReadCloser) *errors.StatusError {
+	if statusErr := app.sevEnabled(); statusErr != nil {
+		return statusErr
 	}
 
-	if request.Request.Body == nil {
-		writeError(errors.NewBadRequest("Request with no body: SEV session parameters are required"), response)
-		return
+	if body == nil {
+		return errors.NewBadRequest("Request with no body: SEV session parameters are required")
 	}
 
 	opts := &v1.SEVSessionOptions{}
-	if err := decodeBody(request, opts); err != nil {
-		writeError(err, response)
-		return
+	defer body.Close()
+	if statusErr := decodeBodyReader(body, opts); statusErr != nil {
+		return statusErr
 	}
 
 	if opts.Session == "" {
-		writeError(errors.NewBadRequest("Session blob is required"), response)
-		return
+		return errors.NewBadRequest("Session blob is required")
 	}
 
 	if opts.DHCert == "" {
-		writeError(errors.NewBadRequest("DH cert is required"), response)
-		return
+		return errors.NewBadRequest("DH cert is required")
 	}
 
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
@@ -125,49 +135,45 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 		return nil
 	}
 
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-	vmi, statusError := app.fetchAndValidateVirtualMachineInstance(request.Request.Context(), namespace, name, validate)
+	vmi, statusError := app.fetchAndValidateVirtualMachineInstance(ctx, namespace, name, validate)
 	if statusError != nil {
-		writeError(statusError, response)
-		return
+		return statusError
 	}
 
 	oldSEV := vmi.Spec.Domain.LaunchSecurity.SEV
 	newSEV := oldSEV.DeepCopy()
 	newSEV.Session = opts.Session
 	newSEV.DHCert = opts.DHCert
-	patch, err := patch.GenerateTestReplacePatch("/spec/domain/launchSecurity/sev", oldSEV, newSEV)
+	patchBytes, err := patch.GenerateTestReplacePatch("/spec/domain/launchSecurity/sev", oldSEV, newSEV)
 	if err != nil {
-		writeError(errors.NewInternalError(err), response)
-		return
+		return errors.NewInternalError(err)
 	}
 
-	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patch))
-	if _, err := app.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
+	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patchBytes))
+	if _, err := app.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(ctx, vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to patch vmi")
-		writeError(errors.NewInternalError(err), response)
-		return
+		return errors.NewInternalError(err)
 	}
 
-	response.WriteHeader(http.StatusAccepted)
+	return nil
 }
 
-func (app *SubresourceAPIApp) SEVInjectLaunchSecretHandler(request *restful.Request, response *restful.Response) {
-	if !app.ensureSEVEnabled(response) {
-		return
+// SEVInjectLaunchSecret proxies the SEV launch secret to virt-handler. It is
+// served under the nested subresource path virtualmachineinstances/sev/injectlaunchsecret
+func (app *SubresourceAPIApp) SEVInjectLaunchSecret(ctx context.Context, namespace, name string, body io.ReadCloser) *errors.StatusError {
+	if statusErr := app.sevEnabled(); statusErr != nil {
+		return statusErr
 	}
 
-	if request.Request.Body == nil {
-		writeError(errors.NewBadRequest("Request with no body: SEV secret parameters are required"), response)
-		return
+	if body == nil {
+		return errors.NewBadRequest("Request with no body: SEV secret parameters are required")
 	}
 
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.SEVInjectLaunchSecretURI(vmi)
 	}
 
-	app.putRequestHandler(request, response, validateVMIForSEVAttestation, getURL, false)
+	return app.connectVirtHandler(ctx, namespace, name, body, validateVMIForSEVAttestation, nil, getURL, false)
 }
 
 // Validate a VMI for SEV attestation: Running, Paused and with Attestation requested.

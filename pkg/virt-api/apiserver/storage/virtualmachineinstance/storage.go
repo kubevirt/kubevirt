@@ -55,5 +55,6 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/filesystemlist": NewFilesystemListREST(subresourceApp),
 		"virtualmachineinstances/objectgraph":    NewObjectGraphREST(subresourceApp),
 		"virtualmachineinstances/evacuate":       NewEvacuateCancelREST(subresourceApp),
+		"virtualmachineinstances/sev":            NewSEVREST(subresourceApp),
 	}
 }
