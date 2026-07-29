@@ -1,6 +1,6 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("//bazel:image.bzl", "kubevirt_image")
 
-oci_image(
+kubevirt_image(
     name = "virt-template-apiserver-image",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@virt_template_apiserver_aarch64",
@@ -10,7 +10,7 @@ oci_image(
     visibility = ["//visibility:public"],
 )
 
-oci_image(
+kubevirt_image(
     name = "virt-template-controller-image",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@virt_template_controller_aarch64",

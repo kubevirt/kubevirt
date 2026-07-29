@@ -1,5 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 genrule(
     name = "alpine-img",
@@ -47,7 +47,7 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+kubevirt_image(
     name = "disks-images-provider-image",
     base = "//images:kubevirt-testing-base",
     entrypoint = ["/entrypoint.sh"],

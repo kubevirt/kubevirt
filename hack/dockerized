@@ -12,7 +12,7 @@ fi
 
 fail_if_cri_bin_missing
 
-kubevirt_builder_version="2606231619-4fe2cd536f"
+kubevirt_builder_version="2606301323-b9f50e380a"
 kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
 
 # CentOS Stream 9 builder images (default)
