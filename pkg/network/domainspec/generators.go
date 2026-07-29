@@ -121,3 +121,91 @@ func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
 	}
 	return tapName, nil
 }
+
+func NewPasstLibvirtSpecGenerator(
+	iface *v1.Interface,
+	network v1.Network,
+	domain *api.Domain,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *PasstLibvirtSpecGenerator {
+	return &PasstLibvirtSpecGenerator{
+		vmiSpecIface:     iface,
+		vmiSpecNetwork:   network,
+		domain:           domain,
+		podInterfaceName: podInterfaceName,
+		handler:          handler,
+	}
+}
+
+type PasstLibvirtSpecGenerator struct {
+	vmiSpecIface     *v1.Interface
+	vmiSpecNetwork   v1.Network
+	domain           *api.Domain
+	podInterfaceName string
+	handler          netdriver.NetworkHandler
+}
+
+func (p *PasstLibvirtSpecGenerator) Generate() error {
+	ips, err := p.discoverPodIPs()
+	if err != nil {
+		return err
+	}
+
+	domainIface := LookupIfaceByAliasName(p.domain.Spec.Devices.Interfaces, p.vmiSpecIface.Name)
+	if domainIface != nil {
+		domainIface.IPs = ips
+	}
+
+	return nil
+}
+
+func (p *PasstLibvirtSpecGenerator) discoverPodIPs() ([]api.InterfaceIP, error) {
+	podNicLink, err := p.handler.LinkByName(p.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf(linkIfaceFailFmt, p.podInterfaceName)
+		return nil, err
+	}
+
+	var ips []api.InterfaceIP
+
+	ipv4, err := p.firstGlobalUnicastAddr(podNicLink, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, err
+	}
+	if ipv4 != nil {
+		prefixLen, _ := ipv4.Mask.Size()
+		ips = append(ips, api.InterfaceIP{
+			Family:  "ipv4",
+			Address: ipv4.IP.String(),
+			Prefix:  strconv.Itoa(prefixLen),
+		})
+	}
+
+	ipv6, err := p.firstGlobalUnicastAddr(podNicLink, netlink.FAMILY_V6)
+	if err != nil {
+		return nil, err
+	}
+	if ipv6 != nil {
+		ips = append(ips, api.InterfaceIP{
+			Family:  "ipv6",
+			Address: ipv6.IP.String(),
+		})
+	}
+
+	return ips, nil
+}
+
+func (p *PasstLibvirtSpecGenerator) firstGlobalUnicastAddr(link netlink.Link, family int) (*netlink.Addr, error) {
+	addrs, err := p.handler.AddrList(link, family)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get addresses for interface: %s", p.podInterfaceName)
+		return nil, err
+	}
+	for i, addr := range addrs {
+		if addr.IP.IsGlobalUnicast() {
+			return &addrs[i], nil
+		}
+	}
+	return nil, nil
+}
