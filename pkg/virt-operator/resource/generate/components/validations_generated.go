@@ -1151,6 +1151,21 @@ var CRDsValidation map[string]string = map[string]string{
                 migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
                 field is set it overrides the cluster level one.
               type: string
+            exportConfiguration:
+              description: ExportConfiguration holds cluster-level settings for VirtualMachineExport.
+              nullable: true
+              properties:
+                externalCertificationStrategy:
+                  description: |-
+                    ExternalCertificationStrategy controls how VirtualMachineExport external
+                    link certificates are populated.
+                    Defaults to ClusterRootCA.
+                  enum:
+                  - ClusterRootCA
+                  - CustomRootCA
+                  - SystemTrust
+                  type: string
+              type: object
             handlerConfiguration:
               description: |-
                 ReloadableComponentConfiguration holds all generic k8s configuration options which can
