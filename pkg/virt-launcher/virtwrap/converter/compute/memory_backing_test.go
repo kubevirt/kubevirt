@@ -77,7 +77,7 @@ var _ = Describe("MemoryBackingConfigurator", func() {
 			},
 		),
 		Entry("passt",
-			libvmi.New(libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default"))),
+			libvmi.New(libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding()))),
 			memfdSupported,
 			&api.MemoryBacking{
 				Access: &api.MemoryBackingAccess{Mode: "shared"},

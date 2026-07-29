@@ -57,7 +57,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 
 	It("should do nothing if there is only a primary interface with a tap based binding", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
@@ -76,9 +76,9 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 
 	It("should do nothing if there are secondary networks with hashed naming scheme", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1Name)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2Name)),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetwork1Name, libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetwork2Name, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork1Name, secondaryNetwork1NADName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork2Name, secondaryNetwork2NADName)),
@@ -101,9 +101,9 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 
 	It("should convert the ordinal to hashed naming scheme", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1Name)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2Name)),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetwork1Name, libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetwork2Name, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork1Name, secondaryNetwork1NADName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork2Name, secondaryNetwork2NADName)),

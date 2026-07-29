@@ -53,7 +53,7 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 			},
 			Entry("no corresponding network",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("not-default")),
+					libvmi.WithInterface(libvmi.NewInterface("not-default", libvmi.WithPasstBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmistatus.WithStatus(
 						libvmistatus.New(
@@ -64,13 +64,13 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 			),
 			Entry("no matching status entry",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 			),
 			Entry("empty PodInterfaceName in status",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmistatus.WithStatus(
 						libvmistatus.New(
@@ -195,7 +195,7 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 			},
 			Entry("virtio transitional enabled",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmistatus.WithStatus(
 						libvmistatus.New(
@@ -212,7 +212,7 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 			Entry("isitio proxy injection enabled",
 				libvmi.New(
 					libvmi.WithAnnotation("sidecar.istio.io/inject", "true"),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmistatus.WithStatus(
 						libvmistatus.New(
@@ -230,7 +230,7 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 
 		It("should not override other interfaces", func() {
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 				libvmi.WithInterface(v1.Interface{
 					Name: multusSecondaryNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -270,7 +270,7 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 
 		It("should set domain interface correctly when executed more than once", func() {
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
@@ -300,7 +300,7 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 
 		It("should set domain interface source link to the optional one if exists", func() {
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
@@ -439,7 +439,7 @@ func withSourceDevice(sourceDevice string) passtOption {
 type ifaceOption func(iface *v1.Interface)
 
 func newPasstInterface(options ...ifaceOption) v1.Interface {
-	newIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+	newIface := libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())
 
 	for _, f := range options {
 		f(&newIface)
