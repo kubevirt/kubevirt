@@ -393,9 +393,6 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	eventType := watch.Modified
 
 	switch domain.Status.Reason {
-	case api.ReasonNonExistent:
-		now := metav1.Now()
-		domain.ObjectMeta.DeletionTimestamp = &now
 	case api.ReasonPausedIOError:
 		domainDisksWithErrors, err := d.GetDiskErrors(0)
 		if err != nil {
@@ -774,6 +771,19 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 }
 
 func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {
+	// Set DeletionTimestamp when the domain is truly gone from libvirt.
+	// Undefined is terminal for persistent domains (emitted by explicit undefine).
+	// Stopped is terminal for transient domains (e.g. migration target).
+	// Stopped(Migrated) is excluded because it only fires on the persistent source
+	// after a successful outbound migration, where Undefined follows.
+	if (lifecycleEvent.Event == libvirt.DOMAIN_EVENT_UNDEFINED) ||
+		(lifecycleEvent.Event == libvirt.DOMAIN_EVENT_STOPPED && libvirt.DomainEventStoppedDetailType(lifecycleEvent.Detail) != libvirt.DOMAIN_EVENT_STOPPED_MIGRATED) {
+		if domain.Status.Reason == api.ReasonNonExistent {
+			now := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &now
+		}
+		return false
+	}
 	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_DEFINED &&
 		libvirt.DomainEventDefinedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 		return true
