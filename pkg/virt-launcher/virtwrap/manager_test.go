@@ -3258,7 +3258,7 @@ var _ = Describe("Manager", func() {
 			Expect(converterContext.PCINUMAAwareTopologyEnabled).To(BeFalse())
 		})
 
-		It("should set Grace conversion flags and expected aliases from options", func() {
+		It("should set Grace conversion flags and expected aliases from options on supported architectures", func() {
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
 			iommuFDFile, err := os.CreateTemp(GinkgoT().TempDir(), "iommufd-test")
 			Expect(err).ToNot(HaveOccurred())
@@ -3277,9 +3277,13 @@ var _ = Describe("Manager", func() {
 			libvirtManager.iommuFD = int(iommuFDFile.Fd())
 			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(converterContext.GraceIOVirtualizationEnabled).To(BeTrue())
-			Expect(converterContext.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
+			if arch.NewConverter(runtime.GOARCH).SupportPCIePlacement() {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(converterContext.GraceIOVirtualizationEnabled).To(BeTrue())
+				Expect(converterContext.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("requires PCIe placement support")))
+			}
 		})
 
 		It("should reject Grace conversion when the IOMMUFD file descriptor is unavailable", func() {
