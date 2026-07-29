@@ -188,16 +188,23 @@ func composeResourceURI(object unstructured.Unstructured) string {
 	if object.GetNamespace() != "" && isNamespaceScoped(object.GroupVersionKind()) {
 		uri = path.Join(uri, "namespaces", object.GetNamespace())
 	}
-	uri = path.Join(uri, strings.ToLower(object.GetKind()))
-	if !strings.HasSuffix(object.GetKind(), "s") {
-		uri += "s"
+	kind := strings.ToLower(object.GetKind())
+	if strings.HasSuffix(kind, "cy") {
+		uri = path.Join(uri, kind[:len(kind)-1]+"ies")
+	} else if strings.HasSuffix(kind, "ss") || strings.HasSuffix(kind, "class") {
+		uri = path.Join(uri, kind+"es")
+	} else if !strings.HasSuffix(kind, "s") {
+		uri = path.Join(uri, kind+"s")
+	} else {
+		uri = path.Join(uri, kind)
 	}
 	return uri
 }
 
 func isNamespaceScoped(kind schema.GroupVersionKind) bool {
 	switch kind.Kind {
-	case "ClusterRole", "ClusterRoleBinding":
+	case "ClusterRole", "ClusterRoleBinding", "DeviceClass",
+		"MutatingAdmissionPolicy", "MutatingAdmissionPolicyBinding":
 		return false
 	}
 	return true

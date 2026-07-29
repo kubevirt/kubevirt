@@ -21,6 +21,9 @@ package domain
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"slices"
 	"strings"
 
 	vmschema "kubevirt.io/api/core/v1"
@@ -59,10 +62,16 @@ func NewPasstNetworkConfigurator(
 	bindingPluginName string,
 	opts NetworkConfiguratorOptions,
 ) (*PasstNetworkConfigurator, error) {
-	network := vmispec.LookupPodNetwork(networks)
-	if network == nil {
-		return nil, fmt.Errorf("pod network not found")
+
+	idx := slices.IndexFunc(networks, func(network vmschema.Network) bool {
+		return vmispec.IsDRANetwork(network)
+	})
+
+	if idx == -1 {
+		return nil, fmt.Errorf("DRA network not found")
 	}
+
+	network := networks[idx]
 	iface := vmispec.LookupInterfaceByName(ifaces, network.Name)
 	if iface == nil {
 		return nil, fmt.Errorf("no interface found")
@@ -71,19 +80,9 @@ func NewPasstNetworkConfigurator(
 		return nil, fmt.Errorf("interface %q is not set with Passt network binding plugin", network.Name)
 	}
 
-	ifaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, network.Name)
-	if ifaceStatus == nil {
-		return nil, fmt.Errorf("primary network interface status was not found")
-	}
-
-	primaryPodIfaceName := ifaceStatus.PodInterfaceName
-	if primaryPodIfaceName == "" {
-		return nil, fmt.Errorf("primary pod network interface name was not found")
-	}
-
 	return &PasstNetworkConfigurator{
 		vmiSpecIface: iface,
-		podIfaceName: primaryPodIfaceName,
+		podIfaceName: "eth0",
 		options:      opts,
 	}, nil
 }
@@ -181,6 +180,16 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 		ifaceTypeVhostUser = "vhostuser"
 		ifaceBackendPasst  = "passt"
 	)
+
+	var passtLogFile string
+	kubevirtNetworkDir, ok := os.LookupEnv("KUBEVIRT_HOSTPATH_MOUNTPOINT")
+	if !ok {
+		log.Log.Warning("KUBEVIRT_HOSTPATH_MOUNTPOINT env var not found")
+		passtLogFile = PasstLogFilePath
+	} else {
+		passtLogFile = path.Join(kubevirtNetworkDir, "passt-dra.log")
+	}
+
 	return &domainschema.Interface{
 		Alias:       domainschema.NewUserDefinedAlias(p.vmiSpecIface.Name),
 		Model:       model,
@@ -189,7 +198,7 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 		ACPI:        acpi,
 		Type:        ifaceTypeVhostUser,
 		Source:      domainschema.InterfaceSource{Device: p.podIfaceName},
-		Backend:     &domainschema.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFilePath},
+		Backend:     &domainschema.InterfaceBackend{Type: ifaceBackendPasst, LogFile: passtLogFile},
 		PortForward: p.generatePortForward(),
 	}, nil
 }
