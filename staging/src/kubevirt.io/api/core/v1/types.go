@@ -2761,6 +2761,12 @@ const (
 	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
 	// Whether KubeVirt is not functioning completely
 	KubeVirtConditionDegraded KubeVirtConditionType = "Degraded"
+	// Whether the custom external export CA ConfigMap is missing when
+	// exportConfiguration.externalCertificationStrategy is CustomRootCA.
+	// Status False with reason ExportExternalCAConfigMapMissing indicates the
+	// ConfigMap is missing or empty; external export certs will be blank.
+	// The condition is omitted when the ConfigMap is present or CustomRootCA is not selected.
+	KubeVirtConditionExportCustomExternalCA KubeVirtConditionType = "ExportCustomExternalCA"
 )
 
 const (
@@ -3207,6 +3213,37 @@ type KubeVirtConfiguration struct {
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
+
+	// ExportConfiguration holds cluster-level settings for VirtualMachineExport.
+	// +nullable
+	ExportConfiguration *ExportConfiguration `json:"exportConfiguration,omitempty"`
+}
+
+// ExternalCertificationStrategy controls how VirtualMachineExport external link
+// certificates are populated in status.links.external.cert for both Ingress and Route.
+type ExternalCertificationStrategy string
+
+const (
+	// ExternalCertificationStrategyClusterRootCA is the default.
+	// For Routes, certificates are taken from kube-root-ca.crt.
+	// For Ingress, certificates are taken from the Ingress TLS secret.
+	ExternalCertificationStrategyClusterRootCA ExternalCertificationStrategy = "ClusterRootCA"
+	// ExternalCertificationStrategyCustomRootCA publishes certificates from the
+	// kubevirt-export-external-ca ConfigMap in the install namespace (Ingress and Route).
+	ExternalCertificationStrategyCustomRootCA ExternalCertificationStrategy = "CustomRootCA"
+	// ExternalCertificationStrategySystemTrust leaves the external cert empty so
+	// clients use their system trust store (typical for public-CA signed ingress/edge).
+	ExternalCertificationStrategySystemTrust ExternalCertificationStrategy = "SystemTrust"
+)
+
+// ExportConfiguration holds cluster-level VirtualMachineExport settings.
+type ExportConfiguration struct {
+	// ExternalCertificationStrategy controls how VirtualMachineExport external
+	// link certificates are populated.
+	// Defaults to ClusterRootCA.
+	// +optional
+	// +kubebuilder:validation:Enum=ClusterRootCA;CustomRootCA;SystemTrust
+	ExternalCertificationStrategy *ExternalCertificationStrategy `json:"externalCertificationStrategy,omitempty"`
 }
 
 // QGSConfiguration holds QGS configuration

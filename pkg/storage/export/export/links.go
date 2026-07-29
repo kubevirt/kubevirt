@@ -20,6 +20,7 @@
 package export
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -31,9 +32,15 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
+	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -44,6 +51,8 @@ const (
 	routeCAConfigMapName = "kube-root-ca.crt"
 	routeCaKey           = "ca.crt"
 	subjectAltNameId     = "2.5.29.17"
+
+	exportExternalCAConfigMapMissingReason = "ExportExternalCAConfigMapMissing"
 
 	apiGroup              = "export.kubevirt.io"
 	apiVersion            = "v1"
@@ -140,6 +149,20 @@ func (ctrl *VMExportController) getExternalLinkHostAndCert() (string, string) {
 }
 
 func (ctrl *VMExportController) getIngressCert(hostName string, ing *networkingv1.Ingress) (string, error) {
+	switch ctrl.getExternalCertificationStrategy() {
+	case virtv1.ExternalCertificationStrategySystemTrust:
+		return "", nil
+	case virtv1.ExternalCertificationStrategyCustomRootCA:
+		if !ctrl.routeCAConfigMapPresent(components.KubeVirtExportExternalCAConfigMapName) {
+			return "", nil
+		}
+		return ctrl.certFromRouteCAConfigMap(components.KubeVirtExportExternalCAConfigMapName, hostName)
+	default:
+		return ctrl.getIngressCertFromTLSSecret(hostName, ing)
+	}
+}
+
+func (ctrl *VMExportController) getIngressCertFromTLSSecret(hostName string, ing *networkingv1.Ingress) (string, error) {
 	secretName := ""
 	for _, tls := range ing.Spec.TLS {
 		if tls.SecretName != "" {
@@ -167,30 +190,189 @@ func (ctrl *VMExportController) getIngressCertFromSecret(secret *corev1.Secret, 
 	if err != nil {
 		return "", err
 	}
-	return ctrl.findCertByHostName(hostName, certs)
+	certPEM, _, err := ctrl.findCertByHostName(hostName, certs)
+	return certPEM, err
+}
+
+func (ctrl *VMExportController) getExternalCertificationStrategy() virtv1.ExternalCertificationStrategy {
+	if ctrl.clusterConfig != nil {
+		return ctrl.clusterConfig.GetExternalCertificationStrategy()
+	}
+	return virtv1.ExternalCertificationStrategyClusterRootCA
 }
 
 func (ctrl *VMExportController) getRouteCert(hostName string) (string, error) {
-	key := controller.NamespacedKey(ctrl.KubevirtNamespace, routeCAConfigMapName)
-	obj, exists, err := ctrl.RouteConfigMapInformer.GetStore().GetByKey(key)
+	switch ctrl.getExternalCertificationStrategy() {
+	case virtv1.ExternalCertificationStrategySystemTrust:
+		return "", nil
+	case virtv1.ExternalCertificationStrategyCustomRootCA:
+		if !ctrl.routeCAConfigMapPresent(components.KubeVirtExportExternalCAConfigMapName) {
+			return "", nil
+		}
+		return ctrl.certFromRouteCAConfigMap(components.KubeVirtExportExternalCAConfigMapName, hostName)
+	default:
+		return ctrl.certFromRouteCAConfigMap(routeCAConfigMapName, hostName)
+	}
+}
+
+func (ctrl *VMExportController) reconcileExportExternalCertification() error {
+	switch ctrl.getExternalCertificationStrategy() {
+	case virtv1.ExternalCertificationStrategyCustomRootCA:
+		return ctrl.syncExportCustomExternalCACondition(true, ctrl.routeCAConfigMapPresent(components.KubeVirtExportExternalCAConfigMapName))
+	default:
+		return ctrl.syncExportCustomExternalCACondition(false, false)
+	}
+}
+
+func (ctrl *VMExportController) getCAConfigMap(configMapName string) (*corev1.ConfigMap, bool, error) {
+	store := ctrl.RouteConfigMapInformer.GetStore()
+	if configMapName == components.KubeVirtExportExternalCAConfigMapName && ctrl.ExternalCAConfigMapInformer != nil {
+		store = ctrl.ExternalCAConfigMapInformer.GetStore()
+	}
+
+	obj, exists, err := store.GetByKey(controller.NamespacedKey(ctrl.KubevirtNamespace, configMapName))
+	if err != nil || !exists {
+		return nil, false, err
+	}
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok {
+		return nil, false, fmt.Errorf("not a config map")
+	}
+	return cm, true, nil
+}
+
+func (ctrl *VMExportController) routeCAConfigMapPresent(configMapName string) bool {
+	cm, exists, err := ctrl.getCAConfigMap(configMapName)
+	if err != nil || !exists {
+		return false
+	}
+	return strings.TrimSpace(cm.Data[routeCaKey]) != ""
+}
+
+// syncExportCustomExternalCACondition updates the KubeVirt CR condition that
+// warns when CustomRootCA is selected but kubevirt-export-external-ca is missing.
+// The condition is only present while misconfigured; it is removed when healthy
+// or when CustomRootCA is not selected.
+func (ctrl *VMExportController) syncExportCustomExternalCACondition(customRootCA, configMapPresent bool) error {
+	if ctrl.Client == nil || ctrl.KubeVirtInformer == nil {
+		return nil
+	}
+
+	var errs []error
+	for _, obj := range ctrl.KubeVirtInformer.GetStore().List() {
+		kv, ok := obj.(*virtv1.KubeVirt)
+		if !ok || kv.Namespace != ctrl.KubevirtNamespace {
+			continue
+		}
+		if err := ctrl.patchExportCustomExternalCACondition(kv, customRootCA, configMapPresent); err != nil {
+			log.Log.Reason(err).Warningf("failed to patch %s condition on KubeVirt %s/%s",
+				virtv1.KubeVirtConditionExportCustomExternalCA, kv.Namespace, kv.Name)
+			errs = append(errs, err)
+		}
+	}
+	return utilerrors.NewAggregate(errs)
+}
+
+func (ctrl *VMExportController) patchExportCustomExternalCACondition(kv *virtv1.KubeVirt, customRootCA, configMapPresent bool) error {
+	updated := kv.DeepCopy()
+	condType := virtv1.KubeVirtConditionExportCustomExternalCA
+
+	changed := false
+	if !customRootCA || configMapPresent {
+		changed = removeKubeVirtCondition(updated, condType)
+	} else {
+		changed = setKubeVirtCondition(updated, virtv1.KubeVirtCondition{
+			Type:    condType,
+			Status:  corev1.ConditionFalse,
+			Reason:  exportExternalCAConfigMapMissingReason,
+			Message: fmt.Sprintf("ConfigMap %s/%s is missing or empty while exportConfiguration.externalCertificationStrategy is CustomRootCA; external export certificates will be blank", ctrl.KubevirtNamespace, components.KubeVirtExportExternalCAConfigMapName),
+		})
+	}
+	if !changed {
+		return nil
+	}
+
+	oldConditions := kv.Status.Conditions
+	newConditions := updated.Status.Conditions
+	var patchSet *patch.PatchSet
+	if oldConditions == nil {
+		patchSet = patch.New(patch.WithAdd("/status/conditions", newConditions))
+	} else {
+		patchSet = patch.New(
+			patch.WithTest("/status/conditions", oldConditions),
+			patch.WithReplace("/status/conditions", newConditions),
+		)
+	}
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = ctrl.Client.KubeVirt(kv.Namespace).PatchStatus(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return err
+}
+
+func setKubeVirtCondition(kv *virtv1.KubeVirt, desired virtv1.KubeVirtCondition) bool {
+	now := metav1.Now()
+	for i := range kv.Status.Conditions {
+		existing := &kv.Status.Conditions[i]
+		if existing.Type != desired.Type {
+			continue
+		}
+		if existing.Status == desired.Status && existing.Reason == desired.Reason && existing.Message == desired.Message {
+			return false
+		}
+		desired.LastProbeTime = now
+		if existing.Status != desired.Status {
+			desired.LastTransitionTime = now
+		} else {
+			desired.LastTransitionTime = existing.LastTransitionTime
+		}
+		kv.Status.Conditions[i] = desired
+		return true
+	}
+	desired.LastProbeTime = now
+	desired.LastTransitionTime = now
+	kv.Status.Conditions = append(kv.Status.Conditions, desired)
+	return true
+}
+
+func removeKubeVirtCondition(kv *virtv1.KubeVirt, condType virtv1.KubeVirtConditionType) bool {
+	for i, c := range kv.Status.Conditions {
+		if c.Type != condType {
+			continue
+		}
+		kv.Status.Conditions = append(kv.Status.Conditions[:i], kv.Status.Conditions[i+1:]...)
+		return true
+	}
+	return false
+}
+
+func (ctrl *VMExportController) certFromRouteCAConfigMap(configMapName, hostName string) (string, error) {
+	cm, exists, err := ctrl.getCAConfigMap(configMapName)
+	if err != nil || !exists {
+		return "", err
+	}
+	cmString := strings.TrimSpace(cm.Data[routeCaKey])
+	if cmString == "" {
+		return "", nil
+	}
+	certs, err := cert.ParseCertsPEM([]byte(cmString))
 	if err != nil {
 		return "", err
 	}
-	if !exists {
-		return "", nil
+	certPEM, matched, err := ctrl.findCertByHostName(hostName, certs)
+	if err != nil {
+		return "", err
 	}
-	if cm, ok := obj.(*corev1.ConfigMap); ok {
-		cmString := cm.Data[routeCaKey]
-		certs, err := cert.ParseCertsPEM([]byte(cmString))
-		if err != nil {
-			return "", err
-		}
-		return ctrl.findCertByHostName(hostName, certs)
+	if !matched {
+		log.Log.Warningf("no certificate in ConfigMap %s/%s matched export route host %q; publishing available certificates from the ConfigMap if any. If the edge certificate is signed by a public CA, set spec.configuration.exportConfiguration.externalCertificationStrategy to SystemTrust; for a private edge CA not in this ConfigMap, use CustomRootCA with ConfigMap %s",
+			ctrl.KubevirtNamespace, configMapName, hostName, components.KubeVirtExportExternalCAConfigMapName)
 	}
-	return "", fmt.Errorf("not a config map")
+	return certPEM, nil
 }
 
-func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x509.Certificate) (string, error) {
+func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x509.Certificate) (string, bool, error) {
 	now := time.Now()
 	var latestCert *x509.Certificate
 	for _, cert := range certs {
@@ -219,12 +401,14 @@ func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x50
 		}
 	}
 	if latestCert != nil && latestCert.NotAfter.After(now) && latestCert.NotBefore.Before(now) {
-		return ctrl.buildPemFromCert(latestCert, certs)
+		certPEM, err := ctrl.buildPemFromCert(latestCert, certs)
+		return certPEM, true, err
 	}
 	if len(certs) > 0 {
-		return ctrl.buildPemFromAllCerts(certs, now)
+		certPEM, err := ctrl.buildPemFromAllCerts(certs, now)
+		return certPEM, false, err
 	}
-	return "", nil
+	return "", false, nil
 }
 
 func (ctrl *VMExportController) buildPemFromAllCerts(allCerts []*x509.Certificate, now time.Time) (string, error) {
@@ -242,7 +426,7 @@ func (ctrl *VMExportController) buildPemFromCert(matchingCert *x509.Certificate,
 	pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: matchingCert.Raw})
 	if matchingCert.Issuer.CommonName != matchingCert.Subject.CommonName && !matchingCert.IsCA {
 		//lookup issuer recursively, if not found a blank is returned.
-		chain, err := ctrl.findCertByHostName(matchingCert.Issuer.CommonName, allCerts)
+		chain, _, err := ctrl.findCertByHostName(matchingCert.Issuer.CommonName, allCerts)
 		if err != nil {
 			return "", err
 		}

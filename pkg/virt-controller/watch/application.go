@@ -194,23 +194,24 @@ type VirtControllerApp struct {
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
-	caExportConfigMapInformer    cache.SharedIndexInformer
-	caBackupConfigMapInformer    cache.SharedIndexInformer
-	exportRouteConfigMapInformer cache.SharedInformer
-	exportServiceInformer        cache.SharedIndexInformer
-	exportController             *export.VMExportController
-	snapshotController           *snapshot.VMSnapshotController
-	restoreController            *snapshot.VMRestoreController
-	vmExportInformer             cache.SharedIndexInformer
-	routeCache                   cache.Store
-	ingressCache                 cache.Store
-	unmanagedSecretInformer      cache.SharedIndexInformer
-	vmSnapshotInformer           cache.SharedIndexInformer
-	vmSnapshotContentInformer    cache.SharedIndexInformer
-	vmRestoreInformer            cache.SharedIndexInformer
-	storageClassInformer         cache.SharedIndexInformer
-	allPodInformer               cache.SharedIndexInformer
-	resourceQuotaInformer        cache.SharedIndexInformer
+	caExportConfigMapInformer         cache.SharedIndexInformer
+	caBackupConfigMapInformer         cache.SharedIndexInformer
+	exportRouteConfigMapInformer      cache.SharedInformer
+	exportExternalCAConfigMapInformer cache.SharedInformer
+	exportServiceInformer             cache.SharedIndexInformer
+	exportController                  *export.VMExportController
+	snapshotController                *snapshot.VMSnapshotController
+	restoreController                 *snapshot.VMRestoreController
+	vmExportInformer                  cache.SharedIndexInformer
+	routeCache                        cache.Store
+	ingressCache                      cache.Store
+	unmanagedSecretInformer           cache.SharedIndexInformer
+	vmSnapshotInformer                cache.SharedIndexInformer
+	vmSnapshotContentInformer         cache.SharedIndexInformer
+	vmRestoreInformer                 cache.SharedIndexInformer
+	storageClassInformer              cache.SharedIndexInformer
+	allPodInformer                    cache.SharedIndexInformer
+	resourceQuotaInformer             cache.SharedIndexInformer
 
 	crdInformer cache.SharedIndexInformer
 
@@ -415,6 +416,7 @@ func Execute() {
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
 	app.caBackupConfigMapInformer = app.informerFactory.KubeVirtBackupCAConfigMap()
 	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
+	app.exportExternalCAConfigMapInformer = app.informerFactory.ExportExternalCAConfigMap()
 	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
 	app.allPodInformer = app.informerFactory.Pod()
 	app.exportServiceInformer = app.informerFactory.ExportService()
@@ -961,6 +963,7 @@ func (vca *VirtControllerApp) initExportController() {
 		RouteCache:                  vca.routeCache,
 		KubevirtNamespace:           vca.kubevirtNamespace,
 		RouteConfigMapInformer:      vca.exportRouteConfigMapInformer,
+		ExternalCAConfigMapInformer: vca.exportExternalCAConfigMapInformer,
 		SecretInformer:              vca.unmanagedSecretInformer,
 		VolumeSnapshotProvider:      vca.snapshotController,
 		VMSnapshotInformer:          vca.vmSnapshotInformer,
