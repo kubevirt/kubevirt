@@ -15,6 +15,7 @@ go_library(
         "portforward.go",
         "removevolume.go",
         "reset.go",
+        "sev.go",
         "softreboot.go",
         "storage.go",
         "unfreeze.go",
