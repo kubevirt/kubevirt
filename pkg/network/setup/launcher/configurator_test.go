@@ -52,15 +52,19 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		},
 		Entry("SR-IOV", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov")),
+			libvmi.WithInterface(libvmi.NewInterface("sriov", libvmi.WithSRIOVBinding())),
 			libvmi.WithNetwork(libvmi.MultusNetwork("sriov", "sriov-nad")),
 		), domainWithSRIOVHostDevice()),
 		Entry("Passt", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), domainWithPasstInterface()),
 		Entry("binding plugin without tap domain attachment", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("foo", v1.PluginBinding{Name: "foo"})),
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "foo"}),
+			)),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foo", "foo-nad")),
 		), &api.Domain{}),
 	)
@@ -83,15 +87,22 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		},
 		Entry("bridge", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), stubDHCPFactory(&stubDHCPConfigurator{})),
 		Entry("masquerade", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), stubDHCPFactory(&stubDHCPConfigurator{})),
 		Entry("macvtap", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceWithMacvtapBindingPlugin(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name,
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), nil),
 	)
@@ -111,11 +122,15 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			}).To(Panic())
 		},
 		Entry("bridge", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithInterface(libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)),
 		Entry("masquerade", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding(),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)),
 	)

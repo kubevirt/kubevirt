@@ -201,7 +201,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 		),
 		Entry("when vmi has passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithInterface(libvmi.NewInterface("", libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 			map[string]v1.InterfaceBindingPlugin{},
@@ -209,7 +209,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 		),
 		Entry("when vmi has passt binding and a binding plugin",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithInterface(libvmi.NewInterface("", libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(v1.Interface{Name: iface1name, Binding: &v1.PluginBinding{Name: plugin1name}}),
 				libvmi.WithNetwork(&v1.Network{Name: iface1name}),
