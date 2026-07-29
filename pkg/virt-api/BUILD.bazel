@@ -11,6 +11,7 @@ go_library(
         "//pkg/healthz:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
+        "//pkg/monitoring/profiler:go_default_library",
         "//pkg/network/admitter:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/storage/admitters:go_default_library",

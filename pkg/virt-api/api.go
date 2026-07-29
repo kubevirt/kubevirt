@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	apiserver "kubevirt.io/kubevirt/pkg/virt-api/apiserver"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance"
@@ -494,7 +495,9 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 		// (like the webhooks) for every subresource version.
 		WithAPIHandlers(app.clusterLevelAPIHandlers()...).
 		WithAlwaysAllowPaths(clusterLevelAllowPaths()...).
-		WithMuxHandlers(app.webhookMuxHandlers(webhookInformers)...)
+		WithAlwaysAllowPaths(componentProfilerPaths()...).
+		WithMuxHandlers(app.webhookMuxHandlers(webhookInformers)...).
+		WithMuxHandlers(app.componentProfilerMuxHandlers()...)
 
 	scheme := apiserver.NewScheme()
 
@@ -576,6 +579,32 @@ func clusterLevelAllowPaths() []string {
 		)
 	}
 	return paths
+}
+
+// componentProfilerMuxHandlers returns the component level profiler endpoints
+// served directly from the GenericAPIServer's NonGoRestfulMux. These are the
+// per-process endpoints the cluster-profiler fans out to
+func (app *virtAPIApp) componentProfilerMuxHandlers() []apiserver.MuxHandler {
+	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
+	adapt := func(h func(*restful.Request, *restful.Response)) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h(restful.NewRequest(r), restful.NewResponse(w))
+		})
+	}
+	return []apiserver.MuxHandler{
+		{Path: "/start-profiler", Handler: adapt(componentProfiler.HandleStartProfiler)},
+		{Path: "/stop-profiler", Handler: adapt(componentProfiler.HandleStopProfiler)},
+		{Path: "/dump-profiler", Handler: adapt(componentProfiler.HandleDumpProfiler)},
+	}
+}
+
+// componentProfilerPaths are the component level profiler endpoints that bypass RBAC
+func componentProfilerPaths() []string {
+	return []string{
+		"/start-profiler",
+		"/stop-profiler",
+		"/dump-profiler",
+	}
 }
 
 // LEGACY(virt-api-migration): paths still served from http.DefaultServeMux through
