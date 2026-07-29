@@ -67,7 +67,18 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 	})
 
 	Context("with ephemeral disk", func() {
-		DescribeTable("with emulated PCI devices", func(deviceIDs []string) {
+		// Devices always present on the nodes of the clusters under test
+		// deployed using kubevirtci `cluster-up`. They are bound to
+		// the vfio-pci driver when the cluster is created by `gocli`:
+		// => https://github.com/kubevirt/kubevirtci/blob/main/cluster-provision/gocli/opts/bind-vfio/bind-vfio.go
+		hostSoundCards := []string{
+			// Intel HD Audio Controller (ich6) (aka -device intel-hda)
+			"8086:2668",
+			// Intel HD Audio Controller (ich9) (aka -device ich9-intel-hda)
+			"8086:293e",
+		}
+
+		DescribeTable("with emulated PCI devices", func(deviceIDs ...string) {
 			deviceName := "example.org/soundcard"
 
 			By("Adding the emulated sound card to the permitted host devices")
@@ -108,8 +119,8 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
 		},
-			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
-			Entry("Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),
+			Entry("Should successfully passthrough an emulated PCI device", hostSoundCards[0]),
+			Entry("Should successfully passthrough 2 emulated PCI devices", hostSoundCards[0], hostSoundCards[1]),
 		)
 	})
 })
