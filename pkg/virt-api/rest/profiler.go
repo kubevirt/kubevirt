@@ -226,6 +226,18 @@ func (app *SubresourceAPIApp) StopClusterProfilerHandler(request *restful.Reques
 	app.stopStartHandler("stop", request, response)
 }
 
+func (app *SubresourceAPIApp) StartClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
+	app.StartClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
+}
+
+func (app *SubresourceAPIApp) StopClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
+	app.StopClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
+}
+
+func (app *SubresourceAPIApp) DumpClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
+	app.DumpClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
+}
+
 func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Request, response *restful.Response) {
 	if !app.clusterConfig.ClusterProfilerEnabled() {
 		response.WriteErrorString(http.StatusForbidden, "Unable to dump profiler results. \"ClusterProfiler\" feature gate must be enabled")

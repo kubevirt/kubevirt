@@ -62,6 +62,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance"
 	"kubevirt.io/kubevirt/pkg/virt-api/expand"
+	"kubevirt.io/kubevirt/pkg/virt-api/guestfs"
+	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
+	versionhandler "kubevirt.io/kubevirt/pkg/virt-api/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
@@ -485,17 +488,12 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 		WithFallbackHandler(http.DefaultServeMux).
 		WithBridgePaths(legacyBridgePaths()...).
 		WithLongRunningSubresources("console", "vnc", "usbredir", "vsock", "portforward").
-		// expand-vm-spec is a PUT to the collection path without a name which
-		// cannot be expressed as a rest.Storage. So serve it as a plain mux handler
-		// (like the webhooks) for every subresource version
-		WithAPIHandlers(apiserver.ConditionalAPIHandler{
-			Matches: func(info *request.RequestInfo) bool {
-				return info.IsResourceRequest &&
-					info.APIGroup == v1.SubresourceGroupName &&
-					info.Resource == "expand-vm-spec"
-			},
-			Handler: expand.NewHandler(app.clusterConfig, app.virtCli),
-		}).
+		// expand-vm-spec, version, guestfs and the cluster-profiler endpoints are
+		// GET/PUT to the collection path without a resource name, which cannot be
+		// expressed as a rest.Storage. So serve them as plain http.Handlers
+		// (like the webhooks) for every subresource version.
+		WithAPIHandlers(app.clusterLevelAPIHandlers()...).
+		WithAlwaysAllowPaths(clusterLevelAllowPaths()...).
 		WithMuxHandlers(app.webhookMuxHandlers(webhookInformers)...)
 
 	scheme := apiserver.NewScheme()
@@ -520,6 +518,64 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 		apiserver.NewOpenAPIV3Config(scheme),
 		apiGroups,
 	)
+}
+
+// clusterLevelAPIHandlers returns the ConditionalAPIHandlers for the cluster
+// level subresources of the subresources.kubevirt.io group that are GET/PUT to
+// the collection path without a resource name (expand-vm-spec, version, guestfs
+// and the cluster-profiler endpoints)
+func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandler {
+	subresourceApp := subresourcerest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+
+	matchesResource := func(resource string) func(*request.RequestInfo) bool {
+		return func(info *request.RequestInfo) bool {
+			return info.IsResourceRequest &&
+				info.APIGroup == v1.SubresourceGroupName &&
+				info.Resource == resource
+		}
+	}
+
+	return []apiserver.ConditionalAPIHandler{
+		{
+			Matches: matchesResource("expand-vm-spec"),
+			Handler: expand.NewHandler(app.clusterConfig, app.virtCli),
+		},
+		{
+			Matches: matchesResource("version"),
+			Handler: versionhandler.NewHandler(),
+		},
+		{
+			Matches: matchesResource("guestfs"),
+			Handler: guestfs.NewHandler(app.clusterConfig),
+		},
+		{
+			Matches: matchesResource("start-cluster-profiler"),
+			Handler: http.HandlerFunc(subresourceApp.StartClusterProfilerHTTP),
+		},
+		{
+			Matches: matchesResource("stop-cluster-profiler"),
+			Handler: http.HandlerFunc(subresourceApp.StopClusterProfilerHTTP),
+		},
+		{
+			Matches: matchesResource("dump-cluster-profiler"),
+			Handler: http.HandlerFunc(subresourceApp.DumpClusterProfilerHTTP),
+		},
+	}
+}
+
+func clusterLevelAllowPaths() []string {
+	var paths []string
+	for _, gv := range v1.SubresourceGroupVersions {
+		base := "/apis/" + gv.Group + "/" + gv.Version + "/"
+		paths = append(paths,
+			base+"version",
+			base+"guestfs",
+			base+"start-cluster-profiler",
+			base+"stop-cluster-profiler",
+			base+"dump-cluster-profiler",
+		)
+	}
+	return paths
 }
 
 // LEGACY(virt-api-migration): paths still served from http.DefaultServeMux through
