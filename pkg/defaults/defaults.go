@@ -159,6 +159,9 @@ func setDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
 	if IsS390X(spec) {
 		setS390xDefaultFeatures(spec)
 	}
+	if IsPPC64LE(spec) {
+		setPPC64LEDefaultFeatures(spec)
+	}
 }
 
 func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {

@@ -21,6 +21,9 @@ fi
 # is just writing a text file (startup.nsh), with no low-level disk operations.
 if [ "$(uname -m)" = "s390x" ]; then
     BUILD_ARCHES=${BUILD_ARCHES:-"s390x"}
+elif [ "$(uname -m)" = "ppc64le" ]; then
+    # when building on ppc64le, we can only build for ppc64le
+    BUILD_ARCHES=${BUILD_ARCHES:-"ppc64le"}
 else
     BUILD_ARCHES=${BUILD_ARCHES:-"amd64 arm64"}
 fi

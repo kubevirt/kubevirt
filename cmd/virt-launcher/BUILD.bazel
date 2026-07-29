@@ -212,12 +212,24 @@ oci_image(
     name = "version-container",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "//rpm:linux_ppc64le": "@go_image_base_ppc64le",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             "//rpm:launcherbase_aarch64",
+            ":get-version-tar",
+            ":libvirt-config",
+            ":passwd-tar",
+            ":nsswitch-tar",
+            ":qemu-hook-tar",
+            ":libvirt-hook-client-tar",
+            ":qemu-kvm-modules-dir-tar",
+            ":var-run-symlink-tar",
+        ],
+        "//rpm:linux_ppc64le": [
+            "//rpm:launcherbase_ppc64le",
             ":get-version-tar",
             ":libvirt-config",
             ":passwd-tar",
