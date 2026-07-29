@@ -992,13 +992,13 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 }
 
 func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	pods, err := c.listPodsOwnedByVMI(vmi)
 	if err != nil {
 		return err
 	}
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	for _, pod := range pods {
-		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !v1.IsControlledBy(pod, vmi) {
+		if pod.DeletionTimestamp != nil && !isPodFinal(pod) {
 			continue
 		}
 		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
