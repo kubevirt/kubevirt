@@ -54,5 +54,6 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 		"virtualmachineinstances/filesystemlist": NewFilesystemListREST(subresourceApp),
 		"virtualmachineinstances/objectgraph":    NewObjectGraphREST(subresourceApp),
 		"virtualmachineinstances/evacuate":       NewEvacuateCancelREST(subresourceApp),
+		"virtualmachineinstances/sev":            NewSEVREST(subresourceApp),
 	}
 }
