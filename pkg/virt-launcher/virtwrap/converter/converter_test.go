@@ -61,6 +61,7 @@ import (
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -4042,12 +4043,12 @@ var _ = Describe("Converter", func() {
 					Expect(converterFunc(volumeName, disk, c)).To(Succeed())
 					Expect(disk).To(Equal(expectedDisk))
 				},
-				Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
-				Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
-				Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
-				Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
-				Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
-				Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
+				Entry("filesystem PVC", storage.Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
+				Entry("block mode PVC", storage.Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
+				Entry("'discard ignore' PVC", storage.Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
+				Entry("filesystem DV", storage.Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
+				Entry("block mode DV", storage.Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
+				Entry("'discard ignore' DV", storage.Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
 			)
 
 			DescribeTable("should create domain disk with datastore for hotplug volumes with CBT enabled",
