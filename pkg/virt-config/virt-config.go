@@ -149,6 +149,16 @@ func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
 	return migrationConfig
 }
 
+// GetExternalCertificationStrategy returns how VirtualMachineExport external
+// link certificates should be populated. Defaults to ClusterRootCA.
+func (c *ClusterConfig) GetExternalCertificationStrategy() v1.ExternalCertificationStrategy {
+	exportConfig := c.GetConfig().ExportConfiguration
+	if exportConfig == nil || exportConfig.ExternalCertificationStrategy == nil {
+		return v1.ExternalCertificationStrategyClusterRootCA
+	}
+	return *exportConfig.ExternalCertificationStrategy
+}
+
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 	return c.GetConfig().ImagePullPolicy
 }
