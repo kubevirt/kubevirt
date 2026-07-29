@@ -15142,6 +15142,16 @@
      }
     }
    },
+   "v1.ExportConfiguration": {
+    "description": "ExportConfiguration holds cluster-level VirtualMachineExport settings.",
+    "type": "object",
+    "properties": {
+     "externalCertificationStrategy": {
+      "description": "ExternalCertificationStrategy controls how VirtualMachineExport external link certificates are populated. Defaults to ClusterRootCA.",
+      "type": "string"
+     }
+    }
+   },
    "v1.FeatureAPIC": {
     "type": "object",
     "properties": {
@@ -16081,6 +16091,10 @@
      "evictionStrategy": {
       "description": "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
       "type": "string"
+     },
+     "exportConfiguration": {
+      "description": "ExportConfiguration holds cluster-level settings for VirtualMachineExport.",
+      "$ref": "#/definitions/v1.ExportConfiguration"
      },
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"

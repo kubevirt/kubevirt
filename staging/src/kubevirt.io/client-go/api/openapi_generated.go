@@ -415,6 +415,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.EphemeralVolumeSource":                                                   schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/api/core/v1.EvacuateCancelOptions":                                                   schema_kubevirtio_api_core_v1_EvacuateCancelOptions(ref),
 		"kubevirt.io/api/core/v1.ExperimentalMigrationOptions":                                            schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref),
+		"kubevirt.io/api/core/v1.ExportConfiguration":                                                     schema_kubevirtio_api_core_v1_ExportConfiguration(ref),
 		"kubevirt.io/api/core/v1.FeatureAPIC":                                                             schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
 		"kubevirt.io/api/core/v1.FeatureHyperv":                                                           schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
 		"kubevirt.io/api/core/v1.FeatureKVM":                                                              schema_kubevirtio_api_core_v1_FeatureKVM(ref),
@@ -21037,6 +21038,26 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ExportConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExportConfiguration holds cluster-level VirtualMachineExport settings.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"externalCertificationStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExternalCertificationStrategy controls how VirtualMachineExport external link certificates are populated. Defaults to ClusterRootCA.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_FeatureAPIC(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23034,11 +23055,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"exportConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExportConfiguration holds cluster-level settings for VirtualMachineExport.",
+							Ref:         ref("kubevirt.io/api/core/v1.ExportConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.ConfidentialComputeConfiguration", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.HypervisorConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.PersistentReservationConfiguration", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtTemplateDeployment", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.ConfidentialComputeConfiguration", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.ExportConfiguration", "kubevirt.io/api/core/v1.HypervisorConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.PersistentReservationConfiguration", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtTemplateDeployment", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 
