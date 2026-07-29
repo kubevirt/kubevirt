@@ -172,7 +172,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		createVMWithDV := func(dv *cdiv1.DataVolume, volName string) *virtv1.VirtualMachine {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, dv.Name),
@@ -283,7 +283,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				dv := createDV()
 				vmi := libvmi.New(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDataVolume(volName, dv.Name),
@@ -397,7 +397,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Expect(err).ToNot(HaveOccurred())
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("256Mi"),
 				libvmi.WithDataVolume(volName, srcDV.Name),
@@ -619,7 +619,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, srcPVC),
@@ -717,7 +717,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destDV := createBlankDV(virtClient, ns, size)
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, dv1.Name),
@@ -856,7 +856,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			createAndStartVM := func(dv *cdiv1.DataVolume) *virtv1.VirtualMachine {
 				vmi := libvmi.New(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDataVolume(volName, dv.Name),
@@ -974,7 +974,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			dv := createBlankDV(virtClient, ns, "1Gi")
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
@@ -1111,7 +1111,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				dv := createBlankDV(virtClient, ns, "2G")
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				)
 				vm := libvmi.NewVirtualMachine(vmi,
@@ -1164,7 +1164,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				)
 				vmi := libvmi.New(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 					// CPU manager clashes with hotplugging close to boot time, overriding the allowed hotplug volume
 					// For testing purposes, we're okay with using guaranteed QoS, which ensures CPU set gets set on boot

@@ -1199,7 +1199,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			containerDiskVMIFunc := func() *v1.VirtualMachineInstance {
 				return libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 			}
@@ -1219,7 +1219,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					libvmi.WithDataVolume("disk0", dataVolume.Name),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					// Stir things up, /dev/urandom access will be needed
 					libvmi.WithRng(),

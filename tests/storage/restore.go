@@ -283,7 +283,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 		BeforeEach(func() {
 			vm = libvmi.NewVirtualMachine(
 				libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
 			vm.Labels = map[string]string{
@@ -1356,7 +1356,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					libvmi.NewVirtualMachine(
 						libvmifact.NewAlpineWithTestTooling(
 							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithDataVolume("blank", dv.Name),
 						),

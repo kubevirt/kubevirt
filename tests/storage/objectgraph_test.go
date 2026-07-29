@@ -78,7 +78,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			By("Creating a VM with dependencies")
 			vm = libvmi.NewVirtualMachine(
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
 					libvmi.WithAccessCredentialUserPassword(secret.Name),
@@ -271,7 +271,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			By("Creating and starting a VMI")
 			vmi = libvmi.New(
 				libvmi.WithMemoryRequest("128Mi"),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			var err error
@@ -312,7 +312,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			By("Creating a VM with instance type")
 			vm = libvmi.NewVirtualMachine(
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 			)
