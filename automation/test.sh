@@ -62,6 +62,13 @@ if [[ ! $TARGET =~ .*kind.* ]]; then
   export KUBEVIRT_PSA="true"
 fi
 
+# as with sig-compute-serial lane all sig-compute periodic lanes need to
+# have the Plugins feature gate enabled as well, since the Serial tests are not
+# split out from the sig-compute as in presubmit jobs
+if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute$ ]]; then
+  add_feature_gate "Plugins"
+fi
+
 case "$TARGET" in
   *windows*)
     echo "picking the default provider for windows tests"
