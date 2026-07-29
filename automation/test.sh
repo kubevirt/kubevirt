@@ -90,6 +90,8 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     if [[ "${KUBEVIRT_PROVIDER}" == "${LATEST_K8S_PROVIDER}" ]]; then
       export KUBEVIRT_WITH_SRIOV=true
+      export KUBEVIRT_RESERVED_SYSTEM_CPUS=5
+      export KUBEVIRT_TOPOLOGY_MANAGER_POLICY=single-numa-node
       export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
       add_feature_gate "ExternalNetResourceInjection"
     fi
