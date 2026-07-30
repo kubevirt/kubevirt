@@ -8877,6 +8877,28 @@ var CRDsValidation map[string]string = map[string]string{
               - domain
               type: object
           type: object
+        resourceClaimTemplates:
+          description: resourceClaimTemplates is a list of ResourceClaims tied to the VirtualMachine lifecycle.
+          items:
+            description: ResourceClaimTemplateEntry defines a ResourceClaim to create from a template.
+            properties:
+              name:
+                description: Name matching spec.template.spec.resourceClaims[].name
+                minLength: 1
+                type: string
+              persistWhenStopped:
+                description: Whether the claim persists when the VM is explicitly stopped.
+                type: boolean
+              resourceClaimTemplateName:
+                description: Name of the ResourceClaimTemplate to create from.
+                minLength: 1
+                type: string
+            required:
+            - name
+            - resourceClaimTemplateName
+            type: object
+          maxItems: 256
+          type: array
         updateVolumesStrategy:
           description: UpdateVolumesStrategy is the strategy to apply on volumes updates
           type: string
@@ -27020,7 +27042,29 @@ var CRDsValidation map[string]string = map[string]string{
                       - domain
                       type: object
                   type: object
-                updateVolumesStrategy:
+                resourceClaimTemplates:
+          description: resourceClaimTemplates is a list of ResourceClaims tied to the VirtualMachine lifecycle.
+          items:
+            description: ResourceClaimTemplateEntry defines a ResourceClaim to create from a template.
+            properties:
+              name:
+                description: Name matching spec.template.spec.resourceClaims[].name
+                minLength: 1
+                type: string
+              persistWhenStopped:
+                description: Whether the claim persists when the VM is explicitly stopped.
+                type: boolean
+              resourceClaimTemplateName:
+                description: Name of the ResourceClaimTemplate to create from.
+                minLength: 1
+                type: string
+            required:
+            - name
+            - resourceClaimTemplateName
+            type: object
+          maxItems: 256
+          type: array
+        updateVolumesStrategy:
                   description: UpdateVolumesStrategy is the strategy to apply on volumes
                     updates
                   type: string
@@ -32720,7 +32764,29 @@ var CRDsValidation map[string]string = map[string]string{
                           - domain
                           type: object
                       type: object
-                    updateVolumesStrategy:
+                    resourceClaimTemplates:
+          description: resourceClaimTemplates is a list of ResourceClaims tied to the VirtualMachine lifecycle.
+          items:
+            description: ResourceClaimTemplateEntry defines a ResourceClaim to create from a template.
+            properties:
+              name:
+                description: Name matching spec.template.spec.resourceClaims[].name
+                minLength: 1
+                type: string
+              persistWhenStopped:
+                description: Whether the claim persists when the VM is explicitly stopped.
+                type: boolean
+              resourceClaimTemplateName:
+                description: Name of the ResourceClaimTemplate to create from.
+                minLength: 1
+                type: string
+            required:
+            - name
+            - resourceClaimTemplateName
+            type: object
+          maxItems: 256
+          type: array
+        updateVolumesStrategy:
                       description: UpdateVolumesStrategy is the strategy to apply
                         on volumes updates
                       type: string

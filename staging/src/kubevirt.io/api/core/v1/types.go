@@ -1756,6 +1756,14 @@ type ResourceClaimTemplateEntry struct {
 	// object in the same namespace to create the ResourceClaim from.
 	// +kubebuilder:validation:MinLength=1
 	ResourceClaimTemplateName string `json:"resourceClaimTemplateName"`
+	// PersistWhenStopped controls whether the ResourceClaim is retained
+	// when the VM is explicitly stopped. When false (the default), the
+	// claim is deleted on stop to free the device for other workloads,
+	// and re-created on the next start. When true, the claim persists
+	// for the VM's entire lifetime. Claims always persist across reboots
+	// regardless of this setting.
+	// +optional
+	PersistWhenStopped *bool `json:"persistWhenStopped,omitempty"`
 }
 
 type VirtualMachineInstanceTemplateSpec struct {

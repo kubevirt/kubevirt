@@ -118,6 +118,8 @@ const (
 	// SuccessfulResourceClaimCreateReason is added in an event when a ResourceClaim is
 	// successfully created from a ResourceClaimTemplate.
 	SuccessfulResourceClaimCreateReason = "SuccessfulResourceClaimCreate"
+	FailedResourceClaimDeleteReason     = "FailedResourceClaimDelete"
+	SuccessfulResourceClaimDeleteReason = "SuccessfulResourceClaimDelete"
 	// SourcePVCNotAvailabe is added in an event when the source PVC of a valid
 	// clone Datavolume doesn't exist
 	SourcePVCNotAvailabe = "SourcePVCNotAvailabe"
@@ -637,6 +639,148 @@ func (c *Controller) handleResourceClaims(vm *virtv1.VirtualMachine) (bool, erro
 	return ready, nil
 }
 
+func hasVMInReservedFor(claim *resourcev1.ResourceClaim, vm *virtv1.VirtualMachine) bool {
+	for _, ref := range claim.Status.ReservedFor {
+		if ref.UID == vm.UID {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Controller) addVMToClaimReservedFor(claim *resourcev1.ResourceClaim, vm *virtv1.VirtualMachine) error {
+	vmRef := resourcev1.ResourceClaimConsumerReference{
+		APIGroup: "kubevirt.io",
+		Resource: "virtualmachines",
+		Name:     vm.Name,
+		UID:      vm.UID,
+	}
+	updatedReservedFor := append(claim.Status.ReservedFor, vmRef)
+	patchBytes, err := json.Marshal(map[string]interface{}{
+		"status": map[string]interface{}{
+			"reservedFor": updatedReservedFor,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.ResourceV1().ResourceClaims(claim.Namespace).Patch(
+		context.Background(), claim.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+	if err != nil {
+		return err
+	}
+	log.Log.Infof("Added VM %s to ResourceClaim %s reservedFor", vm.Name, claim.Name)
+	return nil
+}
+
+func (c *Controller) ensureVMInClaimReservedFor(vm *virtv1.VirtualMachine) {
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		persist := entry.PersistWhenStopped != nil && *entry.PersistWhenStopped
+		if !persist {
+			continue
+		}
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+		claimObj, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil || !exists {
+			log.Log.Object(vm).V(4).Infof("ensureVMInClaimReservedFor: claim %s not in cache (exists=%v)", claimName, exists)
+			continue
+		}
+		claim := claimObj.(*resourcev1.ResourceClaim)
+		if claim.Status.Allocation == nil {
+			log.Log.Object(vm).V(4).Infof("ensureVMInClaimReservedFor: claim %s not allocated yet", claimName)
+			continue
+		}
+		if hasVMInReservedFor(claim, vm) {
+			continue
+		}
+		log.Log.Object(vm).Infof("Adding VM to ResourceClaim %s reservedFor (persistWhenStopped=true)", claimName)
+		if err := c.addVMToClaimReservedFor(claim, vm); err != nil {
+			log.Log.Object(vm).Warningf("Failed to add VM to ResourceClaim %s reservedFor: %v", claimName, err)
+		}
+	}
+}
+
+func (c *Controller) removeVMFromAllClaimReservedFor(vm *virtv1.VirtualMachine) {
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		if entry.PersistWhenStopped == nil || !*entry.PersistWhenStopped {
+			continue
+		}
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+		claimObj, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil || !exists {
+			continue
+		}
+		claim := claimObj.(*resourcev1.ResourceClaim)
+		if !hasVMInReservedFor(claim, vm) {
+			continue
+		}
+		var newReservedFor []resourcev1.ResourceClaimConsumerReference
+		for _, ref := range claim.Status.ReservedFor {
+			if ref.UID != vm.UID {
+				newReservedFor = append(newReservedFor, ref)
+			}
+		}
+		patchBytes, err := json.Marshal(map[string]interface{}{
+			"status": map[string]interface{}{
+				"reservedFor": newReservedFor,
+			},
+		})
+		if err != nil {
+			log.Log.Object(vm).Warningf("Failed to build patch for ResourceClaim %s: %v", claimName, err)
+			continue
+		}
+		_, err = c.clientset.ResourceV1().ResourceClaims(vm.Namespace).Patch(
+			context.Background(), claimName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		if err != nil {
+			log.Log.Object(vm).Warningf("Failed to remove VM from ResourceClaim %s reservedFor: %v", claimName, err)
+		} else {
+			log.Log.Infof("Removed VM %s from ResourceClaim %s reservedFor", vm.Name, claimName)
+		}
+	}
+}
+
+func (c *Controller) cleanupNonPersistentResourceClaims(vm *virtv1.VirtualMachine) error {
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		if entry.PersistWhenStopped != nil && *entry.PersistWhenStopped {
+			continue
+		}
+
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+
+		_, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+
+		c.resourceClaimExpectations.ExpectDeletions(vmKey, []string{key})
+		err = c.clientset.ResourceV1().ResourceClaims(vm.Namespace).Delete(
+			context.Background(), claimName, metav1.DeleteOptions{})
+		if err != nil {
+			c.resourceClaimExpectations.DeletionObserved(vmKey, key)
+			if !apiErrors.IsNotFound(err) {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimDeleteReason,
+					"Error deleting ResourceClaim %s: %v", claimName, err)
+				return fmt.Errorf("failed to delete ResourceClaim %s: %v", claimName, err)
+			}
+		} else {
+			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulResourceClaimDeleteReason,
+				"Deleted non-persistent ResourceClaim %s", claimName)
+		}
+	}
+	return nil
+}
+
 func (c *Controller) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	patchSet := patch.New(
 		patch.WithTest("/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets),
@@ -1040,6 +1184,8 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
+	c.ensureVMInClaimReservedFor(vm)
+
 	switch runStrategy {
 	case virtv1.RunStrategyAlways:
 		// For this RunStrategy, a VMI should always be running. If a StateChangeRequest
@@ -1120,6 +1266,11 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
 				}
+				if forceStop {
+					if err := c.cleanupNonPersistentResourceClaims(vm); err != nil {
+						log.Log.Object(vm).Warningf("Failed to cleanup non-persistent ResourceClaims: %v", err)
+					}
+				}
 
 				if vmiFailed {
 					if err := c.addStartRequest(vm); err != nil {
@@ -1162,7 +1313,9 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
 				}
-				// return to let the controller pick up the expected deletion
+				if err := c.cleanupNonPersistentResourceClaims(vm); err != nil {
+					log.Log.Object(vm).Warningf("Failed to cleanup non-persistent ResourceClaims: %v", err)
+				}
 				return vm, nil
 			}
 		} else {
@@ -1200,6 +1353,9 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		vm, err = c.stopVMI(vm, vmi)
 		if err != nil {
 			return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
+		}
+		if err := c.cleanupNonPersistentResourceClaims(vm); err != nil {
+			log.Log.Object(vm).Warningf("Failed to cleanup non-persistent ResourceClaims: %v", err)
 		}
 		return vm, nil
 	case virtv1.RunStrategyOnce:
@@ -3401,6 +3557,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if vm.DeletionTimestamp != nil {
 		if vmi == nil || controller.HasFinalizer(vm, metav1.FinalizerOrphanDependents) {
+			c.removeVMFromAllClaimReservedFor(vm)
 			vm, err = c.removeVMFinalizer(vm)
 			if err != nil {
 				return vm, vmi, nil, err
