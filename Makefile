@@ -87,8 +87,11 @@ goveralls:
 coverage-report:
 	hack/dockerized "CI=${CI} WHAT=${WHAT} ./hack/bazel-coverage-report.sh"
 
-go-test: go-build
-	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
+go-test:
+	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "./hack/go-test-cache.sh restore; export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
+
+go-test-cache-save:
+	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT} && ./hack/go-test-cache.sh save"
 
 test: bazel-test
 
@@ -266,6 +269,7 @@ vmlog-checker:
 	conformance \
 	go-build \
 	go-test \
+	go-test-cache-save \
 	go-all \
 	bazel-generate \
 	bazel-build \

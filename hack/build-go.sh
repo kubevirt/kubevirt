@@ -61,12 +61,19 @@ esac
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
-            # Ignoring container-disk-v2alpha since it is written in C, not in go
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" --ignore=container-disk-v2alpha ./cmd/...
-        )
-        (
-            # Skip fuzz tests, as they are not part of regular unit testing
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./pkg/...
+            # Build test helper binaries required by some test suites.
+            go build -o _out/cmd/fake-qemu-process/fake-qemu-process ./cmd/fake-qemu-process/
+
+            # A static version is injected so tests that parse the version string
+            # work correctly. The value never changes, so it won't bust Go's cache.
+            test_ldflags="-X kubevirt.io/client-go/version.gitVersion=v0.0.0-test"
+
+            # Run cmd and pkg tests together for better parallelism.
+            # container-disk-v2alpha is excluded because it is written in C.
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race \
+                -ldflags "${test_ldflags}" \
+                -skip FuzzAdmitter -timeout 15m \
+                $(go list -e ./cmd/... ./pkg/... | grep -v container-disk-v2alpha)
         )
     elif [ "${target}" = "clean" ]; then
         # Remove -mod=vendor
@@ -114,8 +121,10 @@ fi
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
-            # Skip fuzz tests, as they are not part of regular unit testing
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -ldflags "$(kubevirt::version::ldflags)" -race -skip FuzzAdmitter -timeout 15m ./$arg/...
+            test_ldflags="-X kubevirt.io/client-go/version.gitVersion=v0.0.0-test"
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race \
+                -ldflags "${test_ldflags}" \
+                -skip FuzzAdmitter -timeout 15m ./$arg/...
         )
     elif [ "${target}" = "clean" ]; then
         (
