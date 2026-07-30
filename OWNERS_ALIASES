@@ -202,7 +202,8 @@ aliases:
   # SIG Control plane
   # Responsible for the development and enhancement of
   # KubeVirt control plane.
-  sig-control-plane-approvers: []
+  sig-control-plane-approvers:
+    - xpivarc
   sig-control-plane-reviewers:
     - akalenyu
     - Barakmor1
