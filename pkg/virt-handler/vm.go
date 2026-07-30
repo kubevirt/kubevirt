@@ -187,8 +187,17 @@ func NewVirtualMachineController(
 	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
 		return nil, err
 	}
+	containerDiskStateTemp := filepath.Join(virtPrivateDir, "container-disk-mount-state-temp")
+	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
+		return nil, err
+	}
 
 	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
+	if err := os.MkdirAll(hotplugState, 0700); err != nil {
+		return nil, err
+	}
+
+	hotplugStateTemp := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state-temp")
 	if err := os.MkdirAll(hotplugState, 0700); err != nil {
 		return nil, err
 	}
@@ -197,9 +206,9 @@ func NewVirtualMachineController(
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
 		clientset:                clientset,
-		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, containerDiskStateTemp, clusterConfig),
 		downwardMetricsManager:   downwardMetricsManager,
-		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, hotplugStateTemp, kubeletPodsDir, host),
 		hostCpuModel:             hostCpuModel,
 		ioErrorRetryManager:      NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 		heartBeatInterval:        1 * time.Minute,
