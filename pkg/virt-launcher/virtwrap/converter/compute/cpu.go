@@ -28,6 +28,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
+const (
+	cpuModeCustom = "custom"
+	cpuModelMax   = "max"
+)
+
 type CPUDomainConfigurator struct {
 	isHotplugSupported       bool
 	requiresMPXCPUValidation bool
@@ -92,20 +97,20 @@ func (c CPUDomainConfigurator) configureCPUModel(vmi *v1.VirtualMachineInstance,
 		if c.crossArchEmulation && isHostCPUMode {
 			// host-passthrough and host-model are incompatible with cross-architecture
 			// TCG emulation. Use "max" which exposes all features QEMU can emulate.
-			domain.Spec.CPU.Mode = "custom"
-			domain.Spec.CPU.Model = "max"
+			domain.Spec.CPU.Mode = cpuModeCustom
+			domain.Spec.CPU.Model = cpuModelMax
 		} else if isHostCPUMode {
 			domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
 		} else {
-			domain.Spec.CPU.Mode = "custom"
+			domain.Spec.CPU.Mode = cpuModeCustom
 			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
 		}
 		return
 	}
 
 	if c.crossArchEmulation {
-		domain.Spec.CPU.Mode = "custom"
-		domain.Spec.CPU.Model = "max"
+		domain.Spec.CPU.Mode = cpuModeCustom
+		domain.Spec.CPU.Model = cpuModelMax
 	} else {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
@@ -165,7 +170,7 @@ func (c CPUDomainConfigurator) configureSyntheticNUMA(vmi *v1.VirtualMachineInst
 				ID:     "0",
 				CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
 				Memory: &memKiB,
-				Unit:   "KiB",
+				Unit:   unitKiB,
 			},
 		},
 	}

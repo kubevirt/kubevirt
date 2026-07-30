@@ -37,6 +37,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/vsock/mode"
 )
 
+const (
+	autostartNo = "no"
+	vsockModel  = "virtio-non-transitional"
+)
+
 var _ = Describe("VSOCK Domain Configurator", func() {
 	var fakeProc string
 
@@ -72,9 +77,9 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
 					VSOCK: &api.VSOCK{
-						Model: "virtio-non-transitional",
+						Model: vsockModel,
 						CID: api.CID{
-							Auto:    "no",
+							Auto:    autostartNo,
 							Address: expectedVSOCKID,
 						},
 					},
@@ -102,9 +107,9 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
 					VSOCK: &api.VSOCK{
-						Model: "virtio-non-transitional",
+						Model: vsockModel,
 						CID: api.CID{
-							Auto:    "no",
+							Auto:    autostartNo,
 							Address: vsock.LocalCID,
 						},
 					},

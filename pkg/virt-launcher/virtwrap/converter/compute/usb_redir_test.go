@@ -33,6 +33,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	modeBind         = "bind"
+	usbRedirTypeUnix = "unix"
+	usbRedirBusUSB   = "usb"
+)
+
 var _ = Describe("USB Redirect Device Domain Configurator", func() {
 	Context("When ClientPassthrough is nil", func() {
 		It("should return not configure any redirect devices", func() {
@@ -66,10 +72,10 @@ var _ = Describe("USB Redirect Device Domain Configurator", func() {
 			for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
 				path := fmt.Sprintf("/var/run/kubevirt-private/%s/virt-usbredir-%d", vmiUID, i)
 				expectedDomain.Spec.Devices.Redirs[i] = api.RedirectedDevice{
-					Type: "unix",
-					Bus:  "usb",
+					Type: usbRedirTypeUnix,
+					Bus:  usbRedirBusUSB,
 					Source: api.RedirectedDeviceSource{
-						Mode: "bind",
+						Mode: modeBind,
 						Path: path,
 					},
 				}

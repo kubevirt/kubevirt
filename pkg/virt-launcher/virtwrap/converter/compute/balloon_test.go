@@ -28,6 +28,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const balloonModelNone = "none"
+
 var _ = Describe("Balloon Domain Configurator", func() {
 	const (
 		useSEV = true
@@ -50,17 +52,17 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 		expectedDomain := newDomainWithBallooning(
 			api.MemBalloon{
-				Model:             "virtio-non-transitional",
+				Model:             virtioNonTransitional,
 				Driver:            expectedDriver,
-				FreePageReporting: "off",
+				FreePageReporting: stateOff,
 			},
 		)
 		Expect(domain).To(Equal(expectedDomain))
 	},
 		Entry("neither SEV nor PV", !useSEV, !usePV, nil),
-		Entry("SEV enabled", useSEV, !usePV, &api.MemBalloonDriver{IOMMU: "on"}),
-		Entry("PV enabled", !useSEV, usePV, &api.MemBalloonDriver{IOMMU: "on"}),
-		Entry("Both SEV and PV enabled", useSEV, usePV, &api.MemBalloonDriver{IOMMU: "on"}),
+		Entry("SEV enabled", useSEV, !usePV, &api.MemBalloonDriver{IOMMU: stateOn}),
+		Entry("PV enabled", !useSEV, usePV, &api.MemBalloonDriver{IOMMU: stateOn}),
+		Entry("Both SEV and PV enabled", useSEV, usePV, &api.MemBalloonDriver{IOMMU: stateOn}),
 	)
 
 	DescribeTable("free page reporting", func(enabled bool, expected string) {
@@ -83,8 +85,8 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		})
 		Expect(domain).To(Equal(expectedDomain))
 	},
-		Entry("enabled", true, "on"),
-		Entry("disabled", false, "off"),
+		Entry("enabled", true, stateOn),
+		Entry("disabled", false, stateOff),
 	)
 
 	DescribeTable("memballoon stats period", func(period uint, expectedStats *api.Stats) {
@@ -102,8 +104,8 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := newDomainWithBallooning(api.MemBalloon{
-			Model:             "virtio-non-transitional",
-			FreePageReporting: "off",
+			Model:             virtioNonTransitional,
+			FreePageReporting: stateOff,
 			Stats:             expectedStats,
 		})
 		Expect(domain).To(Equal(expectedDomain))
@@ -128,7 +130,7 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 		expectedDomain := newDomainWithBallooning(
 			api.MemBalloon{
-				Model: "none",
+				Model: balloonModelNone,
 			},
 		)
 		Expect(domain).To(Equal(expectedDomain))

@@ -26,6 +26,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	socketTypeUnix = "unix"
+	socketModeBind = "bind"
+)
+
 type ChannelsDomainConfigurator struct{}
 
 func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -40,7 +45,7 @@ func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 
 func newGuestAgentChannel() api.Channel {
 	return api.Channel{
-		Type:   "unix",
+		Type:   socketTypeUnix,
 		Source: nil, // let libvirt decide which path to use
 		Target: &api.ChannelTarget{
 			Name: "org.qemu.guest_agent.0",
@@ -51,9 +56,9 @@ func newGuestAgentChannel() api.Channel {
 
 func newDownwardMetricsChannel() api.Channel {
 	return api.Channel{
-		Type: "unix",
+		Type: socketTypeUnix,
 		Source: &api.ChannelSource{
-			Mode: "bind",
+			Mode: socketModeBind,
 			Path: downwardmetrics.DownwardMetricsChannelSocket,
 		},
 		Target: &api.ChannelTarget{

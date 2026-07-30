@@ -33,6 +33,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	graphicsTypeVNC     = "vnc"
+	graphicsListenType  = "socket"
+	graphicsVideoVirtio = "virtio"
+	graphicsVideoVGA    = "vga"
+)
+
 var _ = Describe("Graphics Domain Configurator", func() {
 	Context("AutoattachGraphicsDevice", func() {
 		DescribeTable("should not configure video and VNC when AutoattachGraphicsDevice is false", func(arch string) {
@@ -63,9 +70,9 @@ var _ = Describe("Graphics Domain Configurator", func() {
 						Video: []api.Video{expectedVideo},
 						Graphics: []api.Graphics{
 							{
-								Type: "vnc",
+								Type: graphicsTypeVNC,
 								Listen: &api.GraphicsListen{
-									Type:   "socket",
+									Type:   graphicsListenType,
 									Socket: "/var/run/kubevirt-private/test-uid/virt-vnc",
 								},
 							},
@@ -99,7 +106,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 
 	Context("Video device configuration", func() {
 		DescribeTable("Should use user-specified video type when provided", func(arch string, bochsForEFI bool) {
-			vmi := libvmi.New(libvmi.WithVideo("virtio"))
+			vmi := libvmi.New(libvmi.WithVideo(graphicsVideoVirtio))
 			var domain api.Domain
 
 			configurator := compute.NewGraphicsDomainConfigurator(arch, bochsForEFI, false)
@@ -111,7 +118,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 						Video: []api.Video{
 							{
 								Model: api.VideoModel{
-									Type:  "virtio",
+									Type:  graphicsVideoVirtio,
 									Heads: pointer.P(uint(1)),
 									VRam:  pointer.P(uint(16384)),
 								},
@@ -119,9 +126,9 @@ var _ = Describe("Graphics Domain Configurator", func() {
 						},
 						Graphics: []api.Graphics{
 							{
-								Type: "vnc",
+								Type: graphicsTypeVNC,
 								Listen: &api.GraphicsListen{
-									Type:   "socket",
+									Type:   graphicsListenType,
 									Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
 								},
 							},
@@ -152,7 +159,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 						Video: []api.Video{
 							{
 								Model: api.VideoModel{
-									Type:  "vga",
+									Type:  graphicsVideoVGA,
 									Heads: pointer.P(uint(1)),
 									VRam:  pointer.P(uint(16384)),
 								},
@@ -160,9 +167,9 @@ var _ = Describe("Graphics Domain Configurator", func() {
 						},
 						Graphics: []api.Graphics{
 							{
-								Type: "vnc",
+								Type: graphicsTypeVNC,
 								Listen: &api.GraphicsListen{
-									Type:   "socket",
+									Type:   graphicsListenType,
 									Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
 								},
 							},
@@ -198,9 +205,9 @@ var _ = Describe("Graphics Domain Configurator", func() {
 						},
 						Graphics: []api.Graphics{
 							{
-								Type: "vnc",
+								Type: graphicsTypeVNC,
 								Listen: &api.GraphicsListen{
-									Type:   "socket",
+									Type:   graphicsListenType,
 									Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
 								},
 							},
@@ -217,7 +224,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 func newExpectedAMD64VideoDevice() api.Video {
 	return api.Video{
 		Model: api.VideoModel{
-			Type:  "vga",
+			Type:  graphicsVideoVGA,
 			Heads: pointer.P(uint(1)),
 			VRam:  pointer.P(uint(16384)),
 		},

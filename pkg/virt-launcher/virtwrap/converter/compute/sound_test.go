@@ -30,6 +30,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	modelIch9 = "ich9"
+	modelAc97 = "ac97"
+)
+
 var _ = Describe("Sound Domain Configurator", func() {
 	const deviceName = "sound-device"
 	It("Should not configure a sound device when sound is unspecified in VMI", func() {
@@ -59,15 +64,15 @@ var _ = Describe("Sound Domain Configurator", func() {
 		},
 		Entry("when only name is specified",
 			v1.SoundDevice{Name: deviceName},
-			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: "ich9"},
+			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: modelIch9},
 		),
 		Entry("when name and ich9 model are specified",
-			v1.SoundDevice{Name: deviceName, Model: "ich9"},
-			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: "ich9"},
+			v1.SoundDevice{Name: deviceName, Model: modelIch9},
+			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: modelIch9},
 		),
 		Entry("when name and ac97 model are specified",
-			v1.SoundDevice{Name: deviceName, Model: "ac97"},
-			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: "ac97"},
+			v1.SoundDevice{Name: deviceName, Model: modelAc97},
+			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: modelAc97},
 		),
 	)
 

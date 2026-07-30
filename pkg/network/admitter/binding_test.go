@@ -33,8 +33,10 @@ import (
 )
 
 const (
-	booBindingName     = "boo"
-	fakeDomainMACField = "fake.domain.devices.interfaces[0].macAddress"
+	booBindingName           = "boo"
+	fakeDomainMACField       = "fake.domain.devices.interfaces[0].macAddress"
+	bindingErrMsg            = "logical foo interface must have exactly one binding method or binding plugin"
+	fakeDomainInterfaceField = "fake.domain.devices.interfaces[0]"
 )
 
 var _ = Describe("Validating network binding combinations", func() {
@@ -55,8 +57,8 @@ var _ = Describe("Validating network binding combinations", func() {
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    fieldValueInvalidType,
-				Message: "logical foo interface must have exactly one binding method or binding plugin",
-				Field:   "fake.domain.devices.interfaces[0]",
+				Message: bindingErrMsg,
+				Field:   fakeDomainInterfaceField,
 			}))
 	})
 
@@ -79,10 +81,10 @@ var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has neither binding plugin nor interface binding method", func() {
 		vm := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name: "foo",
+				Name: fooIfaceName,
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
@@ -90,23 +92,23 @@ var _ = Describe("Validating network binding combinations", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
-				Message: "logical foo interface must have exactly one binding method or binding plugin",
-				Field:   "fake.domain.devices.interfaces[0]",
+				Type:    fieldValueInvalidType,
+				Message: bindingErrMsg,
+				Field:   fakeDomainInterfaceField,
 			}))
 	})
 
 	It("network interface has more than one binding method", func() {
 		vm := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name: "foo",
+				Name: fooIfaceName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Bridge:     &v1.InterfaceBridge{},
 					Masquerade: &v1.InterfaceMasquerade{},
 				},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
+				Name:          fooIfaceName,
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
@@ -114,9 +116,9 @@ var _ = Describe("Validating network binding combinations", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
-				Message: "logical foo interface must have exactly one binding method or binding plugin",
-				Field:   "fake.domain.devices.interfaces[0]",
+				Type:    fieldValueInvalidType,
+				Message: bindingErrMsg,
+				Field:   fakeDomainInterfaceField,
 			}))
 	})
 

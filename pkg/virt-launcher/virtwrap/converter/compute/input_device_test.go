@@ -31,6 +31,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	inputTypeKeyboard = "keyboard"
+	inputBusUSB       = "usb"
+	inputTypeTablet   = "tablet"
+	inputBusVirtio    = "virtio"
+)
+
 var _ = Describe("Input Device Configurator", func() {
 	Context("User-specified input devices", func() {
 		DescribeTable("should configure user-specified input devices", func(arch string, bus v1.InputBus, expectedModel string) {
@@ -45,7 +52,7 @@ var _ = Describe("Input Device Configurator", func() {
 					Devices: api.Devices{
 						Inputs: []api.Input{
 							{
-								Type:  "tablet",
+								Type:  inputTypeTablet,
 								Bus:   bus,
 								Alias: api.NewUserDefinedAlias("my-tablet"),
 								Model: expectedModel,
@@ -81,7 +88,7 @@ var _ = Describe("Input Device Configurator", func() {
 			Expect(err.Error()).To(ContainSubstring(expectedError))
 		},
 			Entry("unsupported bus", v1.InputBus("ps2"), v1.InputTypeTablet, "unsupported bus"),
-			Entry("unsupported type", v1.InputBusUSB, v1.InputType("keyboard"), "unsupported type"),
+			Entry("unsupported type", v1.InputBusUSB, v1.InputType(inputTypeKeyboard), "unsupported type"),
 		)
 	})
 
@@ -101,18 +108,18 @@ var _ = Describe("Input Device Configurator", func() {
 			Entry("amd64 adds no input devices when nil", "amd64", nil, nil),
 			Entry("amd64 adds no input devices when true", "amd64", pointer.P(true), nil),
 			Entry("arm64 adds tablet and keyboard when nil", "arm64", nil, []api.Input{
-				{Type: "tablet", Bus: "usb"},
-				{Type: "keyboard", Bus: "usb"},
+				{Type: inputTypeTablet, Bus: inputBusUSB},
+				{Type: inputTypeKeyboard, Bus: inputBusUSB},
 			}),
 			Entry("arm64 adds tablet and keyboard when true", "arm64", pointer.P(true), []api.Input{
-				{Type: "tablet", Bus: "usb"},
-				{Type: "keyboard", Bus: "usb"},
+				{Type: inputTypeTablet, Bus: inputBusUSB},
+				{Type: inputTypeKeyboard, Bus: inputBusUSB},
 			}),
 			Entry("s390x adds virtio keyboard when nil", "s390x", nil, []api.Input{
-				{Type: "keyboard", Bus: "virtio"},
+				{Type: inputTypeKeyboard, Bus: inputBusVirtio},
 			}),
 			Entry("s390x adds virtio keyboard when true", "s390x", pointer.P(true), []api.Input{
-				{Type: "keyboard", Bus: "virtio"},
+				{Type: inputTypeKeyboard, Bus: inputBusVirtio},
 			}),
 		)
 

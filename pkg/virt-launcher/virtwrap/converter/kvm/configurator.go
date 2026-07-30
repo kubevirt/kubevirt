@@ -48,6 +48,8 @@ func ResetEmulatorBinaryExistsFunc() {
 	emulatorBinaryExists = defaultEmulatorBinaryExists
 }
 
+const domainTypeQEMU = "qemu"
+
 type KvmDomainConfigurator struct {
 	allowEmulation          bool
 	kvmAvailable            bool
@@ -89,7 +91,7 @@ func (k KvmDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 		logger.Infof("Cross-architecture emulation: host=%s, guest=%s. Using software emulation.",
 			k.hostArchitecture, vmi.Spec.Architecture)
 
-		domain.Spec.Type = "qemu"
+		domain.Spec.Type = domainTypeQEMU
 
 		path := emulatorPath(vmi.Spec.Architecture)
 		if path == "" {
@@ -109,7 +111,7 @@ func (k KvmDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 		}
 
 		log.DefaultLogger().Infof("kvm not present. Using software emulation.")
-		domain.Spec.Type = "qemu"
+		domain.Spec.Type = domainTypeQEMU
 	}
 
 	return nil

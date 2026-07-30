@@ -30,6 +30,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	stateOn             = "on"
+	stateOff            = "off"
+	hypervVendorIDValue = "myvendor"
+)
+
 var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 	It("should initialize Features and return nil when VMI has no features", func() {
 		vmi := libvmi.New()
@@ -102,11 +108,11 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 	},
 		Entry("hidden true", true, &api.Features{
 			ACPI: &api.FeatureEnabled{},
-			KVM:  &api.FeatureKVM{Hidden: &api.FeatureState{State: "on"}},
+			KVM:  &api.FeatureKVM{Hidden: &api.FeatureState{State: stateOn}},
 		}),
 		Entry("hidden false", false, &api.Features{
 			ACPI: &api.FeatureEnabled{},
-			KVM:  &api.FeatureKVM{Hidden: &api.FeatureState{State: "off"}},
+			KVM:  &api.FeatureKVM{Hidden: &api.FeatureState{State: stateOff}},
 		}),
 	)
 
@@ -123,15 +129,15 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 	},
 		Entry("nil (defaults to on)", nil, &api.Features{
 			ACPI:       &api.FeatureEnabled{},
-			PVSpinlock: &api.FeaturePVSpinlock{State: "on"},
+			PVSpinlock: &api.FeaturePVSpinlock{State: stateOn},
 		}),
 		Entry("explicitly enabled", new(true), &api.Features{
 			ACPI:       &api.FeatureEnabled{},
-			PVSpinlock: &api.FeaturePVSpinlock{State: "on"},
+			PVSpinlock: &api.FeaturePVSpinlock{State: stateOn},
 		}),
 		Entry("explicitly disabled", new(false), &api.Features{
 			ACPI:       &api.FeatureEnabled{},
-			PVSpinlock: &api.FeaturePVSpinlock{State: "off"},
+			PVSpinlock: &api.FeaturePVSpinlock{State: stateOff},
 		}),
 	)
 
@@ -185,7 +191,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 					},
 					VendorID: &v1.FeatureVendorID{
 						FeatureState: v1.FeatureState{Enabled: new(true)},
-						VendorID:     "myvendor",
+						VendorID:     hypervVendorIDValue,
 					},
 					SyNICTimer: &v1.SyNICTimer{
 						FeatureState: v1.FeatureState{Enabled: new(true)},
@@ -206,26 +212,26 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
 				ACPI: &api.FeatureEnabled{},
 				Hyperv: &api.FeatureHyperv{
-					Relaxed:         &api.FeatureState{State: "on"},
-					VAPIC:           &api.FeatureState{State: "on"},
-					VPIndex:         &api.FeatureState{State: "on"},
-					Runtime:         &api.FeatureState{State: "on"},
-					SyNIC:           &api.FeatureState{State: "on"},
-					Reset:           &api.FeatureState{State: "on"},
-					Frequencies:     &api.FeatureState{State: "on"},
-					Reenlightenment: &api.FeatureState{State: "on"},
-					IPI:             &api.FeatureState{State: "on"},
-					EVMCS:           &api.FeatureState{State: "on"},
-					Spinlocks:       &api.FeatureSpinlocks{State: "on", Retries: &retries},
-					VendorID:        &api.FeatureVendorID{State: "on", Value: "myvendor"},
+					Relaxed:         &api.FeatureState{State: stateOn},
+					VAPIC:           &api.FeatureState{State: stateOn},
+					VPIndex:         &api.FeatureState{State: stateOn},
+					Runtime:         &api.FeatureState{State: stateOn},
+					SyNIC:           &api.FeatureState{State: stateOn},
+					Reset:           &api.FeatureState{State: stateOn},
+					Frequencies:     &api.FeatureState{State: stateOn},
+					Reenlightenment: &api.FeatureState{State: stateOn},
+					IPI:             &api.FeatureState{State: stateOn},
+					EVMCS:           &api.FeatureState{State: stateOn},
+					Spinlocks:       &api.FeatureSpinlocks{State: stateOn, Retries: &retries},
+					VendorID:        &api.FeatureVendorID{State: stateOn, Value: hypervVendorIDValue},
 					SyNICTimer: &api.SyNICTimer{
-						State:  "on",
-						Direct: &api.FeatureState{State: "on"},
+						State:  stateOn,
+						Direct: &api.FeatureState{State: stateOn},
 					},
 					TLBFlush: &api.TLBFlush{
-						State:    "on",
-						Direct:   &api.FeatureState{State: "on"},
-						Extended: &api.FeatureState{State: "on"},
+						State:    stateOn,
+						Direct:   &api.FeatureState{State: stateOn},
+						Extended: &api.FeatureState{State: stateOn},
 					},
 				},
 			})))
@@ -248,10 +254,10 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
 				ACPI: &api.FeatureEnabled{},
 				Hyperv: &api.FeatureHyperv{
-					Relaxed:    &api.FeatureState{State: "on"},
-					Spinlocks:  &api.FeatureSpinlocks{State: "on"},
-					SyNICTimer: &api.SyNICTimer{State: "on"},
-					TLBFlush:   &api.TLBFlush{State: "on"},
+					Relaxed:    &api.FeatureState{State: stateOn},
+					Spinlocks:  &api.FeatureSpinlocks{State: stateOn},
+					SyNICTimer: &api.SyNICTimer{State: stateOn},
+					TLBFlush:   &api.TLBFlush{State: stateOn},
 				},
 			})))
 		})
@@ -271,8 +277,8 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
 				ACPI: &api.FeatureEnabled{},
 				Hyperv: &api.FeatureHyperv{
-					Relaxed: &api.FeatureState{State: "off"},
-					VAPIC:   &api.FeatureState{State: "off"},
+					Relaxed: &api.FeatureState{State: stateOff},
+					VAPIC:   &api.FeatureState{State: stateOff},
 				},
 			})))
 		})
@@ -307,7 +313,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
 				ACPI: &api.FeatureEnabled{},
 				Hyperv: &api.FeatureHyperv{
-					Relaxed: &api.FeatureState{State: "on"},
+					Relaxed: &api.FeatureState{State: stateOn},
 				},
 			})))
 		})
@@ -322,7 +328,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 
 		Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
 			ACPI:   &api.FeatureEnabled{},
-			VMPort: &api.FeatureState{State: "off"},
+			VMPort: &api.FeatureState{State: stateOff},
 		})))
 	})
 
@@ -335,7 +341,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 
 		Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
 			ACPI: &api.FeatureEnabled{},
-			PMU:  &api.FeatureState{State: "off"},
+			PMU:  &api.FeatureState{State: stateOff},
 		})))
 	})
 })

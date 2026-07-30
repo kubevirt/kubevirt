@@ -32,6 +32,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	cpuModelSkylakeServer   = "Skylake-Server"
+	cpuFeaturePolicyRequire = "require"
+	cpuFeaturePolicyDisable = "disable"
+	cpuFeatureNameMPX       = "mpx"
+	cpuModelMax             = "max"
+	cpuPlacementStatic      = "static"
+	cpuModeCustom           = "custom"
+	cpuYes                  = "yes"
+	vcpuStateNo             = "no"
+	memoryUnitKiB           = "KiB"
+)
+
 var _ = Describe("CPU Domain Configurator", func() {
 	Context("CPU topology", func() {
 		DescribeTable("should set topology and VCPU count from VMI CPU spec",
@@ -52,28 +65,28 @@ var _ = Describe("CPU Domain Configurator", func() {
 				libvmi.New(),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("with explicit cores, threads, sockets",
 				libvmi.New(libvmi.WithCPUCount(4, 2, 6)),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 6, Cores: 4, Threads: 2}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 48},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 48},
 				}},
 			),
 			Entry("with CPU resource request only",
 				libvmi.New(libvmi.WithCPURequest("4")),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 4, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 4},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 4},
 				}},
 			),
 			Entry("with CPU resource limit only",
 				libvmi.New(libvmi.WithCPULimit("8")),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 8, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 8},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 8},
 				}},
 			),
 		)
@@ -98,28 +111,28 @@ var _ = Describe("CPU Domain Configurator", func() {
 				libvmi.New(libvmi.WithCPUCount(1, 1, 1)),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("host-model sets mode directly",
 				libvmi.New(libvmi.WithCPUModel(v1.CPUModeHostModel)),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("host-passthrough sets mode directly",
 				libvmi.New(libvmi.WithCPUModel(v1.CPUModeHostPassthrough)),
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostPassthrough, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("custom model sets mode to custom with model name",
-				libvmi.New(libvmi.WithCPUModel("Skylake-Server")),
+				libvmi.New(libvmi.WithCPUModel(cpuModelSkylakeServer)),
 				api.Domain{Spec: api.DomainSpec{
-					CPU:  api.CPU{Mode: "custom", Model: "Skylake-Server", Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					CPU:  api.CPU{Mode: cpuModeCustom, Model: cpuModelSkylakeServer, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 		)
@@ -128,9 +141,9 @@ var _ = Describe("CPU Domain Configurator", func() {
 	Context("CPU features", func() {
 		It("should set features from VMI spec", func() {
 			vmi := libvmi.New(
-				libvmi.WithCPUModel("Skylake-Server"),
-				libvmi.WithCPUFeature("avx2", "require"),
-				libvmi.WithCPUFeature("vmx", "disable"),
+				libvmi.WithCPUModel(cpuModelSkylakeServer),
+				libvmi.WithCPUFeature("avx2", cpuFeaturePolicyRequire),
+				libvmi.WithCPUFeature("vmx", cpuFeaturePolicyDisable),
 			)
 			var domain api.Domain
 
@@ -144,12 +157,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
 				CPU: api.CPU{
-					Mode:     "custom",
-					Model:    "Skylake-Server",
+					Mode:     cpuModeCustom,
+					Model:    cpuModelSkylakeServer,
 					Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1},
 					Features: []api.CPUFeature{
-						{Name: "avx2", Policy: "require"},
-						{Name: "vmx", Policy: "disable"},
+						{Name: "avx2", Policy: cpuFeaturePolicyRequire},
+						{Name: "vmx", Policy: cpuFeaturePolicyDisable},
 					},
 				},
 				VCPU: &api.VCPU{Placement: "static", CPUs: 1},
@@ -174,16 +187,16 @@ var _ = Describe("CPU Domain Configurator", func() {
 				Expect(domain).To(Equal(expectedDomain))
 			},
 			Entry("adds mpx disable for custom model when MPX validation is required",
-				libvmi.New(libvmi.WithCPUModel("Skylake-Server")),
+				libvmi.New(libvmi.WithCPUModel(cpuModelSkylakeServer)),
 				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU: api.CPU{
-						Mode:     "custom",
-						Model:    "Skylake-Server",
+						Mode:     cpuModeCustom,
+						Model:    cpuModelSkylakeServer,
 						Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1},
-						Features: []api.CPUFeature{{Name: "mpx", Policy: "disable"}},
+						Features: []api.CPUFeature{{Name: cpuFeatureNameMPX, Policy: cpuFeaturePolicyDisable}},
 					},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("does not add mpx for host-model",
@@ -191,7 +204,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("does not add mpx for host-passthrough",
@@ -199,23 +212,23 @@ var _ = Describe("CPU Domain Configurator", func() {
 				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostPassthrough, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("does not add mpx when user already specifies it",
 				libvmi.New(
-					libvmi.WithCPUModel("Skylake-Server"),
-					libvmi.WithCPUFeature("mpx", "require"),
+					libvmi.WithCPUModel(cpuModelSkylakeServer),
+					libvmi.WithCPUFeature(cpuFeatureNameMPX, cpuFeaturePolicyRequire),
 				),
 				true,
 				api.Domain{Spec: api.DomainSpec{
 					CPU: api.CPU{
-						Mode:     "custom",
-						Model:    "Skylake-Server",
+						Mode:     cpuModeCustom,
+						Model:    cpuModelSkylakeServer,
 						Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1},
-						Features: []api.CPUFeature{{Name: "mpx", Policy: "require"}},
+						Features: []api.CPUFeature{{Name: cpuFeatureNameMPX, Policy: cpuFeaturePolicyRequire}},
 					},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 		)
@@ -239,29 +252,29 @@ var _ = Describe("CPU Domain Configurator", func() {
 			Entry("overrides host-model to max",
 				libvmi.New(libvmi.WithCPUModel(v1.CPUModeHostModel)),
 				api.Domain{Spec: api.DomainSpec{
-					CPU:  api.CPU{Mode: "custom", Model: "max", Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					CPU:  api.CPU{Mode: cpuModeCustom, Model: cpuModelMax, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("overrides host-passthrough to max",
 				libvmi.New(libvmi.WithCPUModel(v1.CPUModeHostPassthrough)),
 				api.Domain{Spec: api.DomainSpec{
-					CPU:  api.CPU{Mode: "custom", Model: "max", Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					CPU:  api.CPU{Mode: cpuModeCustom, Model: cpuModelMax, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("defaults to max when no CPU model is specified",
 				libvmi.New(),
 				api.Domain{Spec: api.DomainSpec{
-					CPU:  api.CPU{Mode: "custom", Model: "max", Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					CPU:  api.CPU{Mode: cpuModeCustom, Model: cpuModelMax, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 			Entry("preserves explicit custom model",
 				libvmi.New(libvmi.WithCPUModel("cortex-a57")),
 				api.Domain{Spec: api.DomainSpec{
-					CPU:  api.CPU{Mode: "custom", Model: "cortex-a57", Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-					VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+					CPU:  api.CPU{Mode: cpuModeCustom, Model: "cortex-a57", Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 				}},
 			),
 		)
@@ -283,7 +296,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 				cpuCount := topology.Sockets * topology.Cores * topology.Threads
 				expectedDomain := api.Domain{Spec: api.DomainSpec{
 					CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: topology, NUMA: expectedNUMA},
-					VCPU: &api.VCPU{Placement: "static", CPUs: cpuCount},
+					VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: cpuCount},
 				}}
 				Expect(domain).To(Equal(expectedDomain))
 			},
@@ -368,12 +381,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 					Topology: &api.CPUTopology{Sockets: 4, Cores: 1, Threads: 1},
 					NUMA:     numaWith(4, 128*1024),
 				},
-				VCPU: &api.VCPU{Placement: "static", CPUs: 4},
+				VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 4},
 				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
-					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
-					{ID: 1, Enabled: "yes", Hotpluggable: "yes"},
-					{ID: 2, Enabled: "no", Hotpluggable: "yes"},
-					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 0, Enabled: cpuYes, Hotpluggable: vcpuStateNo},
+					{ID: 1, Enabled: cpuYes, Hotpluggable: cpuYes},
+					{ID: 2, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
+					{ID: 3, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
 				}},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
@@ -396,7 +409,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
 				CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1}},
-				VCPU: &api.VCPU{Placement: "static", CPUs: 1},
+				VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 1},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -420,12 +433,12 @@ var _ = Describe("CPU Domain Configurator", func() {
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
 				CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 4, Cores: 1, Threads: 1}},
-				VCPU: &api.VCPU{Placement: "static", CPUs: 4},
+				VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 4},
 				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
-					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
-					{ID: 1, Enabled: "yes", Hotpluggable: "yes"},
-					{ID: 2, Enabled: "no", Hotpluggable: "yes"},
-					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 0, Enabled: cpuYes, Hotpluggable: vcpuStateNo},
+					{ID: 1, Enabled: cpuYes, Hotpluggable: cpuYes},
+					{ID: 2, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
+					{ID: 3, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
 				}},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
@@ -448,7 +461,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
 				CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 2, Cores: 1, Threads: 1}},
-				VCPU: &api.VCPU{Placement: "static", CPUs: 2},
+				VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 2},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -467,7 +480,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
 				CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 2, Cores: 1, Threads: 1}},
-				VCPU: &api.VCPU{Placement: "static", CPUs: 2},
+				VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 2},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -489,14 +502,14 @@ var _ = Describe("CPU Domain Configurator", func() {
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
 				CPU:  api.CPU{Mode: v1.CPUModeHostModel, Topology: &api.CPUTopology{Sockets: 3, Cores: 2, Threads: 1}},
-				VCPU: &api.VCPU{Placement: "static", CPUs: 6},
+				VCPU: &api.VCPU{Placement: cpuPlacementStatic, CPUs: 6},
 				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
-					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
-					{ID: 1, Enabled: "yes", Hotpluggable: "no"},
-					{ID: 2, Enabled: "no", Hotpluggable: "yes"},
-					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
-					{ID: 4, Enabled: "no", Hotpluggable: "yes"},
-					{ID: 5, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 0, Enabled: cpuYes, Hotpluggable: vcpuStateNo},
+					{ID: 1, Enabled: cpuYes, Hotpluggable: vcpuStateNo},
+					{ID: 2, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
+					{ID: 3, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
+					{ID: 4, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
+					{ID: 5, Enabled: vcpuStateNo, Hotpluggable: cpuYes},
 				}},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
@@ -511,7 +524,7 @@ func numaWith(cpuCount uint32, memKiB uint64) *api.NUMA {
 				ID:     "0",
 				CPUs:   fmt.Sprintf("0-%d", cpuCount-1),
 				Memory: &memKiB,
-				Unit:   "KiB",
+				Unit:   memoryUnitKiB,
 			},
 		},
 	}

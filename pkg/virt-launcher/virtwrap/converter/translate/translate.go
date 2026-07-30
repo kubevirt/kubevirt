@@ -32,6 +32,11 @@ import (
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	commandlineXMLName = "commandline"
+	argValueXMLName    = "value"
+)
+
 // ToLibvirtDomain converts a KubeVirt DomainSpec to a libvirtxml Domain
 // by marshaling to XML and unmarshaling into the libvirtxml type.
 // Callers must verify the Plugins feature gate is enabled before calling.
@@ -122,7 +127,7 @@ func parseQEMUCommandline(domainXML string) ([]api.Arg, []api.Env, bool) {
 				continue
 			}
 			switch t.Name.Local {
-			case "commandline":
+			case commandlineXMLName:
 				inCommandline = true
 				hasCommandline = true
 			case "arg":
@@ -137,7 +142,7 @@ func parseQEMUCommandline(domainXML string) ([]api.Arg, []api.Env, bool) {
 				}
 			}
 		case xml.EndElement:
-			if t.Name.Space == qemuNamespace && t.Name.Local == "commandline" {
+			if t.Name.Space == qemuNamespace && t.Name.Local == commandlineXMLName {
 				inCommandline = false
 			}
 		}
@@ -148,7 +153,7 @@ func parseQEMUCommandline(domainXML string) ([]api.Arg, []api.Env, bool) {
 
 func parseArgAttrs(t xml.StartElement) api.Arg {
 	for _, attr := range t.Attr {
-		if attr.Name.Local == "value" {
+		if attr.Name.Local == argValueXMLName {
 			return api.Arg{Value: attr.Value}
 		}
 	}
