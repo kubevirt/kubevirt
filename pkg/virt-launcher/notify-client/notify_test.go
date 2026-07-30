@@ -342,6 +342,87 @@ var _ = Describe("Notify", func() {
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})
 
+		It("should consolidate I/O error status and Agent updates into a single watch event", func() {
+			faultDisk := []libvirt.DomainDiskError{
+				{
+					Disk:  "vda",
+					Error: libvirt.DOMAIN_DISK_ERROR_NO_SPACE,
+				},
+			}
+			domain := api.NewMinimalDomain("test")
+			domain.Status.Reason = api.ReasonPausedIOError
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctrl := gomock.NewController(GinkgoT())
+			mockLibvirt := testing.NewLibvirt(ctrl)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+
+			vmi := api2.NewMinimalVMI("test-vmi")
+			vmi.UID = "1234"
+			vmiStore.Add(vmi)
+
+			metadataCache := metadata.NewCache()
+			interfaceStatus := []api.InterfaceStatus{{Ip: "10.0.0.1", InterfaceName: "eth0"}}
+			osInfo := &api.GuestOSInfo{Name: "test-os"}
+			fsFreezeStatus := &api.FSFreeze{Status: "frozen"}
+			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, osInfo, vmi, fsFreezeStatus, metadataCache)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+			Expect(event.Type).To(Equal(watch.Modified))
+
+			newDomain, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(newDomain.Status.Reason).To(Equal(api.ReasonPausedIOError))
+			Expect(newDomain.Status.Interfaces).To(HaveLen(1))
+			Expect(newDomain.Status.Interfaces[0].Ip).To(Equal("10.0.0.1"))
+			Expect(newDomain.Status.OSInfo.Name).To(Equal("test-os"))
+			Expect(newDomain.Status.FSFreezeStatus.Status).To(Equal("frozen"))
+		})
+
+		It("should process lifecycle events even if the domain is paused due to an I/O error", func() {
+			faultDisk := []libvirt.DomainDiskError{
+				{
+					Disk:  "vda",
+					Error: libvirt.DOMAIN_DISK_ERROR_UNSPEC,
+				},
+			}
+			domain := api.NewMinimalDomain("test")
+			domain.Status.Reason = api.ReasonPausedIOError
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctrl := gomock.NewController(GinkgoT())
+			mockLibvirt := testing.NewLibvirt(ctrl)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+
+			vmi := api2.NewMinimalVMI("test-vmi")
+			vmi.UID = "1234"
+			vmiStore.Add(vmi)
+
+			metadataCache := metadata.NewCache()
+			lifecycleEvent := libvirtEvent{
+				Event: &libvirt.DomainEventLifecycle{
+					Event:  libvirt.DOMAIN_EVENT_DEFINED,
+					Detail: int(libvirt.DOMAIN_EVENT_DEFINED_ADDED),
+				},
+			}
+			e.eventCallback(mockLibvirt.VirtConnection, domain, lifecycleEvent, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+			Expect(event.Type).To(Equal(watch.Added))
+		})
+
 	})
 
 	Describe("Version mismatch", func() {
