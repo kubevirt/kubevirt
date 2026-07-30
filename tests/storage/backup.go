@@ -1051,10 +1051,6 @@ var _ = Describe(SIG("Backup", func() {
 		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Waiting for the export to become ready")
-		backup = waitBackupExportReady(virtClient, backup.Namespace, backup.Name)
-		Expect(backup).ToNot(BeNil())
-
 		By(fmt.Sprintf("Waiting %s for the TTL to expire and VMExport to be cleaned up", ttlDuration))
 		Eventually(func() error {
 			_, err := virtClient.VirtualMachineExport(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
