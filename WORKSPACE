@@ -34,7 +34,10 @@ http_archive(
 http_archive(
     name = "hermetic_launcher",
     sha256 = "f6b5dbcf4c87561d85aa2ba9b14d70bd3f619ffb2d6eb3b15d93a6825ef75a7a",
-    urls = ["https://github.com/hermeticbuild/hermetic-launcher/releases/download/v0.0.6/hermetic_launcher-v0.0.6.tar.gz"],
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/v0.0.6/hermetic_launcher-v0.0.6.tar.gz",
+        "https://storage.googleapis.com/builddeps/f6b5dbcf4c87561d85aa2ba9b14d70bd3f619ffb2d6eb3b15d93a6825ef75a7a",
+    ],
 )
 
 http_file(
@@ -42,7 +45,10 @@ http_file(
     downloaded_file_path = "finalize-stub-x86_64-linux",
     executable = True,
     sha256 = "c7a09c660f998150305b32bdc619820ec1c7b4a8be153901cb1e32c3ba0e44e9",
-    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-x86_64-linux",
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-x86_64-linux",
+        "https://storage.googleapis.com/builddeps/c7a09c660f998150305b32bdc619820ec1c7b4a8be153901cb1e32c3ba0e44e9",
+    ],
 )
 
 http_file(
@@ -50,7 +56,10 @@ http_file(
     downloaded_file_path = "finalize-stub-aarch64-linux",
     executable = True,
     sha256 = "042bf32e5b511a8b2a346f34e79876e0ee252fea03a6c73bd16d23e5785b298c",
-    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-aarch64-linux",
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-aarch64-linux",
+        "https://storage.googleapis.com/builddeps/042bf32e5b511a8b2a346f34e79876e0ee252fea03a6c73bd16d23e5785b298c",
+    ],
 )
 
 http_file(
@@ -58,7 +67,10 @@ http_file(
     downloaded_file_path = "finalize-stub-s390x-linux",
     executable = True,
     sha256 = "ecce866232c2d058af04d629f49809775d24a380c33d90317eea4089b10a4bb7",
-    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-s390x-linux",
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/finalize-stub-s390x-linux",
+        "https://storage.googleapis.com/builddeps/ecce866232c2d058af04d629f49809775d24a380c33d90317eea4089b10a4bb7",
+    ],
 )
 
 http_file(
@@ -66,7 +78,10 @@ http_file(
     downloaded_file_path = "runfiles-stub-x86_64-linux",
     executable = True,
     sha256 = "ec2f76990920622168febbf3e68f06b9918e18da7c692728d7c6f8aaedb497c7",
-    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-x86_64-linux",
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-x86_64-linux",
+        "https://storage.googleapis.com/builddeps/ec2f76990920622168febbf3e68f06b9918e18da7c692728d7c6f8aaedb497c7",
+    ],
 )
 
 http_file(
@@ -74,7 +89,10 @@ http_file(
     downloaded_file_path = "runfiles-stub-aarch64-linux",
     executable = True,
     sha256 = "678fa4c8eba9fddd95acd6588d3e4fe445da6199d8e7f3598373a27912e026e0",
-    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-aarch64-linux",
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-aarch64-linux",
+        "https://storage.googleapis.com/builddeps/678fa4c8eba9fddd95acd6588d3e4fe445da6199d8e7f3598373a27912e026e0",
+    ],
 )
 
 http_file(
@@ -82,13 +100,19 @@ http_file(
     downloaded_file_path = "runfiles-stub-s390x-linux",
     executable = True,
     sha256 = "cca52171d1a4b513415517ffd31ec8c1954facc7d8513c539187a55bcb3af0c7",
-    url = "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-s390x-linux",
+    urls = [
+        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/binaries-20260508/runfiles-stub-s390x-linux",
+        "https://storage.googleapis.com/builddeps/cca52171d1a4b513415517ffd31ec8c1954facc7d8513c539187a55bcb3af0c7",
+    ],
 )
 
 http_archive(
     name = "rules_img",
     sha256 = "6ac03edbafc57f66dc267d649b1d4413001b53fa5c8c95ba4c5038a4575b0bb9",
-    urls = ["https://github.com/bazel-contrib/rules_img/releases/download/v0.3.9/rules_img-v0.3.9.tar.gz"],
+    urls = [
+        "https://github.com/bazel-contrib/rules_img/releases/download/v0.3.9/rules_img-v0.3.9.tar.gz",
+        "https://storage.googleapis.com/builddeps/6ac03edbafc57f66dc267d649b1d4413001b53fa5c8c95ba4c5038a4575b0bb9",
+    ],
 )
 
 load("@rules_img//img:dependencies.bzl", "rules_img_dependencies")
