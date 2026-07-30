@@ -20,6 +20,8 @@
 package cel_test
 
 import (
+	"reflect"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -65,6 +67,13 @@ var _ = Describe("CEL Evaluator", func() {
 				},
 			},
 		}
+	})
+
+	Context("NewBaseEvaluator", func() {
+		It("should create base evaluator", func() {
+			_, err := cel.NewBaseEvaluator()
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
 	Context("VMI field access", func() {
@@ -126,6 +135,21 @@ var _ = Describe("CEL Evaluator", func() {
 		It("should accept valid expressions", func() {
 			err := evaluator.CompileCondition(`vmi.spec.domain.cpu.cores > 0`)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject go struct parsing when default tag parser is JSON", func() {
+			err := evaluator.CompileCondition(`vmi.Spec.Domain.CPU.Cores > 0`)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should accept go struct parsing when default tag parser is not JSON", func() {
+			eval, err := cel.NewBaseEvaluator(
+				cel.WithNativeTypes(reflect.TypeOf(&v1.VirtualMachineInstance{})),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, issue := eval.Compile(`vmi.Spec.Domain.CPU.Cores > 0`)
+			Expect(issue.Err()).ToNot(HaveOccurred())
 		})
 	})
 
