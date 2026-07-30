@@ -354,29 +354,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		}
 	default:
 		if libvirtEvent.Event != nil {
-			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-				event := watch.Event{Type: watch.Added, Object: domain}
-				client.SendDomainEvent(event)
-				updateEvents(event, domain, events)
-			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
-				event := watch.Event{Type: watch.Added, Object: domain}
-				client.SendDomainEvent(event)
-				updateEvents(event, domain, events)
-			} else if (libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
-				(libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
-				// This is a libvirt event that only the target can see, and it means that the migration has completed
-				// we just set the EndTimestamp here so that the source can finalize the migration.
-				// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
-				// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
-				// makes sure that migrations actually finish in those cases.
-				notifier := eventNotifier{
-					client: client,
-					domain: domain,
-					events: events,
-				}
-				monitor := virtwrap.NewTargetMigrationMonitor(c, events, vmi, domain, metadataCache, notifier)
-				monitor.StartMonitor()
-			}
+			processLifecycleEvent(client, domain, libvirtEvent.Event, metadataCache, events, c, vmi)
 		}
 		if interfaceStatus != nil {
 			domain.Status.Interfaces = interfaceStatus
@@ -393,6 +371,34 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		if err != nil {
 			log.Log.Reason(err).Error("Could not send domain notify event.")
 		}
+	}
+}
+
+func processLifecycleEvent(client *Notifier, domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, events chan watch.Event, c cli.Connection, vmi *v1.VirtualMachineInstance) {
+	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_DEFINED &&
+		libvirt.DomainEventDefinedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+		event := watch.Event{Type: watch.Added, Object: domain}
+		client.SendDomainEvent(event)
+		updateEvents(event, domain, events)
+	} else if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_STARTED &&
+		libvirt.DomainEventStartedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
+		event := watch.Event{Type: watch.Added, Object: domain}
+		client.SendDomainEvent(event)
+		updateEvents(event, domain, events)
+	} else if (lifecycleEvent.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
+		(lifecycleEvent.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
+		// This is a libvirt event that only the target can see, and it means that the migration has completed
+		// we just set the EndTimestamp here so that the source can finalize the migration.
+		// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
+		// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
+		// makes sure that migrations actually finish in those cases.
+		notifier := eventNotifier{
+			client: client,
+			domain: domain,
+			events: events,
+		}
+		monitor := virtwrap.NewTargetMigrationMonitor(c, events, vmi, domain, metadataCache, notifier)
+		monitor.StartMonitor()
 	}
 }
 
