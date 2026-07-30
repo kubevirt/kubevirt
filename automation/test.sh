@@ -73,6 +73,11 @@ case "$TARGET" in
   *windows*)
     echo "picking the default provider for windows tests"
     ;;
+  *sig-network-smoke*)
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_DEPLOY_CDI=false
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-network-smoke*/}
+    ;;
   *sig-network*)
     export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
     export KUBEVIRT_NUM_NODES=3
@@ -548,6 +553,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ windows.* ]]; then
     # Run only Windows tests
     label_filter='(Windows)'
+  elif [[ $TARGET =~ sig-network-smoke ]]; then
+    label_filter='(sig-network && conformance)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
     # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
