@@ -47,7 +47,7 @@ type simpleCheckpointManager struct {
 	basePath string
 }
 
-func (cp *simpleCheckpointManager) Get(key string, value interface{}) error {
+func (cp *simpleCheckpointManager) Get(key string, value any) error {
 	b, err := os.ReadFile(filepath.Join(cp.basePath, key))
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (cp *simpleCheckpointManager) Get(key string, value interface{}) error {
 	return json.Unmarshal(b, value)
 }
 
-func (cp *simpleCheckpointManager) Store(key string, value interface{}) error {
+func (cp *simpleCheckpointManager) Store(key string, value any) error {
 	b, err := json.Marshal(value)
 	if err != nil {
 		return err
