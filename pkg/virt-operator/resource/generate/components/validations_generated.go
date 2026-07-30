@@ -1409,8 +1409,13 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 disableTLS:
                   description: |-
-                    When set to true, DisableTLS will disable the additional layer of live migration encryption
-                    provided by KubeVirt. This is usually a bad idea. Defaults to false
+                    DisableTLS disables both TLS encryption and mutual TLS authentication
+                    on the migration proxy when set to true. This removes all cryptographic
+                    protection from the migration data stream.
+                    When TLS must be disabled for operational reasons, deploy Kubernetes
+                    NetworkPolicies restricting ingress to virt-handler pods to only allow
+                    connections from other virt-handler pods.
+                    Defaults to false.
                   type: boolean
                 matchSELinuxLevelOnMigration:
                   description: |-
@@ -15559,8 +15564,13 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 disableTLS:
                   description: |-
-                    When set to true, DisableTLS will disable the additional layer of live migration encryption
-                    provided by KubeVirt. This is usually a bad idea. Defaults to false
+                    DisableTLS disables both TLS encryption and mutual TLS authentication
+                    on the migration proxy when set to true. This removes all cryptographic
+                    protection from the migration data stream.
+                    When TLS must be disabled for operational reasons, deploy Kubernetes
+                    NetworkPolicies restricting ingress to virt-handler pods to only allow
+                    connections from other virt-handler pods.
+                    Defaults to false.
                   type: boolean
                 experimental:
                   description: |-
@@ -16282,8 +16292,13 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 disableTLS:
                   description: |-
-                    When set to true, DisableTLS will disable the additional layer of live migration encryption
-                    provided by KubeVirt. This is usually a bad idea. Defaults to false
+                    DisableTLS disables both TLS encryption and mutual TLS authentication
+                    on the migration proxy when set to true. This removes all cryptographic
+                    protection from the migration data stream.
+                    When TLS must be disabled for operational reasons, deploy Kubernetes
+                    NetworkPolicies restricting ingress to virt-handler pods to only allow
+                    connections from other virt-handler pods.
+                    Defaults to false.
                   type: boolean
                 experimental:
                   description: |-
