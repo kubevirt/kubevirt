@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -974,11 +975,11 @@ func (l *Launcher) RedefineCheckpoint(_ context.Context, request *cmdv1.Redefine
 		}, nil
 	}
 
-	if !storage.IsChangedBlockTrackingEnabled(vmi) {
+	if !cbt.CBTStateInitializing(vmi.Status.ChangedBlockTracking) {
 		return &cmdv1.RedefineCheckpointResponse{
 			Response: &cmdv1.Response{
 				Success: false,
-				Message: "Redefine checkpoint failed: ChangedBlockTracking is not enabled",
+				Message: "Redefine checkpoint failed: ChangedBlockTracking is not initializing",
 			},
 			CheckpointInvalid: false,
 		}, nil

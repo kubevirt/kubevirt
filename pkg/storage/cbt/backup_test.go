@@ -431,7 +431,7 @@ var _ = Describe("Backup Controller", func() {
 
 	It("should wait when backupTracker needs checkpoint redefinition", func() {
 		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
-		backupTracker.Status.CheckpointRedefinitionRequired = pointer.P(true)
+		backupTracker.Status.LastTrackedPodUID = new(types.UID("stale-pod-uid"))
 		controller.backupTrackerInformer.GetStore().Add(backupTracker)
 
 		backup := createBackupWithTracker(backupName, vmName, pvcName)
@@ -441,6 +441,8 @@ var _ = Describe("Backup Controller", func() {
 		controller.vmStore.Add(vm)
 
 		vmi := createVMIWithPVCAttached()
+		vmi.Status.NodeName = "test-node"
+		vmi.Status.ActivePods = map[types.UID]string{types.UID("current-pod-uid"): "test-node"}
 		controller.vmiStore.Add(vmi)
 
 		statusUpdated := false
@@ -1699,7 +1701,7 @@ var _ = Describe("Backup Controller", func() {
 			Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
 		},
 		Entry("when tracker has no previous checkpoint", "", "\"op\":\"add\""),
-		Entry("when tracker already has a checkpoint", "old-checkpoint", "\"op\":\"replace\""),
+		Entry("when tracker already has a checkpoint", "old-checkpoint", "\"op\":\"add\""),
 	)
 
 	It("should update backupTracker even when cleanup returns early", func() {

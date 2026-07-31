@@ -194,7 +194,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		fakeNodeStore := fakeNodeInformer.GetStore()
 		fakeBackupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
-		cbtHandler := NewCBTHandler(virtClient, fakeBackupTrackerInformer)
+		cbtHandler := NewCBTHandler(fakeBackupTrackerInformer)
 		controller, _ = NewVirtualMachineController(
 			recorder,
 			virtClient,

@@ -667,9 +667,9 @@ func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, 
 func (app *SubresourceAPIApp) RedefineCheckpointVMIRequestHandler(request *restful.Request, response *restful.Response) {
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.ChangedBlockTracking == nil ||
-			vmi.Status.ChangedBlockTracking.State != v1.ChangedBlockTrackingEnabled {
+			vmi.Status.ChangedBlockTracking.State != v1.ChangedBlockTrackingInitializing {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name,
-				fmt.Errorf("ChangedBlockTracking is not enabled"))
+				fmt.Errorf("ChangedBlockTracking is not initializing"))
 		}
 		return nil
 	}

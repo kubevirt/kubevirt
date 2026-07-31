@@ -9851,12 +9851,13 @@ var CRDsValidation map[string]string = map[string]string{
         rule: self == oldSelf
     status:
       properties:
-        checkpointRedefinitionRequired:
+        lastTrackedPodUID:
           description: |-
-            CheckpointRedefinitionRequired is set to true by virt-handler when the VM
-            restarts and has a checkpoint that needs to be redefined in libvirt.
-            virt-controller will process this flag, attempt redefinition, and clear it.
-          type: boolean
+            LastTrackedPodUID is the UID of the virt-launcher pod associated with
+            the VMI being tracked for which checkpoints were last defined in libvirt.
+            After a VM restart, the new pod UID will differ, signaling that checkpoint
+            redefinition is needed before backups can resume.
+          type: string
         latestCheckpoint:
           description: |-
             LatestCheckpoint is the metadata of the checkpoint of
