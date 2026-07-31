@@ -517,7 +517,8 @@ func (c *WorkloadUpdateController) isVirtHandlerReady(namespace string) (bool, e
 	return ds.Status.ObservedGeneration >= ds.Generation &&
 		ds.Status.DesiredNumberScheduled > 0 &&
 		ds.Status.DesiredNumberScheduled == ds.Status.UpdatedNumberScheduled &&
-		ds.Status.DesiredNumberScheduled == ds.Status.NumberReady, nil
+		ds.Status.DesiredNumberScheduled == ds.Status.NumberReady &&
+		ds.Status.NumberUnavailable == 0, nil
 }
 
 func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {

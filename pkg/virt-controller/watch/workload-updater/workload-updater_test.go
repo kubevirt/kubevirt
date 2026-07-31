@@ -222,6 +222,34 @@ var _ = Describe("Workload Updater", func() {
 			Expect(fakeVirtClient.Actions()).To(BeEmpty())
 		})
 
+		It("should do nothing if virt-handler daemonset has unavailable pods", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "madeup")
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
+
+			unavailableHandler := &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default", Generation: 1},
+				Status: appsv1.DaemonSetStatus{
+					ObservedGeneration:     1,
+					DesiredNumberScheduled: 2,
+					UpdatedNumberScheduled: 2,
+					NumberReady:            2,
+					NumberUnavailable:      1,
+				},
+			}
+			Expect(controller.daemonSetStore.Update(unavailableHandler)).To(Succeed())
+
+			addKubeVirt(kv)
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+
+			sanityExecute()
+			Expect(recorder.Events).To(BeEmpty())
+			Expect(fakeVirtClient.Actions()).To(BeEmpty())
+		})
+
 		It("should update out of date value on kv and report prometheus metric", func() {
 			By("Checking prometheus metric before sync")
 			value, err := metrics.GetOutdatedVirtualMachineInstanceWorkloads()
