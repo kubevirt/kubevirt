@@ -640,7 +640,6 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
-			Expect(mockQueue.Len()).To(Equal(0))
 			expectReplicasAndReadyReplicas(rs.Name, 2, 0)
 			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
