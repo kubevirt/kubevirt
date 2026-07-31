@@ -558,6 +558,12 @@ func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandl
 			Handler: guestfs.NewHandler(app.clusterConfig),
 		},
 		{
+			Matches: matchesResource("healthz"),
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)(restful.NewRequest(r), restful.NewResponse(w))
+			}),
+		},
+		{
 			Matches: matchesResource("start-cluster-profiler"),
 			Handler: http.HandlerFunc(subresourceApp.StartClusterProfilerHTTP),
 		},
@@ -579,6 +585,7 @@ func clusterLevelAllowPaths() []string {
 		paths = append(paths,
 			base+"version",
 			base+"guestfs",
+			base+"healthz",
 			base+"start-cluster-profiler",
 			base+"stop-cluster-profiler",
 			base+"dump-cluster-profiler",
