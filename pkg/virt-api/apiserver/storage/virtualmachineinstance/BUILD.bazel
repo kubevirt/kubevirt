@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "addvolume.go",
+        "backup.go",
         "console.go",
         "dummy.go",
         "evacuate.go",
@@ -13,6 +14,7 @@ go_library(
         "objectgraph.go",
         "pause.go",
         "portforward.go",
+        "redefinecheckpoint.go",
         "removevolume.go",
         "reset.go",
         "sev.go",
