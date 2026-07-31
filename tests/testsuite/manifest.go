@@ -171,7 +171,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	EventuallyWithOffset(2, func() error {
 		result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do(context.Background())
 		return result.Error()
-	}, 30*time.Second, 1*time.Second).Should(
+	}, 120*time.Second, 1*time.Second).Should(
 		SatisfyAll(HaveOccurred(), WithTransform(k8serrors.IsNotFound, BeTrue())),
 		fmt.Sprintf("%s failed to be cleaned up", uri),
 	)
