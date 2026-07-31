@@ -510,7 +510,7 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 	// Register each version gets its own storage instances.
 	apiGroups := apiserver.APIGroups{}
 	for _, gv := range v1.SubresourceGroupVersions {
-		storage := virtualmachine.NewStorageMap(app.virtClient, app.k8sClient, app.clusterConfig)
+		storage := virtualmachine.NewStorageMap(app.virtClient, app.k8sClient, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
 		for resource, store := range virtualmachineinstance.NewStorageMap(app.virtClient, app.k8sClient, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig) {
 			storage[resource] = store
 		}
