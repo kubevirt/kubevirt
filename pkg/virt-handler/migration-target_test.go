@@ -244,6 +244,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			nil,
 			nil,
 			container_disk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
+			hotplugvolume.NewVolumeMounter(GinkgoT().TempDir(), podsDir, host),
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

@@ -93,6 +93,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/vsock/server"
 
 	hcontainerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 )
 
 const (
@@ -436,6 +437,13 @@ func (app *virtHandlerApp) Run() {
 
 	cdMounter := hcontainerdisk.NewMounter(podIsolationDetector, containerDiskState, app.clusterConfig)
 
+	hotplugState := filepath.Join(app.VirtPrivateDir, "hotplug-volume-mount-state")
+	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
+		panic(err)
+	}
+
+	hvMounter := hotplugvolume.NewVolumeMounter(hotplugState, app.KubeletPodsDir, app.HostOverride)
+
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
 		app.virtCli,
@@ -458,6 +466,7 @@ func (app *virtHandlerApp) Run() {
 		pluginInformer.GetStore(),
 		nodeHookManager,
 		cdMounter,
+		hvMounter,
 	)
 	if err != nil {
 		panic(err)
@@ -489,6 +498,7 @@ func (app *virtHandlerApp) Run() {
 		pluginInformer.GetStore(),
 		nodeHookManager,
 		cdMounter,
+		hvMounter,
 	)
 	if err != nil {
 		panic(err)

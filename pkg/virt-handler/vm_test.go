@@ -221,6 +221,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			nil,
 			&noopNodeHookExecutor{},
 			container_disk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
+			hotplugvolume.NewVolumeMounter(GinkgoT().TempDir(), podsDir, host),
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
