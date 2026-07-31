@@ -52,6 +52,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	var virtClient kubecli.KubevirtClient
 	var metrics *libmonitoring.QueryRequestResult
 	var vm *v1.VirtualMachine
+	var hasCSIStorage bool
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -111,7 +112,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		}
 
 		BeforeAll(func() {
-			vm = setupSharedVM(virtClient)
+			vm, hasCSIStorage = setupSharedVM(virtClient)
 			metrics = fetchPrometheusKubevirtMetrics(virtClient)
 			Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
 		})
@@ -122,6 +123,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 			for _, metric := range operatormetrics.ListMetrics() {
 				if excludedMetrics[metric.GetOpts().Name] {
+					continue
+				}
+				if !hasCSIStorage && metric.GetOpts().Name == "kubevirt_vm_disk_allocated_size_bytes" {
 					continue
 				}
 
@@ -152,6 +156,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		})
 
 		It("should contain disk metrics", func() {
+			if !hasCSIStorage {
+				Skip("no CSI storage class configured")
+			}
 			By("Verifying kubevirt_vm_disk_allocated_size_bytes metric")
 			metric := operatormetrics.NewGauge(operatormetrics.MetricOpts{
 				Name: "kubevirt_vm_disk_allocated_size_bytes",
@@ -287,19 +294,24 @@ func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *li
 	return metrics
 }
 
-func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
-	vmDiskPVC := "test-vm-pvc"
-	dv := libstorage.CreateBlankFSDataVolume(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+func setupSharedVM(virtClient kubecli.KubevirtClient) (*v1.VirtualMachine, bool) {
+	_, hasCSI := libstorage.GetCSIStorageClass()
 	iface := *v1.DefaultMasqueradeNetworkInterface()
 
-	vmi := libvmifact.NewFedora(
+	opts := []libvmi.Option{
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libvmi.WithMemoryLimit(libvmifact.FedoraMemory),
-		libvmi.WithDataVolume("testdisk", dv.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithLabel("vm.kubevirt.io/test", "test-vm-labels"),
-	)
+	}
+
+	if hasCSI {
+		dv := libstorage.CreateBlankFSDataVolume("test-vm-pvc", testsuite.GetTestNamespace(nil), "512Mi", nil)
+		opts = append(opts, libvmi.WithDataVolume("testdisk", dv.Name))
+	}
+
+	vmi := libvmifact.NewFedora(opts...)
 
 	vm := createRunningVM(virtClient, vmi, v1.RunStrategyAlways, true)
 
@@ -319,7 +331,7 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 		virtClient, "kubevirt_vmi_filesystem_capacity_bytes", fsLabels, 0, ">", 0,
 	)
 
-	return vm
+	return vm, hasCSI
 }
 
 func gomegaContainsMetricMatcher(metric operatormetrics.Metric, labels map[string]string) types.GomegaMatcher {

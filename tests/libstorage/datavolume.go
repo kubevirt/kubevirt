@@ -71,7 +71,7 @@ func AddDataVolume(vm *v1.VirtualMachine, diskName string, dataVolume *v1beta1.D
 }
 
 func CreateBlankFSDataVolume(name, namespace, size string, labels map[string]string) *v1beta1.DataVolume {
-	sc, _ := GetCSIStorageClass()
+	sc, hasCSI := GetCSIStorageClass()
 	dv := libdv.NewDataVolume(
 		libdv.WithNamespace(namespace),
 		libdv.WithName(name),
@@ -82,6 +82,9 @@ func CreateBlankFSDataVolume(name, namespace, size string, labels map[string]str
 			libdv.StorageWithFilesystemVolumeMode(),
 		),
 	)
+	if !hasCSI {
+		dv.Spec.Storage.StorageClassName = nil
+	}
 	if labels != nil && dv.Labels == nil {
 		dv.Labels = map[string]string{}
 	}
@@ -93,7 +96,7 @@ func CreateBlankFSDataVolume(name, namespace, size string, labels map[string]str
 }
 
 func CreateBlankBlockDataVolume(name, namespace, size string) *v1beta1.DataVolume {
-	sc, _ := GetRWOBlockStorageClass()
+	sc, hasBlock := GetRWOBlockStorageClass()
 	dv := libdv.NewDataVolume(
 		libdv.WithNamespace(namespace),
 		libdv.WithName(name),
@@ -104,6 +107,9 @@ func CreateBlankBlockDataVolume(name, namespace, size string) *v1beta1.DataVolum
 			libdv.StorageWithBlockVolumeMode(),
 		),
 	)
+	if !hasBlock {
+		dv.Spec.Storage.StorageClassName = nil
+	}
 
 	return createDataVolume(dv, namespace)
 }
