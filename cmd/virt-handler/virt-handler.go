@@ -91,6 +91,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 	vsockmode "kubevirt.io/kubevirt/pkg/vsock/mode"
 	"kubevirt.io/kubevirt/pkg/vsock/server"
+
+	hcontainerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 )
 
 const (
@@ -427,6 +429,13 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	containerDiskState := filepath.Join(app.VirtPrivateDir, "container-disk-mount-state")
+	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
+		panic(err)
+	}
+
+	cdMounter := hcontainerdisk.NewMounter(podIsolationDetector, containerDiskState, app.clusterConfig)
+
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
 		app.virtCli,
@@ -448,6 +457,7 @@ func (app *virtHandlerApp) Run() {
 		passtRepairHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
+		cdMounter,
 	)
 	if err != nil {
 		panic(err)
@@ -478,6 +488,7 @@ func (app *virtHandlerApp) Run() {
 		cbtHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
+		cdMounter,
 	)
 	if err != nil {
 		panic(err)

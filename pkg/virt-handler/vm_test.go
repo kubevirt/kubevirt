@@ -72,6 +72,7 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -219,6 +220,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			cbtHandler,
 			nil,
 			&noopNodeHookExecutor{},
+			container_disk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
