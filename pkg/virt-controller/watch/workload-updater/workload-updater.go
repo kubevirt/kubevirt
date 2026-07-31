@@ -514,7 +514,8 @@ func (c *WorkloadUpdateController) isVirtHandlerReady(namespace string) (bool, e
 		return false, nil
 	}
 	ds := obj.(*appsv1.DaemonSet)
-	return ds.Status.DesiredNumberScheduled > 0 &&
+	return ds.Status.ObservedGeneration >= ds.Generation &&
+		ds.Status.DesiredNumberScheduled > 0 &&
 		ds.Status.DesiredNumberScheduled == ds.Status.UpdatedNumberScheduled &&
 		ds.Status.DesiredNumberScheduled == ds.Status.NumberReady, nil
 }

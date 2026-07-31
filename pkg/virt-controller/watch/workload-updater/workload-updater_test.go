@@ -110,8 +110,9 @@ var _ = Describe("Workload Updater", func() {
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 
 		readyHandler := &appsv1.DaemonSet{
-			ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default", Generation: 1},
 			Status: appsv1.DaemonSetStatus{
+				ObservedGeneration:     1,
 				DesiredNumberScheduled: 2,
 				UpdatedNumberScheduled: 2,
 				NumberReady:            2,
@@ -174,14 +175,42 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 
 			rollingHandler := &appsv1.DaemonSet{
-				ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default", Generation: 1},
 				Status: appsv1.DaemonSetStatus{
+					ObservedGeneration:     1,
 					DesiredNumberScheduled: 2,
 					UpdatedNumberScheduled: 1,
 					NumberReady:            2,
 				},
 			}
 			Expect(controller.daemonSetStore.Update(rollingHandler)).To(Succeed())
+
+			addKubeVirt(kv)
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+
+			sanityExecute()
+			Expect(recorder.Events).To(BeEmpty())
+			Expect(fakeVirtClient.Actions()).To(BeEmpty())
+		})
+
+		It("should do nothing if virt-handler daemonset has unobserved spec changes", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "madeup")
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
+
+			unobservedHandler := &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "default", Generation: 2},
+				Status: appsv1.DaemonSetStatus{
+					ObservedGeneration:     1,
+					DesiredNumberScheduled: 2,
+					UpdatedNumberScheduled: 2,
+					NumberReady:            2,
+				},
+			}
+			Expect(controller.daemonSetStore.Update(unobservedHandler)).To(Succeed())
 
 			addKubeVirt(kv)
 			controller.vmiStore.Add(vmi)
