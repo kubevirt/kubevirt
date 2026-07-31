@@ -35,19 +35,14 @@ var (
 	daemonSetFastMaxUnavailable    = intstr.FromString("10%")
 )
 
-// canaryUpgradeStatus represents the current phase of a DaemonSet canary
-// upgrade within processCanaryUpgrade. The phases progress as:
-// started -> canary -> increasing -> waiting -> successful
-// Any phase can transition to failed on error.
-type canaryUpgradeStatus string
+type CanaryUpgradeStatus string
 
 const (
-	started    canaryUpgradeStatus = "started"    // spec patched with MaxUnavailable=1, initial canary pod rolling out
-	canary     canaryUpgradeStatus = "canary"     // waiting for the single canary pod to become ready
-	increasing canaryUpgradeStatus = "increasing" // canary healthy, MaxUnavailable raised to 10% for full rollout
-	waiting    canaryUpgradeStatus = "waiting"    // full rollout in progress, waiting for all pods to become ready
-	successful canaryUpgradeStatus = "successful" // all pods ready, MaxUnavailable reverted to default
-	failed     canaryUpgradeStatus = "failed"
+	CanaryUpgradeStatusStarted                 CanaryUpgradeStatus = "started"
+	CanaryUpgradeStatusUpgradingDaemonSet      CanaryUpgradeStatus = "upgrading daemonset"
+	CanaryUpgradeStatusWaitingDaemonSetRollout CanaryUpgradeStatus = "waiting for daemonset rollout"
+	CanaryUpgradeStatusSuccessful              CanaryUpgradeStatus = "successful"
+	CanaryUpgradeStatusFailed                  CanaryUpgradeStatus = "failed"
 )
 
 func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
@@ -131,8 +126,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	ops, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{
-		patch.WithTest("/metadata/generation", cachedDeployment.ObjectMeta.Generation),
-	},
+		patch.WithTest("/metadata/generation", cachedDeployment.ObjectMeta.Generation)},
 		&deployment.ObjectMeta, deployment.Spec)...).GeneratePayload()
 	if err != nil {
 		return nil, err
@@ -160,8 +154,7 @@ func setMaxUnavailable(daemonSet *appsv1.DaemonSet, maxUnavailable intstr.IntOrS
 func generateDaemonSetPatch(oldDs, newDs *appsv1.DaemonSet) ([]byte, error) {
 	return patch.New(
 		getPatchWithObjectMetaAndSpec([]patch.PatchOption{
-			patch.WithTest("/metadata/generation", oldDs.ObjectMeta.Generation),
-		},
+			patch.WithTest("/metadata/generation", oldDs.ObjectMeta.Generation)},
 			&newDs.ObjectMeta, newDs.Spec)...).GeneratePayload()
 }
 
@@ -216,8 +209,10 @@ func daemonHasDefaultRolloutStrategy(daemonSet *appsv1.DaemonSet) bool {
 	return getMaxUnavailable(daemonSet) == daemonSetDefaultMaxUnavailable.IntValue()
 }
 
-func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, objectChanged bool) (bool, error, canaryUpgradeStatus) {
+func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, forceUpdate bool) (bool, error, CanaryUpgradeStatus) {
 	var updatedAndReadyPods int32
+	var status CanaryUpgradeStatus
+	done := false
 
 	if hasTLS(cachedDaemonSet) && !hasTLS(newDS) {
 		insertTLS(newDS)
@@ -228,85 +223,91 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	}
 	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
+	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
-	updatedAndReadyPods = r.howManyUpdatedAndReadyPods(cachedDaemonSet)
+	if isDaemonSetUpdated {
+		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(cachedDaemonSet)
+	}
 
 	switch {
-	case objectChanged:
-		// start canary upgrade
-		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-		newDS, err := r.patchDaemonSet(cachedDaemonSet, newDS)
-		if err != nil {
-			return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), failed
-		}
-		log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
-		// Do not call SetGeneration here. The generation mismatch ensures
-		// subsequent reconciles re-enter processCanaryUpgrade so the
-		// canary can progress through Increasing and Successful.
-		return false, nil, started
 	case updatedAndReadyPods == 0:
-		// check for a crashed canary pod
-		canaryPods := r.getCanaryPods(cachedDaemonSet)
-		for _, canary := range canaryPods {
-			if canary != nil && util.PodIsCrashLooping(canary) {
-				r.recorder.Eventf(cachedDaemonSet, corev1.EventTypeWarning, failedUpdateDaemonSetReason, "daemonSet %v rollout failed", cachedDaemonSet.Name)
-				return false, fmt.Errorf("daemonSet %s rollout failed", cachedDaemonSet.Name), failed
+		if !isDaemonSetUpdated {
+			// start canary upgrade
+			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
+			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+			if err != nil {
+				log.V(2).Infof("failed to start canary upgrade for daemonset %s: %+v", newDS.Name, newDS)
+				return false, fmt.Errorf("unable to start canary upgrade for daemonset %s: %v", newDS.Name, err), CanaryUpgradeStatusFailed
+			}
+			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
+		} else {
+			// check for a crashed canary pod
+			canaryPods := r.getCanaryPods(cachedDaemonSet)
+			for _, canary := range canaryPods {
+				if canary != nil && util.PodIsCrashLooping(canary) {
+					r.recorder.Eventf(cachedDaemonSet, corev1.EventTypeWarning, failedUpdateDaemonSetReason, "daemonSet %v rollout failed", cachedDaemonSet.Name)
+					return false, fmt.Errorf("daemonSet %s rollout failed", cachedDaemonSet.Name), CanaryUpgradeStatusFailed
+				}
 			}
 		}
-		return false, nil, canary
+		done, status = false, CanaryUpgradeStatusStarted
 	case updatedAndReadyPods > 0 && updatedAndReadyPods < desiredReadyPods:
 		if daemonHasDefaultRolloutStrategy(cachedDaemonSet) {
 			// canary was ok, start real rollout
 			setMaxUnavailable(newDS, daemonSetFastMaxUnavailable)
 			// start rollout again
+			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+			if err != nil {
+				log.V(2).Infof("failed to update daemonset %s: %+v", newDS.Name, newDS)
+				return false, fmt.Errorf("unable to update daemonset %s: %v", newDS.Name, err), CanaryUpgradeStatusFailed
+			}
+			log.V(2).Infof("daemonSet %v updated", newDS.GetName())
+			status = CanaryUpgradeStatusUpgradingDaemonSet
+		} else {
+			log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
+			status = CanaryUpgradeStatusWaitingDaemonSetRollout
+		}
+		done = false
+	case updatedAndReadyPods > 0 && updatedAndReadyPods == desiredReadyPods:
+
+		// rollout has completed and all virt-handlers are ready
+		if !daemonHasDefaultRolloutStrategy(cachedDaemonSet) {
+			// revert maxUnavailable to default value
+			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
 			var err error
 			newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
-				return false, fmt.Errorf("unable to update daemonset %+v: %v", newDS, err), failed
+				return false, err, CanaryUpgradeStatusFailed
 			}
-			log.V(2).Infof("daemonSet %v updated", newDS.GetName())
+			log.V(2).Infof("daemonSet %v updated back to default", newDS.GetName())
 			SetGeneration(&r.kv.Status.Generations, newDS)
-			return false, nil, increasing
+			return false, nil, CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
-		log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
-		return false, nil, waiting
-	case updatedAndReadyPods > 0 && updatedAndReadyPods == desiredReadyPods:
-		var err error
+
 		if supportsTLS(cachedDaemonSet) {
 			if !hasTLS(cachedDaemonSet) {
 				insertTLS(newDS)
-				newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
-				if err != nil {
-					return false, err, failed
-				}
+				_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+				log.V(2).Infof("daemonSet %v updated to default CN TLS", newDS.GetName())
 				SetGeneration(&r.kv.Status.Generations, newDS)
-				return false, nil, waiting
+				return false, err, CanaryUpgradeStatusWaitingDaemonSetRollout
 			}
 			if hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
 				unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
-				newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+				var err error
+				cachedDaemonSet, err = r.patchDaemonSet(cachedDaemonSet, newDS)
 				if err != nil {
-					return false, err, failed
+					return false, err, CanaryUpgradeStatusFailed
 				}
-				SetGeneration(&r.kv.Status.Generations, newDS)
-				return false, nil, waiting
+				log.V(2).Infof("daemonSet %v updated to secure certificates", newDS.GetName())
 			}
 		}
-		// rollout has completed and all virt-handlers are ready revert
-		// maxUnavailable to default value
-		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-		newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
-		if err != nil {
-			return false, err, failed
-		}
-		SetGeneration(&r.kv.Status.Generations, newDS)
+
+		SetGeneration(&r.kv.Status.Generations, cachedDaemonSet)
 		log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
-		return true, nil, successful
-	default:
-		err := fmt.Errorf("unexpected canary upgrade state: updatedAndReadyPods=%d, desiredReadyPods=%d", updatedAndReadyPods, desiredReadyPods)
-		log.Errorf("%s", err)
-		return false, err, failed
+		done, status = true, CanaryUpgradeStatusSuccessful
 	}
+	return done, nil, status
 }
 
 func supportsTLS(daemonSet *appsv1.DaemonSet) bool {
@@ -408,16 +409,13 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	}
 
 	cachedDaemonSet = obj.(*appsv1.DaemonSet)
+	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDaemonSet.DeepCopy()
+	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
-	objectMetaModified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(objectMetaModified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
-
-	specChanged := !util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) || *objectMetaModified
-	generationUnknown := existingCopy.GetGeneration() != GetExpectedGeneration(daemonSet, kv.Status.Generations)
-	ongoingRollout := !daemonHasDefaultRolloutStrategy(cachedDaemonSet)
-
-	if !specChanged && !ongoingRollout && !generationUnknown {
+	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
+	// there was no change to metadata, the generation was right
+	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
 		return true, nil
 	}
@@ -430,12 +428,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	// start the rollout of the new virt-handler again
 	// wait for all nodes to complete the rollout
 	// set maxUnavailable back to 1
-	//
-	// Only pass specChanged as objectChanged to processCanaryUpgrade so
-	// that an unknown generation alone does not restart the canary from
-	// scratch. The generation will be re-recorded when the canary
-	// completes.
-	done, err, _ := r.processCanaryUpgrade(cachedDaemonSet, daemonSet, specChanged)
+	done, err, _ := r.processCanaryUpgrade(cachedDaemonSet, daemonSet, *modified)
 	return done, err
 }
 
