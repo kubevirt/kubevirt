@@ -52,10 +52,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+	"kubevirt.io/kubevirt/pkg/virt-operator/validation"
 )
 
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
+
+const InvalidKubeVirtSpecReason = "InvalidKubeVirtSpec"
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
@@ -373,6 +376,20 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 	}, nil
 }
 
+// validateKubeVirtSpec runs the shared semantic validation against the current
+// KubeVirt spec. On failure it records a Warning event and returns an error
+func (r *Reconciler) validateKubeVirtSpec() error {
+	causes := validation.ValidateKubeVirtSpec(r.kv)
+	if len(causes) == 0 {
+		return nil
+	}
+
+	err := validation.CausesToError(causes)
+	r.recorder.Event(r.kv, corev1.EventTypeWarning, InvalidKubeVirtSpecReason, err.Error())
+	log.Log.Object(r.kv).Reason(err).Error("KubeVirt spec failed semantic validation")
+	return err
+}
+
 func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) {
 	// Avoid log spam by logging this issue once early instead of for once each object created
 	if !util.IsValidLabel(r.kv.Spec.ProductVersion) {
@@ -383,6 +400,10 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	}
 	if !util.IsValidLabel(r.kv.Spec.ProductComponent) {
 		log.Log.Errorf("invalid kubevirt.spec.productComponent: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
+	}
+
+	if err := r.validateKubeVirtSpec(); err != nil {
+		return false, err
 	}
 
 	targetVersion := r.kv.Status.TargetKubeVirtVersion

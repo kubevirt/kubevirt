@@ -29,9 +29,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -167,6 +169,34 @@ var _ = Describe("Apply", func() {
 			id, ok := deployment.Annotations["kubevirt.io/install-strategy-identifier"]
 			Expect(ok).To(BeTrue())
 			Expect(id).To(Equal("fakeid"))
+		})
+	})
+
+	Context("validateKubeVirtSpec", func() {
+		newReconciler := func(kv *v1.KubeVirt) (*Reconciler, *record.FakeRecorder) {
+			recorder := record.NewFakeRecorder(10)
+			return &Reconciler{kv: kv, recorder: recorder}, recorder
+		}
+
+		It("should pass for a valid spec without recording an event", func() {
+			reconciler, recorder := newReconciler(&v1.KubeVirt{})
+
+			Expect(reconciler.validateKubeVirtSpec()).To(Succeed())
+			Expect(recorder.Events).To(BeEmpty())
+		})
+
+		It("should fail and record a warning event for an invalid spec", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Infra: &v1.ComponentConfig{Replicas: pointer.P(uint8(0))},
+				},
+			}
+			reconciler, recorder := newReconciler(kv)
+
+			err := reconciler.validateKubeVirtSpec()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("infra replica count can't be 0"))
+			Expect(recorder.Events).To(Receive(ContainSubstring(InvalidKubeVirtSpecReason)))
 		})
 	})
 })

@@ -24,9 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strconv"
 
-	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/client-go/log"
@@ -48,6 +46,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	"kubevirt.io/kubevirt/pkg/virt-operator/validation"
 )
 
 // KubeVirtUpdateAdmitter validates KubeVirt updates
@@ -77,12 +76,12 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	var results []metav1.StatusCause
 
-	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
+	results = append(results, validation.ValidateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
-	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
-	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
-	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
-	results = append(results, validateMigrationConfiguration(
+	results = append(results, validation.ValidateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
+	results = append(results, validation.ValidateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
+	results = append(results, validation.ValidateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
+	results = append(results, validation.ValidateMigrationConfiguration(
 		&currKV.Spec.Configuration,
 		&newKV.Spec.Configuration,
 	)...)
@@ -90,7 +89,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
 			results = append(results,
-				validateTLSConfiguration(newKV.Spec.Configuration.TLSConfiguration)...)
+				validation.ValidateTLSConfiguration(newKV.Spec.Configuration.TLSConfiguration)...)
 		}
 	}
 
@@ -110,16 +109,16 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
 		results = append(results,
-			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
+			validation.ValidateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
 
 	}
 
 	if newKV.Spec.Infra != nil {
-		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
+		results = append(results, validation.ValidateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
-		results = append(results, validateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
+		results = append(results, validation.ValidateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
 	}
 
 	response := validating_webhooks.NewAdmissionResponse(results)
@@ -178,24 +177,6 @@ func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVi
 	return &newKV, nil, nil
 }
 
-func validateCustomizeComponents(customization v1.CustomizeComponents) []metav1.StatusCause {
-	patches := customization.Patches
-	statuses := []metav1.StatusCause{}
-
-	for _, patch := range patches {
-		if json.Valid([]byte(patch.Patch)) {
-			continue
-		}
-
-		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("patch %q is not valid JSON", patch.Patch),
-		})
-	}
-
-	return statuses
-}
-
 func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
@@ -248,78 +229,6 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 	}
 
 	return statuses
-}
-
-func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.StatusCause {
-	var statuses []metav1.StatusCause
-
-	if tlsConfiguration == nil {
-		return statuses
-	}
-
-	if tlsConfiguration.MinTLSVersion == v1.VersionTLS13 || tlsConfiguration.MinTLSVersion == "" {
-		if len(tlsConfiguration.Ciphers) > 0 {
-			statuses = append(statuses, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "You cannot specify ciphers when spec.configuration.tlsConfiguration.minTLSVersion is empty or VersionTLS13",
-				Field:   "spec.configuration.tlsConfiguration.ciphers",
-			})
-		}
-		return statuses
-	}
-
-	if len(tlsConfiguration.Ciphers) > 0 {
-		var idByName = kvtls.CipherSuiteNameMap()
-		for index, cipher := range tlsConfiguration.Ciphers {
-			if _, exists := idByName[cipher]; !exists {
-				statuses = append(statuses, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fmt.Sprintf("%s is not a valid cipher", cipher),
-					Field:   fmt.Sprintf("spec.configuration.tlsConfiguration.ciphers#%d", index),
-				})
-			}
-		}
-
-		return statuses
-	}
-
-	return statuses
-}
-
-func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConfiguration) []metav1.StatusCause {
-	statuses := []metav1.StatusCause{}
-	if seccompConf == nil || seccompConf.VirtualMachineInstanceProfile == nil {
-		return statuses
-	}
-
-	customProfile := seccompConf.VirtualMachineInstanceProfile.CustomProfile
-	customProfileField := field.Child("virtualMachineInstanceProfile").Child("customProfile")
-
-	if customProfile != nil {
-		if customProfile.LocalhostProfile != nil && customProfile.RuntimeDefaultProfile {
-			localhostProfileField := customProfileField.Child("localhostProfile")
-			runtimeDefaultProfileField := customProfileField.Child("runtimeDefaultProfile")
-			statuses = append(statuses, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   localhostProfileField.String(),
-				Message: fmt.Sprintf("%s cannot be set when %s is set", localhostProfileField.String(), runtimeDefaultProfileField.String()),
-			})
-			statuses = append(statuses, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   runtimeDefaultProfileField.String(),
-				Message: fmt.Sprintf("%s cannot be set when %s is set", runtimeDefaultProfileField.String(), localhostProfileField.String()),
-			})
-		}
-	} else {
-		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Field:   customProfileField.String(),
-			Message: fmt.Sprintf("%s needs to be set", customProfileField.String()),
-		})
-	}
-
-	return statuses
-
 }
 
 func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubernetes.Interface) []metav1.StatusCause {
@@ -432,19 +341,6 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 	return statuses
 }
 
-func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
-	statuses := []metav1.StatusCause{}
-
-	if replicas != nil && *replicas == 0 {
-		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "infra replica count can't be 0",
-		})
-	}
-
-	return statuses
-}
-
 func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 	currDevConfig := currKVSpec.Configuration.DeveloperConfiguration
 	newDevConfig := newKVSpec.Configuration.DeveloperConfiguration
@@ -477,119 +373,4 @@ func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []stri
 		return []string{"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."}
 	}
 	return nil
-}
-
-func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.StatusCause) {
-	if ratioStrPtr == nil {
-		return
-	}
-
-	ratioStr := *ratioStrPtr
-
-	ratio, err := strconv.ParseFloat(ratioStr, 64)
-	if err != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("ratio provided, %s, cannot be parsed into float: %v", ratioStr, err),
-		})
-		return
-	}
-
-	if ratio < 1.0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("ratio provided, %s, cannot be smaller than 1.0", ratioStr),
-		})
-	}
-
-	return
-}
-
-func validateFeatureGates(devConfig *v1.DeveloperConfiguration) (causes []metav1.StatusCause) {
-	if devConfig == nil {
-		return
-	}
-
-	enabledFGs := devConfig.FeatureGates
-	disabledFGs := devConfig.DisabledFeatureGates
-
-	if len(enabledFGs) == 0 || len(disabledFGs) == 0 {
-		return
-	}
-
-	// check that the same feature doesn't appear in both FeatureGates and DisabledFeatureGates, emit error otherwise
-	for _, enabledFG := range enabledFGs {
-		if slices.Contains(disabledFGs, enabledFG) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeForbidden,
-				Message: fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, enabledFG),
-				Field:   field.NewPath("spec", "configuration", "developerConfiguration", "featureGates").String(),
-			})
-		}
-	}
-
-	return causes
-}
-
-func hasFeatureGateEnabled(config *v1.KubeVirtConfiguration, gate string) bool {
-	return featuregate.IsEnabled(gate, config.DeveloperConfiguration)
-}
-
-func validateVirtTemplateDeployment(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
-	virtTemplateDeployment := config.VirtTemplateDeployment
-	if virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || !*virtTemplateDeployment.Enabled {
-		return nil
-	}
-
-	if hasFeatureGateEnabled(config, featuregate.Template) {
-		return nil
-	}
-
-	return []metav1.StatusCause{{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Field:   "spec.configuration.virtTemplateDeployment.enabled",
-		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", featuregate.Template),
-	}}
-}
-
-func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
-	if config.RoleAggregationStrategy == nil || *config.RoleAggregationStrategy == v1.RoleAggregationStrategyAggregateToDefault {
-		return nil
-	}
-
-	if hasFeatureGateEnabled(config, featuregate.OptOutRoleAggregation) {
-		return nil
-	}
-
-	return []metav1.StatusCause{{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Field:   "spec.configuration.roleAggregationStrategy",
-		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
-	}}
-}
-
-func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfiguration) []metav1.StatusCause {
-	if newConfig.MigrationConfiguration == nil {
-		return nil
-	}
-
-	var causes []metav1.StatusCause
-	newMigrationConfig := newConfig.MigrationConfiguration
-
-	if newMigrationConfig.MaxDowntimeMs != nil {
-		var oldMaxDowntimeMs *uint64
-		if oldConfig.MigrationConfiguration != nil {
-			oldMaxDowntimeMs = oldConfig.MigrationConfiguration.MaxDowntimeMs
-		}
-		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
-			})
-		}
-	}
-
-	return causes
 }
