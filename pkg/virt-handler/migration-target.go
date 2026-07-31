@@ -113,6 +113,7 @@ func NewMigrationTargetController(
 	passtRepairHandler passtRepairTargetHandler,
 	pluginStore cache.Store,
 	pluginExecutor plugins.NodeHookExecutor,
+	cdMounter containerdisk.Mounter,
 ) (*MigrationTargetController, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -144,11 +145,6 @@ func NewMigrationTargetController(
 		return nil, err
 	}
 
-	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
-	if err := os.MkdirAll(containerDiskState, 0o700); err != nil {
-		return nil, err
-	}
-
 	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
 	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
 		return nil, err
@@ -157,7 +153,7 @@ func NewMigrationTargetController(
 	c := &MigrationTargetController{
 		BaseController:                   baseCtrl,
 		capabilities:                     capabilities,
-		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		containerDiskMounter:             cdMounter,
 		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		migrationIpAddress:               migrationIpAddress,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
