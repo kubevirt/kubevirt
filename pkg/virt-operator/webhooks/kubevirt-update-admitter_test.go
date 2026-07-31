@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -36,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -163,50 +165,57 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
-	DescribeTable("validateMigrationConfiguration", func(oldConfig, newConfig *v1.KubeVirtConfiguration, expectError bool) {
-		causes := validateMigrationConfiguration(oldConfig, newConfig)
-		if expectError {
-			Expect(causes).To(HaveLen(1))
+	DescribeTable("ValidateMigrationConfigurationOptions", func(
+		oldOptions *v1.VMIMConfigurationOptions,
+		newOptions *v1.VMIMConfigurationOptions,
+		devConfig *v1.DeveloperConfiguration,
+		expectedCauses int,
+		expectedField string,
+	) {
+		sourceField := field.NewPath("spec", "configuration", "migrationConfiguration")
+		causes := migrationutils.ValidateMigrationConfigurationOptions(sourceField, oldOptions, newOptions, devConfig)
+		Expect(causes).To(HaveLen(expectedCauses))
+		if expectedCauses > 0 {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.maxDowntimeMs"))
-		} else {
-			Expect(causes).To(BeEmpty())
+			Expect(causes[0].Field).To(Equal(sourceField.Child(expectedField).String()))
 		}
 	},
-		Entry("should reject when MaxDowntimeMs is newly set without feature gate",
-			&v1.KubeVirtConfiguration{},
-			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
-			},
-			true,
+		Entry("allow MaxDowntimeMs with feature gate enabled",
+			nil,
+			&v1.VMIMConfigurationOptions{MaxDowntimeMs: pointer.P(uint64(900))},
+			&v1.DeveloperConfiguration{FeatureGates: []string{featuregate.MigrationStallDetection}},
+			0, "",
 		),
-		Entry("should allow when MaxDowntimeMs is set with feature gate",
-			&v1.KubeVirtConfiguration{},
-			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.MigrationStallDetection},
-				},
-			},
-			false,
+		Entry("grandfather unchanged MaxDowntimeMs when feature gate is disabled",
+			&v1.VMIMConfigurationOptions{MaxDowntimeMs: pointer.P(uint64(900))},
+			&v1.VMIMConfigurationOptions{MaxDowntimeMs: pointer.P(uint64(900))},
+			nil,
+			0, "",
 		),
-		Entry("should allow unrelated update when MaxDowntimeMs is unchanged and feature gate is disabled",
-			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
-			},
-			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
-			},
-			false,
+		Entry("reject changing MaxDowntimeMs when feature gate is disabled",
+			&v1.VMIMConfigurationOptions{MaxDowntimeMs: pointer.P(uint64(500))},
+			&v1.VMIMConfigurationOptions{MaxDowntimeMs: pointer.P(uint64(900))},
+			nil,
+			1, "maxDowntimeMs",
 		),
-		Entry("should reject changing MaxDowntimeMs when feature gate is disabled",
-			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(500))},
-			},
-			&v1.KubeVirtConfiguration{
-				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
-			},
-			true,
+
+		Entry("grandfather unchanged negative CompletionTimeoutPerGiB",
+			&v1.VMIMConfigurationOptions{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
+			&v1.VMIMConfigurationOptions{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
+			nil,
+			0, "",
+		),
+		Entry("grandfather unchanged negative ProgressTimeout",
+			&v1.VMIMConfigurationOptions{ProgressTimeout: pointer.P(int64(-1))},
+			&v1.VMIMConfigurationOptions{ProgressTimeout: pointer.P(int64(-1))},
+			nil,
+			0, "",
+		),
+		Entry("grandfather unchanged negative BandwidthPerMigration",
+			&v1.VMIMConfigurationOptions{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
+			&v1.VMIMConfigurationOptions{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
+			nil,
+			0, "",
 		),
 	)
 
