@@ -126,7 +126,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
 		shareDir := GinkgoT().TempDir()
-		privateDir := GinkgoT().TempDir()
 		podsDir, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(os.RemoveAll, podsDir)
@@ -201,8 +200,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			k8sfakeClient,
 			fakeNodeStore,
 			host,
-			privateDir,
-			podsDir,
 			launcherClientManager,
 			vmiInformer,
 			vmiInformer.GetStore(),
@@ -220,9 +217,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			nil,
 			&noopNodeHookExecutor{},
 			containerdisk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
+			mockHotplugVolumeMounter,
 		)
-
-		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()

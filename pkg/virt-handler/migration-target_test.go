@@ -155,7 +155,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
 		shareDir := GinkgoT().TempDir()
-		privateDir := GinkgoT().TempDir()
 		podsDir, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(os.RemoveAll, podsDir)
@@ -223,8 +222,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			recorder,
 			virtClient,
 			host,
-			privateDir,
-			podsDir,
 			"127.1.1.1", // migration ip address
 			launcherClientManager,
 			vmiInformer,
@@ -241,9 +238,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			nil,
 			nil,
 			containerdisk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
+			mockHotplugVolumeMounter,
 		)
-
-		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
