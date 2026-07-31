@@ -678,9 +678,11 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// reason: sha1 is not used for encryption but for creating a hash value
 	hasher := sha1.New()
 	values := getStringFromFields(*c)
+	log.Log.Infof("DEBUG generateInstallStrategyID input length=%d hash_input=%q", len(values), values)
 	hasher.Write([]byte(values))
 
 	c.ID = hex.EncodeToString(hasher.Sum(nil))
+	log.Log.Infof("DEBUG generateInstallStrategyID result=%s", c.ID)
 }
 
 // use KubeVirtDeploymentConfig by value because we modify sth just for the ID

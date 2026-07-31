@@ -296,7 +296,30 @@ else
 fi
 
 INVOKE_FUNCTEST_ONCE="${INVOKE_FUNCTEST_ONCE-}"
-if [[ "$INVOKE_FUNCTEST_ONCE" == 'true' ]]; then
+if [[ "${JOB_NAME-}" == *dequarantine* ]]; then
+    DEQUARANTINE_TIMEOUT_SECS="${DEQUARANTINE_TIMEOUT_SECS:-79200}"
+    deadline=$((SECONDS + DEQUARANTINE_TIMEOUT_SECS))
+    echo "Dequarantine lane: shell-level retry loop (${NUM_TESTS} iterations, timeout ${DEQUARANTINE_TIMEOUT_SECS}s)"
+    failures=0
+    completed=0
+    for i in $(seq 1 "$NUM_TESTS"); do
+        if ((SECONDS >= deadline)); then
+            echo "Dequarantine timeout reached after $completed runs"
+            break
+        fi
+        echo "Dequarantine run: $i of $NUM_TESTS (failures so far: $failures)"
+        if ! FUNC_TEST_ARGS="$ginkgo_params" make functest; then
+            failures=$((failures + 1))
+            echo "Dequarantine run: $i of $NUM_TESTS FAILED"
+        fi
+        completed=$((completed + 1))
+    done
+    echo "Dequarantine complete: $failures failures in $completed runs"
+    if ((failures > 0)); then
+        exit 1
+    fi
+    exit 0
+elif [[ "$INVOKE_FUNCTEST_ONCE" == 'true' ]]; then
     echo "Test lane: ${TEST_LANE}"
     if ! FUNC_TEST_ARGS="--repeat=$(( NUM_TESTS - 1 )) $ginkgo_params" make functest; then
         echo "Test lane: ${TEST_LANE}, tests failed!"

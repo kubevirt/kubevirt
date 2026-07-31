@@ -230,6 +230,8 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
 	updatedAndReadyPods = r.howManyUpdatedAndReadyPods(cachedDaemonSet)
+	log.Infof("DEBUG processCanaryUpgrade %s: objectChanged=%v updatedAndReadyPods=%d desiredReadyPods=%d defaultStrategy=%v",
+		cachedDaemonSet.Name, objectChanged, updatedAndReadyPods, desiredReadyPods, daemonHasDefaultRolloutStrategy(cachedDaemonSet))
 
 	switch {
 	case objectChanged:
@@ -416,6 +418,20 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	specChanged := !util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) || *objectMetaModified
 	generationUnknown := existingCopy.GetGeneration() != GetExpectedGeneration(daemonSet, kv.Status.Generations)
 	ongoingRollout := !daemonHasDefaultRolloutStrategy(cachedDaemonSet)
+
+	log.Log.Infof("DEBUG syncDaemonSet %s: specChanged=%v (upToDate=%v objectMetaModified=%v) generationUnknown=%v (cached=%d expected=%d) ongoingRollout=%v",
+		daemonSet.GetName(),
+		specChanged, util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet), *objectMetaModified,
+		generationUnknown, existingCopy.GetGeneration(), GetExpectedGeneration(daemonSet, kv.Status.Generations),
+		ongoingRollout)
+	log.Log.Infof("DEBUG syncDaemonSet %s: cached annotations: version=%s registry=%s id=%s",
+		daemonSet.GetName(),
+		cachedDaemonSet.Annotations[v1.InstallStrategyVersionAnnotation],
+		cachedDaemonSet.Annotations[v1.InstallStrategyRegistryAnnotation],
+		cachedDaemonSet.Annotations[v1.InstallStrategyIdentifierAnnotation])
+	log.Log.Infof("DEBUG syncDaemonSet %s: target: version=%s registry=%s id=%s",
+		daemonSet.GetName(),
+		r.kv.Status.TargetKubeVirtVersion, r.kv.Status.TargetKubeVirtRegistry, r.kv.Status.TargetDeploymentID)
 
 	if !specChanged && !ongoingRollout && !generationUnknown {
 		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
