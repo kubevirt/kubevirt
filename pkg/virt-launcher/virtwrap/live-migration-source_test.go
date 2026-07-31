@@ -1889,3 +1889,87 @@ var _ = Describe("migratableDomXML", func() {
 		Expect(newXML).To(Equal(expectedXML))
 	})
 })
+
+var _ = Describe("newDowntimeTuningConfig", func() {
+	It("returns nil when DowntimeTuning is absent", func() {
+		Expect(newDowntimeTuningConfig(300, nil)).To(BeNil())
+	})
+
+	It("applies defaults and clamps InitialMs to MaxDowntimeMs", func() {
+		cfg := newDowntimeTuningConfig(100, &v1.DowntimeTuningOptions{
+			InitialMs: pointer.P(int64(5000)),
+		})
+		Expect(cfg).ToNot(BeNil())
+		Expect(cfg.InitialMs).To(Equal(int64(100)), "InitialMs should be clamped to MaxDowntimeMs")
+		Expect(cfg.Steps).To(Equal(defaultDowntimeSteps))
+		Expect(cfg.StartAfterIteration).To(Equal(defaultStartAfterIteration))
+		Expect(cfg.CooldownSeconds).To(Equal(defaultCooldownSeconds))
+	})
+})
+
+var _ = Describe("tuneDowntime", func() {
+	var ctrl *gomock.Controller
+	var mockDomain *cli.MockVirDomain
+	var monitor *migrationMonitor
+	logger := log.DefaultLogger()
+
+	cfg := &downtimeTuningConfig{
+		MaxDowntimeMs:       1000,
+		InitialMs:           100,
+		Steps:               3,
+		StartAfterIteration: 2,
+		CooldownSeconds:     1,
+	}
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockDomain = cli.NewMockVirDomain(ctrl)
+		monitor = &migrationMonitor{downtimeTuning: cfg}
+	})
+
+	It("sets initial downtime on first call", func() {
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(nil)
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+	})
+
+	It("does nothing when stats is nil after initial call", func() {
+		monitor.currentDowntimeMs = 100
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+	})
+
+	It("does nothing before StartAfterIteration", func() {
+		monitor.currentDowntimeMs = 100
+		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 1}
+		monitor.tuneDowntime(mockDomain, stats, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+	})
+
+	It("steps up and respects ceiling", func() {
+		monitor.currentDowntimeMs = 100
+		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
+
+		mockDomain.EXPECT().MigrateSetMaxDowntime(gomock.Any(), uint32(0)).Times(3).Return(nil)
+
+		for i := 0; i < 5; i++ {
+			monitor.lastTunedAt = time.Time{}
+			monitor.tuneDowntime(mockDomain, stats, logger)
+		}
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(1000)))
+	})
+
+	It("respects cooldown", func() {
+		monitor.currentDowntimeMs = 100
+		monitor.lastTunedAt = time.Now()
+		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
+		monitor.tuneDowntime(mockDomain, stats, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+	})
+
+	It("does nothing when tuning is nil", func() {
+		monitor.downtimeTuning = nil
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(0)))
+	})
+})
