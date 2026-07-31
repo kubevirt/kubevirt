@@ -4237,6 +4237,8 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
 		Entry("'writeback' with direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), expectCheckTrue),
 		Entry("'writeback' without direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), expectCheckFalse),
+		Entry("'unsafe' with direct io", string(v1.CacheUnsafe), string(v1.CacheUnsafe), expectCheckTrue),
+		Entry("'unsafe' without direct io", string(v1.CacheUnsafe), string(v1.CacheUnsafe), expectCheckFalse),
 	)
 
 	It("should fail to set appropriate driver cache mode for a nil disk", func() {

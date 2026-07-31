@@ -187,7 +187,7 @@ func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubec
 	}
 	if cache != "" {
 		c := v1.DriverCache(cache)
-		if c != v1.CacheNone && c != v1.CacheWriteThrough && c != v1.CacheWriteBack && c != v1.CacheDirectSync {
+		if c != v1.CacheNone && c != v1.CacheWriteThrough && c != v1.CacheWriteBack && c != v1.CacheUnsafe && c != v1.CacheDirectSync {
 			return fmt.Errorf("error adding volume, invalid cache value %s", cache)
 		}
 		hotplugRequest.Disk.Cache = c

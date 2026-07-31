@@ -299,6 +299,7 @@ var _ = Describe("Disk Validation", func() {
 			Entry("writethrough", v1.CacheWriteThrough),
 			Entry("writeback", v1.CacheWriteBack),
 			Entry("directsync", v1.CacheDirectSync),
+			Entry("unsafe", v1.CacheUnsafe),
 		)
 
 		DescribeTable("should reject disk with invalid errorPolicy", func(policy string) {
