@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
@@ -239,6 +240,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			migrationTargetPasstRepairHandler,
 			nil,
 			nil,
+			containerdisk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
