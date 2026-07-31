@@ -20,16 +20,20 @@
 package virtualmachine
 
 import (
+	"crypto/tls"
+
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	"kubevirt.io/client-go/kubecli"
 
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func NewStorageMap(virtClient kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
-	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, 0, nil, clusterConfig)
+func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tlsConfig *tls.Config, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
+	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, consoleServerPort, tlsConfig, clusterConfig)
+	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	return map[string]rest.Storage{
 		"virtualmachines":                  NewDummyREST(),
 		"virtualmachines/expand-spec":      NewExpandSpecREST(virtClient, clusterConfig),
@@ -43,5 +47,6 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, clusterConfig *virtconfig.
 		"virtualmachines/removememorydump": NewRemoveMemoryDumpREST(subresourceApp),
 		"virtualmachines/objectgraph":      NewObjectGraphREST(subresourceApp),
 		"virtualmachines/evacuate":         NewEvacuateCancelREST(subresourceApp),
+		"virtualmachines/portforward":      NewPortForwardREST(streamer),
 	}
 }

@@ -675,7 +675,7 @@ func getRunningPatch(vm *v1.VirtualMachine, running bool) ([]byte, error) {
 	).GeneratePayload()
 }
 
-func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, response *restful.Response) {
+func (app *SubresourceAPIApp) BackupVMI(ctx context.Context, namespace, name string, body io.ReadCloser) *errors.StatusError {
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
@@ -687,10 +687,10 @@ func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, 
 		return conn.BackupURI(vmi)
 	}
 
-	app.putRequestHandler(request, response, validate, getURL, false)
+	return app.connectVirtHandler(ctx, namespace, name, body, validate, nil, getURL, false)
 }
 
-func (app *SubresourceAPIApp) RedefineCheckpointVMIRequestHandler(request *restful.Request, response *restful.Response) {
+func (app *SubresourceAPIApp) RedefineCheckpointVMI(ctx context.Context, namespace, name string, body io.ReadCloser) *errors.StatusError {
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.ChangedBlockTracking == nil ||
 			vmi.Status.ChangedBlockTracking.State != v1.ChangedBlockTrackingEnabled {
@@ -704,5 +704,5 @@ func (app *SubresourceAPIApp) RedefineCheckpointVMIRequestHandler(request *restf
 		return conn.RedefineCheckpointURI(vmi)
 	}
 
-	app.putRequestHandler(request, response, validate, getURL, false)
+	return app.connectVirtHandler(ctx, namespace, name, body, validate, nil, getURL, false)
 }
