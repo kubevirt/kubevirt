@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -114,6 +113,7 @@ func NewMigrationTargetController(
 	pluginStore cache.Store,
 	pluginExecutor plugins.NodeHookExecutor,
 	cdMounter containerdisk.Mounter,
+	hvMounter hotplugvolume.VolumeMounter,
 ) (*MigrationTargetController, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -145,16 +145,11 @@ func NewMigrationTargetController(
 		return nil, err
 	}
 
-	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
-	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
-		return nil, err
-	}
-
 	c := &MigrationTargetController{
 		BaseController:                   baseCtrl,
 		capabilities:                     capabilities,
 		containerDiskMounter:             cdMounter,
-		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		hotplugVolumeMounter:             hvMounter,
 		migrationIpAddress:               migrationIpAddress,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
