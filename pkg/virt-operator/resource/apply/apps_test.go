@@ -742,7 +742,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
-					successful, true, false, true, false,
+					successful, true, false, false, false,
 				),
 
 				Entry("should unattach secret before complete rollout",

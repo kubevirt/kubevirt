@@ -20,6 +20,11 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 		}
 	}
 
+	// wait for daemonsets to fully stabilize before updating controllers
+	if !haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores) {
+		return false, nil
+	}
+
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
 		deployment, err := r.syncDeployment(deployment)
