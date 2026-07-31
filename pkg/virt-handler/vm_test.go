@@ -2786,6 +2786,25 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonTDXNotMigratable))
 		})
 
+		It("should not be allowed to live-migrate if the VMI uses unsafe cache mode", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:  "mydisk",
+					Cache: v1.CacheUnsafe,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+					},
+				},
+			}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonCacheUnsafeNotMigratable))
+		})
+
 		It("should be allowed to live-migrate if the VMI uses SCSI persistent reservation", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 

@@ -482,6 +482,27 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("sharable disk requires cache mode none or directsync"))
 		})
+
+		It("should reject sharable disk with unsafe cache", func() {
+			v1Disk := &v1.Disk{
+				Name: "mydisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
+					},
+				},
+				Shareable: pointer.P(true),
+				Cache:     v1.CacheUnsafe,
+			}
+			devicePerBus := make(map[string]storage.DeviceNamer)
+			libvirtDisk := &api.Disk{}
+			err := storage.Convert_v1_Disk_To_api_Disk(
+				&convertertypes.ConverterContext{Architecture: archconverter.NewConverter(amd64), UseVirtioTransitional: false},
+				v1Disk, libvirtDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus),
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sharable disk requires cache mode none or directsync"))
+		})
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {
@@ -4609,6 +4630,8 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
 		Entry("'writeback' with direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), expectCheckTrue),
 		Entry("'writeback' without direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), expectCheckFalse),
+		Entry("'unsafe' with direct io", string(v1.CacheUnsafe), string(v1.CacheUnsafe), expectCheckTrue),
+		Entry("'unsafe' without direct io", string(v1.CacheUnsafe), string(v1.CacheUnsafe), expectCheckFalse),
 	)
 
 	It("should fail to set appropriate driver cache mode for a nil disk", func() {
