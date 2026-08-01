@@ -39,9 +39,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype/expand"
-	"kubevirt.io/kubevirt/pkg/instancetype/find"
-	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -62,10 +59,6 @@ const (
 	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
 )
 
-type instancetypeVMExpander interface {
-	Expand(vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-}
-
 type SubresourceAPIApp struct {
 	virtClient              kubecli.KubevirtClient
 	k8sClient               kubernetes.Interface
@@ -73,22 +66,10 @@ type SubresourceAPIApp struct {
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
 	clusterConfig           *virtconfig.ClusterConfig
-	instancetypeExpander    instancetypeVMExpander
 	handlerHttpClient       *http.Client
 }
 
 func NewSubresourceAPIApp(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
-	// When this method is called from tools/openapispec.go when running 'make generate',
-	// the virtClient is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
-	var instancetypeExpander instancetypeVMExpander
-	if virtClient != nil {
-		instancetypeExpander = expand.New(
-			clusterConfig,
-			find.NewSpecFinder(nil, nil, nil, virtClient),
-			preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
-		)
-	}
-
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfiguration,
@@ -103,7 +84,6 @@ func NewSubresourceAPIApp(virtClient kubecli.KubevirtClient, k8sClient kubernete
 		profilerComponentPort:   defaultProfilerComponentPort,
 		handlerTLSConfiguration: tlsConfiguration,
 		clusterConfig:           clusterConfig,
-		instancetypeExpander:    instancetypeExpander,
 		handlerHttpClient:       httpClient,
 	}
 }
@@ -150,6 +130,28 @@ func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(ctx context
 		return
 	}
 	return
+}
+
+func (app *SubresourceAPIApp) getVirtHandlerFor(vmi *v1.VirtualMachineInstance, getVirtHandlerURL URLResolver) (url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
+	var err error
+	if conn, err = app.getVirtHandlerConnForVMI(vmi); err != nil {
+		statusError = errors.NewBadRequest(err.Error())
+		log.Log.Object(vmi).Reason(statusError).Error("Unable to establish connection to virt-handler")
+		return
+	}
+	if url, err = getVirtHandlerURL(vmi, conn); err != nil {
+		statusError = errors.NewBadRequest(err.Error())
+		log.Log.Object(vmi).Reason(statusError).Error("Unable to retrieve target handler URL")
+		return
+	}
+	return
+}
+
+func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
+	if !vmi.IsRunning() && !vmi.IsScheduled() {
+		return nil, fmt.Errorf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled)
+	}
+	return kubecli.NewVirtHandlerClient(app.virtClient, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
 func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, preValidate validation, getVirtHandlerURL URLResolver, dryRun bool) {
