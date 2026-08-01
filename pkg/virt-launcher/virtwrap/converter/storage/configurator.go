@@ -40,7 +40,7 @@ type DiskConfigurator struct {
 }
 
 func NewDiskConfigurator(c *convertertypes.ConverterContext, options ...diskOption) DiskConfigurator {
-	d := DiskConfigurator{c: c, detectOptimalBlockIO: GetOptimalBlockIO}
+	d := DiskConfigurator{c: c, detectOptimalBlockIO: getOptimalBlockIO}
 	for _, f := range options {
 		f(&d)
 	}
@@ -79,7 +79,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
-	prefixMap := NewDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
+	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
 	currentDedicatedThread := uint(autoThreads + 1)
 	supplementalIOThreads := iothreads.BuildSupplementalPoolIOThreads(vmi)
@@ -87,7 +87,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		newDisk := api.Disk{}
 		emptyCDRom := false
 
-		err := Convert_v1_Disk_To_api_Disk(d.c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
+		err := convert_v1_Disk_To_api_Disk(d.c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
 			return err
 		}
@@ -102,18 +102,18 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		hpStatus, hpOk := d.c.HotplugVolumes[disk.Name]
 		switch {
 		case emptyCDRom:
-			err = Convert_v1_Missing_Volume_To_api_Disk(&newDisk)
+			err = convert_v1_Missing_Volume_To_api_Disk(&newDisk)
 		case hpOk:
-			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, d.c)
+			err = convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, d.c)
 		default:
-			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, d.c, volumeIndices[disk.Name])
+			err = convert_v1_Volume_To_api_Disk(volume, &newDisk, d.c, volumeIndices[disk.Name])
 		}
 
 		if err != nil {
 			return err
 		}
 
-		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.c.Architecture.GetArchitecture(), d.detectOptimalBlockIO); err != nil {
+		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.c.Architecture.GetArchitecture(), d.detectOptimalBlockIO); err != nil {
 			return err
 		}
 
@@ -125,11 +125,11 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		if permReady || hotplugReady || emptyCDRom {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 		}
-		if err := SetErrorPolicy(&disk, &newDisk); err != nil {
+		if err := setErrorPolicy(&disk, &newDisk); err != nil {
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = AssignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
+			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
 		}
 	}
 
