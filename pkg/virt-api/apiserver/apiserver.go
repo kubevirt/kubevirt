@@ -27,8 +27,6 @@ import (
 	"context"
 	"flag"
 	"net/http"
-	"path"
-	"strings"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,8 +68,6 @@ type (
 		authnOpts         *options.DelegatingAuthenticationOptions
 		authzOpts         *options.DelegatingAuthorizationOptions
 
-		fallbackHandler  http.Handler
-		bridgePaths      []string
 		apiHandlers      []ConditionalAPIHandler
 		muxHandlers      []MuxHandler
 		alwaysAllowPaths []string
@@ -111,16 +107,6 @@ func (a *APIServer) WithSecureServingPort(port int) *APIServer {
 
 func (a *APIServer) WithSecureServingCertDirectory(dir string) *APIServer {
 	a.secureServingOpts.ServerCert.CertDirectory = dir
-	return a
-}
-
-func (a *APIServer) WithFallbackHandler(h http.Handler) *APIServer {
-	a.fallbackHandler = h
-	return a
-}
-
-func (a *APIServer) WithBridgePaths(paths ...string) *APIServer {
-	a.bridgePaths = append(a.bridgePaths, paths...)
 	return a
 }
 
@@ -184,9 +170,7 @@ func (a *APIServer) Run(
 		a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, mh.Path)
 	}
 	a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, a.alwaysAllowPaths...)
-	bridgeEnabled := a.fallbackHandler != nil && len(a.bridgePaths) > 0
-	if bridgeEnabled || len(a.apiHandlers) > 0 {
-		matchesBridgePath := newPathMatcher(a.bridgePaths)
+	if len(a.apiHandlers) > 0 {
 		apiHandlers := a.apiHandlers
 		base := config.BuildHandlerChainFunc
 		if base == nil {
@@ -210,25 +194,7 @@ func (a *APIServer) Run(
 			}
 
 			secured := base(dispatcher, c)
-			if !bridgeEnabled {
-				return secured
-			}
-
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Functest helpers build https://host:port/%s with a leading-slash
-				// path, which yields "//healthz". Clean so bridge exact matches
-				// still hit DefaultServeMux / restful routes registered as /healthz.
-				cleaned := path.Clean(r.URL.Path)
-				if matchesBridgePath(cleaned) {
-					if r.URL.Path != cleaned {
-						r = r.Clone(r.Context())
-						r.URL.Path = cleaned
-					}
-					a.fallbackHandler.ServeHTTP(w, r)
-					return
-				}
-				secured.ServeHTTP(w, r)
-			})
+			return secured
 		}
 	}
 
@@ -283,16 +249,14 @@ func (a *APIServer) Run(
 		}
 	}
 
+	klog.Info("Starting aggregated API server...")
+	preparedServer := server.PrepareRun()
 	for _, mh := range a.muxHandlers {
+		server.Handler.NonGoRestfulMux.Unregister(mh.Path)
 		server.Handler.NonGoRestfulMux.Handle(mh.Path, mh.Handler)
 	}
 
-	if a.fallbackHandler != nil {
-		server.Handler.NonGoRestfulMux.NotFoundHandler(a.fallbackHandler)
-	}
-
-	klog.Info("Starting aggregated API server...")
-	if err := server.PrepareRun().RunWithContext(ctx); err != nil {
+	if err := preparedServer.RunWithContext(ctx); err != nil {
 		klog.Errorf("Failed to run server: %v", err)
 		return err
 	}
@@ -318,30 +282,6 @@ func buildAPIGroupInfos(
 		result[gv.Group] = gi
 	}
 	return result
-}
-
-func newPathMatcher(paths []string) func(string) bool {
-	exact := make(map[string]struct{}, len(paths))
-	var prefixes []string
-	for _, p := range paths {
-		if strings.HasSuffix(p, "*") {
-			prefixes = append(prefixes, strings.TrimSuffix(p, "*"))
-		} else {
-			exact[path.Clean(p)] = struct{}{}
-		}
-	}
-	return func(requestPath string) bool {
-		requestPath = path.Clean(requestPath)
-		if _, ok := exact[requestPath]; ok {
-			return true
-		}
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(requestPath, prefix) {
-				return true
-			}
-		}
-		return false
-	}
 }
 
 func getAdditionalAlwaysAllowPaths(apiGroups APIGroups) []string {
