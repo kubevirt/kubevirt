@@ -35,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
+type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
+
 // EvacuateCancelVMI cancels a pending evacuation of a VirtualMachineInstance.
 // It is served by the aggregated apiserver under the nested subresource path
 // virtualmachineinstances/evacuate/cancel
