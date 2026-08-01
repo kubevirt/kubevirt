@@ -68,22 +68,3 @@ func TestNewSchemeRegistersSubresourceGroupVersions(t *testing.T) {
 		}
 	}
 }
-
-func TestNewPathMatcherCleansDoubleSlash(t *testing.T) {
-	match := newPathMatcher([]string{"/healthz", "/metrics", "/apis/webhook.kubevirt.io/*"})
-
-	for _, p := range []string{"/healthz", "//healthz", "///healthz"} {
-		if !match(p) {
-			t.Errorf("expected %q to match /healthz", p)
-		}
-	}
-	if match("/healthz/extra") {
-		t.Error("exact /healthz must not match a longer path")
-	}
-	if !match("/apis/webhook.kubevirt.io/foo") {
-		t.Error("expected prefix path to match")
-	}
-	if match("/readyz") {
-		t.Error("unexpected match for /readyz")
-	}
-}

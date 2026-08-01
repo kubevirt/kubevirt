@@ -428,7 +428,6 @@ func (app *virtAPIApp) Run() {
 	go app.handlerCertManager.Start()
 
 	app.setupHandlerTLS(kubeInformerFactory)
-	app.registerLegacyWebhookMux()
 	metrics.SetVirtAPIReady()
 
 	ctx := app.signalAwareContext()
@@ -442,26 +441,6 @@ func (app *virtAPIApp) setupHandlerTLS(informerFactory controller.KubeInformerFa
 	kubevirtCAConfigInformer := informerFactory.KubeVirtCAConfigMap()
 	kubevirtCAManager := kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
-}
-
-// LEGACY(virt-api-migration): Remove this once /metrics and /healthz are registered directly on the GenericAPIServer.
-func (app *virtAPIApp) registerLegacyWebhookMux() {
-	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/healthz", kubevirtHealthzHandler(app.clusterConfig))
-}
-
-// LEGACY(virt-api-migration): GenericAPIServer already owns /healthz, but its payload
-// is a plain "ok" while KubeVirt clients expect the config-resource-version document.
-// Keep the go-restful implementation on the bridge until it is ported to a plain handler.
-func kubevirtHealthzHandler(clusterConfig *virtconfig.ClusterConfig) http.Handler {
-	ws := new(restful.WebService)
-	ws.Route(ws.GET("/healthz").
-		To(healthz.KubeConnectionHealthzFuncFactory(clusterConfig, apiHealthVersion)).
-		Doc("Health endpoint"))
-
-	container := restful.NewContainer()
-	container.Add(ws)
-	return container
 }
 
 func (app *virtAPIApp) signalAwareContext() context.Context {
@@ -491,9 +470,6 @@ func (app *virtAPIApp) signalAwareContext() context.Context {
 
 func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInformers *webhooks.Informers) error {
 	s := app.apiServer.
-		// LEGACY(virt-api-migration): this is the legacy bridge, I'll remove in final cleanup commit
-		WithFallbackHandler(http.DefaultServeMux).
-		WithBridgePaths(legacyBridgePaths()...).
 		WithLongRunningSubresources("console", "vnc", "usbredir", "vsock", "portforward").
 		// expand-vm-spec, version, guestfs and the cluster-profiler endpoints are
 		// GET/PUT to the collection path without a resource name, which cannot be
@@ -502,6 +478,7 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 		WithAPIHandlers(app.clusterLevelAPIHandlers()...).
 		WithAlwaysAllowPaths(clusterLevelAllowPaths()...).
 		WithAlwaysAllowPaths(componentProfilerPaths()...).
+		WithMuxHandlers(app.healthAndMetricsMuxHandlers()...).
 		WithMuxHandlers(app.webhookMuxHandlers(webhookInformers)...).
 		WithMuxHandlers(app.componentProfilerMuxHandlers()...)
 
@@ -527,6 +504,19 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 		apiserver.NewOpenAPIV3Config(scheme),
 		apiGroups,
 	)
+}
+
+func (app *virtAPIApp) healthAndMetricsMuxHandlers() []apiserver.MuxHandler {
+	healthzHandler := healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)
+	return []apiserver.MuxHandler{
+		{Path: "/metrics", Handler: promhttp.Handler()},
+		{
+			Path: "/healthz",
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				healthzHandler(restful.NewRequest(r), restful.NewResponse(w))
+			}),
+		},
+	}
 }
 
 // clusterLevelAPIHandlers returns the ConditionalAPIHandlers for the cluster
@@ -617,15 +607,6 @@ func componentProfilerPaths() []string {
 		"/start-profiler",
 		"/stop-profiler",
 		"/dump-profiler",
-	}
-}
-
-// LEGACY(virt-api-migration): paths still served from http.DefaultServeMux through
-// the bridge. delete with the bridge
-func legacyBridgePaths() []string {
-	return []string{
-		"/metrics",
-		"/healthz",
 	}
 }
 
