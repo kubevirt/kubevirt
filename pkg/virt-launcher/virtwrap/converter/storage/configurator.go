@@ -32,13 +32,19 @@ import (
 
 type OptimalBlockIODetectFunc func(disk *api.Disk) (*api.BlockIO, error)
 
+type diskOption func(*DiskConfigurator)
+
 type DiskConfigurator struct {
 	c                    *convertertypes.ConverterContext
 	detectOptimalBlockIO OptimalBlockIODetectFunc
 }
 
-func NewDiskConfigurator(c *convertertypes.ConverterContext) DiskConfigurator {
-	return DiskConfigurator{c: c, detectOptimalBlockIO: GetOptimalBlockIO}
+func NewDiskConfigurator(c *convertertypes.ConverterContext, options ...diskOption) DiskConfigurator {
+	d := DiskConfigurator{c: c, detectOptimalBlockIO: GetOptimalBlockIO}
+	for _, f := range options {
+		f(&d)
+	}
+	return d
 }
 
 func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -128,4 +134,10 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 	}
 
 	return nil
+}
+
+func DiskWithOptimalBlockIODetector(f OptimalBlockIODetectFunc) diskOption {
+	return func(d *DiskConfigurator) {
+		d.detectOptimalBlockIO = f
+	}
 }
