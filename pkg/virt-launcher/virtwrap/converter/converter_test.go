@@ -397,7 +397,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			libvirtDisk := &api.Disk{}
-			err := storage.Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk, arch)
+			err := storage.Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk, arch, storage.GetOptimalBlockIO)
 			if shouldSucceed {
 				Expect(err).ToNot(HaveOccurred())
 				expectedXML := fmt.Sprintf(`<Disk device="" type="">
@@ -1767,7 +1767,7 @@ var _ = Describe("Converter", func() {
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
-				Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(Succeed())
+				Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64, storage.GetOptimalBlockIO)).To(Succeed())
 
 				blockIO := apiDisk.BlockIO
 				Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
@@ -1789,7 +1789,7 @@ var _ = Describe("Converter", func() {
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{}}
-				Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+				Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64, storage.GetOptimalBlockIO)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
 			})
 
 			It("Should fail block size detection for a nil domain disk", func() {
@@ -1800,7 +1800,7 @@ var _ = Describe("Converter", func() {
 						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
 					},
 				}
-				Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, nil, amd64)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
+				Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, nil, amd64, storage.GetOptimalBlockIO)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
 			})
 		})
 	})

@@ -178,7 +178,7 @@ func SetErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 	return nil
 }
 
-func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string) error {
+func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string, detectOptimalBlockIO OptimalBlockIODetectFunc) error {
 	if source.BlockSize == nil {
 		return nil
 	}
@@ -201,7 +201,7 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch s
 			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
 		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
-		blockIO, err := getOptimalBlockIO(disk)
+		blockIO, err := detectOptimalBlockIO(disk)
 		if err != nil {
 			return fmt.Errorf("failed to configure disk with block size detection enabled: %v", err)
 		}
@@ -210,7 +210,7 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch s
 	return nil
 }
 
-func getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
+func GetOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
 	if disk == nil {
 		return nil, fmt.Errorf("disk is nil")
 	}

@@ -30,12 +30,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
+type OptimalBlockIODetectFunc func(disk *api.Disk) (*api.BlockIO, error)
+
 type DiskConfigurator struct {
-	c *convertertypes.ConverterContext
+	c                    *convertertypes.ConverterContext
+	detectOptimalBlockIO OptimalBlockIODetectFunc
 }
 
 func NewDiskConfigurator(c *convertertypes.ConverterContext) DiskConfigurator {
-	return DiskConfigurator{c: c}
+	return DiskConfigurator{c: c, detectOptimalBlockIO: GetOptimalBlockIO}
 }
 
 func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -104,7 +107,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 
-		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.c.Architecture.GetArchitecture()); err != nil {
+		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.c.Architecture.GetArchitecture(), d.detectOptimalBlockIO); err != nil {
 			return err
 		}
 
