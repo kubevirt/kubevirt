@@ -40,13 +40,12 @@ go_test(
     name = "go_default_test",
     srcs = [
         "configurator_test.go",
-        "disk_test.go",
         "storage_suite_test.go",
         "virtiofs_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
