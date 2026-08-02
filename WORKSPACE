@@ -33,10 +33,10 @@ http_archive(
 
 http_archive(
     name = "hermetic_launcher",
-    sha256 = "f6b5dbcf4c87561d85aa2ba9b14d70bd3f619ffb2d6eb3b15d93a6825ef75a7a",
+    sha256 = "81b4204840f1fd346ec1b550153ae20bd60d28bca839e82ef95c64a585d02cea",
+    strip_prefix = "hermetic-launcher-0.0.15",
     urls = [
-        "https://github.com/hermeticbuild/hermetic-launcher/releases/download/v0.0.6/hermetic_launcher-v0.0.6.tar.gz",
-        "https://storage.googleapis.com/builddeps/f6b5dbcf4c87561d85aa2ba9b14d70bd3f619ffb2d6eb3b15d93a6825ef75a7a",
+        "https://github.com/hermeticbuild/hermetic-launcher/archive/refs/tags/v0.0.15.tar.gz",
     ],
 )
 
