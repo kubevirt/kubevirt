@@ -243,11 +243,10 @@ type LibvirtDomainManager struct {
 	devAliasMap  map[string]string
 	devAliasLock sync.RWMutex
 
-	cpuSetGetter                       func() ([]int, error)
-	imageVolumeFeatureGateEnabled      bool
-	libvirtHooksServerAndClientEnabled bool
-	firmwareAutoSelectionEnabled       bool
-	setTimeOnce                        sync.Once
+	cpuSetGetter                  func() ([]int, error)
+	imageVolumeFeatureGateEnabled bool
+	firmwareAutoSelectionEnabled  bool
+	setTimeOnce                   sync.Once
 
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
@@ -301,7 +300,6 @@ func NewLibvirtDomainManager(
 	diskMemoryLimitBytes int64,
 	cpuSetGetter func() ([]int, error),
 	imageVolumeEnabled bool,
-	libvirtHooksServerAndClientEnabled bool,
 	hookServer *premigrationhookserver.PreMigrationHookServer,
 	hypervisorName string,
 	registerNBD storage.RegisterNBDFunc,
@@ -324,7 +322,6 @@ func NewLibvirtDomainManager(
 		diskMemoryLimitBytes,
 		cpuSetGetter,
 		imageVolumeEnabled,
-		libvirtHooksServerAndClientEnabled,
 		hookServer,
 		hypervisorName,
 		registerNBD,
@@ -347,7 +344,6 @@ func newLibvirtDomainManager(
 	diskMemoryLimitBytes int64,
 	cpuSetGetter func() ([]int, error),
 	imageVolumeEnabled bool,
-	libvirtHooksServerAndClientEnabled bool,
 	hookServer *premigrationhookserver.PreMigrationHookServer,
 	hypervisorName string,
 	registerNBD storage.RegisterNBDFunc,
@@ -386,17 +382,16 @@ func newLibvirtDomainManager(
 		guestDiskSizes:       map[string]int64{},
 		domainInfoStats:      &stats.DomainJobInfo{},
 
-		metadataCache:                      metadataCache,
-		cpuSetGetter:                       cpuSetGetter,
-		setTimeOnce:                        sync.Once{},
-		imageVolumeFeatureGateEnabled:      imageVolumeEnabled,
-		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
-		firmwareAutoSelectionEnabled:       firmwareAutoSelectionEnabled,
-		hookServer:                         hookServer,
-		hypervisorName:                     hypervisorName,
-		hypervisorDeviceAvailable:          hypervisorDeviceAvailable,
-		iommuFD:                            -1,
-		allowCrossArchEmulation:            allowCrossArchEmulation,
+		metadataCache:                 metadataCache,
+		cpuSetGetter:                  cpuSetGetter,
+		setTimeOnce:                   sync.Once{},
+		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
+		firmwareAutoSelectionEnabled:  firmwareAutoSelectionEnabled,
+		hookServer:                    hookServer,
+		hypervisorName:                hypervisorName,
+		hypervisorDeviceAvailable:     hypervisorDeviceAvailable,
+		iommuFD:                       -1,
+		allowCrossArchEmulation:       allowCrossArchEmulation,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1397,9 +1392,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		if len(gpuDevices) > 1 && gpuDevices[0].Type == api.HostDeviceMDev {
 			return nil, fmt.Errorf("vGPU live migration currently only supports a single vGPU, found %d for vmi %s", len(gpuDevices), vmi.Name)
 		} else if len(gpuDevices) == 1 && gpuDevices[0].Type == api.HostDeviceMDev {
-			if !l.libvirtHooksServerAndClientEnabled {
-				return nil, fmt.Errorf("vGPU live migration requires LibvirtHooksServerAndClient feature gate for vmi %s", vmi.Name)
-			}
 			c.GPUHostDevices = gpuDevices
 		}
 	}
