@@ -496,21 +496,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// create two vms on the same sriov network
-			vmi1, err := createSRIOVVmi(sriovnetLinkEnabled, cidrA,
-				libvmi.WithLabel(sriovPeerLabel, ""),
-			)
+			vmi1, err := createSRIOVVmi(sriovnetLinkEnabled, cidrA)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi1)
-			vmi2, err := createSRIOVVmi(sriovnetLinkEnabled, cidrB,
-				libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-					LabelSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{
-							{Key: sriovPeerLabel, Operator: metav1.LabelSelectorOpExists},
-						},
-					},
-					TopologyKey: k8sv1.LabelHostname,
-				}),
-			)
+			vmi2, err := createSRIOVVmi(sriovnetLinkEnabled, cidrB)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi2)
 
@@ -546,21 +535,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			})
 
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
-				vlanedVMI1, err := createSRIOVVmi(sriovnetVlanned, cidrVlaned1,
-					libvmi.WithLabel(sriovPeerLabel, ""),
-				)
+				vlanedVMI1, err := createSRIOVVmi(sriovnetVlanned, cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vlanedVMI1)
-				vlanedVMI2, err := createSRIOVVmi(sriovnetVlanned, "192.168.0.2/24",
-					libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{Key: sriovPeerLabel, Operator: metav1.LabelSelectorOpExists},
-							},
-						},
-						TopologyKey: k8sv1.LabelHostname,
-					}),
-				)
+				vlanedVMI2, err := createSRIOVVmi(sriovnetVlanned, "192.168.0.2/24")
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vlanedVMI2)
 
@@ -576,21 +554,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			})
 
 			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
-				vlanedVMI, err := createSRIOVVmi(sriovnetVlanned, cidrVlaned1,
-					libvmi.WithLabel(sriovPeerLabel, ""),
-				)
+				vlanedVMI, err := createSRIOVVmi(sriovnetVlanned, cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vlanedVMI)
-				nonVlanedVMI, err := createSRIOVVmi(sriovnetLinkEnabled, "192.168.0.3/24",
-					libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{Key: sriovPeerLabel, Operator: metav1.LabelSelectorOpExists},
-							},
-						},
-						TopologyKey: k8sv1.LabelHostname,
-					}),
-				)
+				nonVlanedVMI, err := createSRIOVVmi(sriovnetLinkEnabled, "192.168.0.3/24")
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, nonVlanedVMI)
 
