@@ -157,16 +157,6 @@ pkg_tar(
     package_dir = "/etc",
 )
 
-pkg_tar(
-    name = "qemu-hook-tar",
-    srcs = [
-        ":qemu",
-    ],
-    mode = "0755",
-    owner = "107.107",
-    package_dir = "/etc/libvirt/hooks",
-)
-
 # Symlink /var/run -> ../run for compatibility with libvirt socket paths
 # In CentOS Stream 10+, libvirt creates sockets in /run/libvirt/ but
 # KubeVirt expects them at /var/run/libvirt/
@@ -181,14 +171,17 @@ pkg_tar(
     },
 )
 
-# Go binary for advanced qemu hook (used when LibvirtHooksServerAndClient is enabled)
-# This binary is placed in /usr/bin and replaces /etc/libvirt/hooks/qemu at runtime
 pkg_tar(
-    name = "libvirt-hook-client-tar",
+    name = "qemu-hook-tar",
     srcs = [
         "//cmd/virt-launcher/libvirt-hook-client",
     ],
-    package_dir = "/usr/bin",
+    mode = "0755",
+    owner = "107.107",
+    package_dir = "/etc/libvirt/hooks",
+    remap_paths = {
+        "/libvirt-hook-client": "/qemu",
+    },
 )
 
 # Workaround for https://github.com/moby/moby/issues/44106
@@ -250,11 +243,6 @@ layer_from_tar(
 )
 
 layer_from_tar(
-    name = "libvirt-hook-client-layer",
-    src = ":libvirt-hook-client-tar",
-)
-
-layer_from_tar(
     name = "qemu-kvm-modules-dir-layer",
     src = ":qemu-kvm-modules-dir-tar",
 )
@@ -284,7 +272,6 @@ image_manifest(
             ":passwd-layer",
             ":nsswitch-layer",
             ":qemu-hook-layer",
-            ":libvirt-hook-client-layer",
             ":qemu-kvm-modules-dir-layer",
             ":var-run-symlink-layer",
         ],
@@ -295,7 +282,6 @@ image_manifest(
             ":passwd-layer",
             ":nsswitch-layer",
             ":qemu-hook-layer",
-            ":libvirt-hook-client-layer",
             ":qemu-kvm-modules-dir-layer",
             ":var-run-symlink-layer",
         ],
@@ -306,7 +292,6 @@ image_manifest(
             ":passwd-layer",
             ":nsswitch-layer",
             ":qemu-hook-layer",
-            ":libvirt-hook-client-layer",
             ":qemu-kvm-modules-dir-layer",
             ":var-run-symlink-layer",
         ],
