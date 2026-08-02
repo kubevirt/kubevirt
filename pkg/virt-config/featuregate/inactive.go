@@ -187,6 +187,16 @@ const (
 	// Beta: v1.8.0
 	// GA: v1.9.0
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// Owner: sig-compute
+	// Alpha: v1.8.0
+	// Beta: v1.9.0
+	// GA: v1.10.0
+	//
+	// LibvirtHooksServerAndClient The LibvirtHooksServerAndClient FG enables running pre-migration
+	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
+	// on the target before migration starts.
+	LibvirtHooksServerAndClient = "LibvirtHooksServerAndClient"
 )
 
 func init() {
@@ -231,4 +241,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: GA})
 }
