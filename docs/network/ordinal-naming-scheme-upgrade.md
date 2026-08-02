@@ -30,7 +30,8 @@ This feature requires the following
 - `PodSecondaryInterfaceNamingUpgrade` - controls the naming scheme upgrade
   logic. Introduced in v1.8 at Beta stage, it must be explicitly enabled.
 - `LibvirtHooksServerAndClient` - enables the domain mutation hook mechanism
-  used to adjust tap device names during migration. Must be explicitly enabled.
+  used to adjust tap device names during migration. GA since v1.10, always
+  enabled.
 
 ## How It Works
 
@@ -62,9 +63,9 @@ not affected.
 
 ## Upgrading a VM
 
-To upgrade a VM's interface naming scheme, ensure both the
-`PodSecondaryInterfaceNamingUpgrade` and `LibvirtHooksServerAndClient` feature
-gates are enabled, then live migrate the VM:
+To upgrade a VM's interface naming scheme, ensure the
+`PodSecondaryInterfaceNamingUpgrade` feature gate is enabled, then live
+migrate the VM:
 
 ```bash
 cat <<EOF | kubectl apply -f -
