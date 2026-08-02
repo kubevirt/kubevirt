@@ -21,7 +21,6 @@ package vgpuhook
 import (
 	"fmt"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"libvirt.org/go/libvirtxml"
 
@@ -30,10 +29,9 @@ import (
 )
 
 // VGPULiveMigration mutates the mdev uuid for the target's domain XML in vGPU live migrations
-func VGPULiveMigration(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+func VGPULiveMigration(c *convertertypes.ConverterContext, domain *libvirtxml.Domain) error {
 	gpuDevs := c.GPUHostDevices
 
-	// skip hook if no GPU is present
 	if len(gpuDevs) == 0 || len(domain.Devices.Hostdevs) == 0 {
 		return nil
 	}
@@ -56,6 +54,6 @@ func VGPULiveMigration(c *convertertypes.ConverterContext, vmi *v1.VirtualMachin
 
 	domain.Devices.Hostdevs[0].SubsysMDev.Source.Address.UUID = gpuDevs[0].Source.Address.UUID
 
-	log.Log.Object(vmi).Info("vGPU-hook: mdev uuid mutation completed")
+	log.Log.Object(c.VirtualMachine).Info("vGPU-hook: mdev uuid mutation completed")
 	return nil
 }

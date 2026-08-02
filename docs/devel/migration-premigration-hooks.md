@@ -33,12 +33,12 @@ The pre-migration hook system consists of:
 
 2. **Hook Functions**: Each hook implements the `HookFunc` signature:
    ```go
-   type HookFunc func(c *ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error
+   type HookFunc func(c *ConverterContext, domain *libvirtxml.Domain) error
    ```
    Hooks modify the `domain` in-place. They are called in registration order.
-   The `domain` is the source XML from libvirt. The `vmi` is passed
-   from virt-handler on the target pod, and the `ConverterContext` is
-   generated locally on the target pod.
+   The `domain` is the source XML from libvirt. The `ConverterContext` is
+   generated locally on the target pod and contains the VMI
+   (`c.VirtualMachine`) passed from virt-handler.
 
 3. **Hook Client** (`cmd/virt-launcher/libvirt-hook-client/main.go`):
    Triggered by libvirt's `qemu` hook during the `migrate` operation

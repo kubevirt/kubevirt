@@ -33,11 +33,12 @@ import (
 // replacing the source domain namespace with the target domain namespace.
 // This is the target-side equivalent of the source-side
 // updateFilePathsToNewDomain() + convertDisks() functions.
-func DiskSourcePathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+func DiskSourcePathHook(c *convertertypes.ConverterContext, domain *libvirtxml.Domain) error {
 	if domain.Devices == nil {
 		return nil
 	}
 
+	vmi := c.VirtualMachine
 	sourceDomainNamespace := getSourceDomainNamespace(vmi)
 	targetDomainNamespace := getTargetDomainNamespace(vmi)
 	if targetDomainNamespace == "" || sourceDomainNamespace == targetDomainNamespace {

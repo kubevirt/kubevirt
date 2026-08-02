@@ -85,8 +85,9 @@ var _ = Describe("Premigration Hook Server", func() {
 				},
 			}}}
 			c := &convertertypes.ConverterContext{
-				CPUSet:   []int{6, 7},
-				Topology: topology,
+				CPUSet:         []int{6, 7},
+				Topology:       topology,
+				VirtualMachine: vmi,
 			}
 
 			By("parsing the input domain XML")
@@ -95,7 +96,7 @@ var _ = Describe("Premigration Hook Server", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to parse input domain XML")
 
 			By("running the CPU dedicated hook")
-			err = CPUDedicatedHook(c, vmi, &domain)
+			err = CPUDedicatedHook(c, &domain)
 			Expect(err).NotTo(HaveOccurred(), "failed to modify domain")
 
 			By("marshaling the modified domain back to XML")
