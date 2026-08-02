@@ -175,11 +175,9 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
 	}
 
-	if l.libvirtHooksServerAndClientEnabled {
-		if l.hookServer != nil {
-			if err := l.hookServer.Start(c); err != nil {
-				return err
-			}
+	if l.hookServer != nil {
+		if err := l.hookServer.Start(c); err != nil {
+			return err
 		}
 	}
 

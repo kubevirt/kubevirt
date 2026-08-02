@@ -357,7 +357,6 @@ func main() {
 	allowCrossArchEmulation := pflag.Bool("allow-cross-arch-emulation", false, "Allow cross-architecture software emulation via QEMU TCG")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
-	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
 	ifacesOrdinalNamingUpgradeEnabled := pflag.Bool("upgrade-ordinal-ifaces", false, "Enable upgrade of ordinal ifaces naming scheme")
 	vGPUDedicatedHookEnabled := pflag.Bool("vgpu-dedicated-hook", false, "Enable target mdev UUID mutation for vGPU live migration")
 	vmStatsCollectorEnabled := pflag.Bool("vm-stats-collector", false, "Enable additional guest agent polling workers for VMStats monitoring data collection")
@@ -473,7 +472,6 @@ func main() {
 		*diskMemoryLimitBytes,
 		util.GetPodCPUSet,
 		*imageVolumeEnabled,
-		*libvirtHooksServerAndClientEnabled,
 		preMigrationHookServer,
 		*hypervisor,
 		nbdclient.RegisterNBDServer,
@@ -485,12 +483,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if *libvirtHooksServerAndClientEnabled {
-		// TODO: replaceQemuHookWithCustomClient This code should be removed once the LibvirtHooksServerAndClient feature is GA.
-		// Instead of overriding the script at runtime, we can include the custom binary in the launcher image at build time.
-		if err := replaceQemuHookWithCustomClient(); err != nil {
-			panic(err)
-		}
+	if err := replaceQemuHookWithCustomClient(); err != nil {
+		panic(err)
 	}
 
 	// Start the virt-launcher command service.
