@@ -187,6 +187,14 @@ const (
 	// Beta: v1.8.0
 	// GA: v1.9.0
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// Owner: @bmordeha
+	// Alpha: v1.8.0
+	// Beta: v1.9.0
+	// GA: v1.10.0
+	//
+	// VmiMemoryOverheadReport enables reporting the memory overhead in the VMI status.
+	VmiMemoryOverheadReport = "VmiMemoryOverheadReport"
 )
 
 func init() {
@@ -231,4 +239,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: GA})
 }
