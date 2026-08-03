@@ -10,7 +10,6 @@ go_library(
         "profiler.go",
         "sev.go",
         "subresource.go",
-        "vnc.go",
         "volumes.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/rest",

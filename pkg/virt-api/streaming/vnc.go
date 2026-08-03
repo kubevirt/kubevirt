@@ -47,6 +47,27 @@ func (s *Streamer) StreamVNC(ctx context.Context, namespace, name string, preser
 	)
 }
 
+// Screenshot fetches a VNC screenshot for the named VMI from virt-handler.
+func (s *Streamer) Screenshot(ctx context.Context, namespace, name string) ([]byte, *errors.StatusError) {
+	vmi, statusErr := s.fetchAndValidateVMI(ctx, namespace, name, validateVMIForVNC)
+	if statusErr != nil {
+		return nil, statusErr
+	}
+
+	conn := kubecli.NewVirtHandlerClient(s.virtCli, s.httpClient).Port(s.consoleServerPort).ForNode(vmi.Status.NodeName)
+	url, err := conn.ScreenshotURI(vmi)
+	if err != nil {
+		return nil, errors.NewBadRequest(err.Error())
+	}
+
+	response, err := conn.Get(url, "")
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to get VNC screenshot from virt-handler")
+		return nil, errors.NewInternalError(err)
+	}
+	return []byte(response), nil
+}
+
 func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 	// can't proceed if there are no graphics devices present
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {

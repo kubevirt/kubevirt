@@ -92,4 +92,28 @@ var _ = Describe("VNC streaming", func() {
 		Expect(statusErr).ToNot(BeNil())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusNotFound)))
 	})
+
+	DescribeTable("screenshot validation", func(autoattachGraphicsDevice bool, phase v1.VirtualMachineInstancePhase) {
+		vmi := libvmi.New(
+			libvmi.WithName(testVMIName),
+			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(phase))),
+		)
+		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &autoattachGraphicsDevice
+		_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, statusErr := streamer.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
+
+		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
+	},
+		Entry("should fail if there is no graphics device", false, v1.Running),
+		Entry("should fail if vmi is not running", true, v1.Scheduling),
+	)
+
+	It("should fail to take a screenshot if the vmi is not found", func() {
+		_, statusErr := streamer.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
+		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusNotFound)))
+	})
 })
