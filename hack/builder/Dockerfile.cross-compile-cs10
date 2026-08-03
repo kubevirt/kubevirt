@@ -1,0 +1,46 @@
+ARG BUILDER_IMAGE
+FROM "${BUILDER_IMAGE}"
+
+# Install cross-compilers for all non-x86_64 target architectures.
+# epel-release provides gcc-aarch64-linux-gnu and gcc-powerpc64le-linux-gnu
+# on CentOS Stream 10 (amd64 host).
+RUN dnf install -y epel-release && \
+    dnf install -y --setopt=install_weak_deps=False \
+        gcc-aarch64-linux-gnu \
+        gcc-s390x-linux-gnu \
+        gcc-powerpc64le-linux-gnu && \
+    dnf clean -y all
+
+# Install target sysroots (glibc headers + static libs) for each cross-target.
+# --forcearch installs the foreign-arch RPMs into an isolated sysroot directory
+# so the cross-compiler can find the correct headers and libraries.
+RUN dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/aarch64-linux-gnu/sys-root \
+                   --forcearch aarch64 \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/s390x-linux-gnu/sys-root \
+                   --forcearch s390x \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/powerpc64le-linux-gnu/sys-root \
+                   --forcearch ppc64le \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf clean -y all
+
+# The Bazel ppc64le toolchain config hardcodes GCC version 14 for the
+# include path /usr/lib/gcc/powerpc64le-linux-gnu/14/include.
+# Verify the actual installed GCC version and create a compat symlink
+# (v12) pointing to it so older toolchain configs still resolve.
+RUN actual=$(ls /usr/lib/gcc/powerpc64le-linux-gnu/ 2>/dev/null | sort -V | tail -1) && \
+    echo "Cross GCC version: ${actual}" && \
+    if [ -n "${actual}" ] && [ "${actual}" != "12" ]; then \
+        ln -sf /usr/lib/gcc/powerpc64le-linux-gnu/${actual} \
+               /usr/lib/gcc/powerpc64le-linux-gnu/12; \
+    fi

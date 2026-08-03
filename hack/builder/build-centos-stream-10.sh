@@ -20,8 +20,11 @@ SCRIPT_DIR="$(
 # On native ppc64le, arm64, or s390x hosts, we don't need emulation.
 HOST_ARCH=$(uname -m)
 if [ "${HOST_ARCH}" = "x86_64" ]; then
-    if ! grep -q -E '^enabled$' /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null; then
-        ${KUBEVIRT_CRI} >&2 run --rm --privileged quay.io/linuxserver.io/qemu-static --reset -p yes
+    # Check if both aarch64 AND ppc64le emulation are already registered.
+    # If either is missing, re-run the full qemu-user-static registration.
+    if ! grep -q -E '^enabled$' /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null || \
+       ! grep -q -E '^enabled$' /proc/sys/fs/binfmt_misc/qemu-ppc64le 2>/dev/null; then
+        ${KUBEVIRT_CRI} >&2 run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
     fi
 fi
 
@@ -39,6 +42,12 @@ fi
 # shellcheck source=hack/builder/version.sh
 . "${SCRIPT_DIR}/version.sh"
 
+# The cross-compile image is always built from the amd64 base builder.
+# Default to amd64-only on x86_64 hosts to avoid binfmt emulation issues.
+if [ "${HOST_ARCH}" = "x86_64" ] && [ -z "${ARCHITECTURES_OVERRIDE}" ]; then
+    ARCHITECTURES="amd64"
+fi
+
 for ARCH in ${ARCHITECTURES}; do
     case ${ARCH} in
     amd64)
@@ -54,7 +63,18 @@ for ARCH in ${ARCHITECTURES}; do
     ${KUBEVIRT_CRI} >&2 build --platform="linux/${ARCH}" -t "${DOCKER_PREFIX}/${DOCKER_CS10_IMAGE}:${VERSION}-${ARCH}" --build-arg ARCH=${ARCH} --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile.cs10" "${SCRIPT_DIR}"
 done
 
-${KUBEVIRT_CRI} >&2 build --platform="linux/amd64" -t "${DOCKER_PREFIX}/${DOCKER_CS10_CROSS_IMAGE}:${VERSION}" --build-arg BUILDER_IMAGE="${DOCKER_PREFIX}/${DOCKER_CS10_IMAGE}:${VERSION}-amd64" -f "${SCRIPT_DIR}/Dockerfile.cross-compile" "${SCRIPT_DIR}"
+# Only build the cross-compile image if we built the amd64 builder.
+# The cross-compile image runs on x86_64 and targets aarch64/s390x/ppc64le.
+if echo "${ARCHITECTURES}" | grep -q "amd64"; then
+    ${KUBEVIRT_CRI} >&2 build \
+        --platform="linux/amd64" \
+        -t "${DOCKER_PREFIX}/${DOCKER_CS10_CROSS_IMAGE}:${VERSION}" \
+        --build-arg BUILDER_IMAGE="${DOCKER_PREFIX}/${DOCKER_CS10_IMAGE}:${VERSION}-amd64" \
+        -f "${SCRIPT_DIR}/Dockerfile.cross-compile-cs10" \
+        "${SCRIPT_DIR}"
+else
+    echo >&2 "Skipping cross-compile image build (amd64 builder not built)"
+fi
 
 # Print the version for use by other callers such as publish.sh
 echo ${VERSION}

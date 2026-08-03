@@ -34,33 +34,23 @@ default_targets="
     virt-exportproxy
     virt-synchronization-controller
     alpine-container-disk-demo
-    fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
     disks-images-provider
     libguestfs-tools
     test-helpers
-    alpine-with-test-tooling-container-disk
 "
 
-# Add additional images for s390x only
-if [[ "${ARCHITECTURE}" == "s390x" || "${ARCHITECTURE}" == "crossbuild-s390x" ]]; then
+# Test-tooling images: available for x86_64, aarch64, s390x but not ppc64le
+# (no upstream ppc64le base images exist)
+if [[ "${ARCHITECTURE}" != "ppc64le" && "${ARCHITECTURE}" != "crossbuild-ppc64le" ]]; then
     default_targets+="
-        s390x-guestless-kernel
+        fedora-with-test-tooling-container-disk
+        alpine-with-test-tooling-container-disk
     "
 fi
 
-# Add additional images for x86_64 only
-if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" &&
-    "${ARCHITECTURE}" != "aarch64" && "${ARCHITECTURE}" != "crossbuild-aarch64" ]]; then
-    default_targets+="
-        fedora-realtime-container-disk
-        network-passt-binding-cni
-        alpine-ext-kernel-boot-demo
-    "
-fi
-
-# Add additional images for non-s390x architectures (x86_64 + aarch64)
+# Images available for all architectures except s390x-only and x86_64-only
 if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]; then
     default_targets+="
         conformance
@@ -70,9 +60,37 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         example-cloudinit-hook-sidecar
         example-node-hook-plugin
         test-domain-hook-sidecar
+        network-slirp-binding
+        network-passt-binding
+        network-passt-binding-cni
+        winrmcli
+    "
+fi
+
+# Add additional images for s390x only
+if [[ "${ARCHITECTURE}" == "s390x" || "${ARCHITECTURE}" == "crossbuild-s390x" ]]; then
+    default_targets+="
+        s390x-guestless-kernel
+    "
+fi
+
+# Add additional images for x86_64 + aarch64 only (not ppc64le, not s390x)
+if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" &&
+    "${ARCHITECTURE}" != "ppc64le" && "${ARCHITECTURE}" != "crossbuild-ppc64le" ]]; then
+    default_targets+="
         cirros-container-disk-demo
         cirros-custom-container-disk-demo
         virtio-container-disk
+    "
+fi
+
+# Add additional images for x86_64 only
+if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" &&
+    "${ARCHITECTURE}" != "aarch64" && "${ARCHITECTURE}" != "crossbuild-aarch64" &&
+    "${ARCHITECTURE}" != "ppc64le" && "${ARCHITECTURE}" != "crossbuild-ppc64le" ]]; then
+    default_targets+="
+        fedora-realtime-container-disk
+        alpine-ext-kernel-boot-demo
         winrmcli
         network-passt-binding
     "

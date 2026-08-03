@@ -62,7 +62,7 @@ def _impl(ctx):
         ),
     ]
 
-    # Cross-compiler uses GCC 12
+    # Cross-compiler uses GCC 14 (shipped by EPEL on CentOS Stream 10)
     default_compiler_flags = feature(
         name = "default_compiler_flags",
         enabled = True,
@@ -81,8 +81,8 @@ def _impl(ctx):
                             "-D__TOOLCHAIN_SYSROOT__=\"centos-stream-10\"",
                             "-nostdinc",
                             "-I/usr/powerpc64le-linux-gnu/sys-root/usr/include",
-                            "-I/usr/lib/gcc/powerpc64le-linux-gnu/12/include",
-                            "-I/usr/lib/gcc/powerpc64le-linux-gnu/12/include-fixed",
+                            "-I/usr/lib/gcc/powerpc64le-linux-gnu/14/include",
+                            "-I/usr/lib/gcc/powerpc64le-linux-gnu/14/include-fixed",
                         ],
                     ),
                 ],
@@ -116,8 +116,8 @@ def _impl(ctx):
         ctx = ctx,
         cxx_builtin_include_directories = [
             "/usr/powerpc64le-linux-gnu/sys-root/usr/include",
-            "/usr/lib/gcc/powerpc64le-linux-gnu/12/include",
-            "/usr/lib/gcc/powerpc64le-linux-gnu/12/include-fixed",
+            "/usr/lib/gcc/powerpc64le-linux-gnu/14/include",
+            "/usr/lib/gcc/powerpc64le-linux-gnu/14/include-fixed",
         ],
         features = features,
         toolchain_identifier = "ppc64le-toolchain-cs10",

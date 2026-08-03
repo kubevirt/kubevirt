@@ -500,14 +500,6 @@ pull(
     repository = "kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
-# TODO: Build actual ppc64le version of this image
-# For now, using x86_64 version as placeholder to allow build to proceed
-pull(
-    name = "alpine_with_test_tooling_ppc64le",
-    digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
-    registry = "quay.io",
-    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
-)
 
 pull(
     name = "fedora_with_test_tooling_aarch64",
@@ -519,13 +511,6 @@ pull(
 pull(
     name = "fedora_with_test_tooling_s390x",
     digest = "sha256:ae6d6510dfb1e1cbcf09ad85c2c0b3e58494fe10bdaa720362934422037d42a2",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora-with-test-tooling",
-)
-
-pull(
-    name = "fedora_with_test_tooling_ppc64le",
-    digest = "sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522",
     registry = "quay.io",
     repository = "kubevirtci/fedora-with-test-tooling",
 )
@@ -554,9 +539,9 @@ pull(
 
 pull(
     name = "busybox",
-    digest = "sha256:545e6a6310a27636260920bc07b994a299b6708a1b26910cfefd335fdfb60d2b",
-    registry = "registry.k8s.io",
-    repository = "busybox",
+    digest = "sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616",
+    registry = "index.docker.io",
+    repository = "library/busybox",
 )
 
 load("//images/virt-template:deps.bzl", "virt_template_images")
@@ -619,12 +604,8 @@ go_repository(
     version = "v0.3.0",
 )
 
-# Register custom toolchains for ppc64le architecture
-# Only regctl uses proper toolchain mechanism
 register_toolchains(
     "//:py_toolchain",
-    # "//tools/bazeldnf:bazeldnf_toolchain",  # Commented out - using standard bazeldnf toolchain
-    "//tools/regctl:regctl_toolchain",
 )
 
 go_repository(

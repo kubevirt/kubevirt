@@ -143,8 +143,8 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-# Install Bazel based on architecture
-# No pre-built binary available for ppc64le or s390x; must be installed separately.
+# Install Bazel based on architecture.
+# No pre-built binary is available for ppc64le or s390x.
 RUN if test "${ARCH}" != "s390x" && test "${ARCH}" != "ppc64le"; then \
        curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
        chmod u+x /usr/bin/bazel; \
