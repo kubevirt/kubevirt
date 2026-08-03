@@ -208,7 +208,7 @@ func GetImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, erro
 }
 
 func CreateClient(virtClient kubecli.KubevirtClient) (*K8sClient, error) {
-	client, err := kubernetes.NewForConfig(virtClient.Config())
+	client, err := kubecli.GetK8sClientFromRESTConfig(virtClient.Config())
 	if err != nil {
 		return &K8sClient{}, err
 	}
