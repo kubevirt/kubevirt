@@ -3,12 +3,10 @@ package cluster
 import (
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/client-go/discovery"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
-func IsOnOpenShift(clientset kubecli.KubevirtClient) (bool, error) {
-	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
+func IsOnOpenShift(discoveryClient discovery.DiscoveryInterface) (bool, error) {
+	_, apis, err := discoveryClient.ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}

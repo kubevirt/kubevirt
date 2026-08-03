@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
@@ -318,8 +319,8 @@ func decodeManifests(strategy []byte) (string, error) {
 	return decodedStrategy.String(), nil
 }
 
-func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, monitorNamespace string, operatorNamespace string) (*corev1.ConfigMap, error) {
-	strategy, err := GenerateCurrentInstallStrategy(config, monitorNamespace, operatorNamespace)
+func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, onOpenShift bool, monitorNamespace string, operatorNamespace string) (*corev1.ConfigMap, error) {
+	strategy, err := GenerateCurrentInstallStrategy(config, onOpenShift, monitorNamespace, operatorNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +397,12 @@ func DumpInstallStrategyToConfigMap(clientset kubernetes.Interface, operatorName
 		return err
 	}
 
-	configMap, err := NewInstallStrategyConfigMap(config, monitorNamespace, operatorNamespace)
+	onOpenShift, err := cluster.IsOnOpenShift(clientset.Discovery())
+	if err != nil {
+		return fmt.Errorf("failed to determine cluster type: %v", err)
+	}
+
+	configMap, err := NewInstallStrategyConfigMap(config, onOpenShift, monitorNamespace, operatorNamespace)
 	if err != nil {
 		return err
 	}
@@ -487,7 +493,7 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 	return b.Bytes()
 }
 
-func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, monitorNamespace string, operatorNamespace string) (*Strategy, error) {
+func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, onOpenShift bool, monitorNamespace string, operatorNamespace string) (*Strategy, error) {
 
 	strategy := &Strategy{}
 
@@ -514,7 +520,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist := make([]runtime.Object, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster()...)
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(config.GetNamespace())...)
-	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace(), !config.ExternalNetResourceInjectionEnabled())...)
+	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace(), !config.ExternalNetResourceInjectionEnabled(), onOpenShift)...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllExportProxy(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllSynchronizationController(config.GetNamespace())...)

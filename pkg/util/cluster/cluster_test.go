@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 
 	secv1 "github.com/openshift/api/security/v1"
 
@@ -14,24 +13,16 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("OpenShift Test", func() {
 
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
 	var discoveryClient *discoveryFake.FakeDiscovery
 
 	BeforeEach(func() {
-
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		discoveryClient = &discoveryFake.FakeDiscovery{
 			Fake: &fake.NewSimpleClientset().Fake,
 		}
-		virtClient.EXPECT().DiscoveryClient().Return(discoveryClient).AnyTimes()
-
 	})
 
 	getServerResources := func(onOpenShift bool) []*metav1.APIResourceList {
@@ -61,7 +52,7 @@ var _ = Describe("OpenShift Test", func() {
 	DescribeTable("Testing for OpenShift", func(onOpenShift bool) {
 
 		discoveryClient.Fake.Resources = getServerResources(onOpenShift)
-		isOnOpenShift, err := IsOnOpenShift(virtClient)
+		isOnOpenShift, err := IsOnOpenShift(discoveryClient)
 		Expect(err).ToNot(HaveOccurred(), "should not return an error")
 		Expect(isOnOpenShift).To(Equal(onOpenShift), "should return "+strconv.FormatBool(onOpenShift))
 
