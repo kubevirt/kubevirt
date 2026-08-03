@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -43,8 +44,9 @@ type command struct {
 	ipFamilies     []k8sv1.IPFamily
 	ipFamilyPolicy k8sv1.IPFamilyPolicy
 
-	namespace string
-	client    kubecli.KubevirtClient
+	namespace  string
+	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
 }
 
 // resourceInfo holds the information extracted from a resource needed to create a Service
@@ -114,8 +116,12 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	}
 
 	var err error
-	if c.client, c.namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
-		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
+	if c.virtClient, c.namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
+		return fmt.Errorf("cannot obtain client: %v", err)
+	}
+
+	if c.k8sClient, err = clientconfig.K8sClientFromContext(cmd.Context()); err != nil {
+		return fmt.Errorf("cannot obtain Kubernetes client: %v", err)
 	}
 
 	resInfo, err := c.getResourceInfo(vmType, vmName)
@@ -156,7 +162,7 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
-		vmi, err := c.client.VirtualMachineInstance(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vmi, err := c.virtClient.VirtualMachineInstance(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
@@ -171,7 +177,7 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 			gvk:      v1.VirtualMachineInstanceGroupVersionKind,
 		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
-		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vm, err := c.virtClient.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error fetching VirtualMachine: %v", err)
 		}
@@ -189,7 +195,7 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 			gvk:      v1.VirtualMachineGroupVersionKind,
 		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
-		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vmirs, err := c.virtClient.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error fetching VirtualMachineInstanceReplicaSet: %v", err)
 		}
@@ -248,7 +254,7 @@ func (c *command) createService(resInfo *resourceInfo) error {
 	if c.ipFamilyPolicy != "" {
 		service.Spec.IPFamilyPolicy = &c.ipFamilyPolicy
 	}
-	if _, err := c.client.CoreV1().Services(c.namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
+	if _, err := c.k8sClient.CoreV1().Services(c.namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("service creation failed: %v", err)
 	}
 
