@@ -37,21 +37,17 @@ import (
 
 type vncStreamer interface {
 	StreamVNC(ctx context.Context, namespace, name string, preserveSession bool, w http.ResponseWriter, req *http.Request) *apierrors.StatusError
-}
-
-type screenshotter interface {
 	Screenshot(ctx context.Context, namespace, name string) ([]byte, *apierrors.StatusError)
 }
 
 const screenshotSubPath = "screenshot"
 
 type VNCREST struct {
-	streamer    vncStreamer
-	screenshots screenshotter
+	streamer vncStreamer
 }
 
-func NewVNCREST(streamer vncStreamer, screenshots screenshotter) *VNCREST {
-	return &VNCREST{streamer: streamer, screenshots: screenshots}
+func NewVNCREST(streamer vncStreamer) *VNCREST {
+	return &VNCREST{streamer: streamer}
 }
 
 var (
@@ -106,7 +102,7 @@ func (r *VNCREST) Connect(ctx context.Context, name string, _ runtime.Object, re
 
 func (r *VNCREST) connectScreenshot(namespace, name string, responder rest.Responder) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		img, statusErr := r.screenshots.Screenshot(req.Context(), namespace, name)
+		img, statusErr := r.streamer.Screenshot(req.Context(), namespace, name)
 		if statusErr != nil {
 			responder.Error(statusErr)
 			return
