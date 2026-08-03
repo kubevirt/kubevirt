@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = Describe(SIGSerial("cluster profiler for pprof data aggregation", func() {
+var _ = Describe(SIGSerial("cluster profiler for pprof data aggregation", decorators.ModifiesKubeVirtCR, func() {
 	var virtClient kubecli.KubevirtClient
 	var kvConfig v1.KubeVirtConfiguration
 

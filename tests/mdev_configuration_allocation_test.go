@@ -45,7 +45,7 @@ const (
 	mdevSupportedTypesDirName = "mdev_supported_types"
 )
 
-var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.ModifiesKubeVirtCR, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var testNodeName string
 	var virtClient kubecli.KubevirtClient

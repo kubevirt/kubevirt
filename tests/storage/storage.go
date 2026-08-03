@@ -807,7 +807,7 @@ var _ = Describe(SIG("Storage", func() {
 				}
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", Serial, func() {
+				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", Serial, decorators.ModifiesKubeVirtCR, func() {
 
 					configureToleration(10)
 
@@ -834,7 +834,7 @@ var _ = Describe(SIG("Storage", func() {
 				})
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", Serial, func() {
+				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", Serial, decorators.ModifiesKubeVirtCR, func() {
 
 					configureToleration(30)
 

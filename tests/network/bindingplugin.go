@@ -48,7 +48,7 @@ const (
 	vmiReadyTimeoutManagedTap = 30
 )
 
-var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
+var _ = Describe(SIG("network binding plugin", Serial, decorators.ModifiesKubeVirtCR, decorators.NetCustomBindingPlugins, func() {
 	Context("with CNI and Sidecar", func() {
 		const passtNetAttDefName = "netbindingpasst"
 

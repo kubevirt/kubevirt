@@ -76,7 +76,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
+var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, decorators.ModifiesKubeVirtCR, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {

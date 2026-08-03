@@ -325,7 +325,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			})
 		})
 
-		Context("memory hotplug", Serial, decorators.RequiresTwoSchedulableNodes, func() {
+		Context("memory hotplug", Serial, decorators.ModifiesKubeVirtCR, decorators.RequiresTwoSchedulableNodes, func() {
 			BeforeEach(func() {
 				virtClient := kubevirt.Client()
 				updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{

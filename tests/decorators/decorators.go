@@ -149,6 +149,11 @@ var (
 	// Disruptive indicates that the test may cause a disruption to the cluster's normal operation
 	Disruptive = Label("disruptive")
 
+	// ModifiesKubeVirtCR indicates that the test modifies the KubeVirt Custom Resource
+	// (configuration, feature gates, operator settings). Tests with this decorator
+	// cannot run in HCO-managed environments without a config adapter.
+	ModifiesKubeVirtCR = Label("modifies-kubevirt-cr")
+
 	// LargeStoragePoolRequired indicates that the test may fail in a cluster with a low storage pool capacity.
 	// This decorator can be used to skip the test as the failure might not indicate a functional problem.
 	LargeStoragePoolRequired = Label("large-storage-pool-required")

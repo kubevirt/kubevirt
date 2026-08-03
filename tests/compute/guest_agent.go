@@ -501,7 +501,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 		})
 	})
 
-	Context("with cluster config changes", Serial, func() {
+	Context("with cluster config changes", Serial, decorators.ModifiesKubeVirtCR, func() {
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 

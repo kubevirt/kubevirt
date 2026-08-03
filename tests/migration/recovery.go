@@ -150,8 +150,8 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 	},
 		Entry("failure", decorators.NoFlakeCheck, false, false),
 		Entry("success", decorators.NoFlakeCheck, true, false),
-		Entry("failure [Serial]", decorators.FlakeCheck, Serial, false, true),
-		Entry("success [Serial]", decorators.FlakeCheck, Serial, true, true),
+		Entry("failure [Serial]", decorators.FlakeCheck, Serial, decorators.ModifiesKubeVirtCR, false, true),
+		Entry("success [Serial]", decorators.FlakeCheck, Serial, decorators.ModifiesKubeVirtCR, true, true),
 	)
 })
 

@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIGSerial("Node Restriction", decorators.ModifiesKubeVirtCR, decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 	const minNodesWithVirtHandler = 2
 

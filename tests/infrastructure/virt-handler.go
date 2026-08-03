@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = Describe(SIGSerial("virt-handler", decorators.WgS390x, func() {
+var _ = Describe(SIGSerial("virt-handler", decorators.ModifiesKubeVirtCR, decorators.WgS390x, func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		originalKubeVirt *v1.KubeVirt

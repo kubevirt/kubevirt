@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.ModifiesKubeVirtCR, decorators.SRIOV, func() {
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
