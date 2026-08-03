@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
@@ -40,4 +41,15 @@ func ClientAndNamespaceFromContext(ctx context.Context) (virtClient kubecli.Kube
 		return nil, "", false, err
 	}
 	return virtClient, namespace, overridden, nil
+}
+
+// K8sClientFromContext tries to retrieve a clientcmd.ClientConfig value stored in ctx, if any.
+// It then creates a kubernetes.Interface and returns it.
+// Otherwise, it returns an error.
+func K8sClientFromContext(ctx context.Context) (kubernetes.Interface, error) {
+	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
+	if !ok {
+		return nil, fmt.Errorf("unable to get client config from context")
+	}
+	return kubecli.GetK8sClientFromClientConfig(clientConfig)
 }
