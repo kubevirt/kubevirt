@@ -98,7 +98,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 				By("Evicting the VMI")
 				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+				Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "eviction of the virt-launcher pod should be blocked with a TooManyRequests error, got: %v", err)
 
 				By("Ensuring the VMI has migrated and lives on another node")
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).Should(
@@ -546,7 +546,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+					Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "eviction of the virt-launcher pod should be blocked with a TooManyRequests error, got: %v", err)
 
 					By("Ensuring the VMI has migrated and lives on another node")
 					Eventually(func() error {

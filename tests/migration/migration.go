@@ -1461,7 +1461,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						Expect(err.Error()).To(Or(ContainSubstring("remote error: tls: unknown certificate authority"), Or(ContainSubstring("remote error: tls: bad certificate")), ContainSubstring("EOF")))
 					}
 
-					Expect(tlsErrorFound).To(BeTrue())
+					Expect(tlsErrorFound).To(BeTrue(), "at least one connection attempt should have been rejected with a TLS error")
 				})
 			})
 		})
@@ -1890,7 +1890,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					}
 					return false
 
-				}, timeout, 1*time.Second).Should(BeTrue())
+				}, timeout, 1*time.Second).Should(BeTrue(), "migration should reach the Running phase before it completes")
 
 				By("Cancelling a Migration")
 				Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -2293,9 +2293,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				mc := vmi.Status.MigrationState.VMIMConfigurationOptions
 				Expect(mc).ToNot(BeNil())
 				Expect(mc.AllowAutoConverge).ToNot(BeNil())
-				Expect(*mc.AllowAutoConverge).To(BeTrue())
+				Expect(*mc.AllowAutoConverge).To(BeTrue(), "AllowAutoConverge should match the value set in the migration policy")
 				Expect(mc.AllowPostCopy).ToNot(BeNil())
-				Expect(*mc.AllowPostCopy).To(BeTrue())
+				Expect(*mc.AllowPostCopy).To(BeTrue(), "AllowPostCopy should match the value set in the migration policy")
 				Expect(mc.ExperimentalMigrationOptions).ToNot(BeNil())
 				Expect(mc.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
 				Expect(*mc.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
