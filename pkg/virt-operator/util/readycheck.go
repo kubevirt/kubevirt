@@ -60,7 +60,12 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 			}
 
 			if !PodIsUpToDate(pod, kv) {
-				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate.", daemonset.Name)
+				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate. pod=%s podVersion=%s podRegistry=%s podID=%s targetVersion=%s targetRegistry=%s targetID=%s",
+					daemonset.Name, pod.Name,
+					pod.Annotations[v1.InstallStrategyVersionAnnotation],
+					pod.Annotations[v1.InstallStrategyRegistryAnnotation],
+					pod.Annotations[v1.InstallStrategyIdentifierAnnotation],
+					kv.Status.TargetKubeVirtVersion, kv.Status.TargetKubeVirtRegistry, kv.Status.TargetDeploymentID)
 				return false
 			}
 

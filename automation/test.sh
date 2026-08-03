@@ -715,8 +715,34 @@ if [[ $TARGET =~ sig-storage ]]; then
 fi
 
 
-# Run functional tests
-FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
+# Run functional tests — soak loop until 10 failures for test_id:3145
+SOAK_MAX_FAILURES=10
+SOAK_TIMEOUT_SECS=21600
+deadline=$((SECONDS + SOAK_TIMEOUT_SECS))
+echo "Soak mode: loop until $SOAK_MAX_FAILURES failures, timeout ${SOAK_TIMEOUT_SECS}s"
+failures=0
+completed=0
+while ((failures < SOAK_MAX_FAILURES)); do
+    if ((SECONDS >= deadline)); then
+        echo "Soak timeout reached after $completed runs ($failures failures)"
+        break
+    fi
+    completed=$((completed + 1))
+    echo "Soak run: $completed (failures so far: $failures)"
+    if ! FUNC_TEST_ARGS="$ginko_params --focus=from\\sprevious\\sy\\srelease" \
+         FUNC_TEST_LABEL_FILTER="--label-filter=(${label_filter})" \
+         make functest; then
+        failures=$((failures + 1))
+        echo "Soak run: $completed FAILED (failure $failures of $SOAK_MAX_FAILURES)"
+        if [[ -d "${ARTIFACTS_PATH}/k8s-reporter" ]]; then
+            mv "${ARTIFACTS_PATH}/k8s-reporter" "${ARTIFACTS_PATH}/k8s-reporter-run-${completed}"
+            echo "Preserved k8s-reporter artifacts in k8s-reporter-run-${completed}"
+        fi
+        cp "${ARTIFACTS_PATH}/junit.functest.xml" "${ARTIFACTS_PATH}/junit.functest-run-${completed}.xml" 2>/dev/null || true
+    fi
+done
+echo "Soak complete: $failures failures in $completed runs"
+exit 1
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then

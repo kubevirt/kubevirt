@@ -21,6 +21,7 @@ package virt_operator
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
@@ -819,14 +820,21 @@ func (c *KubeVirtController) execute(key string) error {
 	kv := obj.(*v1.KubeVirt)
 	logger := log.Log.Object(kv)
 
+	logger.Infof("DEBUG execute: kv resourceVersion=%s generation=%d phase=%s observedID=%s targetID=%s",
+		kv.ResourceVersion, kv.Generation, kv.Status.Phase,
+		kv.Status.ObservedDeploymentID, kv.Status.TargetDeploymentID)
+
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(kv) {
 		kv := kv.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(kv)
-		_, err = c.virtClient.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+		logger.Infof("DEBUG execute: updating KV for api version annotation, sending resourceVersion=%s", kv.ResourceVersion)
+		updated, err := c.virtClient.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
+		} else {
+			logger.Infof("DEBUG execute: KV updated, new resourceVersion=%s generation=%d", updated.ResourceVersion, updated.Generation)
 		}
 
 		return err
@@ -1039,6 +1047,10 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Infof("Handling deployment")
 
+	specBytes, _ := json.Marshal(kv.Spec)
+	specHash := fmt.Sprintf("%x", sha256.Sum256(specBytes))
+	logger.Infof("DEBUG syncInstallation: kv.Spec hash=%s resourceVersion=%s generation=%d", specHash[:16], kv.ResourceVersion, kv.Generation)
+
 	config := operatorutil.GetTargetConfigFromKV(kv)
 
 	// Record current operator version to status section
@@ -1046,6 +1058,8 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 
 	// Record the version we're targeting to install
 	config.SetTargetDeploymentConfig(kv)
+	logger.Infof("DEBUG syncInstallation: TargetDeploymentID=%s ObservedDeploymentID=%s Phase=%s",
+		kv.Status.TargetDeploymentID, kv.Status.ObservedDeploymentID, kv.Status.Phase)
 
 	// Set the default architecture
 	operatorutil.SetDefaultArchitecture(kv)
@@ -1118,6 +1132,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 			// keeping Available=True during the transition instead of flipping to
 			// Available=False (DeploymentInProgress).
 			config.SetObservedDeploymentConfig(kv)
+			logger.Infof("DEBUG syncInstallation: SetObservedDeploymentConfig called, ObservedDeploymentID=%s", kv.Status.ObservedDeploymentID)
 			logger.Info("All KubeVirt components ready")
 			kv.Status.Phase = v1.KubeVirtPhaseDeployed
 			util.UpdateConditionsAvailable(kv)
