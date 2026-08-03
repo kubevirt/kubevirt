@@ -308,13 +308,6 @@ image_push(
 )
 
 image_push(
-    name = "push-network-slirp-binding",
-    image = "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
-    registry = "quay.io",
-    repository = "kubevirt/network-slirp-binding",
-)
-
-image_push(
     name = "push-network-passt-binding",
     image = "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
     registry = "quay.io",

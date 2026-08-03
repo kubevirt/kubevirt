@@ -1,6 +1,5 @@
 cmd/cniplugins
 cmd/sidecars/network-passt-binding
-cmd/sidecars/network-slirp-binding/callback
 cmd/virt-api
 cmd/virt-controller
 cmd/virtctl
