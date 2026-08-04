@@ -3286,33 +3286,49 @@ var _ = Describe("Manager", func() {
 			Expect(converterContext.PCINUMAAwareTopologyEnabled).To(BeFalse())
 		})
 
-		It("should set Grace conversion flags and expected aliases from options on supported architectures", func() {
-			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
-			iommuFDFile, err := os.CreateTemp(GinkgoT().TempDir(), "iommufd-test")
+		assertGraceConversionSucceeded := func(c *convertertypes.ConverterContext, err error) {
+			GinkgoHelper()
 			Expect(err).ToNot(HaveOccurred())
-			DeferCleanup(iommuFDFile.Close)
-
-			options := &cmdv1.VirtualMachineOptions{
-				VirtualMachineSMBios: &cmdv1.SMBios{},
-				ClusterConfig: &cmdv1.ClusterConfig{
-					GraceIOVirtualizationEnabled: true,
-					PCINUMAAwareTopologyEnabled:  true,
-				},
-				GraceHostDeviceAliases: []string{"gpu-gpu0"},
-			}
-
-			libvirtManager := manager.(*LibvirtDomainManager)
-			libvirtManager.iommuFD = int(iommuFDFile.Fd())
-			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
-
-			if arch.NewConverter(runtime.GOARCH).SupportPCIePlacement() {
+			Expect(c).ToNot(BeNil())
+			Expect(c.GraceIOVirtualizationEnabled).To(BeTrue())
+			Expect(c.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
+		}
+		assertGraceConversionFailedForUnsupportedArch := func(c *convertertypes.ConverterContext, err error) {
+			GinkgoHelper()
+			Expect(err).To(MatchError(ContainSubstring("requires PCIe placement support")))
+			Expect(c).To(BeNil())
+		}
+		DescribeTable("should validate Grace conversion flags based on PCIe placement support",
+			func(archName string, assertFn func(*convertertypes.ConverterContext, error)) {
+				libvirtManager := manager.(*LibvirtDomainManager)
+				vmi.Spec.Architecture = archName
+				vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+				iommuFDFile, err := os.CreateTemp(GinkgoT().TempDir(), "iommufd-test")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(converterContext.GraceIOVirtualizationEnabled).To(BeTrue())
-				Expect(converterContext.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
-			} else {
-				Expect(err).To(MatchError(ContainSubstring("requires PCIe placement support")))
-			}
-		})
+				DeferCleanup(iommuFDFile.Close)
+				DeferCleanup(func() {
+					vmi.Spec.Architecture = ""
+					libvirtManager.archConverter = nil
+					libvirtManager.iommuFD = 0
+				})
+
+				options := &cmdv1.VirtualMachineOptions{
+					VirtualMachineSMBios: &cmdv1.SMBios{},
+					ClusterConfig: &cmdv1.ClusterConfig{
+						GraceIOVirtualizationEnabled: true,
+						PCINUMAAwareTopologyEnabled:  true,
+					},
+					GraceHostDeviceAliases: []string{"gpu-gpu0"},
+				}
+
+				libvirtManager.archConverter = arch.NewConverter(archName)
+				libvirtManager.iommuFD = int(iommuFDFile.Fd())
+				assertFn(libvirtManager.generateConverterContext(vmi, true, options, false))
+			},
+			Entry("amd64", "amd64", assertGraceConversionSucceeded),
+			Entry("arm64", "arm64", assertGraceConversionSucceeded),
+			Entry("s390x", "s390x", assertGraceConversionFailedForUnsupportedArch),
+		)
 
 		It("should reject Grace conversion when the IOMMUFD file descriptor is unavailable", func() {
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
@@ -4777,9 +4793,10 @@ var _ = Describe("Cross-architecture emulation helpers", func() {
 		Entry("re-detects EFI for cross-arch guest", true, crossArch, true),
 	)
 
-	DescribeTable("selectArchConverter",
+	DescribeTable("selectConverterArch",
 		func(allowCrossArch bool, guestArch, expectedArch string) {
-			result := selectArchConverter(allowCrossArch, guestArch)
+			l := &LibvirtDomainManager{allowCrossArchEmulation: allowCrossArch}
+			result := l.selectConverterArch(guestArch)
 			expected := arch.NewConverter(expectedArch)
 			Expect(result).To(Equal(expected))
 		},
