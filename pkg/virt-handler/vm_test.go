@@ -54,6 +54,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -220,8 +221,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			cbtHandler,
 			nil,
 			&noopNodeHookExecutor{},
-			container_disk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
-			hotplugvolume.NewVolumeMounter(GinkgoT().TempDir(), podsDir, host),
+			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir()), config),
+			hotplugvolume.NewVolumeMounter(checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir()), podsDir, host),
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
