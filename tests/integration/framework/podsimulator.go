@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,25 @@ const (
 	ipRangeSize = 253
 )
 
+type PodAction string
+
+const (
+	ActionDefault  PodAction = "default"
+	ActionSkip     PodAction = "skip"
+	ActionFail     PodAction = "fail"
+	ActionNotReady PodAction = "not_ready"
+)
+
+type PodSimulationHook func(pod *k8sv1.Pod) PodSimulationResult
+
+type PodSimulationResult struct {
+	Action       PodAction
+	Delay        time.Duration
+	Reason       string
+	Message      string
+	CustomStatus *k8sv1.PodStatus
+}
+
 type PodSimulator struct {
 	k8sClient kubernetes.Interface
 	informer  cache.SharedIndexInformer
@@ -39,6 +59,18 @@ type PodSimulator struct {
 	ipCounter atomic.Int32
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
+	mu        sync.RWMutex
+	hook      PodSimulationHook
+}
+
+func (ps *PodSimulator) SetHook(hook PodSimulationHook) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.hook = hook
+}
+
+func (ps *PodSimulator) ResetHook() {
+	ps.SetHook(nil)
 }
 
 func NewPodSimulator(k8sClient kubernetes.Interface, podInformer cache.SharedIndexInformer, nodeName string) *PodSimulator {
@@ -87,7 +119,7 @@ func (ps *PodSimulator) enqueuePod(obj any) {
 	if !ok {
 		return
 	}
-	if !isVirtLauncherPod(pod) || pod.DeletionTimestamp != nil || pod.Status.Phase == k8sv1.PodRunning {
+	if !isVirtLauncherPod(pod) || pod.DeletionTimestamp != nil || isPodSimulationComplete(pod) {
 		return
 	}
 
@@ -110,7 +142,7 @@ func (ps *PodSimulator) processNextPod(ctx context.Context) bool {
 		return true
 	}
 	pod := obj.(*k8sv1.Pod)
-	if pod.DeletionTimestamp != nil || pod.Status.Phase == k8sv1.PodRunning {
+	if pod.DeletionTimestamp != nil || isPodSimulationComplete(pod) {
 		ps.queue.Forget(key)
 		return true
 	}
@@ -130,7 +162,27 @@ func (ps *PodSimulator) bindAndSetReady(ctx context.Context, pod *k8sv1.Pod) boo
 		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to get pod %s/%s: %v\n", namespace, name, err)
 		return false
 	}
-	if pod.DeletionTimestamp != nil || pod.Status.Phase == k8sv1.PodRunning {
+	if pod.DeletionTimestamp != nil || isPodSimulationComplete(pod) {
+		return true
+	}
+
+	ps.mu.RLock()
+	hook := ps.hook
+	ps.mu.RUnlock()
+	var result PodSimulationResult
+	if hook != nil {
+		result = hook(pod.DeepCopy())
+	}
+	if result.Delay > 0 {
+		timer := time.NewTimer(result.Delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return true
+		case <-timer.C:
+		}
+	}
+	if result.Action == ActionSkip {
 		return true
 	}
 
@@ -152,10 +204,49 @@ func (ps *PodSimulator) bindAndSetReady(ctx context.Context, pod *k8sv1.Pod) boo
 		}
 	}
 
+	pod.Status = ps.buildStatus(pod, result)
+	statusPatch, err := patch.New(patch.WithAdd("/status", pod.Status)).GeneratePayload()
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to generate pod status patch %s/%s: %v\n", namespace, name, err)
+		return false
+	}
+	_, err = ps.k8sClient.CoreV1().Pods(namespace).
+		Patch(ctx, name, k8stypes.JSONPatchType, statusPatch, metav1.PatchOptions{}, "status")
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to patch pod status %s/%s: %v\n", namespace, name, err)
+		return false
+	}
+	return true
+}
+
+func (ps *PodSimulator) buildStatus(pod *k8sv1.Pod, result PodSimulationResult) k8sv1.PodStatus {
+	if result.CustomStatus != nil {
+		return *result.CustomStatus.DeepCopy()
+	}
+	if result.Action == ActionFail {
+		reason := result.Reason
+		if reason == "" {
+			reason = "OOMKilled"
+		}
+		const failureExitCode = 137
+		return k8sv1.PodStatus{
+			Phase: k8sv1.PodFailed, Reason: reason, Message: result.Message,
+			Conditions: []k8sv1.PodCondition{
+				{Type: k8sv1.PodScheduled, Status: k8sv1.ConditionTrue},
+				{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse},
+			},
+			ContainerStatuses: []k8sv1.ContainerStatus{{
+				Name: "compute",
+				State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{
+					ExitCode: failureExitCode, Reason: reason, Message: result.Message,
+				}},
+			}},
+		}
+	}
 	// Allocate IPs in 10.244.0.2-254, avoiding .0 (network), .1 (gateway), .255 (broadcast).
 	n := ps.ipCounter.Add(1)
 	ipOctet := byte((n-1)%ipRangeSize + ipRangeStart) //nolint:gosec // G115: modulo bounds result to [2,254], safe truncation
-	pod.Status = k8sv1.PodStatus{
+	status := k8sv1.PodStatus{
 		Phase: k8sv1.PodRunning,
 		PodIP: fmt.Sprintf("10.244.0.%d", ipOctet),
 		Conditions: []k8sv1.PodCondition{
@@ -170,30 +261,28 @@ func (ps *PodSimulator) bindAndSetReady(ctx context.Context, pod *k8sv1.Pod) boo
 		},
 	}
 	for _, container := range pod.Spec.Containers {
-		pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, runningContainerStatus(container))
+		status.ContainerStatuses = append(status.ContainerStatuses, runningContainerStatus(container))
 	}
 	for _, container := range pod.Spec.InitContainers {
-		status := runningContainerStatus(container)
+		containerStatus := runningContainerStatus(container)
 		if container.RestartPolicy == nil || *container.RestartPolicy != k8sv1.ContainerRestartPolicyAlways {
 			// Ordinary init containers finish before the pod can run; restartable sidecars keep running.
-			status.State = k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{ExitCode: 0, Reason: "Completed"}}
-			status.Started = new(false)
+			containerStatus.State = k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{ExitCode: 0, Reason: "Completed"}}
+			containerStatus.Started = new(false)
 		}
-		pod.Status.InitContainerStatuses = append(pod.Status.InitContainerStatuses, status)
+		status.InitContainerStatuses = append(status.InitContainerStatuses, containerStatus)
 	}
+	if result.Action == ActionNotReady {
+		status.Conditions[0].Status = k8sv1.ConditionFalse
+		for i := range status.ContainerStatuses {
+			status.ContainerStatuses[i].Ready = false
+		}
+	}
+	return status
+}
 
-	statusPatch, err := patch.New(patch.WithAdd("/status", pod.Status)).GeneratePayload()
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to generate pod status patch %s/%s: %v\n", namespace, name, err)
-		return false
-	}
-	_, err = ps.k8sClient.CoreV1().Pods(namespace).
-		Patch(ctx, name, k8stypes.JSONPatchType, statusPatch, metav1.PatchOptions{}, "status")
-	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to patch pod status %s/%s: %v\n", namespace, name, err)
-		return false
-	}
-	return true
+func isPodSimulationComplete(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodFailed || pod.Status.Phase == k8sv1.PodSucceeded
 }
 
 func runningContainerStatus(container k8sv1.Container) k8sv1.ContainerStatus {
