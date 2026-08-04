@@ -65,6 +65,7 @@ var _ = Describe("Virt-api", func() {
 		tmpDir, err := os.MkdirTemp("", "api_tmp_dir")
 		Expect(err).ToNot(HaveOccurred())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.k8sClient, _ = kubecli.GetK8sClientFromFlags(server.URL(), "")
 		app.certsDirectory = tmpDir
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")

@@ -22,6 +22,7 @@ package validating_webhook
 import (
 	"net/http"
 
+	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
 
 	preferencewebhooks "kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
@@ -130,8 +131,8 @@ func ServeStatusValidation(resp http.ResponseWriter,
 	})
 }
 
-func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewPodEvictionAdmitter(clusterConfig, virtCli, virtCli.GeneratedKubeVirtClient()))
+func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, k8sClient kubernetes.Interface) {
+	validating_webhooks.Serve(resp, req, admitters.NewPodEvictionAdmitter(clusterConfig, k8sClient, virtCli.GeneratedKubeVirtClient()))
 }
 
 func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

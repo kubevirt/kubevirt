@@ -135,6 +135,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.consoleServerPort = backendPort
 		app.virtCli = virtClient
+		app.k8sClient = kubeClient
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
 		app.handlerHttpClient = &http.Client{
