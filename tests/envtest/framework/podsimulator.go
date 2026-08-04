@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +18,25 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
+type PodAction string
+
+const (
+	ActionDefault  PodAction = "default"  // Happy path: bind + PodRunning + PodReady
+	ActionSkip     PodAction = "skip"     // Do nothing (pod stays Pending)
+	ActionFail     PodAction = "fail"     // Bind + PodFailed (e.g. OOMKilled, Evicted)
+	ActionNotReady PodAction = "not_ready" // Bind + PodRunning + PodReady=false
+)
+
+type PodSimulationHook func(pod *k8sv1.Pod) PodSimulationResult
+
+type PodSimulationResult struct {
+	Action       PodAction
+	Delay        time.Duration
+	Reason       string
+	Message      string
+	CustomStatus *k8sv1.PodStatus
+}
+
 type PodSimulator struct {
 	k8sClient kubernetes.Interface
 	informer  cache.SharedIndexInformer
@@ -27,6 +47,7 @@ type PodSimulator struct {
 	mu        sync.Mutex
 	handled   map[string]bool
 	ipCounter int32
+	hook      PodSimulationHook
 }
 
 func NewPodSimulator(k8sClient kubernetes.Interface, podInformer cache.SharedIndexInformer, nodeName string) *PodSimulator {
@@ -36,6 +57,18 @@ func NewPodSimulator(k8sClient kubernetes.Interface, podInformer cache.SharedInd
 		nodeName:  nodeName,
 		handled:   make(map[string]bool),
 	}
+}
+
+func (ps *PodSimulator) SetHook(hook PodSimulationHook) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.hook = hook
+}
+
+func (ps *PodSimulator) ResetHook() {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.hook = nil
 }
 
 func (ps *PodSimulator) Start() {
@@ -81,12 +114,26 @@ func (ps *PodSimulator) simulatePod(pod *k8sv1.Pod) {
 		return
 	}
 	ps.handled[key] = true
+	hook := ps.hook
 	ps.mu.Unlock()
 
-	go ps.bindAndSetReady(pod)
+	go ps.bindAndSimulate(pod, hook)
 }
 
-func (ps *PodSimulator) bindAndSetReady(pod *k8sv1.Pod) {
+func (ps *PodSimulator) bindAndSimulate(pod *k8sv1.Pod, hook PodSimulationHook) {
+	var res PodSimulationResult
+	if hook != nil {
+		res = hook(pod)
+	}
+
+	if res.Delay > 0 {
+		time.Sleep(res.Delay)
+	}
+
+	if res.Action == ActionSkip {
+		return
+	}
+
 	ctx := context.Background()
 
 	if pod.Spec.NodeName == "" {
@@ -113,29 +160,92 @@ func (ps *PodSimulator) bindAndSetReady(pod *k8sv1.Pod) {
 		return
 	}
 
-	ipOctet := atomic.AddInt32(&ps.ipCounter, 1) + 1
-	pod.Status = k8sv1.PodStatus{
-		Phase: k8sv1.PodRunning,
-		PodIP: fmt.Sprintf("10.244.0.%d", ipOctet),
-		Conditions: []k8sv1.PodCondition{
-			{
-				Type:   k8sv1.PodReady,
-				Status: k8sv1.ConditionTrue,
-			},
-			{
-				Type:   k8sv1.PodScheduled,
-				Status: k8sv1.ConditionTrue,
-			},
-		},
-		ContainerStatuses: []k8sv1.ContainerStatus{
-			{
-				Name:  "compute",
-				Ready: true,
-				State: k8sv1.ContainerState{
-					Running: &k8sv1.ContainerStateRunning{},
+	if res.CustomStatus != nil {
+		pod.Status = *res.CustomStatus
+	} else if res.Action == ActionFail {
+		reason := res.Reason
+		if reason == "" {
+			reason = "OOMKilled"
+		}
+		pod.Status = k8sv1.PodStatus{
+			Phase:   k8sv1.PodFailed,
+			Reason:  reason,
+			Message: res.Message,
+			Conditions: []k8sv1.PodCondition{
+				{
+					Type:   k8sv1.PodScheduled,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   k8sv1.PodReady,
+					Status: k8sv1.ConditionFalse,
 				},
 			},
-		},
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{
+					Name:  "compute",
+					Ready: false,
+					State: k8sv1.ContainerState{
+						Terminated: &k8sv1.ContainerStateTerminated{
+							ExitCode: 137,
+							Reason:   reason,
+							Message:  res.Message,
+						},
+					},
+				},
+			},
+		}
+	} else if res.Action == ActionNotReady {
+		ipOctet := atomic.AddInt32(&ps.ipCounter, 1) + 1
+		pod.Status = k8sv1.PodStatus{
+			Phase: k8sv1.PodRunning,
+			PodIP: fmt.Sprintf("10.244.0.%d", ipOctet),
+			Conditions: []k8sv1.PodCondition{
+				{
+					Type:   k8sv1.PodScheduled,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   k8sv1.PodReady,
+					Status: k8sv1.ConditionFalse,
+				},
+			},
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{
+					Name:  "compute",
+					Ready: false,
+					State: k8sv1.ContainerState{
+						Running: &k8sv1.ContainerStateRunning{},
+					},
+				},
+			},
+		}
+	} else {
+		// ActionDefault
+		ipOctet := atomic.AddInt32(&ps.ipCounter, 1) + 1
+		pod.Status = k8sv1.PodStatus{
+			Phase: k8sv1.PodRunning,
+			PodIP: fmt.Sprintf("10.244.0.%d", ipOctet),
+			Conditions: []k8sv1.PodCondition{
+				{
+					Type:   k8sv1.PodReady,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   k8sv1.PodScheduled,
+					Status: k8sv1.ConditionTrue,
+				},
+			},
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{
+					Name:  "compute",
+					Ready: true,
+					State: k8sv1.ContainerState{
+						Running: &k8sv1.ContainerStateRunning{},
+					},
+				},
+			},
+		}
 	}
 
 	_, err = ps.k8sClient.CoreV1().Pods(pod.Namespace).UpdateStatus(ctx, pod, metav1.UpdateOptions{})
@@ -150,3 +260,4 @@ func isVirtLauncherPod(pod *k8sv1.Pod) bool {
 	}
 	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
 }
+

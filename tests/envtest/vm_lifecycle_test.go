@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -55,5 +56,28 @@ var _ = Describe("VM Lifecycle", func() {
 
 		By("waiting for the VMI to reach Scheduled phase after pod simulator makes pod Ready")
 		Eventually(matcher.ThisVMIWith("default", vm.Name), 10*time.Second, 100*time.Millisecond).Should(matcher.BeInPhase(virtv1.Scheduled))
+	})
+
+	It("should keep VMI in Scheduling phase when pod simulator holds launcher pod in Pending phase", func() {
+		f.PodSimulator().SetHook(func(pod *k8sv1.Pod) framework.PodSimulationResult {
+			return framework.PodSimulationResult{
+				Action: framework.ActionSkip,
+			}
+		})
+
+		vm := libvmi.NewVirtualMachine(
+			libvmi.New(libvmi.WithResourceMemory("128Mi")),
+			libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+		)
+
+		var err error
+		vm, err = f.VirtClient().VirtualMachine("default").Create(ctx, vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for the VM controller to create a VMI")
+		Eventually(matcher.ThisVMIWith("default", vm.Name), 10*time.Second, 100*time.Millisecond).Should(matcher.Exist())
+
+		By("verifying the VMI stays in Scheduling phase because launcher pod is not bound")
+		Consistently(matcher.ThisVMIWith("default", vm.Name), 3*time.Second, 200*time.Millisecond).Should(matcher.BeInPhase(virtv1.Scheduling))
 	})
 })

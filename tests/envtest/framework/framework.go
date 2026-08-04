@@ -400,6 +400,10 @@ func (f *Framework) FakeLibvirt() *FakeLibvirt {
 	return f.fakeLibvirt
 }
 
+func (f *Framework) PodSimulator() *PodSimulator {
+	return f.podSimulator
+}
+
 func (f *Framework) LauncherImage() string {
 	return defaultLauncherImage
 }
