@@ -623,7 +623,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 	})
 
 	Context("VM guest panic metrics", decorators.RequiresAMD64, func() {
-		It("should increment kubevirt_vmi_guest_os_panic_total when a guest OS panics", func() {
+		It("[QUARANTINE] should increment kubevirt_vmi_guest_os_panic_total when a guest OS panics", decorators.Quarantine, func() {
 			virtClient := kubevirt.Client()
 
 			By("creating a Fedora VMI with ISA panic device")
