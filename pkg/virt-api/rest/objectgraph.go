@@ -134,7 +134,7 @@ func (app *SubresourceAPIApp) handleObjectGraph(request *restful.Request, respon
 		return
 	}
 
-	graph, err := NewObjectGraph(app.virtCli, app.k8sClient, objectGraphOpts).GetObjectGraph(obj)
+	graph, err := NewObjectGraph(app.virtClient, app.k8sClient, objectGraphOpts).GetObjectGraph(obj)
 	if err != nil {
 		writeError(apierrors.NewInternalError(err), response)
 		return

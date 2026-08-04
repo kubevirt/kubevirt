@@ -49,11 +49,11 @@ type VMsMutator struct {
 	virtClient          kubecli.KubevirtClient
 }
 
-func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) *VMsMutator {
+func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) *VMsMutator {
 	return &VMsMutator{
 		ClusterConfig:       clusterConfig,
-		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtCli),
-		virtClient:          virtCli,
+		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtClient),
+		virtClient:          virtClient,
 	}
 }
 

@@ -80,7 +80,7 @@ func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.
 			return
 		}
 
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(ctx, vmi.GetName(), types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: opts.DryRun})
+		_, err = app.virtClient.VirtualMachineInstance(namespace).Patch(ctx, vmi.GetName(), types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: opts.DryRun})
 		if err != nil {
 			log.Log.Object(vmi).V(2).Reason(err).Info("Failed to patching VMI")
 			writeError(errors.NewInternalError(err), response)

@@ -84,7 +84,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		server = ghttp.NewServer()
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
-		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.virtClient, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.k8sClient, _ = kubecli.GetK8sClientFromFlags(server.URL(), "")
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
