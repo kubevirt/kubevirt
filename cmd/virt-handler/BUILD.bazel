@@ -15,6 +15,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/wait:go_default_library",
         "//pkg/certificates/bootstrap:go_default_library",
+        "//pkg/checkpoint:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/downwardmetrics/scraper:go_default_library",
@@ -36,7 +37,9 @@ go_library(
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/container-disk:go_default_library",
         "//pkg/virt-handler/dmetrics-manager:go_default_library",
+        "//pkg/virt-handler/hotplug-disk:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/ksm:go_default_library",
         "//pkg/virt-handler/launcher-clients:go_default_library",

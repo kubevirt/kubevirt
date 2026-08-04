@@ -41,7 +41,7 @@ var _ = Describe("Domain Watcher", func() {
 
 			ghostCacheDir := GinkgoT().TempDir()
 
-			ghostRecordStore := InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+			ghostRecordStore := InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 			err := ghostRecordStore.Add("test-ns", "test-domain", socketPath, podUID)
 			Expect(err).ToNot(HaveOccurred())
@@ -108,7 +108,7 @@ var _ = Describe("Domain Watcher", func() {
 
 		BeforeEach(func() {
 			ghostCacheDir = GinkgoT().TempDir()
-			InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+			InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 		})
 
 		It("should return domain with Unknown status when socket exists but connection fails", func() {

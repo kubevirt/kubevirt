@@ -110,11 +110,11 @@ type KernelBootChecksum struct {
 	Kernel *uint32
 }
 
-func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
+func NewMounter(isoDetector isolation.PodIsolationDetector, checkpointManager checkpoint.CheckpointManager, clusterConfig *virtconfig.ClusterConfig) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
 		podIsolationDetector:       isoDetector,
-		checkpointManager:          checkpoint.NewSimpleCheckpointManager(mountStateDir),
+		checkpointManager:          checkpointManager,
 		suppressWarningTimeout:     1 * time.Minute,
 		needsBindMountFunc:         newNeedsBindMountFunc(""),
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),

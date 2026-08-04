@@ -51,6 +51,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -62,6 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
@@ -164,7 +166,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmiShareDir := GinkgoT().TempDir()
 		ghostCacheDir := GinkgoT().TempDir()
 
-		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
+		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
@@ -242,6 +244,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			migrationTargetPasstRepairHandler,
 			nil,
 			nil,
+			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
+			hotplugvolume.NewVolumeMounter(checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), podsDir, host),
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

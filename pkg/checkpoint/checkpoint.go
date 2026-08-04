@@ -18,6 +18,7 @@ package checkpoint
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -37,17 +38,21 @@ type CheckpointManager interface {
 // within provided directory. The manager uses std json package to
 // encode/decode the stucts.
 // This is thread-safe per key which is usual usage.
-func NewSimpleCheckpointManager(path string) *simpleCheckpointManager {
-	return &simpleCheckpointManager{path}
+func NewSimpleCheckpointManager(path, tempPath string) *simpleCheckpointManager {
+	return &simpleCheckpointManager{
+		basePath: path,
+		tempPath: tempPath,
+	}
 }
 
 var _ CheckpointManager = &simpleCheckpointManager{}
 
 type simpleCheckpointManager struct {
 	basePath string
+	tempPath string
 }
 
-func (cp *simpleCheckpointManager) Get(key string, value interface{}) error {
+func (cp *simpleCheckpointManager) Get(key string, value any) error {
 	b, err := os.ReadFile(filepath.Join(cp.basePath, key))
 	if err != nil {
 		return err
@@ -55,12 +60,44 @@ func (cp *simpleCheckpointManager) Get(key string, value interface{}) error {
 	return json.Unmarshal(b, value)
 }
 
-func (cp *simpleCheckpointManager) Store(key string, value interface{}) error {
+func (cp *simpleCheckpointManager) Store(key string, value any) (err error) {
 	b, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(cp.basePath, key), b, 0600)
+
+	tempFile, err := os.CreateTemp(cp.tempPath, key)
+	if err != nil {
+		return err
+	}
+
+	close := true
+	defer func() {
+		if close {
+			tempFile.Close()
+		}
+		if err != nil {
+			if removeErr := os.Remove(tempFile.Name()); removeErr != nil {
+				err = fmt.Errorf("failed to remove %s, %s, previous error %s", tempFile.Name(), removeErr, err)
+			}
+		}
+	}()
+
+	_, err = tempFile.Write(b)
+	if err != nil {
+		return err
+	}
+
+	if err = tempFile.Sync(); err != nil {
+		return err
+	}
+
+	close = false
+	if err = tempFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tempFile.Name(), filepath.Join(cp.basePath, key))
 }
 
 func (cp *simpleCheckpointManager) Delete(key string) error {
