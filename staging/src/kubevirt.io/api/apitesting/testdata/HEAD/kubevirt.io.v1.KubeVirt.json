@@ -82,6 +82,7 @@
     "productName": "productNameValue",
     "productComponent": "productComponentValue",
     "synchronizationPort": "synchronizationPortValue",
+    "kubeletRootDir": "kubeletRootDirValue",
     "configuration": {
       "cpuModel": "cpuModelValue",
       "cpuRequest": "0",

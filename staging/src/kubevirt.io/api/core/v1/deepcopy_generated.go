@@ -3144,6 +3144,11 @@ func (in *KubeVirtSpec) DeepCopyInto(out *KubeVirtSpec) {
 	}
 	in.WorkloadUpdateStrategy.DeepCopyInto(&out.WorkloadUpdateStrategy)
 	in.CertificateRotationStrategy.DeepCopyInto(&out.CertificateRotationStrategy)
+	if in.KubeletRootDir != nil {
+		in, out := &in.KubeletRootDir, &out.KubeletRootDir
+		*out = new(string)
+		**out = **in
+	}
 	in.Configuration.DeepCopyInto(&out.Configuration)
 	if in.Infra != nil {
 		in, out := &in.Infra, &out.Infra
