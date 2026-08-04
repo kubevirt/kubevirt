@@ -261,6 +261,10 @@ func (f *Framework) K8sClient() kubernetes.Interface {
 	return f.k8sClient
 }
 
+func (f *Framework) PodSimulator() *PodSimulator {
+	return f.podSimulator
+}
+
 func (f *Framework) createSeedData(ctx context.Context) {
 	for _, ns := range []string{"default", testNamespace} {
 		_, err := f.k8sClient.CoreV1().Namespaces().Create(ctx, &k8sv1.Namespace{
