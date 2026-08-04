@@ -350,7 +350,7 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	if productComponent := config.GetProductComponent(); productComponent != "" && operatorutil.IsValidLabel(productComponent) {
 		configMap.Labels[v1.AppComponentLabel] = productComponent
 	}
-	if productVersion := config.AdditionalProperties[operatorutil.ProductVersionKey]; productVersion != "" && operatorutil.IsValidLabel(productVersion) {
+	if productVersion := config.GetProductVersion(); productVersion != "" && operatorutil.IsValidLabel(productVersion) {
 		configMap.Labels[v1.AppVersionLabel] = productVersion
 	}
 	if productName := config.GetProductName(); productName != "" && operatorutil.IsValidLabel(productName) {
