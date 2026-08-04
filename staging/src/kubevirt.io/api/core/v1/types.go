@@ -3877,6 +3877,12 @@ type MigrationConfiguration struct {
 	// If set with Proxy, synchronization controllers require the migration0 interface at startup
 	// and will fail to start if it is missing.
 	Network *string `json:"network,omitempty"`
+	// AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the
+	// configured migration network (Network) does not provide a usable IP. When false or unset,
+	// virt-handler and the synchronization controllers fail to start in that case. When true, they
+	// use the pod network instead. The value is read once at startup, so changing it rolls the
+	// virt-handler and synchronization-controller pods. Defaults to false.
+	AllowMigrationNetworkFallback *bool `json:"allowMigrationNetworkFallback,omitempty"`
 	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
 	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
