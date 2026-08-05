@@ -362,6 +362,7 @@ func main() {
 	vGPUDedicatedHookEnabled := pflag.Bool("vgpu-dedicated-hook", false, "Enable target mdev UUID mutation for vGPU live migration")
 	vmStatsCollectorEnabled := pflag.Bool("vm-stats-collector", false, "Enable additional guest agent polling workers for VMStats monitoring data collection")
 	firmwareAutoSelectionEnabled := pflag.Bool("firmware-auto-selection", false, "Use libvirt firmware auto-selection for EFI Secure Boot")
+	arm64SecureBootEnabled := pflag.Bool("arm64-secure-boot", false, "Enable ARM64 UEFI Secure Boot via firmware auto-selection and uefi-vars")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", virtconfig.DefaultARCHOVMFPath, "The directory that contains the EFI roms (like OVMF_CODE.fd)")
@@ -480,6 +481,7 @@ func main() {
 		domainName,
 		*vmStatsCollectorEnabled,
 		*firmwareAutoSelectionEnabled,
+		*arm64SecureBootEnabled,
 		*allowCrossArchEmulation,
 		notifier)
 	if err != nil {

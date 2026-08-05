@@ -300,6 +300,17 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.10.0
+	//
+	// ARM64SecureBoot enables UEFI Secure Boot for ARM64 guests using
+	// libvirt firmware auto-selection and the QEMU uefi-vars device.
+	// Requires QEMU 10.0+, libvirt with uefi-vars/varstore support,
+	// and edk2-aarch64 firmware with Secure Boot templates. These
+	// components are only available in CentOS Stream 10 based
+	// virt-launcher images.
+	ARM64SecureBoot = "ARM64SecureBoot"
 )
 
 func init() {
@@ -351,4 +362,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 }
