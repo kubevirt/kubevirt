@@ -109,7 +109,7 @@ func (ctrl *VMBackupController) handleCheckpointRedefinition(tracker *backupv1.V
 	checkpoint := tracker.Status.LatestCheckpoint
 	logger.Infof("Calling RedefineCheckpoint for VMI %s with checkpoint %s", vmiName, checkpoint.Name)
 
-	err = ctrl.client.VirtualMachineInstance(tracker.Namespace).RedefineCheckpoint(context.Background(), vmiName, checkpoint)
+	err = ctrl.virtClient.VirtualMachineInstance(tracker.Namespace).RedefineCheckpoint(context.Background(), vmiName, checkpoint)
 	if err != nil {
 		return ctrl.handleRedefinitionError(tracker, err)
 	}
@@ -157,7 +157,7 @@ func (ctrl *VMBackupController) patchTrackerStatus(tracker *backupv1.VirtualMach
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.client.VirtualMachineBackupTracker(tracker.Namespace).Patch(
+	_, err = ctrl.virtClient.VirtualMachineBackupTracker(tracker.Namespace).Patch(
 		context.Background(),
 		tracker.Name,
 		types.JSONPatchType,

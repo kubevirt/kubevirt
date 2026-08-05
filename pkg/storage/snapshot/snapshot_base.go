@@ -66,7 +66,7 @@ type dynamicInformer struct {
 
 // VMSnapshotController is resonsible for snapshotting VMs
 type VMSnapshotController struct {
-	Client kubecli.KubevirtClient
+	VirtClient kubecli.KubevirtClient
 
 	VMSnapshotInformer        cache.SharedIndexInformer
 	VMSnapshotContentInformer cache.SharedIndexInformer
@@ -655,7 +655,7 @@ func (ctrl *VMSnapshotController) ensureDynamicInformer(name string) (time.Durat
 	}
 
 	di.stopCh = make(chan struct{})
-	di.informer = di.informerFunc(ctrl.Client, ctrl.ResyncPeriod)
+	di.informer = di.informerFunc(ctrl.VirtClient, ctrl.ResyncPeriod)
 	handlerFuncs, ok := ctrl.eventHandlerMap[name]
 	if ok {
 		di.informer.AddEventHandlerWithResyncPeriod(handlerFuncs, ctrl.ResyncPeriod)

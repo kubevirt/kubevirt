@@ -42,7 +42,7 @@ import (
 
 // VMRestoreController is resonsible for restoring VMs
 type VMRestoreController struct {
-	Client kubecli.KubevirtClient
+	VirtClient kubecli.KubevirtClient
 
 	VMRestoreInformer         cache.SharedIndexInformer
 	VMSnapshotInformer        cache.SharedIndexInformer
