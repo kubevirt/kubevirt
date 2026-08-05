@@ -14,6 +14,7 @@ go_library(
         "pcihole64.go",
         "vm_lifecycle.go",
         "vmi_memory_overhead.go",
+        "vmi_slow_startup.go",
         "vmidefaults.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/compute",
