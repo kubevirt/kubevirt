@@ -54,7 +54,7 @@ func (s *Streamer) Screenshot(ctx context.Context, namespace, name string) ([]by
 		return nil, statusErr
 	}
 
-	conn := kubecli.NewVirtHandlerClient(s.virtCli, s.httpClient).Port(s.consoleServerPort).ForNode(vmi.Status.NodeName)
+	conn := kubecli.NewVirtHandlerClient(s.virtClient, s.httpClient).Port(s.consoleServerPort).ForNode(vmi.Status.NodeName)
 	url, err := conn.ScreenshotURI(vmi)
 	if err != nil {
 		return nil, errors.NewBadRequest(err.Error())

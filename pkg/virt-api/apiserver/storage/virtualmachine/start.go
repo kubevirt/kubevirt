@@ -34,9 +34,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-// vmStarter starts a VirtualMachine. It is implemented by
-// rest.SubresourceAPIApp, so the storage reuses the existing start logic of
-// the rest package.
 type vmStarter interface {
 	StartVM(ctx context.Context, namespace, name string, opts *v1.StartOptions) *apierrors.StatusError
 }
