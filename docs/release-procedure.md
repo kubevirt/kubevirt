@@ -165,7 +165,7 @@ second using a 'sig/' label where applicable.
 In some cases, 'kubevirt-bot' applies one or more of these labels automatically,
 however they might need to be manually applied by either the author or a reviewer of the PR.
 
-Add a label by including the ```/kind``` and ```/sig``` commands, each on its own line, in the PR description or in a comment on the PR. For example:
+Add a label by including the `/kind` and `/sig` commands, each on its own line, in the PR description or in a comment on the PR. For example:
 
 ```
 /kind enhancement
