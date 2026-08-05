@@ -905,7 +905,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 func (vca *VirtControllerApp) initSnapshotController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
 	vca.snapshotController = &snapshot.VMSnapshotController{
-		Client:                    vca.clientSet,
+		VirtClient:                vca.clientSet,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
 		VMInformer:                vca.vmInformer,
@@ -928,7 +928,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 func (vca *VirtControllerApp) initRestoreController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
 	vca.restoreController = &snapshot.VMRestoreController{
-		Client:                    vca.clientSet,
+		VirtClient:                vca.clientSet,
 		VMRestoreInformer:         vca.vmRestoreInformer,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
@@ -950,7 +950,7 @@ func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
 		ManifestRenderer:            vca.templateService,
-		Client:                      vca.clientSet,
+		VirtClient:                  vca.clientSet,
 		VMExportInformer:            vca.vmExportInformer,
 		PVCInformer:                 vca.persistentVolumeClaimInformer,
 		PodInformer:                 vca.allPodInformer,

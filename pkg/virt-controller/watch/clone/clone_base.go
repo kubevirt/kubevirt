@@ -54,7 +54,7 @@ var (
 )
 
 type VMCloneController struct {
-	client               kubecli.KubevirtClient
+	virtClient           kubecli.KubevirtClient
 	vmCloneIndexer       cache.Indexer
 	snapshotStore        cache.Store
 	restoreStore         cache.Store
@@ -67,9 +67,9 @@ type VMCloneController struct {
 	hasSynced    func() bool
 }
 
-func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
+func NewVmCloneController(virtClient kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
 	ctrl := VMCloneController{
-		client:               client,
+		virtClient:           virtClient,
 		vmCloneIndexer:       vmCloneInformer.GetIndexer(),
 		snapshotStore:        snapshotInformer.GetStore(),
 		restoreStore:         restoreInformer.GetStore(),

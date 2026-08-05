@@ -61,7 +61,7 @@ const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
 
 type WorkloadUpdateController struct {
-	clientset             kubecli.KubevirtClient
+	virtClient            kubecli.KubevirtClient
 	queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiStore              cache.Store
 	podIndexer            cache.Indexer
@@ -93,7 +93,7 @@ func NewWorkloadUpdateController(
 	migrationInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*WorkloadUpdateController, error) {
 
@@ -112,7 +112,7 @@ func NewWorkloadUpdateController(
 		migrationIndexer:      migrationInformer.GetIndexer(),
 		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
-		clientset:             clientset,
+		virtClient:            virtClient,
 		launcherImage:         launcherImage,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
@@ -486,7 +486,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		if err != nil {
 			return err
 		}
-		_, err = c.clientset.KubeVirt(kv.Namespace).PatchStatus(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		_, err = c.virtClient.KubeVirt(kv.Namespace).PatchStatus(context.Background(), kv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVirtualMachineInstanceWorkloads valued: %v", err)
 		}
@@ -585,7 +585,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				priority = v1.PriorityUserTriggered
 			}
 			wuMigration.Spec.Priority = &priority
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), wuMigration, metav1.CreateOptions{})
+			createdMigration, err := c.virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), wuMigration, metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)
@@ -611,7 +611,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				errChan <- err
 			}
 
-			err = c.clientset.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(),
+			err = c.virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(),
 				&policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pod.Name,
@@ -636,7 +636,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 			defer wg.Done()
 			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationIndexer, vmi.Name, vmi.Namespace)
 			for _, mig := range migList {
-				err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
+				err := c.virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
 				if err != nil && !errors.IsNotFound(err) {
 					log.Log.Object(vmi).Reason(err).Errorf("Failed to delete the migration due to a migration abortion")
 					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedChangeAbortionReason, "Failed to abort change for vmi: %s: %v", vmi.Name, err)

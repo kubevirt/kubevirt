@@ -60,7 +60,7 @@ func NewController(templateService templateService,
 	migrationInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
 	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
@@ -90,7 +90,7 @@ func NewController(templateService templateService,
 		pvcIndexer:                        pvcInformer.GetIndexer(),
 		migrationIndexer:                  migrationInformer.GetIndexer(),
 		recorder:                          recorder,
-		clientset:                         clientset,
+		virtClient:                        virtClient,
 		podExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		pvcExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -100,7 +100,7 @@ func NewController(templateService templateService,
 		clusterConfig:                     clusterConfig,
 		topologyHinter:                    topologyHinter,
 		cidsMap:                           vsockCIDAllocator,
-		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		backendStorage:                    backendstorage.NewBackendStorage(virtClient, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
 		storageAnnotationsGenerator:       storageAnnotationsGenerator,
 		updateNetworkStatus:               netStatusUpdater,
@@ -218,7 +218,7 @@ type vsockAllocator interface {
 
 type Controller struct {
 	templateService                   templateService
-	clientset                         kubecli.KubevirtClient
+	virtClient                        kubecli.KubevirtClient
 	Queue                             workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer                        cache.Indexer
 	vmStore                           cache.Store
@@ -328,7 +328,7 @@ func (c *Controller) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(vmi)
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
+		_, err = c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
