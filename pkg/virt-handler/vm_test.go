@@ -389,6 +389,113 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
 		})
 
+		DescribeTable("should not delete a Shutoff domain while the VMI is still Scheduled", func(reason api.StateChangeReason) {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi.CreationTimestamp = metav1.Now()
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = reason
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			client.EXPECT().DeleteDomain(gomock.Any()).Times(0)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			addVMI(vmi, domain)
+
+			sanityExecute()
+
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">", 0))
+		},
+			Entry("with empty reason", api.StateChangeReason("")),
+			Entry("with Unknown reason", api.ReasonUnknown),
+		)
+
+		It("should delete a Shutoff domain once the Scheduled deferral window has expired", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
+				{
+					Phase:                    v1.Scheduled,
+					PhaseTransitionTimestamp: metav1.NewTime(time.Now().Add(-10 * time.Minute)),
+				},
+			}
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().DeleteDomain(gomock.Any())
+			addVMI(vmi, domain)
+
+			sanityExecuteNoDomain()
+
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+		})
+
+		It("should delete a Shutoff domain using CreationTimestamp fallback when PhaseTransitionTimestamps are missing", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi.CreationTimestamp = metav1.NewTime(time.Now().Add(-10 * time.Minute))
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().DeleteDomain(gomock.Any())
+			addVMI(vmi, domain)
+
+			sanityExecuteNoDomain()
+
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+		})
+
+		It("should delete a Shutoff domain with a definitive Failed reason even while the VMI is still Scheduled", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonFailed
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().DeleteDomain(gomock.Any())
+			addVMI(vmi, domain)
+
+			sanityExecuteNoDomain()
+
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+		})
+
+		It("should delete a Shutoff domain when the VMI was previously Running", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().DeleteDomain(gomock.Any())
+			addVMI(vmi, domain)
+
+			sanityExecuteNoDomain()
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+		})
+
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
