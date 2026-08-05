@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -62,6 +63,7 @@ const defaultBatchDeletionCount = 10
 
 type WorkloadUpdateController struct {
 	virtClient            kubecli.KubevirtClient
+	k8sClient             kubernetes.Interface
 	queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiStore              cache.Store
 	podIndexer            cache.Indexer
@@ -94,6 +96,7 @@ func NewWorkloadUpdateController(
 	kubeVirtInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*WorkloadUpdateController, error) {
 
@@ -113,6 +116,7 @@ func NewWorkloadUpdateController(
 		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
 		virtClient:            virtClient,
+		k8sClient:             k8sClient,
 		launcherImage:         launcherImage,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
@@ -611,7 +615,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				errChan <- err
 			}
 
-			err = c.virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(),
+			err = c.k8sClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(),
 				&policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pod.Name,

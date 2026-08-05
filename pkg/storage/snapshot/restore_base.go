@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -43,6 +44,7 @@ import (
 // VMRestoreController is resonsible for restoring VMs
 type VMRestoreController struct {
 	VirtClient kubecli.KubevirtClient
+	K8sClient  kubernetes.Interface
 
 	VMRestoreInformer         cache.SharedIndexInformer
 	VMSnapshotInformer        cache.SharedIndexInformer

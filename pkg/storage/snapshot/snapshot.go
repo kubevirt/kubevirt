@@ -930,7 +930,7 @@ func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *sn
 	if vm == nil || vm.Spec.Template == nil {
 		return nil
 	}
-	volumes, err := storageutils.GetVolumes(vm, ctrl.VirtClient, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(vm, ctrl.K8sClient, storageutils.WithAllVolumes)
 	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
 		return err
 	}
@@ -970,7 +970,7 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	log.Log.V(3).Infof("Update volume snapshot status for VM [%s/%s]", vm.Namespace, vm.Name)
 
 	vmCopy := vm.DeepCopy()
-	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.VirtClient, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.K8sClient, storageutils.WithAllVolumes)
 	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
 		return err
 	}

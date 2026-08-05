@@ -55,6 +55,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -141,6 +142,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
 	firmwareSynchronizer synchronizer,
@@ -164,6 +166,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		instancetypeController: instancetypeController,
 		recorder:               recorder,
 		virtClient:             virtClient,
+		k8sClient:              k8sClient,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -235,13 +238,13 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 }
 
 type authProxy struct {
-	virtClient      kubecli.KubevirtClient
+	k8sClient       kubernetes.Interface
 	dataSourceStore cache.Store
 	namespaceStore  cache.Store
 }
 
 func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-	return p.virtClient.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
+	return p.k8sClient.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
 func (p *authProxy) GetNamespace(name string) (*k8score.Namespace, error) {
@@ -282,6 +285,7 @@ type instancetypeHandler interface {
 
 type Controller struct {
 	virtClient             kubecli.KubevirtClient
+	k8sClient              kubernetes.Interface
 	Queue                  workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer             cache.Indexer
 	vmIndexer              cache.Indexer
@@ -496,7 +500,7 @@ func (c *Controller) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *
 		serviceAccountName = sa
 	}
 
-	proxy := &authProxy{virtClient: c.virtClient, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
+	proxy := &authProxy{k8sClient: c.k8sClient, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
 	allowed, reason, err := c.cloneAuthFunc(dataVolume, vm.Namespace, dataVolume.Name, proxy, vm.Namespace, serviceAccountName)
 	if err != nil && err != cdiv1.ErrNoTokenOkay {
 		return err
@@ -1757,7 +1761,7 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 			createNotNeeded = true
 			continue
 		}
-		err = c.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
+		err = c.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -1769,7 +1773,7 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 // getControllerRevision attempts to get the controller revision by name and
 // namespace. It will return (nil, nil) if the controller revision is not found.
 func (c *Controller) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
-	cr, err := c.virtClient.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	cr, err := c.k8sClient.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
 			return nil, nil
@@ -1864,7 +1868,7 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 		Data:     runtime.RawExtension{Raw: patch},
 		Revision: vm.ObjectMeta.Generation,
 	}
-	_, err = c.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+	_, err = c.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}

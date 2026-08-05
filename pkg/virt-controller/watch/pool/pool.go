@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -49,6 +50,7 @@ import (
 // Controller is the main Controller struct.
 type Controller struct {
 	virtClient      kubecli.KubevirtClient
+	k8sClient       kubernetes.Interface
 	queue           workqueue.TypedRateLimitingInterface[string]
 	vmIndexer       cache.Indexer
 	vmiStore        cache.Store
@@ -86,6 +88,7 @@ var virtControllerPoolWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Secon
 
 // NewController creates a new instance of the PoolController struct.
 func NewController(virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	poolInformer cache.SharedIndexInformer,
@@ -96,6 +99,7 @@ func NewController(virtClient kubecli.KubevirtClient,
 	burstReplicas uint) (*Controller, error) {
 	c := &Controller{
 		virtClient: virtClient,
+		k8sClient:  k8sClient,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-pool"},
@@ -879,7 +883,7 @@ func (c *Controller) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (
 	}
 
 	c.expectations.RaiseExpectations(poolKey, 1, 0)
-	_, err = c.virtClient.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+	_, err = c.k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
 		c.expectations.CreationObserved(poolKey)
 		return "", err
@@ -1373,7 +1377,7 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 	}
 
 	for revisionName := range deletionMap {
-		err := c.virtClient.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, metav1.DeleteOptions{})
+		err := c.k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, metav1.DeleteOptions{})
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
@@ -1906,7 +1910,7 @@ func (c *Controller) removePVCOwnerReferences(vm *virtv1.VirtualMachine) error {
 			if err != nil {
 				return fmt.Errorf("failed to patch owner references for PVC %s: %v", pvc.Name, err)
 			}
-			_, err = c.virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(), pvcName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err = c.k8sClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(), pvcName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to remove owner reference from PVC %s: %v", pvc.Name, err)
 			}
