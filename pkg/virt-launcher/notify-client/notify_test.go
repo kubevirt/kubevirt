@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -413,6 +414,65 @@ var _ = Describe("Notify", func() {
 			backupMeta, ok := metadataCache.Backup.Load()
 			Expect(ok).To(BeTrue())
 			Expect(backupMeta.Completed).To(BeTrue())
+		})
+
+		It("should convert and persist completed migration stats", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation:     libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				JobSuccessSet: true,
+				JobSuccess:    true,
+				DowntimeSet:   true,
+				Downtime:      150,
+			}
+			metadataCache := metadata.NewCache()
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			completedStats, exists := metadataCache.CompletedMigrationStats.Load()
+			Expect(exists).To(BeTrue())
+			Expect(completedStats.DowntimeSet).To(BeTrue())
+			Expect(completedStats.Downtime).To(Equal(uint64(150)))
+		})
+
+		It("should not persist stats from an unsuccessful migration", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation:     libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				JobSuccessSet: true,
+				JobSuccess:    false,
+				DowntimeSet:   true,
+				Downtime:      150,
+			}
+			metadataCache := metadata.NewCache()
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			_, exists := metadataCache.CompletedMigrationStats.Load()
+			Expect(exists).To(BeFalse())
+		})
+
+		It("should include cached completed migration stats in domain notify events", func() {
+			domain := api.NewMinimalDomain("test")
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+			metadataCache := metadata.NewCache()
+			metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{DowntimeSet: true, Downtime: 150})
+
+			e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache, false)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+
+			domainEvent, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(domainEvent.Status.MigrationStats).ToNot(BeNil())
+			Expect(domainEvent.Status.MigrationStats.DowntimeSet).To(BeTrue())
+			Expect(domainEvent.Status.MigrationStats.Downtime).To(Equal(uint64(150)))
 		})
 	})
 

@@ -386,6 +386,8 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		Mode:           migrationMode,
 	}
 	l.metadataCache.Migration.Store(m)
+	l.domainInfoStats = &stats.DomainJobInfo{}
+	l.metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{})
 	log.Log.V(4).Infof("initialize migration metadata: %v", m)
 	return false, nil
 }
@@ -912,7 +914,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	elapsedNs := now - m.start
 
 	if stats != nil && stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
-		m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+		m.l.domainInfoStats = inflightMigrationStats(stats)
 		if stats.DataRemainingSet {
 			m.remainingData = stats.DataRemaining
 		}
@@ -952,10 +954,6 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 
 	m.start = time.Now().UTC().UnixNano()
 	m.lastProgressUpdate = m.start
-
-	defer func() {
-		m.l.domainInfoStats = &stats.DomainJobInfo{}
-	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
@@ -1462,6 +1460,14 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	}
 
 	return nil
+}
+
+func inflightMigrationStats(jobInfo *libvirt.DomainJobInfo) *stats.DomainJobInfo {
+	domainInfoStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(jobInfo)
+	// Active job downtime is an estimate. Only completed migration events expose
+	// the final downtime values used by the exported metrics.
+	domainInfoStats.DowntimeSet = false
+	return domainInfoStats
 }
 
 // prepareDomainForMigration perform necessary operation

@@ -33,6 +33,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/precond"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 // For versioning of the virt-handler and -launcher communication,
@@ -128,6 +130,7 @@ type DomainStatus struct {
 	FSFreezeStatus FSFreeze
 	GuestPanicInfo *GuestPanicInfo
 	PanicCount     int
+	MigrationStats *stats.DomainJobInfo
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU
