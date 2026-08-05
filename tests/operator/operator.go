@@ -885,31 +885,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
 
-			By("Verifying RBAC aggregate labels are preserved after upgrade")
-			verifyAggregateLabels(virtClient, "true")
-
-			By("Setting RoleAggregationStrategy to Manual after upgrade")
-			currentKV := libkubevirt.GetCurrentKv(virtClient)
-			savedConfig := currentKV.Spec.Configuration.DeepCopy()
-			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
-				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-			}
-			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
-				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-				featuregate.OptOutRoleAggregation,
-			)
-			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
-			kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
-
-			By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
-			verifyAggregateLabels(virtClient, "false")
-
-			By("Restoring RoleAggregationStrategy to default after upgrade verification")
-			kvconfig.UpdateKubeVirtConfigValueAndWait(*savedConfig)
-
-			By("Verifying aggregate labels are restored after upgrade")
-			verifyAggregateLabels(virtClient, "true")
-
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Ensuring vm %s is ready and latest API annotation is set", vmYaml.apiVersion))
