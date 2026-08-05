@@ -470,6 +470,8 @@ func GetK8sClientFromRESTConfig(config *rest.Config) (kubernetes.Interface, erro
 	shallowCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
 	shallowCopy.ContentType = runtime.ContentTypeJSON
 
+	executeRestConfigHooks(&shallowCopy)
+
 	k8sClient, err := kubernetes.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
