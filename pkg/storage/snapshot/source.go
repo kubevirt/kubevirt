@@ -360,7 +360,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	}
 	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
 
-	snapshotCR, err = s.controller.VirtClient.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
+	snapshotCR, err = s.controller.K8sClient.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return "", err
 	}
@@ -487,7 +487,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	volumes, err := storageutils.GetVolumes(s.vm, s.controller.VirtClient, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(s.vm, s.controller.K8sClient, storageutils.WithAllVolumes)
 	if err != nil {
 		return map[string]string{}, err
 	}

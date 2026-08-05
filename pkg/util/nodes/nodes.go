@@ -9,11 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
 )
 
-func PatchNode(client kubecli.KubevirtClient, original, modified *corev1.Node) error {
+func PatchNode(client kubernetes.Interface, original, modified *corev1.Node) error {
 	originalBytes, err := json.Marshal(original)
 	if err != nil {
 		return fmt.Errorf("could not serialize original object: %v", err)

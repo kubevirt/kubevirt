@@ -40,6 +40,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	validation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
@@ -319,6 +320,7 @@ type instancetypeVMHandler interface {
 // VMExportController is resonsible for exporting VMs
 type VMExportController struct {
 	VirtClient kubecli.KubevirtClient
+	K8sClient  kubernetes.Interface
 
 	ManifestRenderer manifestRenderer
 
@@ -799,7 +801,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 
 func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, deleteReason, message string) error {
 	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, deleteReason, message)
-	if err := ctrl.VirtClient.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !errors.IsNotFound(err) {
+	if err := ctrl.K8sClient.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !errors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -859,7 +861,7 @@ func (ctrl *VMExportController) createCertSecret(vmExport *exportv1.VirtualMachi
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.VirtClient.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err = ctrl.K8sClient.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	} else if err == nil {
@@ -958,7 +960,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		},
 	}
 
-	secret, err = ctrl.VirtClient.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	secret, err = ctrl.K8sClient.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			return nil
@@ -1036,7 +1038,7 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 	} else if !exists {
 		service := ctrl.createServiceManifest(vmExport, ports)
 		log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
-		service, err := ctrl.VirtClient.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
+		service, err := ctrl.K8sClient.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 		if err == nil {
 			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
 		}
@@ -1114,7 +1116,7 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 		}
 
 		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
-		pod, err := ctrl.VirtClient.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
+		pod, err := ctrl.K8sClient.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -1288,7 +1290,7 @@ func (ctrl *VMExportController) createManifestAndAddToPod(vmExport *exportv1.Vir
 	if err != nil {
 		return err
 	}
-	cm, err := ctrl.VirtClient.CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), manifestConfigMap, metav1.CreateOptions{})
+	cm, err := ctrl.K8sClient.CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), manifestConfigMap, metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err

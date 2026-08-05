@@ -41,6 +41,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -120,6 +121,7 @@ type networkAnnotationsGenerator interface {
 type Controller struct {
 	templateService                   templateService
 	virtClient                        kubecli.KubevirtClient
+	k8sClient                         kubernetes.Interface
 	Queue                             priorityqueue.PriorityQueue[string]
 	vmiStore                          cache.Store
 	podIndexer                        cache.Indexer
@@ -162,6 +164,7 @@ func NewController(templateService templateService,
 	kubevirtInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig,
 	netAnnotationsGenerator networkAnnotationsGenerator,
 ) (*Controller, error) {
@@ -184,6 +187,7 @@ func NewController(templateService templateService,
 		kubevirtStore:           kubevirtInformer.GetStore(),
 		recorder:                recorder,
 		virtClient:              virtClient,
+		k8sClient:               k8sClient,
 		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		pvcExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationStartLock:      &sync.Mutex{},
@@ -508,7 +512,7 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 }
 
 func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigration) error {
-	err := backendstorage.MigrationAbort(c.virtClient, migration)
+	err := backendstorage.MigrationAbort(c.k8sClient, migration)
 	if err != nil {
 		return err
 	}
@@ -522,7 +526,7 @@ func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstance
 		return c.failMigration(migration)
 	}
 
-	return backendstorage.RecoverFromBrokenMigration(c.virtClient, migration, c.pvcStore, vmi, c.templateService.GetLauncherImage())
+	return backendstorage.RecoverFromBrokenMigration(c.k8sClient, migration, c.pvcStore, vmi, c.templateService.GetLauncherImage())
 }
 
 func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
@@ -825,7 +829,7 @@ func (c *Controller) processMigrationPhase(
 			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 				if backendstorage.IsBackendStorageNeeded(vmi) {
-					err := backendstorage.MigrationHandoff(c.virtClient, c.pvcStore, migration)
+					err := backendstorage.MigrationHandoff(c.k8sClient, c.pvcStore, migration)
 					if err != nil {
 						return err
 					}
@@ -838,7 +842,7 @@ func (c *Controller) processMigrationPhase(
 					return err
 				}
 
-				if _, err = c.virtClient.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
+				if _, err = c.k8sClient.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 					return err
 				}
 			}
@@ -1026,7 +1030,7 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
-	pod, err := c.virtClient.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
+	pod, err := c.k8sClient.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 	if err != nil {
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			err = fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
@@ -1159,7 +1163,7 @@ func (c *Controller) handlePreHandoffMigrationCancel(migration *virtv1.VirtualMa
 	}
 
 	c.podExpectations.ExpectDeletions(controller.MigrationKey(migration), []string{controller.PodKey(pod)})
-	err := c.virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+	err := c.k8sClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
@@ -1192,7 +1196,7 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 // updateTargetPodNetworkInfo generates the network-info annotation from the target pod's network-status
 func (c *Controller) updateTargetPodNetworkInfo(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	newAnnotations := c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod)
-	_, err := controller.SyncPodAnnotations(c.virtClient, pod, newAnnotations)
+	_, err := controller.SyncPodAnnotations(c.k8sClient, pod, newAnnotations)
 	return err
 }
 
@@ -1277,7 +1281,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	}
 
 	if backendStoragePVC := backendstorage.PVCForMigrationTarget(c.pvcStore, migration); backendStoragePVC != nil {
-		bs := backendstorage.NewBackendStorage(c.virtClient, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+		bs := backendstorage.NewBackendStorage(c.k8sClient, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
 		bs.UpdateVolumeStatus(vmiCopy, backendStoragePVC)
 	}
 
@@ -1436,7 +1440,7 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 		// backend storage pvc has already been created or has ReadWriteMany access-mode
 		return nil
 	}
-	bs := backendstorage.NewBackendStorage(c.virtClient, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+	bs := backendstorage.NewBackendStorage(c.k8sClient, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
 	key := controller.MigrationKey(migration)
 	c.pvcExpectations.ExpectCreations(key, 1)
 	backendStoragePVC, err := bs.CreatePVCForMigrationTarget(vmi, migration.Name)
@@ -1488,7 +1492,7 @@ func (c *Controller) createAttachmentPod(migration *virtv1.VirtualMachineInstanc
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 
-	attachmentPod, err := c.virtClient.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
+	attachmentPod, err := c.k8sClient.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(key)
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
@@ -1535,7 +1539,7 @@ func (c *Controller) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineIns
 	}
 
 	c.podExpectations.ExpectDeletions(migrationKey, []string{controller.PodKey(pod)})
-	err = c.virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+	err = c.k8sClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 	if err != nil {
 		c.podExpectations.DeletionObserved(migrationKey, controller.PodKey(pod))
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleted migration target pod: %v", err)
@@ -2286,7 +2290,7 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 		}
 
 		if oldPodName != "" {
-			err = c.virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), oldPodName, metav1.DeleteOptions{})
+			err = c.k8sClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), oldPodName, metav1.DeleteOptions{})
 			if err != nil && k8serrors.IsNotFound(err) {
 				// This is safe to ignore. It's possible in some
 				// scenarios that the pod we're trying to garbage
@@ -2599,7 +2603,7 @@ func getCPUVendorLabelKey(labels map[string]string) string {
 }
 
 func (c *Controller) resolveMigrationConfig(vmi *virtv1.VirtualMachineInstance) (*virtv1.VMIMConfigurationOptions, *v1alpha1.MigrationPolicy, error) {
-	vmiNamespace, err := c.virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
+	vmiNamespace, err := c.k8sClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

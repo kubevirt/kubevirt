@@ -162,7 +162,7 @@ func (c *Controller) handlePostHandoffMigrationCancel(migration *v1.VirtualMachi
 		return err
 	}
 	c.podExpectations.ExpectDeletions(controller.MigrationKey(migration), []string{controller.PodKey(pod)})
-	if err := c.virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
+	if err := c.k8sClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
 		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
 		return err

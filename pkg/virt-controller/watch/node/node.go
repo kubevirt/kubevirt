@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -34,6 +35,7 @@ const (
 // Controller is the main Controller struct.
 type Controller struct {
 	virtClient       kubecli.KubevirtClient
+	k8sClient        kubernetes.Interface
 	Queue            workqueue.TypedRateLimitingInterface[string]
 	nodeStore        cache.Store
 	vmiStore         cache.Store
@@ -44,9 +46,10 @@ type Controller struct {
 }
 
 // NewController creates a new instance of the NodeController struct.
-func NewController(virtClient kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*Controller, error) {
+func NewController(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*Controller, error) {
 	c := &Controller{
 		virtClient: virtClient,
+		k8sClient:  k8sClient,
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-node"},
@@ -304,7 +307,7 @@ func (c *Controller) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredL
 	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
-	_, err := c.virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	_, err := c.k8sClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Failed to mark node as unschedulable")
 		return fmt.Errorf("failed to mark node %s as unschedulable: %v", node.Name, err)
@@ -322,7 +325,7 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 	// query for a virt-handler pod on the node
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName())
 	virtHandlerSelector := fields.ParseSelectorOrDie("kubevirt.io=virt-handler")
-	pods, err := c.virtClient.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+	pods, err := c.k8sClient.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
 		LabelSelector: virtHandlerSelector.String(),
 	})
@@ -336,7 +339,7 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 		return nil
 	}
 
-	running, err := checkDaemonSetStatus(c.virtClient, virtHandlerSelector)
+	running, err := checkDaemonSetStatus(c.k8sClient, virtHandlerSelector)
 	if err != nil {
 		return err
 	}
@@ -353,8 +356,8 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 	return nil
 }
 
-func checkDaemonSetStatus(virtClient kubecli.KubevirtClient, selector fields.Selector) (bool, error) {
-	dss, err := virtClient.AppsV1().DaemonSets(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+func checkDaemonSetStatus(k8sClient kubernetes.Interface, selector fields.Selector) (bool, error) {
+	dss, err := k8sClient.AppsV1().DaemonSets(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 
@@ -377,7 +380,7 @@ func checkDaemonSetStatus(virtClient kubecli.KubevirtClient, selector fields.Sel
 
 func (c *Controller) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
-	list, err := c.virtClient.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+	list, err := c.k8sClient.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
 	})
 	if err != nil {
