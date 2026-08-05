@@ -20,12 +20,19 @@
 package migrationdomainstats
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
 )
 
 var (
 	migrationdomainstatsHandler *handler
+
+	MigrationMetrics = []operatormetrics.Metric{
+		migrationDowntime,
+	}
 
 	MigrationStatsCollector = operatormetrics.Collector{
 		Metrics: []operatormetrics.Metric{
@@ -34,6 +41,7 @@ var (
 			migrateVMIDataProcessed,
 			migrateVmiDirtyMemoryRate,
 			migrateVmiMemoryTransferRate,
+			migrateVmiLastDowntime,
 		},
 		CollectCallback: migrationStatsCollectorCallback,
 	}
@@ -72,15 +80,37 @@ var (
 			Help: "The rate at which the memory is being transferred.",
 		},
 	)
+
+	migrationDowntime = operatormetrics.NewHistogramVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_downtime_seconds",
+			Help: "Histogram of the time, in seconds, a guest was paused during successful live migration cut-over.",
+		},
+		prometheus.HistogramOpts{
+			Buckets: []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16, 32},
+		},
+		[]string{"node"},
+	)
+
+	migrateVmiLastDowntime = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_last_downtime_seconds",
+			Help: "Time, in seconds, the guest was paused during the cut-over of its last successful live migration.",
+		},
+	)
 )
 
-func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer) error {
-	if vmiInformer == nil {
+func SetupMigrationStatsCollector(
+	nodeName string,
+	sourceVMIInformer, globalVMIInformer cache.SharedIndexInformer,
+	domainInformer cache.SharedInformer,
+) error {
+	if sourceVMIInformer == nil {
 		return nil
 	}
 
 	var err error
-	migrationdomainstatsHandler, err = newHandler(vmiInformer)
+	migrationdomainstatsHandler, err = newHandler(nodeName, sourceVMIInformer, globalVMIInformer, domainInformer)
 	return err
 }
 
@@ -120,7 +150,20 @@ func parse(r *result) []operatormetrics.CollectorResult {
 		crs = append(crs, newCR(r, migrateVmiMemoryTransferRate, float64(jobInfo.MemoryBps)))
 	}
 
+	if r.completed && jobInfo.DowntimeSet {
+		crs = append(crs, newCR(r, migrateVmiLastDowntime, domainstats.MillisecondsToSeconds(jobInfo.Downtime)))
+	}
+
 	return crs
+}
+
+func observeMigrationDowntime(node string, milliseconds uint64) error {
+	histogram, err := migrationDowntime.GetMetricWithLabelValues(node)
+	if err != nil {
+		return err
+	}
+	histogram.Observe(domainstats.MillisecondsToSeconds(milliseconds))
+	return nil
 }
 
 func newCR(r *result, metric operatormetrics.Metric, value float64) operatormetrics.CollectorResult {
