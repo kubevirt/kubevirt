@@ -461,6 +461,11 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			extraControllers, err := calculateExtraControllerCount(vmi, domainSpec, placeholderCount)
 			Expect(err).ToNot(HaveOccurred())
+			if placeholderCount == 0 {
+				domainXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).ToNot(HaveOccurred())
+				mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).MaxTimes(1).Return(string(domainXML), nil)
+			}
 			if extraControllers > 0 {
 				appendPCIeRootPortControllers(domainSpec, extraControllers)
 				// The xmlns:qemu attribute is lost during the XML marshal/unmarshal
@@ -504,6 +509,9 @@ var _ = Describe("Manager", func() {
 				mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(domainXMLWithExtra)).DoAndReturn(mockDomainWithFreeExpectation)
 			}
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(domainXML), nil)
+			if placeholderCount == 0 {
+				mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).MaxTimes(1).Return(string(domainXML), nil)
+			}
 		}
 
 		It("should define and start a new VirtualMachineInstance", func() {
@@ -773,6 +781,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(xmlDomain), nil)
+			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).MaxTimes(1).Return(string(xmlDomain), nil)
 
 			manager, _ := newLibvirtDomainManager(mockLibvirt.VirtConnection, "fake", "fake", nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{
@@ -1013,6 +1022,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockLibvirt.DomainEXPECT().DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(xmlDomain), nil)
+			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).MaxTimes(1).Return(string(xmlDomain), nil)
 			manager, _ := newLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
