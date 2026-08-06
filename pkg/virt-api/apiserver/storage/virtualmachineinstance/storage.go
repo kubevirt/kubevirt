@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -34,6 +35,7 @@ import (
 
 func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, consoleServerPort int, tlsConfig *tls.Config, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
+	lifecycleHandler := lifecycle.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, k8sClient, consoleServerPort, tlsConfig, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
@@ -44,12 +46,12 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/portforward":         NewPortForwardREST(streamer),
 		"virtualmachineinstances/addvolume":           NewAddVolumeREST(subresourceApp),
 		"virtualmachineinstances/removevolume":        NewRemoveVolumeREST(subresourceApp),
-		"virtualmachineinstances/freeze":              NewFreezeREST(subresourceApp),
-		"virtualmachineinstances/unfreeze":            NewUnfreezeREST(subresourceApp),
-		"virtualmachineinstances/pause":               NewPauseREST(subresourceApp),
-		"virtualmachineinstances/unpause":             NewUnpauseREST(subresourceApp),
-		"virtualmachineinstances/reset":               NewResetREST(subresourceApp),
-		"virtualmachineinstances/softreboot":          NewSoftRebootREST(subresourceApp),
+		"virtualmachineinstances/freeze":              NewFreezeREST(lifecycleHandler),
+		"virtualmachineinstances/unfreeze":            NewUnfreezeREST(lifecycleHandler),
+		"virtualmachineinstances/pause":               NewPauseREST(lifecycleHandler),
+		"virtualmachineinstances/unpause":             NewUnpauseREST(lifecycleHandler),
+		"virtualmachineinstances/reset":               NewResetREST(lifecycleHandler),
+		"virtualmachineinstances/softreboot":          NewSoftRebootREST(lifecycleHandler),
 		"virtualmachineinstances/guestosinfo":         NewGuestOSInfoREST(subresourceApp),
 		"virtualmachineinstances/userlist":            NewUserListREST(subresourceApp),
 		"virtualmachineinstances/filesystemlist":      NewFilesystemListREST(subresourceApp),

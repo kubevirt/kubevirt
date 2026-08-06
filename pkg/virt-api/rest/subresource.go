@@ -45,7 +45,6 @@ import (
 const (
 	unmarshalRequestErrFmt                   = "Can not unmarshal Request body to struct, error: %s"
 	vmNotRunning                             = "VM is not running"
-	vmSnapshotInprogress                     = "VM snapshot is in progress"
 	patchingVMFmt                            = "Patching VM: %s"
 	jsonpatchTestErr                         = "jsonpatch test operation does not apply"
 	patchingVMStatusFmt                      = "Patching VM status: %s"
@@ -90,11 +89,6 @@ func NewSubresourceAPIApp(virtClient kubecli.KubevirtClient, k8sClient kubernete
 
 type validation func(*v1.VirtualMachineInstance) (err *errors.StatusError)
 
-// This function prototype is used with putRequestHandlerWithErrorPostProcessing.
-// The errorPostProcessing function will get called if an error occurs when attempting
-// to make a request to virt-handler. Depending on where in the stack the error occurred
-// the VMI might be nil.
-//
 // Use this function to inject more human readible context into the error response.
 type errorPostProcessing func(*v1.VirtualMachineInstance, error) (err error)
 type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
@@ -152,21 +146,6 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 		return nil, fmt.Errorf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled)
 	}
 	return kubecli.NewVirtHandlerClient(app.virtClient, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
-}
-
-func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, preValidate validation, getVirtHandlerURL URLResolver, dryRun bool) {
-
-	app.putRequestHandlerWithErrorPostProcessing(request, response, preValidate, nil, getVirtHandlerURL, dryRun)
-}
-
-func (app *SubresourceAPIApp) putRequestHandlerWithErrorPostProcessing(request *restful.Request, response *restful.Response, preValidate validation, errorPostProcessing errorPostProcessing, getVirtHandlerURL URLResolver, dryRun bool) {
-
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
-	if statusErr := app.connectVirtHandler(request.Request.Context(), namespace, name, request.Request.Body, preValidate, errorPostProcessing, getVirtHandlerURL, dryRun); statusErr != nil {
-		writeError(statusErr, response)
-	}
 }
 
 // connectVirtHandler validates the VMI, resolves the virt-handler URL and, unless
