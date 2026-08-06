@@ -17,14 +17,11 @@
  *
  */
 
-package rest
+package memorydump
 
 import (
 	"context"
 	"fmt"
-	"net/http"
-
-	"github.com/emicklei/go-restful/v3"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,23 +29,42 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
-	pvcVolumeModeErr          = "pvc should be filesystem pvc"
-	pvcAccessModeErr          = "pvc access mode can't be read only"
-	pvcSizeErrFmt             = "pvc size [%s] should be bigger then [%s]"
-	memoryDumpNameConflictErr = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+	pvcVolumeModeErr             = "pvc should be filesystem pvc"
+	pvcAccessModeErr             = "pvc access mode can't be read only"
+	pvcSizeErrFmt                = "pvc size [%s] should be bigger then [%s]"
+	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+	vmiNotRunning                = "VMI is not running"
+	patchingVMFmt                = "Patching VM: %s"
+	hotplugVolumeNotEnabledError = "Enable DeclarativeHotplugVolumes or HotplugVolumes feature gate to use this API."
 )
 
-func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace string) (*k8sv1.PersistentVolumeClaim, *errors.StatusError) {
-	pvc, err := app.k8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+// Handler contains the VirtualMachine memory dump operations served by
+// the GenericAPIServer storage Connecters.
+type Handler struct {
+	virtCli       kubecli.KubevirtClient
+	clusterConfig *virtconfig.ClusterConfig
+}
+
+func NewHandler(virtCli kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig) *Handler {
+	return &Handler{
+		virtCli:       virtCli,
+		clusterConfig: clusterConfig,
+	}
+}
+
+func (h *Handler) fetchPersistentVolumeClaim(name, namespace string) (*k8sv1.PersistentVolumeClaim, *errors.StatusError) {
+	pvc, err := h.virtCli.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("persistentvolumeclaim"), name)
@@ -58,8 +74,8 @@ func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace 
 	return pvc, nil
 }
 
-func (app *SubresourceAPIApp) fetchCDIConfig() (*cdiv1.CDIConfig, *errors.StatusError) {
-	cdiConfig, err := app.virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, metav1.GetOptions{})
+func (h *Handler) fetchCDIConfig() (*cdiv1.CDIConfig, *errors.StatusError) {
+	cdiConfig, err := h.virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -69,8 +85,8 @@ func (app *SubresourceAPIApp) fetchCDIConfig() (*cdiv1.CDIConfig, *errors.Status
 	return cdiConfig, nil
 }
 
-func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInstance, claimName, namespace string) *errors.StatusError {
-	pvc, err := app.fetchPersistentVolumeClaim(claimName, namespace)
+func (h *Handler) validateMemoryDumpClaim(vmi *v1.VirtualMachineInstance, claimName, namespace string) *errors.StatusError {
+	pvc, err := h.fetchPersistentVolumeClaim(claimName, namespace)
 	if err != nil {
 		return err
 	}
@@ -86,7 +102,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	scaledPvcSize := resource.NewScaledQuantity(pvcSize.ScaledValue(resource.Kilo), resource.Kilo)
 
 	expectedMemoryDumpSize := kutil.CalcExpectedMemoryDumpSize(vmi)
-	cdiConfig, err := app.fetchCDIConfig()
+	cdiConfig, err := h.fetchCDIConfig()
 	if err != nil {
 		return err
 	}
@@ -108,7 +124,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	return nil
 }
 
-func (app *SubresourceAPIApp) validateMemoryDumpRequest(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
+func (h *Handler) validateMemoryDumpRequest(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
 	if memoryDumpReq.ClaimName == "" && vm.Status.MemoryDumpRequest == nil {
 		return errors.NewBadRequest("Memory dump requires claim name to be set")
 	} else if vm.Status.MemoryDumpRequest != nil && memoryDumpReq.ClaimName != "" {
@@ -119,7 +135,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpRequest(vm *v1.VirtualMachine, m
 		memoryDumpReq.ClaimName = vm.Status.MemoryDumpRequest.ClaimName
 	}
 
-	vmi, statErr := app.FetchVirtualMachineInstance(vm.Namespace, vm.Name)
+	vmi, statErr := h.fetchVirtualMachineInstance(vm.Namespace, vm.Name)
 	if statErr != nil {
 		return statErr
 	}
@@ -128,21 +144,21 @@ func (app *SubresourceAPIApp) validateMemoryDumpRequest(vm *v1.VirtualMachine, m
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vm.Name, fmt.Errorf(vmiNotRunning))
 	}
 
-	if statErr = app.validateMemoryDumpClaim(vmi, memoryDumpReq.ClaimName, vm.Namespace); statErr != nil {
+	if statErr = h.validateMemoryDumpClaim(vmi, memoryDumpReq.ClaimName, vm.Namespace); statErr != nil {
 		return statErr
 	}
 
 	return nil
 }
 
-func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(ctx context.Context, name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) *errors.StatusError {
-	vm, statErr := app.fetchVirtualMachine(name, namespace)
+func (h *Handler) vmMemoryDumpRequestPatchStatus(ctx context.Context, name, namespace string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) *errors.StatusError {
+	vm, statErr := h.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
 	}
 
 	if !removeRequest {
-		statErr = app.validateMemoryDumpRequest(vm, memoryDumpReq)
+		statErr = h.validateMemoryDumpRequest(vm, memoryDumpReq)
 		if statErr != nil {
 			return statErr
 		}
@@ -154,7 +170,7 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(ctx context.Context
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err = h.virtCli.VirtualMachine(vm.Namespace).PatchStatus(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -167,8 +183,8 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(ctx context.Context
 }
 
 // MemoryDump requests a memory dump of a running VM to the given PVC
-func (app *SubresourceAPIApp) MemoryDump(ctx context.Context, namespace, name string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
-	if !app.clusterConfig.DeclarativeHotplugVolumesEnabled() && !app.clusterConfig.HotplugVolumesEnabled() {
+func (h *Handler) MemoryDump(ctx context.Context, namespace, name string, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) *errors.StatusError {
+	if !h.clusterConfig.DeclarativeHotplugVolumesEnabled() && !h.clusterConfig.HotplugVolumesEnabled() {
 		return errors.NewBadRequest(hotplugVolumeNotEnabledError)
 	}
 
@@ -177,39 +193,38 @@ func (app *SubresourceAPIApp) MemoryDump(ctx context.Context, namespace, name st
 	}
 
 	memoryDumpReq.Phase = v1.MemoryDumpAssociating
-	return app.vmMemoryDumpRequestPatchStatus(ctx, name, namespace, memoryDumpReq, false)
+	return h.vmMemoryDumpRequestPatchStatus(ctx, name, namespace, memoryDumpReq, false)
 }
 
 // RemoveMemoryDump dissociates a previously requested memory dump from the VM
-func (app *SubresourceAPIApp) RemoveMemoryDump(ctx context.Context, namespace, name string) *errors.StatusError {
+func (h *Handler) RemoveMemoryDump(ctx context.Context, namespace, name string) *errors.StatusError {
 	removeReq := &v1.VirtualMachineMemoryDumpRequest{
 		Phase:  v1.MemoryDumpDissociating,
 		Remove: true,
 	}
-	return app.vmMemoryDumpRequestPatchStatus(ctx, name, namespace, removeReq, true)
+	return h.vmMemoryDumpRequestPatchStatus(ctx, name, namespace, removeReq, true)
 }
 
-func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Request, response *restful.Response) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
-	if request.Request.Body == nil {
-		writeError(errors.NewBadRequest("Request with no body"), response)
-		return
+func (h *Handler) fetchVirtualMachine(name, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
+	vm, err := h.virtCli.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vm [%s]: %v", name, err))
 	}
-	memoryDumpReq := &v1.VirtualMachineMemoryDumpRequest{}
-	defer request.Request.Body.Close()
-	if err := decodeBody(request, memoryDumpReq); err != nil {
-		writeError(err, response)
-		return
-	}
+	return vm, nil
+}
 
-	if err := app.MemoryDump(request.Request.Context(), namespace, name, memoryDumpReq); err != nil {
-		writeError(err, response)
-		return
+func (h *Handler) fetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+	vmi, err := h.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", name, err))
 	}
-
-	response.WriteHeader(http.StatusAccepted)
+	return vmi, nil
 }
 
 func addMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) error {
