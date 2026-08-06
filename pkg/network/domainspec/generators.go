@@ -35,10 +35,6 @@ import (
 
 const linkIfaceFailFmt = "failed to get a link for interface: %s"
 
-type LibvirtSpecGenerator interface {
-	Generate() error
-}
-
 func NewTapLibvirtSpecGenerator(
 	iface *v1.Interface,
 	network v1.Network,
