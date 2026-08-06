@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "evacuate_cancel.go",
-        "lifecycle.go",
         "memorydump.go",
         "objectgraph.go",
         "profiler.go",
