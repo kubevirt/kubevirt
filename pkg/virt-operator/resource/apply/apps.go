@@ -49,6 +49,26 @@ const (
 	failed     canaryUpgradeStatus = "failed"
 )
 
+// applyExportProxyReplicaPolicy sets Spec.Replicas before syncDeployment.
+// Single-node clusters force one replica; otherwise the cached count is kept so HPA can scale.
+func (r *Reconciler) applyExportProxyReplicaPolicy(deployment *appsv1.Deployment, desiredReplicas int32) {
+	if replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtExportProxyName) {
+		return
+	}
+	if desiredReplicas == 1 {
+		deployment.Spec.Replicas = pointer.P(desiredReplicas)
+		return
+	}
+	obj, exists, _ := r.stores.DeploymentCache.Get(deployment)
+	if !exists {
+		return
+	}
+	cached := obj.(*appsv1.Deployment)
+	if cached.Spec.Replicas != nil {
+		deployment.Spec.Replicas = pointer.P(*cached.Spec.Replicas)
+	}
+}
+
 func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 	kv := r.kv
 
@@ -111,11 +131,6 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDeployment.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
-
-	// virt-exportproxy replica count is managed externally (e.g. HPA); preserve the cluster value on sync.
-	if deployment.Name == components.VirtExportProxyName && cachedDeployment.Spec.Replicas != nil {
-		deployment.Spec.Replicas = pointer.P(*cachedDeployment.Spec.Replicas)
-	}
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
@@ -378,10 +393,10 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	return r.syncPodDisruptionBudget(deployment.Namespace, components.NewPodDisruptionBudgetForDeployment(deployment))
 }
 
-func (r *Reconciler) syncExportProxyPodDisruptionBudget(deployment *appsv1.Deployment) error {
+func (r *Reconciler) syncExportProxyPodDisruptionBudget(deployment *appsv1.Deployment, desiredReplicas int32) error {
 	pdb := components.NewExportProxyPodDisruptionBudget(deployment)
-	// Kubernetes defaults nil replicas to 1; omit the PDB so voluntary disruption is not blocked.
-	if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas <= 1 {
+	// Single-replica clusters do not need disruption protection; HPA-managed clusters use a fixed minAvailable.
+	if desiredReplicas <= 1 {
 		minAvailable := intstr.FromInt(0)
 		pdb.Spec.MinAvailable = &minAvailable
 	}
