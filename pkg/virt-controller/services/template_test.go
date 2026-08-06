@@ -4066,7 +4066,6 @@ var _ = Describe("Template", func() {
 		Context("with ImageVolume", func() {
 			BeforeEach(func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.ImageVolume)
 			})
 
 			DescribeTable("should not define additional containers expect the noop init containers for digest", func(vmi *v1.VirtualMachineInstance) {
@@ -6353,7 +6352,6 @@ var _ = Describe("Template", func() {
 	Context("NAD query disablement", func() {
 		It("Should not query NAD when ExternalNetResourceInjection is enabled", func() {
 			config, kvStore, svc = configFactory(defaultArch)
-			enableFeatureGate(featuregate.ExternalNetResourceInjection)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,

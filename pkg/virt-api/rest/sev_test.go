@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("SEV Subresources", func() {
@@ -63,13 +62,6 @@ var _ = Describe("SEV Subresources", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
-			},
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.WorkloadEncryptionSEV},
-					},
-				},
 			},
 			Status: v1.KubeVirtStatus{
 				Phase: v1.KubeVirtPhaseDeploying,
