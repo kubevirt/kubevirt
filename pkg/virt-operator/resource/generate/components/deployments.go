@@ -726,16 +726,40 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 					Type:   intstr.Int,
 					IntVal: 8443,
 				},
-				Path: "/healthz",
+				Path: "/readyz",
 			},
 		},
 		InitialDelaySeconds: 15,
 		PeriodSeconds:       10,
 	}
 
+	// Generous liveness under CFS throttle at the 1 CPU limit: readiness is the
+	// load-shedding signal; avoid restarting busy pods mid-transfer.
+	container.LivenessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      5,
+		FailureThreshold:    6,
+	}
+
+	// Allow in-flight exports to finish on scale-down / rolling update.
+	const exportProxyTerminationGracePeriodSeconds int64 = 600
+	pod.TerminationGracePeriodSeconds = pointer.P(exportProxyTerminationGracePeriodSeconds)
+
 	// Burstable on purpose: low requests avoid reserving storm capacity while
-	// idle; higher limits contain transfer bursts. Resource HPA targets are
-	// >100% of request so scale-out aligns with ~70% of these limits.
+	// idle; higher limits contain transfer bursts. Soft CPU admission and the
+	// resource HPA CPU target align with ~70% of the CPU limit. Memory is not
+	// used as an HPA signal (Go RSS rarely shrinks).
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("350m"),
