@@ -1,6 +1,8 @@
 package apply
 
 import (
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -39,12 +41,22 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 	}
 
 	// create/update ExportProxy Deployments
+	desiredExportProxyReplicas, err := getDesiredApiReplicas(r.k8sClient)
+	if err != nil {
+		return false, fmt.Errorf("failed to determine export-proxy replicas: %w", err)
+	}
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
+		deployment = deployment.DeepCopy()
+		r.applyExportProxyReplicaPolicy(deployment, desiredExportProxyReplicas)
 		deployment, err := r.syncDeployment(deployment)
 		if err != nil {
 			return false, err
 		}
-		err = r.syncExportProxyPodDisruptionBudget(deployment)
+		err = r.syncExportProxyPodDisruptionBudget(deployment, desiredExportProxyReplicas)
+		if err != nil {
+			return false, err
+		}
+		err = r.syncExportProxyHorizontalPodAutoscaler(deployment, desiredExportProxyReplicas)
 		if err != nil {
 			return false, err
 		}
