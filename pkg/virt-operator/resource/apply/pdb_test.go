@@ -20,7 +20,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -152,6 +151,9 @@ var _ = Describe("Apply PDBs", func() {
 	})
 
 	Context("export-proxy PDB", func() {
+		const multiNodeDesiredReplicas int32 = 2
+		const singleNodeDesiredReplicas int32 = 1
+
 		It("should keep minAvailable at 1 when more than one replica is running", func() {
 			exportProxyConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
@@ -173,36 +175,31 @@ var _ = Describe("Apply PDBs", func() {
 				return true, createdPDB, nil
 			})
 
-			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy)).To(Succeed())
+			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy, multiNodeDesiredReplicas)).To(Succeed())
 		})
 
-		DescribeTable("should delete the PDB when replica count does not allow it",
-			func(replicas *int32) {
-				exportProxyConfig := &util.KubeVirtDeploymentConfig{
-					Registry:        Registry,
-					KubeVirtVersion: Version,
-					Namespace:       Namespace,
-				}
-				exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
-				exportProxy.Spec.Replicas = replicas
+		It("should delete the PDB when operator desired replica count does not allow it", func() {
+			exportProxyConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			exportProxy := components.NewExportProxyDeployment(exportProxyConfig, "", "", "")
 
-				cachedPDB := components.NewExportProxyPodDisruptionBudget(exportProxy)
-				injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
-				Expect(stores.PodDisruptionBudgetCache.Add(cachedPDB)).To(Succeed())
+			cachedPDB := components.NewExportProxyPodDisruptionBudget(exportProxy)
+			injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
+			Expect(stores.PodDisruptionBudgetCache.Add(cachedPDB)).To(Succeed())
 
-				deleted := false
-				k8sClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-					Expect(action.(testing.DeleteActionImpl).Name).To(Equal("virt-exportproxy-pdb"))
-					deleted = true
-					return true, nil, nil
-				})
+			deleted := false
+			k8sClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				Expect(action.(testing.DeleteActionImpl).Name).To(Equal("virt-exportproxy-pdb"))
+				deleted = true
+				return true, nil, nil
+			})
 
-				Expect(r.syncExportProxyPodDisruptionBudget(exportProxy)).To(Succeed())
-				Expect(deleted).To(BeTrue())
-			},
-			Entry("single replica", pointer.P(int32(1))),
-			Entry("nil replicas", (*int32)(nil)),
-		)
+			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy, singleNodeDesiredReplicas)).To(Succeed())
+			Expect(deleted).To(BeTrue())
+		})
 
 		It("should patch stale minAvailable down to 1", func() {
 			exportProxyConfig := &util.KubeVirtDeploymentConfig{
@@ -244,7 +241,7 @@ var _ = Describe("Apply PDBs", func() {
 				return true, pdb, nil
 			})
 
-			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy)).To(Succeed())
+			Expect(r.syncExportProxyPodDisruptionBudget(exportProxy, multiNodeDesiredReplicas)).To(Succeed())
 			Expect(patched).To(BeTrue())
 		})
 	})
