@@ -151,50 +151,8 @@ func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithSRIOVBinding())
 }
 
-// InterfaceDeviceWithPasstBinding returns an Interface with passtBinding.
-func InterfaceDeviceWithPasstBinding(name string) kvirtv1.Interface {
-	return NewInterface(name, WithPasstBinding())
-}
-
-// InterfaceWithPasstBinding returns an Interface named "default" with passt binding plugin.
-func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
-	const passtBindingName = "passt"
-	return NewInterface(kvirtv1.DefaultPodNetwork().Name,
-		WithBindingPlugin(kvirtv1.PluginBinding{Name: passtBindingName}), WithPorts(ports...))
-}
-
-// InterfaceWithMacvtapBindingPlugin returns an Interface named "default" with "macvtap" binding plugin.
-func InterfaceWithMacvtapBindingPlugin(name string) kvirtv1.Interface {
-	const macvtapBindingName = "macvtap"
-	return NewInterface(name, WithBindingPlugin(kvirtv1.PluginBinding{Name: macvtapBindingName}))
-}
-
 func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
 	return NewInterface(name, WithBindingPlugin(binding), WithPorts(ports...))
-}
-
-// InterfaceWithMac decorates an existing Interface with a MAC address.
-func InterfaceWithMac(iface kvirtv1.Interface, macAddress string) kvirtv1.Interface {
-	WithMac(macAddress)(&iface)
-	return iface
-}
-
-// InterfaceWithPciAddress decorates an existing Interface with a guest PCI address.
-func InterfaceWithPciAddress(iface kvirtv1.Interface, pciAddress string) kvirtv1.Interface {
-	WithPciAddress(pciAddress)(&iface)
-	return iface
-}
-
-// InterfaceWithTag decorates an existing Interface with a tag.
-func InterfaceWithTag(iface kvirtv1.Interface, tag string) kvirtv1.Interface {
-	WithTag(tag)(&iface)
-	return iface
-}
-
-// InterfaceWithModel decorates an existing Interface with a model.
-func InterfaceWithModel(iface kvirtv1.Interface, model string) kvirtv1.Interface {
-	WithModel(model)(&iface)
-	return iface
 }
 
 // MultusNetwork returns a Network with the given name, associated to the given nad
