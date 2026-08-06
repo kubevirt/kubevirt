@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
@@ -36,6 +37,7 @@ import (
 func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, consoleServerPort int, tlsConfig *tls.Config, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	lifecycleHandler := lifecycle.NewHandler(virtClient, consoleServerPort, tlsConfig)
+	guestInfoHandler := guestinfo.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, k8sClient, consoleServerPort, tlsConfig, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
@@ -52,9 +54,9 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/unpause":             NewUnpauseREST(lifecycleHandler),
 		"virtualmachineinstances/reset":               NewResetREST(lifecycleHandler),
 		"virtualmachineinstances/softreboot":          NewSoftRebootREST(lifecycleHandler),
-		"virtualmachineinstances/guestosinfo":         NewGuestOSInfoREST(subresourceApp),
-		"virtualmachineinstances/userlist":            NewUserListREST(subresourceApp),
-		"virtualmachineinstances/filesystemlist":      NewFilesystemListREST(subresourceApp),
+		"virtualmachineinstances/guestosinfo":         NewGuestOSInfoREST(guestInfoHandler),
+		"virtualmachineinstances/userlist":            NewUserListREST(guestInfoHandler),
+		"virtualmachineinstances/filesystemlist":      NewFilesystemListREST(guestInfoHandler),
 		"virtualmachineinstances/objectgraph":         NewObjectGraphREST(subresourceApp),
 		"virtualmachineinstances/evacuate":            NewEvacuateCancelREST(subresourceApp),
 		"virtualmachineinstances/sev":                 NewSEVREST(subresourceApp),
