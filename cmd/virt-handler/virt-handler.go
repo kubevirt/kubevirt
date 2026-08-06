@@ -479,12 +479,12 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		netConf,
 		netStat,
-		netresources.MemoryCalculator{},
 		passtRepairHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
 		cdMounter,
 		hvMounter,
+		netresources.NewMemoryCalculator(app.clusterConfig),
 	)
 	if err != nil {
 		panic(err)
