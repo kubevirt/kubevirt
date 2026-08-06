@@ -1731,6 +1731,13 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - custom.metrics.k8s.io
+          resources:
+          - '*'
+          verbs:
+          - get
+          - list
+        - apiGroups:
           - ""
           resources:
           - configmaps

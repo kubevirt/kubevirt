@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -341,9 +342,18 @@ type Reconciler struct {
 	aggregatorclient install.APIServiceInterface
 	expectations     *util.Expectations
 	recorder         record.EventRecorder
+
+	// exportProxyHPAProfileResolver selects the HPA metrics profile for export-proxy.
+	// Production uses autoDetectExportProxyHPAMetricsProfile; tests may replace this.
+	exportProxyHPAProfileResolver func(namespace string) components.ExportProxyHPAMetricsProfile
+
+	exportProxyHPAMetricsProfileCache *ExportProxyHPAMetricsProfileCache
+
+	// Memoize profile resolution for the lifetime of this reconciler (one KubeVirt sync pass).
+	exportProxyHPAMetricsProfileResolved components.ExportProxyHPAMetricsProfile
 }
 
-func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, config util.OperatorConfig, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
+func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, config util.OperatorConfig, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder, exportProxyHPAMetricsProfileCache *ExportProxyHPAMetricsProfileCache) (*Reconciler, error) {
 	kvKey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, err
@@ -359,18 +369,21 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 		return nil, err
 	}
 
-	return &Reconciler{
-		kv:               kv,
-		kvKey:            kvKey,
-		targetStrategy:   targetStrategy,
-		stores:           stores,
-		config:           config,
-		virtClient:       virtClient,
-		k8sClient:        k8sClient,
-		aggregatorclient: aggregatorclient,
-		expectations:     expectations,
-		recorder:         recorder,
-	}, nil
+	reconciler := &Reconciler{
+		kv:                                kv,
+		kvKey:                             kvKey,
+		targetStrategy:                    targetStrategy,
+		stores:                            stores,
+		config:                            config,
+		virtClient:                        virtClient,
+		k8sClient:                         k8sClient,
+		aggregatorclient:                  aggregatorclient,
+		expectations:                      expectations,
+		recorder:                          recorder,
+		exportProxyHPAMetricsProfileCache: exportProxyHPAMetricsProfileCache,
+	}
+	reconciler.exportProxyHPAProfileResolver = reconciler.autoDetectExportProxyHPAMetricsProfile
+	return reconciler, nil
 }
 
 func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) {
