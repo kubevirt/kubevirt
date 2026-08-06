@@ -28,13 +28,12 @@ import (
 
 	"libvirt.org/go/libvirtxml"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
-type HookFunc func(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error
+type HookFunc func(c *convertertypes.ConverterContext, domain *libvirtxml.Domain) error
 
 // PreMigrationHookServer handles libvirt premigration hook communication via unix socket
 type PreMigrationHookServer struct {
@@ -141,7 +140,7 @@ func (h *PreMigrationHookServer) processHook(conn net.Conn) error {
 	}
 
 	for _, hook := range h.hooks {
-		if err := hook(h.c, h.c.VirtualMachine, &domain); err != nil {
+		if err := hook(h.c, &domain); err != nil {
 			return err
 		}
 	}

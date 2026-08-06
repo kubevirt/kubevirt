@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/network"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
 var _ = Describe("UpgradeOrdinalNamingScheme", func() {
@@ -51,7 +52,8 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 
 	It("should do nothing if there aren't any interfaces", func() {
 		domain := newDomainWithInterfaces(nil)
-		Expect(network.UpgradeOrdinalNamingScheme(nil, libvmi.New(), &domain)).To(Succeed())
+		c := &convertertypes.ConverterContext{VirtualMachine: libvmi.New()}
+		Expect(network.UpgradeOrdinalNamingScheme(c, &domain)).To(Succeed())
 		Expect(domain).To(Equal(newDomainWithInterfaces(nil)))
 	})
 
@@ -60,6 +62,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
+		c := &convertertypes.ConverterContext{VirtualMachine: vmi}
 
 		existingIfaces := []libvirtxml.DomainInterface{
 			newIface(primaryNetworkName, primaryTapName),
@@ -68,7 +71,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 		expectedIfaces := slices.Clone(existingIfaces)
 
 		domain := newDomainWithInterfaces(existingIfaces)
-		Expect(network.UpgradeOrdinalNamingScheme(nil, vmi, &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(c, &domain)).To(Succeed())
 
 		expectedDomain := newDomainWithInterfaces(expectedIfaces)
 		Expect(domain).To(Equal(expectedDomain))
@@ -83,6 +86,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork1Name, secondaryNetwork1NADName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork2Name, secondaryNetwork2NADName)),
 		)
+		c := &convertertypes.ConverterContext{VirtualMachine: vmi}
 
 		existingIfaces := []libvirtxml.DomainInterface{
 			newIface(primaryNetworkName, primaryTapName),
@@ -93,7 +97,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 		expectedIfaces := slices.Clone(existingIfaces)
 
 		domain := newDomainWithInterfaces(existingIfaces)
-		Expect(network.UpgradeOrdinalNamingScheme(nil, vmi, &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(c, &domain)).To(Succeed())
 
 		expectedDomain := newDomainWithInterfaces(expectedIfaces)
 		Expect(domain).To(Equal(expectedDomain))
@@ -108,6 +112,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork1Name, secondaryNetwork1NADName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetwork2Name, secondaryNetwork2NADName)),
 		)
+		c := &convertertypes.ConverterContext{VirtualMachine: vmi}
 
 		existingIfaces := []libvirtxml.DomainInterface{
 			newIface(primaryNetworkName, primaryTapName),
@@ -116,7 +121,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 		}
 
 		domain := newDomainWithInterfaces(existingIfaces)
-		Expect(network.UpgradeOrdinalNamingScheme(nil, vmi, &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(c, &domain)).To(Succeed())
 
 		expectedIfaces := []libvirtxml.DomainInterface{
 			newIface(primaryNetworkName, primaryTapName),

@@ -38,12 +38,11 @@ import (
 // It uses the ConverterContext's CPUSet and Topology, which are computed locally
 // on the target pod, instead of relying on VMI status fields that may not be
 // available yet during the hook execution.
-func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+func CPUDedicatedHook(c *convertertypes.ConverterContext, domain *libvirtxml.Domain) error {
+	vmi := c.VirtualMachine
 	if !vmi.IsCPUDedicated() {
 		return nil
 	}
-	// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
-	// assigned in the source node with the new CPUs assigned in the target node
 	xmlstr, err := domain.Marshal()
 	if err != nil {
 		return fmt.Errorf("failed to marshal domain to XML: %w", err)

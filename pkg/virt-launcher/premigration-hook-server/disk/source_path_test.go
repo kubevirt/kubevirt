@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
 const (
@@ -40,28 +41,30 @@ const (
 )
 
 var _ = Describe("DiskSourcePathHook", func() {
-	var vmi *v1.VirtualMachineInstance
+	var c *convertertypes.ConverterContext
 
 	BeforeEach(func() {
 		sourceNs := sourceNamespace
 		targetNs := targetNamespace
-		vmi = libvmi.New(
-			libvmi.WithNamespace(sourceNamespace),
-			libvmistatus.WithStatus(libvmistatus.New(
-				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
-					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &sourceNs,
+		c = &convertertypes.ConverterContext{
+			VirtualMachine: libvmi.New(
+				libvmi.WithNamespace(sourceNamespace),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+								DomainNamespace: &sourceNs,
+							},
 						},
-					},
-					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &targetNs,
+						TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+								DomainNamespace: &targetNs,
+							},
 						},
-					},
-				}),
-			)),
-		)
+					}),
+				)),
+			),
+		}
 	})
 
 	It("should replace namespace in file paths", func() {
@@ -80,7 +83,7 @@ var _ = Describe("DiskSourcePathHook", func() {
 			},
 		}
 
-		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithDst))
 	})
 
@@ -100,7 +103,7 @@ var _ = Describe("DiskSourcePathHook", func() {
 			},
 		}
 
-		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(pvcDiskPath))
 	})
 
@@ -124,28 +127,28 @@ var _ = Describe("DiskSourcePathHook", func() {
 			},
 		}
 
-		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 		Expect(domain.Devices.Disks[0].Source.DataStore.Source.File.File).To(Equal(cloudInitPathWithDst))
 	})
 
 	It("should return nil when domain has no devices", func() {
-		Expect(disk.DiskSourcePathHook(nil, vmi, &libvirtxml.Domain{})).To(Succeed())
+		Expect(disk.DiskSourcePathHook(c, &libvirtxml.Domain{})).To(Succeed())
 	})
 
 	Context("early-return when migration state is incomplete", func() {
 		It("should return nil when MigrationState is nil", func() {
-			vmi = libvmi.New(
+			c.VirtualMachine = libvmi.New(
 				libvmi.WithNamespace(sourceNamespace),
 				libvmistatus.WithStatus(libvmistatus.New()),
 			)
 			domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
 
-			Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+			Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithSrc))
 		})
 
 		It("should return nil when TargetState is nil", func() {
-			vmi = libvmi.New(
+			c.VirtualMachine = libvmi.New(
 				libvmi.WithNamespace(sourceNamespace),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
@@ -155,12 +158,12 @@ var _ = Describe("DiskSourcePathHook", func() {
 			)
 			domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
 
-			Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+			Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithSrc))
 		})
 
 		It("should return nil when DomainNamespace is nil", func() {
-			vmi = libvmi.New(
+			c.VirtualMachine = libvmi.New(
 				libvmi.WithNamespace(sourceNamespace),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
@@ -174,13 +177,13 @@ var _ = Describe("DiskSourcePathHook", func() {
 			)
 			domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
 
-			Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+			Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithSrc))
 		})
 
 		It("should return nil when source and target namespace are the same", func() {
 			sameNs := sourceNamespace
-			vmi = libvmi.New(
+			c.VirtualMachine = libvmi.New(
 				libvmi.WithNamespace(sourceNamespace),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
@@ -194,7 +197,7 @@ var _ = Describe("DiskSourcePathHook", func() {
 			)
 			domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
 
-			Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+			Expect(disk.DiskSourcePathHook(c, domain)).To(Succeed())
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithSrc))
 		})
 	})

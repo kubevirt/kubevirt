@@ -478,9 +478,6 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.ImageVolumeEnabled() {
 			args = append(args, "--image-volume")
 		}
-		if t.clusterConfig.LibvirtHooksServerAndClientEnabled() {
-			args = append(args, "--libvirt-hook-server-and-client")
-		}
 		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
 			args = append(args, "--upgrade-ordinal-ifaces")
 		}
