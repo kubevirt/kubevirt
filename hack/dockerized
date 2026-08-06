@@ -59,6 +59,8 @@ if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_builder_image}" ] && [ -n "${BUIL
 fi
 
 SYNC_OUT=${SYNC_OUT:-true}
+DOCKERIZED_RSYNC_CONNECT_TIMEOUT=${DOCKERIZED_RSYNC_CONNECT_TIMEOUT:-15}
+DOCKERIZED_RSYNC_IO_TIMEOUT=${DOCKERIZED_RSYNC_IO_TIMEOUT:-60}
 
 BUILDER=${job_prefix}
 
@@ -121,7 +123,7 @@ printf "\n"
 rsynch_fail_count=0
 
 _rsync() {
-    rsync -al "$@"
+    rsync -al --contimeout="${DOCKERIZED_RSYNC_CONNECT_TIMEOUT}" --timeout="${DOCKERIZED_RSYNC_IO_TIMEOUT}" "$@"
 }
 
 # Copy kubevirt into the persistent container volume
