@@ -122,6 +122,19 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"persistentvolumeclaims",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
 					"apiextensions.k8s.io",
 				},
 				Resources: []string{

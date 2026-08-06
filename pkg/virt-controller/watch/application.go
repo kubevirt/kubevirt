@@ -80,6 +80,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
+	storageresources "kubevirt.io/kubevirt/pkg/storage/resources"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
@@ -716,7 +717,12 @@ func (vca *VirtControllerApp) initCommon() {
 				return hooks.UnmarshalHookSidecarList(vmi)
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
-		services.WithMemoryOverheadCalculators(netresources.NewMemoryCalculator(vca.clusterConfig)),
+		services.WithMemoryOverheadCalculators(
+			netresources.NewMemoryCalculator(vca.clusterConfig),
+			storageresources.NewMemoryCalculator(
+				vca.persistentVolumeClaimCache,
+				vca.vmBackupTrackerInformer),
+		),
 		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
 		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)
