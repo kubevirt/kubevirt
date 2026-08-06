@@ -1400,7 +1400,26 @@ var _ = Describe("Apply Apps", func() {
 				}
 			})
 
+			DescribeTable("should set replica count to 1 when virt-api would run a single replica",
+				func(schedulableNodes, unschedulableNodes int) {
+					createFakeNodes(k8sClient, schedulableNodes, unschedulableNodes)
+					reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+					desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+					Expect(err).ToNot(HaveOccurred())
+					deployment := exportProxyDeployment.DeepCopy()
+					reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+					updatedDeployment, err := reconciler.syncDeployment(deployment)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*updatedDeployment.Spec.Replicas).To(Equal(int32(1)))
+				},
+				Entry("single-node cluster", 1, 0),
+				Entry("single schedulable worker node", 1, 4),
+			)
+
 			It("should preserve existing replica count on sync", func() {
+				createFakeNodes(k8sClient, 2, 0)
 				scaledReplicas := int32(5)
 				cachedExportProxy := exportProxyDeployment.DeepCopy()
 				cachedExportProxy.Spec.Replicas = &scaledReplicas
@@ -1417,12 +1436,18 @@ var _ = Describe("Apply Apps", func() {
 					LastGeneration: cachedExportProxy.Generation - 1,
 				}}
 
-				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment)
+				desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+				Expect(err).ToNot(HaveOccurred())
+				deployment := exportProxyDeployment.DeepCopy()
+				reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+				updatedDeployment, err := reconciler.syncDeployment(deployment)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*updatedDeployment.Spec.Replicas).To(Equal(scaledReplicas))
 			})
 
 			It("should not apply infra replicas override", func() {
+				createFakeNodes(k8sClient, 2, 0)
 				infraReplicas := uint8(7)
 				kv.Spec.Infra = &v1.ComponentConfig{Replicas: &infraReplicas}
 
@@ -1442,10 +1467,16 @@ var _ = Describe("Apply Apps", func() {
 					LastGeneration: cachedExportProxy.Generation,
 				}}
 
-				updatedDeployment, err := reconciler.syncDeployment(exportProxyDeployment)
+				desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+				Expect(err).ToNot(HaveOccurred())
+				deployment := exportProxyDeployment.DeepCopy()
+				reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+				updatedDeployment, err := reconciler.syncDeployment(deployment)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*updatedDeployment.Spec.Replicas).To(Equal(clusterReplicas))
 			})
+
 		})
 
 		Context("virt-template TLS injection", func() {

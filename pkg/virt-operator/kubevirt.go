@@ -108,6 +108,7 @@ func NewKubeVirtController(
 		InstallStrategyJobCache:               informers.InstallStrategyJob.GetStore(),
 		InfrastructurePodCache:                informers.InfrastructurePod.GetStore(),
 		PodDisruptionBudgetCache:              informers.PodDisruptionBudget.GetStore(),
+		HorizontalPodAutoscalerCache:          informers.HorizontalPodAutoscaler.GetStore(),
 		NamespaceCache:                        informers.Namespace.GetStore(),
 		SecretCache:                           informers.Secrets.GetStore(),
 		ConfigMapCache:                        informers.ConfigMap.GetStore(),
@@ -150,6 +151,7 @@ func NewKubeVirtController(
 			InstallStrategyConfigMap:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("InstallStrategyConfigMap")),
 			InstallStrategyJob:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 			PodDisruptionBudget:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
+			HorizontalPodAutoscaler:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("HorizontalPodAutoscalers")),
 			ServiceMonitor:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceMonitor")),
 			PrometheusRule:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PrometheusRule")),
 			Secrets:                          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secret")),
@@ -181,6 +183,7 @@ func NewKubeVirtController(
 			informers.InstallStrategyJob.HasSynced() &&
 			informers.InfrastructurePod.HasSynced() &&
 			informers.PodDisruptionBudget.HasSynced() &&
+			informers.HorizontalPodAutoscaler.HasSynced() &&
 			informers.ServiceMonitor.HasSynced() &&
 			informers.Namespace.HasSynced() &&
 			informers.PrometheusRule.HasSynced() &&
@@ -475,6 +478,21 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.PodDisruptionBudget)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = informers.HorizontalPodAutoscaler.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.HorizontalPodAutoscaler)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.HorizontalPodAutoscaler)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.HorizontalPodAutoscaler)
 		},
 	})
 	if err != nil {
