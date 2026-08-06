@@ -2803,6 +2803,113 @@ var _ = Describe("Snapshot controlleer", func() {
 					),
 				)
 
+				DescribeTable("should capture ControllerRevision from Status when Spec.RevisionName is empty",
+					func(
+						getInstancetypeMatcher func() *v1.InstancetypeMatcher,
+						getInstancetypeStatus func() *v1.InstancetypeStatusRef,
+						getPreferenceMatcher func() *v1.PreferenceMatcher,
+						getPreferenceStatus func() *v1.InstancetypeStatusRef,
+						expectedCRCreates int,
+						getExpectedSnapshotContentVM func() *v1.VirtualMachine,
+					) {
+						vm.Spec.Instancetype = getInstancetypeMatcher()
+						vm.Status.InstancetypeRef = getInstancetypeStatus()
+						vm.Spec.Preference = getPreferenceMatcher()
+						vm.Status.PreferenceRef = getPreferenceStatus()
+
+						crCreates := 0
+						k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+							crCreates++
+							return true, action.(testing.CreateAction).GetObject(), nil
+						})
+
+						createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, createVirtualMachineSnapshotContent(vmSnapshot, getExpectedSnapshotContentVM(), nil))
+
+						vmSource.Add(vm)
+						vmSnapshotSource.Add(vmSnapshot)
+
+						addVirtualMachineSnapshot(vmSnapshot)
+						controller.processVMSnapshotWorkItem()
+						testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
+						Expect(*updateStatusCalls).To(Equal(1))
+						Expect(*createCalls).To(Equal(1))
+						Expect(crCreates).To(Equal(expectedCRCreates))
+					},
+					Entry("for a referenced instancetype",
+						func() *v1.InstancetypeMatcher {
+							return &v1.InstancetypeMatcher{
+								Name: instancetypeObj.Name,
+								Kind: instancetypeapi.SingularResourceName,
+							}
+						},
+						func() *v1.InstancetypeStatusRef {
+							return &v1.InstancetypeStatusRef{
+								ControllerRevisionRef: &v1.ControllerRevisionRef{Name: instancetypeCR.Name},
+							}
+						},
+						func() *v1.PreferenceMatcher { return nil },
+						func() *v1.InstancetypeStatusRef { return nil },
+						1,
+						func() *v1.VirtualMachine {
+							expectedVM := vm.DeepCopy()
+							expectedVM.Spec.Instancetype.RevisionName = strings.Replace(instancetypeCR.Name, vm.Name, vmSnapshotName, 1)
+							return expectedVM
+						},
+					),
+					Entry("for a referenced preference",
+						func() *v1.InstancetypeMatcher { return nil },
+						func() *v1.InstancetypeStatusRef { return nil },
+						func() *v1.PreferenceMatcher {
+							return &v1.PreferenceMatcher{
+								Name: preferenceObj.Name,
+								Kind: instancetypeapi.SingularPreferenceResourceName,
+							}
+						},
+						func() *v1.InstancetypeStatusRef {
+							return &v1.InstancetypeStatusRef{
+								ControllerRevisionRef: &v1.ControllerRevisionRef{Name: preferenceCR.Name},
+							}
+						},
+						1,
+						func() *v1.VirtualMachine {
+							expectedVM := vm.DeepCopy()
+							expectedVM.Spec.Preference.RevisionName = strings.Replace(preferenceCR.Name, vm.Name, vmSnapshotName, 1)
+							return expectedVM
+						},
+					),
+					Entry("for a referenced instancetype and preference",
+						func() *v1.InstancetypeMatcher {
+							return &v1.InstancetypeMatcher{
+								Name: instancetypeObj.Name,
+								Kind: instancetypeapi.SingularResourceName,
+							}
+						},
+						func() *v1.InstancetypeStatusRef {
+							return &v1.InstancetypeStatusRef{
+								ControllerRevisionRef: &v1.ControllerRevisionRef{Name: instancetypeCR.Name},
+							}
+						},
+						func() *v1.PreferenceMatcher {
+							return &v1.PreferenceMatcher{
+								Name: preferenceObj.Name,
+								Kind: instancetypeapi.SingularPreferenceResourceName,
+							}
+						},
+						func() *v1.InstancetypeStatusRef {
+							return &v1.InstancetypeStatusRef{
+								ControllerRevisionRef: &v1.ControllerRevisionRef{Name: preferenceCR.Name},
+							}
+						},
+						2,
+						func() *v1.VirtualMachine {
+							expectedVM := vm.DeepCopy()
+							expectedVM.Spec.Instancetype.RevisionName = strings.Replace(instancetypeCR.Name, vm.Name, vmSnapshotName, 1)
+							expectedVM.Spec.Preference.RevisionName = strings.Replace(preferenceCR.Name, vm.Name, vmSnapshotName, 1)
+							return expectedVM
+						},
+					),
+				)
+
 			})
 		})
 
