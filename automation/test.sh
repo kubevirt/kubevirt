@@ -169,6 +169,8 @@ case "$TARGET" in
     ;;
   *wg-s390x*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
     ;;
   *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
