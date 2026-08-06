@@ -1765,7 +1765,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				addVMI(vmi, domain)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeFalse())
 			})
 
@@ -1793,7 +1793,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				})
 				addVMI(vmi, domain)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				testutils.ExpectEvent(recorder, VolumeReadyReason)
 				Expect(hasHotplug).To(BeTrue())
 			})
@@ -1819,13 +1819,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain.Status.Status = api.Running
 				addVMI(vmi, domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.HotplugVolumeMounted))
 				testutils.ExpectEvent(recorder, "Volume test has been mounted in virt-launcher pod")
 				By("Calling it again with updated status, no new events are generated")
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 			},
 				Entry("When current phase is bound", v1.VolumeBound),
 				Entry("When current phase is pending", v1.VolumePending),
@@ -1850,13 +1850,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain.Status.Status = api.Running
 				addVMI(vmi, domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.HotplugVolumeUnMounted))
 				testutils.ExpectEvent(recorder, "Volume test has been unmounted from virt-launcher pod")
 				By("Calling it again with updated status, no new events are generated")
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
-				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 			},
 				Entry("When current phase is bound", v1.VolumeReady),
 				Entry("When current phase is pending", v1.HotplugVolumeMounted),
@@ -1884,7 +1884,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				addVMI(vmi, domain)
 				// IsMounted returns true — block device still exists on host
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 				// Phase should NOT change — we wait for Unmount() to clean up the
 				// block device before advancing to avoid breaking the safety invariant
@@ -1894,6 +1894,61 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Entry("When current phase is HotplugVolumeMounted", v1.HotplugVolumeMounted),
 				Entry("When current phase is HotplugVolumeAttachedToNode", v1.HotplugVolumeAttachedToNode),
 			)
+
+			It("should set HotplugVolumeFailed when volume is mounted but attachment fails with syncErr", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+				})
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:  "test",
+					Phase: v1.HotplugVolumeMounted,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+				})
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				addVMI(vmi, domain)
+				syncErr := fmt.Errorf("server error. command SyncVMI failed: \"virError(Code=1, Domain=10, Message='internal error: unable to execute QEMU command 'device_add': The serial number can't be longer than 36 characters')\"")
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, syncErr)
+				Expect(hasHotplug).To(BeTrue())
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.HotplugVolumeFailed))
+				Expect(vmi.Status.VolumeStatus[0].Reason).To(Equal(HotplugFailedReason))
+				Expect(vmi.Status.VolumeStatus[0].Message).To(ContainSubstring("serial number"))
+				testutils.ExpectEvent(recorder, HotplugFailedReason)
+			})
+
+			It("should not overwrite HotplugVolumeFailed on subsequent syncs", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+				})
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:    "test",
+					Phase:   v1.HotplugVolumeFailed,
+					Reason:  HotplugFailedReason,
+					Message: "previous error",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+				})
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				addVMI(vmi, domain)
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
+				Expect(hasHotplug).To(BeTrue())
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.HotplugVolumeFailed))
+				Expect(vmi.Status.VolumeStatus[0].Message).To(Equal("previous error"))
+			})
 
 			DescribeTable("should generate an unmount event for cdrom when appropriate", func(source string) {
 				vmi := api2.NewMinimalVMI("testvmi")
@@ -1926,14 +1981,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 					expectedPhase = v1.HotplugVolumeUnMounted
 				}
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(expectedPhase))
 				if source == "" {
 					testutils.ExpectEvent(recorder, "Volume test has been unmounted from virt-launcher pod")
 					By("Calling it again with updated status, no new events are generated")
 					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
-					controller.updateVolumeStatusesFromDomain(vmi, domain)
+					controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				}
 			},
 				Entry("When target is set", "test"),
@@ -1969,13 +2024,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				})
 				addVMI(vmi, domain)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.VolumeReady))
 				Expect(vmi.Status.VolumeStatus[0].Target).To(Equal("vdbbb"))
 				testutils.ExpectEvent(recorder, "Successfully attach hotplugged volume test to VM")
 				By("Calling it again with updated status, no new events are generated")
-				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 			})
 
 			It("generateEventsForVolumeStatusChange should not modify arguments", func() {
@@ -2036,7 +2091,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				updatedVolumeStatus := *volumeStatus.DeepCopy()
 				updatedVolumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(vmi.Name, volumeStatus.Name)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeInProgress))
@@ -2044,7 +2099,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				testutils.ExpectEvent(recorder, "Memory dump Volume test is attached, getting memory dump")
 				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 			})
 
 			It("Should generate memory dump completed event once memory dump completed", func() {
@@ -2081,7 +2136,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				addVMI(vmi, domain)
 
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeCompleted))
@@ -2090,7 +2145,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				testutils.ExpectEvent(recorder, "Memory dump to Volume test has completed successfully")
 				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 			})
 
 			It("Should generate memory dump failed event if memory dump failed", func() {
@@ -2129,7 +2184,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				addVMI(vmi, domain)
 
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 				Expect(hasHotplug).To(BeTrue())
 
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.MemoryDumpVolumeFailed))
@@ -2138,7 +2193,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				testutils.ExpectEvent(recorder, fmt.Sprintf("Memory dump to pvc %s failed: %s", volumeStatus.Name, failureReason))
 				By("Calling it again with updated status, no new events are generated as long as memory dump not completed")
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
-				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				controller.updateVolumeStatusesFromDomain(vmi, domain, nil)
 			})
 
 		})

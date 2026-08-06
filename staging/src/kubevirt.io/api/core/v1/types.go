@@ -515,6 +515,8 @@ const (
 	MemoryDumpVolumeInProgress VolumePhase = "MemoryDumpInProgress"
 	// MemoryDumpVolumeInProgress means that the volume for the memory dump was attached, and now the command is being triggered
 	MemoryDumpVolumeFailed VolumePhase = "MemoryDumpFailed"
+	// HotplugVolumeFailed means the hotplug volume attachment to the VM failed at the hypervisor level.
+	HotplugVolumeFailed VolumePhase = "HotplugFailed"
 )
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
