@@ -61,8 +61,8 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 		pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 
 		backupController = &VMBackupController{
-			client:   virtClient,
-			pvcStore: pvcInformer.GetStore(),
+			virtClient: virtClient,
+			pvcStore:   pvcInformer.GetStore(),
 		}
 
 		testVMI = libvmi.New(

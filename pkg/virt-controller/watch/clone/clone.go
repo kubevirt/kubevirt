@@ -104,7 +104,7 @@ func (ctrl *VMCloneController) execute(key string) error {
 		if !vmExists {
 			if vmClone.DeletionTimestamp == nil {
 				logger.V(3).Infof("Deleting vm clone for deleted vm %s/%s", vmClone.Namespace, *vmClone.Status.TargetName)
-				return ctrl.client.VirtualMachineClone(vmClone.Namespace).Delete(context.Background(), vmClone.Name, v1.DeleteOptions{})
+				return ctrl.virtClient.VirtualMachineClone(vmClone.Namespace).Delete(context.Background(), vmClone.Name, v1.DeleteOptions{})
 			}
 			// nothing to process for a vm clone that's being deleted
 			return nil
@@ -361,7 +361,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 		if phaseChanged {
 			log.Log.Object(vmClone).Infof("Changing phase to %s", vmClone.Status.Phase)
 		}
-		_, err := ctrl.client.VirtualMachineClone(vmClone.Namespace).UpdateStatus(context.Background(), vmClone, v1.UpdateOptions{})
+		_, err := ctrl.virtClient.VirtualMachineClone(vmClone.Namespace).UpdateStatus(context.Background(), vmClone, v1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -407,7 +407,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clone.VirtualMachin
 	snapshot := generateSnapshot(vmClone, vm)
 	log.Log.Object(vmClone).Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
-	createdSnapshot, err := ctrl.client.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+	createdSnapshot, err := ctrl.virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			syncInfo.setError(fmt.Errorf("failed creating snapshot %s for clone %s: %w", snapshot.Name, vmClone.Name, err))
@@ -545,7 +545,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clone.VirtualMachine
 	}
 	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches, vmClone.Spec.VolumeNamePolicy)
 	log.Log.Object(vmClone).Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
-	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
+	createdRestore, err := ctrl.virtClient.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			retErr := fmt.Errorf("failed creating restore %s for clone %s: %w", restore.Name, vmClone.Name, err)
@@ -643,7 +643,7 @@ func (ctrl *VMCloneController) verifyPVCBound(vmClone *clone.VirtualMachineClone
 }
 
 func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clone.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
-	err := ctrl.client.VirtualMachineSnapshot(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.SnapshotName, v1.DeleteOptions{})
+	err := ctrl.virtClient.VirtualMachineSnapshot(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.SnapshotName, v1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		syncInfo.setError(fmt.Errorf("cannot clean up snapshot %s for clone %s", *vmClone.Status.SnapshotName, vmClone.Name))
 		return syncInfo
@@ -653,7 +653,7 @@ func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clone.VirtualMachineClon
 }
 
 func (ctrl *VMCloneController) cleanupRestore(vmClone *clone.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
-	err := ctrl.client.VirtualMachineRestore(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.RestoreName, v1.DeleteOptions{})
+	err := ctrl.virtClient.VirtualMachineRestore(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.RestoreName, v1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		syncInfo.setError(fmt.Errorf("cannot clean up restore %s for clone %s", *vmClone.Status.RestoreName, vmClone.Name))
 		return syncInfo

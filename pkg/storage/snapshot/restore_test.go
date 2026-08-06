@@ -282,8 +282,11 @@ var _ = Describe("Restore controller", func() {
 				volumeSnapshots: []*vsv1.VolumeSnapshot{},
 			}
 
+			k8sClient = k8sfake.NewSimpleClientset()
+
 			controller = &VMRestoreController{
-				Client:                    virtClient,
+				VirtClient:                virtClient,
+				K8sClient:                 k8sClient,
 				VMRestoreInformer:         vmRestoreInformer,
 				VMSnapshotInformer:        vmSnapshotInformer,
 				VMSnapshotContentInformer: vmSnapshotContentInformer,
@@ -313,12 +316,8 @@ var _ = Describe("Restore controller", func() {
 			virtClient.EXPECT().VirtualMachineSnapshotContent(testNamespace).
 				Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
 
-			k8sClient = k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-
 			cdiClient = cdifake.NewSimpleClientset()
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 			k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())

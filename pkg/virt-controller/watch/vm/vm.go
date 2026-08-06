@@ -55,6 +55,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -140,7 +141,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
 	firmwareSynchronizer synchronizer,
@@ -163,7 +165,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		crIndexer:              crInformer.GetIndexer(),
 		instancetypeController: instancetypeController,
 		recorder:               recorder,
-		clientset:              clientset,
+		virtClient:             virtClient,
+		k8sClient:              k8sClient,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -235,13 +238,13 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 }
 
 type authProxy struct {
-	client          kubecli.KubevirtClient
+	k8sClient       kubernetes.Interface
 	dataSourceStore cache.Store
 	namespaceStore  cache.Store
 }
 
 func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
+	return p.k8sClient.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
 func (p *authProxy) GetNamespace(name string) (*k8score.Namespace, error) {
@@ -281,7 +284,8 @@ type instancetypeHandler interface {
 }
 
 type Controller struct {
-	clientset              kubecli.KubevirtClient
+	virtClient             kubecli.KubevirtClient
+	k8sClient              kubernetes.Interface
 	Queue                  workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer             cache.Indexer
 	vmIndexer              cache.Indexer
@@ -375,7 +379,7 @@ func (c *Controller) execute(key string) error {
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+		_, err = c.virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
@@ -392,7 +396,7 @@ func (c *Controller) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, metav1.GetOptions{})
+		fresh, err := c.virtClient.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -403,7 +407,7 @@ func (c *Controller) execute(key string) error {
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(
 		controller.RealVirtualMachineControl{
-			Clientset: c.clientset,
+			Clientset: c.virtClient,
 		}, vm, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vmi *virtv1.VirtualMachineInstance
@@ -496,7 +500,7 @@ func (c *Controller) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *
 		serviceAccountName = sa
 	}
 
-	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
+	proxy := &authProxy{k8sClient: c.k8sClient, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
 	allowed, reason, err := c.cloneAuthFunc(dataVolume, vm.Namespace, dataVolume.Name, proxy, vm.Namespace, serviceAccountName)
 	if err != nil && err != cdiv1.ErrNoTokenOkay {
 		return err
@@ -529,7 +533,7 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
-			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.clientset, template, vm)
+			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.virtClient, template, vm)
 			if err != nil {
 				return ready, fmt.Errorf("unable to create DataVolume manifest: %v", err)
 			}
@@ -540,7 +544,7 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 			}
 
 			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
-			curDataVolume, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{})
+			curDataVolume, err = c.virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{})
 			if err != nil {
 				c.dataVolumeExpectations.CreationObserved(vmKey)
 				if pvc != nil && strings.Contains(err.Error(), "already exists") {
@@ -611,7 +615,7 @@ func (c *Controller) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtual
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 	if err == nil {
 		log.Log.Object(vmi).Infof("%s", logMsg)
 	}
@@ -694,7 +698,7 @@ func (c *Controller) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv1.
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
 	return err
 }
 
@@ -717,7 +721,7 @@ func (c *Controller) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
 	return err
 }
 
@@ -742,7 +746,7 @@ func (c *Controller) vmiTolerationsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
 	return err
 }
 
@@ -829,7 +833,7 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 				continue
 			}
 
-			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, request.AddVolumeOptions); err != nil {
+			if err := c.virtClient.VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, request.AddVolumeOptions); err != nil {
 				return err
 			}
 		} else if request.RemoveVolumeOptions != nil {
@@ -837,7 +841,7 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 				continue
 			}
 
-			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(context.Background(), vmi.Name, request.RemoveVolumeOptions); err != nil {
+			if err := c.virtClient.VirtualMachineInstance(vmi.Namespace).RemoveVolume(context.Background(), vmi.Name, request.RemoveVolumeOptions); err != nil {
 				return err
 			}
 		}
@@ -850,7 +854,7 @@ func (c *Controller) handleValidationErrors(err error, vmi *virtv1.VirtualMachin
 	if errors.Is(err, storagetypes.ErrPVCNotFound) || errors.Is(err, storagetypes.ErrDVNotFound) {
 		msg := fmt.Sprintf("One of the destination volumes doesn't exist: %v", err)
 		log.Log.Object(vm).Error(msg)
-		if err := volumemig.SetVolumesChangeCondition(c.clientset, vmi, k8score.ConditionFalse, msg); err != nil {
+		if err := volumemig.SetVolumesChangeCondition(c.virtClient, vmi, k8score.ConditionFalse, msg); err != nil {
 			return err
 		}
 
@@ -879,7 +883,7 @@ func (c *Controller) handleWaitAsReceiverVolumeInfo(vm *virtv1.VirtualMachine, v
 		log.Log.Object(vm).Errorf("failed to generate the migrating volumes for vm: %v", err)
 		return err
 	}
-	if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, migVols, vmi); err != nil {
+	if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.virtClient, migVols, vmi); err != nil {
 		log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 		return err
 	}
@@ -893,7 +897,7 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 
 	// Abort the volume migration if any of the previous migrated volumes
 	// has changed
-	if volMigAbort, err := volumemig.VolumeMigrationCancel(c.clientset, vmi, vm); volMigAbort {
+	if volMigAbort, err := volumemig.VolumeMigrationCancel(c.virtClient, vmi, vm); volMigAbort {
 		if err == nil {
 			log.Log.Object(vm).Infof("Cancel volume migration")
 		}
@@ -913,7 +917,7 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm, c.dataVolumeStore, c.pvcStore); err != nil {
 			return c.handleValidationErrors(err, vmi, vm)
-		} else if err := volumemig.UnsetVolumeChangeCondition(c.clientset, vmi); err != nil {
+		} else if err := volumemig.UnsetVolumeChangeCondition(c.virtClient, vmi); err != nil {
 			return err
 		}
 
@@ -927,11 +931,11 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			setRestartRequired(vm, err.Error())
 			return nil
 		}
-		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, migVols, vmi); err != nil {
+		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.virtClient, migVols, vmi); err != nil {
 			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 			return err
 		}
-		if _, err := volumemig.PatchVMIVolumes(c.clientset, vmi, vm); err != nil {
+		if _, err := volumemig.PatchVMIVolumes(c.virtClient, vmi, vm); err != nil {
 			log.Log.Object(vm).Errorf("failed to update volumes for vmi:%v", err)
 			return err
 		}
@@ -959,7 +963,7 @@ func (c *Controller) addStartRequest(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		return err
 	}
-	patchedVM, err := c.clientset.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	patchedVM, err := c.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -1126,7 +1130,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 				} else {
 					vmCopy.Spec.Running = &running
 				}
-				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+				_, err := c.virtClient.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
 			}
 			return vm, nil
@@ -1331,7 +1335,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
-	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+	vmi, err = c.virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)
@@ -1370,7 +1374,7 @@ func (c *Controller) patchVmGenerationAnnotationOnVmi(generation int64, vmi *vir
 	if err != nil {
 		return vmi, err
 	}
-	patchedVMI, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	patchedVMI, err := c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return vmi, err
 	}
@@ -1669,7 +1673,7 @@ func (c *Controller) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 
 	// stop it
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
-	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+	err = c.virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 
 	// Don't log an error if it is already deleted
 	if err != nil {
@@ -1749,7 +1753,7 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 			createNotNeeded = true
 			continue
 		}
-		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
+		err = c.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -1761,7 +1765,7 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 // getControllerRevision attempts to get the controller revision by name and
 // namespace. It will return (nil, nil) if the controller revision is not found.
 func (c *Controller) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
-	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	cr, err := c.k8sClient.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
 			return nil, nil
@@ -1856,7 +1860,7 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 		Data:     runtime.RawExtension{Raw: patch},
 		Revision: vm.ObjectMeta.Generation,
 	}
-	_, err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+	_, err = c.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -2331,7 +2335,7 @@ func (c *Controller) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) erro
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return err
 }
 
@@ -2355,7 +2359,7 @@ func (c *Controller) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtu
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	vm, err = c.virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return vm, err
 }
 
@@ -2375,7 +2379,7 @@ func (c *Controller) addVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.VirtualM
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return c.virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 // parseGeneration will parse for the last value after a '-'. It is assumed the
@@ -2496,7 +2500,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 
 	// only update if necessary
 	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
-		if _, err := c.clientset.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, v1.UpdateOptions{}); err != nil {
+		if _, err := c.virtClient.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, v1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -3174,7 +3178,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 		return vmi, err
 	}
 
-	updatedVMI, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
+	updatedVMI, err := c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
 	if err != nil {
 		log.Log.Object(vm).Errorf("failed to sync dynamic annotations to VMI: %v", err)
 		return vmi, err
@@ -3337,7 +3341,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling declarative hotplug volumes: %v", err), hotplugVolumeErrorReason), nil
 	}
 
-	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
+	if err := memorydump.HandleRequest(c.virtClient, vmCopy, vmi, c.pvcStore); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
 	}
 
@@ -3377,7 +3381,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	}
 
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
-		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+		updatedVm, err := c.virtClient.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil
 		}
@@ -3555,7 +3559,7 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -3571,7 +3575,7 @@ func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, v
 		return nil
 	}
 
-	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi)
+	return storagehotplug.HandleDeclarativeVolumes(c.virtClient, vm, vmi)
 }
 
 func (c *Controller) handleKubeVirtUpdate(oldObj, newObj interface{}) {
