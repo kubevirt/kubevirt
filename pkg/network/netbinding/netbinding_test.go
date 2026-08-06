@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -98,6 +100,24 @@ var _ = Describe("Network Binding", func() {
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName2, Binding: &v1.PluginBinding{Name: testBindingName1}}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+				),
+				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
+				hooks.HookSidecarList{{Image: testSidecarImage1, NetworkBindingPluginName: testBindingName1}}),
+			Entry("VMI has binding plugin with DRA network",
+				libvmi.New(
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}),
+					libvmi.WithNetwork(libvmi.DRANetwork(testNetworkName1, "net-claim", "net-request")),
+				),
+				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
+				hooks.HookSidecarList{{
+					Image:                    testSidecarImage1,
+					NetworkBindingPluginName: testBindingName1,
+					ResourceClaims:           []k8sv1.ResourceClaim{{Name: "net-claim", Request: "net-request"}},
+				}}),
+			Entry("VMI has binding plugin with non-DRA network does not add claims",
+				libvmi.New(
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}),
+					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 				),
 				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
 				hooks.HookSidecarList{{Image: testSidecarImage1, NetworkBindingPluginName: testBindingName1}}),

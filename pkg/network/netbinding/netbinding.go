@@ -22,9 +22,12 @@ package netbinding
 import (
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
@@ -43,19 +46,24 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 	var pluginSidecars hooks.HookSidecarList
 	bindingByName := map[string]v1.InterfaceBindingPlugin{}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Binding != nil {
-			var exist bool
-			var pluginInfo v1.InterfaceBindingPlugin
-			if config.NetworkConfiguration != nil && config.NetworkConfiguration.Binding != nil {
-				pluginInfo, exist = config.NetworkConfiguration.Binding[iface.Binding.Name]
-				bindingByName[iface.Binding.Name] = pluginInfo
-			}
-
-			if !exist {
-				return nil, fmt.Errorf("couldn't find configuration for network binding: %s", iface.Binding.Name)
-			}
+		if iface.Binding == nil {
+			continue
 		}
+
+		var exist bool
+		var pluginInfo v1.InterfaceBindingPlugin
+		if config.NetworkConfiguration != nil && config.NetworkConfiguration.Binding != nil {
+			pluginInfo, exist = config.NetworkConfiguration.Binding[iface.Binding.Name]
+		}
+
+		if !exist {
+			return nil, fmt.Errorf("couldn't find configuration for network binding: %s", iface.Binding.Name)
+		}
+
+		bindingByName[iface.Binding.Name] = pluginInfo
 	}
+
+	claimsByBinding := draClaimsByBinding(vmi)
 
 	for bindingName, pluginInfo := range bindingByName {
 		if pluginInfo.SidecarImage != "" {
@@ -64,9 +72,30 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 				ImagePullPolicy:          config.ImagePullPolicy,
 				DownwardAPI:              pluginInfo.DownwardAPI,
 				NetworkBindingPluginName: bindingName,
+				ResourceClaims:           claimsByBinding[bindingName],
 			})
 		}
 	}
 
 	return pluginSidecars, nil
+}
+
+func draClaimsByBinding(vmi *v1.VirtualMachineInstance) map[string][]k8sv1.ResourceClaim {
+	claims := map[string][]k8sv1.ResourceClaim{}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Binding == nil {
+			continue
+		}
+
+		net := vmispec.LookupNetworkByName(vmi.Spec.Networks, iface.Name)
+		if net == nil || !vmispec.IsDRANetwork(*net) {
+			continue
+		}
+
+		claims[iface.Binding.Name] = append(claims[iface.Binding.Name], k8sv1.ResourceClaim{
+			Name:    net.ResourceClaim.ClaimName,
+			Request: net.ResourceClaim.RequestName,
+		})
+	}
+	return claims
 }
