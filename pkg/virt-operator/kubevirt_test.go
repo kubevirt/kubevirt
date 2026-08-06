@@ -1389,7 +1389,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 
 	exportProxy := components.NewExportProxyDeployment(config, "", "", "")
 	exportProxyPdb := components.NewExportProxyPodDisruptionBudget(exportProxy)
-	exportProxyHpa := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
+	exportProxyHpa := components.NewExportProxyHorizontalPodAutoscaler(exportProxy.Namespace, components.ExportProxyHPAMetricsProfileResource)
 	route := components.NewExportProxyRoute(NAMESPACE)
 	all = append(all, exportProxy, exportProxyPdb, exportProxyHpa, route)
 
@@ -1927,7 +1927,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 }
 
 func (k *KubeVirtTestData) addExportProxyHorizontalPodAutoscaler(config *util.KubeVirtDeploymentConfig, exportProxy *appsv1.Deployment, kv *v1.KubeVirt) {
-	hpa := components.NewExportProxyHorizontalPodAutoscaler(exportProxy)
+	hpa := components.NewExportProxyHorizontalPodAutoscaler(exportProxy.Namespace, components.ExportProxyHPAMetricsProfileResource)
 	injectMetadata(&hpa.ObjectMeta, config)
 	k.addHorizontalPodAutoscaler(hpa, kv)
 }
