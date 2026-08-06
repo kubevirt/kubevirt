@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/backup"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -40,6 +41,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 	lifecycleHandler := lifecycle.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	guestInfoHandler := guestinfo.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	backupHandler := backup.NewHandler(virtClient, consoleServerPort, tlsConfig)
+	volumesHandler := volumes.NewHandler(virtClient, clusterConfig)
 	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, k8sClient, consoleServerPort, tlsConfig, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
@@ -48,8 +50,8 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/usbredir":            NewUSBRedirREST(streamer),
 		"virtualmachineinstances/vsock":               NewVSOCKREST(streamer),
 		"virtualmachineinstances/portforward":         NewPortForwardREST(streamer),
-		"virtualmachineinstances/addvolume":           NewAddVolumeREST(subresourceApp),
-		"virtualmachineinstances/removevolume":        NewRemoveVolumeREST(subresourceApp),
+		"virtualmachineinstances/addvolume":           NewAddVolumeREST(volumesHandler),
+		"virtualmachineinstances/removevolume":        NewRemoveVolumeREST(volumesHandler),
 		"virtualmachineinstances/freeze":              NewFreezeREST(lifecycleHandler),
 		"virtualmachineinstances/unfreeze":            NewUnfreezeREST(lifecycleHandler),
 		"virtualmachineinstances/pause":               NewPauseREST(lifecycleHandler),
