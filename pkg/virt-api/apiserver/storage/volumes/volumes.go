@@ -17,61 +17,56 @@
  *
  */
 
-package rest
+package volumes
 
 import (
 	"context"
 	"fmt"
-	"net/http"
-
-	"github.com/emicklei/go-restful/v3"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
 	hotplugVolumeNotEnabledError = "Enable DeclarativeHotplugVolumes or HotplugVolumes feature gate to use this API."
+	vmiNotRunning                = "VMI is not running"
+	patchingVMFmt                = "Patching VM: %s"
 )
 
-// VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
-func (app *SubresourceAPIApp) VMAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
-	app.addVolumeRequestHandler(request, response, false)
+// Handler contains the VirtualMachine and VirtualMachineInstance volume
+// hotplug operations served by the GenericAPIServer storage Connecters.
+type Handler struct {
+	virtCli       kubecli.KubevirtClient
+	clusterConfig *virtconfig.ClusterConfig
 }
 
-// VMRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
-func (app *SubresourceAPIApp) VMRemoveVolumeRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeVolumeRequestHandler(request, response, false)
+func NewHandler(virtCli kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig) *Handler {
+	return &Handler{
+		virtCli:       virtCli,
+		clusterConfig: clusterConfig,
+	}
 }
 
-// VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
-func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
-	app.addVolumeRequestHandler(request, response, true)
+func (h *Handler) hotplugVolumesEnabled() bool {
+	return h.clusterConfig.HotplugVolumesEnabled() || h.clusterConfig.DeclarativeHotplugVolumesEnabled()
 }
 
-// VMIRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
-func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Request, response *restful.Response) {
-	app.removeVolumeRequestHandler(request, response, true)
-}
-
-func (app *SubresourceAPIApp) hotplugVolumesEnabled() bool {
-	return app.clusterConfig.HotplugVolumesEnabled() || app.clusterConfig.DeclarativeHotplugVolumesEnabled()
-}
-
-func (app *SubresourceAPIApp) ephemeralHotplugSupported() bool {
-	return app.clusterConfig.HotplugVolumesEnabled()
+func (h *Handler) ephemeralHotplugSupported() bool {
+	return h.clusterConfig.HotplugVolumesEnabled()
 }
 
 // AddVolume hot-plugs a volume and disk.
 // ephemeral selects the VMI-only path instead of the VM path
-func (app *SubresourceAPIApp) AddVolume(ctx context.Context, namespace, name string, opts *v1.AddVolumeOptions, ephemeral bool) *errors.StatusError {
-	if !app.hotplugVolumesEnabled() {
+func (h *Handler) AddVolume(ctx context.Context, namespace, name string, opts *v1.AddVolumeOptions, ephemeral bool) *errors.StatusError {
+	if !h.hotplugVolumesEnabled() {
 		return errors.NewBadRequest(hotplugVolumeNotEnabledError)
 	}
 
@@ -96,12 +91,12 @@ func (app *SubresourceAPIApp) AddVolume(ctx context.Context, namespace, name str
 		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
 	}
 
-	return app.dispatchVolumeRequest(ctx, name, namespace, &volumeRequest, ephemeral)
+	return h.dispatchVolumeRequest(ctx, name, namespace, &volumeRequest, ephemeral)
 }
 
 // RemoveVolume hot-unplugs a volume and disk.
-func (app *SubresourceAPIApp) RemoveVolume(ctx context.Context, namespace, name string, opts *v1.RemoveVolumeOptions, ephemeral bool) *errors.StatusError {
-	if !app.hotplugVolumesEnabled() {
+func (h *Handler) RemoveVolume(ctx context.Context, namespace, name string, opts *v1.RemoveVolumeOptions, ephemeral bool) *errors.StatusError {
+	if !h.hotplugVolumesEnabled() {
 		return errors.NewBadRequest(hotplugVolumeNotEnabledError)
 	}
 
@@ -115,70 +110,22 @@ func (app *SubresourceAPIApp) RemoveVolume(ctx context.Context, namespace, name 
 		RemoveVolumeOptions: opts,
 	}
 
-	return app.dispatchVolumeRequest(ctx, name, namespace, &volumeRequest, ephemeral)
+	return h.dispatchVolumeRequest(ctx, name, namespace, &volumeRequest, ephemeral)
 }
 
 // routes a volume request to the right patch path, inject into the VMI if ephemeral,
 // else set it as a request on the VM to both make it permanent and hotplug it
-func (app *SubresourceAPIApp) dispatchVolumeRequest(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest, ephemeral bool) *errors.StatusError {
+func (h *Handler) dispatchVolumeRequest(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest, ephemeral bool) *errors.StatusError {
 	if ephemeral {
-		return app.vmiVolumePatch(ctx, name, namespace, volumeRequest)
-	} else if app.clusterConfig.HotplugVolumesEnabled() {
-		return app.vmVolumePatchStatus(ctx, name, namespace, volumeRequest)
+		return h.vmiVolumePatch(ctx, name, namespace, volumeRequest)
+	} else if h.clusterConfig.HotplugVolumesEnabled() {
+		return h.vmVolumePatchStatus(ctx, name, namespace, volumeRequest)
 	}
-	return app.vmVolumePatch(ctx, name, namespace, volumeRequest)
+	return h.vmVolumePatch(ctx, name, namespace, volumeRequest)
 }
 
-func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
-	if request.Request.Body == nil {
-		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
-		return
-	}
-
-	opts := &v1.AddVolumeOptions{}
-	defer request.Request.Body.Close()
-	if err := decodeBody(request, opts); err != nil {
-		writeError(err, response)
-		return
-	}
-
-	if statusErr := app.AddVolume(request.Request.Context(), namespace, name, opts, ephemeral); statusErr != nil {
-		writeError(statusErr, response)
-		return
-	}
-
-	response.WriteHeader(http.StatusAccepted)
-}
-
-func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-
-	if request.Request.Body == nil {
-		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
-			response)
-		return
-	}
-	opts := &v1.RemoveVolumeOptions{}
-	defer request.Request.Body.Close()
-	if err := decodeBody(request, opts); err != nil {
-		writeError(err, response)
-		return
-	}
-
-	if statusErr := app.RemoveVolume(request.Request.Context(), namespace, name, opts, ephemeral); statusErr != nil {
-		writeError(statusErr, response)
-		return
-	}
-
-	response.WriteHeader(http.StatusAccepted)
-}
-
-func (app *SubresourceAPIApp) vmVolumePatch(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
-	vm, statErr := app.fetchVirtualMachine(name, namespace)
+func (h *Handler) vmVolumePatch(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+	vm, statErr := h.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
 	}
@@ -195,7 +142,7 @@ func (app *SubresourceAPIApp) vmVolumePatch(ctx context.Context, name, namespace
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", string(patchBytes))
-	if _, err := app.virtCli.VirtualMachine(vm.Namespace).Patch(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := h.virtCli.VirtualMachine(vm.Namespace).Patch(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -207,13 +154,13 @@ func (app *SubresourceAPIApp) vmVolumePatch(ctx context.Context, name, namespace
 	return nil
 }
 
-func (app *SubresourceAPIApp) vmiVolumePatch(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
-	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
+func (h *Handler) vmiVolumePatch(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+	vmi, statErr := h.fetchVirtualMachineInstance(namespace, name)
 	if statErr != nil {
 		return statErr
 	}
 
-	if ownedByVirtualMachine(vmi) && !app.ephemeralHotplugSupported() {
+	if ownedByVirtualMachine(vmi) && !h.ephemeralHotplugSupported() {
 		return errors.NewBadRequest(fmt.Sprintf("VMI %s/%s is owned by a VM", vmi.Namespace, vmi.Name))
 	}
 
@@ -233,7 +180,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(ctx context.Context, name, namespac
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", string(patchBytes))
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(ctx, vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := h.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(ctx, vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -245,8 +192,8 @@ func (app *SubresourceAPIApp) vmiVolumePatch(ctx context.Context, name, namespac
 	return nil
 }
 
-func (app *SubresourceAPIApp) vmVolumePatchStatus(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
-	vm, statErr := app.fetchVirtualMachine(name, namespace)
+func (h *Handler) vmVolumePatchStatus(ctx context.Context, name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
+	vm, statErr := h.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
 	}
@@ -263,7 +210,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(ctx context.Context, name, nam
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err = h.virtCli.VirtualMachine(vm.Namespace).PatchStatus(ctx, vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -273,6 +220,28 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(ctx context.Context, name, nam
 		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
 	}
 	return nil
+}
+
+func (h *Handler) fetchVirtualMachine(name, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
+	vm, err := h.virtCli.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vm [%s]: %v", name, err))
+	}
+	return vm, nil
+}
+
+func (h *Handler) fetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+	vmi, err := h.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
+		}
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", name, err))
+	}
+	return vmi, nil
 }
 
 func getDryRunOption(volumeRequest *v1.VirtualMachineVolumeRequest) []string {

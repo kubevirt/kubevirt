@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine/lifecycle"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -35,6 +36,7 @@ import (
 func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tlsConfig *tls.Config, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
 	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, consoleServerPort, tlsConfig, clusterConfig)
 	lifecycleHandler := lifecycle.NewHandler(virtClient)
+	volumesHandler := volumes.NewHandler(virtClient, clusterConfig)
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	return map[string]rest.Storage{
 		"virtualmachines":                  NewDummyREST(),
@@ -43,8 +45,8 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 		"virtualmachines/stop":             NewStopREST(lifecycleHandler),
 		"virtualmachines/restart":          NewRestartREST(lifecycleHandler),
 		"virtualmachines/migrate":          NewMigrateREST(lifecycleHandler),
-		"virtualmachines/addvolume":        NewAddVolumeREST(subresourceApp),
-		"virtualmachines/removevolume":     NewRemoveVolumeREST(subresourceApp),
+		"virtualmachines/addvolume":        NewAddVolumeREST(volumesHandler),
+		"virtualmachines/removevolume":     NewRemoveVolumeREST(volumesHandler),
 		"virtualmachines/memorydump":       NewMemoryDumpREST(subresourceApp),
 		"virtualmachines/removememorydump": NewRemoveMemoryDumpREST(subresourceApp),
 		"virtualmachines/objectgraph":      NewObjectGraphREST(subresourceApp),
