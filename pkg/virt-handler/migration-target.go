@@ -71,8 +71,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type netBindingPluginMemoryCalculator interface {
-	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
+type memoryOverheadCalculator interface {
+	Calculate(vmi *v1.VirtualMachineInstance) resource.Quantity
 }
 
 type passtRepairTargetHandler interface {
@@ -81,15 +81,15 @@ type passtRepairTargetHandler interface {
 
 type MigrationTargetController struct {
 	*BaseController
-	capabilities                     *libvirtxml.Caps
-	containerDiskMounter             containerdisk.Mounter
-	hotplugVolumeMounter             hotplugvolume.VolumeMounter
-	migrationIpAddress               string
-	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
-	netConf                          netconf
-	passtRepairHandler               passtRepairTargetHandler
-	pluginExecutor                   plugins.NodeHookExecutor
-	vmiExpectations                  *controller.UIDTrackingControllerExpectations
+	capabilities                *libvirtxml.Caps
+	containerDiskMounter        containerdisk.Mounter
+	hotplugVolumeMounter        hotplugvolume.VolumeMounter
+	migrationIpAddress          string
+	netMemoryOverheadCalculator memoryOverheadCalculator
+	netConf                     netconf
+	passtRepairHandler          passtRepairTargetHandler
+	pluginExecutor              plugins.NodeHookExecutor
+	vmiExpectations             *controller.UIDTrackingControllerExpectations
 }
 
 func NewMigrationTargetController(
@@ -109,7 +109,7 @@ func NewMigrationTargetController(
 	capabilities *libvirtxml.Caps,
 	netConf netconf,
 	netStat netstat,
-	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
+	netMemoryOverheadCalculator memoryOverheadCalculator,
 	passtRepairHandler passtRepairTargetHandler,
 	pluginStore cache.Store,
 	pluginExecutor plugins.NodeHookExecutor,
@@ -155,16 +155,16 @@ func NewMigrationTargetController(
 	}
 
 	c := &MigrationTargetController{
-		BaseController:                   baseCtrl,
-		capabilities:                     capabilities,
-		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
-		migrationIpAddress:               migrationIpAddress,
-		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
-		netConf:                          netConf,
-		passtRepairHandler:               passtRepairHandler,
-		pluginExecutor:                   pluginExecutor,
-		vmiExpectations:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		BaseController:              baseCtrl,
+		capabilities:                capabilities,
+		containerDiskMounter:        containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		hotplugVolumeMounter:        hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		migrationIpAddress:          migrationIpAddress,
+		netMemoryOverheadCalculator: netMemoryOverheadCalculator,
+		netConf:                     netConf,
+		passtRepairHandler:          passtRepairHandler,
+		pluginExecutor:              pluginExecutor,
+		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1178,7 +1178,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 		overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
 		requiredMemory = hypervisor.NewLauncherHypervisorResources(c.clusterConfig.GetHypervisor().Name).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
 		requiredMemory.Add(
-			c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
+			c.netMemoryOverheadCalculator.Calculate(vmi),
 		)
 	}
 

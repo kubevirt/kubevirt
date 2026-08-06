@@ -716,7 +716,7 @@ func (vca *VirtControllerApp) initCommon() {
 				return hooks.UnmarshalHookSidecarList(vmi)
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
-		services.WithNetMemoryCalculator(netresources.MemoryCalculator{}),
+		services.WithMemoryOverheadCalculators(netresources.NewMemoryCalculator(vca.clusterConfig)),
 		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
 		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)

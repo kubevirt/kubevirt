@@ -450,7 +450,7 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		netConf,
 		netStat,
-		netresources.MemoryCalculator{},
+		netresources.NewMemoryCalculator(app.clusterConfig),
 		passtRepairHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
