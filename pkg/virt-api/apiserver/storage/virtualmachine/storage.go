@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/evacuate"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine/lifecycle"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine/memorydump"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
@@ -39,6 +40,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 	lifecycleHandler := lifecycle.NewHandler(virtClient)
 	volumesHandler := volumes.NewHandler(virtClient, clusterConfig)
 	memoryDumpHandler := memorydump.NewHandler(virtClient, clusterConfig)
+	evacuateHandler := evacuate.NewHandler(virtClient, clusterConfig)
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	return map[string]rest.Storage{
 		"virtualmachines":                  NewDummyREST(),
@@ -52,7 +54,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 		"virtualmachines/memorydump":       NewMemoryDumpREST(memoryDumpHandler),
 		"virtualmachines/removememorydump": NewRemoveMemoryDumpREST(memoryDumpHandler),
 		"virtualmachines/objectgraph":      NewObjectGraphREST(subresourceApp),
-		"virtualmachines/evacuate":         NewEvacuateCancelREST(subresourceApp),
+		"virtualmachines/evacuate":         NewEvacuateCancelREST(evacuateHandler),
 		"virtualmachines/portforward":      NewPortForwardREST(streamer),
 	}
 }

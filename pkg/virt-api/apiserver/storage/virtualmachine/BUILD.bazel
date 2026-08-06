@@ -24,6 +24,7 @@ go_library(
         "//pkg/instancetype/expand:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
+        "//pkg/virt-api/apiserver/storage/evacuate:go_default_library",
         "//pkg/virt-api/apiserver/storage/virtualmachine/lifecycle:go_default_library",
         "//pkg/virt-api/apiserver/storage/virtualmachine/memorydump:go_default_library",
         "//pkg/virt-api/apiserver/storage/volumes:go_default_library",

@@ -16,21 +16,17 @@
  * Copyright The KubeVirt Authors.
  *
  */
-package rest
+package evacuate
 
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 
 	k8scorev1 "k8s.io/api/core/v1"
@@ -48,6 +44,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+const testVMName = "testvm"
+
+type readCloserWrapper struct {
+	io.Reader
+}
+
+func (b *readCloserWrapper) Close() error { return nil }
+
 func evacuateCancelStatusCode(statusErr *errors.StatusError) int {
 	if statusErr == nil {
 		return http.StatusOK
@@ -64,7 +68,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 	var (
 		virtClient *kubecli.MockKubevirtClient
 		kubeClient *k8sfake.Clientset
-		app        *SubresourceAPIApp
+		handler    *Handler
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -88,10 +92,6 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	BeforeEach(func() {
-		backend := ghttp.NewTLSServer()
-		backendAddr := strings.Split(backend.Addr(), ":")
-		backendPort, err := strconv.Atoi(backendAddr[1])
-		Expect(err).ToNot(HaveOccurred())
 		ctrl := gomock.NewController(GinkgoT())
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -130,7 +130,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		handler = NewHandler(virtClient, config)
 	})
 
 	createVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
@@ -157,7 +157,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				opt.DryRun = []string{metav1.DryRunAll}
 			}
 
-			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, newEvacuateCancelBody(opt))
+			statusErr := handler.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, newEvacuateCancelBody(opt))
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusOK))
 
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -177,7 +177,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				createVM(newVM(newVMI(false, workerNode)))
 			}
 
-			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			statusErr := handler.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, nil)
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusNotFound))
 		},
 			Entry("and VM exists", true),
@@ -190,7 +190,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			vmi.SetOwnerReferences([]metav1.OwnerReference{{UID: vm.UID}})
 			vmi = createVMI(vmi)
 
-			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			statusErr := handler.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, nil)
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 
@@ -200,7 +200,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			vmi.SetOwnerReferences([]metav1.OwnerReference{{UID: vm.UID}})
 			vmi = createVMI(vmi)
 
-			statusErr := app.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, newInvalidBody())
+			statusErr := handler.EvacuateCancelVM(context.Background(), metav1.NamespaceDefault, testVMName, newInvalidBody())
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 	})
@@ -215,7 +215,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 
 			}
 
-			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, newEvacuateCancelBody(opt))
+			statusErr := handler.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, newEvacuateCancelBody(opt))
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusOK))
 
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -231,19 +231,19 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		)
 
 		It("should fail because vmi is not found", func() {
-			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			statusErr := handler.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, nil)
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusNotFound))
 		})
 
 		It("should fail because the node has taint", func() {
 			createVMI(newVMI(false, workerNodeWithTaint))
-			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, nil)
+			statusErr := handler.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, nil)
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 
 		It("Should fail because opts is invalid", func() {
 			createVMI(newVMI(true, workerNode))
-			statusErr := app.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, newInvalidBody())
+			statusErr := handler.EvacuateCancelVMI(context.Background(), metav1.NamespaceDefault, testVMName, newInvalidBody())
 			Expect(evacuateCancelStatusCode(statusErr)).To(Equal(http.StatusBadRequest))
 		})
 	})
