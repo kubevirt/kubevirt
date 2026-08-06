@@ -364,7 +364,7 @@ func (c *Controller) deleteAllAttachmentPods(vmi *v1.VirtualMachineInstance) err
 func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance) error {
 	podsOwnedByVMI, err := c.listPodsOwnedByVMI(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to list controlled pods: %v", err)
+		return fmt.Errorf("failed to list pods owned by VMI %s/%s: %w", vmi.Namespace, vmi.Name, err)
 	}
 
 	for _, pod := range podsOwnedByVMI {
