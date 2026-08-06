@@ -17,23 +17,14 @@
  *
  */
 
-package rest
+package memorydump
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/json"
-	"io"
 	"net/http"
-	"net/http/httptest"
-	"strconv"
-	"strings"
 
-	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -57,6 +48,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+const (
+	testVMName  = "testvm"
+	testVMIName = "testvmi"
+)
+
+func expectStatusCode(statusErr *errors.StatusError, code int) {
+	if code == http.StatusAccepted {
+		Expect(statusErr).To(BeNil())
+		return
+	}
+	Expect(statusErr).ToNot(BeNil())
+	Expect(int(statusErr.Status().Code)).To(Equal(code))
+}
+
 var _ = Describe("Memory dump Subresource api", func() {
 	const (
 		fs          = false
@@ -67,14 +72,12 @@ var _ = Describe("Memory dump Subresource api", func() {
 	)
 
 	var (
-		request    *restful.Request
-		response   *restful.Response
 		kubeClient *fake.Clientset
 		virtClient *kubecli.MockKubevirtClient
 		vmClient   *kubecli.MockVirtualMachineInterface
 		vmiClient  *kubecli.MockVirtualMachineInstanceInterface
 		cdiClient  *cdifake.Clientset
-		app        *SubresourceAPIApp
+		handler    *Handler
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -135,16 +138,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 	}
 
 	BeforeEach(func() {
-		request = restful.NewRequest(&http.Request{})
-		request.PathParameters()["name"] = testVMName
-		request.PathParameters()["namespace"] = metav1.NamespaceDefault
-		recorder := httptest.NewRecorder()
-		response = restful.NewResponse(recorder)
-
-		backend := ghttp.NewTLSServer()
-		backendAddr := strings.Split(backend.Addr(), ":")
-		backendPort, err := strconv.Atoi(backendAddr[1])
-		Expect(err).ToNot(HaveOccurred())
 		ctrl := gomock.NewController(GinkgoT())
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -161,17 +154,12 @@ var _ = Describe("Memory dump Subresource api", func() {
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		handler = NewHandler(virtClient, config)
 	})
 
 	AfterEach(func() {
 		disableFeatureGates()
 	})
-
-	newMemoryDumpBody := func(req *v1.VirtualMachineMemoryDumpRequest) io.ReadCloser {
-		reqJson, _ := json.Marshal(req)
-		return &readCloserWrapper{bytes.NewReader(reqJson)}
-	}
 
 	createTestPVC := func(size string, blockMode bool, readOnlyMode bool) *k8sv1.PersistentVolumeClaim {
 		quantity, _ := resource.ParseQuantity(size)
@@ -204,11 +192,9 @@ var _ = Describe("Memory dump Subresource api", func() {
 		} else {
 			disableDeclarativeHotplugFeatureGate()
 		}
-		request.Request.Body = newMemoryDumpBody(memDumpReq)
-
 		vmi := libvmi.New()
 		vm := libvmi.NewVirtualMachine(vmi)
-		vm.Name = request.PathParameter("name")
+		vm.Name = testVMName
 		vm.Namespace = metav1.NamespaceDefault
 
 		patchedVM := vm.DeepCopy()
@@ -241,9 +227,8 @@ var _ = Describe("Memory dump Subresource api", func() {
 			func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
 				return patchedVM, nil
 			}).AnyTimes()
-		app.MemoryDumpVMRequestHandler(request, response)
-
-		Expect(response.StatusCode()).To(Equal(statusCode))
+		statusErr := handler.MemoryDump(context.Background(), metav1.NamespaceDefault, testVMName, memDumpReq)
+		expectStatusCode(statusErr, statusCode)
 	},
 		Entry("VM with a valid memory dump request should succeed", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
@@ -270,14 +255,13 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 	DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
 		enableFeatureGate(featuregate.HotplugVolumesGate)
-		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),
 			libvmi.WithMemoryRequest("1Gi"),
 			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 		)
 		vm := libvmi.NewVirtualMachine(vmi)
-		vm.Name = request.PathParameter("name")
+		vm.Name = testVMName
 		vm.Namespace = metav1.NamespaceDefault
 		if prevMemDumpReq != nil {
 			vm.Status.MemoryDumpRequest = prevMemDumpReq
@@ -301,9 +285,8 @@ var _ = Describe("Memory dump Subresource api", func() {
 		if statusCode == http.StatusAccepted {
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 		}
-		app.MemoryDumpVMRequestHandler(request, response)
-
-		Expect(response.StatusCode()).To(Equal(statusCode))
+		statusErr := handler.MemoryDump(context.Background(), metav1.NamespaceDefault, testVMName, memDumpReq)
+		expectStatusCode(statusErr, statusCode)
 	},
 		Entry("VM with a memory dump request without claim name with assocaited memory dump should succeed",
 			&v1.VirtualMachineMemoryDumpRequest{},
@@ -325,7 +308,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 	DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatchSet *patch.PatchSet, expectError bool, removeReq bool) {
 		vm := libvmi.NewVirtualMachine(libvmi.New())
-		vm.Name = request.PathParameter("name")
+		vm.Name = testVMName
 		vm.Namespace = metav1.NamespaceDefault
 
 		if existingMemDumpReq != nil {
