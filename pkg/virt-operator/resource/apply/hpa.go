@@ -27,6 +27,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"kubevirt.io/client-go/log"
@@ -38,31 +39,53 @@ import (
 )
 
 func (r *Reconciler) syncExportProxyHorizontalPodAutoscaler(deployment *appsv1.Deployment, desiredReplicas int32) error {
-	// Skip HPA when the caller decided only one replica should run (same heuristic as virt-api).
-	horizontalPodAutoscaler := components.NewExportProxyHorizontalPodAutoscaler(deployment)
-	if desiredReplicas <= 1 {
-		obj, exists, _ := r.stores.HorizontalPodAutoscalerCache.Get(horizontalPodAutoscaler)
-		if !exists {
-			return nil
-		}
+	// Skip HPA when the caller decided only one replica should run (same heuristic
+	// as virt-api), or when CustomizeComponents pins replicas (opting out of
+	// autoscaling). Otherwise the operator and HPA fight over Spec.Replicas.
+	if desiredReplicas <= 1 || replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtExportProxyName) {
+		return r.deleteExportProxyHorizontalPodAutoscaler(deployment)
+	}
 
-		cachedHorizontalPodAutoscaler := obj.(*autoscalingv2.HorizontalPodAutoscaler)
-		key, err := controller.KeyFunc(cachedHorizontalPodAutoscaler)
-		if err != nil {
-			return err
-		}
+	profile := r.resolveExportProxyHPAMetricsProfile(deployment.Namespace)
+	horizontalPodAutoscaler := components.NewExportProxyHorizontalPodAutoscaler(deployment.Namespace, profile)
+	return r.syncHorizontalPodAutoscaler(deployment.Namespace, horizontalPodAutoscaler)
+}
 
-		r.expectations.HorizontalPodAutoscaler.AddExpectedDeletion(r.kvKey, key)
-		hpaClient := r.k8sClient.AutoscalingV2().HorizontalPodAutoscalers(deployment.Namespace)
-		if err := hpaClient.Delete(context.Background(), horizontalPodAutoscaler.Name, metav1.DeleteOptions{}); err != nil {
-			r.expectations.HorizontalPodAutoscaler.DeletionObserved(r.kvKey, key)
-			return fmt.Errorf("unable to delete horizontalpodautoscaler %s: %w", horizontalPodAutoscaler.Name, err)
-		}
-
+func (r *Reconciler) deleteExportProxyHorizontalPodAutoscaler(deployment *appsv1.Deployment) error {
+	// Only Namespace/Name are needed for cache lookup and delete; avoid
+	// probing custom.metrics.k8s.io on single-node clusters.
+	lookupHPA := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: deployment.Namespace,
+			Name:      components.VirtExportProxyHPAName,
+		},
+	}
+	obj, exists, _ := r.stores.HorizontalPodAutoscalerCache.Get(lookupHPA)
+	if !exists {
 		return nil
 	}
 
-	return r.syncHorizontalPodAutoscaler(deployment.Namespace, horizontalPodAutoscaler)
+	cachedHorizontalPodAutoscaler := obj.(*autoscalingv2.HorizontalPodAutoscaler)
+	if cachedHorizontalPodAutoscaler.DeletionTimestamp != nil {
+		return nil
+	}
+
+	key, err := controller.KeyFunc(cachedHorizontalPodAutoscaler)
+	if err != nil {
+		return err
+	}
+
+	r.expectations.HorizontalPodAutoscaler.AddExpectedDeletion(r.kvKey, key)
+	hpaClient := r.k8sClient.AutoscalingV2().HorizontalPodAutoscalers(deployment.Namespace)
+	if err := hpaClient.Delete(context.Background(), lookupHPA.Name, metav1.DeleteOptions{}); err != nil {
+		r.expectations.HorizontalPodAutoscaler.DeletionObserved(r.kvKey, key)
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("unable to delete horizontalpodautoscaler %s: %w", lookupHPA.Name, err)
+	}
+
+	return nil
 }
 
 func (r *Reconciler) syncHorizontalPodAutoscaler(namespace string, horizontalPodAutoscaler *autoscalingv2.HorizontalPodAutoscaler) error {

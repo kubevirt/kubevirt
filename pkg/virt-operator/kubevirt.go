@@ -74,6 +74,8 @@ type KubeVirtController struct {
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
 	hasSynced            func() bool
+
+	exportProxyHPAMetricsProfileCache *apply.ExportProxyHPAMetricsProfileCache
 }
 
 func NewKubeVirtController(
@@ -167,6 +169,7 @@ func NewKubeVirtController(
 		delayedQueueAdder: func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
+		exportProxyHPAMetricsProfileCache: apply.NewExportProxyHPAMetricsProfileCache(),
 	}
 	c.hasSynced = func() bool {
 		return informers.KubeVirt.HasSynced() &&
@@ -1152,7 +1155,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
+	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder, c.exportProxyHPAMetricsProfileCache)
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)
