@@ -1518,8 +1518,17 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	if !domainAlive && domainExists && !vmi.IsFinal() {
-		c.logger.Object(vmi).V(3).Info("Deleting inactive domain for vmi.")
-		shouldDelete = true
+		isAmbiguousStartup := domain.Status.Reason == api.ReasonUnknown || domain.Status.Reason == ""
+		if domain.Status.Status == api.Shutoff && vmi.IsScheduled() && isAmbiguousStartup &&
+			!hasExceededSlowStartupDeferralWindow(vmi) {
+			c.logger.Object(vmi).V(3).Info(
+				"Domain is Shutoff with no reason yet but VMI is Scheduled; " +
+					"deferring deletion as domain may still be starting.")
+			c.queue.AddAfter(key, 5*time.Second)
+		} else {
+			c.logger.Object(vmi).V(3).Info("Deleting inactive domain for vmi.")
+			shouldDelete = true
+		}
 	}
 
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
@@ -1663,6 +1672,16 @@ func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 }
 
 const firstGracefulShutdownAttempt = -1
+
+func hasExceededSlowStartupDeferralWindow(vmi *v1.VirtualMachineInstance) bool {
+	const slowStartupDeferralTimeout = 5 * time.Minute
+	for _, transition := range vmi.Status.PhaseTransitionTimestamps {
+		if transition.Phase == v1.Scheduled {
+			return time.Since(transition.PhaseTransitionTimestamp.Time) > slowStartupDeferralTimeout
+		}
+	}
+	return time.Since(vmi.CreationTimestamp.Time) > slowStartupDeferralTimeout
+}
 
 // Determines if a domain's grace period has expired during shutdown.
 // If the grace period has started but not expired, timeLeft represents
