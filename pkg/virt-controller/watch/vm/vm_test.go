@@ -2820,6 +2820,56 @@ var _ = Describe("VirtualMachine", func() {
 			sanityExecute(vm)
 		})
 
+		It("should release an owned DataVolume that is no longer in DataVolumeTemplates", func() {
+			vm, _ := watchtesting.DefaultVirtualMachine(false)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dv1",
+					Namespace: vm.Namespace,
+				},
+			})
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+
+			dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
+			Expect(dv.OwnerReferences).ToNot(BeEmpty())
+			Expect(controller.dataVolumeStore.Add(dv)).To(Succeed())
+
+			// Simulate removing the DataVolumeTemplate from the VM
+			vm.Spec.DataVolumeTemplates = nil
+			addVirtualMachine(vm)
+
+			releasedDV := &cdiv1.DataVolume{}
+			released := false
+			cdiClient.Fake.PrependReactor("patch", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				patchAction, ok := action.(testing.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(patchAction.GetName()).To(Equal(dv.Name))
+
+				original, err := json.Marshal(dv)
+				Expect(err).ToNot(HaveOccurred())
+				modified, err := jsonpatch.MergePatch(original, patchAction.GetPatch())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(json.Unmarshal(modified, releasedDV)).To(Succeed())
+
+				released = true
+				return true, releasedDV, nil
+			})
+
+			sanityExecute(vm)
+			Expect(released).To(BeTrue())
+			Expect(releasedDV.OwnerReferences).To(BeEmpty())
+		})
+
 		It("should detect that it has nothing to do beside updating the status", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 
