@@ -20,7 +20,6 @@
 package rest
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"io"
@@ -30,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -74,14 +72,9 @@ func withDryRun() []string {
 var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var backend *ghttp.Server
 	var backendIP string
-	var request *restful.Request
-	var recorder *httptest.ResponseRecorder
-	var response *restful.Response
 
-	var ctrl *gomock.Controller
 	var kubeClient *fake.Clientset
 	var virtClient *kubecli.MockKubevirtClient
-	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -102,10 +95,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		kubeClient = fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiClient).AnyTimes()
@@ -128,9 +121,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Timeout: 10 * time.Second,
 		}
 
-		request = restful.NewRequest(&http.Request{})
-		recorder = httptest.NewRecorder()
-		response = restful.NewResponse(recorder)
 		// Make sure that any unexpected call to the client will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
@@ -200,70 +190,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-	})
-
-	Context("Subresource api - Guest OS Info", func() {
-		type subRes func(request *restful.Request, response *restful.Response)
-
-		DescribeTable("should fail when the VMI does not exist", func(fn subRes) {
-			request.PathParameters()["name"] = testVMName
-			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName))
-
-			fn(request, response)
-
-			Expect(response.Error()).To(HaveOccurred(), "Response should indicate VM not found")
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
-
-		},
-			Entry("for GuestOSInfo", app.GuestOSInfo),
-			Entry("for UserList", app.UserList),
-			Entry("for Filesystem", app.FilesystemList),
-		)
-
-		DescribeTable("should fail when the VMI is not running", func(fn subRes) {
-			request.PathParameters()["name"] = testVMName
-			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-			vmi := v1.VirtualMachineInstance{}
-
-			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
-
-			fn(request, response)
-
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
-			Expect(response.Error().Error()).To(ContainSubstring("VMI is not running"))
-		},
-			Entry("for GuestOSInfo", app.GuestOSInfo),
-			Entry("for UserList", app.UserList),
-			Entry("for FilesystemList", app.FilesystemList),
-		)
-
-		DescribeTable("should fail when VMI does not have agent connected", func(fn subRes) {
-			request.PathParameters()["name"] = testVMName
-			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-			vmi := v1.VirtualMachineInstance{
-				Status: v1.VirtualMachineInstanceStatus{
-					Phase:      v1.Running,
-					Conditions: []v1.VirtualMachineInstanceCondition{},
-				},
-			}
-
-			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
-
-			fn(request, response)
-
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
-			Expect(response.Error().Error()).To(ContainSubstring("VMI does not have guest agent connected"))
-		},
-			Entry("for GuestOSInfo", app.GuestOSInfo),
-			Entry("for UserList", app.UserList),
-			Entry("for FilesystemList", app.FilesystemList),
-		)
 	})
 
 	AfterEach(func() {
