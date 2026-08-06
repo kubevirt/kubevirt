@@ -883,6 +883,42 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Entry("from previous z release by updating virt-operator", fromZ, upgradeByOperatorUpdate),
 		)
 
+		DescribeTable("should preserve RBAC aggregate labels and support OptOutRoleAggregation after upgrade from previous y release",
+			decorators.Upgrade,
+			func(approach upgradeApproach) {
+				previousImageTag, previousImageRegistry := detectPreviousReleaseTag(fromY)
+
+				curVersion := originalKv.Status.ObservedKubeVirtVersion
+				curRegistry := originalKv.Status.ObservedKubeVirtRegistry
+
+				allKvInfraPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
+
+				kv := installPreviousKubeVirt(originalKv, previousImageTag, previousImageRegistry, approach)
+				upgradeKubeVirt(kv, curVersion, curRegistry, approach)
+
+				By("Verifying RBAC aggregate labels are preserved after upgrade")
+				verifyAggregateLabels(virtClient, "true")
+
+				By("Setting RoleAggregationStrategy to Manual after upgrade")
+				currentKV := libkubevirt.GetCurrentKv(virtClient)
+				savedConfig := currentKV.Spec.Configuration.DeepCopy()
+				currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
+
+				By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
+				verifyAggregateLabels(virtClient, "false")
+
+				By("Restoring RoleAggregationStrategy to default after upgrade verification")
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*savedConfig)
+
+				By("Verifying aggregate labels are restored after upgrade")
+				verifyAggregateLabels(virtClient, "true")
+			},
+			Entry("by patching KubeVirt CR", upgradeByCRPatch),
+			Entry("by updating virt-operator", upgradeByOperatorUpdate),
+		)
+
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
