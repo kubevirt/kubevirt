@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
 )
 
 var (
@@ -63,13 +65,25 @@ func (activeTransfer) Finish() {
 	RecordTransferFinished()
 }
 
-// RecordTransferStarted increments active and total transfer counters and returns
-// a handle that must be finished when the transfer completes.
-func RecordTransferStarted() activeTransfer {
-	atomic.AddInt64(&activeTransferCount, 1)
-	activeTransfers.Inc()
-	transfersTotal.Inc()
-	return activeTransfer{}
+// ActiveTransferCount returns the number of export transfers currently proxied.
+func ActiveTransferCount() int64 {
+	return atomic.LoadInt64(&activeTransferCount)
+}
+
+// TryRecordTransferStarted increments active and total transfer counters when the
+// pod is below SoftTransferLimit. Returns false without incrementing when at capacity.
+func TryRecordTransferStarted() (activeTransfer, bool) {
+	for {
+		current := atomic.LoadInt64(&activeTransferCount)
+		if current >= admission.SoftTransferLimit {
+			return activeTransfer{}, false
+		}
+		if atomic.CompareAndSwapInt64(&activeTransferCount, current, current+1) {
+			activeTransfers.Inc()
+			transfersTotal.Inc()
+			return activeTransfer{}, true
+		}
+	}
 }
 
 // RecordTransferFinished decrements the active transfer counter.
