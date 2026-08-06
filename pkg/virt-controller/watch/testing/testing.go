@@ -16,6 +16,7 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package testing
 
 import (
@@ -33,12 +34,20 @@ import (
 
 func MarkAsReady(vmi *v1.VirtualMachineInstance) {
 	vmi.Status.Phase = "Running"
-	controller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	condManager.AddPodCondition(vmi, &k8sv1.PodCondition{
+		Type:   k8sv1.PodReady,
+		Status: k8sv1.ConditionTrue,
+	})
 }
 
 func MarkAsNonReady(vmi *v1.VirtualMachineInstance) {
-	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-	controller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+	condManager.AddPodCondition(vmi, &k8sv1.PodCondition{
+		Type:   k8sv1.PodReady,
+		Status: k8sv1.ConditionFalse,
+	})
 }
 
 func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
@@ -83,7 +92,7 @@ func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *v1.VirtualMachi
 	return vmi
 }
 
-func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+func DefaultVirtualMachineWithNames(started bool, vmName, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 	vmi := api.NewMinimalVMI(vmiName)
 	vmi.GenerateName = "prettyrandom"
 	vmi.Status.Phase = v1.Running
