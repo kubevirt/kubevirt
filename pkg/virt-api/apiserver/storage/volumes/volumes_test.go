@@ -17,26 +17,18 @@
  *
  */
 
-package rest
+package volumes
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/json"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"slices"
-	"strconv"
-	"strings"
 
-	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -52,14 +44,31 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+const testVMName = "testvm"
+
+func withDryRun() []string {
+	return []string{metav1.DryRunAll}
+}
+
+func newMinimalVM(name string) *v1.VirtualMachine {
+	return &v1.VirtualMachine{TypeMeta: metav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: metav1.ObjectMeta{Name: name}}
+}
+
+func expectStatusCode(statusErr *errors.StatusError, code int) {
+	if code == http.StatusAccepted {
+		Expect(statusErr).To(BeNil())
+		return
+	}
+	Expect(statusErr).ToNot(BeNil())
+	Expect(int(statusErr.Status().Code)).To(Equal(code))
+}
+
 var _ = Describe("Add/Remove Volume Subresource api", func() {
 	var (
-		request    *restful.Request
-		response   *restful.Response
 		virtClient *kubecli.MockKubevirtClient
 		vmClient   *kubecli.MockVirtualMachineInterface
 		vmiClient  *kubecli.MockVirtualMachineInstanceInterface
-		app        *SubresourceAPIApp
+		handler    *Handler
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -102,16 +111,6 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	}
 
 	BeforeEach(func() {
-		request = restful.NewRequest(&http.Request{})
-		request.PathParameters()["name"] = testVMName
-		request.PathParameters()["namespace"] = metav1.NamespaceDefault
-		recorder := httptest.NewRecorder()
-		response = restful.NewResponse(recorder)
-
-		backend := ghttp.NewTLSServer()
-		backendAddr := strings.Split(backend.Addr(), ":")
-		backendPort, err := strconv.Atoi(backendAddr[1])
-		Expect(err).ToNot(HaveOccurred())
 		ctrl := gomock.NewController(GinkgoT())
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -123,21 +122,12 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		handler = NewHandler(virtClient, config)
 	})
 
 	AfterEach(func() {
 		disableFeatureGates()
 	})
-
-	newAddVolumeBody := func(opts *v1.AddVolumeOptions) io.ReadCloser {
-		optsJson, _ := json.Marshal(opts)
-		return &readCloserWrapper{bytes.NewReader(optsJson)}
-	}
-	newRemoveVolumeBody := func(opts *v1.RemoveVolumeOptions) io.ReadCloser {
-		optsJson, _ := json.Marshal(opts)
-		return &readCloserWrapper{bytes.NewReader(optsJson)}
-	}
 
 	VolumeUpdateTests := func(featureGate string) {
 		DescribeTable("Should succeed with add/volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
@@ -147,14 +137,10 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				// DeclarativeHotplugVolumes is enabled by default, so we need to explicitly disable it
 				disableDeclarativeHotplugFeatureGate()
 			}
-			if addOpts != nil {
-				request.Request.Body = newAddVolumeBody(addOpts)
-			} else {
-				request.Request.Body = newRemoveVolumeBody(removeOpts)
-			}
 
+			var statusErr *errors.StatusError
 			vmi := libvmi.New(
-				libvmi.WithName(request.PathParameter("name")),
+				libvmi.WithName(testVMName),
 				libvmi.WithNamespace(metav1.NamespaceDefault),
 				libvmi.WithPersistentVolumeClaim("existingvol", "testpvcdiskclaim"),
 				libvmi.WithPersistentVolumeClaim("hotpluggedPVC", "hotpluggedPVC"),
@@ -164,7 +150,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 			if isVM {
 				vm := libvmi.NewVirtualMachine(vmi)
-				vm.Name = request.PathParameter("name")
+				vm.Name = testVMName
 				vm.Namespace = metav1.NamespaceDefault
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
@@ -180,7 +166,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 								Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 								return patchedVM, nil
 							}).AnyTimes()
-						app.VMAddVolumeRequestHandler(request, response)
+						statusErr = handler.AddVolume(context.Background(), metav1.NamespaceDefault, testVMName, addOpts, false)
 					} else {
 						vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 							func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
@@ -188,7 +174,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 								Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 								return patchedVM, nil
 							})
-						app.VMRemoveVolumeRequestHandler(request, response)
+						statusErr = handler.RemoveVolume(context.Background(), metav1.NamespaceDefault, testVMName, removeOpts, false)
 					}
 				} else {
 					if addOpts != nil {
@@ -198,7 +184,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 								Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 								return vm, nil
 							}).AnyTimes()
-						app.VMAddVolumeRequestHandler(request, response)
+						statusErr = handler.AddVolume(context.Background(), metav1.NamespaceDefault, testVMName, addOpts, false)
 					} else {
 						vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 							func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
@@ -206,7 +192,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 								Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 								return vm, nil
 							})
-						app.VMRemoveVolumeRequestHandler(request, response)
+						statusErr = handler.RemoveVolume(context.Background(), metav1.NamespaceDefault, testVMName, removeOpts, false)
 					}
 				}
 			} else {
@@ -218,7 +204,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 							return vmi, nil
 						}).AnyTimes()
-					app.VMIAddVolumeRequestHandler(request, response)
+					statusErr = handler.AddVolume(context.Background(), metav1.NamespaceDefault, testVMName, addOpts, true)
 				} else {
 					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
@@ -226,11 +212,11 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 							Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 							return vmi, nil
 						}).AnyTimes()
-					app.VMIRemoveVolumeRequestHandler(request, response)
+					statusErr = handler.RemoveVolume(context.Background(), metav1.NamespaceDefault, testVMName, removeOpts, true)
 				}
 			}
 
-			Expect(response.StatusCode()).To(Equal(code))
+			expectStatusCode(statusErr, code)
 		},
 			Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
 				Name:         "vol1",
@@ -330,14 +316,9 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	DescribeTable("Should handle VMI with owner and", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, code int, featuregates ...string) {
 		enableFeatureGates(featuregates...)
-		if addOpts != nil {
-			request.Request.Body = newAddVolumeBody(addOpts)
-		} else {
-			request.Request.Body = newRemoveVolumeBody(removeOpts)
-		}
 
 		vmi := libvmi.New(
-			libvmi.WithName(request.PathParameter("name")),
+			libvmi.WithName(testVMName),
 			libvmi.WithNamespace(metav1.NamespaceDefault),
 			libvmi.WithPersistentVolumeClaim("existingvol", "testpvcdiskclaim"),
 			libvmi.WithPersistentVolumeClaim("hotpluggedPVC", "hotpluggedPVC"),
@@ -348,7 +329,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			{
 				APIVersion: "kubevirt.io/v1",
 				Kind:       "VirtualMachine",
-				Name:       request.PathParameter("name"),
+				Name:       testVMName,
 				UID:        types.UID("1234"),
 				Controller: pointer.P(true),
 			},
@@ -360,13 +341,14 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(vmi, nil).AnyTimes()
 		}
 
+		var statusErr *errors.StatusError
 		if addOpts != nil {
-			app.VMIAddVolumeRequestHandler(request, response)
+			statusErr = handler.AddVolume(context.Background(), metav1.NamespaceDefault, testVMName, addOpts, true)
 		} else {
-			app.VMIRemoveVolumeRequestHandler(request, response)
+			statusErr = handler.RemoveVolume(context.Background(), metav1.NamespaceDefault, testVMName, removeOpts, true)
 		}
 
-		Expect(response.StatusCode()).To(Equal(code))
+		expectStatusCode(statusErr, code)
 	},
 		Entry("Reject Add with DeclarativeHotplugVolumes", &v1.AddVolumeOptions{
 			Name:         "vol1",
@@ -396,7 +378,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 
-		vmi := api.NewMinimalVMI(request.PathParameter("name"))
+		vmi := api.NewMinimalVMI(testVMName)
 		vmi.Namespace = metav1.NamespaceDefault
 		vmi.Status.Phase = v1.Running
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -473,7 +455,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	DescribeTable("Should generate expected vm patch (volume request)", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet, expectError bool) {
 
-		vm := newMinimalVM(request.PathParameter("name"))
+		vm := newMinimalVM(testVMName)
 		vm.Namespace = metav1.NamespaceDefault
 
 		if len(existingVolumeRequests) > 0 {
@@ -623,7 +605,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	DescribeTable("Should generate expected vm patch (declarative)", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 
-		vm := libvmi.NewVirtualMachine(api.NewMinimalVMI(request.PathParameter("name")))
+		vm := libvmi.NewVirtualMachine(api.NewMinimalVMI(testVMName))
 		vm.Namespace = metav1.NamespaceDefault
 		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "existingvol",
