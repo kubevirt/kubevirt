@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -49,7 +48,6 @@ const (
 	patchingVMStatusFmt                      = "Patching VM status: %s"
 	vmiNotRunning                            = "VMI is not running"
 	vmiNotPaused                             = "VMI is not paused"
-	vmiGuestAgentErr                         = "VMI does not have guest agent connected"
 	prepConnectionErrFmt                     = "Cannot prepare connection %s"
 	getRequestErrFmt                         = "Cannot GET request %s"
 	featureGateDisabledErrFmt                = "'%s' feature gate is not enabled"
@@ -194,45 +192,6 @@ func (app *SubresourceAPIApp) httpGetVirtHandler(ctx context.Context, namespace,
 	return v, nil
 }
 
-func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, response *restful.Response, validate validation, getURL URLResolver, v interface{}) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-	result, err := app.httpGetVirtHandler(request.Request.Context(), namespace, name, validate, getURL, v)
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	response.WriteEntity(result)
-}
-
-func (app *SubresourceAPIApp) httpGetRequestBinaryHandler(request *restful.Request, response *restful.Response, validate validation, getURL URLResolver) {
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-	_, url, conn, err := app.prepareConnection(request.Request.Context(), namespace, name, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-
-	resp, conErr := conn.Get(url, "")
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		response.WriteError(http.StatusInternalServerError, conErr)
-		return
-	}
-
-	if nbytes, err := response.Write([]byte(resp)); err != nil {
-		log.Log.Reason(err).Error("Failed to write response")
-		response.WriteError(http.StatusInternalServerError, err)
-	} else if nbytes != len(resp) {
-		err = fmt.Errorf("Failed to write full response: %d of %d written", nbytes, len(resp))
-		log.Log.Reason(err).Error("Incomplete message written")
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-}
-
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
 
 	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
@@ -297,70 +256,6 @@ func writeError(error *errors.StatusError, response *restful.Response) {
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to write http response.")
 	}
-}
-
-func vmiGuestAgentValidation(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-	if vmi == nil || vmi.Status.Phase != v1.Running {
-		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
-	}
-	condManager := controller.NewVirtualMachineInstanceConditionManager()
-	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
-		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiGuestAgentErr))
-	}
-	return nil
-}
-
-func (app *SubresourceAPIApp) GetGuestOSInfo(ctx context.Context, namespace, name string) (interface{}, error) {
-	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.GuestInfoURI(vmi)
-	}
-	return app.httpGetVirtHandler(ctx, namespace, name, vmiGuestAgentValidation, getURL, v1.VirtualMachineInstanceGuestAgentInfo{})
-}
-
-// GetUserList proxies the guest OS active user list from virt-handler
-func (app *SubresourceAPIApp) GetUserList(ctx context.Context, namespace, name string) (interface{}, error) {
-	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.UserListURI(vmi)
-	}
-	return app.httpGetVirtHandler(ctx, namespace, name, vmiGuestAgentValidation, getURL, v1.VirtualMachineInstanceGuestOSUserList{})
-}
-
-// GetFilesystemList proxies the guest filesystem list from virt-handler
-func (app *SubresourceAPIApp) GetFilesystemList(ctx context.Context, namespace, name string) (interface{}, error) {
-	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.FilesystemListURI(vmi)
-	}
-	return app.httpGetVirtHandler(ctx, namespace, name, vmiGuestAgentValidation, getURL, v1.VirtualMachineInstanceFileSystemList{})
-}
-
-// GuestOSInfo handles the subresource for providing VM guest agent information
-func (app *SubresourceAPIApp) GuestOSInfo(request *restful.Request, response *restful.Response) {
-	result, err := app.GetGuestOSInfo(request.Request.Context(), request.PathParameter("namespace"), request.PathParameter("name"))
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	response.WriteEntity(result)
-}
-
-// UserList handles the subresource for providing VM guest user list
-func (app *SubresourceAPIApp) UserList(request *restful.Request, response *restful.Response) {
-	result, err := app.GetUserList(request.Request.Context(), request.PathParameter("namespace"), request.PathParameter("name"))
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	response.WriteEntity(result)
-}
-
-// FilesystemList handles the subresource for providing guest filesystem list
-func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response *restful.Response) {
-	result, err := app.GetFilesystemList(request.Request.Context(), request.PathParameter("namespace"), request.PathParameter("name"))
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	response.WriteEntity(result)
 }
 
 func decodeBody(request *restful.Request, bodyStruct interface{}) *errors.StatusError {
