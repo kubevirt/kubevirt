@@ -610,10 +610,11 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 	domainEventJobCompletedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventJobCompleted) {
-		log.Log.Infof("Domain Job Completed event type %v received. Job operation: %v, succeeded: %t", event.Info.Type, event.Info.Operation, event.Info.JobSuccess)
+		log.Log.Infof("Domain Job Completed event type %v received. Job operation: %v, success reported: %t, succeeded: %t", event.Info.Type, event.Info.Operation, event.Info.JobSuccessSet, event.Info.JobSuccess)
 		if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
 			storeCompletedMigrationStats(&event.Info, metadataCache)
 		}
+		// The domain may already be gone when the terminal callback runs, so use the name captured when callbacks were registered.
 		select {
 		case eventChan <- libvirtEvent{JobCompletedEvent: event, Domain: domainName}:
 		default:
@@ -775,7 +776,12 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 }
 
 func storeCompletedMigrationStats(jobInfo *libvirt.DomainJobInfo, metadataCache *metadata.Cache) {
-	if !jobInfo.JobSuccessSet || !jobInfo.JobSuccess {
+	if !jobInfo.JobSuccessSet {
+		log.Log.Warning("Ignoring completed migration stats because libvirt did not report whether the job succeeded")
+		return
+	}
+	if !jobInfo.JobSuccess {
+		log.Log.Info("Ignoring completed migration stats for an unsuccessful migration")
 		return
 	}
 

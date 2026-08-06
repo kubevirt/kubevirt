@@ -450,6 +450,20 @@ var _ = Describe("Notify", func() {
 			Expect(exists).To(BeFalse())
 		})
 
+		It("should not persist stats when libvirt does not report migration success", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation:   libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				DowntimeSet: true,
+				Downtime:    150,
+			}
+			metadataCache := metadata.NewCache()
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			_, exists := metadataCache.CompletedMigrationStats.Load()
+			Expect(exists).To(BeFalse())
+		})
+
 		It("should include cached completed migration stats in domain notify events", func() {
 			domain := api.NewMinimalDomain("test")
 			x, err := xml.Marshal(domain.Spec)
