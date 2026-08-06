@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/backup"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -37,6 +38,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	lifecycleHandler := lifecycle.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	guestInfoHandler := guestinfo.NewHandler(virtClient, consoleServerPort, tlsConfig)
+	backupHandler := backup.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, consoleServerPort, tlsConfig, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
@@ -59,7 +61,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 		"virtualmachineinstances/objectgraph":         NewObjectGraphREST(subresourceApp),
 		"virtualmachineinstances/evacuate":            NewEvacuateCancelREST(subresourceApp),
 		"virtualmachineinstances/sev":                 NewSEVREST(subresourceApp),
-		"virtualmachineinstances/backup":              NewBackupREST(subresourceApp),
-		"virtualmachineinstances/redefine-checkpoint": NewRedefineCheckpointREST(subresourceApp),
+		"virtualmachineinstances/backup":              NewBackupREST(backupHandler),
+		"virtualmachineinstances/redefine-checkpoint": NewRedefineCheckpointREST(backupHandler),
 	}
 }
