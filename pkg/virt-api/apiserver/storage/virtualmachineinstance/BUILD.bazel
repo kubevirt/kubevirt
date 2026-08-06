@@ -30,6 +30,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle:go_default_library",
         "//pkg/virt-api/definitions:go_default_library",
         "//pkg/virt-api/rest:go_default_library",
         "//pkg/virt-api/streaming:go_default_library",
