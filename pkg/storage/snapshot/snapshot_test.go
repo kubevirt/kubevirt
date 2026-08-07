@@ -966,6 +966,70 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*createCalls).To(Equal(1))
 			})
 
+			It("should exclude volumes whose storage class has no VolumeSnapshotClass", func() {
+				noSnapshotStorageClass := "no-snapshot-sc"
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createLockedVM()
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "disk2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc-no-snapshot",
+						}},
+					},
+				})
+
+				noSnapshotPVC := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: testNamespace,
+						Name:      "test-pvc-no-snapshot",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						StorageClassName: &noSnapshotStorageClass,
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+					Status: corev1.PersistentVolumeClaimStatus{
+						Phase: corev1.ClaimBound,
+					},
+				}
+				pvcSource.Add(&noSnapshotPVC)
+
+				storageClassSource.Add(createStorageClass())
+				storageClassSource.Add(&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: noSnapshotStorageClass,
+					},
+					Provisioner: "no-snapshot-provisioner",
+				})
+
+				// Expected content only includes the snapshottable volume
+				pvcs := createPersistentVolumeClaims()
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
+
+				vmSource.Add(vm)
+				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(createVolumeSnapshotClasses()[0])
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+					SourceUID:  &vmUID,
+					ReadyToUse: pointer.P(false),
+					Phase:      snapshotv1.InProgress,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
+					},
+				}
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*createCalls).To(Equal(1))
+			})
+
 			It("create VirtualMachineSnapshotContent online snapshot", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
