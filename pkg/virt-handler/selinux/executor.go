@@ -23,12 +23,24 @@ package selinux
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
 
 	"github.com/opencontainers/selinux/go-selinux"
 )
+
+// [升级兼容] SELinux 能力验证（防误判）
+// 部分定制内核（如华为 OSM）存在"半启用"状态：selinuxfs 已挂载、
+// /sys/fs/selinux/enforce 存在，go-selinux v1.11.0 因此误报 SELinux 启用；
+// 但内核 cmdline 未启用 SELinux LSM，读取 /proc/<pid>/attr/current 返回
+// EOPNOTSUPP。读取自身进程 label 成功才算 SELinux 实际可用，
+// 与 ContextExecutor.isSELinuxEnabled 的能力验证逻辑保持一致。
+func IsSELinuxFunctional() bool {
+	_, err := selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", os.Getpid()))
+	return err == nil
+}
 
 type Executor interface {
 	NewSELinux() (SELinux, bool, error)

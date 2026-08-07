@@ -1037,6 +1037,18 @@ func (c *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineIn
 		return err
 	}
 	if present {
+		// [升级兼容] SELinux 能力验证（防误判）
+		// 与 ContextExecutor.isSELinuxEnabled 的能力验证保持一致：
+		// 部分定制内核（如华为 OSM）存在"半启用"状态（selinuxfs 挂载但
+		// SELinux LSM 未激活），go-selinux v1.11.0 误报 present=true，
+		// 导致每次 reconcile 都走 GetVirtLauncherContext 并报错
+		// （No command socket found / EOPNOTSUPP）。
+		// 自身进程 label 不可读即视为 SELinux 实际不可用，
+		// 直接置 "none" 快速返回，避免无意义的报错。
+		if !selinux.IsSELinuxFunctional() {
+			vmi.Status.SelinuxContext = "none"
+			return nil
+		}
 		context, err := selinux.GetVirtLauncherContext(vmi)
 		if err != nil {
 			return err
