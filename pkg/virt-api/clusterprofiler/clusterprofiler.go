@@ -17,7 +17,7 @@
  *
  */
 
-package rest
+package clusterprofiler
 
 import (
 	"context"
@@ -35,10 +35,14 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -46,15 +50,34 @@ const (
 	// as virt-api stores in memory profiling results. Based on experiments, profile data of one pod can grow to at least ~10Mb.
 	maxClusterProfilerResultsPageSize     = 20
 	defaultClusterProfilerResultsPageSize = 10
+	defaultProfilerComponentPort          = 8443
 )
 
-func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
+// Handler serves the cluster-level start/stop/dump-cluster-profiler
+// ConditionalAPIHandlers.
+type Handler struct {
+	virtCli               kubecli.KubevirtClient
+	k8sClient             kubernetes.Interface
+	clusterConfig         *virtconfig.ClusterConfig
+	profilerComponentPort int
+}
+
+func NewHandler(virtCli kubecli.KubevirtClient, k8sClient kubernetes.Interface, clusterConfig *virtconfig.ClusterConfig) *Handler {
+	return &Handler{
+		virtCli:               virtCli,
+		k8sClient:             k8sClient,
+		clusterConfig:         clusterConfig,
+		profilerComponentPort: defaultProfilerComponentPort,
+	}
+}
+
+func (h *Handler) getAllComponentPods() ([]k8sv1.Pod, error) {
 	namespace, err := clientutil.GetNamespace()
 	if err != nil {
 		return nil, err
 	}
 
-	podList, err := app.k8sClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
+	podList, err := h.k8sClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +92,7 @@ func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
 	return pods, nil
 }
 
-func (app *SubresourceAPIApp) unmarshalClusterProfilerRequest(request *restful.Request) (*v1.ClusterProfilerRequest, error) {
+func (h *Handler) unmarshalClusterProfilerRequest(request *restful.Request) (*v1.ClusterProfilerRequest, error) {
 	cpRequest := &v1.ClusterProfilerRequest{}
 	if request.Request.Body == nil {
 		return nil, fmt.Errorf("empty request body")
@@ -77,7 +100,7 @@ func (app *SubresourceAPIApp) unmarshalClusterProfilerRequest(request *restful.R
 	return cpRequest, json.NewDecoder(request.Request.Body).Decode(cpRequest)
 }
 
-func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerRequest) (pods []k8sv1.Pod, cont string, err error) {
+func (h *Handler) getPodsNextPage(cpRequest *v1.ClusterProfilerRequest) (pods []k8sv1.Pod, cont string, err error) {
 	var (
 		listOptions = metav1.ListOptions{}
 		namespace   string
@@ -102,7 +125,7 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 		return nil, "", err
 	}
 
-	if podList, err = app.k8sClient.CoreV1().Pods(namespace).List(context.Background(), listOptions); err != nil {
+	if podList, err = h.k8sClient.CoreV1().Pods(namespace).List(context.Background(), listOptions); err != nil {
 		return nil, "", err
 	}
 
@@ -141,8 +164,8 @@ func podIsReadyComponent(pod *k8sv1.Pod) bool {
 	return false
 }
 
-func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.Request, response *restful.Response) {
-	pods, err := app.getAllComponentPods()
+func (h *Handler) stopStartHandler(command string, request *restful.Request, response *restful.Response) {
+	pods, err := h.getAllComponentPods()
 	if err != nil {
 		log.Log.Infof("Encountered error while retrieving component pods for cluster profiler: %v", err)
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))
@@ -178,7 +201,7 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 			log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
 			go func(ip string, name string) {
 				defer wg.Done()
-				url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
+				url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, h.profilerComponentPort, command)
 				req, _ := http.NewRequest("GET", url, nil)
 				resp, err := client.Do(req)
 				if err != nil {
@@ -210,47 +233,47 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 	response.WriteHeader(http.StatusOK)
 }
 
-func (app *SubresourceAPIApp) StartClusterProfilerHandler(request *restful.Request, response *restful.Response) {
-	if !app.clusterConfig.ClusterProfilerEnabled() {
+func (h *Handler) StartClusterProfilerHandler(request *restful.Request, response *restful.Response) {
+	if !h.clusterConfig.ClusterProfilerEnabled() {
 		response.WriteErrorString(http.StatusForbidden, "Unable to start profiler. \"ClusterProfiler\" feature gate must be enabled")
 		return
 	}
-	app.stopStartHandler("start", request, response)
+	h.stopStartHandler("start", request, response)
 }
 
-func (app *SubresourceAPIApp) StopClusterProfilerHandler(request *restful.Request, response *restful.Response) {
-	if !app.clusterConfig.ClusterProfilerEnabled() {
+func (h *Handler) StopClusterProfilerHandler(request *restful.Request, response *restful.Response) {
+	if !h.clusterConfig.ClusterProfilerEnabled() {
 		response.WriteErrorString(http.StatusForbidden, "Unable to stop profiler. \"ClusterProfiler\" feature gate must be enabled")
 		return
 	}
-	app.stopStartHandler("stop", request, response)
+	h.stopStartHandler("stop", request, response)
 }
 
-func (app *SubresourceAPIApp) StartClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
-	app.StartClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
+func (h *Handler) StartClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
+	h.StartClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
 }
 
-func (app *SubresourceAPIApp) StopClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
-	app.StopClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
+func (h *Handler) StopClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
+	h.StopClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
 }
 
-func (app *SubresourceAPIApp) DumpClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
-	app.DumpClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
+func (h *Handler) DumpClusterProfilerHTTP(w http.ResponseWriter, r *http.Request) {
+	h.DumpClusterProfilerHandler(restful.NewRequest(r), restful.NewResponse(w))
 }
 
-func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Request, response *restful.Response) {
-	if !app.clusterConfig.ClusterProfilerEnabled() {
+func (h *Handler) DumpClusterProfilerHandler(request *restful.Request, response *restful.Response) {
+	if !h.clusterConfig.ClusterProfilerEnabled() {
 		response.WriteErrorString(http.StatusForbidden, "Unable to dump profiler results. \"ClusterProfiler\" feature gate must be enabled")
 		return
 	}
 
-	cpRequest, err := app.unmarshalClusterProfilerRequest(request)
+	cpRequest, err := h.unmarshalClusterProfilerRequest(request)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to parse cluster profiler request: %v", err))
 		return
 	}
 
-	pods, cont, err := app.getPodsNextPage(cpRequest)
+	pods, cont, err := h.getPodsNextPage(cpRequest)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Internal error while looking up component pods for profiling: %v", err))
 		return
@@ -291,7 +314,7 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 		log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
 		go func(ip string, name string) {
 			defer wg.Done()
-			url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
+			url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, h.profilerComponentPort, command)
 			req, _ := http.NewRequest("GET", url, nil)
 			resp, err := client.Do(req)
 			if err != nil {

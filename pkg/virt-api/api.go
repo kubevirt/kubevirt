@@ -60,12 +60,12 @@ import (
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
-	apiserver "kubevirt.io/kubevirt/pkg/virt-api/apiserver"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance"
+	"kubevirt.io/kubevirt/pkg/virt-api/clusterprofiler"
 	"kubevirt.io/kubevirt/pkg/virt-api/expand"
 	"kubevirt.io/kubevirt/pkg/virt-api/guestfs"
-	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	versionhandler "kubevirt.io/kubevirt/pkg/virt-api/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
@@ -524,7 +524,7 @@ func (app *virtAPIApp) healthAndMetricsMuxHandlers() []apiserver.MuxHandler {
 // the collection path without a resource name (expand-vm-spec, version, guestfs
 // and the cluster-profiler endpoints)
 func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandler {
-	subresourceApp := subresourcerest.NewSubresourceAPIApp(app.virtClient, app.k8sClient, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+	clusterProfilerHandler := clusterprofiler.NewHandler(app.virtClient, app.k8sClient, app.clusterConfig)
 
 	matchesResource := func(resource string) func(*request.RequestInfo) bool {
 		return func(info *request.RequestInfo) bool {
@@ -555,15 +555,15 @@ func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandl
 		},
 		{
 			Matches: matchesResource("start-cluster-profiler"),
-			Handler: http.HandlerFunc(subresourceApp.StartClusterProfilerHTTP),
+			Handler: http.HandlerFunc(clusterProfilerHandler.StartClusterProfilerHTTP),
 		},
 		{
 			Matches: matchesResource("stop-cluster-profiler"),
-			Handler: http.HandlerFunc(subresourceApp.StopClusterProfilerHTTP),
+			Handler: http.HandlerFunc(clusterProfilerHandler.StopClusterProfilerHTTP),
 		},
 		{
 			Matches: matchesResource("dump-cluster-profiler"),
-			Handler: http.HandlerFunc(subresourceApp.DumpClusterProfilerHTTP),
+			Handler: http.HandlerFunc(clusterProfilerHandler.DumpClusterProfilerHTTP),
 		},
 	}
 }
