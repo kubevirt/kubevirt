@@ -17,11 +17,10 @@
  *
  */
 
-package rest
+package clusterprofiler
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -74,7 +73,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
-	app := SubresourceAPIApp{}
+	handler := &Handler{}
 	BeforeEach(func() {
 		backend = ghttp.NewTLSServer()
 		backendAddr := strings.Split(backend.Addr(), ":")
@@ -84,11 +83,9 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		server = ghttp.NewServer()
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
-		app.virtClient, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		app.k8sClient, _ = kubecli.GetK8sClientFromFlags(server.URL(), "")
-		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
-		app.clusterConfig = config
-		app.profilerComponentPort = backendPort
+		handler.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		handler.clusterConfig = config
+		handler.profilerComponentPort = backendPort
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()
@@ -137,9 +134,9 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusForbidden))
 		},
-			Entry("start function", app.StartClusterProfilerHandler),
-			Entry("stop function", app.StopClusterProfilerHandler),
-			Entry("dump function", app.DumpClusterProfilerHandler),
+			Entry("start function", handler.StartClusterProfilerHandler),
+			Entry("stop function", handler.StopClusterProfilerHandler),
+			Entry("dump function", handler.DumpClusterProfilerHandler),
 		)
 		DescribeTable("start/stop should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
 
@@ -159,8 +156,8 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
 		},
-			Entry("start function", app.StartClusterProfilerHandler, "start"),
-			Entry("stop function", app.StopClusterProfilerHandler, "stop"),
+			Entry("start function", handler.StartClusterProfilerHandler, "start"),
+			Entry("stop function", handler.StopClusterProfilerHandler, "stop"),
 		)
 
 		DescribeTable("dump should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
@@ -185,7 +182,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
 		},
-			Entry("dump function", app.DumpClusterProfilerHandler, "dump"),
+			Entry("dump function", handler.DumpClusterProfilerHandler, "dump"),
 		)
 	})
 
