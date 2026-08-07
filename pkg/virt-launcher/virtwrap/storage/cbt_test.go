@@ -402,6 +402,19 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(stdinBuf.String()).To(ContainSubstring(fmt.Sprintf(`"size": %d`, testSize)))
 		})
 
+		It("should set cluster size of 256KiB for overlays", func() {
+			qmpOutput := `{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+			const testSize int64 = 107374182400
+
+			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, testSize, overlayPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdinBuf.String()).To(ContainSubstring(fmt.Sprintf(`"cluster-size": %d`, 1<<18)))
+		})
+
 		It("should not panic on multiple concluded events", func() {
 			qmpOutput := strings.Join([]string{
 				`{"return": {}}`,
