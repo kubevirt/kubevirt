@@ -11240,8 +11240,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         pvcName:
           description: |-
-            PvcName required in push mode. Specifies the name of the PVC
-            where the backup output will be stored
+            PvcName specifies the name of the PVC where the backup output will be stored.
+            When omitted, the controller creates a filesystem RWO PVC automatically and
+            records the name in status.pvcName.
           type: string
         skipQuiesce:
           description: SkipQuiesce indicates whether the VM's filesystem shoule not
@@ -11285,6 +11286,16 @@ var CRDsValidation map[string]string = map[string]string{
               self.kind == ''VirtualMachineBackupTracker'')'
           - message: name is required
             rule: self.name != ''
+        targetPvcSizePercent:
+          description: |-
+            TargetPvcSizePercent sizes auto-provisioned target PVCs as a percentage of the
+            summed CBT-eligible source volume sizes. Ignored when spec.pvcName is set.
+            When unset, the controller defaults to 120.
+          format: int32
+          type: integer
+          x-kubernetes-validations:
+          - message: targetPvcSizePercent must be between 1 and 1000
+            rule: self >= 1 && self <= 1000
         tokenSecretRef:
           description: |-
             TokenSecretRef is the name of the secret that
@@ -11482,6 +11493,9 @@ var CRDsValidation map[string]string = map[string]string{
               - cert
               type: object
           type: object
+        pvcName:
+          description: PvcName is the name of the PVC used to store the backup output
+          type: string
         startTimestamp:
           description: StartTimestamp is the timestamp when the backup started
           format: date-time

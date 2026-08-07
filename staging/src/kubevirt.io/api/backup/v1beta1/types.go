@@ -206,9 +206,16 @@ type VirtualMachineBackupSpec struct {
 	// Mode specifies the way the backup output will be recieved
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional
-	// PvcName required in push mode. Specifies the name of the PVC
-	// where the backup output will be stored
+	// PvcName specifies the name of the PVC where the backup output will be stored.
+	// When omitted, the controller creates a filesystem RWO PVC automatically and
+	// records the name in status.pvcName.
 	PvcName *string `json:"pvcName,omitempty"`
+	// +optional
+	// TargetPvcSizePercent sizes auto-provisioned target PVCs as a percentage of the
+	// summed CBT-eligible source volume sizes. Ignored when spec.pvcName is set.
+	// When unset, the controller defaults to 120.
+	// +kubebuilder:validation:XValidation:rule="self >= 1 && self <= 1000",message="targetPvcSizePercent must be between 1 and 1000"
+	TargetPvcSizePercent *int32 `json:"targetPvcSizePercent,omitempty"`
 	// +optional
 	// SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup
 	SkipQuiesce bool `json:"skipQuiesce,omitempty"`
@@ -252,6 +259,9 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// +optional
+	// PvcName is the name of the PVC used to store the backup output
+	PvcName *string `json:"pvcName,omitempty"`
 	// +optional
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
