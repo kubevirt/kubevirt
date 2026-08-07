@@ -28,11 +28,15 @@ import (
 	"go.uber.org/mock/gomock"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -46,7 +50,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 		vmiInterface         *kubecli.MockVirtualMachineInstanceInterface
 		backupController     *VMBackupController
 		testVMI              *v1.VirtualMachineInstance
-		testPVCName          string
+		testPVCName          string = "test-backup-pvc"
 		testBackupVolumeName string
 	)
 
@@ -55,7 +59,6 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		testPVCName = "test-backup-pvc"
 		testBackupVolumeName = backupTargetVolumeName("test-backup")
 
 		pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
@@ -77,49 +80,40 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 		ctrl.Finish()
 	})
 
-	Context("backupTargetPVCAttached", func() {
-		It("should return false when VMI is nil", func() {
-			attached := backupController.backupTargetPVCAttached(nil, testBackupVolumeName)
-			Expect(attached).To(BeFalse())
-		})
-
-		It("should return false when volume status doesn't exist", func() {
-			testVMI.Status.VolumeStatus = []v1.VolumeStatus{}
-
-			attached := backupController.backupTargetPVCAttached(testVMI, testBackupVolumeName)
-			Expect(attached).To(BeFalse())
-		})
-
-		It("should return false when volume exists but not mounted", func() {
-			testVMI.Status.VolumeStatus = []v1.VolumeStatus{
-				{
-					Name:          testBackupVolumeName,
-					HotplugVolume: &v1.HotplugVolumeStatus{},
-					Phase:         v1.VolumeReady,
-				},
+	DescribeTable("backupTargetPVCAttached",
+		func(setup func(*v1.VirtualMachineInstance), vmiNil, expected bool) {
+			var vmi *v1.VirtualMachineInstance
+			if !vmiNil {
+				vmi = testVMI
+				if setup != nil {
+					setup(vmi)
+				}
 			}
+			Expect(backupController.backupTargetPVCAttached(vmi, testBackupVolumeName)).To(Equal(expected))
+		},
+		Entry("false when VMI is nil", nil, true, false),
+		Entry("false when volume status doesn't exist", func(vmi *v1.VirtualMachineInstance) {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{}
+		}, false, false),
+		Entry("false when volume exists but not mounted", func(vmi *v1.VirtualMachineInstance) {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{
+				Name:          testBackupVolumeName,
+				HotplugVolume: &v1.HotplugVolumeStatus{},
+				Phase:         v1.VolumeReady,
+			}}
+		}, false, false),
+		Entry("true when volume is HotplugVolumeMounted", func(vmi *v1.VirtualMachineInstance) {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{
+				Name:          testBackupVolumeName,
+				HotplugVolume: &v1.HotplugVolumeStatus{},
+				Phase:         v1.HotplugVolumeMounted,
+			}}
+		}, false, true),
+	)
 
-			attached := backupController.backupTargetPVCAttached(testVMI, testBackupVolumeName)
-			Expect(attached).To(BeFalse())
-		})
-
-		It("should return true when volume is mounted with HotplugVolumeMounted phase", func() {
-			testVMI.Status.VolumeStatus = []v1.VolumeStatus{
-				{
-					Name:          testBackupVolumeName,
-					HotplugVolume: &v1.HotplugVolumeStatus{},
-					Phase:         v1.HotplugVolumeMounted,
-				},
-			}
-
-			attached := backupController.backupTargetPVCAttached(testVMI, testBackupVolumeName)
-			Expect(attached).To(BeTrue())
-		})
-	})
-
-	Context("attachBackupTargetPVC", func() {
-		It("should successfully attach utility volume with Add operation when list is empty", func() {
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{}
+	DescribeTable("attachBackupTargetPVC",
+		func(existingVolumes []v1.UtilityVolume, expectedOp string) {
+			testVMI.Spec.UtilityVolumes = existingVolumes
 
 			vmiInterface.EXPECT().Patch(
 				context.Background(),
@@ -130,207 +124,321 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchStr := string(data)
 				Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
-				Expect(patchStr).To(ContainSubstring("\"op\":\"add\""))
+				Expect(patchStr).To(ContainSubstring(fmt.Sprintf("\"op\":\"%s\"", expectedOp)))
 				Expect(patchStr).To(ContainSubstring("\"type\":\"Backup\""))
 				return testVMI, nil
 			})
 
-			err := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
-			Expect(err).ToNot(HaveOccurred())
-		})
+			Expect(backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)).To(Succeed())
+		},
+		Entry("Add when utilityVolumes is empty", []v1.UtilityVolume{}, "add"),
+		Entry("Replace when utilityVolumes already has volumes", []v1.UtilityVolume{{
+			Name: "existing-utility-volume",
+			PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: "existing-pvc",
+			},
+			Type: pointer.P(v1.MemoryDump),
+		}}, "replace"),
+	)
 
-		It("should successfully attach utility volume with Replace operation when list has existing volumes", func() {
-			existingVolume := v1.UtilityVolume{
-				Name: "existing-utility-volume",
-				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "existing-pvc",
-				},
-				Type: pointer.P(v1.MemoryDump),
-			}
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{existingVolume}
+	DescribeTable("detachBackupTargetPVC",
+		func(setupVolumes func(backupVolumeName string) []v1.UtilityVolume, expectPatch bool, expectedOp string) {
+			testVMI.Spec.UtilityVolumes = setupVolumes(testBackupVolumeName)
 
-			vmiInterface.EXPECT().Patch(
-				context.Background(),
-				testVMI.Name,
-				types.JSONPatchType,
-				gomock.Any(),
-				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
-				patchStr := string(data)
-				Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
-				Expect(patchStr).To(ContainSubstring("\"op\":\"replace\""))
-				Expect(patchStr).To(ContainSubstring("\"type\":\"Backup\""))
-				return testVMI, nil
-			})
-
-			err := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
-	Context("detachBackupTargetPVC", func() {
-		It("should return nil when utilityVolumes is empty", func() {
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{}
-
-			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should remove only the backup-target-pvc volume with Replace operation", func() {
-			backupVolume := v1.UtilityVolume{
-				Name: testBackupVolumeName,
-				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: testPVCName,
-				},
-				Type: pointer.P(v1.Backup),
-			}
-			otherVolume := v1.UtilityVolume{
-				Name: "other-utility-volume",
-				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "other-pvc",
-				},
-				Type: pointer.P(v1.MemoryDump),
+			if expectPatch {
+				vmiInterface.EXPECT().Patch(
+					context.Background(),
+					testVMI.Name,
+					types.JSONPatchType,
+					gomock.Any(),
+					gomock.Any(),
+				).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+					patchStr := string(data)
+					Expect(patchStr).To(ContainSubstring(fmt.Sprintf("\"op\":\"%s\"", expectedOp)))
+					Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
+					return testVMI, nil
+				})
 			}
 
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{backupVolume, otherVolume}
-
-			vmiInterface.EXPECT().Patch(
-				context.Background(),
-				testVMI.Name,
-				types.JSONPatchType,
-				gomock.Any(),
-				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
-				patchStr := string(data)
-				Expect(patchStr).To(ContainSubstring("\"op\":\"replace\""))
-				Expect(patchStr).To(ContainSubstring("other-utility-volume"))
-				// The patch will contain backup-target-pvc in the test operation, but not in the final value
-				return testVMI, nil
-			})
-
-			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should use Remove operation when no volumes remain after detach", func() {
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{
-				{
-					Name: testBackupVolumeName,
+			Expect(backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)).To(Succeed())
+		},
+		Entry("no-op when utilityVolumes is empty",
+			func(string) []v1.UtilityVolume { return []v1.UtilityVolume{} }, false, ""),
+		Entry("Replace when other volumes remain",
+			func(backupVolumeName string) []v1.UtilityVolume {
+				return []v1.UtilityVolume{
+					{
+						Name: backupVolumeName,
+						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: testPVCName,
+						},
+						Type: pointer.P(v1.Backup),
+					},
+					{
+						Name: "other-utility-volume",
+						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "other-pvc",
+						},
+						Type: pointer.P(v1.MemoryDump),
+					},
+				}
+			}, true, "replace"),
+		Entry("Remove when no volumes remain",
+			func(backupVolumeName string) []v1.UtilityVolume {
+				return []v1.UtilityVolume{{
+					Name: backupVolumeName,
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: testPVCName,
 					},
 					Type: pointer.P(v1.Backup),
-				},
+				}}
+			}, true, "remove"),
+	)
+
+	DescribeTable("verifyBackupTargetPVC",
+		func(pvcNameFn func() *string, pvc *corev1.PersistentVolumeClaim, expectErrSubstring string, expectNotFound bool) {
+			if pvc != nil {
+				Expect(backupController.pvcStore.Add(pvc)).To(Succeed())
 			}
-
-			vmiInterface.EXPECT().Patch(
-				context.Background(),
-				testVMI.Name,
-				types.JSONPatchType,
-				gomock.Any(),
-				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
-				patchStr := string(data)
-				Expect(patchStr).To(ContainSubstring("\"op\":\"remove\""))
-				Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
-				return testVMI, nil
-			})
-
-			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
-	Context("verifyBackupTargetPVC", func() {
-		It("should fail when PVC name is nil", func() {
-			reason, err := backupController.verifyBackupTargetPVC(nil, "default")
+			err := backupController.verifyBackupTargetPVC(pvcNameFn(), "default")
+			if expectErrSubstring == "" && !expectNotFound {
+				Expect(err).ToNot(HaveOccurred())
+				return
+			}
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("nil"))
-			Expect(reason).To(BeEmpty())
-		})
+			Expect(err.Error()).To(ContainSubstring(expectErrSubstring))
+			Expect(isBackupTargetPVCNotFound(err)).To(Equal(expectNotFound))
+		},
+		Entry("fail when PVC name is nil", func() *string { return nil }, nil, "empty", false),
+		Entry("return not-found when PVC doesn't exist", func() *string { return pointer.P("non-existent-pvc") }, nil,
+			fmt.Sprintf(pvcNotFoundMsg, "default", "non-existent-pvc"), true),
+		Entry("fail when PVC is block mode", func() *string { return &testPVCName }, &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: "default"},
+			Spec:       corev1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(corev1.PersistentVolumeBlock)},
+		}, "block", false),
+		Entry("succeed when PVC is filesystem mode", func() *string { return &testPVCName }, &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: "default"},
+			Spec:       corev1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem)},
+		}, "", false),
+	)
 
-		It("should return reason when PVC doesn't exist in store", func() {
-			nonExistentPVC := "non-existent-pvc"
-			reason, err := backupController.verifyBackupTargetPVC(&nonExistentPVC, "default")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(reason).To(ContainSubstring(fmt.Sprintf(pvcNotFoundMsg, "default", nonExistentPVC)))
-		})
-
-		It("should fail when PVC is block mode", func() {
-			pvc := &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testPVCName,
-					Namespace: "default",
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					VolumeMode: pointer.P(corev1.PersistentVolumeBlock),
-				},
-			}
-			backupController.pvcStore.Add(pvc)
-
-			reason, err := backupController.verifyBackupTargetPVC(&testPVCName, "default")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("block"))
-			Expect(reason).To(BeEmpty())
-		})
-
-		It("should succeed when PVC is filesystem mode", func() {
-			pvc := &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testPVCName,
-					Namespace: "default",
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem),
-				},
-			}
-			backupController.pvcStore.Add(pvc)
-
-			reason, err := backupController.verifyBackupTargetPVC(&testPVCName, "default")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(reason).To(BeEmpty())
-		})
-	})
-
-	Context("Error handling", func() {
-		It("should handle patch errors during attach", func() {
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{}
-
+	DescribeTable("Error handling",
+		func(setup func(vmi *v1.VirtualMachineInstance, backupVolumeName, pvcName string), callAttach bool, errSubstring string) {
+			setup(testVMI, testBackupVolumeName, testPVCName)
 			vmiInterface.EXPECT().Patch(
 				gomock.Any(),
 				gomock.Any(),
 				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
-			).Return(nil, fmt.Errorf("attach patch failed"))
+			).Return(nil, fmt.Errorf("%s", errSubstring))
 
-			err := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
+			var err error
+			if callAttach {
+				err = backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
+			} else {
+				err = backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			}
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("attach patch failed"))
-		})
-
-		It("should handle patch errors during detach", func() {
-			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{
-				{
-					Name: testBackupVolumeName,
+			Expect(err.Error()).To(ContainSubstring(errSubstring))
+		},
+		Entry("attach patch errors",
+			func(vmi *v1.VirtualMachineInstance, _, _ string) { vmi.Spec.UtilityVolumes = []v1.UtilityVolume{} },
+			true,
+			"attach patch failed",
+		),
+		Entry("detach patch errors",
+			func(vmi *v1.VirtualMachineInstance, backupVolumeName, pvcName string) {
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{
+					Name: backupVolumeName,
 					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: testPVCName,
+						ClaimName: pvcName,
 					},
 					Type: pointer.P(v1.Backup),
+				}}
+			},
+			false,
+			"detach patch failed",
+		),
+	)
+
+	DescribeTable("bootCandidateCBTVolume",
+		func(disks []v1.Disk, volumeNames []string, expected string) {
+			opts := []libvmi.Option{
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("test-vmi"),
+			}
+			for _, name := range volumeNames {
+				opts = append(opts, libvmi.WithPersistentVolumeClaim(name, name+"-pvc"))
+			}
+			vmi := libvmi.New(opts...)
+			if disks != nil {
+				vmi.Spec.Domain.Devices.Disks = disks
+			}
+			name, err := bootCandidateCBTVolume(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(name).To(Equal(expected))
+		},
+		Entry("lowest bootOrder CBT disk",
+			[]v1.Disk{
+				{Name: "data", BootOrder: pointer.P(uint(2))},
+				{Name: "root", BootOrder: pointer.P(uint(1))},
+			},
+			[]string{"data", "root"},
+			"root",
+		),
+		Entry("first CBT-eligible volume when no bootOrder is set",
+			nil,
+			[]string{"disk0", "disk1"},
+			"disk0",
+		),
+	)
+
+	DescribeTable("pvcStorageSize",
+		func(request, capacity, expected string) {
+			pvc := &corev1.PersistentVolumeClaim{
+				Spec: corev1.PersistentVolumeClaimSpec{
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{},
+					},
 				},
 			}
+			if request != "" {
+				pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse(request)
+			}
+			if capacity != "" {
+				pvc.Status.Capacity = corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse(capacity),
+				}
+			}
+			size := pvcStorageSize(pvc)
+			Expect(size).ToNot(BeNil())
+			Expect(size.Cmp(resource.MustParse(expected))).To(Equal(0))
+		},
+		Entry("min(request, capacity) when capacity is larger like hostpath", "4Gi", "100Gi", "4Gi"),
+		Entry("fall back to request when capacity is missing", "2Gi", "", "2Gi"),
+		Entry("use capacity when smaller than request", "10Gi", "8Gi", "8Gi"),
+	)
 
-			vmiInterface.EXPECT().Patch(
-				gomock.Any(),
-				gomock.Any(),
-				types.JSONPatchType,
-				gomock.Any(),
-				gomock.Any(),
-			).Return(nil, fmt.Errorf("detach patch failed"))
+	DescribeTable("validateReusableAutoBackupTargetPVC",
+		func(pvc *corev1.PersistentVolumeClaim, expectErrSubstring string) {
+			backup := &backupv1.VirtualMachineBackup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-backup",
+					Namespace: "default",
+					UID:       "backup-uid",
+				},
+			}
+			err := validateReusableAutoBackupTargetPVC(backup, pvc)
+			if expectErrSubstring != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectErrSubstring))
+				return
+			}
+			Expect(err).ToNot(HaveOccurred())
+		},
+		Entry("succeed when owned FS PVC", &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "owned-pvc",
+				Namespace: "default",
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(&backupv1.VirtualMachineBackup{
+						ObjectMeta: metav1.ObjectMeta{Name: "test-backup", UID: "backup-uid"},
+					}, backupv1.SchemeGroupVersion.WithKind(
+						backupv1.VirtualMachineBackupGroupVersionKind.Kind)),
+				},
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem)},
+		}, ""),
+		Entry("fail when PVC is block mode", &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "block-pvc",
+				Namespace: "default",
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(&backupv1.VirtualMachineBackup{
+						ObjectMeta: metav1.ObjectMeta{Name: "test-backup", UID: "backup-uid"},
+					}, backupv1.SchemeGroupVersion.WithKind(
+						backupv1.VirtualMachineBackupGroupVersionKind.Kind)),
+				},
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(corev1.PersistentVolumeBlock)},
+		}, "block"),
+		Entry("fail when PVC is not owned by backup", &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foreign-pvc",
+				Namespace: "default",
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem)},
+		}, "not owned"),
+	)
 
-			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("detach patch failed"))
-		})
-	})
+	DescribeTable("storageClassFromPVC",
+		func(pvc *corev1.PersistentVolumeClaim, pv *corev1.PersistentVolume, expectSC, expectErrSubstring string) {
+			k8sClient := fake.NewSimpleClientset()
+			if pv != nil {
+				_, err := k8sClient.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+
+			sc, err := backupController.storageClassFromPVC(pvc)
+			if expectErrSubstring != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectErrSubstring))
+				return
+			}
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sc).To(Equal(expectSC))
+		},
+		Entry("use PVC storageClassName when set",
+			&corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "disk", Namespace: "default"},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: pointer.P("pvc-sc"),
+				},
+			},
+			nil,
+			"pvc-sc",
+			"",
+		),
+		Entry("fail when unbound and no storageClassName",
+			&corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "disk", Namespace: "default"},
+				Spec:       corev1.PersistentVolumeClaimSpec{},
+			},
+			nil,
+			"",
+			"not bound",
+		),
+		Entry("resolve storageClassName from bound PV",
+			&corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "disk", Namespace: "default"},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					VolumeName: "disk-pv",
+				},
+			},
+			&corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: "disk-pv"},
+				Spec: corev1.PersistentVolumeSpec{
+					StorageClassName: "pv-sc",
+				},
+			},
+			"pv-sc",
+			"",
+		),
+		Entry("fail when bound PV has no storageClassName",
+			&corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "disk", Namespace: "default"},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					VolumeName: "disk-pv",
+				},
+			},
+			&corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: "disk-pv"},
+				Spec:       corev1.PersistentVolumeSpec{},
+			},
+			"",
+			"has no storageClassName",
+		),
+	)
 })

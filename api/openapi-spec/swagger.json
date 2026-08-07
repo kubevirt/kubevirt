@@ -20637,6 +20637,10 @@
      "name": {
       "type": "string"
      },
+     "pvcName": {
+      "description": "PvcName is the name of the PVC that stores the backup data for this checkpoint",
+      "type": "string"
+     },
      "volumes": {
       "description": "Volumes lists volumes included in the backup",
       "type": "array",
@@ -20902,7 +20906,7 @@
       "type": "string"
      },
      "pvcName": {
-      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+      "description": "PvcName specifies the name of the PVC where the backup output will be stored. When omitted, the controller creates a filesystem RWO PVC automatically and records the name in status.pvcName.",
       "type": "string"
      },
      "skipQuiesce": {
@@ -20960,6 +20964,10 @@
        "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "pvcName": {
+      "description": "PvcName is the name of the PVC used to store the backup output",
+      "type": "string"
      },
      "type": {
       "description": "Type indicates if the backup was full or incremental",
