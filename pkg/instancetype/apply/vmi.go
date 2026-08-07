@@ -67,6 +67,10 @@ func (a *vmiApplier) ApplyToVMI(
 		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyInstanceTypeAnnotations(baseConflict, instancetypeSpec.Annotations, vmiMetadata)...)
+
+		// Preference defaults are intentionally skipped when the instancetype has
+		// conflicts: the VM spec is already invalid, and applying defaults on top
+		// of a broken state would be misleading to the caller.
 		if len(conflicts) > 0 {
 			return conflicts
 		}
