@@ -28,12 +28,25 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
+
+func extractVMStatsDetails(err error) *cmdv1.VMStatsResponse {
+	st, ok := grpcstatus.FromError(err)
+	ExpectWithOffset(1, ok).To(BeTrue(), "expected gRPC status error")
+	ExpectWithOffset(1, st.Code()).To(Equal(codes.Internal))
+	details := st.Details()
+	ExpectWithOffset(1, details).To(HaveLen(1))
+	resp, ok := details[0].(*cmdv1.VMStatsResponse)
+	ExpectWithOffset(1, ok).To(BeTrue(), "expected VMStatsResponse in error details")
+	return resp
+}
 
 var _ = Describe("GetVMStats", func() {
 	var (
@@ -84,10 +97,12 @@ var _ = Describe("GetVMStats", func() {
 			request := &cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.DomainStats.Response.Success).To(BeFalse())
-			Expect(response.DomainStats.Response.Message).To(ContainSubstring("stats error"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.DomainStats.Response.Success).To(BeFalse())
+			Expect(partialResp.DomainStats.Response.Message).To(ContainSubstring("stats error"))
 		})
 	})
 
@@ -114,10 +129,12 @@ var _ = Describe("GetVMStats", func() {
 			request := &cmdv1.VMStatsRequest{DirtyRate: &cmdv1.DirtyRateRequest{}}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.DirtyRateStats.Response.Success).To(BeFalse())
-			Expect(response.DirtyRateStats.Response.Message).To(ContainSubstring("dirty rate error"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.DirtyRateStats.Response.Success).To(BeFalse())
+			Expect(partialResp.DirtyRateStats.Response.Message).To(ContainSubstring("dirty rate error"))
 		})
 	})
 
@@ -154,12 +171,14 @@ var _ = Describe("GetVMStats", func() {
 			}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.GuestGetLoad.Success).To(BeTrue())
-			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
-			Expect(response.GuestGetTime.Success).To(BeFalse())
-			Expect(response.GuestGetTime.Message).To(ContainSubstring("agent not responding"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.GuestGetLoad.Success).To(BeTrue())
+			Expect(partialResp.GuestGetLoad.Message).To(Equal("load-data"))
+			Expect(partialResp.GuestGetTime.Success).To(BeFalse())
+			Expect(partialResp.GuestGetTime.Message).To(ContainSubstring("agent not responding"))
 		})
 
 		It("should not call GetGuestAgentVersion when no agent data is requested", func() {
@@ -222,15 +241,17 @@ var _ = Describe("GetVMStats", func() {
 			}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.Response.Message).To(ContainSubstring("stats error"))
-			Expect(response.DomainStats.Response.Success).To(BeFalse())
-			Expect(response.DirtyRateStats.Response.Success).To(BeTrue())
-			Expect(response.DirtyRateStats.DirtyRateMbs).To(Equal(int64(100)))
-			Expect(response.GuestAgentVersion.Message).To(Equal("5.2"))
-			Expect(response.GuestGetLoad.Success).To(BeTrue())
-			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.Response.Message).To(ContainSubstring("stats error"))
+			Expect(partialResp.DomainStats.Response.Success).To(BeFalse())
+			Expect(partialResp.DirtyRateStats.Response.Success).To(BeTrue())
+			Expect(partialResp.DirtyRateStats.DirtyRateMbs).To(Equal(int64(100)))
+			Expect(partialResp.GuestAgentVersion.Message).To(Equal("5.2"))
+			Expect(partialResp.GuestGetLoad.Success).To(BeTrue())
+			Expect(partialResp.GuestGetLoad.Message).To(Equal("load-data"))
 		})
 
 		It("should continue filling other fields when DirtyRateStats fails", func() {
@@ -249,15 +270,17 @@ var _ = Describe("GetVMStats", func() {
 			}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.Response.Message).To(ContainSubstring("dirty rate error"))
-			Expect(response.DomainStats.Response.Success).To(BeTrue())
-			Expect(response.DomainStats.DomainStats).ToNot(BeEmpty())
-			Expect(response.DirtyRateStats.Response.Success).To(BeFalse())
-			Expect(response.GuestAgentVersion.Message).To(Equal("5.2"))
-			Expect(response.GuestGetLoad.Success).To(BeTrue())
-			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.Response.Message).To(ContainSubstring("dirty rate error"))
+			Expect(partialResp.DomainStats.Response.Success).To(BeTrue())
+			Expect(partialResp.DomainStats.DomainStats).ToNot(BeEmpty())
+			Expect(partialResp.DirtyRateStats.Response.Success).To(BeFalse())
+			Expect(partialResp.GuestAgentVersion.Message).To(Equal("5.2"))
+			Expect(partialResp.GuestGetLoad.Success).To(BeTrue())
+			Expect(partialResp.GuestGetLoad.Message).To(Equal("load-data"))
 		})
 
 		It("should collect multiple errors when both DomainStats and DirtyRate fail", func() {
@@ -273,15 +296,17 @@ var _ = Describe("GetVMStats", func() {
 			}
 			response, err := server.GetVMStats(context.TODO(), request)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.Response.Message).To(ContainSubstring("stats error"))
-			Expect(response.Response.Message).To(ContainSubstring("dirty rate error"))
-			Expect(response.DomainStats.Response.Success).To(BeFalse())
-			Expect(response.DirtyRateStats.Response.Success).To(BeFalse())
-			Expect(response.GuestAgentVersion.Message).To(Equal("5.2"))
-			Expect(response.GuestGetLoad.Success).To(BeTrue())
-			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
+			Expect(err).To(HaveOccurred())
+			Expect(response).To(BeNil())
+			partialResp := extractVMStatsDetails(err)
+			Expect(partialResp.Response.Success).To(BeFalse())
+			Expect(partialResp.Response.Message).To(ContainSubstring("stats error"))
+			Expect(partialResp.Response.Message).To(ContainSubstring("dirty rate error"))
+			Expect(partialResp.DomainStats.Response.Success).To(BeFalse())
+			Expect(partialResp.DirtyRateStats.Response.Success).To(BeFalse())
+			Expect(partialResp.GuestAgentVersion.Message).To(Equal("5.2"))
+			Expect(partialResp.GuestGetLoad.Success).To(BeTrue())
+			Expect(partialResp.GuestGetLoad.Message).To(Equal("load-data"))
 		})
 	})
 
