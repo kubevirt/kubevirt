@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
+	preferenceValidation "kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 )
 
 func applyCPU(
@@ -66,6 +67,10 @@ func applyCPU(
 
 	if instancetypeSpec.CPU.MaxSockets != nil {
 		vmiSpec.Domain.CPU.MaxSockets = *instancetypeSpec.CPU.MaxSockets
+	}
+
+	if spreadConflict := preferenceValidation.CheckSpreadCPUTopology(instancetypeSpec, preferenceSpec); spreadConflict != nil {
+		return conflict.Conflicts{spreadConflict}
 	}
 
 	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
