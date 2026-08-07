@@ -17,20 +17,14 @@
  *
  */
 
-package rest
+package objectgraph
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"strconv"
-	"strings"
 
-	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -50,6 +44,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
+
+const testVMName = "testvm"
 
 var _ = Describe("Object Graph", func() {
 	var (
@@ -79,26 +75,13 @@ var _ = Describe("Object Graph", func() {
 
 	Context("endpoint handler", func() {
 		var (
-			request    *restful.Request
-			response   *restful.Response
-			recorder   *httptest.ResponseRecorder
 			virtClient *kubevirtfake.Clientset
 			kv         *v1.KubeVirt
 			kvStore    cache.Store
-			app        *SubresourceAPIApp
+			handler    *Handler
 		)
 
 		BeforeEach(func() {
-			request = restful.NewRequest(&http.Request{})
-			request.PathParameters()["name"] = testVMName
-			request.PathParameters()["namespace"] = metav1.NamespaceDefault
-			recorder = httptest.NewRecorder()
-			response = restful.NewResponse(recorder)
-			backend := ghttp.NewTLSServer()
-			backendAddr := strings.Split(backend.Addr(), ":")
-			backendPort, err := strconv.Atoi(backendAddr[1])
-			Expect(err).ToNot(HaveOccurred())
-
 			virtClient = kubevirtfake.NewSimpleClientset()
 			kvClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 			kvClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
@@ -121,7 +104,7 @@ var _ = Describe("Object Graph", func() {
 			}
 			var config *virtconfig.ClusterConfig
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
-			app = NewSubresourceAPIApp(kvClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+			handler = NewHandler(kvClient, kubeClient, config)
 		})
 
 		disableFeatureGates := func() {
@@ -134,33 +117,37 @@ var _ = Describe("Object Graph", func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 		})
 
-		When("VMIObjectGraph API request arrives", func() {
+		When("GetVMIObjectGraph is called", func() {
 			It("should return an error if the FG is not enabled", func() {
 				disableFeatureGates()
-				app.VMIObjectGraph(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-				ExpectMessage(recorder, Equal("ObjectGraph feature gate not enabled: Unable to return object graph."))
+				_, statusErr := handler.GetVMIObjectGraph(metav1.NamespaceDefault, testVMName, nil)
+				Expect(statusErr).ToNot(BeNil())
+				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusBadRequest))
+				Expect(statusErr.Error()).To(ContainSubstring("ObjectGraph feature gate not enabled: Unable to return object graph."))
 			})
 
 			It("should return an error if the VMI is not found", func() {
-				app.VMIObjectGraph(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				ExpectMessage(recorder, Equal("virtualmachineinstance.kubevirt.io \"testvm\" not found"))
+				_, statusErr := handler.GetVMIObjectGraph(metav1.NamespaceDefault, testVMName, nil)
+				Expect(statusErr).ToNot(BeNil())
+				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusNotFound))
+				Expect(statusErr.Error()).To(ContainSubstring(`virtualmachineinstance.kubevirt.io "testvm" not found`))
 			})
 		})
 
-		When("VMObjectGraph API request arrives", func() {
+		When("GetVMObjectGraph is called", func() {
 			It("should return an error if the FG is not enabled", func() {
 				disableFeatureGates()
-				app.VMObjectGraph(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-				ExpectMessage(recorder, Equal("ObjectGraph feature gate not enabled: Unable to return object graph."))
+				_, statusErr := handler.GetVMObjectGraph(metav1.NamespaceDefault, testVMName, nil)
+				Expect(statusErr).ToNot(BeNil())
+				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusBadRequest))
+				Expect(statusErr.Error()).To(ContainSubstring("ObjectGraph feature gate not enabled: Unable to return object graph."))
 			})
 
 			It("should return an error if the VM is not found", func() {
-				app.VMObjectGraph(request, response)
-				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
-				ExpectMessage(recorder, Equal("virtualmachine.kubevirt.io \"testvm\" not found"))
+				_, statusErr := handler.GetVMObjectGraph(metav1.NamespaceDefault, testVMName, nil)
+				Expect(statusErr).ToNot(BeNil())
+				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusNotFound))
+				Expect(statusErr.Error()).To(ContainSubstring(`virtualmachine.kubevirt.io "testvm" not found`))
 			})
 		})
 

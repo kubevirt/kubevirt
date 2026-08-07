@@ -28,12 +28,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/evacuate"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/objectgraph"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/backup"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/sev"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
-	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -46,7 +46,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 	volumesHandler := volumes.NewHandler(virtClient, clusterConfig)
 	evacuateHandler := evacuate.NewHandler(virtClient, clusterConfig)
 	sevHandler := sev.NewHandler(virtClient, consoleServerPort, tlsConfig, clusterConfig)
-	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, k8sClient, consoleServerPort, tlsConfig, clusterConfig)
+	objectGraphHandler := objectgraph.NewHandler(virtClient, k8sClient, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
 		"virtualmachineinstances/console":             NewConsoleREST(streamer),
@@ -65,7 +65,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/guestosinfo":         NewGuestOSInfoREST(guestInfoHandler),
 		"virtualmachineinstances/userlist":            NewUserListREST(guestInfoHandler),
 		"virtualmachineinstances/filesystemlist":      NewFilesystemListREST(guestInfoHandler),
-		"virtualmachineinstances/objectgraph":         NewObjectGraphREST(subresourceApp),
+		"virtualmachineinstances/objectgraph":         NewObjectGraphREST(objectGraphHandler),
 		"virtualmachineinstances/evacuate":            NewEvacuateCancelREST(evacuateHandler),
 		"virtualmachineinstances/sev":                 NewSEVREST(sevHandler),
 		"virtualmachineinstances/backup":              NewBackupREST(backupHandler),
