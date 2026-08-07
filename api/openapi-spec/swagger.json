@@ -20819,7 +20819,7 @@
       "type": "string"
      },
      "pvcName": {
-      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+      "description": "PvcName specifies the name of the PVC where the backup output will be stored. When omitted, the controller creates a filesystem RWO PVC automatically and records the name in status.pvcName.",
       "type": "string"
      },
      "skipQuiesce": {
@@ -20830,6 +20830,11 @@
       "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
       "default": {},
       "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
+     },
+     "targetPvcSizePercent": {
+      "description": "TargetPvcSizePercent sizes auto-provisioned target PVCs as a percentage of the summed CBT-eligible source volume sizes. Ignored when spec.pvcName is set. When unset, the controller defaults to 120.",
+      "type": "integer",
+      "format": "int32"
      },
      "tokenSecretRef": {
       "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
@@ -20873,6 +20878,10 @@
      "links": {
       "description": "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
       "$ref": "#/definitions/v1alpha1.BackupLinks"
+     },
+     "pvcName": {
+      "description": "PvcName is the name of the PVC used to store the backup output",
+      "type": "string"
      },
      "type": {
       "description": "Type indicates if the backup was full or incremental",

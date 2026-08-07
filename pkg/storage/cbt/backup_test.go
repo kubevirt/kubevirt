@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +49,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -139,6 +141,13 @@ var _ = Describe("Backup Controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						Disks: []v1.Disk{
+							{Name: "disk0"},
+						},
+					},
+				},
 				Volumes: []v1.Volume{
 					{
 						Name: "disk0",
@@ -235,6 +244,24 @@ var _ = Describe("Backup Controller", func() {
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem),
+			},
+		}
+	}
+
+	createSourceDiskPVC := func(name, storageClass, size string) *corev1.PersistentVolumeClaim {
+		return &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: testNamespace,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				VolumeMode:       pointer.P(corev1.PersistentVolumeFilesystem),
+				StorageClassName: pointer.P(storageClass),
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse(size),
+					},
+				},
 			},
 		}
 	}
@@ -639,6 +666,36 @@ var _ = Describe("Backup Controller", func() {
 				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 				Expect(cond.Reason).To(Equal(backupv1.ReasonInitializing))
 				Expect(cond.Message).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+			})
+
+			It("should wait when user-provided target PVC does not exist yet", func() {
+				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+				backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+
+				vmi := createVMI()
+				controller.vmiStore.Add(vmi)
+
+				controller.pvcStore.Add(createSourceDiskPVC("test-disk", "source-sc", "1Gi"))
+
+				pvcCreates := 0
+				k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					pvcCreates++
+					return false, nil, nil
+				})
+
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvcCreates).To(Equal(0))
+
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Reason).To(Equal(backupv1.ReasonInitializing))
+				Expect(cond.Message).To(Equal(fmt.Sprintf(pvcNotFoundMsg, testNamespace, pvcName)))
+				Expect(backupCopy.Status.PvcName).To(BeNil())
 			})
 
 			It("should wait when VMI is migrating and update initializing condition", func() {
@@ -1534,6 +1591,280 @@ var _ = Describe("Backup Controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
 		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.PvcName).ToNot(BeNil())
+		Expect(*backupCopy.Status.PvcName).To(Equal(pvcName))
+	})
+
+	It("should auto-create target PVC when spec.pvcName is omitted", func() {
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Spec.PvcName = nil
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		vmi := createVMIWithPVCAttached()
+		expectedPVCName := backupTargetVolumeName(backupName)
+		vmi.Spec.UtilityVolumes[0].ClaimName = expectedPVCName
+		controller.vmiStore.Add(vmi)
+
+		sourcePVC := createSourceDiskPVC("test-disk", "source-sc", "10Gi")
+		controller.pvcStore.Add(sourcePVC)
+
+		By("first reconcile creates the PVC but waits for informer sync")
+		backupCopy, err := syncBackup(backup)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("waiting for backup target PVC to be observed"))
+
+		createdPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).Get(context.Background(), expectedPVCName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(createdPVC.Spec.StorageClassName).ToNot(BeNil())
+		Expect(*createdPVC.Spec.StorageClassName).To(Equal("source-sc"))
+		Expect(createdPVC.Spec.AccessModes).To(Equal([]corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}))
+		Expect(createdPVC.Spec.VolumeMode).ToNot(BeNil())
+		Expect(*createdPVC.Spec.VolumeMode).To(Equal(corev1.PersistentVolumeFilesystem))
+		Expect(createdPVC.Labels[backupTargetAutoCreateLabel]).To(Equal("true"))
+		Expect(createdPVC.Labels[backupTargetBackupUIDLabel]).To(Equal(string(backupUID)))
+		Expect(createdPVC.Labels[storagetypes.LabelApplyStorageProfile]).To(Equal("true"))
+		Expect(createdPVC.OwnerReferences).To(BeEmpty())
+		Expect(createdPVC.Spec.Resources.Requests.Storage().Cmp(resource.MustParse("12Gi"))).To(Equal(0))
+
+		By("second reconcile proceeds once the PVC is in the store")
+		Expect(controller.pvcStore.Add(createdPVC)).To(Succeed())
+		vmiInterface.EXPECT().
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			Return(vmi, nil)
+		vmiInterface.EXPECT().
+			Backup(gomock.Any(), vmName, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
+				Expect(options.BackupName).To(Equal(backupName))
+				Expect(options.Cmd).To(Equal(backupv1.Start))
+				return nil
+			})
+
+		backupCopy, err = syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.PvcName).ToNot(BeNil())
+		Expect(*backupCopy.Status.PvcName).To(Equal(expectedPVCName))
+	})
+
+	It("should set OwnerReferences on auto-created target PVC in Pull mode", func() {
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PullMode)
+		backup.Spec.PvcName = nil
+		backup.Spec.TokenSecretRef = "export-token"
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		vmi := createVMIWithPVCAttached()
+		expectedPVCName := backupTargetVolumeName(backupName)
+		vmi.Spec.UtilityVolumes[0].ClaimName = expectedPVCName
+		controller.vmiStore.Add(vmi)
+
+		sourcePVC := createSourceDiskPVC("test-disk", "source-sc", "10Gi")
+		controller.pvcStore.Add(sourcePVC)
+
+		_, err := syncBackup(backup)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("waiting for backup target PVC to be observed"))
+
+		createdPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).Get(context.Background(), expectedPVCName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(createdPVC.OwnerReferences).To(HaveLen(1))
+		Expect(createdPVC.OwnerReferences[0].UID).To(Equal(backupUID))
+		Expect(createdPVC.Labels[backupTargetAutoCreateLabel]).To(Equal("true"))
+		Expect(createdPVC.Labels[backupTargetBackupUIDLabel]).To(Equal(string(backupUID)))
+	})
+
+	It("should size auto-created target PVC using targetPvcSizePercent", func() {
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Spec.PvcName = nil
+		backup.Spec.TargetPvcSizePercent = pointer.P(int32(50))
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		expectedPVCName := backupTargetVolumeName(backupName)
+		vmi := createVMIWithPVCAttached()
+		vmi.Spec.UtilityVolumes[0].ClaimName = expectedPVCName
+		controller.vmiStore.Add(vmi)
+
+		sourcePVC := createSourceDiskPVC("test-disk", "source-sc", "10Gi")
+		controller.pvcStore.Add(sourcePVC)
+
+		backupCopy, err := syncBackup(backup)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("waiting for backup target PVC to be observed"))
+
+		createdPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).Get(context.Background(), expectedPVCName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(createdPVC.Spec.Resources.Requests.Storage().Cmp(resource.MustParse("5Gi"))).To(Equal(0))
+
+		Expect(controller.pvcStore.Add(createdPVC)).To(Succeed())
+		vmiInterface.EXPECT().
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			Return(vmi, nil)
+		vmiInterface.EXPECT().
+			Backup(gomock.Any(), vmName, gomock.Any()).
+			Return(nil)
+
+		backupCopy, err = syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+	})
+
+	It("should not auto-create target PVC when spec.pvcName is set even with targetPvcSizePercent", func() {
+		userTargetPVCName := "user-provided-target-pvc"
+
+		backup := createBackup(backupName, vmName, userTargetPVCName, backupv1.PushMode)
+		backup.Spec.TargetPvcSizePercent = pointer.P(int32(50))
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		vmi := createVMIWithPVCAttached()
+		vmi.Spec.UtilityVolumes[0].ClaimName = userTargetPVCName
+		controller.vmiStore.Add(vmi)
+
+		controller.pvcStore.Add(createPVC(userTargetPVCName))
+		controller.pvcStore.Add(createSourceDiskPVC("test-disk", "source-sc", "10Gi"))
+
+		pvcCreates := 0
+		k8sClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			pvcCreates++
+			return false, nil, nil
+		})
+
+		vmiInterface.EXPECT().
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			Return(vmi, nil)
+		vmiInterface.EXPECT().
+			Backup(gomock.Any(), vmName, gomock.Any()).
+			Return(nil)
+
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pvcCreates).To(Equal(0))
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.PvcName).ToNot(BeNil())
+		Expect(*backupCopy.Status.PvcName).To(Equal(userTargetPVCName))
+
+		_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).Get(context.Background(), backupTargetVolumeName(backupName), metav1.GetOptions{})
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+	})
+
+	It("should reuse existing auto target PVC labeled for the backup", func() {
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Spec.PvcName = nil
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		expectedPVCName := backupTargetVolumeName(backupName)
+		vmi := createVMIWithPVCAttached()
+		vmi.Spec.UtilityVolumes[0].ClaimName = expectedPVCName
+		controller.vmiStore.Add(vmi)
+
+		existing := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      expectedPVCName,
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					backupTargetAutoCreateLabel: "true",
+					backupTargetBackupUIDLabel:  string(backupUID),
+				},
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				VolumeMode:  pointer.P(corev1.PersistentVolumeFilesystem),
+			},
+		}
+		controller.pvcStore.Add(existing)
+
+		vmiInterface.EXPECT().
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			Return(vmi, nil)
+		vmiInterface.EXPECT().
+			Backup(gomock.Any(), vmName, gomock.Any()).
+			Return(nil)
+
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.PvcName).ToNot(BeNil())
+		Expect(*backupCopy.Status.PvcName).To(Equal(expectedPVCName))
+	})
+
+	It("should fail when auto target PVC name collides with an unowned PVC", func() {
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Spec.PvcName = nil
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		expectedPVCName := backupTargetVolumeName(backupName)
+		vmi := createVMIWithPVCAttached()
+		vmi.Spec.UtilityVolumes[0].ClaimName = expectedPVCName
+		controller.vmiStore.Add(vmi)
+
+		foreign := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      expectedPVCName,
+				Namespace: testNamespace,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem),
+			},
+		}
+		controller.pvcStore.Add(foreign)
+
+		_, err := syncBackup(backup)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not auto-created"))
+	})
+
+	It("should fail AlreadyExists collision when unowned PVC is only in the API", func() {
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Spec.PvcName = nil
+		backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		expectedPVCName := backupTargetVolumeName(backupName)
+		vmi := createVMIWithPVCAttached()
+		vmi.Spec.UtilityVolumes[0].ClaimName = expectedPVCName
+		controller.vmiStore.Add(vmi)
+
+		sourcePVC := createSourceDiskPVC("test-disk", "source-sc", "1Gi")
+		controller.pvcStore.Add(sourcePVC)
+
+		_, err := k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).Create(context.Background(), &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      expectedPVCName,
+				Namespace: testNamespace,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+				VolumeMode: pointer.P(corev1.PersistentVolumeFilesystem),
+			},
+		}, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = syncBackup(backup)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not auto-created"))
 	})
 
 	It("should initiate full backup when backupTracker exists but has no LatestCheckpoint", func() {
@@ -1734,6 +2065,7 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				PvcName: pointer.P(pvcName),
 				Conditions: []metav1.Condition{
 					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
@@ -1779,7 +2111,6 @@ var _ = Describe("Backup Controller", func() {
 				Expect(string(patchBytes)).To(ContainSubstring("latestCheckpoint"))
 				Expect(string(patchBytes)).To(ContainSubstring(checkpointName))
 				Expect(string(patchBytes)).To(ContainSubstring("volumes"))
-				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
 				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
 				Expect(string(patchBytes)).To(ContainSubstring("datadisk"))
 
