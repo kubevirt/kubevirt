@@ -84,6 +84,8 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachineP
 	vmiSpec.Domain.CPU.Sockets = 1
 	vmiSpec.Domain.CPU.Threads = 1
 
+	// 1 vCPU always produces {1,1,1} regardless of topology, bypassing the
+	// spread/topology switch below. CheckSpreadCPUTopology exempts this case too.
 	if vCPUs == 1 {
 		return
 	}
