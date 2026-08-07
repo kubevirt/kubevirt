@@ -28,20 +28,20 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/evacuate"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/objectgraph"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine/lifecycle"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine/memorydump"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
-	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, consoleServerPort int, tlsConfig *tls.Config, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
-	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, k8sClient, consoleServerPort, tlsConfig, clusterConfig)
 	lifecycleHandler := lifecycle.NewHandler(virtClient)
 	volumesHandler := volumes.NewHandler(virtClient, clusterConfig)
 	memoryDumpHandler := memorydump.NewHandler(virtClient, clusterConfig)
 	evacuateHandler := evacuate.NewHandler(virtClient, clusterConfig)
+	objectGraphHandler := objectgraph.NewHandler(virtClient, k8sClient, clusterConfig)
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	return map[string]rest.Storage{
 		"virtualmachines":                  NewDummyREST(),
@@ -54,7 +54,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachines/removevolume":     NewRemoveVolumeREST(volumesHandler),
 		"virtualmachines/memorydump":       NewMemoryDumpREST(memoryDumpHandler),
 		"virtualmachines/removememorydump": NewRemoveMemoryDumpREST(memoryDumpHandler),
-		"virtualmachines/objectgraph":      NewObjectGraphREST(subresourceApp),
+		"virtualmachines/objectgraph":      NewObjectGraphREST(objectGraphHandler),
 		"virtualmachines/evacuate":         NewEvacuateCancelREST(evacuateHandler),
 		"virtualmachines/portforward":      NewPortForwardREST(streamer),
 	}

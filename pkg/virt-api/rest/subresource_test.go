@@ -21,9 +21,7 @@ package rest
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"strings"
 	"time"
@@ -31,11 +29,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	gomegatypes "github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -49,10 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-const (
-	testVMName  = "testvm"
-	testVMIName = "testvmi"
-)
+const testVMIName = "testvmi"
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var backend *ghttp.Server
@@ -181,25 +174,3 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backend.Close()
 	})
 })
-
-func newMinimalVM(name string) *v1.VirtualMachine {
-	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
-}
-
-func ExpectStatusErrorWithCode(recorder *httptest.ResponseRecorder, code int) *errors.StatusError {
-	status := k8smetav1.Status{}
-	err := json.Unmarshal(recorder.Body.Bytes(), &status)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, status.Kind).To(Equal("Status"))
-	ExpectWithOffset(1, status.Code).To(BeNumerically("==", code))
-	ExpectWithOffset(1, recorder.Code).To(BeNumerically("==", code))
-	return &errors.StatusError{ErrStatus: status}
-}
-
-func ExpectMessage(recorder *httptest.ResponseRecorder, expected gomegatypes.GomegaMatcher) {
-	status := k8smetav1.Status{}
-	err := json.Unmarshal(recorder.Body.Bytes(), &status)
-
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, status.Message).To(expected)
-}

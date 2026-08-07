@@ -17,7 +17,7 @@
  *
  */
 
-package rest
+package objectgraph
 
 import (
 	"context"
@@ -26,14 +26,13 @@ import (
 	"io"
 	"strings"
 
-	"github.com/emicklei/go-restful/v3"
-
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
@@ -41,6 +40,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -113,8 +113,26 @@ func getResourceDependencyType(resource string) DependencyType {
 	}
 }
 
-func (app *SubresourceAPIApp) getObjectGraph(namespace, name string, body io.Reader, fetchFunc func(string, string) (any, *apierrors.StatusError)) (v1.ObjectGraphNode, *apierrors.StatusError) {
-	if !app.clusterConfig.ObjectGraphEnabled() {
+const unmarshalRequestErrFmt = "Can not unmarshal Request body to struct, error: %s"
+
+// Handler contains the VirtualMachine and VirtualMachineInstance objectgraph
+// operations served by the GenericAPIServer storage Connecters.
+type Handler struct {
+	virtCli       kubecli.KubevirtClient
+	k8sClient     kubernetes.Interface
+	clusterConfig *virtconfig.ClusterConfig
+}
+
+func NewHandler(virtCli kubecli.KubevirtClient, k8sClient kubernetes.Interface, clusterConfig *virtconfig.ClusterConfig) *Handler {
+	return &Handler{
+		virtCli:       virtCli,
+		k8sClient:     k8sClient,
+		clusterConfig: clusterConfig,
+	}
+}
+
+func (h *Handler) getObjectGraph(namespace, name string, body io.Reader, fetchFunc func(string, string) (any, *apierrors.StatusError)) (v1.ObjectGraphNode, *apierrors.StatusError) {
+	if !h.clusterConfig.ObjectGraphEnabled() {
 		return v1.ObjectGraphNode{}, apierrors.NewBadRequest("ObjectGraph feature gate not enabled: Unable to return object graph.")
 	}
 
@@ -128,7 +146,7 @@ func (app *SubresourceAPIApp) getObjectGraph(namespace, name string, body io.Rea
 		return v1.ObjectGraphNode{}, err
 	}
 
-	graph, err := NewObjectGraph(app.virtClient, app.k8sClient, objectGraphOpts).GetObjectGraph(obj)
+	graph, err := NewObjectGraph(h.virtCli, h.k8sClient, objectGraphOpts).GetObjectGraph(obj)
 	if err != nil {
 		return v1.ObjectGraphNode{}, apierrors.NewInternalError(err)
 	}
@@ -137,44 +155,48 @@ func (app *SubresourceAPIApp) getObjectGraph(namespace, name string, body io.Rea
 }
 
 // GetVMIObjectGraph returns the object graph of a VMI
-func (app *SubresourceAPIApp) GetVMIObjectGraph(namespace, name string, body io.Reader) (v1.ObjectGraphNode, *apierrors.StatusError) {
-	return app.getObjectGraph(namespace, name, body, func(ns, n string) (any, *apierrors.StatusError) {
-		return app.FetchVirtualMachineInstance(ns, n)
+func (h *Handler) GetVMIObjectGraph(namespace, name string, body io.Reader) (v1.ObjectGraphNode, *apierrors.StatusError) {
+	return h.getObjectGraph(namespace, name, body, func(ns, n string) (any, *apierrors.StatusError) {
+		return h.fetchVirtualMachineInstance(ns, n)
 	})
 }
 
 // GetVMObjectGraph returns the object graph of a VM
-func (app *SubresourceAPIApp) GetVMObjectGraph(namespace, name string, body io.Reader) (v1.ObjectGraphNode, *apierrors.StatusError) {
-	return app.getObjectGraph(namespace, name, body, func(ns, n string) (any, *apierrors.StatusError) {
-		return app.fetchVirtualMachine(n, ns)
+func (h *Handler) GetVMObjectGraph(namespace, name string, body io.Reader) (v1.ObjectGraphNode, *apierrors.StatusError) {
+	return h.getObjectGraph(namespace, name, body, func(ns, n string) (any, *apierrors.StatusError) {
+		return h.fetchVirtualMachine(n, ns)
 	})
 }
 
-func (app *SubresourceAPIApp) VMIObjectGraph(request *restful.Request, response *restful.Response) {
-	if request.Request.Body != nil {
-		defer request.Request.Body.Close()
+func (h *Handler) fetchVirtualMachine(name, namespace string) (*v1.VirtualMachine, *apierrors.StatusError) {
+	vm, err := h.virtCli.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, apierrors.NewNotFound(v1.Resource("virtualmachine"), name)
+		}
+		return nil, apierrors.NewInternalError(fmt.Errorf("unable to retrieve vm [%s]: %v", name, err))
 	}
-	graph, statErr := app.GetVMIObjectGraph(request.PathParameter("namespace"), request.PathParameter("name"), request.Request.Body)
-	if statErr != nil {
-		writeError(statErr, response)
-		return
-	}
-	if err := response.WriteEntity(graph); err != nil {
-		log.Log.Reason(err).Error("Failed to write HTTP response.")
-	}
+	return vm, nil
 }
 
-func (app *SubresourceAPIApp) VMObjectGraph(request *restful.Request, response *restful.Response) {
-	if request.Request.Body != nil {
-		defer request.Request.Body.Close()
+func (h *Handler) fetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *apierrors.StatusError) {
+	vmi, err := h.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, apierrors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
+		}
+		return nil, apierrors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", name, err))
 	}
-	graph, statErr := app.GetVMObjectGraph(request.PathParameter("namespace"), request.PathParameter("name"), request.Request.Body)
-	if statErr != nil {
-		writeError(statErr, response)
-		return
-	}
-	if err := response.WriteEntity(graph); err != nil {
-		log.Log.Reason(err).Error("Failed to write HTTP response.")
+	return vmi, nil
+}
+
+func decodeBodyReader(body io.Reader, bodyStruct interface{}) *apierrors.StatusError {
+	err := yaml.NewYAMLOrJSONDecoder(body, 1024).Decode(bodyStruct)
+	switch err {
+	case io.EOF, nil:
+		return nil
+	default:
+		return apierrors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err))
 	}
 }
 
