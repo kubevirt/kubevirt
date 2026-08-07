@@ -22,7 +22,6 @@ package rest
 import (
 	"crypto/tls"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -51,23 +50,9 @@ import (
 )
 
 const (
-	Running     = true
-	Paused      = true
-	NotRunning  = false
-	UnPaused    = false
 	testVMName  = "testvm"
 	testVMIName = "testvmi"
 )
-
-type readCloserWrapper struct {
-	io.Reader
-}
-
-func (b *readCloserWrapper) Close() error { return nil }
-
-func withDryRun() []string {
-	return []string{k8smetav1.DryRunAll}
-}
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var backend *ghttp.Server

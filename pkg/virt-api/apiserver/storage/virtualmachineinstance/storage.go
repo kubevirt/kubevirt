@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/backup"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/sev"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
 	subresourcerest "kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
@@ -44,6 +45,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 	backupHandler := backup.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	volumesHandler := volumes.NewHandler(virtClient, clusterConfig)
 	evacuateHandler := evacuate.NewHandler(virtClient, clusterConfig)
+	sevHandler := sev.NewHandler(virtClient, consoleServerPort, tlsConfig, clusterConfig)
 	subresourceApp := subresourcerest.NewSubresourceAPIApp(virtClient, k8sClient, consoleServerPort, tlsConfig, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
@@ -65,7 +67,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Inter
 		"virtualmachineinstances/filesystemlist":      NewFilesystemListREST(guestInfoHandler),
 		"virtualmachineinstances/objectgraph":         NewObjectGraphREST(subresourceApp),
 		"virtualmachineinstances/evacuate":            NewEvacuateCancelREST(evacuateHandler),
-		"virtualmachineinstances/sev":                 NewSEVREST(subresourceApp),
+		"virtualmachineinstances/sev":                 NewSEVREST(sevHandler),
 		"virtualmachineinstances/backup":              NewBackupREST(backupHandler),
 		"virtualmachineinstances/redefine-checkpoint": NewRedefineCheckpointREST(backupHandler),
 	}
