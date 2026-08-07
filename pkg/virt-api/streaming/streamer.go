@@ -17,9 +17,6 @@
  *
  */
 
-// Aggregated GenericAPIServer storage and the legacy handlers
-// both delegate here, so the proxy logic lives in a
-// single place that does not rely on pkg/virt-api/rest
 package streaming
 
 import (

@@ -17,7 +17,7 @@
  *
  */
 
-package rest
+package clusterprofiler
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestRest(t *testing.T) {
+func TestClusterProfiler(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
