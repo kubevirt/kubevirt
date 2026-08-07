@@ -66,7 +66,7 @@ func (a *vmiApplier) ApplyToVMI(
 		conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
+		conflicts = append(conflicts, applyInstanceTypeAnnotations(baseConflict, instancetypeSpec.Annotations, vmiMetadata)...)
 		if len(conflicts) > 0 {
 			return conflicts
 		}

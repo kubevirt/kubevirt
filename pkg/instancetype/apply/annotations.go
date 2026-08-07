@@ -24,7 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts conflict.Conflicts) {
+func applyInstanceTypeAnnotations(baseConflict *conflict.Conflict, annotations map[string]string, target metav1.Object) (conflicts conflict.Conflicts) {
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}
@@ -33,7 +33,7 @@ func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.O
 	for key, value := range annotations {
 		if targetValue, exists := targetAnnotations[key]; exists {
 			if targetValue != value {
-				conflicts = append(conflicts, conflict.New("annotations", key))
+				conflicts = append(conflicts, baseConflict.NewChild("annotations", key))
 			}
 			continue
 		}
