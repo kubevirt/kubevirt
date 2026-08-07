@@ -39,7 +39,9 @@ func applyHostDevices(
 	}
 
 	vmiSpec.Domain.Devices.HostDevices = make([]virtv1.HostDevice, len(instancetypeSpec.HostDevices))
-	copy(vmiSpec.Domain.Devices.HostDevices, instancetypeSpec.HostDevices)
+	for i := range instancetypeSpec.HostDevices {
+		instancetypeSpec.HostDevices[i].DeepCopyInto(&vmiSpec.Domain.Devices.HostDevices[i])
+	}
 
 	return nil
 }
