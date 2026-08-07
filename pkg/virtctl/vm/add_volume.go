@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -52,6 +53,7 @@ var (
 	cache    string
 	diskType string
 	busType  string
+	diskName string
 )
 
 func NewAddVolumeCommand() *cobra.Command {
@@ -63,8 +65,9 @@ func NewAddVolumeCommand() *cobra.Command {
 		RunE:    addVolumeRun,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
+	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name of the volume source, either DV or PVC")
 	cmd.MarkFlagRequired(volumeNameArg)
+	cmd.Flags().StringVar(&diskName, diskNameArg, "", "name used in the disk/volume section of spec")
 	cmd.Flags().StringVar(&serial, serialArg, "", "serial number you want to assign to the disk")
 	cmd.Flags().StringVar(&cache, cacheArg, "", "caching options attribute control the cache mechanism")
 	cmd.Flags().BoolVar(&persist, persistArg, false, "[deprecated] this flag has no effect and will be removed in a future release")
@@ -78,6 +81,9 @@ func NewAddVolumeCommand() *cobra.Command {
 func usageAddVolume() string {
 	return `	#Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --serial=1234567890
+
+  #Dynamically attach a volume to a running VM giving it an explicit disk name to be used in the disk/volume section of the VM spec.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --disk-name=example-disk
 
   #Dynamically attach a volume to a running VM, persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
@@ -99,7 +105,7 @@ func addVolumeRun(cmd *cobra.Command, args []string) error {
 
 	dryRunOption := setDryRunOption(dryRun)
 
-	return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
+	return addVolume(args[0], volumeName, diskName, namespace, virtClient, &dryRunOption)
 }
 
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
@@ -129,13 +135,24 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 	return nil, fmt.Errorf("Volume %s is not a DataVolume or PersistentVolumeClaim", volumeName)
 }
 
-func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
+func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}
+
+	hotplugName := volumeName
+	if diskName != "" {
+		hotplugName = diskName
+	}
+	if len(hotplugName) > validation.DNS1035LabelMaxLength {
+		if diskName != "" {
+			return fmt.Errorf("Invalid disk name %s, must not exceed %d characters", diskName, validation.DNS1035LabelMaxLength)
+		}
+		return fmt.Errorf("Invalid volume name %s, must not exceed %d characters. Use in conjunction with --disk-name to specify a shorter name", volumeName, validation.DNS1035LabelMaxLength)
+	}
 	hotplugRequest := &v1.AddVolumeOptions{
-		Name: volumeName,
+		Name: hotplugName,
 		Disk: &v1.Disk{
 			DiskDevice: v1.DiskDevice{},
 		},
@@ -166,7 +183,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if serial != "" {
 		hotplugRequest.Disk.Serial = serial
 	} else {
-		hotplugRequest.Disk.Serial = volumeName
+		hotplugRequest.Disk.Serial = hotplugName
 	}
 	if cache != "" {
 		hotplugRequest.Disk.Cache = v1.DriverCache(cache)
