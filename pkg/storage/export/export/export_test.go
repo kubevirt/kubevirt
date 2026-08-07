@@ -92,9 +92,6 @@ var (
 	qemuGid            int64 = 107
 	expectedPodEnvVars       = []k8sv1.EnvVar{
 		{
-			Name:  "EXPORT_VM_DEF_URI",
-			Value: manifestsPath,
-		}, {
 			Name:  "CERT_FILE",
 			Value: "/cert/tls.crt",
 		}, {
@@ -1012,6 +1009,26 @@ var _ = Describe("Export controller", func() {
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_CIPHER_SUITES")}),
 		))
 	})
+
+	DescribeTable("Should set export pod env vars", func(vmExport *exportv1.VirtualMachineExport, source exportSource, expectManifest bool) {
+		pod, err := controller.createExporterPodManifest(vmExport, nil, source)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
+		if expectManifest {
+			Expect(pod.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{
+				Name:  "EXPORT_VM_DEF_URI",
+				Value: manifestsPath,
+			}))
+		} else {
+			Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(
+				HaveField("Name", "EXPORT_VM_DEF_URI"),
+			))
+		}
+	},
+		Entry("for VM source", createVMVMExport(), NewVMSource(&sourceVolumes{}), true),
+		Entry("for VM Snapshot source", createSnapshotVMExport(), NewVMSnapshotSource(&sourceVolumes{}, "test-vm"), true),
+		Entry("for PVC source", createPVCVMExport(), NewPVCSource(&sourceVolumes{}), false),
+	)
 
 	DescribeTable("Volumemount names should be trimmed depending on the PVC name", func(pvcName string) {
 		testVMExport := createPVCVMExportWithName(pvcName)
