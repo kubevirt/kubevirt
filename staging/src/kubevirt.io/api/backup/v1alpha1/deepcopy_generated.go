@@ -41,6 +41,11 @@ func (in *BackupCheckpoint) DeepCopyInto(out *BackupCheckpoint) {
 		*out = make([]BackupVolumeInfo, len(*in))
 		copy(*out, *in)
 	}
+	if in.PvcName != nil {
+		in, out := &in.PvcName, &out.PvcName
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -267,6 +272,11 @@ func (in *VirtualMachineBackupSpec) DeepCopyInto(out *VirtualMachineBackupSpec) 
 		*out = new(string)
 		**out = **in
 	}
+	if in.TargetPvcSizePercent != nil {
+		in, out := &in.TargetPvcSizePercent, &out.TargetPvcSizePercent
+		*out = new(int)
+		**out = **in
+	}
 	if in.TTLDuration != nil {
 		in, out := &in.TTLDuration, &out.TTLDuration
 		*out = new(v1.Duration)
@@ -297,6 +307,11 @@ func (in *VirtualMachineBackupStatus) DeepCopyInto(out *VirtualMachineBackupStat
 	}
 	if in.CheckpointName != nil {
 		in, out := &in.CheckpointName, &out.CheckpointName
+		*out = new(string)
+		**out = **in
+	}
+	if in.PvcName != nil {
+		in, out := &in.PvcName, &out.PvcName
 		*out = new(string)
 		**out = **in
 	}
