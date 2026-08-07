@@ -14,6 +14,7 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 func (BackupCheckpoint) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"volumes": "Volumes lists volumes included in the backup\n+optional\n+listType=atomic",
+		"pvcName": "PvcName is the name of the PVC that stores the backup data for this checkpoint\n+optional",
 	}
 }
 
@@ -67,14 +68,15 @@ func (VirtualMachineBackupList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource\n+kubebuilder:validation:XValidation:rule=\"self == oldSelf\",message=\"spec is immutable after creation\"\n+kubebuilder:validation:XValidation:rule=\"has(self.pvcName) && self.pvcName != \\\"\\\"\",message=\"pvcName is required\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.mode) || self.mode != 'Pull' || (has(self.tokenSecretRef) && self.tokenSecretRef != \\\"\\\")\",message=\"tokenSecretRef is required when mode is Pull\"",
-		"source":          "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.\nWhen Kind is VirtualMachine: performs a backup of the specified VM.\nWhen Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM\nand the base checkpoint for incremental backup. The tracker will be updated\nwith the new checkpoint after backup completion.\n+kubebuilder:validation:XValidation:rule=\"has(self.apiGroup)\",message=\"apiGroup is required\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.apiGroup) || self.apiGroup == 'kubevirt.io' || self.apiGroup == 'backup.kubevirt.io'\",message=\"apiGroup must be kubevirt.io or backup.kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.apiGroup) || (self.apiGroup == 'kubevirt.io' && self.kind == 'VirtualMachine') || (self.apiGroup == 'backup.kubevirt.io' && self.kind == 'VirtualMachineBackupTracker')\",message=\"kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker for backup.kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"self.name != ''\",message=\"name is required\"",
-		"mode":            "+optional\n+kubebuilder:validation:Enum=Push;Pull\nMode specifies the way the backup output will be recieved",
-		"pvcName":         "+optional\nPvcName required in push mode. Specifies the name of the PVC\nwhere the backup output will be stored",
-		"skipQuiesce":     "+optional\nSkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
-		"forceFullBackup": "+optional\nForceFullBackup indicates that a full backup is desired",
-		"tokenSecretRef":  "+optional\nTokenSecretRef is the name of the secret that\nwill be used to pull the backup from an associated endpoint",
-		"ttlDuration":     "+optional\nTtlDuration limits the lifetime of a pull mode backup and its export\nIf this field is set, after this duration has passed from counting from CreationTimestamp,\nthe backup is eligible to be automatically considered as complete.\nIf this field is omitted, a reasonable default is applied.\n+optional",
+		"":                     "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource\n+kubebuilder:validation:XValidation:rule=\"self == oldSelf\",message=\"spec is immutable after creation\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.mode) || self.mode != 'Pull' || (has(self.tokenSecretRef) && self.tokenSecretRef != \\\"\\\")\",message=\"tokenSecretRef is required when mode is Pull\"",
+		"source":               "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.\nWhen Kind is VirtualMachine: performs a backup of the specified VM.\nWhen Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM\nand the base checkpoint for incremental backup. The tracker will be updated\nwith the new checkpoint after backup completion.\n+kubebuilder:validation:XValidation:rule=\"has(self.apiGroup)\",message=\"apiGroup is required\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.apiGroup) || self.apiGroup == 'kubevirt.io' || self.apiGroup == 'backup.kubevirt.io'\",message=\"apiGroup must be kubevirt.io or backup.kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.apiGroup) || (self.apiGroup == 'kubevirt.io' && self.kind == 'VirtualMachine') || (self.apiGroup == 'backup.kubevirt.io' && self.kind == 'VirtualMachineBackupTracker')\",message=\"kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker for backup.kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"self.name != ''\",message=\"name is required\"",
+		"mode":                 "+optional\n+kubebuilder:validation:Enum=Push;Pull\nMode specifies the way the backup output will be recieved",
+		"pvcName":              "+optional\nPvcName specifies the name of the PVC where the backup output will be stored.\nWhen omitted, the controller creates a filesystem RWO PVC automatically and\nrecords the name in status.pvcName.",
+		"targetPvcSizePercent": "+optional\nTargetPvcSizePercent sizes auto-provisioned target PVCs as a percentage of the\nsummed CBT-eligible source PVC sizes. Ignored when spec.pvcName is set.\n+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=1000\n+kubebuilder:default=120",
+		"skipQuiesce":          "+optional\nSkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+		"forceFullBackup":      "+optional\nForceFullBackup indicates that a full backup is desired",
+		"tokenSecretRef":       "+optional\nTokenSecretRef is the name of the secret that\nwill be used to pull the backup from an associated endpoint",
+		"ttlDuration":          "+optional\nTtlDuration limits the lifetime of a pull mode backup and its export\nIf this field is set, after this duration has passed from counting from CreationTimestamp,\nthe backup is eligible to be automatically considered as complete.\nIf this field is omitted, a reasonable default is applied.\n+optional",
 	}
 }
 
@@ -84,6 +86,7 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"type":            "+optional\nType indicates if the backup was full or incremental",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
+		"pvcName":         "+optional\nPvcName is the name of the PVC used to store the backup output",
 		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
 		"exportUID":       "+optional\nExportUID tracks the UID of the associated VMExport for pull-mode backups\nused to detect VMExport recreation and re-initiate the export handshake",
