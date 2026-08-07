@@ -24,14 +24,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -41,32 +39,29 @@ var _ = Describe("Strategy", func() {
 	Context("deleteAllOldInstallStrategies", func() {
 
 		var (
-			ctrl       *gomock.Controller
-			clientset  *kubecli.MockKubevirtClient
 			kubeClient *fake.Clientset
 		)
 
 		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
 			kubeClient = fake.NewSimpleClientset()
-			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			clientset.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
 		})
 
 		It("should not panic when cache contains non-ConfigMap objects", func() {
 			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-			store.Add("not-a-configmap")
-			store.Add(42)
+			Expect(store.Add(cache.DeletedFinalStateUnknown{
+				Key: "not-a-configmap",
+				Obj: &k8sv1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "not-a-configmap"}},
+			})).To(Succeed())
+			Expect(store.Add(cache.DeletedFinalStateUnknown{
+				Key: "another-not-a-configmap",
+				Obj: &k8sv1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "another-not-a-configmap"}},
+			})).To(Succeed())
 
 			controller := &KubeVirtController{
 				stores: util.Stores{
 					InstallStrategyConfigMapCache: store,
 				},
-				clientset: clientset,
+				k8sClient: kubeClient,
 			}
 
 			err := controller.deleteAllOldInstallStrategies("v1.0.0")
@@ -85,8 +80,6 @@ var _ = Describe("Strategy", func() {
 			}
 
 			kubeClient = fake.NewSimpleClientset(oldConfigMap)
-			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			clientset.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			Expect(store.Add(oldConfigMap)).To(Succeed())
@@ -95,7 +88,7 @@ var _ = Describe("Strategy", func() {
 				stores: util.Stores{
 					InstallStrategyConfigMapCache: store,
 				},
-				clientset: clientset,
+				k8sClient: kubeClient,
 			}
 
 			err := controller.deleteAllOldInstallStrategies("v1.0.0")
@@ -117,8 +110,6 @@ var _ = Describe("Strategy", func() {
 			}
 
 			kubeClient = fake.NewSimpleClientset(currentConfigMap)
-			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			clientset.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			Expect(store.Add(currentConfigMap)).To(Succeed())
@@ -127,7 +118,7 @@ var _ = Describe("Strategy", func() {
 				stores: util.Stores{
 					InstallStrategyConfigMapCache: store,
 				},
-				clientset: clientset,
+				k8sClient: kubeClient,
 			}
 
 			err := controller.deleteAllOldInstallStrategies("v1.0.0")
@@ -146,8 +137,6 @@ var _ = Describe("Strategy", func() {
 			}
 
 			kubeClient = fake.NewSimpleClientset(noAnnotationConfigMap)
-			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			clientset.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			Expect(store.Add(noAnnotationConfigMap)).To(Succeed())
@@ -156,7 +145,7 @@ var _ = Describe("Strategy", func() {
 				stores: util.Stores{
 					InstallStrategyConfigMapCache: store,
 				},
-				clientset: clientset,
+				k8sClient: kubeClient,
 			}
 
 			err := controller.deleteAllOldInstallStrategies("v1.0.0")
@@ -187,20 +176,24 @@ var _ = Describe("Strategy", func() {
 			}
 
 			kubeClient = fake.NewSimpleClientset(oldConfigMap, currentConfigMap)
-			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			clientset.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-			store.Add("unexpected-string")
-			store.Add(oldConfigMap)
-			store.Add(currentConfigMap)
-			store.Add(42)
+			Expect(store.Add(cache.DeletedFinalStateUnknown{
+				Key: "unexpected-string",
+				Obj: &k8sv1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "unexpected-string"}},
+			})).To(Succeed())
+			Expect(store.Add(oldConfigMap)).To(Succeed())
+			Expect(store.Add(currentConfigMap)).To(Succeed())
+			Expect(store.Add(cache.DeletedFinalStateUnknown{
+				Key: "another-unexpected-object",
+				Obj: &k8sv1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "another-unexpected-object"}},
+			})).To(Succeed())
 
 			controller := &KubeVirtController{
 				stores: util.Stores{
 					InstallStrategyConfigMapCache: store,
 				},
-				clientset: clientset,
+				k8sClient: kubeClient,
 			}
 
 			err := controller.deleteAllOldInstallStrategies("v1.0.0")

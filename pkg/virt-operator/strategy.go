@@ -55,7 +55,6 @@ func (c *KubeVirtController) deleteAllOldInstallStrategies(kvVersion string) err
 	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
 		configMap, ok := obj.(*k8sv1.ConfigMap)
 		if !ok {
-			log.Log.Errorf("Unexpected object type %T in install strategy config map cache, skipping", obj)
 			continue
 		}
 		version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
