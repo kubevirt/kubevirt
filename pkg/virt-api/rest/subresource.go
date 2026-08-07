@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -46,11 +45,6 @@ const (
 	patchingVMFmt                            = "Patching VM: %s"
 	jsonpatchTestErr                         = "jsonpatch test operation does not apply"
 	patchingVMStatusFmt                      = "Patching VM status: %s"
-	vmiNotRunning                            = "VMI is not running"
-	vmiNotPaused                             = "VMI is not paused"
-	prepConnectionErrFmt                     = "Cannot prepare connection %s"
-	getRequestErrFmt                         = "Cannot GET request %s"
-	featureGateDisabledErrFmt                = "'%s' feature gate is not enabled"
 	defaultProfilerComponentPort             = 8443
 	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
 )
@@ -82,114 +76,11 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 	}
 }
 
-type validation func(*v1.VirtualMachineInstance) (err *errors.StatusError)
-
-// Use this function to inject more human readible context into the error response.
-type errorPostProcessing func(*v1.VirtualMachineInstance, error) (err error)
-type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
-
-func (app *SubresourceAPIApp) prepareConnection(ctx context.Context, namespace, name string, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
-
-	vmi, statusError = app.fetchAndValidateVirtualMachineInstance(ctx, namespace, name, validate)
-	if statusError != nil {
-		return
-	}
-
-	url, conn, statusError = app.getVirtHandlerFor(vmi, getVirtHandlerURL)
-	if statusError != nil {
-		return
-	}
-
-	return
-}
-
-func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(ctx context.Context, namespace, vmiName string, validate validation) (vmi *v1.VirtualMachineInstance, statusError *errors.StatusError) {
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(ctx, vmiName, k8smetav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			statusError = errors.NewNotFound(v1.Resource("virtualmachineinstance"), vmiName)
-		} else {
-			statusError = errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", vmiName, err))
-		}
-		log.Log.Reason(statusError).Errorf("Failed to gather vmi %s in namespace %s.", vmiName, namespace)
-		return
-	}
-
-	if statusError = validate(vmi); statusError != nil {
-		return
-	}
-	return
-}
-
-func (app *SubresourceAPIApp) getVirtHandlerFor(vmi *v1.VirtualMachineInstance, getVirtHandlerURL URLResolver) (url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
-	var err error
-	if conn, err = app.getVirtHandlerConnForVMI(vmi); err != nil {
-		statusError = errors.NewBadRequest(err.Error())
-		log.Log.Object(vmi).Reason(statusError).Error("Unable to establish connection to virt-handler")
-		return
-	}
-	if url, err = getVirtHandlerURL(vmi, conn); err != nil {
-		statusError = errors.NewBadRequest(err.Error())
-		log.Log.Object(vmi).Reason(statusError).Error("Unable to retrieve target handler URL")
-		return
-	}
-	return
-}
-
 func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineInstance) (kubecli.VirtHandlerConn, error) {
 	if !vmi.IsRunning() && !vmi.IsScheduled() {
 		return nil, fmt.Errorf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled)
 	}
 	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
-}
-
-// connectVirtHandler validates the VMI, resolves the virt-handler URL and, unless
-// dryRun is set, proxies the request body to virt-handler via a PUT
-func (app *SubresourceAPIApp) connectVirtHandler(ctx context.Context, namespace, name string, body io.ReadCloser, preValidate validation, errorPostProcessing errorPostProcessing, getVirtHandlerURL URLResolver, dryRun bool) *errors.StatusError {
-
-	if preValidate == nil {
-		preValidate = func(vmi *v1.VirtualMachineInstance) *errors.StatusError { return nil }
-	}
-	if errorPostProcessing == nil {
-		errorPostProcessing = func(vmi *v1.VirtualMachineInstance, err error) error { return err }
-	}
-
-	vmi, url, conn, statusErr := app.prepareConnection(ctx, namespace, name, preValidate, getVirtHandlerURL)
-	if statusErr != nil {
-		err := errorPostProcessing(vmi, fmt.Errorf("%s", statusErr.ErrStatus.Message))
-		statusErr.ErrStatus.Message = err.Error()
-		return statusErr
-	}
-
-	if dryRun {
-		return nil
-	}
-	if err := conn.Put(url, body); err != nil {
-		err = errorPostProcessing(vmi, err)
-		return errors.NewInternalError(err)
-	}
-	return nil
-}
-
-func (app *SubresourceAPIApp) httpGetVirtHandler(ctx context.Context, namespace, name string, validate validation, getURL URLResolver, v interface{}) (interface{}, error) {
-	_, url, conn, err := app.prepareConnection(ctx, namespace, name, validate, getURL)
-	if err != nil {
-		log.Log.Errorf(prepConnectionErrFmt, err.Error())
-		return nil, err
-	}
-
-	resp, conErr := conn.Get(url, restful.MIME_JSON)
-	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
-		return nil, conErr
-	}
-
-	if err := json.Unmarshal([]byte(resp), &v); err != nil {
-		log.Log.Reason(err).Error("error unmarshalling response")
-		return nil, err
-	}
-
-	return v, nil
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {

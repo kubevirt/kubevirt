@@ -17,13 +17,14 @@
  *
  */
 
-package rest
+package sev
 
 import (
 	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -47,13 +49,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+const (
+	testVMIName = "testvmi"
+	Running     = true
+	Paused      = true
+	NotRunning  = false
+	UnPaused    = false
+)
+
+type readCloserWrapper struct {
+	io.Reader
+}
+
+func (b *readCloserWrapper) Close() error { return nil }
+
 var _ = Describe("SEV Subresources", func() {
 	const nodeName = "mynode"
 
 	var (
 		backend    *ghttp.Server
 		virtClient *kubevirtfake.Clientset
-		app        *SubresourceAPIApp
+		handler    *Handler
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -108,7 +124,7 @@ var _ = Describe("SEV Subresources", func() {
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstanceMigration(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstanceMigrations(metav1.NamespaceDefault)).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		handler = NewHandler(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {
@@ -154,14 +170,14 @@ var _ = Describe("SEV Subresources", func() {
 			),
 		)
 
-		result, statusErr := app.SEVFetchCertChain(context.Background(), metav1.NamespaceDefault, testVMIName)
+		result, statusErr := handler.SEVFetchCertChain(context.Background(), metav1.NamespaceDefault, testVMIName)
 		Expect(statusErr).To(BeNil())
 		Expect(result).ToNot(BeNil())
 	})
 
 	It("Should fail to fetch certificates chain when attestation is not requested", func() {
 		createVMI(Running, UnPaused, nil, nil)
-		_, statusErr := app.SEVFetchCertChain(context.Background(), metav1.NamespaceDefault, testVMIName)
+		_, statusErr := handler.SEVFetchCertChain(context.Background(), metav1.NamespaceDefault, testVMIName)
 		Expect(statusErr).ToNot(BeNil())
 		Expect(int(statusErr.Status().Code)).To(Equal(http.StatusInternalServerError))
 		Expect(statusErr.Error()).To(ContainSubstring("Attestation not requested for VMI"))
@@ -169,7 +185,7 @@ var _ = Describe("SEV Subresources", func() {
 
 	It("Should fail to fetch certificates chain when VMI is not running", func() {
 		createVMI(NotRunning, UnPaused, nil, nil)
-		_, statusErr := app.SEVFetchCertChain(context.Background(), metav1.NamespaceDefault, testVMIName)
+		_, statusErr := handler.SEVFetchCertChain(context.Background(), metav1.NamespaceDefault, testVMIName)
 		Expect(statusErr).ToNot(BeNil())
 		Expect(int(statusErr.Status().Code)).To(Equal(http.StatusInternalServerError))
 	})
@@ -183,7 +199,7 @@ var _ = Describe("SEV Subresources", func() {
 		)
 
 		createVMI(Running, Paused, []libvmi.Option{libvmi.WithSEVAttestation()}, nil)
-		result, statusErr := app.SEVQueryLaunchMeasurement(context.Background(), metav1.NamespaceDefault, testVMIName)
+		result, statusErr := handler.SEVQueryLaunchMeasurement(context.Background(), metav1.NamespaceDefault, testVMIName)
 		Expect(statusErr).To(BeNil())
 		Expect(result).ToNot(BeNil())
 	})
@@ -191,7 +207,7 @@ var _ = Describe("SEV Subresources", func() {
 	DescribeTable("Should fail to query launch measurement",
 		func(running, paused bool, option ...libvmi.Option) {
 			createVMI(running, paused, option, nil)
-			_, statusErr := app.SEVQueryLaunchMeasurement(context.Background(), metav1.NamespaceDefault, testVMIName)
+			_, statusErr := handler.SEVQueryLaunchMeasurement(context.Background(), metav1.NamespaceDefault, testVMIName)
 			Expect(statusErr).ToNot(BeNil())
 			Expect(int(statusErr.Status().Code)).To(Equal(http.StatusInternalServerError))
 		},
@@ -210,7 +226,7 @@ var _ = Describe("SEV Subresources", func() {
 
 		createVMI(NotRunning, UnPaused, []libvmi.Option{libvmi.WithSEVAttestation()}, []libvmistatus.Option{libvmistatus.WithPhase(v1.Scheduled)})
 
-		statusErr := app.SEVSetupSession(context.Background(), metav1.NamespaceDefault, testVMIName, &readCloserWrapper{bytes.NewReader(body)})
+		statusErr := handler.SEVSetupSession(context.Background(), metav1.NamespaceDefault, testVMIName, &readCloserWrapper{bytes.NewReader(body)})
 		Expect(statusErr).To(BeNil())
 		updatedVMI, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), testVMIName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -234,7 +250,7 @@ var _ = Describe("SEV Subresources", func() {
 
 		createVMI(Running, Paused, []libvmi.Option{libvmi.WithSEVAttestation()}, nil)
 
-		statusErr := app.SEVInjectLaunchSecret(context.Background(), metav1.NamespaceDefault, testVMIName, &readCloserWrapper{bytes.NewReader(body)})
+		statusErr := handler.SEVInjectLaunchSecret(context.Background(), metav1.NamespaceDefault, testVMIName, &readCloserWrapper{bytes.NewReader(body)})
 		Expect(statusErr).To(BeNil())
 	})
 })
