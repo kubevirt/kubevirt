@@ -183,11 +183,13 @@ type VirtControllerApp struct {
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
-	dataVolumeInformer     cache.SharedIndexInformer
-	dataSourceInformer     cache.SharedIndexInformer
-	storageProfileInformer cache.SharedIndexInformer
-	cdiInformer            cache.SharedIndexInformer
-	cdiConfigInformer      cache.SharedIndexInformer
+	dataVolumeInformer         cache.SharedIndexInformer
+	dataSourceInformer         cache.SharedIndexInformer
+	resourceClaimInformer      cache.SharedIndexInformer
+	resourceClaimTemplInformer cache.SharedIndexInformer
+	storageProfileInformer     cache.SharedIndexInformer
+	cdiInformer                cache.SharedIndexInformer
+	cdiConfigInformer          cache.SharedIndexInformer
 
 	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
@@ -419,6 +421,8 @@ func Execute() {
 	app.allPodInformer = app.informerFactory.Pod()
 	app.exportServiceInformer = app.informerFactory.ExportService()
 	app.resourceQuotaInformer = app.informerFactory.ResourceQuota()
+	app.resourceClaimInformer = app.informerFactory.ResourceClaim()
+	app.resourceClaimTemplInformer = app.informerFactory.ResourceClaimTemplate()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -827,6 +831,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.namespaceInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
+		vca.resourceClaimInformer,
+		vca.resourceClaimTemplInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,

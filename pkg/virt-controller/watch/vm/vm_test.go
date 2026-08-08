@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,6 +106,8 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			resourceClaimInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaim{})
+			resourceClaimTemplInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaimTemplate{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 
 			ns1 := &k8sv1.Namespace{
@@ -145,6 +148,8 @@ var _ = Describe("VirtualMachine", func() {
 				namespaceInformer,
 				pvcInformer,
 				crInformer,
+				resourceClaimInformer,
+				resourceClaimTemplInformer,
 				recorder,
 				virtClient,
 				config,
@@ -7151,6 +7156,95 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyHalted)))
 			})
 		})
+
+		Context("VM with ResourceClaimTemplates", func() {
+			It("should return ready=true when claim already exists", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.ResourceClaimTemplates = []v1.ResourceClaimTemplateEntry{
+					{Name: "gpu", ResourceClaimTemplateName: "gpu-template"},
+				}
+
+				existingClaim := &resourcev1.ResourceClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      watchutil.ResourceClaimNameForVM(vm.Name, "gpu"),
+						Namespace: vm.Namespace,
+					},
+				}
+				Expect(controller.resourceClaimStore.Add(existingClaim)).To(Succeed())
+
+				ready, err := controller.handleResourceClaims(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ready).To(BeTrue())
+			})
+
+			It("should create claim when template exists and claim does not", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.ResourceClaimTemplates = []v1.ResourceClaimTemplateEntry{
+					{Name: "gpu", ResourceClaimTemplateName: "gpu-template"},
+				}
+
+				template := &resourcev1.ResourceClaimTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gpu-template",
+						Namespace: vm.Namespace,
+					},
+					Spec: resourcev1.ResourceClaimTemplateSpec{
+						Spec: resourcev1.ResourceClaimSpec{},
+					},
+				}
+				Expect(controller.resourceClaimTemplateStore.Add(template)).To(Succeed())
+
+				k8sClient.Fake.PrependReactor("create", "resourceclaims", func(action testing.Action) (bool, runtime.Object, error) {
+					createAction := action.(testing.CreateAction)
+					claim := createAction.GetObject().(*resourcev1.ResourceClaim)
+					return true, claim, nil
+				})
+				virtClient.EXPECT().ResourceV1().Return(k8sClient.ResourceV1()).AnyTimes()
+
+				ready, err := controller.handleResourceClaims(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ready).To(BeFalse())
+			})
+
+			It("should warn and continue when template is missing", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.ResourceClaimTemplates = []v1.ResourceClaimTemplateEntry{
+					{Name: "gpu", ResourceClaimTemplateName: "missing-template"},
+				}
+
+				ready, err := controller.handleResourceClaims(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ready).To(BeFalse())
+			})
+
+			It("should return error when claim creation fails", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.ResourceClaimTemplates = []v1.ResourceClaimTemplateEntry{
+					{Name: "gpu", ResourceClaimTemplateName: "gpu-template"},
+				}
+
+				template := &resourcev1.ResourceClaimTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gpu-template",
+						Namespace: vm.Namespace,
+					},
+					Spec: resourcev1.ResourceClaimTemplateSpec{
+						Spec: resourcev1.ResourceClaimSpec{},
+					},
+				}
+				Expect(controller.resourceClaimTemplateStore.Add(template)).To(Succeed())
+
+				k8sClient.Fake.PrependReactor("create", "resourceclaims", func(action testing.Action) (bool, runtime.Object, error) {
+					return true, nil, fmt.Errorf("simulated create failure")
+				})
+				virtClient.EXPECT().ResourceV1().Return(k8sClient.ResourceV1()).AnyTimes()
+
+				ready, err := controller.handleResourceClaims(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(ready).To(BeFalse())
+				Expect(err.Error()).To(ContainSubstring("simulated create failure"))
+			})
+		})
 	})
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine
@@ -7466,6 +7560,8 @@ var _ = Describe("VirtualMachine", func() {
 			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{})
+			rcInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaim{})
+			rctInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaimTemplate{})
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			testController, _ = NewController(
@@ -7477,6 +7573,8 @@ var _ = Describe("VirtualMachine", func() {
 				namespaceInformer,
 				pvcInformer,
 				crInformer,
+				rcInformer,
+				rctInformer,
 				record.NewFakeRecorder(100),
 				virtClient,
 				config,
