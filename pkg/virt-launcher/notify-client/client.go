@@ -393,9 +393,6 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	eventType := watch.Modified
 
 	switch domain.Status.Reason {
-	case api.ReasonNonExistent:
-		now := metav1.Now()
-		domain.ObjectMeta.DeletionTimestamp = &now
 	case api.ReasonPausedIOError:
 		domainDisksWithErrors, err := d.GetDiskErrors(0)
 		if err != nil {
@@ -774,6 +771,17 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 }
 
 func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {
+	// Set DeletionTimestamp only on the Undefined event, which is always the
+	// last libvirt event in the sequence. Earlier events may see
+	// ReasonNonExistent if the domain was already torn down, but must not
+	// trigger deletion or they will preempt events still in the queue.
+	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_UNDEFINED {
+		if domain.Status.Reason == api.ReasonNonExistent {
+			now := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &now
+		}
+		return false
+	}
 	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_DEFINED &&
 		libvirt.DomainEventDefinedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 		return true

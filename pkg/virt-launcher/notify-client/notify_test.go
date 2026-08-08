@@ -243,6 +243,45 @@ var _ = Describe("Notify", func() {
 				Expect(timedOut).To(BeFalse())
 			})
 
+		It("should not set DeletionTimestamp for stopped/migrated event when domain is already gone", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			mockLib := testing.NewLibvirt(ctrl)
+			mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}).AnyTimes()
+
+			domain := util.NewDomainFromName("test", "1234")
+			e.eventCallback(mockLib.VirtConnection, domain, libvirtEvent{Event: &libvirt.DomainEventLifecycle{
+				Event:  libvirt.DOMAIN_EVENT_STOPPED,
+				Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED),
+			}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache(), false)
+
+			Expect(domain.Status.Reason).To(Equal(api.ReasonNonExistent))
+			Expect(domain.ObjectMeta.DeletionTimestamp).To(BeNil())
+			Consistently(deleteNotificationSent, 200*time.Millisecond).ShouldNot(Receive())
+		})
+
+		It("should not set DeletionTimestamp for Job Completed event when domain is already gone", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			mockLib := testing.NewLibvirt(ctrl)
+			mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}).AnyTimes()
+
+			mc := metadataCache()
+			mc.Migration.Store(api.MigrationMetadata{UID: "test-migration-uid"})
+
+			domain := util.NewDomainFromName("test", "1234")
+			e.eventCallback(mockLib.VirtConnection, domain, libvirtEvent{
+				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
+					Info: libvirt.DomainJobInfo{
+						Type:      libvirt.DOMAIN_JOB_COMPLETED,
+						Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+					},
+				},
+			}, client, deleteNotificationSent, nil, nil, nil, nil, mc, false)
+
+			Expect(domain.Status.Reason).To(Equal(api.ReasonNonExistent))
+			Expect(domain.ObjectMeta.DeletionTimestamp).To(BeNil())
+			Consistently(deleteNotificationSent, 200*time.Millisecond).ShouldNot(Receive())
+		})
+
 		It("should update Interface status",
 			func() {
 				domain := api.NewMinimalDomain("test")
