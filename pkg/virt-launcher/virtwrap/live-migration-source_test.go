@@ -174,6 +174,16 @@ var _ = Describe("Live migration source", func() {
 			Expect(migrationMetadata.FailureReason).To(Equal("client socket is closed"))
 			Expect(migrationMetadata.AbortStatus).To(BeEmpty())
 		})
+
+		It("should not publish estimated downtime from inflight migration job stats", func() {
+			domainInfoStats := inflightMigrationStats(&libvirt.DomainJobInfo{
+				Type:        libvirt.DOMAIN_JOB_UNBOUNDED,
+				DowntimeSet: true,
+				Downtime:    150,
+			})
+
+			Expect(domainInfoStats.DowntimeSet).To(BeFalse())
+		})
 	})
 
 	Context("Migration abort status", func() {

@@ -445,6 +445,19 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
+			By("Verifying the migration downtime metrics are populated")
+			downtimeLabels := map[string]string{
+				"name":      vmi.Name,
+				"namespace": vmi.Namespace,
+			}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_last_downtime_seconds", downtimeLabels, 1, ">", 0,
+			)
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_downtime_seconds_count",
+				map[string]string{"node": vmi.Status.NodeName}, 1, ">", 0,
+			)
+
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
 				context.Background(), vmi.Name, metav1.DeleteOptions{},
