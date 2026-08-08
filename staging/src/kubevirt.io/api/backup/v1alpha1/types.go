@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	exportv1 "kubevirt.io/api/export/v1"
 )
 
 // BackupMode is the const type for the backup possible modes
@@ -42,8 +43,14 @@ type BackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
 	// DataEndpoint is the URL of the endpoint for read for pull mode
+	// Deprecated: still populated for backward compatibility
+	// Use Links.Internal or Links.External for structured endpoint access
+	// with explicit internal/external distinction
 	DataEndpoint string `json:"dataEndpoint,omitempty"`
 	// MapEndpoint is the URL of the endpoint for map for pull mode
+	// Deprecated: still populated for backward compatibility
+	// Use Links.Internal or Links.External for structured endpoint access
+	// with explicit internal/external distinction
 	MapEndpoint string `json:"mapEndpoint,omitempty"`
 }
 
@@ -231,6 +238,8 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// EndpointCert is the raw CACert that is to be used when connecting
 	// to an exported backup endpoint in pull mode.
+	// Deprecated: still populated for backward compatibility
+	// Use Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate
 	EndpointCert *string `json:"endpointCert,omitempty"`
 	// +optional
 	// +listType=atomic
@@ -240,6 +249,11 @@ type VirtualMachineBackupStatus struct {
 	// ExportUID tracks the UID of the associated VMExport for pull-mode backups
 	// used to detect VMExport recreation and re-initiate the export handshake
 	ExportUID *types.UID `json:"exportUID,omitempty"`
+	// +optional
+	// Links exposes internal and external endpoints
+	// for pull-mode backups. Reuses VirtualMachineExportLinks from the export API.
+	// Prefer over the deprecated flat EndpointCert/DataEndpoint/MapEndpoint fields.
+	Links *exportv1.VirtualMachineExportLinks `json:"links,omitempty"`
 }
 
 // ConditionType is the const type for Conditions

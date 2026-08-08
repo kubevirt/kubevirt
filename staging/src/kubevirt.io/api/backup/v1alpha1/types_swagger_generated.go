@@ -6,8 +6,8 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "BackupVolumeInfo contains information about a volume included in a backup",
 		"volumeName":   "VolumeName is the volume name from VMI spec",
-		"dataEndpoint": "DataEndpoint is the URL of the endpoint for read for pull mode",
-		"mapEndpoint":  "MapEndpoint is the URL of the endpoint for map for pull mode",
+		"dataEndpoint": "DataEndpoint is the URL of the endpoint for read for pull mode\nDeprecated: still populated for backward compatibility\nUse Links.Internal or Links.External for structured endpoint access\nwith explicit internal/external distinction",
+		"mapEndpoint":  "MapEndpoint is the URL of the endpoint for map for pull mode\nDeprecated: still populated for backward compatibility\nUse Links.Internal or Links.External for structured endpoint access\nwith explicit internal/external distinction",
 	}
 }
 
@@ -84,8 +84,9 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"type":            "+optional\nType indicates if the backup was full or incremental",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
-		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
+		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.\nDeprecated: still populated for backward compatibility\nUse Links.Internal.Cert or Links.External.Cert for the corresponding CA certificate",
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
 		"exportUID":       "+optional\nExportUID tracks the UID of the associated VMExport for pull-mode backups\nused to detect VMExport recreation and re-initiate the export handshake",
+		"links":           "+optional\nLinks exposes internal and external endpoints\nfor pull-mode backups. Reuses VirtualMachineExportLinks from the export API.\nPrefer over the deprecated flat EndpointCert/DataEndpoint/MapEndpoint fields.",
 	}
 }
