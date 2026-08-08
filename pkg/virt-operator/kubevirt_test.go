@@ -1581,16 +1581,28 @@ func (k *KubeVirtTestData) shouldExpectInstallStrategyDeletion() {
 	})
 }
 
-func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
+func (k *KubeVirtTestData) makeDeploymentsReady(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
 	makeDeploymentReady := func(item interface{}) {
 		depl, _ := item.(*appsv1.Deployment)
 		deplNew := depl.DeepCopy()
-		var replicas int32 = 1
-		if depl.Spec.Replicas != nil {
-			replicas = *depl.Spec.Replicas
+		if deplNew.Annotations == nil {
+			deplNew.Annotations = map[string]string{}
 		}
-		deplNew.Status.Replicas = replicas
-		deplNew.Status.ReadyReplicas = replicas
+		deplNew.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
+		deplNew.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
+		deplNew.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
+		deplNew.Status.ObservedGeneration = deplNew.Generation
+		deplNew.Status.Conditions = []appsv1.DeploymentCondition{
+			{
+				Type:   appsv1.DeploymentProgressing,
+				Status: k8sv1.ConditionTrue,
+				Reason: "NewReplicaSetAvailable",
+			},
+			{
+				Type:   appsv1.DeploymentAvailable,
+				Status: k8sv1.ConditionTrue,
+			},
+		}
 		k.controller.stores.DeploymentCache.Update(deplNew)
 		key, err := kubecontroller.KeyFunc(deplNew)
 		Expect(err).To(Not(HaveOccurred()))
@@ -1653,6 +1665,7 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew.Status.NumberReady = 1
 			handlerNew.Status.NumberAvailable = 1
 			handlerNew.Status.UpdatedNumberScheduled = 1
+			handlerNew.Status.ObservedGeneration = handlerNew.Generation
 			maxUnavailable := intstr.FromInt(1)
 			handlerNew.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 				MaxUnavailable: &maxUnavailable,
@@ -1944,7 +1957,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 
@@ -2021,7 +2034,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(customConfig)
 			kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(customConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectKubeVirtUpdateStatusVersion(1, customConfig)
@@ -2063,7 +2076,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectDeletions()
@@ -2135,7 +2148,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectDeletions()
@@ -2177,7 +2190,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.fakeNamespaceModificationEvent()
@@ -2242,7 +2255,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(newConfig)
 			kvTestData.addAll(newConfig, kv)
 			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kvNoTemplate)
-			kvTestData.makeDeploymentsReady(kvNoTemplate)
+			kvTestData.makeDeploymentsReady(newConfig, kvNoTemplate)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.fakeNamespaceModificationEvent()
@@ -2272,7 +2285,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			kvTestData.addKubeVirt(kv)
 			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(newConfig, kv)
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 
@@ -2317,7 +2330,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 			kvTestData.makeHandlerComplete()
 
@@ -2381,7 +2394,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			numResources := kvTestData.generateRandomResources()
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectDeletions()
@@ -2903,7 +2916,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.addToCache = false
@@ -2974,7 +2987,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addAll(kvTestData.defaultConfig, kv)
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.addToCache = false
@@ -3050,7 +3063,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.addPodsWithIndividualConfigs(kvTestData.defaultConfig, kvTestData.defaultConfig, kvTestData.defaultConfig, updatedConfig, true, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(kvTestData.defaultConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.addToCache = false
@@ -3325,7 +3338,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.addDeployment(exportProxyDeployment, kv)
 				kvTestData.addDaemonset(handlerDaemonset, kv)
 				kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
-				kvTestData.makeDeploymentsReady(kv)
+				kvTestData.makeDeploymentsReady(customConfig, kv)
 				kvTestData.makeHandlerReady()
 
 				var apiDeploy, ctrlDeploy, tplApiDeploy, tplCtrlDeploy, exportproxyDeploy *appsv1.Deployment
@@ -3493,7 +3506,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.addDeployment(exportProxyDeployment, kv)
 				kvTestData.addDaemonset(handlerDaemonset, kv)
 				kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
-				kvTestData.makeDeploymentsReady(kv)
+				kvTestData.makeDeploymentsReady(customConfig, kv)
 				kvTestData.makeHandlerReady()
 
 				kvTestData.daemonSetPatchReactionFunc = func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -3572,7 +3585,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addVirtHandler(updatedConfig, kv)
 			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(updatedConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
@@ -3643,7 +3656,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// all resources.
 			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(updatedConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
@@ -3728,7 +3741,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// all resources.
 			kvTestData.addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false, kv)
 
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(updatedConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
@@ -3963,7 +3976,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Add updated Pods for new config
 			kvTestData.addPodsAndPodDisruptionBudgets(newConfig, newKv)
 			kvTestData.addVirtHandler(newConfig, newKv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(newConfig, newKv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectDeletions()
@@ -4024,7 +4037,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Add updated Pods for new config
 			kvTestData.addPodsAndPodDisruptionBudgets(newConfig, newKv)
 			kvTestData.addVirtHandler(newConfig, newKv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(newConfig, kv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.deleteFromCache = false
@@ -4117,7 +4130,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Add updated Pods for new config
 			kvTestData.addPodsAndPodDisruptionBudgets(newConfig, newKv)
 			kvTestData.addVirtHandler(newConfig, newKv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(newConfig, newKv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectDeletions()
@@ -4165,7 +4178,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Add updated Pods for new config
 			kvTestData.addPodsAndPodDisruptionBudgets(newConfig, newKv)
 			kvTestData.addVirtHandler(newConfig, newKv)
-			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeDeploymentsReady(newConfig, newKv)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectCreations()
