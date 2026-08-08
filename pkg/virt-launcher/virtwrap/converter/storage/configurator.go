@@ -31,9 +31,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
-	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
@@ -57,20 +55,8 @@ type DiskConfigurator struct {
 	detectOptimalBlockIO OptimalBlockIODetectFunc
 }
 
-func NewDiskConfigurator(c *convertertypes.ConverterContext, options ...diskOption) DiskConfigurator {
+func NewDiskConfigurator(options ...diskOption) DiskConfigurator {
 	d := DiskConfigurator{
-		architecture:         c.Architecture.GetArchitecture(),
-		virtioModel:          virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
-		useLaunchSecuritySEV: c.UseLaunchSecuritySEV,
-		useLaunchSecurityPV:  c.UseLaunchSecurityPV,
-		volumesDiscardIgnore: c.VolumesDiscardIgnore,
-		hotplugVolumes:       c.HotplugVolumes,
-		permanentVolumes:     c.PermanentVolumes,
-		isBlockPVC:           c.IsBlockPVC,
-		isBlockDV:            c.IsBlockDV,
-		applyCBT:             c.ApplyCBT,
-		disksInfo:            c.DisksInfo,
-		ephemeralDiskCreator: c.EphemeraldiskCreator,
 		detectOptimalBlockIO: getOptimalBlockIO,
 	}
 	for _, f := range options {
@@ -324,6 +310,78 @@ func (d DiskConfigurator) convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volum
 		return convertHotplugVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockDV[source.Name], disk, d.volumesDiscardIgnore)
 	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
+}
+
+func DiskWithArchitecture(architecture string) diskOption {
+	return func(d *DiskConfigurator) {
+		d.architecture = architecture
+	}
+}
+
+func DiskWithVirtioModel(virtioModel string) diskOption {
+	return func(d *DiskConfigurator) {
+		d.virtioModel = virtioModel
+	}
+}
+
+func DiskWithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) diskOption {
+	return func(d *DiskConfigurator) {
+		d.useLaunchSecuritySEV = useLaunchSecuritySEV
+	}
+}
+
+func DiskWithUseLaunchSecurityPV(useLaunchSecurityPV bool) diskOption {
+	return func(d *DiskConfigurator) {
+		d.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
+func DiskWithVolumesDiscardIgnore(volumesDiscardIgnore []string) diskOption {
+	return func(d *DiskConfigurator) {
+		d.volumesDiscardIgnore = volumesDiscardIgnore
+	}
+}
+
+func DiskWithHotplugVolumes(hotplugVolumes map[string]v1.VolumeStatus) diskOption {
+	return func(d *DiskConfigurator) {
+		d.hotplugVolumes = hotplugVolumes
+	}
+}
+
+func DiskWithPermanentVolumes(permanentVolumes map[string]v1.VolumeStatus) diskOption {
+	return func(d *DiskConfigurator) {
+		d.permanentVolumes = permanentVolumes
+	}
+}
+
+func DiskWithIsBlockPVC(isBlockPVC map[string]bool) diskOption {
+	return func(d *DiskConfigurator) {
+		d.isBlockPVC = isBlockPVC
+	}
+}
+
+func DiskWithIsBlockDV(isBlockDV map[string]bool) diskOption {
+	return func(d *DiskConfigurator) {
+		d.isBlockDV = isBlockDV
+	}
+}
+
+func DiskWithApplyCBT(applyCBT map[string]string) diskOption {
+	return func(d *DiskConfigurator) {
+		d.applyCBT = applyCBT
+	}
+}
+
+func DiskWithDisksInfo(disksInfo map[string]*disk.DiskInfo) diskOption {
+	return func(d *DiskConfigurator) {
+		d.disksInfo = disksInfo
+	}
+}
+
+func DiskWithEphemeralDiskCreator(ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) diskOption {
+	return func(d *DiskConfigurator) {
+		d.ephemeralDiskCreator = ephemeralDiskCreator
+	}
 }
 
 func DiskWithOptimalBlockIODetector(f OptimalBlockIODetectFunc) diskOption {
