@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -278,9 +279,27 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 	})
 }))
 
+func filterLLAIPs(ips []string) []string {
+	var filtered []string
+	for _, ip := range ips {
+		if addr := net.ParseIP(ip); addr != nil && addr.IsLinkLocalUnicast() {
+			continue
+		}
+		filtered = append(filtered, ip)
+	}
+	return filtered
+}
+
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ips := toVmi.Status.Interfaces[0].IPs
+	supportsIPv6, err := cluster.SupportsIpv6()
+	Expect(err).NotTo(HaveOccurred())
+	if !supportsIPv6 {
+		ips = filterLLAIPs(ips)
+	}
+
 	ConsistentlyWithOffset(1, func() error {
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ips {
 			if err := libnet.PingFromVMConsole(fromVmi, toIp); err != nil {
 				return err
 			}
