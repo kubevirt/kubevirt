@@ -40,7 +40,7 @@ func (s *Streamer) StreamVNC(ctx context.Context, namespace, name string, preser
 	defer activeConnectionMetric.Dec()
 	defer apimetrics.SetVMILastConnectionTimestamp(namespace, name)
 
-	return s.streamRaw(ctx, namespace, name, w, req, validateVMIForVNC,
+	return s.StreamRaw(ctx, namespace, name, w, req, validateVMIForVNC,
 		func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 			return conn.VNCURI(vmi, preserveSession)
 		},

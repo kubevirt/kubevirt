@@ -36,7 +36,7 @@ import (
 // StreamVSOCK proxies the VSOCK channel of the named VMI as a raw, bidirectional
 // websocket stream to virt-handler
 func (s *Streamer) StreamVSOCK(ctx context.Context, namespace, name, port, tls string, w http.ResponseWriter, req *http.Request) *errors.StatusError {
-	return s.streamRaw(ctx, namespace, name, w, req, validateVMIForVSOCK,
+	return s.StreamRaw(ctx, namespace, name, w, req, validateVMIForVSOCK,
 		func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 			return conn.VSOCKURI(vmi, port, tls)
 		},
