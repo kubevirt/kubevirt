@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "limits.go",
+        "utilization.go",
+        "utilization_linux.go",
+        "utilization_stub.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/exportproxy/admission",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "admission_suite_test.go",
+        "utilization_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
+)

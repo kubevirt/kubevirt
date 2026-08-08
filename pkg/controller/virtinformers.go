@@ -33,6 +33,7 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -307,6 +308,9 @@ type KubeInformerFactory interface {
 
 	// PodDisruptionBudgets created/managed by virt operator
 	OperatorPodDisruptionBudget() cache.SharedIndexInformer
+
+	// HorizontalPodAutoscalers created/managed by virt operator
+	OperatorHorizontalPodAutoscaler() cache.SharedIndexInformer
 
 	// ServiceMonitors created/managed by virt operator
 	OperatorServiceMonitor() cache.SharedIndexInformer
@@ -1500,6 +1504,18 @@ func (f *kubeInformerFactory) OperatorPodDisruptionBudget() cache.SharedIndexInf
 
 		lw := NewListWatchFromClient(f.k8sClient.PolicyV1().RESTClient(), "poddisruptionbudgets", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &policyv1.PodDisruptionBudget{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorHorizontalPodAutoscaler() cache.SharedIndexInformer {
+	return f.getInformer("operatorHorizontalPodAutoscalerInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.k8sClient.AutoscalingV2().RESTClient(), "horizontalpodautoscalers", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &autoscalingv2.HorizontalPodAutoscaler{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
