@@ -374,8 +374,12 @@ func (c *Controller) execute(key string) error {
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
-		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+		var patchBytes []byte
+		patchBytes, err = controller.LatestApiVersionMergePatch()
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
