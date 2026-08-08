@@ -602,6 +602,17 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		// Intel TDX endpoints
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("tdx/injectInitdata")).
+			To(subresourceApp.TDXInjectInitdataHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.TDXInitdataOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"TDXInjectInitdataHandler").
+			Doc("Inject TDX initdata into a Virtual Machine").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("evacuate/cancel")).
 			To(subresourceApp.EvacuateCancelHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
 			Consumes(mime.MIME_ANY).
@@ -780,6 +791,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/sev/injectlaunchsecret",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/tdx/injectInitdata",
 						Namespaced: true,
 					},
 					{
