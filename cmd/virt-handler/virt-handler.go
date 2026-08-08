@@ -376,12 +376,6 @@ func (app *virtHandlerApp) Run() {
 		go nodeLabellerController.Run(stop)
 	}
 
-	migrationIpAddress := app.PodIpAddress
-	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)
-	if err != nil {
-		panic(err)
-	}
-
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
@@ -413,6 +407,13 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	// Resolve migration IP after cache sync so GetMigrationConfiguration has the actual KubeVirt CR
+	migrationIpAddress := app.PodIpAddress
+	allowFallback := virthandler.IsMigrationNetworkFallbackAllowed(app.clusterConfig.GetMigrationConfiguration())
+	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress, allowFallback)
+	if err != nil {
+		panic(err)
+	}
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtClient,
