@@ -145,24 +145,6 @@ func convertVolumeSourceToDisk(volumeName, cbtPath string, isBlock bool, disk *a
 	return convertVolumeWithoutCBT(volumeName, isBlock, disk, volumesDiscardIgnore)
 }
 
-func convert_v1_PersistentVolumeClaim_To_api_Disk(name, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	return convertVolumeSourceToDisk(name, cbtPath, isBlock, disk, volumesDiscardIgnore)
-}
-
-// convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
-func convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	return convertHotplugVolumeSourceToDisk(name, cbtPath, isBlock, disk, volumesDiscardIgnore)
-}
-
-func convert_v1_DataVolume_To_api_Disk(name, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	return convertVolumeSourceToDisk(name, cbtPath, isBlock, disk, volumesDiscardIgnore)
-}
-
-// convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
-func convert_v1_Hotplug_DataVolume_To_api_Disk(name, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	return convertHotplugVolumeSourceToDisk(name, cbtPath, isBlock, disk, volumesDiscardIgnore)
-}
-
 // convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"

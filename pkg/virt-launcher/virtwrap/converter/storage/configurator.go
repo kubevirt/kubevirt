@@ -250,11 +250,11 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.DataVolume != nil {
-		return convert_v1_DataVolume_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.Ephemeral != nil {
@@ -286,15 +286,15 @@ func (d DiskConfigurator) convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volum
 	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
 	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
 	if source.HostDisk != nil {
-		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertHotplugVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertHotplugVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.DataVolume != nil {
-		return convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertHotplugVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
