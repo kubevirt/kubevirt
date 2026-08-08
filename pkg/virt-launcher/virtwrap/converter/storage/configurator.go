@@ -111,7 +111,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		case hpOk:
 			err = d.convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk)
 		default:
-			err = d.convert_v1_Volume_To_api_Disk(volume, &newDisk, volumeIndices[disk.Name])
+			err = d.convert_v1_Volume_To_api_Disk(volume, &newDisk, volumeIndices[disk.Name], vmi.Namespace, vmi.Name)
 		}
 
 		if err != nil {
@@ -228,13 +228,17 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 	return nil
 }
 
-func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int) error {
+func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string) error {
 	if source.ContainerDisk != nil {
-		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.c, diskIndex)
+		info := d.c.DisksInfo[source.Name]
+		if info == nil {
+			return fmt.Errorf("no disk info provided for volume %s", source.Name)
+		}
+		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.c.EphemeraldiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
-		return convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, d.c)
+		return convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, vmiNamespace, vmiName)
 	}
 
 	if source.Sysprep != nil {
@@ -242,19 +246,19 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.HostDisk != nil {
-		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, d.c)
+		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, d.c.ApplyCBT[source.Name], disk)
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, d.c)
+		return convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.DataVolume != nil {
-		return convert_v1_DataVolume_To_api_Disk(source.Name, disk, d.c)
+		return convert_v1_DataVolume_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.Ephemeral != nil {
-		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, disk, d.c)
+		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, d.c.EphemeraldiskCreator.GetFilePath(source.Name), d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 	if source.EmptyDisk != nil {
 		return convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
@@ -272,7 +276,7 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
 	}
 	if source.DownwardMetrics != nil {
-		return convert_v1_DownwardMetricSource_To_api_Disk(disk, d.c)
+		return convert_v1_DownwardMetricSource_To_api_Disk(disk, virtio.InterpretTransitionalModelType(&d.c.UseVirtioTransitional, d.c.Architecture.GetArchitecture()))
 	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
@@ -282,15 +286,15 @@ func (d DiskConfigurator) convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volum
 	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
 	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
 	if source.HostDisk != nil {
-		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, d.c)
+		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, d.c)
+		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 
 	if source.DataVolume != nil {
-		return convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, d.c)
+		return convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
 	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
