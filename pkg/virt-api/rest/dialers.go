@@ -26,7 +26,9 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/emicklei/go-restful/v3"
+	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -39,6 +41,7 @@ import (
 
 type netDial struct {
 	request *restful.Request
+	app     *SubresourceAPIApp
 }
 
 type handlerDial struct {
@@ -73,7 +76,7 @@ func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serro
 func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
 	logger := log.Log.Object(vmi)
 
-	targetIP, err := getTargetInterfaceIP(vmi)
+	targetIP, err := n.resolveTargetIP(vmi)
 	if err != nil {
 		logger.Reason(err).Error("Can't establish TCP tunnel.")
 		return nil, k8serrors.NewBadRequest(err.Error())
@@ -128,6 +131,62 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 		return nil, fmt.Errorf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled)
 	}
 	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
+}
+
+// resolveTargetIP returns the IP virt-api should dial to reach the VMI. It
+// prefers the current virt-launcher pod IP, which is always routable from the
+// pod network, and falls back to the first reported guest interface IP. The
+// guest interface IP may not be routable from the pod network (for example
+// when the VM is attached to a VPC network), so it is only used when the
+// launcher pod IP cannot be determined.
+func (n netDial) resolveTargetIP(vmi *v1.VirtualMachineInstance) (string, error) {
+	if podIP := n.launcherPodIP(vmi); podIP != "" {
+		return podIP, nil
+	}
+	return getTargetInterfaceIP(vmi)
+}
+
+// launcherPodIP looks up the IP of the virt-launcher pod currently backing the
+// VMI. It returns an empty string (rather than an error) when the pod cannot be
+// found or has no IP yet, so the caller can fall back to the interface IP.
+func (n netDial) launcherPodIP(vmi *v1.VirtualMachineInstance) string {
+	if n.app == nil {
+		return ""
+	}
+	pods, err := n.app.virtCli.CoreV1().Pods(vmi.Namespace).List(
+		n.request.Request.Context(),
+		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-launcher")},
+	)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to list virt-launcher pods; falling back to the VMI interface IP")
+		return ""
+	}
+	if pod := currentLauncherPod(vmi, pods.Items); pod != nil {
+		return pod.Status.PodIP
+	}
+	return ""
+}
+
+// currentLauncherPod selects the virt-launcher pod backing the VMI right now:
+// the most recently created pod owned by the VMI and scheduled to the VMI's
+// node. This mirrors the selection performed by controller.CurrentVMIPod and
+// ensures that during a migration the target pod is only chosen once the VMI
+// node has been handed over.
+func currentLauncherPod(vmi *v1.VirtualMachineInstance, pods []k8sv1.Pod) *k8sv1.Pod {
+	var current *k8sv1.Pod
+	for i := range pods {
+		pod := &pods[i]
+		if !metav1.IsControlledBy(pod, vmi) {
+			continue
+		}
+		if vmi.Status.NodeName != "" && vmi.Status.NodeName != pod.Spec.NodeName {
+			continue
+		}
+		if current == nil || current.CreationTimestamp.Before(&pod.CreationTimestamp) {
+			current = pod
+		}
+	}
+	return current
 }
 
 // get the first available interface IP
