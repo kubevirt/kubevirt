@@ -83,6 +83,18 @@ func TestMockLogger(t *testing.T) {
 	tearDown()
 }
 
+func TestLogLibvirtLogLineWithoutPosition(t *testing.T) {
+	setUp()
+	defer tearDown()
+
+	LogLibvirtLogLine(MakeLogger(MockLogger{}), "2018-10-04 09:20:33.702+0000: 38: error : plain error:42")
+
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[1] == "error", "Log entry did not preserve severity")
+	assert(t, logEntry[9] == "38", "Log entry did not preserve thread")
+	assert(t, logEntry[11] == "plain error:42", "Log entry did not preserve message")
+}
+
 func TestBadLevel(t *testing.T) {
 	setUp()
 	l := Logger("test")
