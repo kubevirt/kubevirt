@@ -39,8 +39,8 @@ func (VirtualMachineBackupTrackerSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupTrackerStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"latestCheckpoint":               "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
-		"checkpointRedefinitionRequired": "+optional\nCheckpointRedefinitionRequired is set to true by virt-handler when the VM\nrestarts and has a checkpoint that needs to be redefined in libvirt.\nvirt-controller will process this flag, attempt redefinition, and clear it.",
+		"latestCheckpoint":  "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
+		"lastTrackedPodUID": "+optional\nLastTrackedPodUID is the UID of the virt-launcher pod associated with\nthe VMI being tracked for which checkpoints were last defined in libvirt.\nAfter a VM restart, the new pod UID will differ, signaling that checkpoint\nredefinition is needed before backups can resume.",
 	}
 }
 

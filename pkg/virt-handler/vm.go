@@ -48,6 +48,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -229,6 +230,21 @@ func NewVirtualMachineController(
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if cbtHandler.trackerInformer != nil {
+		_, err = cbtHandler.trackerInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			UpdateFunc: func(_, newObj interface{}) {
+				tracker, ok := newObj.(*backupv1.VirtualMachineBackupTracker)
+				if !ok {
+					return
+				}
+				queue.Add(tracker.Namespace + "/" + tracker.Spec.Source.Name)
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	permissions := "rw"
