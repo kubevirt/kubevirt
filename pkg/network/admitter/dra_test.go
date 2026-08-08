@@ -20,6 +20,8 @@
 package admitter_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -29,6 +31,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/admitter"
+)
+
+const (
+	draNet1Name   = "dra-net-1"
+	draNet2Name   = "dra-net-2"
+	vfRequest     = "vf"
+	multusNetName = "multus-net"
 )
 
 var _ = Describe("Validate network DRA", func() {
@@ -82,13 +91,13 @@ var _ = Describe("Validate network DRA", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "dra-net-1",
+				Name: draNet1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					SRIOV: &v1.InterfaceSRIOV{},
 				},
 			},
 			{
-				Name: "dra-net-2",
+				Name: draNet2Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					SRIOV: &v1.InterfaceSRIOV{},
 				},
@@ -96,20 +105,20 @@ var _ = Describe("Validate network DRA", func() {
 		}
 		spec.Networks = []v1.Network{
 			{
-				Name: "dra-net-1",
+				Name: draNet1Name,
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
+						ClaimName:   draClaimName,
+						RequestName: vfRequest,
 					},
 				},
 			},
 			{
-				Name: "dra-net-2",
+				Name: draNet2Name,
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
+						ClaimName:   draClaimName,
+						RequestName: vfRequest,
 					},
 				},
 			},
@@ -125,13 +134,13 @@ var _ = Describe("Validate network DRA", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "multus-net",
+				Name: multusNetName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					SRIOV: &v1.InterfaceSRIOV{},
 				},
 			},
 			{
-				Name: "dra-net",
+				Name: draNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					SRIOV: &v1.InterfaceSRIOV{},
 				},
@@ -139,7 +148,7 @@ var _ = Describe("Validate network DRA", func() {
 		}
 		spec.Networks = []v1.Network{
 			{
-				Name:          "multus-net",
+				Name:          multusNetName,
 				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "nad1"}},
 			},
 			spec.Networks[0],
@@ -154,11 +163,11 @@ var _ = Describe("Validate network DRA", func() {
 	It("should reject DRA network with non-SRIOV interface binding", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces[0] = *v1.DefaultBridgeNetworkInterface()
-		spec.Domain.Devices.Interfaces[0].Name = "dra-net"
+		spec.Domain.Devices.Interfaces[0].Name = draNetworkName
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal(`DRA network "dra-net" requires an SR-IOV or binding plugin interface`))
+		Expect(causes[0].Message).To(Equal(fmt.Sprintf(`DRA network %q requires an SR-IOV or binding plugin interface`, draNetworkName)))
 		Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces"))
 	})
 
@@ -166,20 +175,20 @@ var _ = Describe("Validate network DRA", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "default",
+				Name: net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Masquerade: &v1.InterfaceMasquerade{},
 				},
 			},
 			{
-				Name: "dra-net",
+				Name: draNetworkName,
 				Binding: &v1.PluginBinding{
 					Name: "vhostuser",
 				},
 			},
 		}
 		spec.Networks = append(spec.Networks, v1.Network{
-			Name:          "default",
+			Name:          net1Name,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		})
 
@@ -194,7 +203,7 @@ var _ = Describe("Validate network DRA", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("fake.networks[0].name 'dra-net' not found."))
+		Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake.networks[0].name '%s' not found.", draNetworkName)))
 		Expect(causes[0].Field).To(Equal("fake.networks[0].name"))
 	})
 })
@@ -205,7 +214,7 @@ func newDRASpec() *v1.VirtualMachineInstanceSpec {
 			Devices: v1.Devices{
 				Interfaces: []v1.Interface{
 					{
-						Name: "dra-net",
+						Name: draNetworkName,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							SRIOV: &v1.InterfaceSRIOV{},
 						},
@@ -215,17 +224,17 @@ func newDRASpec() *v1.VirtualMachineInstanceSpec {
 		},
 		Networks: []v1.Network{
 			{
-				Name: "dra-net",
+				Name: draNetworkName,
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
+						ClaimName:   draClaimName,
+						RequestName: vfRequest,
 					},
 				},
 			},
 		},
 		ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-			{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
+			{Name: draClaimName, ResourceClaimName: ptr.To(draClaimName)},
 		},
 	}
 }

@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors.
  */
 
-//nolint:dupl
 package apply_test
 
 import (
@@ -33,6 +32,11 @@ import (
 )
 
 var _ = Describe("instancetype.Spec.HostDevices", func() {
+	const (
+		hostDeviceName       = "foobar"
+		hostDeviceDeviceName = "vendor.com/device_name"
+	)
+
 	var (
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
@@ -42,8 +46,8 @@ var _ = Describe("instancetype.Spec.HostDevices", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
 			HostDevices: []virtv1.HostDevice{
 				{
-					Name:       "foobar",
-					DeviceName: "vendor.com/device_name",
+					Name:       hostDeviceName,
+					DeviceName: hostDeviceDeviceName,
 				},
 			},
 		}
@@ -62,8 +66,8 @@ var _ = Describe("instancetype.Spec.HostDevices", func() {
 	It("should detect HostDevice conflict", func() {
 		vmi.Spec.Domain.Devices.HostDevices = []virtv1.HostDevice{
 			{
-				Name:       "foobar",
-				DeviceName: "vendor.com/device_name",
+				Name:       hostDeviceName,
+				DeviceName: hostDeviceDeviceName,
 			},
 		}
 

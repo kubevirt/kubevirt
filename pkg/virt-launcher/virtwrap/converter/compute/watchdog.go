@@ -46,7 +46,7 @@ func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 	var newWatchdogDevice api.Watchdog
 
 	switch w.architecture {
-	case "amd64":
+	case archAmd64:
 		if vmiWatchdog.I6300ESB == nil {
 			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
 		}
@@ -56,9 +56,9 @@ func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 			"i6300esb",
 			string(vmiWatchdog.I6300ESB.Action),
 		)
-	case "arm64":
+	case archArm64:
 		return fmt.Errorf("watchdog is not supported on architecture ARM64")
-	case "s390x":
+	case archS390x:
 		if vmiWatchdog.Diag288 == nil {
 			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
 		}

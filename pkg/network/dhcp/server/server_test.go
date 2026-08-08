@@ -33,6 +33,12 @@ import (
 
 var _ = Describe("DHCP Server", func() {
 
+	const (
+		searchDomain1 = "pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com"
+		searchDomain2 = "3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com"
+		searchDomain3 = "t4lanpt7z4ix58nvxl4d.com"
+	)
+
 	Context("check routes", func() {
 		It("verify should form correctly", func() {
 			expected := []byte{4, 224, 0, 0, 0, 0, 24, 192, 168, 1, 192, 168, 2, 1}
@@ -119,12 +125,12 @@ var _ = Describe("DHCP Server", func() {
 		It("should reject search domains that exceed max length", func() {
 			// should result in 256 byte slice
 			searchDomains := []string{
-				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
-				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				searchDomain1,
+				searchDomain2,
 				"38rfuqbyvkjg4z1f3aogul55wtgxrd9dlwzewqo0.com",
 				"yza01ojnzi0tkyjeusmlg728nqdqvz3domymifvq.com",
 				"m130lhs7a8yjgpn6almqggkqc222otedms6vslcd.com",
-				"t4lanpt7z4ix58nvxl4d.com",
+				searchDomain3,
 			}
 
 			_, err := convertSearchDomainsToBytes(searchDomains)
@@ -170,9 +176,9 @@ var _ = Describe("DHCP Server", func() {
 	Context("Options returned by prepareDHCPOptions", func() {
 		It("should contain the domain name option", func() {
 			searchDomains := []string{
-				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
-				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
-				"t4lanpt7z4ix58nvxl4d.com",
+				searchDomain1,
+				searchDomain2,
+				searchDomain3,
 				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 			}
@@ -184,9 +190,9 @@ var _ = Describe("DHCP Server", func() {
 
 		It("should contain custom options", func() {
 			searchDomains := []string{
-				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
-				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
-				"t4lanpt7z4ix58nvxl4d.com",
+				searchDomain1,
+				searchDomain2,
+				searchDomain3,
 				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 			}

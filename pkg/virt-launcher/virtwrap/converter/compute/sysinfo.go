@@ -25,6 +25,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	sysInfoManufacturer = "manufacturer"
+	sysInfoSKU          = "sku"
+	sysInfoSerial       = "serial"
+	sysInfoVersion      = "version"
+)
+
 type SMBIOS struct {
 	Manufacturer string
 	Product      string
@@ -61,17 +68,17 @@ func buildSystem(firmware *v1.Firmware, smBIOS *SMBIOS) []api.Entry {
 		systemEntries = []api.Entry{{Name: "uuid", Value: string(firmware.UUID)}}
 
 		if firmware.Serial != "" {
-			systemEntries = append(systemEntries, api.Entry{Name: "serial", Value: firmware.Serial})
+			systemEntries = append(systemEntries, api.Entry{Name: sysInfoSerial, Value: firmware.Serial})
 		}
 	}
 
 	if smBIOS != nil {
 		systemEntries = append(systemEntries,
-			api.Entry{Name: "manufacturer", Value: smBIOS.Manufacturer},
+			api.Entry{Name: sysInfoManufacturer, Value: smBIOS.Manufacturer},
 			api.Entry{Name: "family", Value: smBIOS.Family},
 			api.Entry{Name: "product", Value: smBIOS.Product},
-			api.Entry{Name: "sku", Value: smBIOS.SKU},
-			api.Entry{Name: "version", Value: smBIOS.Version},
+			api.Entry{Name: sysInfoSKU, Value: smBIOS.SKU},
+			api.Entry{Name: sysInfoVersion, Value: smBIOS.Version},
 		)
 	}
 
@@ -84,10 +91,10 @@ func buildChassis(chassis *v1.Chassis) []api.Entry {
 	}
 
 	return []api.Entry{
-		{Name: "manufacturer", Value: chassis.Manufacturer},
+		{Name: sysInfoManufacturer, Value: chassis.Manufacturer},
 		{Name: "version", Value: chassis.Version},
-		{Name: "serial", Value: chassis.Serial},
+		{Name: sysInfoSerial, Value: chassis.Serial},
 		{Name: "asset", Value: chassis.Asset},
-		{Name: "sku", Value: chassis.Sku},
+		{Name: sysInfoSKU, Value: chassis.Sku},
 	}
 }

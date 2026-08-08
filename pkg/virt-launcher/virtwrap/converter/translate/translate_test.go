@@ -30,36 +30,52 @@ import (
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	domainTypeKVM   = "kvm"
+	diskTypeFile    = "file"
+	diskDeviceDisk  = "disk"
+	diskBusVirtio   = "virtio"
+	diskDeviceVDA   = "vda"
+	diskDriverQEMU  = "qemu"
+	diskDriverRaw   = "raw"
+	ifaceTypeBridge = "bridge"
+	ifaceBridgeName = "br0"
+	ifaceMAC        = "52:54:00:00:00:01"
+	testUID         = "test-uid-12345"
+	testVMName      = "test-vm"
+	diskDeviceCDROM = "cdrom"
+)
+
 var _ = Describe("Domain translation", func() {
 	Context("ToLibvirtDomain", func() {
 		It("should convert a minimal DomainSpec", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
-			spec.Type = "kvm"
+			spec := api.NewMinimalDomainSpec(testVMName)
+			spec.Type = domainTypeKVM
 			domain, err := ToLibvirtDomain(spec)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domain).ToNot(BeNil())
-			Expect(domain.Name).To(Equal("test-vm"))
-			Expect(domain.Type).To(Equal("kvm"))
+			Expect(domain.Name).To(Equal(testVMName))
+			Expect(domain.Type).To(Equal(domainTypeKVM))
 
 			assertDomainSpecRoundTrip(spec)
 		})
 
 		It("should convert a DomainSpec with file disk", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Devices.Disks = []api.Disk{
 				{
-					Type:   "file",
-					Device: "disk",
+					Type:   diskTypeFile,
+					Device: diskDeviceDisk,
 					Source: api.DiskSource{
 						File: "/var/run/libvirt/images/disk.img",
 					},
 					Target: api.DiskTarget{
-						Bus:    "virtio",
-						Device: "vda",
+						Bus:    diskBusVirtio,
+						Device: diskDeviceVDA,
 					},
 					Driver: &api.DiskDriver{
-						Name: "qemu",
-						Type: "raw",
+						Name: diskDriverQEMU,
+						Type: diskDriverRaw,
 					},
 				},
 			}
@@ -74,15 +90,15 @@ var _ = Describe("Domain translation", func() {
 		})
 
 		It("should convert a DomainSpec with bridge interface", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Devices.Interfaces = []api.Interface{
 				{
-					Type: "bridge",
+					Type: ifaceTypeBridge,
 					Source: api.InterfaceSource{
-						Bridge: "br0",
+						Bridge: ifaceBridgeName,
 					},
-					Model: &api.Model{Type: "virtio"},
-					MAC:   &api.MAC{MAC: "52:54:00:00:00:01"},
+					Model: &api.Model{Type: diskBusVirtio},
+					MAC:   &api.MAC{MAC: ifaceMAC},
 				},
 			}
 
@@ -90,13 +106,13 @@ var _ = Describe("Domain translation", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domain.Devices.Interfaces).To(HaveLen(1))
 			Expect(domain.Devices.Interfaces[0].Source.Bridge).ToNot(BeNil())
-			Expect(domain.Devices.Interfaces[0].Source.Bridge.Bridge).To(Equal("br0"))
+			Expect(domain.Devices.Interfaces[0].Source.Bridge.Bridge).To(Equal(ifaceBridgeName))
 
 			assertDomainSpecRoundTrip(spec)
 		})
 
 		It("should convert a DomainSpec with QEMU commandline", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 			spec.QEMUCmd = &api.Commandline{
 				QEMUArg: []api.Arg{
@@ -122,10 +138,10 @@ var _ = Describe("Domain translation", func() {
 		})
 
 		It("should preserve metadata through conversion", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Metadata = api.Metadata{
 				KubeVirt: api.KubeVirtMetadata{
-					UID: "test-uid-12345",
+					UID: testUID,
 					GracePeriod: &api.GracePeriodMetadata{
 						DeletionGracePeriodSeconds: 30,
 					},
@@ -135,7 +151,7 @@ var _ = Describe("Domain translation", func() {
 			domain, err := ToLibvirtDomain(spec)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domain.Metadata).ToNot(BeNil())
-			Expect(domain.Metadata.XML).To(ContainSubstring("test-uid-12345"))
+			Expect(domain.Metadata.XML).To(ContainSubstring(testUID))
 		})
 
 		It("should handle an empty DomainSpec", func() {
@@ -146,7 +162,7 @@ var _ = Describe("Domain translation", func() {
 		})
 
 		It("should handle a DomainSpec with empty devices", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Devices = api.Devices{}
 			domain, err := ToLibvirtDomain(spec)
 			Expect(err).ToNot(HaveOccurred())
@@ -162,16 +178,16 @@ var _ = Describe("Domain translation", func() {
 
 	Context("FromLibvirtDomain", func() {
 		It("should convert a libvirtxml Domain back to DomainSpec", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
-			spec.Type = "kvm"
+			spec := api.NewMinimalDomainSpec(testVMName)
+			spec.Type = domainTypeKVM
 			domain, err := ToLibvirtDomain(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			spec2, err := FromLibvirtDomain(domain)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(spec2).ToNot(BeNil())
-			Expect(spec2.Name).To(Equal("test-vm"))
-			Expect(spec2.Type).To(Equal("kvm"))
+			Expect(spec2.Name).To(Equal(testVMName))
+			Expect(spec2.Type).To(Equal(domainTypeKVM))
 		})
 
 		It("should return error for nil libvirtxml Domain", func() {
@@ -182,7 +198,7 @@ var _ = Describe("Domain translation", func() {
 
 		It("should set XmlNS but not QEMUCmd when QEMUCommandline has no args or envs", func() {
 			domain := &libvirtxml.Domain{
-				Name:            "test-vm",
+				Name:            testVMName,
 				QEMUCommandline: &libvirtxml.DomainQEMUCommandline{},
 			}
 			spec, err := FromLibvirtDomain(domain)
@@ -193,15 +209,15 @@ var _ = Describe("Domain translation", func() {
 
 		It("should gracefully handle libvirt-only fields that have no KubeVirt equivalent", func() {
 			domain := &libvirtxml.Domain{
-				Name: "test-vm",
-				Type: "kvm",
+				Name: testVMName,
+				Type: domainTypeKVM,
 				QEMUCapabilities: &libvirtxml.DomainQEMUCapabilities{
 					Add: []libvirtxml.DomainQEMUCapabilitiesEntry{{Name: "cap-test"}},
 				},
 			}
 			spec, err := FromLibvirtDomain(domain)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(spec.Name).To(Equal("test-vm"))
+			Expect(spec.Name).To(Equal(testVMName))
 		})
 	})
 
@@ -347,10 +363,10 @@ var _ = Describe("Domain translation", func() {
 
 	Context("Round-trip fidelity", func() {
 		It("should round-trip a DomainSpec with metadata", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Metadata = api.Metadata{
 				KubeVirt: api.KubeVirtMetadata{
-					UID: "test-uid-12345",
+					UID: testUID,
 					GracePeriod: &api.GracePeriodMetadata{
 						DeletionGracePeriodSeconds: 30,
 					},
@@ -363,13 +379,13 @@ var _ = Describe("Domain translation", func() {
 			roundTripped, err := FromLibvirtDomain(domain)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(roundTripped.Metadata.KubeVirt.UID).To(Equal(types.UID("test-uid-12345")))
+			Expect(roundTripped.Metadata.KubeVirt.UID).To(Equal(types.UID(testUID)))
 			Expect(roundTripped.Metadata.KubeVirt.GracePeriod).ToNot(BeNil())
 			Expect(roundTripped.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds).To(Equal(int64(30)))
 		})
 
 		It("should round-trip a DomainSpec with CPU topology", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.CPU = api.CPU{
 				Mode: "host-passthrough",
 				Topology: &api.CPUTopology{
@@ -386,7 +402,7 @@ var _ = Describe("Domain translation", func() {
 		})
 
 		It("should round-trip a DomainSpec with OS and boot order", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.OS = api.OS{
 				Type: api.OSType{
 					OS:      "hvm",
@@ -395,14 +411,14 @@ var _ = Describe("Domain translation", func() {
 				},
 				BootOrder: []api.Boot{
 					{Dev: "hd"},
-					{Dev: "cdrom"},
+					{Dev: diskDeviceCDROM},
 				},
 			}
 			assertDomainSpecRoundTrip(spec)
 		})
 
 		It("should round-trip a DomainSpec with clock and timers", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Clock = &api.Clock{
 				Offset: "utc",
 				Timer: []api.Timer{
@@ -415,7 +431,7 @@ var _ = Describe("Domain translation", func() {
 		})
 
 		It("should round-trip a DomainSpec with features", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Features = &api.Features{
 				ACPI: &api.FeatureEnabled{},
 				APIC: &api.FeatureEnabled{},
@@ -425,30 +441,30 @@ var _ = Describe("Domain translation", func() {
 		})
 
 		It("should round-trip a DomainSpec with multiple devices", func() {
-			spec := api.NewMinimalDomainSpec("test-vm")
+			spec := api.NewMinimalDomainSpec(testVMName)
 			spec.Devices.Disks = []api.Disk{
 				{
-					Type:   "file",
-					Device: "disk",
+					Type:   diskTypeFile,
+					Device: diskDeviceDisk,
 					Source: api.DiskSource{File: "/images/disk1.img"},
-					Target: api.DiskTarget{Bus: "virtio", Device: "vda"},
-					Driver: &api.DiskDriver{Name: "qemu", Type: "raw"},
+					Target: api.DiskTarget{Bus: diskBusVirtio, Device: diskDeviceVDA},
+					Driver: &api.DiskDriver{Name: diskDriverQEMU, Type: diskDriverRaw},
 				},
 				{
-					Type:     "file",
-					Device:   "cdrom",
+					Type:     diskTypeFile,
+					Device:   diskDeviceCDROM,
 					Source:   api.DiskSource{File: "/images/cloud-init.iso"},
 					Target:   api.DiskTarget{Bus: "sata", Device: "sda"},
-					Driver:   &api.DiskDriver{Name: "qemu", Type: "raw"},
+					Driver:   &api.DiskDriver{Name: diskDriverQEMU, Type: diskDriverRaw},
 					ReadOnly: &api.ReadOnly{},
 				},
 			}
 			spec.Devices.Interfaces = []api.Interface{
 				{
-					Type:   "bridge",
-					Source: api.InterfaceSource{Bridge: "br0"},
-					Model:  &api.Model{Type: "virtio"},
-					MAC:    &api.MAC{MAC: "52:54:00:00:00:01"},
+					Type:   ifaceTypeBridge,
+					Source: api.InterfaceSource{Bridge: ifaceBridgeName},
+					Model:  &api.Model{Type: diskBusVirtio},
+					MAC:    &api.MAC{MAC: ifaceMAC},
 				},
 			}
 			assertDomainSpecRoundTrip(spec)

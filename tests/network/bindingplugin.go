@@ -46,6 +46,9 @@ import (
 const (
 	vmiReadyTimeoutPasst      = 180
 	vmiReadyTimeoutManagedTap = 30
+	ipamTypeKey               = "type"
+	hostLocalIPAMType         = "host-local"
+	subnetKey                 = "subnet"
 )
 
 var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
@@ -210,8 +213,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				linuxBridgeNADName,
 				"br10",
 				libnet.WithIPAM(map[string]string{
-					"type":   "host-local",
-					"subnet": "10.1.1.0/24",
+					ipamTypeKey: hostLocalIPAMType,
+					subnetKey:   "10.1.1.0/24",
 				}),
 			)
 			_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)

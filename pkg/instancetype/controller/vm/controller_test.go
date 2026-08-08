@@ -56,13 +56,16 @@ import (
 
 var _ = Describe("Instance type and Preference VirtualMachine Controller", func() {
 	const (
+		missingObjectName            = "foobar"
 		resourceUID        types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
 		resourceGeneration int64     = 1
 	)
 
 	const (
-		instancetypeName = "instancetype"
-		preferenceName   = "preference"
+		instancetypeName     = "instancetype"
+		preferenceName       = "preference"
+		preferredModelVirtio = "virtio"
+		crName               = "crName"
 	)
 
 	type instancetypeVMController interface {
@@ -196,7 +199,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				},
 				Devices: &v1beta1.DevicePreferences{
 					PreferredDiskBus:        virtv1.DiskBusVirtio,
-					PreferredInterfaceModel: "virtio",
+					PreferredInterfaceModel: preferredModelVirtio,
 					PreferredInputBus:       virtv1.InputBusUSB,
 					PreferredInputType:      virtv1.InputTypeTablet,
 				},
@@ -300,7 +303,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			func(getRevisionData func() []byte) {
 				instancetypeRevision := &appsv1.ControllerRevision{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "crName",
+						Name: crName,
 					},
 					Data: runtime.RawExtension{
 						Raw: getRevisionData(),
@@ -432,18 +435,18 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Entry("if an invalid InstancetypeMatcher Kind is provided",
 				&virtv1.InstancetypeMatcher{
 					Name: instancetypeName,
-					Kind: "foobar",
+					Kind: missingObjectName,
 				},
 			),
 			Entry("if a VirtualMachineInstancetype cannot be found",
 				&virtv1.InstancetypeMatcher{
-					Name: "foobar",
+					Name: missingObjectName,
 					Kind: instancetypeapi.SingularResourceName,
 				},
 			),
 			Entry("if a VirtualMachineClusterInstancetype cannot be found",
 				&virtv1.InstancetypeMatcher{
-					Name: "foobar",
+					Name: missingObjectName,
 					Kind: instancetypeapi.ClusterSingularResourceName,
 				},
 			),
@@ -508,7 +511,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 					},
 					Devices: &v1beta1.DevicePreferences{
 						PreferredDiskBus:        virtv1.DiskBusVirtio,
-						PreferredInterfaceModel: "virtio",
+						PreferredInterfaceModel: preferredModelVirtio,
 						PreferredInputBus:       virtv1.InputBusUSB,
 						PreferredInputType:      virtv1.InputTypeTablet,
 					},
@@ -555,7 +558,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			func(getRevisionData func() []byte) {
 				preferenceRevision := &appsv1.ControllerRevision{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "crName",
+						Name: crName,
 					},
 					Data: runtime.RawExtension{
 						Raw: getRevisionData(),
@@ -682,18 +685,18 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Entry("if an invalid InstancetypeMatcher Kind is provided",
 				&virtv1.PreferenceMatcher{
 					Name: preferenceName,
-					Kind: "foobar",
+					Kind: missingObjectName,
 				},
 			),
 			Entry("if a VirtualMachinePreference cannot be found",
 				&virtv1.PreferenceMatcher{
-					Name: "foobar",
+					Name: missingObjectName,
 					Kind: instancetypeapi.SingularPreferenceResourceName,
 				},
 			),
 			Entry("if a VirtualMachineClusterPreference cannot be found",
 				&virtv1.PreferenceMatcher{
-					Name: "foobar",
+					Name: missingObjectName,
 					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 				},
 			),

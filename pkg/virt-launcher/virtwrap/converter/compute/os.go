@@ -88,7 +88,7 @@ func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if vmi.ShouldStartPaused() {
 		const bootMenuTimeoutMS = uint(10000)
 		domain.Spec.OS.BootMenu = &api.BootMenu{
-			Enable:  "yes",
+			Enable:  featureYes,
 			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
@@ -116,8 +116,8 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.Firmware = "efi"
 		domain.Spec.OS.FirmwareInfo = &api.FirmwareInfo{
 			Features: []api.FirmwareFeature{
-				{Enabled: "yes", Name: FirmwareFeatureSecureBoot},
-				{Enabled: "yes", Name: FirmwareFeatureEnrolledKeys},
+				{Enabled: featureYes, Name: FirmwareFeatureSecureBoot},
+				{Enabled: featureYes, Name: FirmwareFeatureEnrolledKeys},
 			},
 		}
 		domain.Spec.OS.BootLoader = nil
@@ -126,7 +126,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		// variable storage via <varstore> for these descriptors automatically.
 		// For x86_64 pflash firmware, we must keep the explicit <nvram> to preserve
 		// KubeVirt's NVRAM filename convention and prevent format mismatches.
-		if vmi.Spec.Architecture != "arm64" {
+		if vmi.Spec.Architecture != archArm64 {
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Format: "raw",
 				NVRam:  filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
@@ -137,7 +137,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 
 	domain.Spec.OS.BootLoader = &api.Loader{
 		Path:     o.efiConfiguration.EFICode,
-		ReadOnly: "yes",
+		ReadOnly: featureYes,
 		Secure:   boolToYesNo(&o.efiConfiguration.SecureLoader, false),
 	}
 

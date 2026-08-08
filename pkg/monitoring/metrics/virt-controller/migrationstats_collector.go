@@ -24,6 +24,8 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 )
 
+const labelVMIM = "vmim"
+
 var (
 	migrationStatsCollector = operatormetrics.Collector{
 		Metrics: []operatormetrics.Metric{
@@ -70,7 +72,7 @@ var (
 			Name: "kubevirt_vmi_migration_succeeded",
 			Help: "Indicates if the VMI migration succeeded.",
 		},
-		[]string{"vmi", "vmim", "namespace"},
+		[]string{metricLabelMigrationVMIName, labelVMIM, metricLabelNamespace},
 	)
 
 	failedMigration = operatormetrics.NewGaugeVec(
@@ -78,7 +80,7 @@ var (
 			Name: "kubevirt_vmi_migration_failed",
 			Help: "Indicates if the VMI migration failed.",
 		},
-		[]string{"vmi", "vmim", "namespace"},
+		[]string{metricLabelMigrationVMIName, labelVMIM, metricLabelNamespace},
 	)
 )
 

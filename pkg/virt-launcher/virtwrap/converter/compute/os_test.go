@@ -36,6 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	acpiTableTypeMSDM = "msdm"
+	acpiTableTypeSLIC = "slic"
+	osYes             = "yes"
+	boolYesNo         = "no"
+)
+
 var _ = Describe("OS Domain Configurator", func() {
 	const (
 		smbiosEnabled    = true
@@ -78,7 +85,7 @@ var _ = Describe("OS Domain Configurator", func() {
 		Entry("boot menu is enabled when VMI starts paused",
 			libvmi.New(withStartStrategy(v1.StartStrategyPaused)),
 			&api.BootMenu{
-				Enable:  "yes",
+				Enable:  osYes,
 				Timeout: pointer.P(uint(10000)),
 			},
 		),
@@ -94,7 +101,7 @@ var _ = Describe("OS Domain Configurator", func() {
 		Expect(domain).To(Equal(expectedDomain))
 	},
 		Entry("when BIOS UseSerial is disabled", !useSerialEnabled, nil),
-		Entry("when BIOS UseSerial is enabled", useSerialEnabled, &api.BIOS{UseSerial: "yes"}),
+		Entry("when BIOS UseSerial is enabled", useSerialEnabled, &api.BIOS{UseSerial: osYes}),
 	)
 
 	DescribeTable("configures kernel args based on VMI firmware settings", func(vmi *v1.VirtualMachineInstance, expectedKernelArgs string) {
@@ -130,7 +137,7 @@ var _ = Describe("OS Domain Configurator", func() {
 				BootLoader: &api.Loader{
 					Type:     "rom",
 					Path:     efiConfig.EFICode,
-					ReadOnly: "yes",
+					ReadOnly: osYes,
 					Secure:   boolToYesNo(false),
 				},
 			}
@@ -151,7 +158,7 @@ var _ = Describe("OS Domain Configurator", func() {
 			expectedOS := api.OS{
 				BootLoader: &api.Loader{
 					Path:     efiConfig.EFICode,
-					ReadOnly: "yes",
+					ReadOnly: osYes,
 					Secure:   boolToYesNo(secureBoot),
 					Type:     "pflash",
 				},
@@ -181,8 +188,8 @@ var _ = Describe("OS Domain Configurator", func() {
 				Firmware: "efi",
 				FirmwareInfo: &api.FirmwareInfo{
 					Features: []api.FirmwareFeature{
-						{Enabled: "yes", Name: compute.FirmwareFeatureSecureBoot},
-						{Enabled: "yes", Name: compute.FirmwareFeatureEnrolledKeys},
+						{Enabled: osYes, Name: compute.FirmwareFeatureSecureBoot},
+						{Enabled: osYes, Name: compute.FirmwareFeatureEnrolledKeys},
 					},
 				},
 				NVRam: &api.NVRam{
@@ -231,17 +238,17 @@ var _ = Describe("OS Domain Configurator", func() {
 		},
 			Entry("SLIC table",
 				libvmi.New(withACPISlic("slic-secret"), withSecretVolume("slic-secret")),
-				[]api.ACPITable{{Type: "slic", Path: filepath.Join(config.SecretSourceDir, "slic-secret", "slic.bin")}},
+				[]api.ACPITable{{Type: acpiTableTypeSLIC, Path: filepath.Join(config.SecretSourceDir, "slic-secret", "slic.bin")}},
 			),
 			Entry("MSDM table",
 				libvmi.New(withACPIMsdm("msdm-secret"), withSecretVolume("msdm-secret")),
-				[]api.ACPITable{{Type: "msdm", Path: filepath.Join(config.SecretSourceDir, "msdm-secret", "msdm.bin")}},
+				[]api.ACPITable{{Type: acpiTableTypeMSDM, Path: filepath.Join(config.SecretSourceDir, "msdm-secret", "msdm.bin")}},
 			),
 			Entry("both SLIC and MSDM tables",
 				libvmi.New(withACPISlicAndMsdm("slic-secret", "msdm-secret"), withSecretVolume("slic-secret"), withSecretVolume("msdm-secret")),
 				[]api.ACPITable{
-					{Type: "slic", Path: filepath.Join(config.SecretSourceDir, "slic-secret", "slic.bin")},
-					{Type: "msdm", Path: filepath.Join(config.SecretSourceDir, "msdm-secret", "msdm.bin")},
+					{Type: acpiTableTypeSLIC, Path: filepath.Join(config.SecretSourceDir, "slic-secret", "slic.bin")},
+					{Type: acpiTableTypeMSDM, Path: filepath.Join(config.SecretSourceDir, "msdm-secret", "msdm.bin")},
 				},
 			),
 		)
@@ -396,9 +403,9 @@ func withConfigMapVolume(volumeName string) libvmi.Option {
 
 func boolToYesNo(b bool) string {
 	if b {
-		return "yes"
+		return osYes
 	}
-	return "no"
+	return boolYesNo
 }
 
 func newDomainWithOS(os api.OS) api.Domain {

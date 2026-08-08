@@ -30,6 +30,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	constBackendModel     = "random"
+	constSource           = "/dev/urandom"
+	rngIommuOn            = "on"
+	rngModelVirtio        = "virtio"
+	virtioNonTransitional = "virtio-non-transitional"
+)
+
 var _ = Describe("RNG Domain Configurator", func() {
 	It("Should not configure RNG device when RNG is unspecified in VMI", func() {
 		vmi := libvmi.New()
@@ -38,7 +46,7 @@ var _ = Describe("RNG Domain Configurator", func() {
 		configurator := compute.NewRNGDomainConfigurator(
 			compute.RNGWithUseLaunchSecuritySEV(false),
 			compute.RNGWithUseLaunchSecurityPV(false),
-			compute.RNGWithVirtioModel("virtio"),
+			compute.RNGWithVirtioModel(rngModelVirtio),
 		)
 
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -56,7 +64,7 @@ var _ = Describe("RNG Domain Configurator", func() {
 			configurator := compute.NewRNGDomainConfigurator(
 				compute.RNGWithUseLaunchSecuritySEV(true),
 				compute.RNGWithUseLaunchSecurityPV(false),
-				compute.RNGWithVirtioModel("virtio-non-transitional"),
+				compute.RNGWithVirtioModel(virtioNonTransitional),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -65,14 +73,14 @@ var _ = Describe("RNG Domain Configurator", func() {
 				Spec: api.DomainSpec{
 					Devices: api.Devices{
 						Rng: &api.Rng{
-							Model: "virtio-non-transitional",
+							Model: virtioNonTransitional,
 							Backend: &api.RngBackend{
-								Model:  "random",
-								Source: "/dev/urandom",
+								Model:  constBackendModel,
+								Source: constSource,
 							},
 							Address: nil,
 							Driver: &api.RngDriver{
-								IOMMU: "on",
+								IOMMU: rngIommuOn,
 							},
 						},
 					},
@@ -93,7 +101,7 @@ var _ = Describe("RNG Domain Configurator", func() {
 			configurator := compute.NewRNGDomainConfigurator(
 				compute.RNGWithUseLaunchSecuritySEV(false),
 				compute.RNGWithUseLaunchSecurityPV(true),
-				compute.RNGWithVirtioModel("virtio"),
+				compute.RNGWithVirtioModel(rngModelVirtio),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -102,14 +110,14 @@ var _ = Describe("RNG Domain Configurator", func() {
 				Spec: api.DomainSpec{
 					Devices: api.Devices{
 						Rng: &api.Rng{
-							Model: "virtio",
+							Model: rngModelVirtio,
 							Backend: &api.RngBackend{
-								Model:  "random",
-								Source: "/dev/urandom",
+								Model:  constBackendModel,
+								Source: constSource,
 							},
 							Address: nil,
 							Driver: &api.RngDriver{
-								IOMMU: "on",
+								IOMMU: rngIommuOn,
 							},
 						},
 					},

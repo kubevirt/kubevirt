@@ -31,16 +31,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/multus"
 )
 
+const (
+	testNamespace = "testns"
+	testNetName   = "testnet"
+)
+
 var _ = Describe("NetAttachDefNamespacedName", func() {
 	It("should return vmi namespace when namespace is implicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		nadNamespacedName := multus.NetAttachDefNamespacedName(vmi.Namespace, "testnet")
-		Expect(nadNamespacedName).To(Equal(types.NamespacedName{Namespace: "testns", Name: "testnet"}))
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: testVMIName, Namespace: testNamespace}}
+		nadNamespacedName := multus.NetAttachDefNamespacedName(vmi.Namespace, testNetName)
+		Expect(nadNamespacedName).To(Equal(types.NamespacedName{Namespace: testNamespace, Name: testNetName}))
 	})
 
 	It("should return namespace from networkName when namespace is explicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		nadNamespacedName := multus.NetAttachDefNamespacedName(vmi.Namespace, "otherns/testnet")
-		Expect(nadNamespacedName).To(Equal(types.NamespacedName{Namespace: "otherns", Name: "testnet"}))
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: testVMIName, Namespace: testNamespace}}
+		nadNamespacedName := multus.NetAttachDefNamespacedName(vmi.Namespace, "otherns/"+testNetName)
+		Expect(nadNamespacedName).To(Equal(types.NamespacedName{Namespace: "otherns", Name: testNetName}))
 	})
 })

@@ -32,6 +32,9 @@ import (
 )
 
 var _ = Describe("instancetype.spec.NodeSelector", func() {
+	const nodeSelectorKey = "key"
+	const nodeSelectorValue = "value"
+
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
@@ -47,7 +50,7 @@ var _ = Describe("instancetype.spec.NodeSelector", func() {
 
 	It("should apply to VMI", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			NodeSelector: map[string]string{"key": "value"},
+			NodeSelector: map[string]string{nodeSelectorKey: nodeSelectorValue},
 		}
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
@@ -57,18 +60,18 @@ var _ = Describe("instancetype.spec.NodeSelector", func() {
 
 	It("should be no-op if vmi.Spec.NodeSelector is already set but instancetype.NodeSelector is empty", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{}
-		vmi.Spec.NodeSelector = map[string]string{"key": "value"}
+		vmi.Spec.NodeSelector = map[string]string{nodeSelectorKey: nodeSelectorValue}
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
-		Expect(vmi.Spec.NodeSelector).To(Equal(map[string]string{"key": "value"}))
+		Expect(vmi.Spec.NodeSelector).To(Equal(map[string]string{nodeSelectorKey: nodeSelectorValue}))
 	})
 
 	It("should return a conflict if vmi.Spec.NodeSelector is already set and instancetype.NodeSelector is defined", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			NodeSelector: map[string]string{"key": "value"},
+			NodeSelector: map[string]string{nodeSelectorKey: nodeSelectorValue},
 		}
-		vmi.Spec.NodeSelector = map[string]string{"key": "value"}
+		vmi.Spec.NodeSelector = map[string]string{nodeSelectorKey: nodeSelectorValue}
 
 		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
 		Expect(conflicts).To(HaveLen(1))

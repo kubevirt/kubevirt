@@ -33,6 +33,7 @@ import (
 
 const (
 	defaultIOThread = uint(1)
+	unitKiB         = "KiB"
 )
 
 type ControllersDomainConfigurator struct {
@@ -63,7 +64,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	var controllerDriver *api.ControllerDriver
 	if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
 		controllerDriver = &api.ControllerDriver{
-			IOMMU: "on",
+			IOMMU: iommuEnabled,
 		}
 	}
 
@@ -129,14 +130,14 @@ func ControllersWithVirtioSerialModel(model string) controllersOption {
 }
 
 func newUSBController(usbNeeded bool) api.Controller {
-	usbControllerModel := "none"
+	usbControllerModel := modelNone
 
 	if usbNeeded {
 		usbControllerModel = "qemu-xhci"
 	}
 
 	return api.Controller{
-		Type:  "usb",
+		Type:  busUSB,
 		Index: "0",
 		Model: usbControllerModel,
 	}
@@ -158,7 +159,7 @@ func newPCIControllerWithHole64Disabled() api.Controller {
 		Model: "pcie-root",
 		PCIHole64: &api.PCIHole64{
 			Value: 0,
-			Unit:  "KiB",
+			Unit:  unitKiB,
 		},
 	}
 }

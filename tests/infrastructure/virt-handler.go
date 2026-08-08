@@ -42,6 +42,12 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
+const (
+	ksmRunPath              = "/sys/kernel/mm/ksm/run"
+	kubevirtMetricsSelector = "kubernetes.io/service-name=kubevirt-prometheus-metrics"
+	shellCatCommand         = "cat"
+)
+
 var _ = Describe(SIGSerial("virt-handler", decorators.WgS390x, func() {
 	var (
 		virtClient       kubecli.KubevirtClient
@@ -55,7 +61,7 @@ var _ = Describe(SIGSerial("virt-handler", decorators.WgS390x, func() {
 
 		nodesWithKSM := make([]string, 0)
 		for _, node := range nodes.Items {
-			command := []string{"cat", "/sys/kernel/mm/ksm/run"}
+			command := []string{shellCatCommand, ksmRunPath}
 			_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, command)
 			if err == nil {
 				nodesWithKSM = append(nodesWithKSM, node.Name)
@@ -118,7 +124,7 @@ var _ = Describe(SIGSerial("virt-handler", decorators.WgS390x, func() {
 		By("Ensure ksm is enabled and annotation is added in the expected nodes")
 		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
-				command := []string{"cat", "/sys/kernel/mm/ksm/run"}
+				command := []string{shellCatCommand, ksmRunPath}
 				ksmValue, err := libnode.ExecuteCommandInVirtHandlerPod(node, command)
 				if err != nil {
 					return "", err
@@ -142,7 +148,7 @@ var _ = Describe(SIGSerial("virt-handler", decorators.WgS390x, func() {
 		By("Ensure ksm is disabled and annotation is set to false in the expected nodes")
 		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
-				command := []string{"cat", "/sys/kernel/mm/ksm/run"}
+				command := []string{shellCatCommand, ksmRunPath}
 				ksmValue, err := libnode.ExecuteCommandInVirtHandlerPod(node, command)
 				if err != nil {
 					return "", err

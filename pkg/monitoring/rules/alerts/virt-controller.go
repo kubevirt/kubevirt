@@ -39,8 +39,8 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Some virt controllers are running but not ready.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -51,8 +51,8 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No ready virt-controller was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -63,8 +63,8 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No leading virt-controller was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -75,8 +75,8 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No running virt-controller was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -91,8 +91,8 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Less than 75% of desired virt-controller pods are running.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -103,8 +103,8 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: getRestCallsFailedWarning(eightyPercent, "virt-controller", fiveMinutes),
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 	}

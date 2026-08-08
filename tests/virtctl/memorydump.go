@@ -50,6 +50,12 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	memoryDumpCmd = "memory-dump"
+	bashArgC      = "-c"
+	binSH         = "/bin/sh"
+)
+
 var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 	const (
 		randNameTail    = 5
@@ -170,24 +176,24 @@ var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 
 func runMemoryDumpGetCmd(name string, args ...string) error {
 	_args := append([]string{
-		"memory-dump", "get", name,
-		"--namespace", testsuite.GetTestNamespace(nil),
+		memoryDumpCmd, "get", name,
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }
 
 func runMemoryDumpDownloadCmd(name string, args ...string) error {
 	_args := append([]string{
-		"memory-dump", "download", name,
-		"--namespace", testsuite.GetTestNamespace(nil),
+		memoryDumpCmd, "download", name,
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }
 
 func runMemoryDumpRemoveCmd(name string, args ...string) error {
 	_args := append([]string{
-		"memory-dump", "remove", name,
-		"--namespace", testsuite.GetTestNamespace(nil),
+		memoryDumpCmd, "remove", name,
+		namespaceFlag, testsuite.GetTestNamespace(nil),
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }
@@ -263,7 +269,7 @@ func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, s
 	const randNameTail = 5
 	pod := libstorage.RenderPodWithPVC(
 		"pod-"+rand.String(randNameTail),
-		[]string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"},
+		[]string{"/bin/bash", bashArgC, "touch /tmp/startup; while true; do echo hello; sleep 2; done"},
 		nil, pvc,
 	)
 	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
@@ -280,7 +286,7 @@ func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, s
 
 	lsOut, err := exec.ExecuteCommandOnPod(
 		pod, pod.Spec.Containers[0].Name,
-		[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s", libstorage.DefaultPvcMountPath)},
+		[]string{binSH, bashArgC, fmt.Sprintf("ls -1 %s", libstorage.DefaultPvcMountPath)},
 	)
 	lsOut = strings.TrimSpace(lsOut)
 	Expect(err).ToNot(HaveOccurred())
@@ -288,7 +294,7 @@ func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, s
 
 	wcOut, err := exec.ExecuteCommandOnPod(
 		pod, pod.Spec.Containers[0].Name,
-		[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s | wc -l", libstorage.DefaultPvcMountPath)},
+		[]string{binSH, bashArgC, fmt.Sprintf("ls -1 %s | wc -l", libstorage.DefaultPvcMountPath)},
 	)
 	wcOut = strings.TrimSpace(wcOut)
 	Expect(err).ToNot(HaveOccurred())

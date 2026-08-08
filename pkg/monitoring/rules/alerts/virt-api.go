@@ -36,8 +36,8 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No running virt-api pods were detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -51,8 +51,8 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Some virt-api pods are running but not ready.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -63,8 +63,8 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No ready virt-api was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -79,8 +79,8 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Less than 75% of desired virt-api pods are running.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -91,8 +91,8 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: getRestCallsFailedWarning(eightyPercent, "virt-api", fiveMinutes),
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -109,8 +109,8 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey:     "Detected {{ $value }} requests in the last 10 minutes.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "info",
-				operatorHealthImpactLabelKey: "none",
+				severityAlertLabelKey:        alertSeverityInfo,
+				operatorHealthImpactLabelKey: operatorHealthImpactNone,
 			},
 		},
 	}

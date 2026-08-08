@@ -36,6 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	qemuArgFWCfg               = "-fw_cfg"
+	qemuArgChardev             = "-chardev"
+	qemuArgDevice              = "-device"
+	qemuArgISADebugconFirmware = "isa-debugcon,iobase=0x402,chardev=firmwarelog"
+)
+
 var _ = Describe("QemuCmd Domain Configurator", func() {
 	const (
 		vmiName           = "test-vmi"
@@ -58,7 +65,7 @@ var _ = Describe("QemuCmd Domain Configurator", func() {
 	},
 		Entry("added when annotation contains 'ignition'", "ignition", &api.Commandline{
 			QEMUArg: []api.Arg{
-				{Value: "-fw_cfg"},
+				{Value: qemuArgFWCfg},
 				{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s/%s",
 					ignition.GetDomainBasePath(vmiName, vmiNamespace), ignition.IgnitionFile)},
 			},
@@ -84,10 +91,10 @@ var _ = Describe("QemuCmd Domain Configurator", func() {
 			strconv.Itoa(util.EXT_LOG_VERBOSITY_THRESHOLD+1),
 			&api.Commandline{
 				QEMUArg: []api.Arg{
-					{Value: "-chardev"},
+					{Value: qemuArgChardev},
 					{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", compute.QEMUSeaBiosDebugPipe)},
-					{Value: "-device"},
-					{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"},
+					{Value: qemuArgDevice},
+					{Value: qemuArgISADebugconFirmware},
 				},
 			},
 		),
@@ -125,12 +132,12 @@ var _ = Describe("QemuCmd Domain Configurator", func() {
 		ignitionPath := fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(vmiName, vmiNamespace), ignition.IgnitionFile)
 		Expect(domain).To(Equal(newDomainWithQEMUCmd(&api.Commandline{
 			QEMUArg: []api.Arg{
-				{Value: "-fw_cfg"},
+				{Value: qemuArgFWCfg},
 				{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionPath)},
-				{Value: "-chardev"},
+				{Value: qemuArgChardev},
 				{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", compute.QEMUSeaBiosDebugPipe)},
-				{Value: "-device"},
-				{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"},
+				{Value: qemuArgDevice},
+				{Value: qemuArgISADebugconFirmware},
 			},
 		})))
 	})

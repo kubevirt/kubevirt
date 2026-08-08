@@ -30,6 +30,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	watchdogNameDiag    = "diagwatchdog"
+	watchdogActionReset = "reset"
+)
+
 var _ = Describe("Watchdog Domain Configurator", func() {
 	DescribeTable("Should not configure watchdog when watchdog is unspecified", func(architecture string) {
 		vmi := libvmi.New()
@@ -82,7 +87,7 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 		Entry("s390x with Diag288",
 			"s390x",
 			v1.Watchdog{
-				Name: "diagwatchdog",
+				Name: watchdogNameDiag,
 				WatchdogDevice: v1.WatchdogDevice{
 					Diag288: &v1.Diag288Watchdog{
 						Action: v1.WatchdogActionReset,
@@ -90,9 +95,9 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 				},
 			},
 			api.Watchdog{
-				Alias:  api.NewUserDefinedAlias("diagwatchdog"),
+				Alias:  api.NewUserDefinedAlias(watchdogNameDiag),
 				Model:  "diag288",
-				Action: "reset",
+				Action: watchdogActionReset,
 			},
 		),
 	)
@@ -119,7 +124,7 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 		),
 		Entry("s390x with nil Diag288",
 			"s390x",
-			v1.Watchdog{Name: "diagwatchdog"},
+			v1.Watchdog{Name: watchdogNameDiag},
 			"can't be mapped",
 		),
 	)

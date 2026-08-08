@@ -32,6 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+const primaryNetworkName = "default"
+
 var _ = Describe("Network setup filters", func() {
 	Context("FilterNetsForVMStartup", func() {
 		It("Should return a list non-absent networks", func() {
@@ -87,7 +89,7 @@ var _ = Describe("Network setup filters", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       primaryNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -117,7 +119,7 @@ var _ = Describe("Network setup filters", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       primaryNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -152,7 +154,7 @@ var _ = Describe("Network setup filters", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       primaryNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -184,7 +186,7 @@ var _ = Describe("Network setup filters", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:       "default",
+							Name:       primaryNetworkName,
 							InfoSource: vmispec.InfoSourceDomain,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{

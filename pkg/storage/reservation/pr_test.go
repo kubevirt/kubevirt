@@ -32,6 +32,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 )
 
+const (
+	lun0DiskName = "lun0"
+	disk0Name    = "disk0"
+	lun1Name     = "lun1"
+)
+
 func newFakePVCStore(pvcs ...*k8sv1.PersistentVolumeClaim) cache.Store {
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	for _, pvc := range pvcs {
@@ -82,13 +88,13 @@ var _ = Describe("PersistentReservation", func() {
 	Context("PersistentReservationPVCLabels", func() {
 		It("should return no labels when there are no PR disks", func() {
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault},
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "disk0",
+									Name:       disk0Name,
 									DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio}},
 								},
 							},
@@ -96,7 +102,7 @@ var _ = Describe("PersistentReservation", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "disk0",
+							Name: disk0Name,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
 							},
@@ -112,13 +118,13 @@ var _ = Describe("PersistentReservation", func() {
 
 		It("should return no labels when LUN has reservation disabled", func() {
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault},
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "lun0",
+									Name:       lun0DiskName,
 									DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{Bus: v1.DiskBusSCSI, Reservation: false}},
 								},
 							},
@@ -126,7 +132,7 @@ var _ = Describe("PersistentReservation", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "lun0",
+							Name: lun0DiskName,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
 							},
@@ -141,8 +147,8 @@ var _ = Describe("PersistentReservation", func() {
 		})
 
 		It("should return a label with PVC UID as key for a single PR PVC", func() {
-			pvc := newPVC("default", "my-shared-pvc", "uid-1234")
-			vmi := newVMIWithPRPVC("default", "lun0", "my-shared-pvc")
+			pvc := newPVC(k8sv1.NamespaceDefault, "my-shared-pvc", "uid-1234")
+			vmi := newVMIWithPRPVC(k8sv1.NamespaceDefault, lun0DiskName, "my-shared-pvc")
 
 			labels, err := reservation.PersistentReservationPVCLabels(vmi, newFakePVCStore(pvc))
 			Expect(err).ToNot(HaveOccurred())
@@ -151,16 +157,16 @@ var _ = Describe("PersistentReservation", func() {
 		})
 
 		It("should handle DataVolume sources", func() {
-			pvc := newPVC("default", "my-dv", "uid-dv-1")
+			pvc := newPVC(k8sv1.NamespaceDefault, "my-dv", "uid-dv-1")
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault},
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "lun0",
+									Name:       lun0DiskName,
 									DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{Bus: v1.DiskBusSCSI, Reservation: true}},
 								},
 							},
@@ -168,7 +174,7 @@ var _ = Describe("PersistentReservation", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "lun0",
+							Name: lun0DiskName,
 							VolumeSource: v1.VolumeSource{
 								DataVolume: &v1.DataVolumeSource{Name: "my-dv"},
 							},
@@ -184,21 +190,21 @@ var _ = Describe("PersistentReservation", func() {
 		})
 
 		It("should return labels for multiple PR PVCs", func() {
-			pvcA := newPVC("default", "pvc-a", "uid-a")
-			pvcB := newPVC("default", "pvc-b", "uid-b")
+			pvcA := newPVC(k8sv1.NamespaceDefault, "pvc-a", "uid-a")
+			pvcB := newPVC(k8sv1.NamespaceDefault, "pvc-b", "uid-b")
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault},
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "lun0",
+									Name:       lun0DiskName,
 									DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{Bus: v1.DiskBusSCSI, Reservation: true}},
 								},
 								{
-									Name:       "lun1",
+									Name:       lun1Name,
 									DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{Bus: v1.DiskBusSCSI, Reservation: true}},
 								},
 							},
@@ -206,7 +212,7 @@ var _ = Describe("PersistentReservation", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "lun0",
+							Name: lun0DiskName,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc-a"},
@@ -214,7 +220,7 @@ var _ = Describe("PersistentReservation", func() {
 							},
 						},
 						{
-							Name: "lun1",
+							Name: lun1Name,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc-b"},
@@ -234,13 +240,13 @@ var _ = Describe("PersistentReservation", func() {
 
 		It("should return no labels when disk has no matching volume", func() {
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault},
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "lun0",
+									Name:       lun0DiskName,
 									DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{Bus: v1.DiskBusSCSI, Reservation: true}},
 								},
 							},
@@ -263,7 +269,7 @@ var _ = Describe("PersistentReservation", func() {
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "lun0",
+									Name:       lun0DiskName,
 									DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{Bus: v1.DiskBusSCSI, Reservation: true}},
 								},
 							},
@@ -271,7 +277,7 @@ var _ = Describe("PersistentReservation", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "lun0",
+							Name: lun0DiskName,
 							VolumeSource: v1.VolumeSource{
 								ContainerDisk: &v1.ContainerDiskSource{Image: "test"},
 							},

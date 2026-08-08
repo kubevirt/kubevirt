@@ -38,6 +38,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 )
 
+const (
+	testName      = "test-name"
+	testNamespace = "test-namespace"
+	testPageSize  = "1Gi"
+)
+
 var _ = Describe("Validating Instancetype Admitter", func() {
 	var (
 		admitter        *webhooks.InstancetypeAdmitter
@@ -49,8 +55,8 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 		instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-name",
-				Namespace: "test-namespace",
+				Name:      testName,
+				Namespace: testNamespace,
 			},
 		}
 	})
@@ -94,7 +100,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 				Guest:             resource.MustParse("128M"),
 				OvercommitPercent: 15,
 				Hugepages: &v1.Hugepages{
-					PageSize: "1Gi",
+					PageSize: testPageSize,
 				},
 			},
 		}
@@ -130,8 +136,8 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 		clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-name",
-				Namespace: "test-namespace",
+				Name:      testName,
+				Namespace: testNamespace,
 			},
 		}
 	})
@@ -155,7 +161,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 				Guest:             resource.MustParse("128M"),
 				OvercommitPercent: 15,
 				Hugepages: &v1.Hugepages{
-					PageSize: "1Gi",
+					PageSize: testPageSize,
 				},
 			},
 		}

@@ -9,6 +9,12 @@ import (
 )
 
 var _ = Describe("SCP", func() {
+	const transferFileName = "myfile.yaml"
+	const testCirrosUsername = "cirros"
+	const myNamespace = "mynamespace"
+	const remoteVMIName = "remote"
+	const remoteKind = "vmi"
+
 	DescribeTable("ParseTarget", func(arg0, arg1 string, expLocal *scp.LocalArgument, expRemote *scp.RemoteArgument, expToRemote bool) {
 		local, remote, toRemote, err := scp.ParseTarget(arg0, arg1)
 		Expect(err).ToNot(HaveOccurred())
@@ -17,18 +23,18 @@ var _ = Describe("SCP", func() {
 		Expect(toRemote).To(Equal(expToRemote))
 	},
 		Entry("copy to remote location",
-			"myfile.yaml", "cirros@vmi/remote/mynamespace:myfile.yaml",
-			&scp.LocalArgument{Path: "myfile.yaml"},
+			transferFileName, testCirrosUsername+"@vmi/remote/mynamespace:"+transferFileName,
+			&scp.LocalArgument{Path: transferFileName},
 			&scp.RemoteArgument{
-				Kind: "vmi", Namespace: "mynamespace", Name: "remote", Username: "cirros", Path: "myfile.yaml",
+				Kind: remoteKind, Namespace: myNamespace, Name: remoteVMIName, Username: testCirrosUsername, Path: transferFileName,
 			},
 			true,
 		),
 		Entry("copy from remote location",
-			"cirros@vmi/remote/mynamespace:myfile.yaml", "myfile.yaml",
-			&scp.LocalArgument{Path: "myfile.yaml"},
+			testCirrosUsername+"@vmi/remote/mynamespace:"+transferFileName, transferFileName,
+			&scp.LocalArgument{Path: transferFileName},
 			&scp.RemoteArgument{
-				Kind: "vmi", Namespace: "mynamespace", Name: "remote", Username: "cirros", Path: "myfile.yaml",
+				Kind: remoteKind, Namespace: myNamespace, Name: remoteVMIName, Username: testCirrosUsername, Path: transferFileName,
 			},
 			false,
 		),
@@ -39,12 +45,13 @@ var _ = Describe("SCP", func() {
 		Expect(err).To(MatchError(expectedError))
 	},
 		Entry("when two local locations are specified",
-			"myfile.yaml", "otherfile.yaml",
-			"none of the two provided locations seems to be a remote location: \"myfile.yaml\" to \"otherfile.yaml\"",
+			transferFileName, "otherfile.yaml",
+			"none of the two provided locations seems to be a remote location: \""+transferFileName+"\" to \"otherfile.yaml\"",
 		),
 		Entry("when two remote locations are specified",
-			"remotenode:myfile.yaml", "othernode:otherfile.yaml",
-			"copying from a remote location to another remote location is not supported: \"remotenode:myfile.yaml\" to \"othernode:otherfile.yaml\"",
+			"remotenode:"+transferFileName, "othernode:otherfile.yaml",
+			"copying from a remote location to another remote location is not supported: \"remotenode:"+
+				transferFileName+"\" to \"othernode:otherfile.yaml\"",
 		),
 	)
 
