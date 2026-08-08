@@ -26,6 +26,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/os/disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
@@ -40,12 +42,37 @@ type OptimalBlockIODetectFunc func(disk *api.Disk) (*api.BlockIO, error)
 type diskOption func(*DiskConfigurator)
 
 type DiskConfigurator struct {
-	c                    *convertertypes.ConverterContext
+	architecture         string
+	virtioModel          string
+	useLaunchSecuritySEV bool
+	useLaunchSecurityPV  bool
+	volumesDiscardIgnore []string
+	hotplugVolumes       map[string]v1.VolumeStatus
+	permanentVolumes     map[string]v1.VolumeStatus
+	isBlockPVC           map[string]bool
+	isBlockDV            map[string]bool
+	applyCBT             map[string]string
+	disksInfo            map[string]*disk.DiskInfo
+	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface
 	detectOptimalBlockIO OptimalBlockIODetectFunc
 }
 
 func NewDiskConfigurator(c *convertertypes.ConverterContext, options ...diskOption) DiskConfigurator {
-	d := DiskConfigurator{c: c, detectOptimalBlockIO: getOptimalBlockIO}
+	d := DiskConfigurator{
+		architecture:         c.Architecture.GetArchitecture(),
+		virtioModel:          virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
+		useLaunchSecuritySEV: c.UseLaunchSecuritySEV,
+		useLaunchSecurityPV:  c.UseLaunchSecurityPV,
+		volumesDiscardIgnore: c.VolumesDiscardIgnore,
+		hotplugVolumes:       c.HotplugVolumes,
+		permanentVolumes:     c.PermanentVolumes,
+		isBlockPVC:           c.IsBlockPVC,
+		isBlockDV:            c.IsBlockDV,
+		applyCBT:             c.ApplyCBT,
+		disksInfo:            c.DisksInfo,
+		ephemeralDiskCreator: c.EphemeraldiskCreator,
+		detectOptimalBlockIO: getOptimalBlockIO,
+	}
 	for _, f := range options {
 		f(&d)
 	}
@@ -104,7 +131,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			emptyCDRom = true
 		}
 
-		hpStatus, hpOk := d.c.HotplugVolumes[disk.Name]
+		hpStatus, hpOk := d.hotplugVolumes[disk.Name]
 		switch {
 		case emptyCDRom:
 			err = convert_v1_Missing_Volume_To_api_Disk(&newDisk)
@@ -118,13 +145,13 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 
-		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.c.Architecture.GetArchitecture(), d.detectOptimalBlockIO); err != nil {
+		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
 			return err
 		}
 
-		_, isPermVolume := d.c.PermanentVolumes[disk.Name]
-		// if len(d.c.PermanentVolumes) == 0, it means the vmi is not ready yet, add all disks
-		permReady := isPermVolume || len(d.c.PermanentVolumes) == 0
+		_, isPermVolume := d.permanentVolumes[disk.Name]
+		// if len(d.permanentVolumes) == 0, it means the vmi is not ready yet, add all disks
+		permReady := isPermVolume || len(d.permanentVolumes) == 0
 		hotplugReady := hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)
 
 		if permReady || hotplugReady || emptyCDRom {
@@ -161,7 +188,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = virtio.InterpretTransitionalModelType(&d.c.UseVirtioTransitional, d.c.Architecture.GetArchitecture())
+			disk.Model = d.virtioModel
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -205,7 +232,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		IO:    diskDevice.IO,
 	}
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
-		if !slices.Contains(d.c.VolumesDiscardIgnore, diskDevice.Name) {
+		if !slices.Contains(d.volumesDiscardIgnore, diskDevice.Name) {
 			disk.Driver.Discard = "unmap"
 		}
 		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
@@ -221,7 +248,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
-	if (d.c.UseLaunchSecuritySEV || d.c.UseLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
+	if (d.useLaunchSecuritySEV || d.useLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
 		disk.Driver.IOMMU = "on"
 	}
 
@@ -230,11 +257,11 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 
 func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string) error {
 	if source.ContainerDisk != nil {
-		info := d.c.DisksInfo[source.Name]
+		info := d.disksInfo[source.Name]
 		if info == nil {
 			return fmt.Errorf("no disk info provided for volume %s", source.Name)
 		}
-		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.c.EphemeraldiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
+		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.ephemeralDiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
@@ -246,19 +273,19 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.HostDisk != nil {
-		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, d.c.ApplyCBT[source.Name], disk)
+		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, d.applyCBT[source.Name], disk)
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return convertVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
 	}
 
 	if source.DataVolume != nil {
-		return convertVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockDV[source.Name], disk, d.volumesDiscardIgnore)
 	}
 
 	if source.Ephemeral != nil {
-		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, d.c.EphemeraldiskCreator.GetFilePath(source.Name), d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, d.ephemeralDiskCreator.GetFilePath(source.Name), d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
 	}
 	if source.EmptyDisk != nil {
 		return convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
@@ -276,7 +303,7 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
 	}
 	if source.DownwardMetrics != nil {
-		return convert_v1_DownwardMetricSource_To_api_Disk(disk, virtio.InterpretTransitionalModelType(&d.c.UseVirtioTransitional, d.c.Architecture.GetArchitecture()))
+		return convert_v1_DownwardMetricSource_To_api_Disk(disk, d.virtioModel)
 	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
@@ -286,15 +313,15 @@ func (d DiskConfigurator) convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volum
 	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
 	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
 	if source.HostDisk != nil {
-		return convertHotplugVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertHotplugVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return convertHotplugVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockPVC[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertHotplugVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
 	}
 
 	if source.DataVolume != nil {
-		return convertHotplugVolumeSourceToDisk(source.Name, d.c.ApplyCBT[source.Name], d.c.IsBlockDV[source.Name], disk, d.c.VolumesDiscardIgnore)
+		return convertHotplugVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockDV[source.Name], disk, d.volumesDiscardIgnore)
 	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
