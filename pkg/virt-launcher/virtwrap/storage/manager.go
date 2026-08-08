@@ -47,6 +47,9 @@ type StorageManager struct {
 
 	activeBackupTunnel *backupTunnelManager
 	backupTunnelMu     sync.Mutex
+
+	freezingMu sync.Mutex
+	freezing   bool
 }
 
 func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache, registerNBD RegisterNBDFunc) *StorageManager {
@@ -62,4 +65,16 @@ func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache,
 func (m *StorageManager) MigrationInProgress() bool {
 	migrationMetadata, exists := m.metadataCache.Migration.Load()
 	return exists && migrationMetadata.StartTimestamp != nil && migrationMetadata.EndTimestamp == nil
+}
+
+func (m *StorageManager) SetFreezing(freezing bool) {
+	m.freezingMu.Lock()
+	defer m.freezingMu.Unlock()
+	m.freezing = freezing
+}
+
+func (m *StorageManager) IsFreezing() bool {
+	m.freezingMu.Lock()
+	defer m.freezingMu.Unlock()
+	return m.freezing
 }

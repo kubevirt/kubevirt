@@ -1086,7 +1086,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
 			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Freeze failed:.*QEMU guest agent is not connected")))
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
-			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Unfreeze failed:.*QEMU guest agent is not connected")))
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		waitVMIFSFreezeStatus := func(ns, name, expectedStatus string) {
