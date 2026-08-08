@@ -754,6 +754,7 @@ var _ = Describe("Export controller", func() {
 			service.Status.Conditions[0].Type = "test"
 			Expect(service.GetName()).To(Equal("virt-export-test"))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Spec.ClusterIP).To(Equal(k8sv1.ClusterIPNone))
 			Expect(service.Labels).To(And(
 				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
 				HaveKeyWithValue(labelKey, labelValue)))

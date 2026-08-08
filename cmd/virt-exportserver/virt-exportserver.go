@@ -22,6 +22,7 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -34,9 +35,7 @@ import (
 	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
 )
 
-const (
-	listenAddr = ":8443"
-)
+var defaultListenAddr = fmt.Sprintf(":%d", export.ExportServerPort)
 
 func main() {
 	log.InitializeLogging("virt-exportserver-" + os.Getenv("POD_NAME"))
@@ -89,7 +88,7 @@ func getListenAddr() string {
 	if addr != "" {
 		return addr
 	}
-	return listenAddr
+	return defaultListenAddr
 }
 
 func getDeadline() (result time.Time) {

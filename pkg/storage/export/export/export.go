@@ -97,6 +97,9 @@ const (
 
 	exportPrefix = "virt-export"
 
+	// ExportServerPort is the port the export server listens on inside the pod.
+	ExportServerPort = types.ExportServerPort
+
 	blockVolumeMountPath = "/dev/export-volumes"
 	fileSystemMountPath  = "/export-volumes"
 	urlBasePath          = "/volumes"
@@ -1067,7 +1070,8 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 			Annotations: vmExport.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: ports,
+			ClusterIP: corev1.ClusterIPNone,
+			Ports:     ports,
 			Selector: map[string]string{
 				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
@@ -1080,10 +1084,10 @@ func exportPort() corev1.ServicePort {
 	return corev1.ServicePort{
 		Name:     "export",
 		Protocol: "TCP",
-		Port:     443,
+		Port:     ExportServerPort,
 		TargetPort: intstr.IntOrString{
 			Type:   intstr.Int,
-			IntVal: 8443,
+			IntVal: ExportServerPort,
 		},
 	}
 }
@@ -1210,7 +1214,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 				Path:   ReadinessPath,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: 8443,
+					IntVal: ExportServerPort,
 				},
 			},
 		},
