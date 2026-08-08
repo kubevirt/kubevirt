@@ -23299,6 +23299,13 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"kubeletRootDir": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KubeletRootDir is the root directory of the kubelet on the host. Defaults to /var/lib/kubelet. Useful for configurations that use non-standard kubelet root directories (e.g. k3s, k0s).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"configuration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "holds kubevirt configurations. same as the virt-configMap",

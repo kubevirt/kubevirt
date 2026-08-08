@@ -155,9 +155,12 @@ func NewMigrationTargetController(
 	}
 
 	c := &MigrationTargetController{
-		BaseController:                   baseCtrl,
-		capabilities:                     capabilities,
-		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		BaseController: baseCtrl,
+		capabilities:   capabilities,
+		// Socket paths must use the short /pods container alias (kubelet-pods volume mount)
+		// to stay under the 108-byte Unix socket path limit; the real host path flows
+		// separately via containerdisk.SetKubeletPodsDirectory for host-namespace bind-mounts.
+		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig, "/pods"),
 		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		migrationIpAddress:               migrationIpAddress,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
