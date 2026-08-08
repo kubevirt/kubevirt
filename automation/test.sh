@@ -158,8 +158,8 @@ case "$TARGET" in
   *sig-compute*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
     ;;
-  *sig-operator*)
-    export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
+  *sig-control-plane*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-control-plane*/}
     export KUBEVIRT_WITH_CNAO=true
     export KUBEVIRT_NUM_SECONDARY_NICS=1
     ;;
@@ -594,13 +594,13 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage,DRA-GPU) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
-  elif [[ $TARGET =~ sig-operator ]]; then
-    if [[ $TARGET =~ sig-operator-upgrade ]]; then
+  elif [[ $TARGET =~ sig-control-plane ]]; then
+    if [[ $TARGET =~ sig-control-plane-upgrade ]]; then
       label_filter='(Upgrade)'
-    elif [[ $TARGET =~ sig-operator-configuration ]]; then
-      label_filter='(sig-operator && !(Upgrade))'
+    elif [[ $TARGET =~ sig-control-plane-configuration ]]; then
+      label_filter='(sig-control-plane && !(Upgrade))'
     else
-      label_filter='(sig-operator)'
+      label_filter='(sig-control-plane)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
     label_filter='(SRIOV)'
