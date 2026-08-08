@@ -362,16 +362,12 @@ func (c *Controller) deleteAllAttachmentPods(vmi *v1.VirtualMachineInstance) err
 }
 
 func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance) error {
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	podsOwnedByVMI, err := c.listPodsOwnedByVMI(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to list pods from namespace %s: %v", vmi.Namespace, err)
+		return fmt.Errorf("failed to list pods owned by VMI %s/%s: %w", vmi.Namespace, vmi.Name, err)
 	}
 
-	for _, pod := range pods {
-		if !metav1.IsControlledBy(pod, vmi) {
-			continue
-		}
-
+	for _, pod := range podsOwnedByVMI {
 		if !controller.PodIsDown(pod) {
 			continue
 		}
