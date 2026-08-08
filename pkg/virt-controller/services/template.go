@@ -122,8 +122,8 @@ const (
 	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
-type netMemoryCalculator interface {
-	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
+type MemoryOverheadCalculator interface {
+	Calculate(vmi *v1.VirtualMachineInstance) resource.Quantity
 }
 
 type annotationsGenerator interface {
@@ -151,7 +151,7 @@ type TemplateService struct {
 	namespaceStore             cache.Store
 
 	sidecarCreators               []SidecarCreatorFunc
-	netMemoryCalculator           netMemoryCalculator
+	memoryOverheadCalculators     []MemoryOverheadCalculator
 	annotationsGenerators         []annotationsGenerator
 	netTargetAnnotationsGenerator targetAnnotationsGenerator
 	launcherHypervisorResources   hypervisor.LauncherHypervisorResources
@@ -317,7 +317,7 @@ func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.memoryOverheadCalculators, vmi, t.launcherHypervisorResources)
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true, memoryOverhead)
 }
 
@@ -334,7 +334,7 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.memoryOverheadCalculators, vmi, t.launcherHypervisorResources)
 	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, false, memoryOverhead)
 	if err != nil {
 		return nil, err
@@ -361,7 +361,7 @@ func (t *TemplateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.memoryOverheadCalculators, vmi, t.launcherHypervisorResources)
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false, memoryOverhead)
 }
 
@@ -1686,7 +1686,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 
 // TODO: Make this function private (calculateMemoryOverhead) once VmiMemoryOverheadReport feature gate is GA
 // and we are sure that all VMIs include the MemoryOverhead status field
-func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryCalculator netMemoryCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
+func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, calculators []MemoryOverheadCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture
 	if vmiCPUArch == "" {
@@ -1695,10 +1695,8 @@ func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryC
 
 	memoryOverhead := launcherHypervisorResources.GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 
-	if netMemoryCalculator != nil {
-		memoryOverhead.Add(
-			netMemoryCalculator.Calculate(vmi, clusterConfig.GetNetworkBindings()),
-		)
+	for _, calc := range calculators {
+		memoryOverhead.Add(calc.Calculate(vmi))
 	}
 
 	return memoryOverhead
@@ -1758,9 +1756,9 @@ func readinessGates() []k8sv1.PodReadinessGate {
 	}
 }
 
-func WithNetMemoryCalculator(netMemoryCalculator netMemoryCalculator) templateServiceOption {
+func WithMemoryOverheadCalculators(calcs ...MemoryOverheadCalculator) templateServiceOption {
 	return func(service *TemplateService) {
-		service.netMemoryCalculator = netMemoryCalculator
+		service.memoryOverheadCalculators = append(service.memoryOverheadCalculators, calcs...)
 	}
 }
 
