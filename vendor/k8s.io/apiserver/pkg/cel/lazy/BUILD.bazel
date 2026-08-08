@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["lazy.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/cel/lazy",
+    importpath = "k8s.io/apiserver/pkg/cel/lazy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types/ref:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types/traits:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/cel:go_default_library",
+    ],
+)

@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "interfaces.go",
+        "webhook.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/generic",
+    importpath = "k8s.io/apiserver/pkg/admission/plugin/webhook/generic",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/api/admission/v1:go_default_library",
+        "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
+        "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/initializer:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/metrics:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/cel:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/webhook:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/config:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/namespace:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/object:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/authorization/authorizer:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/cel/environment:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/features:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/util/feature:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/util/webhook:go_default_library",
+        "//vendor/k8s.io/client-go/informers:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+    ],
+)
