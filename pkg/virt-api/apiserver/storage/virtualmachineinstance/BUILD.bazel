@@ -37,6 +37,7 @@ go_library(
         "//pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo:go_default_library",
         "//pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle:go_default_library",
         "//pkg/virt-api/apiserver/storage/virtualmachineinstance/sev:go_default_library",
+        "//pkg/virt-api/apiserver/storage/virtualmachineinstance/vnc:go_default_library",
         "//pkg/virt-api/apiserver/storage/volumes:go_default_library",
         "//pkg/virt-api/definitions:go_default_library",
         "//pkg/virt-api/streaming:go_default_library",

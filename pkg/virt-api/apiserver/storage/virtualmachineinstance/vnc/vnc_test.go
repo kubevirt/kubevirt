@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package vnc
 
 import (
 	"context"
@@ -40,12 +40,15 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 )
+
+const testVMIName = "testvmi"
 
 var _ = Describe("VNC streaming", func() {
 	var (
 		virtClient *kubevirtfake.Clientset
-		streamer   *Streamer
+		handler    *Handler
 	)
 
 	BeforeEach(func() {
@@ -60,13 +63,14 @@ var _ = Describe("VNC streaming", func() {
 
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
-		streamer = NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		streamer := streaming.NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		handler = NewHandler(streamer)
 	})
 
 	streamVNC := func(name string) *errors.StatusError {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		recorder := httptest.NewRecorder()
-		return streamer.StreamVNC(context.Background(), metav1.NamespaceDefault, name, false, recorder, req)
+		return handler.StreamVNC(context.Background(), metav1.NamespaceDefault, name, false, recorder, req)
 	}
 
 	DescribeTable("request validation", func(autoattachGraphicsDevice bool, phase v1.VirtualMachineInstancePhase) {
@@ -102,7 +106,7 @@ var _ = Describe("VNC streaming", func() {
 		_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		_, statusErr := streamer.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
+		_, statusErr := handler.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
 
 		Expect(statusErr).ToNot(BeNil())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
@@ -112,7 +116,7 @@ var _ = Describe("VNC streaming", func() {
 	)
 
 	It("should fail to take a screenshot if the vmi is not found", func() {
-		_, statusErr := streamer.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
+		_, statusErr := handler.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
 		Expect(statusErr).ToNot(BeNil())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusNotFound)))
 	})

@@ -107,8 +107,8 @@ func (s *Streamer) StreamRaw(ctx context.Context, namespace, name string, w http
 	return nil
 }
 
-// fetchAndValidateVMI retrieves the named VMI and runs the subresource specific validation
-func (s *Streamer) fetchAndValidateVMI(ctx context.Context, namespace, name string, validate VMIValidator) (*v1.VirtualMachineInstance, *errors.StatusError) {
+// FetchAndValidateVMI retrieves the named VMI and runs the subresource specific validation
+func (s *Streamer) FetchAndValidateVMI(ctx context.Context, namespace, name string, validate VMIValidator) (*v1.VirtualMachineInstance, *errors.StatusError) {
 	vmi, err := s.virtClient.VirtualMachineInstance(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -124,10 +124,14 @@ func (s *Streamer) fetchAndValidateVMI(ctx context.Context, namespace, name stri
 	return vmi, nil
 }
 
+func (s *Streamer) VirtHandlerConnFor(vmi *v1.VirtualMachineInstance) kubecli.VirtHandlerConn {
+	return kubecli.NewVirtHandlerClient(s.virtClient, s.httpClient).Port(s.consoleServerPort).ForNode(vmi.Status.NodeName)
+}
+
 // dialVirtHandler resolves the virt-handler endpoint for the VMI
 // and returns the net.Conn of the websocket connection
 func (s *Streamer) dialVirtHandler(ctx context.Context, namespace, name string, validate VMIValidator, getURL URLResolver) (net.Conn, *errors.StatusError) {
-	vmi, statusErr := s.fetchAndValidateVMI(ctx, namespace, name, validate)
+	vmi, statusErr := s.FetchAndValidateVMI(ctx, namespace, name, validate)
 	if statusErr != nil {
 		return nil, statusErr
 	}
@@ -136,7 +140,7 @@ func (s *Streamer) dialVirtHandler(ctx context.Context, namespace, name string, 
 		return nil, errors.NewBadRequest(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled))
 	}
 
-	conn := kubecli.NewVirtHandlerClient(s.virtClient, s.httpClient).Port(s.consoleServerPort).ForNode(vmi.Status.NodeName)
+	conn := s.VirtHandlerConnFor(vmi)
 	url, err := getURL(vmi, conn)
 	if err != nil {
 		return nil, errors.NewBadRequest(err.Error())
