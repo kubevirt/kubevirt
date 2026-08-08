@@ -36,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/api"
@@ -64,7 +63,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		namespaceInformer  cache.SharedIndexInformer
 		mockVMIClient      *kubecli.MockVirtualMachineInstanceInterface
 		virtClient         *kubecli.MockKubevirtClient
-		k8sClient          *k8sfake.Clientset
 	)
 
 	enableFeatureGate := func(featureGates ...string) {
@@ -128,7 +126,6 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 		const kubeVirtNamespace = "kubevirt"
@@ -140,7 +137,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitterStub(),
 			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
-		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
 
 	Context("with an invalid VM", func() {

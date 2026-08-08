@@ -50,7 +50,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	vmi, err := app.virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		writeError(errors.NewInternalError(err), response)
 		return
@@ -106,7 +106,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 			log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-			_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			_, patchErr = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
 			patchBytes, err := getRunningPatch(vm, true)
 			if err != nil {
@@ -114,7 +114,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 			log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			_, patchErr = app.virtClient.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
@@ -141,7 +141,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-		_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, patchErr = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", runStrategy)), response)
 		return
@@ -190,7 +190,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	hasVMI := true
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	vmi, err := app.virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		hasVMI = false
 	} else if err != nil {
@@ -242,7 +242,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			return
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, patchErr = app.virtClient.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	}
 
 	if patchErr != nil {
@@ -440,7 +440,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	vmi, err := app.virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			writeError(errors.NewInternalError(err), response)
@@ -477,7 +477,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+	_, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	if err != nil {
 		if forceRestart {
 			if _, rollbackErr := app.patchVMITerminationGracePeriod(vmi, namespace, oldGracePeriodSeconds, bodyStruct.DryRun); rollbackErr != nil {
@@ -549,7 +549,7 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 	}
 
 	createMigrationJob := func() *errors.StatusError {
-		_, err := app.virtCli.VirtualMachineInstanceMigration(namespace).Create(context.Background(), &v1.VirtualMachineInstanceMigration{
+		_, err := app.virtClient.VirtualMachineInstanceMigration(namespace).Create(context.Background(), &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "kubevirt-migrate-vm-",
 			},
@@ -587,7 +587,7 @@ func (app *SubresourceAPIApp) patchVMITerminationGracePeriod(vmi *v1.VirtualMach
 		return 0, err
 	}
 	log.Log.Object(vmi).V(2).Infof("Patching VMI terminationGracePeriodSeconds: %s", string(patchBytes))
-	_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRun})
+	_, err = app.virtClient.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRun})
 	return oldGracePeriod, err
 }
 
@@ -599,7 +599,7 @@ func (app *SubresourceAPIApp) patchVMStatusStopped(vmi *v1.VirtualMachineInstanc
 		return nil, err
 	}
 	log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+	_, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	return err, nil
 }
 
