@@ -238,6 +238,7 @@ type LibvirtDomainManager struct {
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 	agentDataCaches           map[string]*virtcache.TimeDefinedCache[string]
+	cgroupMemStatReader       *stats.CgroupMemoryStatReader
 
 	// Device aliasas are updated only through hotplug events and SyncVMI
 	devAliasMap  map[string]string
@@ -402,6 +403,7 @@ func newLibvirtDomainManager(
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.storageManager = storage.NewStorageManager(connection, metadataCache, registerNBD)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache, eventSender)
+	manager.cgroupMemStatReader = stats.NewCgroupMemoryStatReader()
 
 	reCalcDomainStats := func() (*stats.DomainStats, error) {
 		list, err := manager.getDomainStats()
@@ -2422,6 +2424,11 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 		}
 		if l.agentData != nil {
 			ds.Load = l.agentData.GetLoad()
+		}
+		if cgroupMem, err := l.cgroupMemStatReader.Read(); err == nil {
+			ds.CgroupMemory = cgroupMem
+		} else {
+			log.Log.Reason(err).V(4).Info("Failed to read cgroup memory stats")
 		}
 	}
 
