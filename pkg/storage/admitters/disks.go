@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	maxStrLen = 256
+	maxStrLen = 36
 
 	// Should be a power of 2
 	minCustomBlockSize = 512
