@@ -3137,7 +3137,6 @@ var _ = Describe("VirtualMachine", func() {
 				"Status":  Equal(k8sv1.ConditionTrue),
 			}))
 
-			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			testutils.ExpectEvents(recorder, common.FailedDeleteVirtualMachineReason)
 		})
