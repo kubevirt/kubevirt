@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package usbredir
 
 import (
 	"context"
@@ -40,12 +40,15 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 )
+
+const testVMIName = "testvmi"
 
 var _ = Describe("USBRedir streaming", func() {
 	var (
 		virtClient *kubevirtfake.Clientset
-		streamer   *Streamer
+		handler    *Handler
 	)
 
 	BeforeEach(func() {
@@ -60,13 +63,14 @@ var _ = Describe("USBRedir streaming", func() {
 
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
-		streamer = NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		streamer := streaming.NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		handler = NewHandler(streamer)
 	})
 
 	streamUSBRedir := func(name string) *errors.StatusError {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		recorder := httptest.NewRecorder()
-		return streamer.StreamUSBRedir(context.Background(), metav1.NamespaceDefault, name, recorder, req)
+		return handler.StreamUSBRedir(context.Background(), metav1.NamespaceDefault, name, recorder, req)
 	}
 
 	It("should fail if not configured with USB redirection", func() {

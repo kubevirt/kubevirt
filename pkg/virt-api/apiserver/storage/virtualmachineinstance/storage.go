@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/sev"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/usbredir"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/vnc"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/volumes"
 	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
@@ -43,6 +44,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
 	consoleHandler := console.NewHandler(streamer)
 	vncHandler := vnc.NewHandler(streamer)
+	usbRedirHandler := usbredir.NewHandler(streamer)
 	lifecycleHandler := lifecycle.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	guestInfoHandler := guestinfo.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	backupHandler := backup.NewHandler(virtClient, consoleServerPort, tlsConfig)
@@ -54,7 +56,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 		"virtualmachineinstances":                     NewDummyREST(),
 		"virtualmachineinstances/console":             NewConsoleREST(consoleHandler),
 		"virtualmachineinstances/vnc":                 NewVNCREST(vncHandler),
-		"virtualmachineinstances/usbredir":            NewUSBRedirREST(streamer),
+		"virtualmachineinstances/usbredir":            NewUSBRedirREST(usbRedirHandler),
 		"virtualmachineinstances/vsock":               NewVSOCKREST(streamer),
 		"virtualmachineinstances/portforward":         NewPortForwardREST(streamer),
 		"virtualmachineinstances/addvolume":           NewAddVolumeREST(volumesHandler),
