@@ -48,7 +48,7 @@ import (
 
 const maxCustomBlockSizeS390x = 4096
 
-type DeviceNamer struct {
+type deviceNamer struct {
 	existingNameMap map[string]string
 	usedDeviceMap   map[string]string
 }
@@ -65,7 +65,7 @@ func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	disk.Address.Unit = strconv.Itoa(unit)
 }
 
-func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]DeviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+func convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
@@ -87,7 +87,7 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
 			disk.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		}
-		disk.ReadOnly = ToApiReadOnly(diskDevice.Disk.ReadOnly)
+		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {
@@ -108,7 +108,7 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		if diskDevice.LUN.Bus == "scsi" {
 			assignDiskToSCSIController(disk, unit)
 		}
-		disk.ReadOnly = ToApiReadOnly(diskDevice.LUN.ReadOnly)
+		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
 		if diskDevice.LUN.Reservation {
 			setReservation(disk)
 		}
@@ -118,9 +118,9 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		disk.Target.Bus = diskDevice.CDRom.Bus
 		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
 		if diskDevice.CDRom.ReadOnly != nil {
-			disk.ReadOnly = ToApiReadOnly(*diskDevice.CDRom.ReadOnly)
+			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
 		} else {
-			disk.ReadOnly = ToApiReadOnly(true)
+			disk.ReadOnly = toApiReadOnly(true)
 		}
 	}
 	disk.Driver = &api.DiskDriver{
@@ -164,7 +164,7 @@ func setReservation(disk *api.Disk) {
 	}
 }
 
-func SetErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
+func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 	if diskDevice.ErrorPolicy == nil {
 		disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 		return nil
@@ -178,7 +178,7 @@ func SetErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 	return nil
 }
 
-func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string) error {
+func convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string, detectOptimalBlockIO OptimalBlockIODetectFunc) error {
 	if source.BlockSize == nil {
 		return nil
 	}
@@ -201,7 +201,7 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch s
 			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
 		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
-		blockIO, err := getOptimalBlockIO(disk)
+		blockIO, err := detectOptimalBlockIO(disk)
 		if err != nil {
 			return fmt.Errorf("failed to configure disk with block size detection enabled: %v", err)
 		}
@@ -326,25 +326,25 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 	}, nil
 }
 
-func (n *DeviceNamer) getExistingVolumeValue(key string) (string, bool) {
+func (n *deviceNamer) getExistingVolumeValue(key string) (string, bool) {
 	if _, ok := n.existingNameMap[key]; ok {
 		return n.existingNameMap[key], true
 	}
 	return "", false
 }
 
-func (n *DeviceNamer) getExistingTargetValue(key string) (string, bool) {
+func (n *deviceNamer) getExistingTargetValue(key string) (string, bool) {
 	if _, ok := n.usedDeviceMap[key]; ok {
 		return n.usedDeviceMap[key], true
 	}
 	return "", false
 }
 
-func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]DeviceNamer) (string, int) {
+func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]deviceNamer) (string, int) {
 	prefix := getPrefixFromBus(bus)
 	if _, ok := prefixMap[prefix]; !ok {
 		// This should never happen since the prefix map is populated from all disks.
-		prefixMap[prefix] = DeviceNamer{
+		prefixMap[prefix] = deviceNamer{
 			existingNameMap: make(map[string]string),
 			usedDeviceMap:   make(map[string]string),
 		}
@@ -352,7 +352,7 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]Device
 	deviceNamer := prefixMap[prefix]
 	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
 		for i := 0; i < 26*26*26; i++ {
-			calculatedName := FormatDeviceName(prefix, i)
+			calculatedName := formatDeviceName(prefix, i)
 			if calculatedName == name {
 				return name, i
 			}
@@ -362,7 +362,7 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]Device
 	}
 	// Name not found yet, generate next new one.
 	for i := 0; i < 26*26*26; i++ {
-		name := FormatDeviceName(prefix, i)
+		name := formatDeviceName(prefix, i)
 		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
 			deviceNamer.existingNameMap[diskName] = name
 			deviceNamer.usedDeviceMap[name] = diskName
@@ -373,7 +373,7 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]Device
 }
 
 // port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
-func FormatDeviceName(prefix string, index int) string {
+func formatDeviceName(prefix string, index int) string {
 	base := int('z' - 'a' + 1)
 	name := ""
 
@@ -396,8 +396,8 @@ func getPrefixFromBus(bus v1.DiskBus) string {
 	}
 }
 
-func NewDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[string]DeviceNamer {
-	prefixMap := make(map[string]DeviceNamer)
+func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[string]deviceNamer {
+	prefixMap := make(map[string]deviceNamer)
 	volumeTargetMap := make(map[string]string)
 	for _, volumeStatus := range volumeStatuses {
 		if volumeStatus.Target != "" {
@@ -419,7 +419,7 @@ func NewDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 		}
 
 		if _, ok := prefixMap[prefix]; !ok {
-			prefixMap[prefix] = DeviceNamer{
+			prefixMap[prefix] = deviceNamer{
 				existingNameMap: make(map[string]string),
 				usedDeviceMap:   make(map[string]string),
 			}
@@ -433,7 +433,7 @@ func NewDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
-func AssignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
+func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
 		if supplementalIOThreads != nil {
 			apiDisk.Driver.IOThreads = supplementalIOThreads
