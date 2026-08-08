@@ -79,7 +79,7 @@ pkg/virt-launcher/virtwrap/converter/types
 pkg/virt-launcher/virtwrap/converter/virtio
 pkg/virt-launcher/virtwrap/network
 pkg/virt-launcher/virtwrap/statsconv/util
-pkg/vmitrait
+pkg/apimachinery/vmitrait
 pkg/vsock
 tests/conformance
 tests/console

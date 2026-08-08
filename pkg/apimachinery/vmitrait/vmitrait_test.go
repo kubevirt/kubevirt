@@ -25,8 +25,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/vmitrait"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 var _ = Describe("VMI traits", func() {
