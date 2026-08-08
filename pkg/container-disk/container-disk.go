@@ -42,8 +42,15 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+// ContainerDiskConfig abstracts the cluster configuration needed by
+// container disk functions. It is satisfied by *virtconfig.ClusterConfig
+// and by services.ClusterConfigProvider.
+type ContainerDiskConfig interface {
+	GetSupportContainerRequest(typeName v1.SupportContainerType, resourceName kubev1.ResourceName) *resource.Quantity
+	GetSupportContainerLimit(typeName v1.SupportContainerType, resourceName kubev1.ResourceName) *resource.Quantity
+}
 
 var podsBaseDir = util.KubeletPodsDir
 
@@ -204,23 +211,23 @@ func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 	}
 }
 
-func GenerateInitContainers(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
+func GenerateInitContainers(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
 	return generateContainersHelper(vmi, config, imageIDs, podVolumeName, binVolumeName, true)
 }
 
-func GenerateContainers(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
+func GenerateContainers(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) []kubev1.Container {
 	return generateContainersHelper(vmi, config, imageIDs, podVolumeName, binVolumeName, false)
 }
 
-func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
+func GenerateKernelBootContainer(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
 	return generateKernelBootContainerHelper(vmi, config, imageIDs, podVolumeName, binVolumeName, false)
 }
 
-func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
+func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string) *kubev1.Container {
 	return generateKernelBootContainerHelper(vmi, config, imageIDs, podVolumeName, binVolumeName, true)
 }
 
-func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
+func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
 	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
@@ -245,7 +252,7 @@ func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, config *v
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func generateContainersHelper(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
+func generateContainersHelper(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
 	var containers []kubev1.Container
 
 	// Make VirtualMachineInstance Image Wrapper Containers
@@ -260,7 +267,7 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, config *virtconfig
 	return containers
 }
 
-func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
+func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, imageIDs map[string]string, podVolumeName, binVolumeName string, isInit, isKernelBoot bool, volume *v1.Volume, volumeIdx int) *kubev1.Container {
 	if volume.ContainerDisk == nil {
 		return nil
 	}
@@ -444,7 +451,7 @@ func toVolumeName(containerName string) string {
 
 // getMinimalInitContainerDiskResources calculates resource requirements for container disk containers
 // This function is shared between init containers and regular containers
-func getMinimalInitContainerDiskResources(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) kubev1.ResourceRequirements {
+func getMinimalInitContainerDiskResources(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig) kubev1.ResourceRequirements {
 	resources := kubev1.ResourceRequirements{}
 	resources.Requests = make(kubev1.ResourceList)
 	resources.Limits = make(kubev1.ResourceList)
@@ -477,7 +484,7 @@ func getMinimalInitContainerDiskResources(vmi *v1.VirtualMachineInstance, config
 }
 
 // CreateImageVolumeInitContainer creates a single init container for ImageVolume feature
-func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, name, image string, imagePullPolicy kubev1.PullPolicy) kubev1.Container {
+func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config ContainerDiskConfig, name, image string, imagePullPolicy kubev1.PullPolicy) kubev1.Container {
 	resources := getMinimalInitContainerDiskResources(vmi, config)
 	return kubev1.Container{
 		Name:            fmt.Sprintf("volume%s", name),

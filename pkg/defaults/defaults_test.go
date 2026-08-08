@@ -23,6 +23,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+var _ defaults.ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
+
 var _ = Describe("Defaults", func() {
 	Context("Architecture", func() {
 		Context("VirtualMachine", func() {
