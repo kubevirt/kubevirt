@@ -41,8 +41,10 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
@@ -90,8 +92,9 @@ var _ = Describe("vmexport", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
+		kubecli.GetK8sClientFromClientConfig = func(_ clientcmd.ClientConfig) (kubernetes.Interface, error) {
+			return kubeClient, nil
+		}
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 
 		server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -886,7 +889,7 @@ var _ = Describe("vmexport", func() {
 		)
 
 		BeforeEach(func() {
-			vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
+			vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ kubernetes.Interface, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
 				readyChan <- struct{}{}
 				portChan <- localPort
 				return nil
@@ -967,7 +970,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download with port-forward succeeds", func() {
-			vmexport.HandleHTTPGetRequestFn = func(_ kubecli.KubevirtClient, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubernetes.Interface, _ *exportv1.VirtualMachineExport, downloadUrl string, _ bool, _ string, _ map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal("https://127.0.0.1:" + localPortStr))
 				return &http.Response{
 					StatusCode: http.StatusOK,

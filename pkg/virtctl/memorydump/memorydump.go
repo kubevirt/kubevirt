@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -128,13 +129,20 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	}
 
 	vmName := args[1]
+	if args[0] == "remove" {
+		return removeMemoryDump(namespace, vmName, virtClient)
+	}
+
+	k8sClient, err := clientconfig.K8sClientFromContext(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("cannot obtain Kubernetes client: %v", err)
+	}
+
 	switch args[0] {
 	case "get":
-		return getMemoryDump(namespace, vmName, virtClient)
+		return getMemoryDump(namespace, vmName, virtClient, k8sClient)
 	case "download":
-		return downloadMemoryDump(namespace, vmName, virtClient)
-	case "remove":
-		return removeMemoryDump(namespace, vmName, virtClient)
+		return downloadMemoryDump(namespace, vmName, virtClient, k8sClient)
 	default:
 		return fmt.Errorf("invalid action type %s", args[0])
 	}
@@ -209,8 +217,8 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 	return pvc, nil
 }
 
-func checkNoExistingPVC(namespace, claimName string, virtClient kubecli.KubevirtClient) error {
-	_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
+func checkNoExistingPVC(namespace, claimName string, k8sClient kubernetes.Interface) error {
+	_, err := k8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("PVC %s/%s already exists, check if it should be created if not remove create flag", namespace, claimName)
 	}
@@ -231,14 +239,14 @@ func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.Ku
 	return nil
 }
 
-func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient) error {
+func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) error {
 	// Before creating a new pvc check that there is not already
 	// assocaited memory dump pvc
 	if err := checkNoAssociatedMemoryDump(namespace, vmName, virtClient); err != nil {
 		return err
 	}
 
-	if err := checkNoExistingPVC(namespace, claimName, virtClient); err != nil {
+	if err := checkNoExistingPVC(namespace, claimName, k8sClient); err != nil {
 		return err
 	}
 
@@ -257,7 +265,7 @@ func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kube
 		return err
 	}
 
-	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	_, err = k8sClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -280,12 +288,12 @@ func createMemoryDump(namespace, vmName, claimName string, virtClient kubecli.Ku
 	return nil
 }
 
-func getMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
+func getMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) error {
 	if createClaim {
 		if claimName == "" {
 			return fmt.Errorf("missing claim name")
 		}
-		if err := createPVCforMemoryDump(namespace, vmName, claimName, virtClient); err != nil {
+		if err := createPVCforMemoryDump(namespace, vmName, claimName, virtClient, k8sClient); err != nil {
 			return err
 		}
 	}
@@ -295,13 +303,13 @@ func getMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) 
 	}
 
 	if outputFile != "" {
-		return downloadMemoryDump(namespace, vmName, virtClient)
+		return downloadMemoryDump(namespace, vmName, virtClient, k8sClient)
 	}
 
 	return nil
 }
 
-func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
+func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) error {
 	if outputFile == "" {
 		return fmt.Errorf("missing outputFile to download the memory dump")
 	}
@@ -351,7 +359,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		return err
 	}
 	vmExportInfo.OutputWriter = output
-	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
+	return vmexport.DownloadVirtualMachineExport(virtClient, k8sClient, vmExportInfo)
 }
 
 func WaitForMemoryDumpComplete(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
