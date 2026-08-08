@@ -409,6 +409,11 @@ func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineIns
 		})
 	}
 
+	// handles case where if migVolsInfo is empty, but vmi has migratedVolumes, then the changes need to be propagated to the vm
+	if len(migVolsInfo) == 0 && len(vmi.Status.MigratedVolumes) > 0 &&
+		(vm.Status.VolumeUpdateState == nil || vm.Status.VolumeUpdateState.VolumeMigrationState == nil || len(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) == 0) {
+		return vmi.Status.MigratedVolumes, nil
+	}
 	return migVolsInfo, nil
 }
 
