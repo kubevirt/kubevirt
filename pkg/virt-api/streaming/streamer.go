@@ -39,10 +39,10 @@ import (
 const streamTimeout = 10 * time.Second
 
 // this would validate a VMI is eligible for a given streaming subresource
-type vmiValidator func(*v1.VirtualMachineInstance) *errors.StatusError
+type VMIValidator func(*v1.VirtualMachineInstance) *errors.StatusError
 
 // this would  returns the virt-handler URL to dial for the streaming target
-type urlResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
+type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
 
 // Streamer proxies a connection between an aggregated API client and virt-handler
 type Streamer struct {
@@ -64,10 +64,10 @@ func NewStreamer(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfi
 	}
 }
 
-// streamRaw fetches and validates the VMI, dials virt-handler, upgrades the
+// StreamRaw fetches and validates the VMI, dials virt-handler, upgrades the
 // client req to a websocket and copies bytes in both directions until
 // either side closes.
-func (s *Streamer) streamRaw(ctx context.Context, namespace, name string, w http.ResponseWriter, req *http.Request, validate vmiValidator, getURL urlResolver) *errors.StatusError {
+func (s *Streamer) StreamRaw(ctx context.Context, namespace, name string, w http.ResponseWriter, req *http.Request, validate VMIValidator, getURL URLResolver) *errors.StatusError {
 	serverConn, statusErr := s.dialVirtHandler(ctx, namespace, name, validate, getURL)
 	if statusErr != nil {
 		return statusErr
@@ -108,7 +108,7 @@ func (s *Streamer) streamRaw(ctx context.Context, namespace, name string, w http
 }
 
 // fetchAndValidateVMI retrieves the named VMI and runs the subresource specific validation
-func (s *Streamer) fetchAndValidateVMI(ctx context.Context, namespace, name string, validate vmiValidator) (*v1.VirtualMachineInstance, *errors.StatusError) {
+func (s *Streamer) fetchAndValidateVMI(ctx context.Context, namespace, name string, validate VMIValidator) (*v1.VirtualMachineInstance, *errors.StatusError) {
 	vmi, err := s.virtCli.VirtualMachineInstance(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -126,7 +126,7 @@ func (s *Streamer) fetchAndValidateVMI(ctx context.Context, namespace, name stri
 
 // dialVirtHandler resolves the virt-handler endpoint for the VMI
 // and returns the net.Conn of the websocket connection
-func (s *Streamer) dialVirtHandler(ctx context.Context, namespace, name string, validate vmiValidator, getURL urlResolver) (net.Conn, *errors.StatusError) {
+func (s *Streamer) dialVirtHandler(ctx context.Context, namespace, name string, validate VMIValidator, getURL URLResolver) (net.Conn, *errors.StatusError) {
 	vmi, statusErr := s.fetchAndValidateVMI(ctx, namespace, name, validate)
 	if statusErr != nil {
 		return nil, statusErr

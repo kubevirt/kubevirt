@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package console
 
 import (
 	"context"
@@ -31,16 +31,26 @@ import (
 	"kubevirt.io/client-go/log"
 
 	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 )
+
+// Handler serves the VirtualMachineInstance console streaming subresource.
+type Handler struct {
+	streamer *streaming.Streamer
+}
+
+func NewHandler(streamer *streaming.Streamer) *Handler {
+	return &Handler{streamer: streamer}
+}
 
 // StreamConsole proxies the serial console of the named VMI as a raw,
 // bidirectional websocket stream
-func (s *Streamer) StreamConsole(ctx context.Context, namespace, name string, w http.ResponseWriter, req *http.Request) *errors.StatusError {
+func (h *Handler) StreamConsole(ctx context.Context, namespace, name string, w http.ResponseWriter, req *http.Request) *errors.StatusError {
 	activeConnectionMetric := apimetrics.NewActiveConsoleConnection(namespace, name)
 	defer activeConnectionMetric.Dec()
 	defer apimetrics.SetVMILastConnectionTimestamp(namespace, name)
 
-	return s.streamRaw(ctx, namespace, name, w, req, validateVMIForConsole,
+	return h.streamer.StreamRaw(ctx, namespace, name, w, req, validateVMIForConsole,
 		func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 			return conn.ConsoleURI(vmi)
 		},

@@ -39,7 +39,7 @@ func (s *Streamer) StreamUSBRedir(ctx context.Context, namespace, name string, w
 	defer activeConnectionMetric.Dec()
 	defer apimetrics.SetVMILastConnectionTimestamp(namespace, name)
 
-	return s.streamRaw(ctx, namespace, name, w, req, validateVMIForUSBRedir,
+	return s.StreamRaw(ctx, namespace, name, w, req, validateVMIForUSBRedir,
 		func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 			return conn.USBRedirURI(vmi)
 		},

@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/evacuate"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/objectgraph"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/backup"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/console"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/guestinfo"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/lifecycle"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance/sev"
@@ -39,6 +40,7 @@ import (
 
 func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tlsConfig *tls.Config, clusterConfig *virtconfig.ClusterConfig) map[string]rest.Storage {
 	streamer := streaming.NewStreamer(virtClient, consoleServerPort, tlsConfig)
+	consoleHandler := console.NewHandler(streamer)
 	lifecycleHandler := lifecycle.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	guestInfoHandler := guestinfo.NewHandler(virtClient, consoleServerPort, tlsConfig)
 	backupHandler := backup.NewHandler(virtClient, consoleServerPort, tlsConfig)
@@ -48,7 +50,7 @@ func NewStorageMap(virtClient kubecli.KubevirtClient, consoleServerPort int, tls
 	objectGraphHandler := objectgraph.NewHandler(virtClient, clusterConfig)
 	return map[string]rest.Storage{
 		"virtualmachineinstances":                     NewDummyREST(),
-		"virtualmachineinstances/console":             NewConsoleREST(streamer),
+		"virtualmachineinstances/console":             NewConsoleREST(consoleHandler),
 		"virtualmachineinstances/vnc":                 NewVNCREST(streamer),
 		"virtualmachineinstances/usbredir":            NewUSBRedirREST(streamer),
 		"virtualmachineinstances/vsock":               NewVSOCKREST(streamer),
