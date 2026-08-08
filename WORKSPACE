@@ -37,6 +37,7 @@ http_archive(
     strip_prefix = "hermetic-launcher-0.0.15",
     urls = [
         "https://github.com/hermeticbuild/hermetic-launcher/archive/refs/tags/v0.0.15.tar.gz",
+        "https://storage.googleapis.com/builddeps/81b4204840f1fd346ec1b550153ae20bd60d28bca839e82ef95c64a585d02cea",
     ],
 )
 
@@ -4655,10 +4656,7 @@ rpm(
 rpm(
     name = "iproute-0__6.11.0-1.el9.x86_64",
     sha256 = "3780635befbf4a3c3b8a1a52e6b9eb666b64574189be3b9b13624355dae4a8a8",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/iproute-6.11.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/3780635befbf4a3c3b8a1a52e6b9eb666b64574189be3b9b13624355dae4a8a8",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/3780635befbf4a3c3b8a1a52e6b9eb666b64574189be3b9b13624355dae4a8a8"],
 )
 
 rpm(
@@ -4718,10 +4716,7 @@ rpm(
 rpm(
     name = "iproute-tc-0__6.11.0-1.el9.x86_64",
     sha256 = "0dd645d098e02a1ebc31cbddc8d1cd6f36a3bd92190bb496b2cfc1e9849958ed",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/iproute-tc-6.11.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0dd645d098e02a1ebc31cbddc8d1cd6f36a3bd92190bb496b2cfc1e9849958ed",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0dd645d098e02a1ebc31cbddc8d1cd6f36a3bd92190bb496b2cfc1e9849958ed"],
 )
 
 rpm(
