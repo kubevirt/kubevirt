@@ -21,11 +21,15 @@ package launcher_clients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/singleflight"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -36,6 +40,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
+
+var ErrConnectionBackoff = errors.New("connection backoff active")
+
+const (
+	initialConnBackoff = 1 * time.Second
+	maxConnBackoff     = 5 * time.Minute
+)
+
+type connBackoffEntry struct {
+	nextRetry      time.Time
+	currentBackoff time.Duration
+}
 
 type LauncherClientsManager interface {
 	GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error)
@@ -50,6 +66,8 @@ type launcherClientsManager struct {
 	connGroup            singleflight.Group
 	launcherClients      virtcache.LauncherClientInfoByVMI
 	podIsolationDetector isolation.PodIsolationDetector
+	connBackoff          map[types.UID]*connBackoffEntry
+	connBackoffMu        sync.Mutex
 }
 
 func NewLauncherClientsManager(
@@ -61,6 +79,7 @@ func NewLauncherClientsManager(
 		virtShareDir:         virtShareDir,
 		launcherClients:      virtcache.LauncherClientInfoByVMI{},
 		podIsolationDetector: podIsolationDetector,
+		connBackoff:          make(map[types.UID]*connBackoffEntry),
 	}
 
 	return l
@@ -85,6 +104,10 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 		return clientInfo.Client, nil
 	}
 
+	if err := l.checkConnBackoff(vmi.UID); err != nil {
+		return nil, err
+	}
+
 	// Slow path: use singleflight to ensure only one connection is created per VMI
 	// even when multiple controllers (VM, MigrationSource, MigrationTarget) race
 	// on the same VMI concurrently. Other VMIs are not blocked.
@@ -96,17 +119,20 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 
 		socketFile, err := cmdclient.FindSocket(vmi)
 		if err != nil {
+			l.recordConnFailure(vmi.UID)
 			return nil, err
 		}
 
 		err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
 		if err != nil {
+			l.recordConnFailure(vmi.UID)
 			return nil, err
 		}
 
 		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {
 			virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+			l.recordConnFailure(vmi.UID)
 			return nil, err
 		}
 
@@ -116,6 +142,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 			client.Close()
 			close(domainPipeStopChan)
 			virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+			l.recordConnFailure(vmi.UID)
 			return nil, err
 		}
 
@@ -127,6 +154,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 			Ready:               true,
 		})
 
+		l.clearConnBackoff(vmi.UID)
 		return client, nil
 	})
 	if err != nil {
@@ -157,6 +185,7 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 
 	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 	l.launcherClients.Delete(vmi.UID)
+	l.clearConnBackoff(vmi.UID)
 }
 
 func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
@@ -205,6 +234,42 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 		clientInfo.SocketFile = socketFile
 	}
 	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
+}
+
+func (l *launcherClientsManager) checkConnBackoff(uid types.UID) error {
+	l.connBackoffMu.Lock()
+	defer l.connBackoffMu.Unlock()
+	entry, exists := l.connBackoff[uid]
+	if !exists {
+		return nil
+	}
+	remaining := time.Until(entry.nextRetry)
+	if remaining <= 0 {
+		return nil
+	}
+	return fmt.Errorf("%w for VMI %s, retry in %s", ErrConnectionBackoff, uid, remaining.Truncate(time.Second))
+}
+
+func (l *launcherClientsManager) recordConnFailure(uid types.UID) {
+	l.connBackoffMu.Lock()
+	defer l.connBackoffMu.Unlock()
+	entry, exists := l.connBackoff[uid]
+	if !exists {
+		entry = &connBackoffEntry{currentBackoff: initialConnBackoff}
+		l.connBackoff[uid] = entry
+	} else {
+		entry.currentBackoff *= 2
+		if entry.currentBackoff > maxConnBackoff {
+			entry.currentBackoff = maxConnBackoff
+		}
+	}
+	entry.nextRetry = time.Now().Add(entry.currentBackoff)
+}
+
+func (l *launcherClientsManager) clearConnBackoff(uid types.UID) {
+	l.connBackoffMu.Lock()
+	defer l.connBackoffMu.Unlock()
+	delete(l.connBackoff, uid)
 }
 
 func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
