@@ -422,7 +422,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortSucceeded,
+						AbortStatus:    v1.MigrationAbortInProgress,
 					})))),
 				nil,
 			),
@@ -430,7 +430,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortInProgress,
+						AbortStatus:    v1.MigrationAbortSucceeded,
 					})))),
 				nil,
 			),
