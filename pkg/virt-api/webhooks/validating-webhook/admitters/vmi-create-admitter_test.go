@@ -1399,7 +1399,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "dra-net", Binding: &v1.PluginBinding{Name: "netbinding"}},
 			}
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				{
@@ -1435,7 +1435,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "dra-net", Binding: &v1.PluginBinding{Name: "netbinding"}},
 			}
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{

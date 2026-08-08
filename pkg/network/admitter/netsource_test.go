@@ -87,15 +87,15 @@ var _ = Describe("Validate network source", func() {
 	})
 
 	It("should accept resourceClaim network type", func() {
-		const draSRIOVNetName = "sriov-dra"
+		const draNetName = "dra-net"
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{Name: draSRIOVNetName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			{Name: draNetName, Binding: &v1.PluginBinding{Name: "netbinding"}},
 		}
 		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 		spec.Networks = []v1.Network{
 			{
-				Name: draSRIOVNetName,
+				Name: draNetName,
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ClaimRequest{
 						ClaimName:   "claim1",
@@ -113,7 +113,7 @@ var _ = Describe("Validate network source", func() {
 		func(networkSource v1.NetworkSource) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "default", Binding: &v1.PluginBinding{Name: "netbinding"}},
 			}
 			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 			spec.Networks = []v1.Network{
