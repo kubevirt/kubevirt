@@ -658,7 +658,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			if !libstorage.HasCDI() {
 				Fail("Fail update test when CDI is not present")
 			}
-
+			// [Focus-for-flakes]
 			if updateOperator && flags.OperatorManifestPath == "" {
 				Fail("operator manifest path must be configured for update tests")
 			}
