@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -677,6 +678,71 @@ var _ = Describe("netstat", func() {
 				LinkState:     linkStateUp,
 			},
 		}))
+	})
+
+	It("should report SR-IOV interface with MAC from multus network-status when not in VMI spec", func() {
+		const (
+			networkName = "sriov-network"
+			networkMAC  = "72:83:99:bb:13:c2"
+		)
+
+		setup.addSRIOVNetworkInterface(
+			libvmi.InterfaceDeviceWithSRIOVBinding(networkName),
+			*libvmi.MultusNetwork(networkName, "test.network"),
+		)
+
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        networkMAC,
+				InfoSource: netvmispec.InfoSourceMultusStatus,
+			},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        networkMAC,
+				InfoSource: netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus),
+				QueueCount: netsetup.UnknownInterfaceQueueCount,
+			},
+		}), "the SR-IOV interface should be reported with MAC from multus status")
+	})
+
+	It("should prefer SR-IOV MAC from multus network-status over spec MAC", func() {
+		const (
+			networkName = "sriov-network"
+			specMAC     = "de:ad:be:ef:00:01"
+			multusMAC   = "72:83:99:bb:13:c2"
+		)
+
+		sriovIface := libvmi.InterfaceDeviceWithSRIOVBinding(networkName)
+		sriovIface.MacAddress = specMAC
+		setup.addSRIOVNetworkInterface(
+			sriovIface,
+			*libvmi.MultusNetwork(networkName, "test.network"),
+		)
+
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        multusMAC,
+				InfoSource: netvmispec.InfoSourceMultusStatus,
+			},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        multusMAC,
+				InfoSource: netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus),
+				QueueCount: netsetup.UnknownInterfaceQueueCount,
+			},
+		}), "multus network-status MAC should take priority over spec MAC for SR-IOV")
 	})
 
 	When("the desired state (VMI spec) is not in sync with the state in the guest (guest-agent)", func() {
