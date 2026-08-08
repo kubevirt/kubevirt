@@ -97,7 +97,8 @@ var _ = Describe("InferFromVolume", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		virtClient.EXPECT().CoreV1().Return(k8sfake.NewSimpleClientset().CoreV1()).AnyTimes()
+		k8sClient := k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().CdiClient().Return(cdifake.NewSimpleClientset()).AnyTimes()
 		virtClient.EXPECT().KubernetesSnapshotClient().Return(snapshotfake.NewSimpleClientset()).AnyTimes()
 
@@ -234,7 +235,7 @@ var _ = Describe("InferFromVolume", func() {
 			context.Background(), dsWithSourceSnapshot, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		handler = infer.New(virtClient)
+		handler = infer.New(virtClient, k8sClient)
 	})
 
 	DescribeTable("should infer defaults from VolumeSource and PersistentVolumeClaim",
