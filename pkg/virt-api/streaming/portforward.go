@@ -49,7 +49,7 @@ func (s *Streamer) StreamPortForward(ctx context.Context, namespace, name, port,
 	defer activeTunnelMetric.Dec()
 	defer apimetrics.SetVMILastConnectionTimestamp(namespace, name)
 
-	vmi, statusErr := s.fetchAndValidateVMI(ctx, namespace, name, validateVMIForPortForward)
+	vmi, statusErr := s.FetchAndValidateVMI(ctx, namespace, name, validateVMIForPortForward)
 	if statusErr != nil {
 		return statusErr
 	}
