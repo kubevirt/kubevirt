@@ -153,7 +153,7 @@ func (n *VMNetworkConfigurator) ensureDHCP(iface *v1.Interface, network *v1.Netw
 		log.Log.Reason(err).Errorf("failed to get a dhcp configuration for: %s", podIfaceName)
 		return err
 	}
-	log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String()) //nolint:mnd
+	log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
 	if err := configurator.EnsureDHCPServerStarted(podIfaceName, *dhcpConfig, iface.DHCPOptions); err != nil {
 		log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", podIfaceName)
 		panic(err)

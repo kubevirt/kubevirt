@@ -124,6 +124,9 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: checks.SkipTestIfNoCPUManager'
+      - linters:
+          - mnd
+        source: 'Log\.V\('
     paths:
       - third_party$
       - builtin$
