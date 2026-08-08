@@ -497,6 +497,38 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 0}))
 		})
 
+		It("should silently skip memoryless NUMA cells with no CPUs", func() {
+			// Grace GI (GPU Instance) NUMA nodes have memory=0 and no CPUs.
+			// They must be skipped without emitting a warning.
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0-7"},
+							{ID: "1", CPUs: ""},
+							{ID: "2", CPUs: ""},
+						},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "0"},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 0, Mode: "strict", NodeSet: "0"},
+					},
+				},
+			}
+
+			devicesNumaNodes, warnings := LookupDevicesNumaNodesWithWarnings([]string{testPCIAddress}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 0}))
+			for _, w := range warnings {
+				Expect(w.String()).NotTo(ContainSubstring("invalid CPU set"))
+			}
+		})
+
 		It("should keep unambiguous NUMATune memnode mappings when another host node is ambiguous", func() {
 			domainSpec := &api.DomainSpec{
 				CPU: api.CPU{
