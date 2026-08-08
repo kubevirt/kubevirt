@@ -106,7 +106,24 @@ func (ce *ContextExecutor) resetContext() error {
 
 func (ce *ContextExecutor) isSELinuxEnabled() bool {
 	_, selinuxEnabled, err := ce.executor.NewSELinux()
-	return err == nil && selinuxEnabled
+	if err != nil || !selinuxEnabled {
+		return false
+	}
+	// [升级兼容] SELinux 能力验证（防误判）
+	// 部分定制内核（如华为 OSM）存在"半启用"状态：selinuxfs 已挂载，
+	// /sys/fs/selinux/enforce 存在，virt-chroot getenforce 因此误报
+	// enforcing/permissive；但内核 cmdline 未启用 SELinux LSM，
+	// 对 /proc/<pid>/attr/current 执行 getxattr 会返回 EOPNOTSUPP。
+	// 此时若继续走 SELinux context 切换，getLabelForPID 将报致命错误，
+	// 导致 VMI 网络配置失败、virt-handler 无法完成任务。
+	// 通用做法：尝试读取自身进程的 SELinux label，失败即视为 SELinux
+	// 实际不可用，整体降级为不切换 context（与 go-selinux v1.6.0 的
+	// 非 SELinux stub 行为一致）。
+	if _, err := ce.getLabelForPID(os.Getpid()); err != nil {
+		log.Log.Warningf("SELinux detected but not functional, disabling SELinux context switching: %v", err)
+		return false
+	}
+	return true
 }
 
 func (ce *ContextExecutor) getLabelForPID(pid int) (string, error) {

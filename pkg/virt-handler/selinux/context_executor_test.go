@@ -90,10 +90,16 @@ var _ = Describe("SELinux context executor", func() {
 				EXPECT().
 				FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid)).
 				Return(desiredLabel, nil)
+			// [升级兼容] isSELinuxEnabled() 现在会额外验证自身进程 label 可读性，
+			// 因此 FileLabel(os.Getpid()) 共被调用 3 次：
+			//  1) newContextExecutor 中 isSELinuxEnabled() 能力验证
+			//  2) newContextExecutor 中 originalLabel 读取
+			//  3) Execute() 中 isSELinuxEnabled() 能力验证
 			executor.
 				EXPECT().
 				FileLabel(fmt.Sprintf("/proc/%d/attr/current", os.Getpid())).
-				Return(originalLabel, nil)
+				Return(originalLabel, nil).
+				Times(3)
 			executor.
 				EXPECT().
 				LockOSThread()
@@ -116,6 +122,35 @@ var _ = Describe("SELinux context executor", func() {
 			Expect(ce.desiredLabel).To(Equal(desiredLabel))
 			Expect(ce.originalLabel).To(Equal(originalLabel))
 			Expect(ce.pid).To(Equal(pid))
+			err = ce.Execute()
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("with SELinux detected but not functional", func() {
+		// [升级兼容] 模拟"半启用"定制内核（如华为 OSM）：selinuxfs 已挂载、
+		// /sys/fs/selinux/enforce 存在，virt-chroot getenforce 误报启用；
+		// 但 SELinux LSM 实际未激活，读取 /proc/<pid>/attr/current 返回
+		// EOPNOTSUPP。此时 isSELinuxEnabled() 应降级为 false，
+		// 不切换 context，避免 getLabelForPID 报致命错误导致启动失败。
+		BeforeEach(func() {
+			executor.
+				EXPECT().
+				NewSELinux().
+				Return(&SELinuxImpl{}, true, nil).
+				Times(2)
+			executor.
+				EXPECT().
+				FileLabel(gomock.Any()).
+				Return("", fmt.Errorf("operation not supported")).
+				AnyTimes()
+		})
+
+		It("should degrade to non-SELinux execution", func() {
+			ce, err := newContextExecutor(pid, &exec.Cmd{}, executor)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ce.desiredLabel).To(BeEmpty())
+			Expect(ce.originalLabel).To(BeEmpty())
 			err = ce.Execute()
 			Expect(err).ToNot(HaveOccurred())
 		})
