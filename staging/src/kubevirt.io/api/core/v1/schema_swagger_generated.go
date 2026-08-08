@@ -336,7 +336,10 @@ func (Filesystem) SwaggerDoc() map[string]string {
 }
 
 func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"readOnly": "ReadOnly mounts the filesystem as read-only inside the guest.\nDefaults to false (read-write).\n+optional",
+		"subPath":  "SubPath specifies a sub-directory within the source volume to be\nexposed to the guest, instead of the volume's root.\nMust be a relative path and must not contain '..' path elements.\nDefaults to \"\" (volume's root).\n+optional",
+	}
 }
 
 func (DownwardMetrics) SwaggerDoc() map[string]string {
