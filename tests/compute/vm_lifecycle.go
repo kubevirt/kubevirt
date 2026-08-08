@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -39,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
@@ -72,51 +72,47 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
 	})
 
-	DescribeTable("should force stop a VM with terminationGracePeriodSeconds>0", func(vmiFactory func(...libvmi.Option) *v1.VirtualMachineInstance) {
-		By("getting a VM with high TerminationGracePeriod")
-		vm := libvmi.NewVirtualMachine(vmiFactory(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+	DescribeTable("should stop a VM, respect the grace period, and remove the VMI", decorators.WgS390x,
+		func(vmi *v1.VirtualMachineInstance, stopOpts *v1.StopOptions, expectGracePeriodRespected bool) {
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
-		By("setting up a watch for vmi")
-		lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-		terminationGracePeriodUpdated := func(done <-chan bool, events <-chan watch.Event, updated chan<- bool) {
-			GinkgoRecover()
-			for {
-				select {
-				case <-done:
-					return
-				case e := <-events:
-					vmi, ok := e.Object.(*v1.VirtualMachineInstance)
-					Expect(ok).To(BeTrue())
-					if vmi.Name != vm.Name {
-						continue
-					}
-					if *vmi.Spec.TerminationGracePeriodSeconds == 0 {
-						updated <- true
-					}
-				}
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			By("Stopping the VM")
+			stopTime := time.Now()
+			Expect(virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOpts)).To(Succeed())
+
+			if expectGracePeriodRespected {
+				By("Verifying the ShuttingDown event")
+				Expect(watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).
+					WaitFor(ctx, watcher.NormalEvent, v1.ShuttingDown)).ToNot(BeNil())
 			}
-		}
-		done := make(chan bool, 1)
-		updated := make(chan bool, 1)
-		go terminationGracePeriodUpdated(done, lw.ResultChan(), updated)
 
-		By("Stopping the VM")
-		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{GracePeriod: pointer.P(int64(0))})
-		Expect(err).ToNot(HaveOccurred())
+			By("Verifying the Deleted event")
+			Expect(watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).
+				WaitFor(ctx, watcher.NormalEvent, v1.Deleted)).ToNot(BeNil())
 
-		By("Ensuring the VirtualMachineInstance is removed")
-		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(matcher.Exist())
+			if expectGracePeriodRespected {
+				Expect(time.Since(stopTime)).To(BeNumerically(">=", 5*time.Second),
+					"domain should not be killed before the grace period expires")
+			}
 
-		Expect(updated).To(Receive(), "vmi should be updated")
-		done <- true
-	},
-		Entry("with Fedora based VMI", decorators.WgS390x, libvmifact.NewFedora),
-		Entry("with unresponsive empty-disk VMI", libvmifact.NewGuestless),
+			By("Verifying the VMI is removed")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, time.Second).ShouldNot(matcher.Exist())
+		},
+		Entry("graceful stop waits for grace period",
+			decorators.Conformance, libvmifact.NewGuestless(libvmi.WithTerminationGracePeriod(5)), &v1.StopOptions{}, true),
+		Entry("force stop bypasses grace period",
+			libvmifact.NewGuestless(libvmi.WithTerminationGracePeriod(600)), &v1.StopOptions{GracePeriod: new(int64)}, false),
+		Entry("graceful stop with ACPI-capable guest",
+			decorators.Conformance, libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(30)), &v1.StopOptions{}, true),
 	)
 
 	Context("with reboot policy", func() {
