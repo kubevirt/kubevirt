@@ -21,13 +21,18 @@ package storage
 
 import (
 	"fmt"
+	"slices"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/config"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
 type OptimalBlockIODetectFunc func(disk *api.Disk) (*api.BlockIO, error)
@@ -87,7 +92,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		newDisk := api.Disk{}
 		emptyCDRom := false
 
-		err := convert_v1_Disk_To_api_Disk(d.c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
+		err := d.convert_v1_Disk_To_api_Disk(&disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
 			return err
 		}
@@ -104,9 +109,9 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		case emptyCDRom:
 			err = convert_v1_Missing_Volume_To_api_Disk(&newDisk)
 		case hpOk:
-			err = convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, d.c)
+			err = d.convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk)
 		default:
-			err = convert_v1_Volume_To_api_Disk(volume, &newDisk, d.c, volumeIndices[disk.Name])
+			err = d.convert_v1_Volume_To_api_Disk(volume, &newDisk, volumeIndices[disk.Name])
 		}
 
 		if err != nil {
@@ -134,6 +139,160 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 	}
 
 	return nil
+}
+
+func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+	if diskDevice.Disk != nil {
+		var unit int
+		disk.Device = "disk"
+		disk.Target.Bus = diskDevice.Disk.Bus
+		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
+		if diskDevice.Disk.Bus == "scsi" {
+			assignDiskToSCSIController(disk, unit)
+		}
+		if diskDevice.Disk.PciAddress != "" {
+			if diskDevice.Disk.Bus != v1.DiskBusVirtio {
+				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
+			}
+			addr, err := device.NewPciAddressField(diskDevice.Disk.PciAddress)
+			if err != nil {
+				return fmt.Errorf("failed to configure disk %s: %v", diskDevice.Name, err)
+			}
+			disk.Address = addr
+		}
+		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
+			disk.Model = virtio.InterpretTransitionalModelType(&d.c.UseVirtioTransitional, d.c.Architecture.GetArchitecture())
+		}
+		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
+		disk.Serial = diskDevice.Serial
+		if diskDevice.Shareable != nil {
+			if *diskDevice.Shareable {
+				if diskDevice.Cache == "" {
+					diskDevice.Cache = v1.CacheNone
+				}
+				if diskDevice.Cache != v1.CacheNone {
+					return fmt.Errorf("a sharable disk requires cache = none got: %v", diskDevice.Cache)
+				}
+				disk.Shareable = &api.Shareable{}
+			}
+		}
+	} else if diskDevice.LUN != nil {
+		var unit int
+		disk.Device = "lun"
+		disk.Target.Bus = diskDevice.LUN.Bus
+		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		if diskDevice.LUN.Bus == "scsi" {
+			assignDiskToSCSIController(disk, unit)
+		}
+		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
+		if diskDevice.LUN.Reservation {
+			setReservation(disk)
+		}
+	} else if diskDevice.CDRom != nil {
+		disk.Device = "cdrom"
+		disk.Target.Tray = string(diskDevice.CDRom.Tray)
+		disk.Target.Bus = diskDevice.CDRom.Bus
+		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
+		if diskDevice.CDRom.ReadOnly != nil {
+			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
+		} else {
+			disk.ReadOnly = toApiReadOnly(true)
+		}
+	}
+	disk.Driver = &api.DiskDriver{
+		Name:  "qemu",
+		Cache: string(diskDevice.Cache),
+		IO:    diskDevice.IO,
+	}
+	if diskDevice.Disk != nil || diskDevice.LUN != nil {
+		if !slices.Contains(d.c.VolumesDiscardIgnore, diskDevice.Name) {
+			disk.Driver.Discard = "unmap"
+		}
+		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
+		if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
+			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
+			disk.Capacity = storagetypes.GetDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
+		}
+	}
+	if numQueues != nil && disk.Target.Bus == v1.DiskBusVirtio {
+		disk.Driver.Queues = numQueues
+	}
+	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
+	if diskDevice.BootOrder != nil {
+		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
+	}
+	if (d.c.UseLaunchSecuritySEV || d.c.UseLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
+		disk.Driver.IOMMU = "on"
+	}
+
+	return nil
+}
+
+func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int) error {
+	if source.ContainerDisk != nil {
+		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.c, diskIndex)
+	}
+
+	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
+		return convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, d.c)
+	}
+
+	if source.Sysprep != nil {
+		return convert_v1_SysprepSource_To_api_Disk(source.Name, disk)
+	}
+
+	if source.HostDisk != nil {
+		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, d.c)
+	}
+
+	if source.PersistentVolumeClaim != nil {
+		return convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, d.c)
+	}
+
+	if source.DataVolume != nil {
+		return convert_v1_DataVolume_To_api_Disk(source.Name, disk, d.c)
+	}
+
+	if source.Ephemeral != nil {
+		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, disk, d.c)
+	}
+	if source.EmptyDisk != nil {
+		return convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
+	}
+	if source.ConfigMap != nil {
+		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
+	}
+	if source.Secret != nil {
+		return convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
+	}
+	if source.DownwardAPI != nil {
+		return convert_v1_Config_To_api_Disk(source.Name, disk, config.DownwardAPI)
+	}
+	if source.ServiceAccount != nil {
+		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
+	}
+	if source.DownwardMetrics != nil {
+		return convert_v1_DownwardMetricSource_To_api_Disk(disk, d.c)
+	}
+
+	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
+}
+
+func (d DiskConfigurator) convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk) error {
+	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
+	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
+	if source.HostDisk != nil {
+		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, d.c)
+	}
+
+	if source.PersistentVolumeClaim != nil {
+		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, d.c)
+	}
+
+	if source.DataVolume != nil {
+		return convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, d.c)
+	}
+	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
 
 func DiskWithOptimalBlockIODetector(f OptimalBlockIODetectFunc) diskOption {
