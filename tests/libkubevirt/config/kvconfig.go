@@ -92,9 +92,12 @@ func WithVMRolloutStrategy(rolloutStrategy *v1.VMRolloutStrategy) KvChangeOption
 }
 
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
-// and then waits  to allow the configuration events to be propagated to the consumers.
+// and then waits to allow the configuration events to be propagated to the consumers.
+// The configuration is applied through the active ConfigMutator, which patches either
+// the KubeVirt CR directly (default) or a managing operator's CR (e.g., HCO).
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	kv, err := mutator.Apply(kvConfig)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to apply KubeVirt configuration")
 
 	testsuite.EnsureKubevirtReady()
 	waitForConfigToBePropagated(kv.ResourceVersion)
