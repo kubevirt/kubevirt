@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package vnc
 
 import (
 	"context"
@@ -31,16 +31,26 @@ import (
 	"kubevirt.io/client-go/log"
 
 	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 )
+
+// Handler serves the VirtualMachineInstance VNC streaming and screenshot subresources.
+type Handler struct {
+	streamer *streaming.Streamer
+}
+
+func NewHandler(streamer *streaming.Streamer) *Handler {
+	return &Handler{streamer: streamer}
+}
 
 // StreamVNC proxies the VNC display of the named VMI as a raw, bidirectional
 // websocket stream to virt-handler
-func (s *Streamer) StreamVNC(ctx context.Context, namespace, name string, preserveSession bool, w http.ResponseWriter, req *http.Request) *errors.StatusError {
+func (h *Handler) StreamVNC(ctx context.Context, namespace, name string, preserveSession bool, w http.ResponseWriter, req *http.Request) *errors.StatusError {
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(namespace, name)
 	defer activeConnectionMetric.Dec()
 	defer apimetrics.SetVMILastConnectionTimestamp(namespace, name)
 
-	return s.StreamRaw(ctx, namespace, name, w, req, validateVMIForVNC,
+	return h.streamer.StreamRaw(ctx, namespace, name, w, req, validateVMIForVNC,
 		func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 			return conn.VNCURI(vmi, preserveSession)
 		},
@@ -48,13 +58,13 @@ func (s *Streamer) StreamVNC(ctx context.Context, namespace, name string, preser
 }
 
 // Screenshot fetches a VNC screenshot for the named VMI from virt-handler.
-func (s *Streamer) Screenshot(ctx context.Context, namespace, name string) ([]byte, *errors.StatusError) {
-	vmi, statusErr := s.fetchAndValidateVMI(ctx, namespace, name, validateVMIForVNC)
+func (h *Handler) Screenshot(ctx context.Context, namespace, name string) ([]byte, *errors.StatusError) {
+	vmi, statusErr := h.streamer.FetchAndValidateVMI(ctx, namespace, name, validateVMIForVNC)
 	if statusErr != nil {
 		return nil, statusErr
 	}
 
-	conn := kubecli.NewVirtHandlerClient(s.virtCli, s.httpClient).Port(s.consoleServerPort).ForNode(vmi.Status.NodeName)
+	conn := h.streamer.VirtHandlerConnFor(vmi)
 	url, err := conn.ScreenshotURI(vmi)
 	if err != nil {
 		return nil, errors.NewBadRequest(err.Error())
