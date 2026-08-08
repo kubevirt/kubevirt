@@ -327,14 +327,25 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("should succeed if the socket is there", func() {
-					path1, err := NewSocketPathGetter(tmpDir)(vmi, 0)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(path1).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid")))
-					path2, err := NewSocketPathGetter(tmpDir)(vmi, 1)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(path2).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid")))
-				})
+				DescribeTable("should find container disk socket",
+					func(extraSocket string, volumeIndex int, expectedSocket string) {
+						if extraSocket != "" {
+							f, err := os.Create(fmt.Sprintf(
+								"%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/%s",
+								tmpDir, "poduid", extraSocket))
+							Expect(err).ToNot(HaveOccurred())
+							Expect(f.Close()).To(Succeed())
+						}
+						path, err := NewSocketPathGetter(tmpDir)(vmi, volumeIndex)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(path).To(Equal(fmt.Sprintf(
+							"%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/%s",
+							tmpDir, "poduid", expectedSocket)))
+					},
+					Entry("legacy index-based socket at index 0", "", 0, "disk_0.sock"),
+					Entry("legacy index-based socket at index 1", "", 1, "disk_1.sock"),
+					Entry("new-style volume-name-based socket", "disk_r0.sock", 0, "disk_r0.sock"),
+				)
 			})
 		})
 

@@ -19,6 +19,8 @@
 package disk
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"strings"
 
 	"libvirt.org/go/libvirtxml"
@@ -26,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
@@ -68,6 +71,8 @@ func DiskSourcePathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachi
 		}
 	}
 
+	rewriteLegacyContainerDiskPaths(vmi, domain)
+
 	return nil
 }
 
@@ -87,4 +92,35 @@ func getTargetDomainNamespace(vmi *v1.VirtualMachineInstance) string {
 		return *vmi.Status.MigrationState.TargetState.DomainNamespace
 	}
 	return ""
+}
+
+// After existing namespace/name rewriting, also rewrite legacy container disk paths
+func rewriteLegacyContainerDiskPaths(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) {
+	annotation, ok := vmi.Annotations[v1.ContainerDiskPathsAnnotation]
+	if !ok {
+		return
+	}
+	var pathMap map[string]string
+	if err := json.Unmarshal([]byte(annotation), &pathMap); err != nil {
+		log.Log.Object(vmi).Warningf("failed to parse containerdisk paths annotation: %v", err)
+		return
+	}
+	// Build reverse map: old path basename → new name-based path
+	for volumeName, oldPath := range pathMap {
+		oldBase := filepath.Base(oldPath)
+		newBase := containerdisk.GetDiskTargetName(volumeName)
+		for i := range domain.Devices.Disks {
+			disk := &domain.Devices.Disks[i]
+			if disk.Source == nil || disk.Source.File == nil {
+				continue
+			}
+			if filepath.Base(disk.Source.File.File) == oldBase {
+				dir := filepath.Dir(disk.Source.File.File)
+				newPath := filepath.Join(dir, newBase)
+				log.Log.Object(vmi).V(4).Infof(
+					"rewriteLegacyContainerDiskPaths: %s to %s", disk.Source.File.File, newPath)
+				disk.Source.File.File = newPath
+			}
+		}
+	}
 }
