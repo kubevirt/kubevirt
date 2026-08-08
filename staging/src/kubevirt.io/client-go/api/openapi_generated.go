@@ -17296,6 +17296,13 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref common.Reference
 							},
 						},
 					},
+					"pvcName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PvcName is the name of the PVC that stores the backup data for this checkpoint",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -17550,7 +17557,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref common.R
 					},
 					"pvcName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+							Description: "PvcName specifies the name of the PVC where the backup output will be stored. When omitted, the controller creates a filesystem RWO PVC automatically and records the name in status.pvcName.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17629,6 +17636,13 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 					"checkpointName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CheckpointName the name of the checkpoint created for the current backup",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pvcName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PvcName is the name of the PVC used to store the backup output",
 							Type:        []string{"string"},
 							Format:      "",
 						},
