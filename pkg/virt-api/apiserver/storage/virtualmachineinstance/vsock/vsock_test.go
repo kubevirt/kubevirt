@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package vsock
 
 import (
 	"context"
@@ -40,12 +40,15 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 )
+
+const testVMIName = "testvmi"
 
 var _ = Describe("VSOCK streaming", func() {
 	var (
 		virtClient *kubevirtfake.Clientset
-		streamer   *Streamer
+		handler    *Handler
 	)
 
 	BeforeEach(func() {
@@ -60,13 +63,14 @@ var _ = Describe("VSOCK streaming", func() {
 
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
-		streamer = NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		streamer := streaming.NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		handler = NewHandler(streamer)
 	})
 
 	streamVSOCK := func(name string) *errors.StatusError {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		recorder := httptest.NewRecorder()
-		return streamer.StreamVSOCK(context.Background(), metav1.NamespaceDefault, name, "1234", "true", recorder, req)
+		return handler.StreamVSOCK(context.Background(), metav1.NamespaceDefault, name, "1234", "true", recorder, req)
 	}
 
 	It("should fail if VSOCK is not attached", func() {
