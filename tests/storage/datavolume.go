@@ -122,7 +122,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 	}
 
 	Context("[storage-req]PVC expansion", decorators.StorageReq, decorators.RequiresVolumeExpansion, func() {
-		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
+		DescribeTable("PVC expansion is detected by VM and can be fully used", decorators.StorageCritical, func(volumeMode k8sv1.PersistentVolumeMode) {
 			var sc string
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
