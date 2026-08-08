@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -12,5 +12,22 @@ go_library(
         "//pkg/virt-launcher/virtwrap/libvirtxml:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "cpudedicated_suite_test.go",
+        "cpudedicated_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//pkg/libvmi:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )
