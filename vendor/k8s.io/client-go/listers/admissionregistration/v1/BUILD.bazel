@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "expansion_generated.go",
+        "mutatingadmissionpolicy.go",
+        "mutatingadmissionpolicybinding.go",
         "mutatingwebhookconfiguration.go",
         "validatingadmissionpolicy.go",
         "validatingadmissionpolicybinding.go",
