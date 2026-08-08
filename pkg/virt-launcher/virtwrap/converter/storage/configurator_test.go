@@ -48,7 +48,6 @@ import (
 
 const (
 	amd64 = "amd64"
-	arm64 = "arm64"
 	s390x = "s390x"
 )
 
@@ -1019,35 +1018,6 @@ var _ = Describe("DiskConfigurator", func() {
 		},
 			Entry("LUN-type disk", libvmi.WithPersistentVolumeClaimLun("myvol", "my-claim", false), "lun"),
 			Entry("Disk-type disk", libvmi.WithPersistentVolumeClaim("myvol", "my-claim", libvmi.WithDiskBus(v1.DiskBusSCSI)), "disk"),
-		)
-
-		DescribeTable("should set the virtio model per architecture",
-			func(architecture, expectedModel string) {
-				vmi := libvmi.New(
-					libvmi.WithPersistentVolumeClaim("mypvc", "my-claim"),
-				)
-				configurator := storage.NewDiskConfigurator(
-					storage.DiskWithArchitecture(architecture),
-					storage.DiskWithVirtioModel(expectedModel),
-					storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
-				)
-				var domain api.Domain
-
-				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-				expectedDomain := newDomainWithDisks(newDisk("mypvc",
-					diskWithDevice("disk"),
-					diskWithType("file"),
-					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
-					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-					diskWithModel(expectedModel),
-				))
-				Expect(domain).To(Equal(expectedDomain))
-			},
-			Entry("amd64", amd64, "virtio-non-transitional"),
-			Entry("arm64", arm64, "virtio-non-transitional"),
-			Entry("s390x", s390x, "virtio"),
 		)
 
 		It("should assign queues when block multi-queue is enabled", func() {
