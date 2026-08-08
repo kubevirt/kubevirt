@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
@@ -61,4 +61,27 @@ oci_image(
     ],
     user = "1001",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "virt-exportproxy_suite_test.go",
+        "virt-exportproxy_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//pkg/certificates/triple:go_default_library",
+        "//pkg/certificates/triple/cert:go_default_library",
+        "//pkg/testutils:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/export/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+    ],
 )
