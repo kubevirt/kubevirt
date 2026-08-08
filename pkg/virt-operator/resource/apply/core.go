@@ -872,16 +872,31 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 }
 
 func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	networkStatuses := multus.NetworkStatusesFromPod(pod)
-	for _, networkStatus := range networkStatuses {
-		if networkStatus.Interface == v1.MigrationInterfaceName {
-			if len(networkStatus.IPs) == 0 {
-				break
-			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
-			return networkStatus.IPs
+	// Priority for advertised SynchronizationAddresses (must match where the
+	// sync controller actually listens for peer gRPC):
+	// 1. crosscluster0 when Proxy datapath is enabled and the iface is present
+	// 2. migration0 when present
+	// 3. (caller falls back to pod IP)
+
+	if r.isDecentralizedLiveMigrationProxyEnabled() {
+		ips := multus.GetMigrationNetworkIPs(pod, v1.CrossClusterMigrationInterfaceName)
+		if len(ips) > 0 {
+			return ips
 		}
 	}
-	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
-	return nil
+
+	return multus.GetMigrationNetworkIPs(pod, v1.MigrationInterfaceName)
+}
+
+// isDecentralizedLiveMigrationProxyEnabled mirrors virtconfig.DecentralizedLiveMigrationProxyEnabled:
+// CrossClusterMigrationProxy feature gate + decentralizedLiveMigrationDatapath=Proxy.
+func (r *Reconciler) isDecentralizedLiveMigrationProxyEnabled() bool {
+	if !r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
+		return false
+	}
+	mig := r.kv.Spec.Configuration.MigrationConfiguration
+	if mig == nil || mig.DecentralizedLiveMigrationDatapath == nil {
+		return false
+	}
+	return *mig.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy
 }

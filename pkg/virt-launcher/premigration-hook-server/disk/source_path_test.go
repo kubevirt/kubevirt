@@ -28,14 +28,18 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
 )
 
 const (
 	sourceNamespace      = "source-ns"
 	targetNamespace      = "target-ns"
-	cloudInitPathWithSrc = "/var/run/libvirt/cloud-init-dir/source-ns/vmi-test/noCloud.iso"
-	cloudInitPathWithDst = "/var/run/libvirt/cloud-init-dir/target-ns/vmi-test/noCloud.iso"
+	sourceName           = "source-vm"
+	targetName           = "target-vm"
+	cloudInitPathWithSrc = "/var/run/kubevirt-ephemeral-disks/cloud-init-data/source-ns/source-vm/noCloud.iso"
+	cloudInitPathWithDst = "/var/run/kubevirt-ephemeral-disks/cloud-init-data/target-ns/target-vm/noCloud.iso"
+	cloudInitPathNsOnly  = "/var/run/kubevirt-ephemeral-disks/cloud-init-data/target-ns/source-vm/noCloud.iso"
 	pvcDiskPath          = "/var/run/kubevirt-private/vmi-disks/pvc/disk.img"
 )
 
@@ -43,68 +47,42 @@ var _ = Describe("DiskSourcePathHook", func() {
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		sourceNs := sourceNamespace
-		targetNs := targetNamespace
-		vmi = libvmi.New(
-			libvmi.WithNamespace(sourceNamespace),
-			libvmistatus.WithStatus(libvmistatus.New(
-				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
-					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &sourceNs,
-						},
-					},
-					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &targetNs,
-						},
-					},
-				}),
-			)),
-		)
+		vmi = newMigrationTargetVMI(sourceNamespace, sourceName, targetNamespace, targetName)
 	})
 
-	It("should replace namespace in file paths", func() {
-		domain := &libvirtxml.Domain{
-			Devices: &libvirtxml.DomainDeviceList{
-				Disks: []libvirtxml.DomainDisk{
-					{
-						Alias: &libvirtxml.DomainAlias{Name: "ua-cloudinit"},
-						Source: &libvirtxml.DomainDiskSource{
-							File: &libvirtxml.DomainDiskSourceFile{
-								File: cloudInitPathWithSrc,
-							},
-						},
-					},
-				},
-			},
-		}
+	It("should replace namespace and name in file paths", func() {
+		domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
 
 		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
 		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithDst))
 	})
 
-	It("should not modify paths that don't contain the namespace", func() {
-		domain := &libvirtxml.Domain{
-			Devices: &libvirtxml.DomainDeviceList{
-				Disks: []libvirtxml.DomainDisk{
-					{
-						Alias: &libvirtxml.DomainAlias{Name: "ua-pvc"},
-						Source: &libvirtxml.DomainDiskSource{
-							File: &libvirtxml.DomainDiskSourceFile{
-								File: pvcDiskPath,
-							},
-						},
-					},
-				},
-			},
-		}
+	It("should replace only the namespace when domain names match", func() {
+		vmi = newMigrationTargetVMI(sourceNamespace, sourceName, targetNamespace, sourceName)
+		domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
+
+		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathNsOnly))
+	})
+
+	It("should replace only the name when namespaces match", func() {
+		vmi = newMigrationTargetVMI(sourceNamespace, sourceName, sourceNamespace, targetName)
+		sameNsPath := "/var/run/kubevirt-ephemeral-disks/cloud-init-data/source-ns/source-vm/noCloud.iso"
+		expected := "/var/run/kubevirt-ephemeral-disks/cloud-init-data/source-ns/target-vm/noCloud.iso"
+		domain := domainWithCloudInitDisk(sameNsPath)
+
+		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(expected))
+	})
+
+	It("should not modify paths that don't contain the namespace or name", func() {
+		domain := domainWithCloudInitDisk(pvcDiskPath)
 
 		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
 		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(pvcDiskPath))
 	})
 
-	It("should replace namespace in datastore file paths", func() {
+	It("should replace namespace and name in datastore file paths", func() {
 		domain := &libvirtxml.Domain{
 			Devices: &libvirtxml.DomainDeviceList{
 				Disks: []libvirtxml.DomainDisk{
@@ -132,10 +110,19 @@ var _ = Describe("DiskSourcePathHook", func() {
 		Expect(disk.DiskSourcePathHook(nil, vmi, &libvirtxml.Domain{})).To(Succeed())
 	})
 
+	It("should not rewrite the name without SourceState.DomainName", func() {
+		vmi.Status.MigrationState.SourceState.DomainName = nil
+		domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
+
+		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathNsOnly))
+	})
+
 	Context("early-return when migration state is incomplete", func() {
 		It("should return nil when MigrationState is nil", func() {
 			vmi = libvmi.New(
-				libvmi.WithNamespace(sourceNamespace),
+				libvmi.WithNamespace(targetNamespace),
+				libvmi.WithName(targetName),
 				libvmistatus.WithStatus(libvmistatus.New()),
 			)
 			domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
@@ -146,7 +133,8 @@ var _ = Describe("DiskSourcePathHook", func() {
 
 		It("should return nil when TargetState is nil", func() {
 			vmi = libvmi.New(
-				libvmi.WithNamespace(sourceNamespace),
+				libvmi.WithNamespace(targetNamespace),
+				libvmi.WithName(targetName),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						TargetState: nil,
@@ -159,14 +147,21 @@ var _ = Describe("DiskSourcePathHook", func() {
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithSrc))
 		})
 
-		It("should return nil when DomainNamespace is nil", func() {
+		It("should return nil when DomainNamespace is nil and names match", func() {
 			vmi = libvmi.New(
 				libvmi.WithNamespace(sourceNamespace),
+				libvmi.WithName(sourceName),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+								DomainName: pointer.P(sourceName),
+							},
+						},
 						TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
 							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
 								DomainNamespace: nil,
+								DomainName:      pointer.P(sourceName),
 							},
 						},
 					}),
@@ -178,20 +173,8 @@ var _ = Describe("DiskSourcePathHook", func() {
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cloudInitPathWithSrc))
 		})
 
-		It("should return nil when source and target namespace are the same", func() {
-			sameNs := sourceNamespace
-			vmi = libvmi.New(
-				libvmi.WithNamespace(sourceNamespace),
-				libvmistatus.WithStatus(libvmistatus.New(
-					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
-						TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-								DomainNamespace: &sameNs,
-							},
-						},
-					}),
-				)),
-			)
+		It("should return nil when source and target namespace and name are the same", func() {
+			vmi = newMigrationTargetVMI(sourceNamespace, sourceName, sourceNamespace, sourceName)
 			domain := domainWithCloudInitDisk(cloudInitPathWithSrc)
 
 			Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
@@ -199,6 +182,29 @@ var _ = Describe("DiskSourcePathHook", func() {
 		})
 	})
 })
+
+func newMigrationTargetVMI(sourceNS, sourceVM, targetNS, targetVM string) *v1.VirtualMachineInstance {
+	return libvmi.New(
+		libvmi.WithNamespace(targetNS),
+		libvmi.WithName(targetVM),
+		libvmistatus.WithStatus(libvmistatus.New(
+			libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						DomainNamespace: pointer.P(sourceNS),
+						DomainName:      pointer.P(sourceVM),
+					},
+				},
+				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						DomainNamespace: pointer.P(targetNS),
+						DomainName:      pointer.P(targetVM),
+					},
+				},
+			}),
+		)),
+	)
+}
 
 func domainWithCloudInitDisk(path string) *libvirtxml.Domain {
 	return &libvirtxml.Domain{

@@ -1053,5 +1053,74 @@ var _ = Describe("Apply", func() {
 				},
 			}, "", "[fd02:0:0:1::cb]:9185"),
 		)
+
+		It("should not advertise crosscluster IP unless Proxy datapath is enabled", func() {
+			lease := createLease(synchronizationControllerPodName)
+			_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
+				featuregate.DecentralizedLiveMigration,
+				featuregate.CrossClusterMigrationProxy,
+			}
+			// datapath unset → Direct; crosscluster0 on pod must not be advertised
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+					Annotations: map[string]string{
+						networkv1.NetworkStatusAnnot: `[
+                          {"name":"cbr0","interface":"eth0","ips":["10.244.0.1"],"default":true},
+                          {"name":"kubevirt/crosscluster-cni","interface":"crosscluster0","ips":["172.22.42.12"]}
+                        ]`,
+					},
+				},
+				Status: corev1.PodStatus{
+					PodIPs: []corev1.PodIP{{IP: "10.244.0.1"}},
+				},
+			}
+			_, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = reconciler.updateSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"10.244.0.1:9185"}))
+		})
+
+		It("should advertise crosscluster IP when Proxy datapath is enabled", func() {
+			lease := createLease(synchronizationControllerPodName)
+			_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			datapath := v1.DecentralizedLiveMigrationDatapathProxy
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
+				featuregate.DecentralizedLiveMigration,
+				featuregate.CrossClusterMigrationProxy,
+			}
+			kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
+				DecentralizedLiveMigrationDatapath: &datapath,
+			}
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+					Annotations: map[string]string{
+						networkv1.NetworkStatusAnnot: `[
+                          {"name":"cbr0","interface":"eth0","ips":["10.244.0.1"],"default":true},
+                          {"name":"kubevirt/crosscluster-cni","interface":"crosscluster0","ips":["172.22.42.12"]}
+                        ]`,
+					},
+				},
+				Status: corev1.PodStatus{
+					PodIPs: []corev1.PodIP{{IP: "10.244.0.1"}},
+				},
+			}
+			_, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = reconciler.updateSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"172.22.42.12:9185"}))
+		})
 	})
 })

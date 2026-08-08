@@ -107,6 +107,8 @@ var (
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
 	// RequiresDecentralizedLiveMigration request the feature gate is enabled
 	RequiresDecentralizedLiveMigration = Label("RequiresDecentralizedLiveMigration")
+	// RequiresCrossClusterMigrationProxy requires the CrossClusterMigrationProxy feature gate to be enabled
+	RequiresCrossClusterMigrationProxy = Label("RequiresCrossClusterMigrationProxy")
 
 	/* Provisioner */
 

@@ -451,7 +451,8 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 			m.logger.Reason(err).Info("fallback to old tls config")
 			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
 		} else if tlsErr := conn.(*tls.Conn).Handshake(); tlsErr != nil {
-			m.logger.Reason(err).Info("handshake failed, fallback to old tls config")
+			m.logger.Reason(tlsErr).Info("handshake failed, fallback to old tls config")
+			_ = conn.Close()
 			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
 		}
 	} else {
