@@ -578,8 +578,10 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	var sidecarVolumes []k8sv1.Volume
 	for i, requestedHookSidecar := range requestedHookSidecarList {
+		sidecarRes := sidecarResources(vmi, t.clusterConfig)
+		sidecarRes.Claims = requestedHookSidecar.ResourceClaims
 		sidecarContainer := newSidecarContainerRenderer(
-			sidecarContainerName(i), vmi, sidecarResources(vmi, t.clusterConfig), requestedHookSidecar, userId).Render()
+			sidecarContainerName(i), vmi, sidecarRes, requestedHookSidecar, userId).Render()
 
 		if requestedHookSidecar.ConfigMap != nil {
 			cm, err := t.virtClient.CoreV1().ConfigMaps(vmi.Namespace).Get(context.TODO(), requestedHookSidecar.ConfigMap.Name, metav1.GetOptions{})

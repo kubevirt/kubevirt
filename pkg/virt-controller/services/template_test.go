@@ -75,6 +75,7 @@ var _ = Describe("Template", func() {
 	const expectedNetworkResource = "amazing-network-resource.com"
 
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
+	var configFactoryWithOpts func(string, ...templateServiceOption) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
 
@@ -188,6 +189,36 @@ var _ = Describe("Template", func() {
 			Expect(err).To(Not(HaveOccurred()))
 			return config, kvStore, svc
 		}
+		configFactoryWithOpts = func(cpuArch string, opts ...templateServiceOption) (*virtconfig.ClusterConfig, cache.Store, *TemplateService) {
+			config, _, kvStore := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
+
+			baseOpts := []templateServiceOption{
+				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+			}
+			baseOpts = append(baseOpts, opts...)
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				baseOpts...,
+			)
+			networkClient := fakenetworkclient.NewSimpleClientset()
+			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+			k8sClient := k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			return config, kvStore, svc
+		}
 		nonRootUser = util.NonRootUID
 	})
 
@@ -261,6 +292,28 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(containers[0].Resources.Claims).To(BeEmpty())
+			})
+
+			It("should add network DRA claim to binding plugin sidecar container resources", func() {
+				draClaims := []k8sv1.ResourceClaim{{Name: "net-claim", Request: "net-request"}}
+				config, kvStore, svc = configFactoryWithOpts(defaultArch,
+					WithSidecarCreator(func(_ *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+						return hooks.HookSidecarList{{
+							Image:          "binding-plugin:latest",
+							ResourceClaims: draClaims,
+						}}, nil
+					}),
+				)
+				enableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers).To(HaveLen(2))
+				Expect(pod.Spec.Containers[0].Name).To(Equal(computeContainerName))
+				Expect(pod.Spec.Containers[0].Resources.Claims).To(Equal(draClaims))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
+				Expect(pod.Spec.Containers[1].Resources.Claims).To(Equal(draClaims))
 			})
 		})
 
