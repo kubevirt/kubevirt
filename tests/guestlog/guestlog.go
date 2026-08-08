@@ -85,7 +85,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 
 			var alpineCheck = "Welcome to Alpine Linux"
 
-			It("[QUARANTINE] it should fetch logs for a running VM with logs API", decorators.Quarantine, func() {
+			It("it should fetch logs for a running VM with logs API", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Finding virt-launcher pod")
@@ -154,7 +154,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4))
 			})
 
-			It("[QUARANTINE] it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Quarantine, decorators.Periodic, func() {
+			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Periodic, func() {
 				alpineVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1000m"),
@@ -195,7 +195,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 						i, err := strconv.Atoi(seqnString)
 						Expect(err).ToNot(HaveOccurred())
 						if prevSeqn > 0 {
-							Expect(i).To(Equal(prevSeqn+1), fmt.Sprintf("log line seq number should match previous+1: previous %d, current: %d.\nprevLine: %s\nline: %s", prevSeqn, i, line, prevLine))
+							Expect(i).To(Equal(prevSeqn+1), fmt.Sprintf("log line seq number should match previous+1: previous %d, current: %d.\nprevLine: %s\nline: %s", prevSeqn, i, prevLine, line))
 						}
 						prevSeqn = i
 						prevLine = line
