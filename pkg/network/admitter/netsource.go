@@ -21,6 +21,7 @@ package admitter
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -28,6 +29,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+)
+
+const (
+	maxNADNameLength = 170
 )
 
 func validateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
@@ -97,14 +102,39 @@ func validateSingleNetworkSource(field *k8sfield.Path, spec *v1.VirtualMachineIn
 }
 
 func validateMultusNetworkSource(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
 	for idx, net := range spec.Networks {
-		if net.Multus != nil && net.Multus.NetworkName == "" {
-			return []metav1.StatusCause{{
+		if net.Multus == nil {
+			continue
+		}
+
+		if net.Multus.NetworkName == "" {
+			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "CNI delegating plugin must have a networkName",
 				Field:   field.Child("networks").Index(idx).String(),
-			}}
+			})
+			continue
+		}
+
+		nadName := net.Multus.NetworkName
+		if strings.Contains(nadName, "/") {
+			const namespaceSeparatorParts = 2
+			parts := strings.SplitN(nadName, "/", namespaceSeparatorParts)
+			nadName = parts[1]
+		}
+
+		if len(nadName) > maxNADNameLength {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("NetworkAttachmentDefinition name '%s' exceeds maximum length of %d characters (length: %d). "+
+					"Long NAD names cause pod creation failures due to Multus cache filename limitations.",
+					nadName, maxNADNameLength, len(nadName)),
+				Field: field.Child("networks").Index(idx).Child("multus", "networkName").String(),
+			})
 		}
 	}
-	return nil
+
+	return causes
 }
