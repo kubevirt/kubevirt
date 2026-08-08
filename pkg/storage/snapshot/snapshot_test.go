@@ -375,26 +375,37 @@ var _ = Describe("Snapshot controlleer", func() {
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+			clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+			preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+			clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
 			controller = &VMSnapshotController{
-				Client:                    virtClient,
-				VMSnapshotInformer:        vmSnapshotInformer,
-				VMSnapshotContentInformer: vmSnapshotContentInformer,
-				VMInformer:                vmInformer,
-				VMIInformer:               vmiInformer,
-				PodInformer:               podInformer,
-				StorageClassInformer:      storageClassInformer,
-				StorageProfileInformer:    storageProfileInformer,
-				PVCInformer:               pvcInformer,
-				CRDInformer:               crdInformer,
-				DVInformer:                dvInformer,
-				CRInformer:                crInformer,
-				Recorder:                  recorder,
-				ResyncPeriod:              60 * time.Second,
+				Client:                      virtClient,
+				VMSnapshotInformer:          vmSnapshotInformer,
+				VMSnapshotContentInformer:   vmSnapshotContentInformer,
+				VMInformer:                  vmInformer,
+				VMIInformer:                 vmiInformer,
+				PodInformer:                 podInformer,
+				StorageClassInformer:        storageClassInformer,
+				StorageProfileInformer:      storageProfileInformer,
+				PVCInformer:                 pvcInformer,
+				CRDInformer:                 crdInformer,
+				DVInformer:                  dvInformer,
+				CRInformer:                  crInformer,
+				InstancetypeInformer:        instancetypeInformer,
+				ClusterInstancetypeInformer: clusterInstancetypeInformer,
+				PreferenceInformer:          preferenceInformer,
+				ClusterPreferenceInformer:   clusterPreferenceInformer,
+				Recorder:                    recorder,
+				ResyncPeriod:                60 * time.Second,
 			}
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			controller.ClusterConfig = config
 			controller.Init()
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
