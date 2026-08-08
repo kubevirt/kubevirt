@@ -624,7 +624,8 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	return fmt.Errorf("kernel artifacts record wasn't found")
+	log.DefaultLogger().Object(vmi).Warning("no kernel-boot entries found to unmount; already unmounted")
+	return nil
 }
 
 func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v1.Volume, volumeIndex int) (*safepath.Path, error) {
