@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package console
 
 import (
 	"context"
@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/virt-api/streaming"
 )
 
 const testVMIName = "testvmi"
@@ -47,7 +48,7 @@ const testVMIName = "testvmi"
 var _ = Describe("Console streaming", func() {
 	var (
 		virtClient *kubevirtfake.Clientset
-		streamer   *Streamer
+		handler    *Handler
 	)
 
 	BeforeEach(func() {
@@ -63,7 +64,8 @@ var _ = Describe("Console streaming", func() {
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 
-		streamer = NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		streamer := streaming.NewStreamer(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true})
+		handler = NewHandler(streamer)
 	})
 
 	// For the scenarios below the failure always happens
@@ -72,7 +74,7 @@ var _ = Describe("Console streaming", func() {
 	streamConsole := func(name string) *errors.StatusError {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		recorder := httptest.NewRecorder()
-		return streamer.StreamConsole(context.Background(), metav1.NamespaceDefault, name, recorder, req)
+		return handler.StreamConsole(context.Background(), metav1.NamespaceDefault, name, recorder, req)
 	}
 
 	DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {

@@ -17,7 +17,7 @@
  *
  */
 
-package streaming
+package console
 
 import (
 	"testing"
@@ -25,8 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-const testVMIName = "testvmi"
-
-func TestStreaming(t *testing.T) {
+func TestConsole(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
