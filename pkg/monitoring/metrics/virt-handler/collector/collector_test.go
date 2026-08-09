@@ -20,6 +20,7 @@
 package collector
 
 import (
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -130,7 +131,74 @@ var _ = Describe("Collector", func() {
 			Expect(completed).To(BeTrue())
 		})
 	})
+
+	Context("concurrent scrape limit", func() {
+		It("should not scrape more sources than maxConcurrentSources", func() {
+			const (
+				maxConcurrent = 2
+				numSources    = 8
+				scrapeDelay   = 50 * time.Millisecond
+			)
+
+			many := make([]*k6tv1.VirtualMachineInstance, numSources)
+			for i := 0; i < numSources; i++ {
+				many[i] = &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: string(rune('a' + i))},
+				}
+			}
+
+			fakeMapper := func(vmiList []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+				m := vmiSocketMap{}
+				for _, vmi := range vmiList {
+					m[vmi.Name] = vmi
+				}
+				return m
+			}
+
+			var (
+				inFlight    atomic.Int32
+				maxInFlight atomic.Int32
+			)
+			scraper := &concurrencyTrackingScraper{
+				delay: scrapeDelay,
+				onStart: func() {
+					current := inFlight.Add(1)
+					for {
+						max := maxInFlight.Load()
+						if current <= max || maxInFlight.CompareAndSwap(max, current) {
+							break
+						}
+					}
+				},
+				onDone: func() {
+					inFlight.Add(-1)
+				},
+			}
+
+			cc := NewConcurrentCollectorWithLimits(1, maxConcurrent, fakeMapper)
+			skipped, completed := cc.Collect(many, scraper, 5*time.Second)
+
+			Expect(skipped).To(BeEmpty())
+			Expect(completed).To(BeTrue())
+			Expect(maxInFlight.Load()).To(BeNumerically("<=", maxConcurrent))
+			Expect(maxInFlight.Load()).To(BeNumerically(">", 0))
+		})
+	})
 })
+
+type concurrencyTrackingScraper struct {
+	delay   time.Duration
+	onStart func()
+	onDone  func()
+}
+
+func (s *concurrencyTrackingScraper) Scrape(_ string, _ *k6tv1.VirtualMachineInstance) {
+	s.onStart()
+	defer s.onDone()
+	time.Sleep(s.delay)
+}
+
+func (s *concurrencyTrackingScraper) Complete() {}
 
 type fakeScraper struct {
 	ready   map[string]chan bool

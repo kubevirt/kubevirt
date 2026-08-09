@@ -35,6 +35,11 @@ const (
 	// "a bit more" than timeout, heuristic again
 	StatsMaxAge = CollectionTimeout + 2*time.Second
 
+	// DefaultMaxConcurrentSources caps how many virt-launcher sockets may be
+	// scraped in parallel. Unbounded fan-out starves virt-handler (including
+	// /healthz) when many VMIs share a node.
+	DefaultMaxConcurrentSources = 10
+
 	logVerbosityInfo  = 3
 	logVerbosityDebug = 4
 )
@@ -46,10 +51,12 @@ type Collector interface {
 }
 
 type ConcurrentCollector struct {
-	lock             sync.Mutex
-	clientsPerKey    map[string]int
-	maxClientsPerKey int
-	socketMapper     func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
+	lock                 sync.Mutex
+	clientsPerKey        map[string]int
+	maxClientsPerKey     int
+	maxConcurrentSources int
+	sem                  chan struct{}
+	socketMapper         func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
 }
 
 func NewConcurrentCollector(maxRequestsPerKey int) Collector {
@@ -57,10 +64,28 @@ func NewConcurrentCollector(maxRequestsPerKey int) Collector {
 }
 
 func NewConcurrentCollectorWithMapper(maxRequestsPerKey int, mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap) Collector {
+	return NewConcurrentCollectorWithLimits(maxRequestsPerKey, DefaultMaxConcurrentSources, mapper)
+}
+
+// NewConcurrentCollectorWithLimits creates a collector that:
+//   - skips a socket key already at maxRequestsPerKey in-flight scrapes
+//   - never runs more than maxConcurrentSources scrapes at once
+func NewConcurrentCollectorWithLimits(
+	maxRequestsPerKey, maxConcurrentSources int,
+	mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap,
+) Collector {
+	if maxRequestsPerKey < 1 {
+		maxRequestsPerKey = 1
+	}
+	if maxConcurrentSources < 1 {
+		maxConcurrentSources = 1
+	}
 	return &ConcurrentCollector{
-		clientsPerKey:    make(map[string]int),
-		maxClientsPerKey: maxRequestsPerKey,
-		socketMapper:     mapper,
+		clientsPerKey:        make(map[string]int),
+		maxClientsPerKey:     maxRequestsPerKey,
+		maxConcurrentSources: maxConcurrentSources,
+		sem:                  make(chan struct{}, maxConcurrentSources),
+		socketMapper:         mapper,
 	}
 }
 
@@ -68,7 +93,8 @@ func (cc *ConcurrentCollector) Collect(
 	vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration,
 ) ([]string, bool) {
 	socketToVMIs := cc.socketMapper(vmis)
-	log.Log.V(logVerbosityInfo).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
+	log.Log.V(logVerbosityInfo).Infof("Collecting VM metrics from %d sources (max concurrent %d)",
+		len(socketToVMIs), cc.maxConcurrentSources)
 	var busyScrapers sync.WaitGroup
 
 	var skipped []string
@@ -110,6 +136,9 @@ func (cc *ConcurrentCollector) collectFromSource(
 ) {
 	defer wg.Done()
 	defer cc.releaseKey(socket)
+
+	cc.sem <- struct{}{}
+	defer func() { <-cc.sem }()
 
 	log.Log.V(logVerbosityDebug).Infof("Getting stats from source %s", socket)
 	scraper.Scrape(socket, vmi)
