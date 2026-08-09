@@ -34,6 +34,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
@@ -130,12 +131,14 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
-// get the first available interface IP
-// if no interface is present, return error
 func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	interfaces := vmi.Status.Interfaces
-	if len(interfaces) < 1 {
-		return "", fmt.Errorf("no network interfaces are present")
+	podNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks)
+	if podNetwork == nil {
+		return "", fmt.Errorf("vmi has no pod network")
 	}
-	return interfaces[0].IP, nil
+	ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, podNetwork.Name)
+	if ifaceStatus == nil || ifaceStatus.IP == "" {
+		return "", fmt.Errorf("pod network interface has no IP")
+	}
+	return ifaceStatus.IP, nil
 }

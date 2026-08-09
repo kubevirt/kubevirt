@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -56,38 +55,44 @@ var _ = Describe("NetDialer", func() {
 		request = restful.NewRequest(httpReq)
 	})
 
-	makeVMIWithInterfaceStatus := func(interfaces []v1.VirtualMachineInstanceNetworkInterface) *v1.VirtualMachineInstance {
-		return &v1.VirtualMachineInstance{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmName,
-				Namespace: vmNamespace,
-			},
-			Spec: v1.VirtualMachineInstanceSpec{},
-			Status: v1.VirtualMachineInstanceStatus{
-				Interfaces: interfaces,
-			},
-		}
+	newVMIWithPodNetwork := func(ip string) *v1.VirtualMachineInstance {
+		return libvmi.New(
+			libvmi.WithNamespace(vmNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					Name: v1.DefaultPodNetwork().Name,
+					IP:   ip,
+				}),
+			)),
+		)
 	}
 
-	It("Should fail if vmi has no network interfaces", func() {
-		dialer := netDial{
-			request: request,
-		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus(nil))
-		Expect(statusErr.Status().Message).To(Equal("no network interfaces are present"))
+	It("Should fail if VMI has no pod network", func() {
+		vmi := libvmi.New(
+			libvmi.WithNamespace(vmNamespace),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					IP: "10.0.0.1",
+				}),
+			)),
+		)
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(vmi)
+		Expect(statusErr.Status().Message).To(ContainSubstring("no pod network"))
+	})
+
+	It("Should fail if pod network interface has no IP", func() {
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork(""))
+		Expect(statusErr.Status().Message).To(ContainSubstring("no IP"))
 	})
 
 	It("Should fail if request has no port", func() {
 		request.PathParameters()["port"] = ""
-		dialer := netDial{
-			request: request,
-		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP: "192.168.0.1",
-			},
-		}))
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork("192.168.0.1"))
 		Expect(statusErr.Status().Message).To(Equal("port must not be empty"))
 	})
 
@@ -136,14 +141,8 @@ var _ = Describe("NetDialer", func() {
 		tcpAddr := ln.Addr().(*net.TCPAddr)
 
 		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
-		dialer := netDial{
-			request: request,
-		}
-		conn, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP: tcpAddr.IP.String(),
-			},
-		}))
+		dialer := netDial{request: request}
+		conn, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork(tcpAddr.IP.String()))
 		Expect(statusErr).NotTo(HaveOccurred())
 		Expect(conn).NotTo(BeNil())
 	},
