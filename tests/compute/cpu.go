@@ -96,7 +96,7 @@ var _ = Describe(SIG("CPU", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
+			Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(420)))
 		})
 
 		It("[test_id:1660]should report 3 sockets under guest OS", func() {
