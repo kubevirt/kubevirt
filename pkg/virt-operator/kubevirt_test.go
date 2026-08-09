@@ -2323,15 +2323,14 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			// add one for the namespace
-			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1))
+			// +1 for the daemonset canary patch, +1 for the namespace labels
+			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 2))
 
 			// all these resources should be tracked by there generation so everyone that has been added should now be patched
 			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
 			Expect(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["validatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["deployments"][Patched]).To(Equal(kvTestData.resourceChanges["deployments"][Added]))
-			// Expecting to drop certificate
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(kvTestData.resourceChanges["daemonsets"][Added]))
 		})
 
