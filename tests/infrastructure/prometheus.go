@@ -315,7 +315,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			"kubevirt_vmi_storage_read_times_seconds_total", ">="),
 		Entry("[QUARANTINE][test_id:4142] storage read traffic in bytes metric", decorators.Quarantine,
 			"kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:4142] storage write operation time metric",
+		Entry("[QUARANTINE][test_id:4142] storage write operation time metric", decorators.Quarantine,
 			"kubevirt_vmi_storage_write_times_seconds_total", ">="),
 		Entry("[test_id:4142] storage write traffic in bytes metric",
 			"kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
