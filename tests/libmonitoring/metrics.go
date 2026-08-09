@@ -30,7 +30,8 @@ func RegisterAllMetrics() error {
 		return err
 	}
 
-	if err := virthandler.SetupMetrics("", 0, nil, nil); err != nil {
+	// maxRequestsInFlight must be >= 1; doc/metrics registration does not scrape.
+	if err := virthandler.SetupMetrics("", 1, nil, nil); err != nil {
 		return err
 	}
 
