@@ -22,6 +22,7 @@ package rest
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/gorilla/websocket"
 
@@ -89,6 +90,9 @@ func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8se
 	if protocolParam := n.request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
 		protocol = protocolParam
 	}
+	if protocol != "tcp" && protocol != "udp" {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("unsupported protocol %q", protocol))
+	}
 
 	addr := fmt.Sprintf("%s:%s", targetIP, port)
 	if netutils.IsIPv6String(targetIP) {
@@ -140,5 +144,23 @@ func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
 	if ifaceStatus == nil || ifaceStatus.IP == "" {
 		return "", fmt.Errorf("pod network interface has no IP")
 	}
-	return ifaceStatus.IP, nil
+	return validateTargetIP(ifaceStatus.IP)
+}
+
+func validateTargetIP(ip string) (string, error) {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "", fmt.Errorf("invalid target IP %q: %w", ip, err)
+	}
+	switch {
+	case addr.IsLoopback():
+		return "", fmt.Errorf("target IP %s is a loopback address", ip)
+	case addr.IsLinkLocalUnicast():
+		return "", fmt.Errorf("target IP %s is a link-local address", ip)
+	case addr.IsMulticast():
+		return "", fmt.Errorf("target IP %s is a multicast address", ip)
+	case addr.IsUnspecified():
+		return "", fmt.Errorf("target IP %s is an unspecified address", ip)
+	}
+	return ip, nil
 }

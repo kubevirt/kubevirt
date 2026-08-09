@@ -21,7 +21,6 @@ package rest
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -96,6 +95,29 @@ var _ = Describe("NetDialer", func() {
 		Expect(statusErr.Status().Message).To(Equal("port must not be empty"))
 	})
 
+	It("Should fail with unsupported protocol", func() {
+		request.PathParameters()["port"] = "22"
+		request.PathParameters()["protocol"] = "unix"
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork("192.168.0.1"))
+		Expect(statusErr.Status().Message).To(ContainSubstring("unsupported protocol"))
+	})
+
+	DescribeTable("Should reject dangerous target IPs", func(ip, expectedMsg string) {
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork(ip))
+		Expect(statusErr.Status().Message).To(ContainSubstring(expectedMsg))
+	},
+		Entry("loopback IPv4", "127.0.0.1", "loopback"),
+		Entry("loopback IPv6", "::1", "loopback"),
+		Entry("link-local IPv4", "169.254.1.1", "link-local"),
+		Entry("link-local IPv6", "fe80::1", "link-local"),
+		Entry("multicast IPv4", "224.0.0.1", "multicast"),
+		Entry("multicast IPv6", "ff02::1", "multicast"),
+		Entry("unspecified IPv4", "0.0.0.0", "unspecified"),
+		Entry("unspecified IPv6", "::", "unspecified"),
+	)
+
 	It("Should forward error from Request's Body", func() {
 		const errMsg = "foo bar from the App handler!"
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
@@ -133,20 +155,4 @@ var _ = Describe("NetDialer", func() {
 		Expect(statusErr).To(MatchError(ContainSubstring(errMsg)))
 		Expect(conn).To(BeNil())
 	})
-
-	DescribeTable("Should dial vmi", func(ipAddr string) {
-		ln, err := net.Listen("tcp", fmt.Sprintf("%s:0", ipAddr))
-		Expect(err).NotTo(HaveOccurred())
-		defer ln.Close()
-		tcpAddr := ln.Addr().(*net.TCPAddr)
-
-		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
-		dialer := netDial{request: request}
-		conn, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork(tcpAddr.IP.String()))
-		Expect(statusErr).NotTo(HaveOccurred())
-		Expect(conn).NotTo(BeNil())
-	},
-		Entry("with ipv4 ip address", "127.0.0.1"),
-		Entry("with ipv6 ip address", "[::1]"),
-	)
 })
