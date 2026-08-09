@@ -307,7 +307,6 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		mountPath        string
 		mountPropagation *corev1.MountPropagationMode
 	}
-	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
 	attachCertificateSecret(pod, VirtHandlerMigrationClientCertSecretName, "/etc/virt-handler/migrationservercertificates")
 	attachCertificateSecret(pod, VirtHandlerVsockClientCertSecretName, "/etc/virt-handler/vsockclientcertificates")
