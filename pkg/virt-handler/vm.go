@@ -1037,6 +1037,16 @@ func (c *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineIn
 		return err
 	}
 	if present {
+		// SELinux capability check to avoid false positives on partially-enabled systems.
+		// Consistent with ContextExecutor.isSELinuxEnabled: some custom kernels mount
+		// selinuxfs while the SELinux LSM is not actually enabled, so go-selinux reports
+		// SELinux as present and every reconcile would hit GetVirtLauncherContext and fail
+		// (No command socket found / EOPNOTSUPP). If our own process label cannot be read,
+		// SELinux is considered not functional: set "none" and return early.
+		if !selinux.IsSELinuxFunctional() {
+			vmi.Status.SelinuxContext = "none"
+			return nil
+		}
 		context, err := selinux.GetVirtLauncherContext(vmi)
 		if err != nil {
 			return err
