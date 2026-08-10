@@ -16367,6 +16367,10 @@
       "description": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
       "type": "string"
      },
+     "synchronizationPlacement": {
+      "description": "SynchronizationPlacement allows customization of node placement for synchronization controllers. This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to the cross-cluster migration network). By default, sync controllers use control-plane placement.",
+      "$ref": "#/definitions/v1.ComponentConfig"
+     },
      "synchronizationPort": {
       "description": "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
       "type": "string"
@@ -16759,6 +16763,14 @@
       "type": "integer",
       "format": "int64"
      },
+     "crossClusterNetwork": {
+      "description": "CrossClusterNetwork is the name of the CNI network used for synchronization-controller peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers attach to this network as crosscluster0 and bind the sync gRPC port only there. When omitted with Proxy, peer traffic uses the pod network. Must not be set when decentralizedLiveMigrationDatapath is Direct (or unset).",
+      "type": "string"
+     },
+     "decentralizedLiveMigrationDatapath": {
+      "description": "DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for decentralized live migrations (cross-namespace or cross-cluster). Direct (default when unset): no synchronization-controller migration-data proxy. Proxy: sync controllers proxy migration traffic on a single gRPC port. Requires the CrossClusterMigrationProxy feature gate while Alpha.",
+      "type": "string"
+     },
      "disableTLS": {
       "description": "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
       "type": "boolean"
@@ -16773,7 +16785,7 @@
       "format": "int64"
      },
      "network": {
-      "description": "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+      "description": "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP). If set with Proxy, synchronization controllers require the migration0 interface at startup and will fail to start if it is missing.",
       "type": "string"
      },
      "nodeDrainTaintKey": {

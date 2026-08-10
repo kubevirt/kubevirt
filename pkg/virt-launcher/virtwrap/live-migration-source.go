@@ -243,7 +243,10 @@ func convertDisks(domSpec *api.DomainSpec, domcfg *libvirtxml.Domain) error {
 	}
 	for i, disk := range domSpec.Devices.Disks {
 		domcfgDisk := (&domcfg.Devices.Disks[i])
-		diskName := disk.Alias.GetName()
+		diskName := ""
+		if disk.Alias != nil {
+			diskName = disk.Alias.GetName()
+		}
 
 		if disk.Source.File != "" {
 			if domcfgDisk.Source == nil || domcfgDisk.Source.File == nil {
@@ -1131,25 +1134,57 @@ func generateDomainName(vmi *v1.VirtualMachineInstance) string {
 }
 
 func updateFilePathsToNewDomain(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) {
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil && vmi.Status.MigrationState.TargetState.DomainNamespace != nil {
-		targetNS := *vmi.Status.MigrationState.TargetState.DomainNamespace
-		// Modify the domain XML to update paths to the target volumes to match the new domain
-		for i, disk := range domSpec.Devices.Disks {
-			if disk.Source.DataStore != nil &&
-				disk.Source.DataStore.Source != nil &&
-				strings.Contains(disk.Source.DataStore.Source.File, vmi.Namespace) {
-				oldPath := disk.Source.DataStore.Source.File
-				domSpec.Devices.Disks[i].Source.DataStore.Source.File = strings.Replace(disk.Source.DataStore.Source.File, vmi.Namespace, targetNS, 1)
-				log.Log.Object(vmi).V(4).Infof("Updated disk %s datastore backend path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.DataStore.Source.File)
+	if domSpec == nil {
+		return
+	}
+	// Only rewrite paths for decentralized migrations with a target domain namespace.
+	// Non-migrating VMIs have nil MigrationState; that is the common case.
+	if vmi.Status.MigrationState == nil ||
+		vmi.Status.MigrationState.TargetState == nil ||
+		vmi.Status.MigrationState.TargetState.DomainNamespace == nil ||
+		*vmi.Status.MigrationState.TargetState.DomainNamespace == "" {
+		return
+	}
+
+	targetNS := *vmi.Status.MigrationState.TargetState.DomainNamespace
+	// Modify the domain XML to update paths to the target volumes to match the new domain
+	// Mirror generateDomainName() validation: empty string would corrupt paths via
+	// strings.Replace(path, namespace, "", 1)
+	for i, disk := range domSpec.Devices.Disks {
+		diskName := ""
+		if disk.Alias != nil {
+			diskName = disk.Alias.GetName()
+		}
+		if disk.Source.DataStore != nil &&
+			disk.Source.DataStore.Source != nil &&
+			strings.Contains(disk.Source.DataStore.Source.File, vmi.Namespace) {
+			oldPath := disk.Source.DataStore.Source.File
+			newPath := strings.Replace(disk.Source.DataStore.Source.File, vmi.Namespace, targetNS, 1)
+			// Also rewrite the VMI name segment, matching Source.File handling below.
+			if vmi.Status.MigrationState.TargetState.DomainName != nil &&
+				*vmi.Status.MigrationState.TargetState.DomainName != "" {
+				newPath = strings.Replace(newPath, vmi.Name, *vmi.Status.MigrationState.TargetState.DomainName, 1)
 			}
-			if disk.Source.File != "" && strings.Contains(disk.Source.File, vmi.Namespace) {
-				oldPath := disk.Source.File
-				domSpec.Devices.Disks[i].Source.File = strings.Replace(disk.Source.File, vmi.Namespace, targetNS, 1)
-				log.Log.Object(vmi).V(4).Infof("Updated disk %s source path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.File)
+			domSpec.Devices.Disks[i].Source.DataStore.Source.File = newPath
+			log.Log.Object(vmi).V(4).Infof("Updated disk %s datastore backend path from %s to %s", diskName, oldPath, newPath)
+		}
+		if disk.Source.File != "" && strings.Contains(disk.Source.File, vmi.Namespace) {
+			// Need to update the namespace in the path to the new namespace.
+			oldPath := disk.Source.File
+			newPath := strings.Replace(disk.Source.File, vmi.Namespace, targetNS, 1)
+
+			// Also need to update the VMI name in the path if DomainName is set and non-empty
+			// Mirror generateDomainName() validation to prevent path corruption from empty string
+			if vmi.Status.MigrationState.TargetState.DomainName != nil &&
+				*vmi.Status.MigrationState.TargetState.DomainName != "" {
+				newPath = strings.Replace(newPath, vmi.Name, *vmi.Status.MigrationState.TargetState.DomainName, 1)
 			}
-			if bp := disksource.Resolve(domSpec.Devices.Disks[i]).BackendPath(); bp != "" {
-				log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", disk.Alias.GetName(), bp)
-			}
+
+			domSpec.Devices.Disks[i].Source.File = newPath
+			log.Log.Object(vmi).V(4).Infof("Updated disk %s source path from %s to %s", diskName, oldPath, newPath)
+		}
+		if bp := disksource.Resolve(domSpec.Devices.Disks[i]).BackendPath(); bp != "" {
+			log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", diskName, bp)
 		}
 	}
 }

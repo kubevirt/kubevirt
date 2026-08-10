@@ -82,6 +82,8 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
+	results = append(results, validateCrossClusterMigrationNetwork(&newKV.Spec.Configuration)...)
+	results = append(results, validateDecentralizedLiveMigrationDatapath(&newKV.Spec.Configuration)...)
 	results = append(results, validateMigrationConfiguration(
 		&currKV.Spec.Configuration,
 		&newKV.Spec.Configuration,
@@ -147,6 +149,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	}
 
 	response.Warnings = append(response.Warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
+	response.Warnings = append(response.Warnings, warnProxyMigrationNetwork(&newKV.Spec.Configuration)...)
 
 	return response
 }
@@ -593,4 +596,86 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 	}
 
 	return causes
+}
+
+func validateCrossClusterMigrationNetwork(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	if config.MigrationConfiguration == nil || config.MigrationConfiguration.CrossClusterNetwork == nil {
+		return nil
+	}
+
+	datapath := v1.DecentralizedLiveMigrationDatapathDirect
+	if config.MigrationConfiguration.DecentralizedLiveMigrationDatapath != nil {
+		datapath = *config.MigrationConfiguration.DecentralizedLiveMigrationDatapath
+	}
+
+	if datapath != v1.DecentralizedLiveMigrationDatapathProxy {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   "spec.configuration.migrationConfiguration.crossClusterNetwork",
+			Message: "crossClusterNetwork can only be set when decentralizedLiveMigrationDatapath is Proxy",
+		}}
+	}
+
+	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+		return nil
+	}
+
+	return []metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Field:   "spec.configuration.migrationConfiguration.crossClusterNetwork",
+		Message: fmt.Sprintf("CrossClusterNetwork cannot be set without enabling the %s feature gate", featuregate.CrossClusterMigrationProxy),
+	}}
+}
+
+func validateDecentralizedLiveMigrationDatapath(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	if config.MigrationConfiguration == nil || config.MigrationConfiguration.DecentralizedLiveMigrationDatapath == nil {
+		return nil
+	}
+
+	datapath := *config.MigrationConfiguration.DecentralizedLiveMigrationDatapath
+	// Enum is Direct|Proxy (+kubebuilder:validation:Enum); anything else is invalid.
+	switch datapath {
+	case v1.DecentralizedLiveMigrationDatapathDirect, v1.DecentralizedLiveMigrationDatapathProxy:
+		// valid
+	default:
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   "spec.configuration.migrationConfiguration.decentralizedLiveMigrationDatapath",
+			Message: "decentralizedLiveMigrationDatapath must be Direct or Proxy",
+		}}
+	}
+
+	if datapath != v1.DecentralizedLiveMigrationDatapathProxy {
+		return nil
+	}
+
+	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+		return nil
+	}
+
+	return []metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Field:   "spec.configuration.migrationConfiguration.decentralizedLiveMigrationDatapath",
+		Message: fmt.Sprintf("decentralizedLiveMigrationDatapath=Proxy requires the %s feature gate", featuregate.CrossClusterMigrationProxy),
+	}}
+}
+
+// warnProxyMigrationNetwork reminds operators that migrations.network under Proxy
+// also gates sync-controller startup on the migration0 interface.
+func warnProxyMigrationNetwork(config *v1.KubeVirtConfiguration) []string {
+	if config.MigrationConfiguration == nil || config.MigrationConfiguration.Network == nil {
+		return nil
+	}
+
+	datapath := v1.DecentralizedLiveMigrationDatapathDirect
+	if config.MigrationConfiguration.DecentralizedLiveMigrationDatapath != nil {
+		datapath = *config.MigrationConfiguration.DecentralizedLiveMigrationDatapath
+	}
+	if datapath != v1.DecentralizedLiveMigrationDatapathProxy {
+		return nil
+	}
+
+	return []string{
+		"spec.configuration.migrations.network is set with decentralizedLiveMigrationDatapath=Proxy: synchronization controllers require the migration0 interface at startup and will not start without it",
+	}
 }
