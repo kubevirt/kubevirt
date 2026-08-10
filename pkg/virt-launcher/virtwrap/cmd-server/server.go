@@ -634,6 +634,26 @@ func (l *Launcher) GetFilesystems(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 	return response, nil
 }
 
+func (l *Launcher) GetDevices(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestDevicesResponse, error) {
+	response := &cmdv1.GuestDevicesResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	devices := l.domainManager.GetDevices()
+	if jDevices, err := json.Marshal(devices); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal guest device list")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	} else {
+		response.GuestDevicesResponse = string(jDevices)
+	}
+
+	return response, nil
+}
+
 // Exec the provided command and return it's success
 func (l *Launcher) Exec(ctx context.Context, request *cmdv1.ExecRequest) (*cmdv1.ExecResponse, error) {
 	resp := &cmdv1.ExecResponse{

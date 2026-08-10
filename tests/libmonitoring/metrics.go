@@ -9,6 +9,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 )
 
+// stubClusterConfig implements domainstats.ClusterConfig for metric registration
+// in tests, where the guest device metrics feature gate is not relevant.
+type stubClusterConfig struct{}
+
+func (stubClusterConfig) GuestDeviceMetricsEnabled() bool { return false }
+
 func RegisterAllMetrics() error {
 	if err := virtcontroller.SetupMetrics(nil, nil, nil, nil); err != nil {
 		return err
@@ -30,7 +36,7 @@ func RegisterAllMetrics() error {
 		return err
 	}
 
-	if err := virthandler.SetupMetrics("", 0, nil, nil); err != nil {
+	if err := virthandler.SetupMetrics("", 0, nil, nil, stubClusterConfig{}); err != nil {
 		return err
 	}
 

@@ -201,6 +201,13 @@ type User struct {
 	LoginTime float64
 }
 
+type GuestDevice struct {
+	DriverName    string
+	DriverVersion string
+	DriverDate    int64
+	DeviceID      int
+}
+
 // DomainGuestInfo represent guest agent info for specific domain
 type DomainGuestInfo struct {
 	Interfaces     []InterfaceStatus

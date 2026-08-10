@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,6 +48,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -203,6 +206,33 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 				}, time.Minute*1, time.Second*15).Should(Succeed())
 			})
 		})
+	})
+
+	It("should expose kubevirt_vmi_guest_device_driver_date_seconds for a Windows guest", func() {
+		const agentConnTimeout = 12 * time.Minute
+
+		By("Enabling the GuestDeviceMetrics feature gate")
+		kvconfig.EnableFeatureGate(featuregate.GuestDeviceMetrics)
+
+		By("Starting a Windows VirtualMachineInstance")
+		windowsVMI := libvmifact.NewWindows(libnet.WithMasqueradeNetworking())
+		windowsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(windowsVMI)).Create(
+			context.Background(), windowsVMI, metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		libwait.WaitForSuccessfulVMIStart(windowsVMI)
+
+		By("Waiting for the guest agent to connect")
+		Eventually(matcher.ThisVMI(windowsVMI), agentConnTimeout, 1*time.Second).Should(
+			matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected),
+			"Windows guest agent should connect",
+		)
+
+		By("Verifying the guest device driver date metric is reported")
+		labels := map[string]string{"namespace": windowsVMI.Namespace, "name": windowsVMI.Name}
+		libmonitoring.WaitForMetricValueWithLabelsToBe(
+			virtClient, "kubevirt_vmi_guest_device_driver_date_seconds", labels, 1, ">", 0,
+		)
 	})
 })
 

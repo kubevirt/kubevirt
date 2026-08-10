@@ -185,6 +185,7 @@ type DomainManager interface {
 	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
 	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
+	GetDevices() []api.GuestDevice
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance, *cmdv1.VirtualMachineOptions) error
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	InterfacesStatus() []api.InterfaceStatus
@@ -2670,6 +2671,10 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	}
 
 	return fsList
+}
+
+func (l *LibvirtDomainManager) GetDevices() []api.GuestDevice {
+	return l.agentData.GetDevices()
 }
 
 func (l *LibvirtDomainManager) GetGuestAgentVersion() string {

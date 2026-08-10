@@ -42,6 +42,7 @@ var (
 		networkMetrics{},
 		cpuAffinityMetrics{},
 		filesystemMetrics{},
+		deviceMetrics{},
 	}
 
 	Collector = operatormetrics.Collector{
@@ -57,15 +58,21 @@ type resourceMetrics interface {
 	Collect(report *VirtualMachineInstanceReport) []operatormetrics.CollectorResult
 }
 
+type ClusterConfig interface {
+	GuestDeviceMetricsEnabled() bool
+}
+
 type collectorSettings struct {
 	maxRequestsInFlight int
 	vmiInformer         cache.SharedIndexInformer
+	clusterConfig       ClusterConfig
 }
 
-func SetupDomainStatsCollector(maxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) {
+func SetupDomainStatsCollector(maxRequestsInFlight int, vmiInformer cache.SharedIndexInformer, clusterConfig ClusterConfig) {
 	settings = &collectorSettings{
 		maxRequestsInFlight: maxRequestsInFlight,
 		vmiInformer:         vmiInformer,
+		clusterConfig:       clusterConfig,
 	}
 }
 

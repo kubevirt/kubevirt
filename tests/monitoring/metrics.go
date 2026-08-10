@@ -108,6 +108,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 			// needs GPU - tested in MediatedDevices
 			"kubevirt_vmi_gpu_info": true,
+
+			// needs Windows VM with GuestDeviceMetrics feature gate enabled
+			"kubevirt_vmi_guest_device_driver_date_seconds": true,
 		}
 
 		BeforeAll(func() {

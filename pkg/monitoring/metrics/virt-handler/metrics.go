@@ -34,6 +34,7 @@ import (
 func SetupMetrics(
 	nodeName string, maxRequestsInFlight int,
 	vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine,
+	clusterConfig domainstats.ClusterConfig,
 ) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
@@ -53,7 +54,7 @@ func SetupMetrics(
 	SetVersionInfo()
 	ReportDeprecatedMachineTypes(machines, nodeName)
 
-	domainstats.SetupDomainStatsCollector(maxRequestsInFlight, vmiInformer)
+	domainstats.SetupDomainStatsCollector(maxRequestsInFlight, vmiInformer, clusterConfig)
 	gpuinfo.Setup(nodeName)
 
 	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {

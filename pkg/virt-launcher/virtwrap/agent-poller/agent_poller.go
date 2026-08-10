@@ -19,6 +19,7 @@
 package agentpoller
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
@@ -44,8 +45,10 @@ const (
 	GetFilesystem     AgentCommand = "guest-get-fsinfo"
 	GetAgent          AgentCommand = "guest-info"
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
+	GetDevices        AgentCommand = "guest-get-devices"
 
-	pollInitialInterval = 10 * time.Second
+	pollInitialInterval    = 10 * time.Second
+	deviceInfoPollInterval = 10 * time.Minute
 
 	repeatingLogLevel = 3
 )
@@ -210,6 +213,14 @@ func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 	return limitedUsers
 }
 
+func (s *AsyncAgentStore) GetDevices() []api.GuestDevice {
+	data, ok := s.store.Load(GetDevices)
+	if !ok {
+		return nil
+	}
+	return data.([]api.GuestDevice)
+}
+
 func (s *AsyncAgentStore) GetLoad() *stats.DomainStatsLoad {
 	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
 
@@ -235,10 +246,14 @@ type PollerWorker struct {
 	CallTick time.Duration
 }
 
-// Poll is the call to the guestagent.
-func (p *PollerWorker) Poll(execFunc func(), closeChan chan struct{}, initialInterval time.Duration) {
+// Poll is the call to the guestagent. execFunc returns false to signal that the
+// worker should stop polling, e.g. when all of its commands are unsupported by
+// the guest agent.
+func (p *PollerWorker) Poll(execFunc func() bool, closeChan chan struct{}, initialInterval time.Duration) {
 	// Do the first round to fill the cache immediately.
-	execFunc()
+	if !execFunc() {
+		return
+	}
 
 	pollMaxInterval := p.CallTick
 	pollInterval := pollMaxInterval
@@ -254,7 +269,9 @@ func (p *PollerWorker) Poll(execFunc func(), closeChan chan struct{}, initialInt
 		case <-closeChan:
 			return
 		case <-ticker.C:
-			execFunc()
+			if !execFunc() {
+				return
+			}
 		}
 		if pollInterval < pollMaxInterval {
 			pollInterval = incrementPollInterval(pollInterval, pollMaxInterval)
@@ -292,44 +309,54 @@ func CreatePoller(
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
+	guestDeviceMetrics bool,
 ) *AgentPoller {
+	workers := []PollerWorker{
+		// Polling for QEMU agent commands
+		{
+			CallTick:      qemuAgentVersionInterval,
+			AgentCommands: []AgentCommand{GetAgent},
+		},
+		{
+			CallTick:      qemuAgentFileInterval,
+			AgentCommands: []AgentCommand{GetFilesystem},
+		},
+		{
+			CallTick:      qemuAgentFSFreezeStatusInterval,
+			AgentCommands: []AgentCommand{GetFSFreezeStatus},
+		},
+		// Polling for guest info API
+		{
+			CallTick: qemuAgentSysInterval,
+			InfoTypes: libvirt.DOMAIN_GUEST_INFO_INTERFACES |
+				libvirt.DOMAIN_GUEST_INFO_OS |
+				libvirt.DOMAIN_GUEST_INFO_HOSTNAME |
+				libvirt.DOMAIN_GUEST_INFO_TIMEZONE,
+		},
+		{
+			CallTick:  qemuAgentUserInterval,
+			InfoTypes: libvirt.DOMAIN_GUEST_INFO_USERS,
+		},
+		{
+			CallTick:  qemuAgentSysInterval,
+			InfoTypes: libvirt.DOMAIN_GUEST_INFO_LOAD,
+		},
+	}
+
+	if guestDeviceMetrics {
+		workers = append(workers, PollerWorker{
+			CallTick:      deviceInfoPollInterval,
+			AgentCommands: []AgentCommand{GetDevices},
+		})
+	}
+
 	return &AgentPoller{
 		Connection:     connection,
 		VmiUID:         vmiUID,
 		domainName:     domainName,
 		agentConnected: false,
 		agentStore:     store,
-		workers: []PollerWorker{
-			// Polling for QEMU agent commands
-			{
-				CallTick:      qemuAgentVersionInterval,
-				AgentCommands: []AgentCommand{GetAgent},
-			},
-			{
-				CallTick:      qemuAgentFileInterval,
-				AgentCommands: []AgentCommand{GetFilesystem},
-			},
-			{
-				CallTick:      qemuAgentFSFreezeStatusInterval,
-				AgentCommands: []AgentCommand{GetFSFreezeStatus},
-			},
-			// Polling for guest info API
-			{
-				CallTick: qemuAgentSysInterval,
-				InfoTypes: libvirt.DOMAIN_GUEST_INFO_INTERFACES |
-					libvirt.DOMAIN_GUEST_INFO_OS |
-					libvirt.DOMAIN_GUEST_INFO_HOSTNAME |
-					libvirt.DOMAIN_GUEST_INFO_TIMEZONE,
-			},
-			{
-				CallTick:  qemuAgentUserInterval,
-				InfoTypes: libvirt.DOMAIN_GUEST_INFO_USERS,
-			},
-			{
-				CallTick:  qemuAgentSysInterval,
-				InfoTypes: libvirt.DOMAIN_GUEST_INFO_LOAD,
-			},
-		},
+		workers:        workers,
 	}
 }
 
@@ -347,12 +374,15 @@ func (p *AgentPoller) Start() {
 			log.Log.Infof("Starting agent poller with API operations: %v", worker.InfoTypes)
 		}
 
-		go worker.Poll(func() {
+		// unsupportedCommands is owned by this worker's single goroutine, so a
+		// plain map is safe here without additional synchronization.
+		unsupportedCommands := map[AgentCommand]bool{}
+		go worker.Poll(func() bool {
 			if len(worker.AgentCommands) != 0 {
-				executeAgentCommands(worker.AgentCommands, p)
-			} else {
-				fetchAndStoreGuestInfo(worker.InfoTypes, p)
+				return executeAgentCommands(worker.AgentCommands, unsupportedCommands, p)
 			}
+			fetchAndStoreGuestInfo(worker.InfoTypes, p)
+			return true
 		}, p.agentDone, pollInitialInterval)
 	}
 }
@@ -409,13 +439,27 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 //
 // GET_AGENT - According to libvirt engineers this command shouldn't be used
 // by KubeVirt, because it provides irrelevant information (version and supported commands).
-func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
+//
+// executeAgentCommands runs the given guest agent commands and returns false
+// once all of them are unsupported by the guest agent. Each worker owns a single
+// command, so returning false stops the dedicated worker (e.g. GetDevices on
+// non-Windows guests) instead of polling a command that will never succeed.
+// unsupportedCommands tracks the commands already rejected as not implemented so
+// they are not retried; it is owned by the calling worker's goroutine.
+func executeAgentCommands(commands []AgentCommand, unsupportedCommands map[AgentCommand]bool, agentPoller *AgentPoller) bool {
 	log.Log.V(repeatingLogLevel).Infof("Polling command: %v", commands)
 
 	for _, command := range commands {
+		if unsupportedCommands[command] {
+			continue
+		}
+
 		cmdResult, err := agentPoller.Connection.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, agentPoller.domainName)
 		if err != nil {
-			// skip the command on error, it is not vital
+			if isCommandNotFoundError(err) {
+				log.Log.Infof("Guest agent command %s is not supported, disabling polling", command)
+				unsupportedCommands[command] = true
+			}
 			continue
 		}
 
@@ -441,8 +485,19 @@ func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
 				continue
 			}
 			agentPoller.agentStore.Store(GetAgent, agent)
+		case GetDevices:
+			devices, err := parseDevices(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent devices %s", err.Error())
+				continue
+			}
+			agentPoller.agentStore.Store(GetDevices, devices)
 		}
 	}
+
+	// unsupportedCommands only ever holds commands from this worker, so once it
+	// covers all of them the worker has nothing left to poll and should stop.
+	return len(unsupportedCommands) < len(commands)
 }
 
 func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller *AgentPoller) {
@@ -596,4 +651,18 @@ func safeConvertToInt64(value uint64) int64 {
 		return 0
 	}
 	return int64(value)
+}
+
+// isCommandNotFoundError reports whether the guest agent rejected the command
+// because it does not implement it. libvirt surfaces this as one of the
+// unsupported error codes, which lets us stop polling the command.
+func isCommandNotFoundError(err error) bool {
+	var libvirtErr libvirt.Error
+	if !errors.As(err, &libvirtErr) {
+		return false
+	}
+
+	return libvirtErr.Code == libvirt.ERR_ARGUMENT_UNSUPPORTED ||
+		libvirtErr.Code == libvirt.ERR_OPERATION_UNSUPPORTED ||
+		libvirtErr.Code == libvirt.ERR_NO_SUPPORT
 }

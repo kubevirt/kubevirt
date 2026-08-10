@@ -25,6 +25,7 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k6tv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -45,6 +46,7 @@ type VirtualMachineInstanceReport struct {
 type VirtualMachineInstanceStats struct {
 	DomainStats *stats.DomainStats
 	FsStats     k6tv1.VirtualMachineInstanceFileSystemList
+	DeviceStats []api.GuestDevice
 }
 
 func newVirtualMachineInstanceReport(

@@ -112,6 +112,47 @@ func parseFSDisks(fsDisks []FSDisk) []api.FSDisk {
 	return disks
 }
 
+type guestDeviceIDJSON struct {
+	DeviceID int    `json:"device-id"`
+	VendorID int    `json:"vendor-id"`
+	Type     string `json:"type"`
+}
+
+type guestDeviceJSON struct {
+	DriverName    string             `json:"driver-name"`
+	DriverVersion string             `json:"driver-version"`
+	DriverDate    *int64             `json:"driver-date"`
+	ID            *guestDeviceIDJSON `json:"id"`
+}
+
+func parseDevices(agentReply string) ([]api.GuestDevice, error) {
+	result := []guestDeviceJSON{}
+	response := stripAgentResponse(agentReply)
+
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		return []api.GuestDevice{}, err
+	}
+
+	devices := make([]api.GuestDevice, 0, len(result))
+	for _, d := range result {
+		// driver-date and id are optional fields on GuestDeviceInfo per the
+		// QEMU guest agent protocol reference. The driver date is the value
+		// this metric exposes and the id identifies the device, so devices
+		// missing either field are skipped.
+		if d.DriverDate == nil || d.ID == nil {
+			continue
+		}
+
+		devices = append(devices, api.GuestDevice{
+			DriverName:    d.DriverName,
+			DriverVersion: d.DriverVersion,
+			DriverDate:    *d.DriverDate,
+			DeviceID:      d.ID.DeviceID,
+		})
+	}
+	return devices, nil
+}
+
 // parseAgent gets the agent version from response
 func parseAgent(agentReply string) (AgentInfo, error) {
 	gaInfo := AgentInfo{}

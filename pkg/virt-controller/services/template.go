@@ -493,6 +493,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.FirmwareAutoSelectionEnabled() {
 			args = append(args, "--firmware-auto-selection")
 		}
+		if t.clusterConfig.GuestDeviceMetricsEnabled() {
+			args = append(args, "--guest-device-metrics")
+		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			args = append(args, "--libvirt-log-filters", customDebugFilters)
