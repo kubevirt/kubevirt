@@ -20,7 +20,6 @@
 package virtwrap
 
 import (
-	"encoding/xml"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -47,10 +46,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -187,10 +184,7 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 
 // This returns domain xml without the metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
-func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec, libvirtHooksEnabled bool) (string, error) {
-	var domain *api.Domain
-	var err error
-
+func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
 	xmlstr, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Live migration failed. Failed to get XML.")
@@ -200,31 +194,6 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	if err := domcfg.Unmarshal(xmlstr); err != nil {
 		return "", err
 	}
-	// TODO: Once LibvirtHooksServerAndClient feature gate is GA, remove
-	// convertDisks, replaced by DiskSourcePathHook on the target.
-	if !libvirtHooksEnabled {
-		if err = convertDisks(domSpec, domcfg); err != nil {
-			return "", err
-		}
-	}
-	// TODO: Once the LibvirtHooksServerAndClient feature gate is GA,
-	// this logic in the source can be removed, as XML modifications
-	// for dedicated CPUs will always be handled on the target side.
-	if !libvirtHooksEnabled && vmi.IsCPUDedicated() {
-		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
-		// assigned in the source node with the new CPUs assigned in the target node
-		err = xml.Unmarshal([]byte(xmlstr), &domain)
-		if err != nil {
-			return "", err
-		}
-		domain, err := cpudedicated.GenerateDomainForTargetCPUSetAndTopology(vmi, domSpec)
-		if err != nil {
-			return "", err
-		}
-		if err = cpudedicated.ConvertCPUDedicatedFields(domain, domcfg); err != nil {
-			return "", err
-		}
-	}
 	// set slice size for local disks to migrate
 	if err := configureLocalDiskToMigrate(domcfg, vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to set size for local disk.")
@@ -232,35 +201,6 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	}
 
 	return domcfg.Marshal()
-}
-
-func convertDisks(domSpec *api.DomainSpec, domcfg *libvirtxml.Domain) error {
-	if domcfg == nil || domcfg.Devices == nil || domSpec == nil {
-		return nil
-	}
-	if len(domSpec.Devices.Disks) != len(domcfg.Devices.Disks) {
-		return fmt.Errorf("spec and domain have different disks count")
-	}
-	for i, disk := range domSpec.Devices.Disks {
-		domcfgDisk := (&domcfg.Devices.Disks[i])
-		diskName := disk.Alias.GetName()
-
-		if disk.Source.File != "" {
-			if domcfgDisk.Source == nil || domcfgDisk.Source.File == nil {
-				return fmt.Errorf("disk %s: spec has file source but domain is missing it", diskName)
-			}
-			log.Log.Infof("Updating disk %s source file from %s to %s", diskName, domcfgDisk.Source.File.File, disk.Source.File)
-			domcfgDisk.Source.File.File = disk.Source.File
-		}
-		if disk.Source.DataStore != nil && disk.Source.DataStore.Source != nil && disk.Source.DataStore.Source.File != "" {
-			if domcfgDisk.Source == nil || domcfgDisk.Source.DataStore == nil || domcfgDisk.Source.DataStore.Source == nil || domcfgDisk.Source.DataStore.Source.File == nil {
-				return fmt.Errorf("disk %s: spec has DataStore file source but domain is missing it", diskName)
-			}
-			log.Log.Infof("Updating disk %s datastore backend from %s to %s", diskName, domcfgDisk.Source.DataStore.Source.File.File, disk.Source.DataStore.Source.File)
-			domcfgDisk.Source.DataStore.Source.File.File = disk.Source.DataStore.Source.File
-		}
-	}
-	return nil
 }
 
 func (d *migrationDisks) isSharedVolume(name string) bool {
@@ -1130,42 +1070,13 @@ func generateDomainName(vmi *v1.VirtualMachineInstance) string {
 	return domainName
 }
 
-func updateFilePathsToNewDomain(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) {
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil && vmi.Status.MigrationState.TargetState.DomainNamespace != nil {
-		targetNS := *vmi.Status.MigrationState.TargetState.DomainNamespace
-		// Modify the domain XML to update paths to the target volumes to match the new domain
-		for i, disk := range domSpec.Devices.Disks {
-			if disk.Source.DataStore != nil &&
-				disk.Source.DataStore.Source != nil &&
-				strings.Contains(disk.Source.DataStore.Source.File, vmi.Namespace) {
-				oldPath := disk.Source.DataStore.Source.File
-				domSpec.Devices.Disks[i].Source.DataStore.Source.File = strings.Replace(disk.Source.DataStore.Source.File, vmi.Namespace, targetNS, 1)
-				log.Log.Object(vmi).V(4).Infof("Updated disk %s datastore backend path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.DataStore.Source.File)
-			}
-			if disk.Source.File != "" && strings.Contains(disk.Source.File, vmi.Namespace) {
-				oldPath := disk.Source.File
-				domSpec.Devices.Disks[i].Source.File = strings.Replace(disk.Source.File, vmi.Namespace, targetNS, 1)
-				log.Log.Object(vmi).V(4).Infof("Updated disk %s source path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.File)
-			}
-			if bp := disksource.Resolve(domSpec.Devices.Disks[i]).BackendPath(); bp != "" {
-				log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", disk.Alias.GetName(), bp)
-			}
-		}
-	}
-}
-
-func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec, libvirtHooksEnabled bool) (*libvirt.DomainMigrateParameters, error) {
+func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string) (*libvirt.DomainMigrateParameters, error) {
 	bandwidth, err := vcpu.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Once LibvirtHooksServerAndClient feature gate is GA, remove
-	// updateFilePathsToNewDomain, replaced by DiskSourcePathHook on the target.
-	if !libvirtHooksEnabled {
-		updateFilePathsToNewDomain(vmi, domSpec)
-	}
-	xmlstr, err := migratableDomXML(dom, vmi, domSpec, libvirtHooksEnabled)
+	xmlstr, err := migratableDomXML(dom, vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1430,11 +1341,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		if err := prepareDomainForMigration(l.virConn, dom); err != nil {
 			return fmt.Errorf("error encountered during preparing domain for migration: %v", err)
 		}
-		domSpec, err := l.getDomainSpec(dom)
-		if err != nil {
-			return fmt.Errorf("failed to get domain spec: %v", err)
-		}
-		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir, domSpec, l.libvirtHooksServerAndClientEnabled)
+		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}

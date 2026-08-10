@@ -135,10 +135,6 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ImageVolume)
 }
 
-func (config *ClusterConfig) LibvirtHooksServerAndClientEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.LibvirtHooksServerAndClient)
-}
-
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }

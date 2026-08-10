@@ -20,8 +20,6 @@
 package virtwrap
 
 import (
-	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"math"
 	"time"
@@ -36,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
 
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -99,7 +96,6 @@ var _ = Describe("Live migration source", func() {
 			virtconfig.DefaultDiskVerificationMemoryLimitBytes,
 			fakeCpuSetGetter,
 			false, // image volume enabled
-			false, // libvirt hooks server and client enabled
 			nil,
 			v1.KvmHypervisorName,
 			nil,
@@ -206,7 +202,6 @@ var _ = Describe("Live migration source", func() {
 				virtconfig.DefaultDiskVerificationMemoryLimitBytes,
 				fakeCpuSetGetter,
 				false, // image volume enabled
-				false, // libvirt hooks server and client enabled
 				nil,
 				v1.KvmHypervisorName,
 				nil,
@@ -354,161 +349,6 @@ var _ = Describe("Live migration source", func() {
 
 			Entry("returns error when no path is set in source",
 				&libvirtxml.DomainDiskSource{}, "", true),
-		)
-	})
-
-	Context("updateFilePathsToNewDomain", func() {
-		targetNS := "target-ns"
-		vmi := &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "source-ns",
-			},
-			Status: v1.VirtualMachineInstanceStatus{
-				MigrationState: &v1.VirtualMachineInstanceMigrationState{
-					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &targetNS,
-						},
-					},
-				},
-			},
-		}
-
-		DescribeTable("namespace replacement in disk file paths",
-			func(source api.DiskSource, expectedFile, expectedDataStoreFile string) {
-				domSpec := &api.DomainSpec{
-					Devices: api.Devices{
-						Disks: []api.Disk{
-							{Alias: api.NewUserDefinedAlias("disk0"), Source: source},
-						},
-					},
-				}
-				updateFilePathsToNewDomain(vmi, domSpec)
-				Expect(domSpec.Devices.Disks[0].Source.File).To(Equal(expectedFile))
-				if expectedDataStoreFile != "" {
-					Expect(domSpec.Devices.Disks[0].Source.DataStore.Source.File).To(Equal(expectedDataStoreFile))
-				}
-			},
-			Entry("plain file path containing source namespace is rewritten to target namespace",
-				api.DiskSource{File: "source-ns/my-vm/disk.img"},
-				"target-ns/my-vm/disk.img", ""),
-
-			Entry("plain file path without namespace is left unchanged",
-				api.DiskSource{File: "disk.img"},
-				"disk.img", ""),
-
-			Entry("overlay disk: overlay qcow2 file containing namespace is rewritten",
-				api.DiskSource{
-					File: "source-ns/cbt/vol.qcow2",
-					DataStore: &api.DataStore{
-						Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
-					},
-				},
-				"target-ns/cbt/vol.qcow2",
-				"/var/run/kubevirt-private/vmi-disks/vol/disk.img"),
-
-			Entry("overlay disk: DataStore backing file containing namespace is rewritten",
-				api.DiskSource{
-					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
-					DataStore: &api.DataStore{
-						Source: &api.DiskSource{File: "source-ns/vol/disk.img"},
-					},
-				},
-				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
-				"target-ns/vol/disk.img"),
-
-			Entry("overlay disk: both qcow2 and DataStore backing file contain namespace, both rewritten",
-				api.DiskSource{
-					File: "source-ns/cbt/vol.qcow2",
-					DataStore: &api.DataStore{
-						Source: &api.DiskSource{File: "source-ns/vol/disk.img"},
-					},
-				},
-				"target-ns/cbt/vol.qcow2",
-				"target-ns/vol/disk.img"),
-
-			Entry("overlay disk: DataStore backing file without namespace is left unchanged",
-				api.DiskSource{
-					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
-					DataStore: &api.DataStore{
-						Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
-					},
-				},
-				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
-				"/var/run/kubevirt-private/vmi-disks/vol/disk.img"),
-		)
-	})
-
-	Context("convertDisks", func() {
-		DescribeTable("syncing spec file paths into migratable libvirt XML",
-			func(specSource api.DiskSource, libvirtSource *libvirtxml.DomainDiskSource,
-				expectedFile, expectedDataStoreFile, expectedDataStoreBlockDev string) {
-				domSpec := &api.DomainSpec{
-					Devices: api.Devices{
-						Disks: []api.Disk{
-							{Alias: api.NewUserDefinedAlias("disk0"), Source: specSource},
-						},
-					},
-				}
-				domcfg := &libvirtxml.Domain{
-					Devices: &libvirtxml.DomainDeviceList{
-						Disks: []libvirtxml.DomainDisk{
-							{Alias: &libvirtxml.DomainAlias{Name: "ua-disk0"}, Source: libvirtSource},
-						},
-					},
-				}
-				Expect(convertDisks(domSpec, domcfg)).To(Succeed())
-				Expect(domcfg.Devices.Disks[0].Source.File.File).To(Equal(expectedFile))
-				if expectedDataStoreFile != "" {
-					Expect(domcfg.Devices.Disks[0].Source.DataStore.Source.File.File).To(Equal(expectedDataStoreFile))
-				}
-				if expectedDataStoreBlockDev != "" {
-					Expect(domcfg.Devices.Disks[0].Source.DataStore.Source.Block).NotTo(BeNil())
-					Expect(domcfg.Devices.Disks[0].Source.DataStore.Source.Block.Dev).To(Equal(expectedDataStoreBlockDev))
-					Expect(domcfg.Devices.Disks[0].Source.DataStore.Source.File).To(BeNil())
-				}
-			},
-			Entry("plain file disk: spec path overwrites stale libvirt XML path",
-				api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
-				&libvirtxml.DomainDiskSource{
-					File: &libvirtxml.DomainDiskSourceFile{File: "/var/run/kubevirt-private/vmi-disks/vol/old-disk.img"},
-				},
-				"/var/run/kubevirt-private/vmi-disks/vol/disk.img", "", ""),
-
-			Entry("CBT overlay disk with file backend: both qcow2 and backing store overwrite stale libvirt XML",
-				api.DiskSource{
-					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
-					DataStore: &api.DataStore{
-						Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
-					},
-				},
-				&libvirtxml.DomainDiskSource{
-					File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/old-vol.qcow2"},
-					DataStore: &libvirtxml.DomainDiskDataStore{
-						Source: &libvirtxml.DomainDiskSource{
-							File: &libvirtxml.DomainDiskSourceFile{File: "/var/run/kubevirt-private/vmi-disks/vol/old-disk.img"},
-						},
-					},
-				},
-				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
-				"/var/run/kubevirt-private/vmi-disks/vol/disk.img", ""),
-
-			Entry("CBT overlay disk with block backend: only qcow2 overwritten, block backend unchanged",
-				api.DiskSource{
-					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
-					DataStore: &api.DataStore{
-						Source: &api.DiskSource{Dev: "/dev/vol"},
-					},
-				},
-				&libvirtxml.DomainDiskSource{
-					File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/old-vol.qcow2"},
-					DataStore: &libvirtxml.DomainDiskDataStore{
-						Source: &libvirtxml.DomainDiskSource{
-							Block: &libvirtxml.DomainDiskSourceBlock{Dev: "/dev/vol"},
-						},
-					},
-				},
-				"/var/lib/libvirt/qemu/cbt/vol.qcow2", "", "/dev/vol"),
 		)
 	})
 
@@ -1687,13 +1527,11 @@ var _ = Describe("migratableDomXML", func() {
 </domain>`
 		vmi := newVMI("testns", "kubevirt")
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
-		domSpec := &api.DomainSpec{}
-		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newXML).To(Equal(expectedXML))
 	})
-	It("should change CPU pinning according to migration metadata", func() {
+	It("should not modify CPU pinning (handled by premigration hook server)", func() {
 		domXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
   <vcpu placement="static">2</vcpu>
@@ -1702,60 +1540,18 @@ var _ = Describe("migratableDomXML", func() {
     <vcpupin vcpu="1" cpuset="5"></vcpupin>
   </cputune>
 </domain>`
-		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
-		expectedXML := `<domain type="kvm" id="1">
-  <name>kubevirt</name>
-  <vcpu placement="static">2</vcpu>
-  <cputune>
-    <vcpupin vcpu="0" cpuset="6"></vcpupin>
-    <vcpupin vcpu="1" cpuset="7"></vcpupin>
-  </cputune>
-  <cpu>
-    <topology sockets="1" cores="2" threads="1"></topology>
-  </cpu>
-</domain>`
+		expectedXML := domXML
 
-		By("creating a VMI with dedicated CPU cores")
 		vmi := newVMI("testns", "kubevirt")
 		vmi.Spec.Domain.CPU = &v1.CPU{
 			Cores:                 2,
 			DedicatedCPUPlacement: true,
 		}
 
-		By("making up a target topology")
-		topology := &cmdv1.Topology{NumaCells: []*cmdv1.Cell{{
-			Id: 0,
-			Cpus: []*cmdv1.CPU{
-				{
-					Id:       6,
-					Siblings: []uint32{6},
-				},
-				{
-					Id:       7,
-					Siblings: []uint32{7},
-				},
-			},
-		}}}
-		targetNodeTopology, err := json.Marshal(topology)
-		Expect(err).NotTo(HaveOccurred(), "failed to marshall the topology")
-
-		By("saving that topology in the migration state of the VMI")
-		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-			TargetCPUSet:       []int{6, 7},
-			TargetNodeTopology: string(targetNodeTopology),
-		}
-
-		By("generated the domain XML for a migration to that target")
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
-		domSpec := &api.DomainSpec{}
-		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		Expect(domSpec.VCPU).NotTo(BeNil())
-		Expect(domSpec.CPUTune).NotTo(BeNil())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
-		Expect(err).ToNot(HaveOccurred(), "failed to generate target domain XML")
-
-		By("ensuring the generated XML is accurate")
-		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newXML).To(Equal(expectedXML))
 	})
 	DescribeTable("slices section", func(domXML string) {
 		retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
@@ -1808,9 +1604,7 @@ var _ = Describe("migratableDomXML", func() {
 			},
 		}
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
-		domSpec := &api.DomainSpec{}
-		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newXML).To(Equal(expectedXML))
 	},
@@ -1877,9 +1671,7 @@ var _ = Describe("migratableDomXML", func() {
 		networkData := "FakeNetwork"
 		addCloudInitDisk(vmi, userData, networkData)
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
-		domSpec := &api.DomainSpec{}
-		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newXML).To(Equal(expectedXML))
 	})
