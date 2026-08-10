@@ -20,9 +20,13 @@
 package apiserver
 
 import (
+	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 )
@@ -65,6 +69,113 @@ func TestNewSchemeRegistersSubresourceGroupVersions(t *testing.T) {
 		gvk := gv.WithKind("VirtualMachineInstance")
 		if !scheme.Recognizes(gvk) {
 			t.Errorf("scheme does not recognize %s; the InstallAPIGroup code path will fail later", gvk)
+		}
+	}
+}
+
+func TestWithAlwaysAllowPathsAccumulates(t *testing.T) {
+	s := New().WithAlwaysAllowPaths("/a", "/b").WithAlwaysAllowPaths("/c")
+	want := []string{"/a", "/b", "/c"}
+	if !slices.Equal(s.alwaysAllowPaths, want) {
+		t.Fatalf("alwaysAllowPaths = %v, want %v", s.alwaysAllowPaths, want)
+	}
+}
+
+func TestGetAdditionalAlwaysAllowPaths(t *testing.T) {
+	gv := schema.GroupVersion{Group: kubevirtv1.SubresourceGroupName, Version: "v1"}
+	got := getAdditionalAlwaysAllowPaths(APIGroups{gv: nil})
+
+	want := []string{
+		genericapiserver.APIGroupPrefix + "/" + gv.Group,
+		genericapiserver.APIGroupPrefix + "/" + gv.String(),
+	}
+	for _, path := range want {
+		if !slices.Contains(got, path) {
+			t.Errorf("getAdditionalAlwaysAllowPaths missing %q; got %v", path, got)
+		}
+	}
+}
+
+func TestCollectAlwaysAllowPaths(t *testing.T) {
+	gv := schema.GroupVersion{Group: kubevirtv1.SubresourceGroupName, Version: "v1"}
+	s := New().
+		WithMuxHandlers(
+			MuxHandler{Path: "/metrics", Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})},
+			MuxHandler{Path: "/healthz", Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})},
+		).
+		WithAlwaysAllowPaths(
+			"/apis/subresources.kubevirt.io/v1/version",
+			"/apis/subresources.kubevirt.io/v1/guestfs",
+			"/start-profiler",
+		)
+
+	got := s.collectAlwaysAllowPaths(APIGroups{gv: nil})
+
+	mustContain := []string{
+		"/",
+		genericapiserver.APIGroupPrefix,
+		"/openapi/v2",
+		"/openapi/v3",
+		"/openapi/v3/*",
+		genericapiserver.APIGroupPrefix + "/" + gv.Group,
+		genericapiserver.APIGroupPrefix + "/" + gv.String(),
+		"/metrics",
+		"/healthz",
+		"/apis/subresources.kubevirt.io/v1/version",
+		"/apis/subresources.kubevirt.io/v1/guestfs",
+		"/start-profiler",
+	}
+	for _, path := range mustContain {
+		if !slices.Contains(got, path) {
+			t.Errorf("collectAlwaysAllowPaths missing %q; got %v", path, got)
+		}
+	}
+
+	// Named subresources must still go through RBAC (SAR), not AlwaysAllow.
+	mustNotContain := []string{
+		"/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachines/test/start",
+		"/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachineinstances/test/console",
+		"virtualmachines/start",
+		"virtualmachineinstances/console",
+	}
+	for _, path := range mustNotContain {
+		if slices.Contains(got, path) {
+			t.Errorf("collectAlwaysAllowPaths unexpectedly contains %q", path)
+		}
+	}
+}
+
+func TestClusterLevelAllowPaths(t *testing.T) {
+	got := ClusterLevelAllowPaths(kubevirtv1.SubresourceGroupVersions)
+
+	for _, gv := range kubevirtv1.SubresourceGroupVersions {
+		base := "/apis/" + gv.Group + "/" + gv.Version + "/"
+		for _, suffix := range []string{
+			"version",
+			"guestfs",
+			"healthz",
+			"start-cluster-profiler",
+			"stop-cluster-profiler",
+			"dump-cluster-profiler",
+		} {
+			path := base + suffix
+			if !slices.Contains(got, path) {
+				t.Errorf("ClusterLevelAllowPaths missing %q; got %v", path, got)
+			}
+		}
+
+		// expand-vm-spec is authorized via RBAC, not AlwaysAllow.
+		if slices.Contains(got, base+"expand-vm-spec") {
+			t.Errorf("ClusterLevelAllowPaths unexpectedly allows expand-vm-spec for %s", gv)
+		}
+	}
+}
+
+func TestComponentProfilerPaths(t *testing.T) {
+	got := ComponentProfilerPaths()
+	for _, path := range []string{"/start-profiler", "/stop-profiler", "/dump-profiler"} {
+		if !slices.Contains(got, path) {
+			t.Errorf("ComponentProfilerPaths missing %q; got %v", path, got)
 		}
 	}
 }
