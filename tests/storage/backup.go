@@ -612,9 +612,6 @@ var _ = Describe(SIG("Backup", func() {
 		hotplugDv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(hotplugDv.Namespace).Create(context.Background(), hotplugDv, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Waiting for hotplug DataVolume to be ready")
-		libstorage.EventuallyDV(hotplugDv, 240, matcher.HaveSucceeded())
-
 		By("Hotplugging volume to running VM")
 		hotplugVolumeName := "hotplug-volume"
 		vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDv.Name)
