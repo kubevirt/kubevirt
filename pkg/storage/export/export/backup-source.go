@@ -37,8 +37,8 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -52,16 +52,16 @@ const (
 )
 
 type VMBackupSource struct {
-	vmBackup        *backupv1.VirtualMachineBackup
-	caCert          string
-	sanitizedVMName string
+	vmBackup *backupv1.VirtualMachineBackup
+	caCert   string
+	vmiID    string
 }
 
-func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, caCert string, sanitizedVMName string) *VMBackupSource {
+func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, caCert string, vmiID string) *VMBackupSource {
 	return &VMBackupSource{
-		vmBackup:        vmBackup,
-		caCert:          caCert,
-		sanitizedVMName: sanitizedVMName,
+		vmBackup: vmBackup,
+		caCert:   caCert,
+		vmiID:    vmiID,
 	}
 }
 
@@ -153,8 +153,8 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 					PodAffinityTerm: corev1.PodAffinityTerm{
 						LabelSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								virtv1.AppLabel:                          "virt-launcher",
-								virtv1.DeprecatedVirtualMachineNameLabel: s.sanitizedVMName,
+								virtv1.AppLabel:                      "virt-launcher",
+								virtv1.VirtualMachineInstanceIDLabel: s.vmiID,
 							},
 						},
 						TopologyKey: "kubernetes.io/hostname",
@@ -294,10 +294,9 @@ func (ctrl *VMExportController) getBackupTracker(namespace, name string) (*backu
 	return obj.(*backupv1.VirtualMachineBackupTracker).DeepCopy(), true, nil
 }
 
-// getBackupSourceName resolves the actual VM name from the backup's source,
+// getBackupSourceVMIID resolves the actual VM name from the backup's source,
 // handling both direct VM sources and VirtualMachineBackupTracker sources.
-// The returned name is sanitized to match how virt-launcher pod labels are set.
-func (ctrl *VMExportController) getBackupSourceName(vmBackup *backupv1.VirtualMachineBackup) (string, error) {
+func (ctrl *VMExportController) getBackupSourceVMIID(vmBackup *backupv1.VirtualMachineBackup) (string, error) {
 	var vmName string
 
 	if vmBackup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
@@ -313,12 +312,5 @@ func (ctrl *VMExportController) getBackupSourceName(vmBackup *backupv1.VirtualMa
 		vmName = vmBackup.Spec.Source.Name
 	}
 
-	vmi, exists, err := ctrl.getVmi(vmBackup.Namespace, vmName)
-	if err != nil {
-		return "", fmt.Errorf("error fetching VMI %s/%s: %w", vmBackup.Namespace, vmName, err)
-	}
-	if !exists {
-		return "", fmt.Errorf("VMI not found: %s/%s", vmBackup.Namespace, vmName)
-	}
-	return dns.SanitizeHostname(vmi), nil
+	return apimachinery.CalculateVirtualMachineInstanceID(vmName), nil
 }
