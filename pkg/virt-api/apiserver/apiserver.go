@@ -160,16 +160,7 @@ func (a *APIServer) Run(
 		sets.NewString(a.longRunningSubresources...),
 	)
 
-	a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths,
-		"/", genericapiserver.APIGroupPrefix, "/openapi/v2", "/openapi/v3", "/openapi/v3/*",
-	)
-	a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths,
-		getAdditionalAlwaysAllowPaths(apiGroups)...,
-	)
-	for _, mh := range a.muxHandlers {
-		a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, mh.Path)
-	}
-	a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, a.alwaysAllowPaths...)
+	a.authzOpts.AlwaysAllowPaths = append(a.authzOpts.AlwaysAllowPaths, a.collectAlwaysAllowPaths(apiGroups)...)
 	if len(a.apiHandlers) > 0 {
 		apiHandlers := a.apiHandlers
 		base := config.BuildHandlerChainFunc
@@ -282,6 +273,18 @@ func buildAPIGroupInfos(
 		result[gv.Group] = gi
 	}
 	return result
+}
+
+func (a *APIServer) collectAlwaysAllowPaths(apiGroups APIGroups) []string {
+	paths := []string{
+		"/", genericapiserver.APIGroupPrefix, "/openapi/v2", "/openapi/v3", "/openapi/v3/*",
+	}
+	paths = append(paths, getAdditionalAlwaysAllowPaths(apiGroups)...)
+	for _, mh := range a.muxHandlers {
+		paths = append(paths, mh.Path)
+	}
+	paths = append(paths, a.alwaysAllowPaths...)
+	return paths
 }
 
 func getAdditionalAlwaysAllowPaths(apiGroups APIGroups) []string {

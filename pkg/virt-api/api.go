@@ -61,12 +61,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver"
-	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine"
-	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/cluster/clusterprofiler"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/cluster/expand"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/cluster/guestfs"
 	versionhandler "kubevirt.io/kubevirt/pkg/virt-api/apiserver/cluster/version"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
@@ -476,8 +476,8 @@ func (app *virtAPIApp) startAggregatedAPIServer(ctx context.Context, webhookInfo
 		// expressed as a rest.Storage. So serve them as plain http.Handlers
 		// (like the webhooks) for every subresource version.
 		WithAPIHandlers(app.clusterLevelAPIHandlers()...).
-		WithAlwaysAllowPaths(clusterLevelAllowPaths()...).
-		WithAlwaysAllowPaths(componentProfilerPaths()...).
+		WithAlwaysAllowPaths(apiserver.ClusterLevelAllowPaths(v1.SubresourceGroupVersions)...).
+		WithAlwaysAllowPaths(apiserver.ComponentProfilerPaths()...).
 		WithMuxHandlers(app.healthAndMetricsMuxHandlers()...).
 		WithMuxHandlers(app.webhookMuxHandlers(webhookInformers)...).
 		WithMuxHandlers(app.componentProfilerMuxHandlers()...)
@@ -568,22 +568,6 @@ func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandl
 	}
 }
 
-func clusterLevelAllowPaths() []string {
-	var paths []string
-	for _, gv := range v1.SubresourceGroupVersions {
-		base := "/apis/" + gv.Group + "/" + gv.Version + "/"
-		paths = append(paths,
-			base+"version",
-			base+"guestfs",
-			base+"healthz",
-			base+"start-cluster-profiler",
-			base+"stop-cluster-profiler",
-			base+"dump-cluster-profiler",
-		)
-	}
-	return paths
-}
-
 // componentProfilerMuxHandlers returns the component level profiler endpoints
 // served directly from the GenericAPIServer's NonGoRestfulMux. These are the
 // per-process endpoints the cluster-profiler fans out to
@@ -598,15 +582,6 @@ func (app *virtAPIApp) componentProfilerMuxHandlers() []apiserver.MuxHandler {
 		{Path: "/start-profiler", Handler: adapt(componentProfiler.HandleStartProfiler)},
 		{Path: "/stop-profiler", Handler: adapt(componentProfiler.HandleStopProfiler)},
 		{Path: "/dump-profiler", Handler: adapt(componentProfiler.HandleDumpProfiler)},
-	}
-}
-
-// componentProfilerPaths are the component level profiler endpoints that bypass RBAC
-func componentProfilerPaths() []string {
-	return []string{
-		"/start-profiler",
-		"/stop-profiler",
-		"/dump-profiler",
 	}
 }
 
