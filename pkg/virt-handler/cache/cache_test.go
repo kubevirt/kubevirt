@@ -213,104 +213,81 @@ var _ = Describe("Domain informer", func() {
 		}
 
 		It("should list current domains.", func() {
-			var list []*api.Domain
-
-			list = append(list, api.NewMinimalDomain(domainName))
-			domainManager.EXPECT().ListAllDomains().Return(list, nil)
-			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
-
-			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
-
-			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
+			err := os.WriteFile(socketPath, []byte{}, 0600)
 			Expect(err).ToNot(HaveOccurred())
-			client.Close()
 
 			listResults, err := listAllKnownDomains()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(listResults).To(HaveLen(1))
+			Expect(listResults[0].Status.Status).To(Equal(api.Unknown))
+			Expect(listResults[0].ObjectMeta.Name).To(Equal(domainName))
 		})
 
 		It("should list current domains including inactive domains with ghost record", func() {
-			var list []*api.Domain
-
-			list = append(list, api.NewMinimalDomain(domainName))
-
-			domainManager.EXPECT().ListAllDomains().Return(list, nil)
-			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
-
-			err := ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")
+			err := os.WriteFile(socketPath, []byte{}, 0600)
 			Expect(err).ToNot(HaveOccurred())
-			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
-			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
+			err = ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())
-			client.Close()
 
 			listResults, err := listAllKnownDomains()
 			Expect(err).ToNot(HaveOccurred())
 
-			// includes both the domain with an active socket and the ghost record with deleted socket
 			Expect(listResults).To(HaveLen(2))
+
+			var activeDomain, staleDomain *api.Domain
+			for _, d := range listResults {
+				if d.ObjectMeta.DeletionTimestamp != nil {
+					staleDomain = d
+				} else {
+					activeDomain = d
+				}
+			}
+			Expect(activeDomain).ToNot(BeNil())
+			Expect(activeDomain.Status.Status).To(Equal(api.Unknown))
+			Expect(staleDomain).ToNot(BeNil())
+			Expect(staleDomain.ObjectMeta.Name).To(Equal("test1"))
 		})
 		It("should detect active domains at startup.", func() {
-			var list []*api.Domain
-
-			domain := api.NewMinimalDomain(domainName)
-			list = append(list, domain)
-
-			domainManager.EXPECT().ListAllDomains().Return(list, nil)
-			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().ListAllDomains().AnyTimes()
+			domainManager.EXPECT().GetGuestOSInfo().AnyTimes()
+			domainManager.EXPECT().InterfacesStatus().AnyTimes()
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
-
-			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			client.Close()
 
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			key := fmt.Sprintf("%s/%s", domainNamespace, domainName)
-			verifyObj(key, domain, Default)
+			obj, exists, err := informer.GetStore().GetByKey(key)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+			Expect(obj.(*api.Domain).Status.Status).To(Equal(api.Unknown))
 		})
 
 		It("should resync active domains after resync period.", func() {
 			domain := api.NewMinimalDomain(domainName)
-			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
-			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
-			// now prove if we make a change, like adding a label, that the resync
-			// will pick that change up automatically
-			newDomain := domain.DeepCopy()
-			newDomain.ObjectMeta.Labels = make(map[string]string)
-			newDomain.ObjectMeta.Labels["some-label"] = "some-value"
-			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{newDomain}, nil)
-			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
-			domainManager.EXPECT().InterfacesStatus().Return(nil)
+			domain.ObjectMeta.Labels = make(map[string]string)
+			domain.ObjectMeta.Labels["some-label"] = "some-value"
+			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil).AnyTimes()
+			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{}).AnyTimes()
+			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{}).AnyTimes()
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
-
-			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			client.Close()
 
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			key := fmt.Sprintf("%s/%s", domainNamespace, domainName)
-			verifyObj(key, domain, Default)
+			obj, exists, err := informer.GetStore().GetByKey(key)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+			Expect(obj.(*api.Domain).Status.Status).To(Equal(api.Unknown))
 
 			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
 
-			obj, exists, err := informer.GetStore().GetByKey(key)
+			obj, exists, err = informer.GetStore().GetByKey(key)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 
@@ -319,6 +296,7 @@ var _ = Describe("Domain informer", func() {
 
 			Expect(ok).To(BeTrue())
 			Expect(val).To(Equal("some-value"))
+			Expect(eventDomain.Status.Status).ToNot(Equal(api.Unknown))
 		})
 
 		It("should detect unresponsive sockets.", func() {
@@ -394,26 +372,20 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should not return errors when encountering disconnected clients at startup.", func() {
-			var list []*api.Domain
-
-			domain := api.NewMinimalDomain(domainName)
-			list = append(list, domain)
-
-			domainManager.EXPECT().ListAllDomains().Return(list, nil)
-			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
-			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
+			domainManager.EXPECT().ListAllDomains().AnyTimes()
+			domainManager.EXPECT().GetGuestOSInfo().AnyTimes()
+			domainManager.EXPECT().InterfacesStatus().AnyTimes()
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
-			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			client.Close()
 
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			key := fmt.Sprintf("%s/%s", domainNamespace, domainName)
-			verifyObj(key, domain, Default)
+			obj, exists, err := informer.GetStore().GetByKey(key)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+			Expect(obj.(*api.Domain).Status.Status).To(Equal(api.Unknown))
 		})
 
 		It("should watch for domain events.", func() {
