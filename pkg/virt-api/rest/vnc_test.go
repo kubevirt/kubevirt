@@ -90,7 +90,7 @@ var _ = Describe("VNC Subresource api", func() {
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(mockVirtClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	It("should fail with no 'name' path param", func() {

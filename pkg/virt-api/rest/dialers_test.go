@@ -119,7 +119,7 @@ var _ = Describe("NetDialer", func() {
 
 		runningStatus := libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running)))
 		vmi := libvmi.New(runningStatus)
-		app := NewSubresourceAPIApp(virtClient, int(port), nil, config)
+		app := NewSubresourceAPIApp(virtClient, k8sfakeClient, int(port), nil, config)
 		dialer := app.virtHandlerDialer(func(_ *v1.VirtualMachineInstance, _ kubecli.VirtHandlerConn) (string, error) {
 			return fullURL, nil
 		})

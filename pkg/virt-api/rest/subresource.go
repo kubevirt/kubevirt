@@ -33,6 +33,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -66,7 +67,8 @@ type instancetypeVMExpander interface {
 }
 
 type SubresourceAPIApp struct {
-	virtCli                 kubecli.KubevirtClient
+	virtClient              kubecli.KubevirtClient
+	k8sClient               kubernetes.Interface
 	consoleServerPort       int
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
@@ -75,15 +77,15 @@ type SubresourceAPIApp struct {
 	handlerHttpClient       *http.Client
 }
 
-func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
+func NewSubresourceAPIApp(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
 	// When this method is called from tools/openapispec.go when running 'make generate',
-	// the virtCli is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
+	// the virtClient is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
 	var instancetypeExpander instancetypeVMExpander
-	if virtCli != nil {
+	if virtClient != nil {
 		instancetypeExpander = expand.New(
 			clusterConfig,
-			find.NewSpecFinder(nil, nil, nil, virtCli),
-			preferenceFind.NewSpecFinder(nil, nil, nil, virtCli),
+			find.NewSpecFinder(nil, nil, nil, virtClient),
+			preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
 		)
 	}
 
@@ -95,7 +97,8 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 	}
 
 	return &SubresourceAPIApp{
-		virtCli:                 virtCli,
+		virtClient:              virtClient,
+		k8sClient:               k8sClient,
 		consoleServerPort:       consoleServerPort,
 		profilerComponentPort:   defaultProfilerComponentPort,
 		handlerTLSConfiguration: tlsConfiguration,
@@ -231,7 +234,7 @@ func (app *SubresourceAPIApp) httpGetRequestBinaryHandler(request *restful.Reque
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
 
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+	vm, err := app.virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
@@ -244,7 +247,7 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 // FetchVirtualMachineInstance by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+	vmi, err := app.virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
@@ -256,7 +259,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string
 
 // FetchVirtualMachineInstanceForVM by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+	vm, err := app.virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
@@ -268,7 +271,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name s
 		return nil, errors.NewConflict(v1.Resource("virtualmachine"), vm.Name, fmt.Errorf("VMI is not started"))
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
+	vmi, err := app.virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
