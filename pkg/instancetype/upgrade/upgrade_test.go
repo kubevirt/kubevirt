@@ -99,8 +99,6 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		// Create a single fake clientset to be reused across all calls
 		fakeVMClient = fakeclientset.NewSimpleClientset()
 
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
-
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
 			fakeVMClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
@@ -110,7 +108,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			libvmi.WithPreference("bar"),
 		)
 
-		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient)
+		k8sClient := k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient, k8sClient)
 	})
 
 	createControllerRevisionFromObject := func(obj runtime.Object) *appsv1.ControllerRevision {

@@ -21,6 +21,8 @@ package infer
 import (
 	"errors"
 
+	"k8s.io/client-go/kubernetes"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -31,12 +33,16 @@ const logVerbosityLevel = 3
 type handler struct {
 	instancetypeHandler *volumeHandler
 	preferenceHandler   *volumeHandler
+	virtClient          kubecli.KubevirtClient
+	k8sClient           kubernetes.Interface
 }
 
-func New(virtClient kubecli.KubevirtClient) *handler {
+func New(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *handler {
 	return &handler{
 		instancetypeHandler: newInstancetypeVolumeHandler(virtClient),
 		preferenceHandler:   newPreferenceVolumeHandler(virtClient),
+		virtClient:          virtClient,
+		k8sClient:           k8sClient,
 	}
 }
 

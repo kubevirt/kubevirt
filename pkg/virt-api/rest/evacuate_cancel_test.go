@@ -133,7 +133,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	createVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
