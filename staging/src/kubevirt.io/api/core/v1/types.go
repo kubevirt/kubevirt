@@ -763,6 +763,8 @@ const (
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses unsafe disk cache mode
+	VirtualMachineInstanceReasonCacheUnsafeNotMigratable = "CacheUnsafeNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Reason means that VMI is not decentralized live migratable, the reason is specified in the condition message
@@ -2394,6 +2396,10 @@ const (
 	CacheWriteThrough DriverCache = "writethrough"
 	// CacheWriteBack - I/O from the guest is cached on the host.
 	CacheWriteBack DriverCache = "writeback"
+	// CacheUnsafe - I/O from the guest is cached on the host and the host may not flush to the physical medium.
+	CacheUnsafe DriverCache = "unsafe"
+	// CacheDirectSync - I/O from the guest bypasses the host page cache and is written to the physical medium synchronously.
+	CacheDirectSync DriverCache = "directsync"
 
 	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
 	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.
