@@ -21,7 +21,6 @@ package network
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -44,11 +42,6 @@ var _ = Describe(SIG("MultiQueue VMI", func() {
 
 	DescribeTable("should boot fedora to the login prompt and report the correct number of queues",
 		func(interfaceModel string, expectedQueueCount int32) {
-			availableCPUs := libnode.GetHighestCPUNumberAmongNodes(kubevirt.Client())
-			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
-				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
-			)
-
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(
 					v1.DefaultPodNetwork().Name,

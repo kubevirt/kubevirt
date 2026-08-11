@@ -59,16 +59,6 @@ var _ = Describe(SIG("CPU", func() {
 	})
 
 	Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
-		var availableNumberOfCPUs int
-
-		BeforeEach(func() {
-			availableNumberOfCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
-
-			requiredNumberOfCpus := 3
-			Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
-				fmt.Sprintf("Test requires %d cpus, but only %d available!", requiredNumberOfCpus, availableNumberOfCPUs))
-		})
-
 		It("[test_id:1659]should report 3 cpu cores under guest OS", func() {
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithCPUCount(3, 0, 0),

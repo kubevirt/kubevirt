@@ -300,21 +300,6 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 	return nodeList
 }
 
-func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
-	var cpus int64
-
-	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	for _, node := range nodeList.Items {
-		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
-			cpus = v.Value()
-		}
-	}
-
-	return int(cpus)
-}
-
 func GetNodeNameWithHandler() string {
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtClient := kubevirt.Client()
