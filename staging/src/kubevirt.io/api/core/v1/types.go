@@ -2394,6 +2394,8 @@ const (
 	CacheWriteThrough DriverCache = "writethrough"
 	// CacheWriteBack - I/O from the guest is cached on the host.
 	CacheWriteBack DriverCache = "writeback"
+	// CacheDirectSync - I/O from the guest bypasses the host page cache and is written to the physical medium synchronously.
+	CacheDirectSync DriverCache = "directsync"
 
 	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
 	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.
