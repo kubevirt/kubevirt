@@ -463,9 +463,6 @@ var _ = Describe("Apply Apps", func() {
 				currentDs := daemonSet.DeepCopy()
 				addCustomTargetDeployment(kv, currentDs)
 				currentDs.Status = daemonSet.Status
-				currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
-					"--migration-cn-types",
-				)
 
 				mockDSCacheStore.get = daemonSet
 				SetGeneration(&kv.Status.Generations, currentDs)
@@ -728,9 +725,6 @@ var _ = Describe("Apply Apps", func() {
 						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 							MaxUnavailable: &maxUnavailable,
 						}
-						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
-							"--migration-cn-types",
-						)
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
@@ -741,30 +735,6 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
 					successful, true, false, true, false,
-				),
-				Entry("should switch to tls rollout",
-					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
-						maxUnavailable := intstr.FromInt(1)
-						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
-							MaxUnavailable: &maxUnavailable,
-						}
-						newDs := daemonSet.DeepCopy()
-						addCustomTargetDeployment(kv, newDs)
-						addCustomTargetDeployment(kv, currentDs)
-						markHandlerReady(daemonSet)
-						currentDs.Status = daemonSet.Status
-
-						return currentDs, newDs
-					},
-					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
-						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
-						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
-						Expect(rollingUpdate).ToNot(BeNil())
-						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
-						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
-						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
-					},
-					waiting, false, false, true, false,
 				),
 			)
 		})
