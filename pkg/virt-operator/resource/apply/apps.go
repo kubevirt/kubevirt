@@ -3,7 +3,6 @@ package apply
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
@@ -219,9 +218,6 @@ func daemonHasDefaultRolloutStrategy(daemonSet *appsv1.DaemonSet) bool {
 func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, objectChanged bool) (bool, error, canaryUpgradeStatus) {
 	var updatedAndReadyPods int32
 
-	if hasTLS(cachedDaemonSet) && !hasTLS(newDS) {
-		insertTLS(newDS)
-	}
 	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
@@ -267,22 +263,10 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 		log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
 		return false, nil, waiting
 	case updatedAndReadyPods > 0 && updatedAndReadyPods == desiredReadyPods:
-		var err error
-		if supportsTLS(cachedDaemonSet) {
-			if !hasTLS(cachedDaemonSet) {
-				insertTLS(newDS)
-				newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
-				if err != nil {
-					return false, err, failed
-				}
-				SetGeneration(&r.kv.Status.Generations, newDS)
-				return false, nil, waiting
-			}
-		}
 		// rollout has completed and all virt-handlers are ready revert
 		// maxUnavailable to default value
 		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-		newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+		newDS, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 		if err != nil {
 			return false, err, failed
 		}
@@ -294,28 +278,6 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 		log.Errorf("%s", err)
 		return false, err, failed
 	}
-}
-
-func supportsTLS(daemonSet *appsv1.DaemonSet) bool {
-	if daemonSet.Labels == nil {
-		return false
-	}
-	value, ok := daemonSet.Labels[components.SupportsMigrationCNsValidation]
-	return ok && value == "true"
-}
-
-func insertTLS(daemonSet *appsv1.DaemonSet) {
-	daemonSet.Spec.Template.Spec.Containers[0].Args = append(daemonSet.Spec.Template.Spec.Containers[0].Args, "--migration-cn-types", "migration")
-}
-
-func hasTLS(daemonSet *appsv1.DaemonSet) bool {
-	container := &daemonSet.Spec.Template.Spec.Containers[0]
-	for _, arg := range container.Args {
-		if strings.Contains(arg, "migration-cn-types") {
-			return true
-		}
-	}
-	return false
 }
 
 func getMaxUnavailable(daemonSet *appsv1.DaemonSet) int {
@@ -351,9 +313,6 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	if !exists {
 		r.expectations.DaemonSet.RaiseExpectations(r.kvKey, 1, 0)
-		if supportsTLS(daemonSet) && !hasTLS(daemonSet) {
-			insertTLS(daemonSet)
-		}
 
 		origDaemonSet := daemonSet
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
