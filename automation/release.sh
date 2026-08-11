@@ -77,8 +77,8 @@ function update_github_release() {
 
 function upload_testing_manifests() {
     # replaces periodic-kubevirt-update-release-x.y-testing-manifests periodics
-    gsutil -m rm -r "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG" || true
-    gsutil cp -r "_out/manifests/testing" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG/manifests/"
+    gcloud storage rm -r "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG" || true
+    gcloud storage cp -r "_out/manifests/testing" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG/manifests/"
 }
 
 function generate_stable_version_file() {
@@ -91,8 +91,8 @@ function generate_stable_version_file() {
         head -1
     ) > _out/stable.txt
     # this place is deprecated. Combining "devel" and stable is not optimal
-    gsutil cp "_out/stable.txt" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/"
-    gsutil cp "_out/stable.txt" "gs://kubevirt-prow/release/kubevirt/kubevirt/"
+    gcloud storage cp "_out/stable.txt" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/"
+    gcloud storage cp "_out/stable.txt" "gs://kubevirt-prow/release/kubevirt/kubevirt/"
 }
 
 function main() {
