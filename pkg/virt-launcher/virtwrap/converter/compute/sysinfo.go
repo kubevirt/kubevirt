@@ -44,12 +44,11 @@ func NewSysInfoDomainConfigurator(smBIOS *SMBIOS) SysInfoDomainConfigurator {
 }
 
 func (s SysInfoDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	domain.Spec.SysInfo = &api.SysInfo{
-		Type: "smbios",
-	}
-
-	domain.Spec.SysInfo.System = buildSystem(vmi.Spec.Domain.Firmware, s.smBIOS)
-	domain.Spec.SysInfo.Chassis = buildChassis(vmi.Spec.Domain.Chassis)
+	domain.Spec.SysInfo = append(domain.Spec.SysInfo, api.SysInfo{
+		Type:    "smbios",
+		System:  buildSystem(vmi.Spec.Domain.Firmware, s.smBIOS),
+		Chassis: buildChassis(vmi.Spec.Domain.Chassis),
+	})
 
 	return nil
 }

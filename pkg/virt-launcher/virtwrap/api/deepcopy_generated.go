@@ -1544,8 +1544,10 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 	in.OS.DeepCopyInto(&out.OS)
 	if in.SysInfo != nil {
 		in, out := &in.SysInfo, &out.SysInfo
-		*out = new(SysInfo)
-		(*in).DeepCopyInto(*out)
+		*out = make([]SysInfo, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	in.Devices.DeepCopyInto(&out.Devices)
 	if in.Clock != nil {
@@ -3985,6 +3987,11 @@ func (in *SysInfo) DeepCopyInto(out *SysInfo) {
 	}
 	if in.Chassis != nil {
 		in, out := &in.Chassis, &out.Chassis
+		*out = make([]Entry, len(*in))
+		copy(*out, *in)
+	}
+	if in.Entries != nil {
+		in, out := &in.Entries, &out.Entries
 		*out = make([]Entry, len(*in))
 		copy(*out, *in)
 	}
