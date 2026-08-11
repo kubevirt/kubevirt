@@ -83,6 +83,28 @@ var _ = Describe("Domain Watcher", func() {
 		})
 	})
 
+	Context("send", func() {
+		It("should deliver the event when the result channel is read", func() {
+			d := &domainWatcher{result: make(chan watch.Event, 1)}
+
+			Expect(d.send(context.Background(), watch.Event{Type: watch.Modified})).To(BeTrue())
+			Expect(<-d.result).To(Equal(watch.Event{Type: watch.Modified}))
+		})
+
+		It("should give up instead of blocking forever once ctx is done", func() {
+			d := &domainWatcher{result: make(chan watch.Event)}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			sent := make(chan bool, 1)
+			go func() {
+				sent <- d.send(ctx, watch.Event{Type: watch.Modified})
+			}()
+
+			Eventually(sent, 500*time.Millisecond).Should(Receive(BeFalse()))
+		})
+	})
+
 	Context("Stop() idempotency", func() {
 		It("should not panic when Stop is called twice", func() {
 			d := newDomainWatcher(
