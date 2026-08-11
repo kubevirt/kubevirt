@@ -155,10 +155,12 @@ var _ = ginkgo.Describe("Schema", func() {
 			PVSpinlock: &FeaturePVSpinlock{State: "off"},
 			PMU:        &FeatureState{State: "off"},
 		}
-		exampleDomain.Spec.SysInfo = &SysInfo{
-			Type: "smbios",
-			System: []Entry{
-				{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
+		exampleDomain.Spec.SysInfo = []SysInfo{
+			{
+				Type: "smbios",
+				System: []Entry{
+					{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
+				},
 			},
 		}
 		exampleDomain.Spec.CPU.Topology = &CPUTopology{
@@ -204,6 +206,39 @@ var _ = ginkgo.Describe("Schema", func() {
 			Expect(newDomain).To(Equal(*domain))
 		})
 	})
+
+	ginkgo.Context("With domain JSON on the virt-launcher to virt-handler channel", func() {
+		// Pre-upgrade virt-launchers encode SysInfo as a single object, and
+		// notify-server drops the whole event if it fails to unmarshal.
+		ginkgo.It("should not reject a sysinfo encoded by an older virt-launcher", func() {
+			legacy := []byte(`{"Name":"testvmi","SysInfo":{"Type":"smbios",` +
+				`"System":[{"Name":"uuid","Value":"e4686d2c-6e8d-4335-b8fd-81bee22f4814"}]}}`)
+
+			newDomain := DomainSpec{}
+			Expect(json.Unmarshal(legacy, &newDomain)).To(Succeed())
+			Expect(newDomain.Name).To(Equal("testvmi"), "the rest of the domain must still be decoded")
+			Expect(newDomain.SysInfo).To(BeEmpty(), "the legacy key is ignored rather than type-matched")
+		})
+
+		ginkgo.It("should round-trip the current sysinfo list", func() {
+			spec := DomainSpec{
+				Name: "testvmi",
+				SysInfo: []SysInfo{
+					{Type: "smbios", System: []Entry{{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"}}},
+					{Type: "fwcfg", Entries: []Entry{{Name: "opt/org.seabios/pci64", Value: "no"}}},
+				},
+			}
+
+			buf, err := json.Marshal(spec)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(buf)).To(ContainSubstring(`"sysinfoList"`))
+
+			newDomain := DomainSpec{}
+			Expect(json.Unmarshal(buf, &newDomain)).To(Succeed())
+			Expect(newDomain.SysInfo).To(Equal(spec.SysInfo))
+		})
+	})
+
 	unmarshalTest := func(arch, domainStr string, domain *Domain) {
 		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
 		newDomain := DomainSpec{}
