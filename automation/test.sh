@@ -166,6 +166,7 @@ case "$TARGET" in
   *sig-monitoring*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
+    export KUBEVIRT_STORAGE="rook-ceph-default"
     ;;
   *wg-s390x*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
