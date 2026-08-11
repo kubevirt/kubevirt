@@ -246,6 +246,37 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 	return nil
 }
 
+func listAllKnownDomains() ([]*api.Domain, error) {
+	socketFiles := listSockets(GhostRecordGlobalStore.list())
+
+	var domains []*api.Domain
+	for _, socketFile := range socketFiles {
+		record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
+		if !recordExists {
+			continue
+		}
+
+		domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+		domain.ObjectMeta.UID = record.UID
+		domain.Spec.Metadata.KubeVirt.UID = record.UID
+
+		exists, err := diskutils.FileExists(socketFile)
+		if err != nil {
+			log.Log.Reason(err).Error("failed access cmd client socket")
+			domain.Status.Status = api.Unknown
+		} else if !exists {
+			now := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &now
+			log.Log.Object(domain).Warning("detected stale domain from ghost record")
+		} else {
+			domain.Status.Status = api.Unknown
+		}
+
+		domains = append(domains, domain)
+	}
+	return domains, nil
+}
+
 func (d *domainWatcher) Stop() {
 	d.cancel()
 	d.wg.Wait()
