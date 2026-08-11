@@ -30,45 +30,67 @@ import (
 )
 
 // DiskSourcePathHook updates disk source file paths in the domain XML by
-// replacing the source domain namespace with the target domain namespace.
-// This is the target-side equivalent of the source-side
+// replacing the source domain namespace and name with the target domain
+// namespace and name. This is the target-side equivalent of the source-side
 // updateFilePathsToNewDomain() + convertDisks() functions.
 func DiskSourcePathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	if domain.Devices == nil {
 		return nil
 	}
 
-	sourceDomainNamespace := getSourceDomainNamespace(vmi)
-	targetDomainNamespace := getTargetDomainNamespace(vmi)
-	if targetDomainNamespace == "" || sourceDomainNamespace == targetDomainNamespace {
+	oldSegment, newSegment, ok := domainPathSegmentRewrite(vmi)
+	if !ok {
 		return nil
 	}
-
-	oldSegment := "/" + sourceDomainNamespace + "/"
-	newSegment := "/" + targetDomainNamespace + "/"
 
 	for i := range domain.Devices.Disks {
 		disk := &domain.Devices.Disks[i]
 		if disk.Source == nil {
 			continue
 		}
-		if disk.Source.File != nil && strings.Contains(disk.Source.File.File, oldSegment) {
-			oldPath := disk.Source.File.File
-			newPath := strings.Replace(oldPath, oldSegment, newSegment, 1)
-			log.Log.Object(vmi).V(4).Infof("diskSourcePathHook: updating disk file path from %s to %s", oldPath, newPath)
-			disk.Source.File.File = newPath
+		if disk.Source.File != nil {
+			disk.Source.File.File = rewriteDiskPath(vmi, disk.Source.File.File, oldSegment, newSegment)
 		}
 		if disk.Source.DataStore != nil && disk.Source.DataStore.Source != nil &&
-			disk.Source.DataStore.Source.File != nil &&
-			strings.Contains(disk.Source.DataStore.Source.File.File, oldSegment) {
-			oldPath := disk.Source.DataStore.Source.File.File
-			newPath := strings.Replace(oldPath, oldSegment, newSegment, 1)
-			log.Log.Object(vmi).V(4).Infof("diskSourcePathHook: updating datastore file path from %s to %s", oldPath, newPath)
-			disk.Source.DataStore.Source.File.File = newPath
+			disk.Source.DataStore.Source.File != nil {
+			disk.Source.DataStore.Source.File.File = rewriteDiskPath(vmi, disk.Source.DataStore.Source.File.File, oldSegment, newSegment)
 		}
 	}
 
 	return nil
+}
+
+func domainPathSegmentRewrite(vmi *v1.VirtualMachineInstance) (oldSegment, newSegment string, ok bool) {
+	sourceDomainNamespace := getSourceDomainNamespace(vmi)
+	targetDomainNamespace := getTargetDomainNamespace(vmi)
+	if targetDomainNamespace == "" {
+		return "", "", false
+	}
+
+	sourceDomainName := getSourceDomainName(vmi)
+	targetDomainName := getTargetDomainName(vmi)
+	if sourceDomainName != "" && targetDomainName != "" {
+		oldSegment = "/" + sourceDomainNamespace + "/" + sourceDomainName + "/"
+		newSegment = "/" + targetDomainNamespace + "/" + targetDomainName + "/"
+		return oldSegment, newSegment, oldSegment != newSegment
+	}
+
+	if sourceDomainNamespace == targetDomainNamespace {
+		return "", "", false
+	}
+
+	oldSegment = "/" + sourceDomainNamespace + "/"
+	newSegment = "/" + targetDomainNamespace + "/"
+	return oldSegment, newSegment, true
+}
+
+func rewriteDiskPath(vmi *v1.VirtualMachineInstance, path, oldSegment, newSegment string) string {
+	if !strings.Contains(path, oldSegment) {
+		return path
+	}
+	newPath := strings.Replace(path, oldSegment, newSegment, 1)
+	log.Log.Object(vmi).V(4).Infof("diskSourcePathHook: updating disk path from %s to %s", path, newPath)
+	return newPath
 }
 
 func getSourceDomainNamespace(vmi *v1.VirtualMachineInstance) string {
@@ -85,6 +107,24 @@ func getTargetDomainNamespace(vmi *v1.VirtualMachineInstance) string {
 		vmi.Status.MigrationState.TargetState != nil &&
 		vmi.Status.MigrationState.TargetState.DomainNamespace != nil {
 		return *vmi.Status.MigrationState.TargetState.DomainNamespace
+	}
+	return ""
+}
+
+func getSourceDomainName(vmi *v1.VirtualMachineInstance) string {
+	if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.SourceState != nil &&
+		vmi.Status.MigrationState.SourceState.DomainName != nil {
+		return *vmi.Status.MigrationState.SourceState.DomainName
+	}
+	return ""
+}
+
+func getTargetDomainName(vmi *v1.VirtualMachineInstance) string {
+	if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.TargetState != nil &&
+		vmi.Status.MigrationState.TargetState.DomainName != nil {
+		return *vmi.Status.MigrationState.TargetState.DomainName
 	}
 	return ""
 }
