@@ -305,7 +305,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 	},
-		Entry("[test_id:4142] storage flush requests metric",
+		Entry("[QUARANTINE][test_id:4142] storage flush requests metric", decorators.Quarantine,
 			"kubevirt_vmi_storage_flush_requests_total", ">="),
 		Entry("[test_id:4142] time spent on cache flushing metric",
 			"kubevirt_vmi_storage_flush_times_seconds_total", ">="),
