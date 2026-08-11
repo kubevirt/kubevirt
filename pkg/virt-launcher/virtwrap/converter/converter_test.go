@@ -1494,10 +1494,16 @@ var _ = Describe("Converter", func() {
 					Unit:  "KiB",
 				},
 			})
+			containFWCfg := ContainElement(api.SysInfo{
+				Type:    "fwcfg",
+				Entries: []api.Entry{{Name: "opt/org.seabios/pci64", Value: "no"}},
+			})
 			if expected {
 				Expect(domain.Spec.Devices.Controllers).To(containElement, "Expected pcihole64 to be set to zero")
+				Expect(domain.Spec.SysInfo).To(containFWCfg, "Expected SeaBIOS pci64 fwcfg entry to be set")
 			} else {
 				Expect(domain.Spec.Devices.Controllers).ToNot(containElement, "Expected pcihole64 to not be set")
+				Expect(domain.Spec.SysInfo).ToNot(containFWCfg, "Expected SeaBIOS pci64 fwcfg entry to not be set")
 			}
 		},
 			Entry("be set to zero on amd64 when annotation was set to true", amd64, "true", true),
@@ -2473,9 +2479,12 @@ var _ = Describe("Converter", func() {
 		vmi := libvmi.New()
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
-		Expect(domain.Spec.SysInfo.System).ToNot(ContainElement(HaveField("Name", Equal("serial"))),
-			"serial entry should not be present in sysinfo",
-		)
+		Expect(domain.Spec.SysInfo).To(ContainElement(HaveField("Type", Equal("smbios"))))
+		for _, sysInfo := range domain.Spec.SysInfo {
+			Expect(sysInfo.System).ToNot(ContainElement(HaveField("Name", Equal("serial"))),
+				"serial entry should not be present in sysinfo",
+			)
+		}
 	})
 
 	Context("IOThreads", func() {

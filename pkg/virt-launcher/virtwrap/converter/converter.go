@@ -1140,6 +1140,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		)
+		domain.Spec.SysInfo = append(domain.Spec.SysInfo, api.SysInfo{
+			Type: "fwcfg",
+			Entries: []api.Entry{
+				{Name: "opt/org.seabios/pci64", Value: "no"},
+			},
+		})
 	}
 
 	if vmi.Spec.Domain.CPU != nil {
