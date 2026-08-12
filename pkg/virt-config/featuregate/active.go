@@ -312,7 +312,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
