@@ -256,7 +256,7 @@ safe_download() (
     # Remote file includes only sha1 w/o filename suffix
     for i in $(seq 1 $retry);
     do
-      remote_sha1="$(gsutil cat ${remote_sha1_url})"
+      remote_sha1="$(gcloud storage cat ${remote_sha1_url})"
       if [[ "$remote_sha1" != "" ]]; then
         break
       fi
@@ -265,7 +265,7 @@ safe_download() (
     if [[ "$(cat "$local_sha1_file")" != "$remote_sha1" ]]; then
         echo "${download_to} is not up to date, corrupted or doesn't exist."
         echo "Downloading file from: ${remote_sha1_url}"
-        gsutil cp $download_from $download_to
+        gcloud storage cp $download_from $download_to
         sha1sum "$download_to" | cut -d " " -f1 > "$local_sha1_file"
         [[ "$(cat "$local_sha1_file")" == "$remote_sha1" ]] || {
             echo "${download_to} is corrupted"
