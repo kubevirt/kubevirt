@@ -484,7 +484,7 @@ func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config *virt
 		Name:            fmt.Sprintf("volume%s", name),
 		Image:           image,
 		ImagePullPolicy: imagePullPolicy,
-		Command:         []string{filepath.Join(containerBinary, "/usr/bin/container-disk")},
+		Command:         []string{"/usr/bin/container-disk"},
 		Args:            []string{"--no-op"},
 		Resources:       resources,
 		SecurityContext: &kubev1.SecurityContext{
@@ -496,9 +496,8 @@ func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config *virt
 			},
 		},
 		VolumeMounts: []kubev1.VolumeMount{{
-			Name:      LauncherVolume,
-			MountPath: containerBinary,
-			ReadOnly:  true,
+			Name:      "virt-bin-share-dir",
+			MountPath: "/usr/bin",
 		}},
 	}
 }
