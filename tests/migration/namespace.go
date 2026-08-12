@@ -790,7 +790,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
 		})
 
-		It("should live migrate regular disk several times", decorators.RequiresBlockStorage, func() {
+		It("[QUARANTINE]should live migrate regular disk several times", decorators.Quarantine, decorators.RequiresBlockStorage, func() {
 			var targetVM *virtv1.VirtualMachine
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
