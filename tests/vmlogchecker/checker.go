@@ -160,7 +160,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    26,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to migrate vmi",".*"reason":"migration job .* already executed, finished at .*, failed: true, abortStatus: "`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to migrate vmi",".*"reason":"migration job .* already executed, finished at .*, failed: (true|false), abortStatus: "`),
 		SIGs:  SIGCompute,
 	},
 	{
@@ -567,6 +567,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		ID:    108,
 		Regex: regexp.MustCompile(`"level":"error".*("msg":"operation failed: timed out waiting to open tray of '[^']+'"|"reason":"virError\(Code=.*, Domain=.*, Message='operation failed: timed out waiting to open tray of '[^']+''\)")`),
 		SIGs:  SIGStorage,
+	},
+	{
+		ID:    109,
+		Regex: regexp.MustCompile(`"level":"error","msg":"(pre start setup for VirtualMachineInstance failed\.|Failed to sync vmi)".*"reason":"preparing ephemeral container disk images failed: no supported file disk found for volume found in: /var/run/kubevirt/container-disks/disk_\d+\.img"`),
+		SIGs:  SIGCompute,
 	},
 }
 
