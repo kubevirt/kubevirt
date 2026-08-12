@@ -658,7 +658,25 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
-	} else if t.clusterConfig.ImageVolumeEnabled() && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" {
+	} else if t.clusterConfig.ImageVolumeEnabled() && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
+		shouldAddLauncherBinaryVolume(vmi, imageIDs) {
+		// Copy the container-disk binary to the shared EmptyDir.
+		// Uses a distinct name from "container-disk-binary" to avoid triggering the
+		// old bind-mount path detection in virt-handler.
+		cpOpts := []Option{
+			WithVolumeMounts(initContainerVolumeMount()),
+			WithResourceRequirements(initContainerResourceRequirementsForVMI(vmi, v1.ContainerDisk, t.clusterConfig)),
+			WithNoCapabilities(),
+			WithCommand([]string{"/usr/bin/cp"}),
+			WithArgs([]string{"--preserve=all", "/usr/bin/container-disk", "/init/usr/bin/container-disk"}),
+		}
+		if vmitrait.IsNonRoot(vmi) {
+			cpOpts = append(cpOpts, WithNonRoot(userId))
+		}
+		initContainers = append(
+			initContainers,
+			NewContainerSpecRenderer("image-volume-binary", t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpOpts...).Render())
+
 		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
 		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
 		// and the digest can be fetched directly from the Pod volume status.
@@ -1008,9 +1026,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
-		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
-		t.launcherImage,
 		imageIDs,
 		namespace,
 		t.ephemeralDiskDir,
