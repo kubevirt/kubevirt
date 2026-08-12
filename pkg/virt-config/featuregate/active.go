@@ -301,7 +301,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
