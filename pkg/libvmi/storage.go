@@ -288,6 +288,62 @@ func WithDedicatedIOThreads(enabled bool) DiskOption {
 	}
 }
 
+func WithDiskBus(bus v1.DiskBus) DiskOption {
+	return func(d *v1.Disk) {
+		d.Disk.Bus = bus
+	}
+}
+
+func WithDiskIO(io v1.DriverIO) DiskOption {
+	return func(d *v1.Disk) {
+		d.IO = io
+	}
+}
+
+func WithDiskCustomBlockSize(logical, physical uint) DiskOption {
+	return func(d *v1.Disk) {
+		d.BlockSize = &v1.BlockSize{
+			Custom: &v1.CustomBlockSize{
+				Logical:            logical,
+				Physical:           physical,
+				DiscardGranularity: new(physical),
+			},
+		}
+	}
+}
+
+func WithDiskMatchVolumeBlockSize() DiskOption {
+	return func(d *v1.Disk) {
+		d.BlockSize = &v1.BlockSize{
+			MatchVolume: &v1.FeatureState{Enabled: new(true)},
+		}
+	}
+}
+
+func WithDiskShareable() DiskOption {
+	return func(d *v1.Disk) {
+		d.Shareable = new(true)
+	}
+}
+
+func WithDiskBootOrder(order uint) DiskOption {
+	return func(d *v1.Disk) {
+		d.BootOrder = &order
+	}
+}
+
+func WithDiskErrorPolicy(policy v1.DiskErrorPolicy) DiskOption {
+	return func(d *v1.Disk) {
+		d.ErrorPolicy = &policy
+	}
+}
+
+func WithBlockMultiQueue() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.BlockMultiQueue = new(true)
+	}
+}
+
 func newCDRom(name string, bus v1.DiskBus) v1.Disk {
 	return v1.Disk{
 		Name: name,
