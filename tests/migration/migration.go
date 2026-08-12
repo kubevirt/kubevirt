@@ -2014,34 +2014,17 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				)
 			})
 
-			Context("when target pod cannot be scheduled and is stuck in Pending phase", Serial, func() {
-
-				var nodesSetUnschedulable []string
-
-				AfterEach(func() {
-					By("Restoring nodes to be schedulable")
-					for _, schedulableNodeName := range nodesSetUnschedulable {
-						libnode.SetNodeSchedulable(schedulableNodeName, virtClient)
-					}
-				})
+			Context("when target pod cannot be scheduled and is stuck in Pending phase", func() {
 
 				It("should be able to properly abort migration", func() {
-					By("Starting a VirtualMachineInstance")
+					By("Starting a VirtualMachineInstance pinned to a node by affinity")
+					nodes := libnode.GetAllSchedulableNodes(virtClient)
 					vmi := libvmifact.NewGuestless(
 						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 					)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
-
-					By("Making all other nodes unschedulable so migration target cannot be placed")
-					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
-					for _, schedulableNode := range schedulableNodes {
-						if schedulableNode.Name == vmi.Status.NodeName {
-							continue
-						}
-						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
-						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
-					}
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
