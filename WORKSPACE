@@ -614,6 +614,7 @@ rpm(
     sha256 = "6d65bb2098442639ae5199ec4c8ee342b965dbc31f73277df63f04b4273f0278",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/acl-2.4.0-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6d65bb2098442639ae5199ec4c8ee342b965dbc31f73277df63f04b4273f0278",
     ],
 )
 
@@ -622,6 +623,7 @@ rpm(
     sha256 = "153742d20ad378247d8256619d2fca5666565befd8dbf0743966da331c993540",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/acl-2.4.0-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/153742d20ad378247d8256619d2fca5666565befd8dbf0743966da331c993540",
     ],
 )
 
@@ -630,6 +632,7 @@ rpm(
     sha256 = "9075286ab6c05da83934a21c4355372172f48c6ce5a566106e20ee84a7284c49",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/acl-2.4.0-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9075286ab6c05da83934a21c4355372172f48c6ce5a566106e20ee84a7284c49",
     ],
 )
 
@@ -845,6 +848,7 @@ rpm(
     sha256 = "f3050b79dc8ecb25ec75d5b236788ac857dc8c4dbb5b576ac12e779f54e994db",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/authselect-1.5.3-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f3050b79dc8ecb25ec75d5b236788ac857dc8c4dbb5b576ac12e779f54e994db",
     ],
 )
 
@@ -853,6 +857,7 @@ rpm(
     sha256 = "4260f8194a43584141ee8f2dfd4fb36386920503214e5581b3bc2dae1465c103",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/authselect-1.5.3-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/4260f8194a43584141ee8f2dfd4fb36386920503214e5581b3bc2dae1465c103",
     ],
 )
 
@@ -861,6 +866,7 @@ rpm(
     sha256 = "78c62a7b35a7c51bf52ceedffc54cbceca89a1f01d9c5191507ae32fc44299d3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/authselect-1.5.3-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/78c62a7b35a7c51bf52ceedffc54cbceca89a1f01d9c5191507ae32fc44299d3",
     ],
 )
 
@@ -869,6 +875,7 @@ rpm(
     sha256 = "8e7dfb2e946f99d60c9913196c760a83ed1cce2f8cdd3f5c1c8957d4f3ab41ae",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/authselect-libs-1.5.3-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/8e7dfb2e946f99d60c9913196c760a83ed1cce2f8cdd3f5c1c8957d4f3ab41ae",
     ],
 )
 
@@ -877,6 +884,7 @@ rpm(
     sha256 = "79379bf39a43b8b0e83f2a41fb54c145435222ae4c5f883d548a56462d8b599d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/authselect-libs-1.5.3-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/79379bf39a43b8b0e83f2a41fb54c145435222ae4c5f883d548a56462d8b599d",
     ],
 )
 
@@ -885,6 +893,7 @@ rpm(
     sha256 = "4bff676414651e8c4e85d1924eacda6f546c9b334533a747056fd8b1fc4cac62",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/authselect-libs-1.5.3-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4bff676414651e8c4e85d1924eacda6f546c9b334533a747056fd8b1fc4cac62",
     ],
 )
 
@@ -1577,6 +1586,7 @@ rpm(
     sha256 = "c7515d6da33056c507c0fa22e324d714e8b97e7f9e6988b49feb1315c2f6949c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/coreutils-single-9.5-13.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c7515d6da33056c507c0fa22e324d714e8b97e7f9e6988b49feb1315c2f6949c",
     ],
 )
 
@@ -1585,6 +1595,7 @@ rpm(
     sha256 = "92df8976bab16b758a325a36ca9bff977b0d59e1cfcda72ee2c38d985732a14c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/coreutils-single-9.5-13.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/92df8976bab16b758a325a36ca9bff977b0d59e1cfcda72ee2c38d985732a14c",
     ],
 )
 
@@ -1593,6 +1604,7 @@ rpm(
     sha256 = "a0d9191a800c2400b081175655c769097e87668533e5777a3e36e34b529816a7",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/coreutils-single-9.5-13.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/a0d9191a800c2400b081175655c769097e87668533e5777a3e36e34b529816a7",
     ],
 )
 
@@ -1628,6 +1640,7 @@ rpm(
     sha256 = "24549cac070b885121d7aae74da95b4e5d685cd500342b49fbb5e4fd14208a4b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/cpp-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/24549cac070b885121d7aae74da95b4e5d685cd500342b49fbb5e4fd14208a4b",
     ],
 )
 
@@ -1636,6 +1649,7 @@ rpm(
     sha256 = "22f1d79a6fd5674bca157c235bf045cb5b360c39e3790d1488fcd1a2ff870862",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/cpp-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/22f1d79a6fd5674bca157c235bf045cb5b360c39e3790d1488fcd1a2ff870862",
     ],
 )
 
@@ -1644,6 +1658,7 @@ rpm(
     sha256 = "f230fe7c04f12bd88d47ecca47d907952bb91e7101c4447f19c89808ae230f17",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/cpp-14.4.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f230fe7c04f12bd88d47ecca47d907952bb91e7101c4447f19c89808ae230f17",
     ],
 )
 
@@ -1784,6 +1799,7 @@ rpm(
     sha256 = "b50e65633f89cd35afe9e7f9defaded6b4f7f2a6c4a429a24838a1f37f3e7a3b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/crypto-policies-20260708-1.git988eb15.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/b50e65633f89cd35afe9e7f9defaded6b4f7f2a6c4a429a24838a1f37f3e7a3b",
     ],
 )
 
@@ -1792,6 +1808,7 @@ rpm(
     sha256 = "b50e65633f89cd35afe9e7f9defaded6b4f7f2a6c4a429a24838a1f37f3e7a3b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/crypto-policies-20260708-1.git988eb15.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/b50e65633f89cd35afe9e7f9defaded6b4f7f2a6c4a429a24838a1f37f3e7a3b",
     ],
 )
 
@@ -1800,6 +1817,7 @@ rpm(
     sha256 = "b50e65633f89cd35afe9e7f9defaded6b4f7f2a6c4a429a24838a1f37f3e7a3b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/crypto-policies-20260708-1.git988eb15.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/b50e65633f89cd35afe9e7f9defaded6b4f7f2a6c4a429a24838a1f37f3e7a3b",
     ],
 )
 
@@ -2048,6 +2066,7 @@ rpm(
     sha256 = "b7d8f5dbdcb3977b2041f1c6f545d6720e6dbc29e4753c4bce11592cc55fadf4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/dbus-1.14.10-6.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/b7d8f5dbdcb3977b2041f1c6f545d6720e6dbc29e4753c4bce11592cc55fadf4",
     ],
 )
 
@@ -2056,6 +2075,7 @@ rpm(
     sha256 = "a3ec7863145c8e7fa999d671d7059c0dd815dab7370fefe7d9461b90d081ee2b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/dbus-1.14.10-6.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/a3ec7863145c8e7fa999d671d7059c0dd815dab7370fefe7d9461b90d081ee2b",
     ],
 )
 
@@ -2064,6 +2084,7 @@ rpm(
     sha256 = "019154fd71f6a8d9ad1f66de4e91e55ac02abdbe3553b6e3ec0ed42fc3dba557",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/dbus-1.14.10-6.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/019154fd71f6a8d9ad1f66de4e91e55ac02abdbe3553b6e3ec0ed42fc3dba557",
     ],
 )
 
@@ -2153,6 +2174,7 @@ rpm(
     sha256 = "46da64dfece403446ed8d674cfd0bccd979b2311069ac4facc3125847bf12bd9",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/dbus-common-1.14.10-6.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/46da64dfece403446ed8d674cfd0bccd979b2311069ac4facc3125847bf12bd9",
     ],
 )
 
@@ -2161,6 +2183,7 @@ rpm(
     sha256 = "46da64dfece403446ed8d674cfd0bccd979b2311069ac4facc3125847bf12bd9",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/dbus-common-1.14.10-6.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/46da64dfece403446ed8d674cfd0bccd979b2311069ac4facc3125847bf12bd9",
     ],
 )
 
@@ -2169,6 +2192,7 @@ rpm(
     sha256 = "46da64dfece403446ed8d674cfd0bccd979b2311069ac4facc3125847bf12bd9",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/dbus-common-1.14.10-6.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/46da64dfece403446ed8d674cfd0bccd979b2311069ac4facc3125847bf12bd9",
     ],
 )
 
@@ -2204,6 +2228,7 @@ rpm(
     sha256 = "2964e164c8ac82a6e90bdac9a7c076846dfb524f762960dbdf4f330df89f7ad6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/dbus-libs-1.14.10-6.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/2964e164c8ac82a6e90bdac9a7c076846dfb524f762960dbdf4f330df89f7ad6",
     ],
 )
 
@@ -2212,6 +2237,7 @@ rpm(
     sha256 = "2d078c7680bfeb7109f258d18c2d1c018f1fb96b2f96904a2a1b6f7e799c6649",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/dbus-libs-1.14.10-6.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/2d078c7680bfeb7109f258d18c2d1c018f1fb96b2f96904a2a1b6f7e799c6649",
     ],
 )
 
@@ -2220,6 +2246,7 @@ rpm(
     sha256 = "ff454e8ed35832be2b6280fc255fb77774877cad344fbd638d18a29d9bc2926c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/dbus-libs-1.14.10-6.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ff454e8ed35832be2b6280fc255fb77774877cad344fbd638d18a29d9bc2926c",
     ],
 )
 
@@ -2228,6 +2255,7 @@ rpm(
     sha256 = "57dbb4d836f543691e0f62d967be3b90cc6ba7f9eb0e3c0b1799b7233ab731c6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/device-mapper-1.02.215-3.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/57dbb4d836f543691e0f62d967be3b90cc6ba7f9eb0e3c0b1799b7233ab731c6",
     ],
 )
 
@@ -2236,6 +2264,7 @@ rpm(
     sha256 = "a59f375a1a5aeeddfc855c21b2de28170953bbc75464b998cc95bfa533f36038",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/device-mapper-1.02.215-3.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/a59f375a1a5aeeddfc855c21b2de28170953bbc75464b998cc95bfa533f36038",
     ],
 )
 
@@ -2244,6 +2273,7 @@ rpm(
     sha256 = "835543fc199922f375f04679dc7ea45eb80eade8f939757db228e9cdf8e2dd3a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/device-mapper-1.02.215-3.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/835543fc199922f375f04679dc7ea45eb80eade8f939757db228e9cdf8e2dd3a",
     ],
 )
 
@@ -2288,6 +2318,7 @@ rpm(
     sha256 = "66ce805ef7db497b4fd953e960ec20172d9356ffc877f8c1a4060f70c305c60b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/device-mapper-libs-1.02.215-3.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/66ce805ef7db497b4fd953e960ec20172d9356ffc877f8c1a4060f70c305c60b",
     ],
 )
 
@@ -2296,6 +2327,7 @@ rpm(
     sha256 = "ae53191047622d2d0469549fe2b21aabb7edd928cea44af1b832be5a329db5dd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/device-mapper-libs-1.02.215-3.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/ae53191047622d2d0469549fe2b21aabb7edd928cea44af1b832be5a329db5dd",
     ],
 )
 
@@ -2304,6 +2336,7 @@ rpm(
     sha256 = "6dbae56deac7c5f365ec63b8f58b5d4db30216ea9782e77b4c1df302360873eb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/device-mapper-libs-1.02.215-3.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6dbae56deac7c5f365ec63b8f58b5d4db30216ea9782e77b4c1df302360873eb",
     ],
 )
 
@@ -2627,6 +2660,7 @@ rpm(
     sha256 = "31d569c3d9b8f65adf17cb7ae1c2838f013e554b18d62b351afaa6e6b36b0a37",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20260221-6.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/31d569c3d9b8f65adf17cb7ae1c2838f013e554b18d62b351afaa6e6b36b0a37",
     ],
 )
 
@@ -2659,6 +2693,7 @@ rpm(
     sha256 = "d54181a02e6fefe2657758e140438a7216151e7f13e287bc3fac1db37c59eca1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/s390x/os/Packages/edk2-ovmf-20260221-6.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/d54181a02e6fefe2657758e140438a7216151e7f13e287bc3fac1db37c59eca1",
     ],
 )
 
@@ -2667,6 +2702,7 @@ rpm(
     sha256 = "d54181a02e6fefe2657758e140438a7216151e7f13e287bc3fac1db37c59eca1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20260221-6.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/d54181a02e6fefe2657758e140438a7216151e7f13e287bc3fac1db37c59eca1",
     ],
 )
 
@@ -2936,6 +2972,7 @@ rpm(
     sha256 = "7104b25f5611d69988a0020aec63410697dd30760eb25cd8f42477d316afb22c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/expat-2.7.3-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/7104b25f5611d69988a0020aec63410697dd30760eb25cd8f42477d316afb22c",
     ],
 )
 
@@ -2944,6 +2981,7 @@ rpm(
     sha256 = "a75cc187e67327f98d36d2a52dca5f49c38f46f14ef1bc9980a68708ffffc08c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/expat-2.7.3-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/a75cc187e67327f98d36d2a52dca5f49c38f46f14ef1bc9980a68708ffffc08c",
     ],
 )
 
@@ -2952,6 +2990,7 @@ rpm(
     sha256 = "340e4e110e74f27e26a410d39446f54a17062543d35fd7d8fd362594263ee759",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/expat-2.7.3-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/340e4e110e74f27e26a410d39446f54a17062543d35fd7d8fd362594263ee759",
     ],
 )
 
@@ -3068,6 +3107,7 @@ rpm(
     sha256 = "3851baa5132cf26223e91728c3526cea165b1f2fe8fbf7b5d271d2f467bdea17",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/fips-provider-next-1.5.2-4.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3851baa5132cf26223e91728c3526cea165b1f2fe8fbf7b5d271d2f467bdea17",
     ],
 )
 
@@ -3076,6 +3116,7 @@ rpm(
     sha256 = "de5996185526f7ef84fccf6b9d546d4b927157dc747c3f46d1cef9a4a1f7ecd6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/fips-provider-next-1.5.2-4.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/de5996185526f7ef84fccf6b9d546d4b927157dc747c3f46d1cef9a4a1f7ecd6",
     ],
 )
 
@@ -3345,6 +3386,7 @@ rpm(
     sha256 = "52458b1394af9bd1672ca7ba72c9871b35c02c91474de58bc3119d909c81068e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/gcc-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/52458b1394af9bd1672ca7ba72c9871b35c02c91474de58bc3119d909c81068e",
     ],
 )
 
@@ -3353,6 +3395,7 @@ rpm(
     sha256 = "8fe34c78cc6fd853419029c282ee3e1bea46e9fb8d26526b1470bf37abbdc548",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/gcc-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/8fe34c78cc6fd853419029c282ee3e1bea46e9fb8d26526b1470bf37abbdc548",
     ],
 )
 
@@ -3361,6 +3404,7 @@ rpm(
     sha256 = "b236644fe98b78722c6fe8f372ca5778bafd9493870956915e7bf5036fe0c9bc",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/gcc-14.4.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b236644fe98b78722c6fe8f372ca5778bafd9493870956915e7bf5036fe0c9bc",
     ],
 )
 
@@ -3666,6 +3710,7 @@ rpm(
     sha256 = "7b62f80199168ece0f8dc755e2ac4366af40f7bab4018c2faeca45298a5aed9d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glib2-2.80.4-15.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/7b62f80199168ece0f8dc755e2ac4366af40f7bab4018c2faeca45298a5aed9d",
     ],
 )
 
@@ -3674,6 +3719,7 @@ rpm(
     sha256 = "1ae093c96d461155fbbe357d4e0842b1bee09911ebdab6edadb38b396f3f8a90",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glib2-2.80.4-15.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/1ae093c96d461155fbbe357d4e0842b1bee09911ebdab6edadb38b396f3f8a90",
     ],
 )
 
@@ -3682,6 +3728,7 @@ rpm(
     sha256 = "6fa89f7a70ee37de4f0e8e47ca374aec181fd1c029d2918ac56454cf5083c243",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glib2-2.80.4-15.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6fa89f7a70ee37de4f0e8e47ca374aec181fd1c029d2918ac56454cf5083c243",
     ],
 )
 
@@ -3723,6 +3770,7 @@ rpm(
     sha256 = "9b748a395b10848b91be8f33cdcab2e2d700c92d54c0ab96dac126669760ccda",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-2.39-135.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/9b748a395b10848b91be8f33cdcab2e2d700c92d54c0ab96dac126669760ccda",
     ],
 )
 
@@ -3731,6 +3779,7 @@ rpm(
     sha256 = "76b7dece033ad8dc42c9f8396daacd29113133fa3389a6e21438e2aa59d89f9b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-2.39-135.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/76b7dece033ad8dc42c9f8396daacd29113133fa3389a6e21438e2aa59d89f9b",
     ],
 )
 
@@ -3739,6 +3788,7 @@ rpm(
     sha256 = "01bb5d73a2fa7afc000b9c1b9da99d38b176db14e65b7f6a41c9a0a09d762ecb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glibc-2.39-135.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/01bb5d73a2fa7afc000b9c1b9da99d38b176db14e65b7f6a41c9a0a09d762ecb",
     ],
 )
 
@@ -3780,6 +3830,7 @@ rpm(
     sha256 = "f6c34516f884fa40e3f206d41e2090fe70a021ddeeab53f18328ada02eef48bc",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-common-2.39-135.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/f6c34516f884fa40e3f206d41e2090fe70a021ddeeab53f18328ada02eef48bc",
     ],
 )
 
@@ -3788,6 +3839,7 @@ rpm(
     sha256 = "312f8550cb8b470c8acdbfca8009ed4b9ea7bc1b2c9445f76b661dba9deb8975",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-common-2.39-135.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/312f8550cb8b470c8acdbfca8009ed4b9ea7bc1b2c9445f76b661dba9deb8975",
     ],
 )
 
@@ -3796,6 +3848,7 @@ rpm(
     sha256 = "e2aa651287c8fac6913365fc943f80ca319ceb2dc7c8cfdce959880aec9ab438",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glibc-common-2.39-135.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e2aa651287c8fac6913365fc943f80ca319ceb2dc7c8cfdce959880aec9ab438",
     ],
 )
 
@@ -3831,6 +3884,7 @@ rpm(
     sha256 = "b6eef43feee658c776f63c48f8259e7796d6989c6029261f3f40bcd88d112552",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/glibc-devel-2.39-135.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/b6eef43feee658c776f63c48f8259e7796d6989c6029261f3f40bcd88d112552",
     ],
 )
 
@@ -3839,6 +3893,7 @@ rpm(
     sha256 = "73eb142075e1498973339c4a0bc5d3d6147b7644f32b022897827f374b412d86",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/glibc-devel-2.39-135.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/73eb142075e1498973339c4a0bc5d3d6147b7644f32b022897827f374b412d86",
     ],
 )
 
@@ -3847,6 +3902,7 @@ rpm(
     sha256 = "f5ad759f82430efd98379296588373b6c1d6c3f015e9ad62544c5d6b23917489",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/glibc-devel-2.39-135.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f5ad759f82430efd98379296588373b6c1d6c3f015e9ad62544c5d6b23917489",
     ],
 )
 
@@ -3882,6 +3938,7 @@ rpm(
     sha256 = "3f88a49a47d602b7dc0759baeb9533cef4225ab45630432fbb3788f9ed2539e8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glibc-langpack-et-2.39-135.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/3f88a49a47d602b7dc0759baeb9533cef4225ab45630432fbb3788f9ed2539e8",
     ],
 )
 
@@ -3899,6 +3956,7 @@ rpm(
     sha256 = "ef80b9bcce52f7d0fffb1e62eacc38e26f829ac7642f4b26940d35aa566a4f2a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-langpack-fil-2.39-135.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/ef80b9bcce52f7d0fffb1e62eacc38e26f829ac7642f4b26940d35aa566a4f2a",
     ],
 )
 
@@ -3907,6 +3965,7 @@ rpm(
     sha256 = "56950b2002df0623488b8e5c32d08cf13d1877f81c316b58a9c3cb9866874eac",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-langpack-ga-2.39-135.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/56950b2002df0623488b8e5c32d08cf13d1877f81c316b58a9c3cb9866874eac",
     ],
 )
 
@@ -3957,6 +4016,7 @@ rpm(
     sha256 = "debacf243d55369b62f2fa229cdd8147cebb0de104f099bd981599b89f8a7297",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-minimal-langpack-2.39-135.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/debacf243d55369b62f2fa229cdd8147cebb0de104f099bd981599b89f8a7297",
     ],
 )
 
@@ -3965,6 +4025,7 @@ rpm(
     sha256 = "2fc16f04e0d796e9e5f4fed3d1cd3e95da735e9b5d41e55f430c85a0db5b9942",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-minimal-langpack-2.39-135.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/2fc16f04e0d796e9e5f4fed3d1cd3e95da735e9b5d41e55f430c85a0db5b9942",
     ],
 )
 
@@ -3973,6 +4034,7 @@ rpm(
     sha256 = "7daba4c22c6d9e2aa99a34459c4bb975a88b2b2bf61f809f7377f926a41028a9",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glibc-minimal-langpack-2.39-135.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/7daba4c22c6d9e2aa99a34459c4bb975a88b2b2bf61f809f7377f926a41028a9",
     ],
 )
 
@@ -4008,6 +4070,7 @@ rpm(
     sha256 = "a0a9c745c0a42efff03dda2e60c4543b1309638ad435537d44d8c0d32823f181",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/aarch64/os/Packages/glibc-static-2.39-135.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a0a9c745c0a42efff03dda2e60c4543b1309638ad435537d44d8c0d32823f181",
     ],
 )
 
@@ -4016,6 +4079,7 @@ rpm(
     sha256 = "6fa39ed1a3a27890a161bcc5130c6a35f08df6437cec9c04bad0f816a243dbe4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/s390x/os/Packages/glibc-static-2.39-135.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/6fa39ed1a3a27890a161bcc5130c6a35f08df6437cec9c04bad0f816a243dbe4",
     ],
 )
 
@@ -4024,6 +4088,7 @@ rpm(
     sha256 = "ba20e79d30fabcbbc8aba81d42abebe2ec325ef33a1c82819b0ac51e49748825",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/x86_64/os/Packages/glibc-static-2.39-135.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ba20e79d30fabcbbc8aba81d42abebe2ec325ef33a1c82819b0ac51e49748825",
     ],
 )
 
@@ -4113,6 +4178,7 @@ rpm(
     sha256 = "c3d06bb7f237857b892d2563f8b98c7e9ee1464c79815b68f024ee4d954cb9c2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/gnupg2-2.4.5-5.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/c3d06bb7f237857b892d2563f8b98c7e9ee1464c79815b68f024ee4d954cb9c2",
     ],
 )
 
@@ -4121,6 +4187,7 @@ rpm(
     sha256 = "b91831f705df214ca8fb10a5d9d649e13453445a6e7b59758ff646f6b1dbc72c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/gnupg2-2.4.5-5.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b91831f705df214ca8fb10a5d9d649e13453445a6e7b59758ff646f6b1dbc72c",
     ],
 )
 
@@ -4324,6 +4391,7 @@ rpm(
     sha256 = "6fd50faf829cd1761d6114222eb9be47217dbe469c2052f742fe0b3a1ff37573",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/gobject-introspection-1.79.1-7.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6fd50faf829cd1761d6114222eb9be47217dbe469c2052f742fe0b3a1ff37573",
     ],
 )
 
@@ -4332,6 +4400,7 @@ rpm(
     sha256 = "ac882b3a893db89cae14da4dd9e9caf1ce0a61884c651d93e08a204beeb6d46b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/gobject-introspection-1.79.1-7.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/ac882b3a893db89cae14da4dd9e9caf1ce0a61884c651d93e08a204beeb6d46b",
     ],
 )
 
@@ -4340,6 +4409,7 @@ rpm(
     sha256 = "5568b6dc55df70312b37674cf01cb3502178c62c5242a4a0cbd3e104c35ddb59",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/gobject-introspection-1.79.1-7.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/5568b6dc55df70312b37674cf01cb3502178c62c5242a4a0cbd3e104c35ddb59",
     ],
 )
 
@@ -4456,6 +4526,7 @@ rpm(
     sha256 = "545d33739e9c1b5dd344fcc793e4ccb6e9716580a2e1fb3e93d3e3d3f617d98b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/guestfs-tools-1.56.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/545d33739e9c1b5dd344fcc793e4ccb6e9716580a2e1fb3e93d3e3d3f617d98b",
     ],
 )
 
@@ -4464,6 +4535,7 @@ rpm(
     sha256 = "99d9ad2789c3a79146122dcafc751a5a8186d5027f1db46279bae4c0abc28a4f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/guestfs-tools-1.56.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/99d9ad2789c3a79146122dcafc751a5a8186d5027f1db46279bae4c0abc28a4f",
     ],
 )
 
@@ -4673,6 +4745,7 @@ rpm(
     sha256 = "48f07b0612b1f62176f79bd79c367f06a9c280069c3c89d0e04a4df11d89120a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/iproute-7.0.0-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/48f07b0612b1f62176f79bd79c367f06a9c280069c3c89d0e04a4df11d89120a",
     ],
 )
 
@@ -4681,6 +4754,7 @@ rpm(
     sha256 = "8d4a9a4af68256ca964e7b8fe1970970b0f82606ea812340fbad1ada78c5096b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/iproute-7.0.0-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/8d4a9a4af68256ca964e7b8fe1970970b0f82606ea812340fbad1ada78c5096b",
     ],
 )
 
@@ -4689,6 +4763,7 @@ rpm(
     sha256 = "86f21ded9bb81060b5a265f339a29f93d7cd10a6410d7443c2f1756f9bc93097",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/iproute-7.0.0-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/86f21ded9bb81060b5a265f339a29f93d7cd10a6410d7443c2f1756f9bc93097",
     ],
 )
 
@@ -4730,6 +4805,7 @@ rpm(
     sha256 = "8d7a3d644d30279d82ae6d0b10b49f38304274ae2c783afbbda8be0e1d7f8e43",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/iproute-tc-7.0.0-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/8d7a3d644d30279d82ae6d0b10b49f38304274ae2c783afbbda8be0e1d7f8e43",
     ],
 )
 
@@ -4738,6 +4814,7 @@ rpm(
     sha256 = "d1999063ee61cebd00efa87f92fd8b1d8dc11697fec3ec236156106cf501e719",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/iproute-tc-7.0.0-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/d1999063ee61cebd00efa87f92fd8b1d8dc11697fec3ec236156106cf501e719",
     ],
 )
 
@@ -4746,6 +4823,7 @@ rpm(
     sha256 = "7c616c40b155337efa499eac8488632994fbf1b2730d1f8f2fa8b0035260e2e8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/iproute-tc-7.0.0-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/7c616c40b155337efa499eac8488632994fbf1b2730d1f8f2fa8b0035260e2e8",
     ],
 )
 
@@ -4781,6 +4859,7 @@ rpm(
     sha256 = "ce02bb48e751a54e5f2c3b1bd5f1c5edd2d8e91d5df2701bdf7a5714277f9718",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/iptables-libs-1.8.11-16.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/ce02bb48e751a54e5f2c3b1bd5f1c5edd2d8e91d5df2701bdf7a5714277f9718",
     ],
 )
 
@@ -4789,6 +4868,7 @@ rpm(
     sha256 = "a36d5e02bca72bef5c89a324cf74d529e4983d050e69366e90aa17b86da3d4a3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/iptables-libs-1.8.11-16.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/a36d5e02bca72bef5c89a324cf74d529e4983d050e69366e90aa17b86da3d4a3",
     ],
 )
 
@@ -4797,6 +4877,7 @@ rpm(
     sha256 = "1f39ec54d5e2a652b92cec991c6a14c7b87de2694f40391bb4892634a770b275",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/iptables-libs-1.8.11-16.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1f39ec54d5e2a652b92cec991c6a14c7b87de2694f40391bb4892634a770b275",
     ],
 )
 
@@ -5066,6 +5147,7 @@ rpm(
     sha256 = "7ff5ee72a60b82950b7b0dbf3a333e00a3f0057d6e619b91ac01db4e4e131eb4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/kernel-headers-6.12.0-257.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/7ff5ee72a60b82950b7b0dbf3a333e00a3f0057d6e619b91ac01db4e4e131eb4",
     ],
 )
 
@@ -5074,6 +5156,7 @@ rpm(
     sha256 = "869015ee5e016467567c129b07e9798f42573ab90adbe04ded39656318e39060",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/kernel-headers-6.12.0-257.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/869015ee5e016467567c129b07e9798f42573ab90adbe04ded39656318e39060",
     ],
 )
 
@@ -5082,6 +5165,7 @@ rpm(
     sha256 = "52cd1b3c1dded02463b36431332ff3a40fc68c6def78045e454f9c1c13d4ace3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/kernel-headers-6.12.0-257.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/52cd1b3c1dded02463b36431332ff3a40fc68c6def78045e454f9c1c13d4ace3",
     ],
 )
 
@@ -5378,6 +5462,7 @@ rpm(
     sha256 = "3a666e5a2151fbf10257ffc23939308e1c5fc3e9837fd8716c702c2a5b725a4b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libacl-2.4.0-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3a666e5a2151fbf10257ffc23939308e1c5fc3e9837fd8716c702c2a5b725a4b",
     ],
 )
 
@@ -5386,6 +5471,7 @@ rpm(
     sha256 = "dfe7a51f3a4742386b21946a2945fbf788c5d567079653ceb01d22b0b30349f3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libacl-2.4.0-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/dfe7a51f3a4742386b21946a2945fbf788c5d567079653ceb01d22b0b30349f3",
     ],
 )
 
@@ -5394,6 +5480,7 @@ rpm(
     sha256 = "481580835e68a512240222c1350f37814965018d26d38083638869fb43d8968d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libacl-2.4.0-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/481580835e68a512240222c1350f37814965018d26d38083638869fb43d8968d",
     ],
 )
 
@@ -5438,6 +5525,7 @@ rpm(
     sha256 = "d20625b3950196395eb38bbcac752ab15148c1b69c5f8e083c723734e55781f2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libaio-0.3.112-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/d20625b3950196395eb38bbcac752ab15148c1b69c5f8e083c723734e55781f2",
     ],
 )
 
@@ -5446,6 +5534,7 @@ rpm(
     sha256 = "8695595aed474e03111d276eedc317dbb641156a2c6b1d5c6adca9e347b7a401",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libaio-0.3.112-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/8695595aed474e03111d276eedc317dbb641156a2c6b1d5c6adca9e347b7a401",
     ],
 )
 
@@ -5454,6 +5543,7 @@ rpm(
     sha256 = "09eada913d3550a99da630d2471e2babf4490e603b99e5c5b86f505cd7d652d3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libaio-0.3.112-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/09eada913d3550a99da630d2471e2babf4490e603b99e5c5b86f505cd7d652d3",
     ],
 )
 
@@ -5561,6 +5651,7 @@ rpm(
     sha256 = "892285fcd3c1a1064e994bbb528d70f5f30bd3be24cf80f2e30e5ccd64dcd9c4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libasan-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/892285fcd3c1a1064e994bbb528d70f5f30bd3be24cf80f2e30e5ccd64dcd9c4",
     ],
 )
 
@@ -5569,6 +5660,7 @@ rpm(
     sha256 = "3784a6e6df4149d8bbbff72eb0cc91489603fa83b6d17af652f50c11f7fe005d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libasan-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/3784a6e6df4149d8bbbff72eb0cc91489603fa83b6d17af652f50c11f7fe005d",
     ],
 )
 
@@ -5631,6 +5723,7 @@ rpm(
     sha256 = "cb5012d48fd92ee6e9cd7213762e291586ac3b88763fdfaf27fb08a419fa0678",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libatomic-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/cb5012d48fd92ee6e9cd7213762e291586ac3b88763fdfaf27fb08a419fa0678",
     ],
 )
 
@@ -5639,6 +5732,7 @@ rpm(
     sha256 = "183b13a1404dd01355a0c16a65967663cbe1a97e59d7f95b25e2d48d2fef316a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libatomic-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/183b13a1404dd01355a0c16a65967663cbe1a97e59d7f95b25e2d48d2fef316a",
     ],
 )
 
@@ -5656,6 +5750,7 @@ rpm(
     sha256 = "e0884432ed6ac6f470ccec6a9b5df8fd7d68d6500d405dd5b18554591c3f1658",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libattr-2.6.0-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/e0884432ed6ac6f470ccec6a9b5df8fd7d68d6500d405dd5b18554591c3f1658",
     ],
 )
 
@@ -5664,6 +5759,7 @@ rpm(
     sha256 = "93013cf4f414137aa616bad0375afaa39a477b4b958797d15973a0fc205c8ca1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libattr-2.6.0-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/93013cf4f414137aa616bad0375afaa39a477b4b958797d15973a0fc205c8ca1",
     ],
 )
 
@@ -5672,6 +5768,7 @@ rpm(
     sha256 = "14c7ef9d633773d4b50c23af7c1181a47c48bb999d25f0213cc5be2f92f6fbc6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libattr-2.6.0-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/14c7ef9d633773d4b50c23af7c1181a47c48bb999d25f0213cc5be2f92f6fbc6",
     ],
 )
 
@@ -5806,6 +5903,7 @@ rpm(
     sha256 = "39b5a6a15f318c886ea3fcbd68776337fcafc79c1c98c6916aa7879a2114bdfd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libbpf-1.7.0-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/39b5a6a15f318c886ea3fcbd68776337fcafc79c1c98c6916aa7879a2114bdfd",
     ],
 )
 
@@ -5814,6 +5912,7 @@ rpm(
     sha256 = "7fbd50f8f8a75d4d576bca2fa732d7285031a10594fde8734ad27f36ffec1e5f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libbpf-1.7.0-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7fbd50f8f8a75d4d576bca2fa732d7285031a10594fde8734ad27f36ffec1e5f",
     ],
 )
 
@@ -5822,6 +5921,7 @@ rpm(
     sha256 = "87fc5c3ef93bc357654cb68a67bce5fd6b64850134aefeb596e6e2a76338a314",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libbpf-1.7.0-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/87fc5c3ef93bc357654cb68a67bce5fd6b64850134aefeb596e6e2a76338a314",
     ],
 )
 
@@ -5857,6 +5957,7 @@ rpm(
     sha256 = "84860900c30d682ac3cc08a05723dba416415a1cb9168270b0eb4efe2a0291a7",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libbrotli-1.1.0-8.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/84860900c30d682ac3cc08a05723dba416415a1cb9168270b0eb4efe2a0291a7",
     ],
 )
 
@@ -5865,6 +5966,7 @@ rpm(
     sha256 = "4e7214c365d24ebd8979948e17a49589e58e834882948b0f5e0609c66d9cbb58",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libbrotli-1.1.0-8.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4e7214c365d24ebd8979948e17a49589e58e834882948b0f5e0609c66d9cbb58",
     ],
 )
 
@@ -6017,6 +6119,7 @@ rpm(
     sha256 = "c2233c781e7cfc9173f4a94f97c152ffdabf8e47e4fe188619abb04ffe9e9f7c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libcap-ng-0.9.3-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c2233c781e7cfc9173f4a94f97c152ffdabf8e47e4fe188619abb04ffe9e9f7c",
     ],
 )
 
@@ -6025,6 +6128,7 @@ rpm(
     sha256 = "b6b2a24c6f4199e1f211017534e56db80027077613b122e8b2f2f77438bb248f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libcap-ng-0.9.3-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/b6b2a24c6f4199e1f211017534e56db80027077613b122e8b2f2f77438bb248f",
     ],
 )
 
@@ -6033,6 +6137,7 @@ rpm(
     sha256 = "c55f364f28b60772a15c9d8996d86f755afbf58de45f1597102e7b94836e1a1a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libcap-ng-0.9.3-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/c55f364f28b60772a15c9d8996d86f755afbf58de45f1597102e7b94836e1a1a",
     ],
 )
 
@@ -6611,6 +6716,7 @@ rpm(
     sha256 = "c785e711b3e2c03b3b9117ff6d323dddd93c2b721bdbc2c7acc3697a6c79dc30",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libgcc-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c785e711b3e2c03b3b9117ff6d323dddd93c2b721bdbc2c7acc3697a6c79dc30",
     ],
 )
 
@@ -6619,6 +6725,7 @@ rpm(
     sha256 = "23490aa5e8aabc7060d3be28ff1942f1d00985155221d3ca67a32a4ced76b0e4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libgcc-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/23490aa5e8aabc7060d3be28ff1942f1d00985155221d3ca67a32a4ced76b0e4",
     ],
 )
 
@@ -6627,6 +6734,7 @@ rpm(
     sha256 = "5eab59d2a72bd35c34e97b9b02b2c133352cf145c07e737c9d206ea82b986b82",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libgcc-14.4.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/5eab59d2a72bd35c34e97b9b02b2c133352cf145c07e737c9d206ea82b986b82",
     ],
 )
 
@@ -6671,6 +6779,7 @@ rpm(
     sha256 = "a00dbc7273e8a5c342307957b810914bbc4a4d3ccf5e1de20a17309a8e0a4309",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libgcrypt-1.11.0-7.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/a00dbc7273e8a5c342307957b810914bbc4a4d3ccf5e1de20a17309a8e0a4309",
     ],
 )
 
@@ -6679,6 +6788,7 @@ rpm(
     sha256 = "53d46313b1566f2ce977add8fbd4bc08f6a74e2ae684549b3315fea3ee73b1e2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libgcrypt-1.11.0-7.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/53d46313b1566f2ce977add8fbd4bc08f6a74e2ae684549b3315fea3ee73b1e2",
     ],
 )
 
@@ -6720,6 +6830,7 @@ rpm(
     sha256 = "5109ab37d418e3ac02357ffbe3d6f6868a7af15e9685a018074e27c496eed3c2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libgomp-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/5109ab37d418e3ac02357ffbe3d6f6868a7af15e9685a018074e27c496eed3c2",
     ],
 )
 
@@ -6728,6 +6839,7 @@ rpm(
     sha256 = "5b5ae34b5f9bf03fe2069a93ce5988062eb24b01673ff3c0dbe830424158518b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libgomp-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/5b5ae34b5f9bf03fe2069a93ce5988062eb24b01673ff3c0dbe830424158518b",
     ],
 )
 
@@ -6736,6 +6848,7 @@ rpm(
     sha256 = "d7ce3154ace3d9d4273de8a6186b665728f9d950c4105b8999bc24b4fd07346c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libgomp-14.4.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d7ce3154ace3d9d4273de8a6186b665728f9d950c4105b8999bc24b4fd07346c",
     ],
 )
 
@@ -6813,6 +6926,7 @@ rpm(
     sha256 = "96278e51d5de567e41d7245288c4a500fd61329ddaa20a1248871983764c0a1c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libguestfs-1.60.1-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/96278e51d5de567e41d7245288c4a500fd61329ddaa20a1248871983764c0a1c",
     ],
 )
 
@@ -6821,6 +6935,7 @@ rpm(
     sha256 = "02a094cfecc73aad5033ad17a8f1e6140b8ddfeb7dd10371820060e5143d7511",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libguestfs-1.60.1-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/02a094cfecc73aad5033ad17a8f1e6140b8ddfeb7dd10371820060e5143d7511",
     ],
 )
 
@@ -7297,6 +7412,7 @@ rpm(
     sha256 = "8feecd9fdb04326348a8c30ab808928072dca2ed965ce82ed0460ee566431d54",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libnbd-1.25.7-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/8feecd9fdb04326348a8c30ab808928072dca2ed965ce82ed0460ee566431d54",
     ],
 )
 
@@ -7305,6 +7421,7 @@ rpm(
     sha256 = "bb364ed978c8b2208f4541e6233b210f3f4e7e554d4757d5770a010cea17c998",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libnbd-1.25.7-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/bb364ed978c8b2208f4541e6233b210f3f4e7e554d4757d5770a010cea17c998",
     ],
 )
 
@@ -7313,6 +7430,7 @@ rpm(
     sha256 = "654ae443c4b56eb702fed5b0258889639e2cf5f10d6e60c3a2b4a610974d0f0f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libnbd-1.25.7-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/654ae443c4b56eb702fed5b0258889639e2cf5f10d6e60c3a2b4a610974d0f0f",
     ],
 )
 
@@ -7348,6 +7466,7 @@ rpm(
     sha256 = "e8d344ef699ffb28be5ae7122db61437b5c290a1eb55bb9dd44ac6e0fc719ce2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/aarch64/os/Packages/libnbd-devel-1.25.7-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/e8d344ef699ffb28be5ae7122db61437b5c290a1eb55bb9dd44ac6e0fc719ce2",
     ],
 )
 
@@ -7356,6 +7475,7 @@ rpm(
     sha256 = "35368353c3d53767a842ca653573a01e02c36fcf61a25de92abf3db6c40d052c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/s390x/os/Packages/libnbd-devel-1.25.7-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/35368353c3d53767a842ca653573a01e02c36fcf61a25de92abf3db6c40d052c",
     ],
 )
 
@@ -7364,6 +7484,7 @@ rpm(
     sha256 = "1aba3cbf51f1cf19b94fbf0991cf3c4a0733fedbcf998392ad8459397239869c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/x86_64/os/Packages/libnbd-devel-1.25.7-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1aba3cbf51f1cf19b94fbf0991cf3c4a0733fedbcf998392ad8459397239869c",
     ],
 )
 
@@ -7570,6 +7691,7 @@ rpm(
     sha256 = "259e35f06cbf18f63a4eaa3cbb06c5062c55277b67db74fc8b99a84f90cc87dd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libnghttp2-1.68.0-5.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/259e35f06cbf18f63a4eaa3cbb06c5062c55277b67db74fc8b99a84f90cc87dd",
     ],
 )
 
@@ -7578,6 +7700,7 @@ rpm(
     sha256 = "93eeca4093189f17e082a2a894c32cc0de38f5b21533b9c0d6c82799b011fe61",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libnghttp2-1.68.0-5.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/93eeca4093189f17e082a2a894c32cc0de38f5b21533b9c0d6c82799b011fe61",
     ],
 )
 
@@ -7586,6 +7709,7 @@ rpm(
     sha256 = "0a3f82d83371f3ce5e9d56c296ea2ebb4cc5058f9335b274596e35f4236a0e2e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libnghttp2-1.68.0-5.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/0a3f82d83371f3ce5e9d56c296ea2ebb4cc5058f9335b274596e35f4236a0e2e",
     ],
 )
 
@@ -7942,6 +8066,7 @@ rpm(
     sha256 = "ec861fab8cc675fa95be5a3947aa80730d2732d656027065fe3c660e9430c206",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libpwquality-1.4.5-13.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/ec861fab8cc675fa95be5a3947aa80730d2732d656027065fe3c660e9430c206",
     ],
 )
 
@@ -7950,6 +8075,7 @@ rpm(
     sha256 = "7bc8522bfa667ccf2c71d35046ace5ec58b2add685c8c4d2209176e6c424099d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libpwquality-1.4.5-13.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7bc8522bfa667ccf2c71d35046ace5ec58b2add685c8c4d2209176e6c424099d",
     ],
 )
 
@@ -7958,6 +8084,7 @@ rpm(
     sha256 = "b4a30fbfd2d4ee661777a90921eeba362b519b46d0a3355da601a93313bd4985",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libpwquality-1.4.5-13.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b4a30fbfd2d4ee661777a90921eeba362b519b46d0a3355da601a93313bd4985",
     ],
 )
 
@@ -8056,6 +8183,7 @@ rpm(
     sha256 = "5698a45d13e35a2c9296f83d1406dc2f49ba3ea18596d21cb5838b117ea27fd4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libselinux-3.11-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/5698a45d13e35a2c9296f83d1406dc2f49ba3ea18596d21cb5838b117ea27fd4",
     ],
 )
 
@@ -8064,6 +8192,7 @@ rpm(
     sha256 = "73d878f6b5c6b9d75a8195e6f3de50339de5328102eb5416db35e07f26dc70e3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libselinux-3.11-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/73d878f6b5c6b9d75a8195e6f3de50339de5328102eb5416db35e07f26dc70e3",
     ],
 )
 
@@ -8072,6 +8201,7 @@ rpm(
     sha256 = "678efee9a800918172b9efbd95c4ee12844ccbbfb9a518190a8961e2f2ce32f6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libselinux-3.11-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/678efee9a800918172b9efbd95c4ee12844ccbbfb9a518190a8961e2f2ce32f6",
     ],
 )
 
@@ -8116,6 +8246,7 @@ rpm(
     sha256 = "2deef420713799171de4a1e89ce7cc20182c6e7c342499124306eb160fb1c5cd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libselinux-utils-3.11-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/2deef420713799171de4a1e89ce7cc20182c6e7c342499124306eb160fb1c5cd",
     ],
 )
 
@@ -8124,6 +8255,7 @@ rpm(
     sha256 = "7ee47ed04ddd92254db1afaac224be1a4fbe4b91c3c7098ebadd4ab7ce1158cf",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libselinux-utils-3.11-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7ee47ed04ddd92254db1afaac224be1a4fbe4b91c3c7098ebadd4ab7ce1158cf",
     ],
 )
 
@@ -8132,6 +8264,7 @@ rpm(
     sha256 = "156574f688be0c3fb4258d828c8c5ae5918e153699d166160de0dd4b6023ff10",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libselinux-utils-3.11-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/156574f688be0c3fb4258d828c8c5ae5918e153699d166160de0dd4b6023ff10",
     ],
 )
 
@@ -8176,6 +8309,7 @@ rpm(
     sha256 = "3879f86df4f2eb038ef0e36a0ee315c3c5bd6c22e55381a61b4081161832b180",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libsemanage-3.11-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3879f86df4f2eb038ef0e36a0ee315c3c5bd6c22e55381a61b4081161832b180",
     ],
 )
 
@@ -8184,6 +8318,7 @@ rpm(
     sha256 = "d90b93e48b6da8b3c7136b94ef0d7cc4e9445271f914831667b34266200bbf1b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libsemanage-3.11-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/d90b93e48b6da8b3c7136b94ef0d7cc4e9445271f914831667b34266200bbf1b",
     ],
 )
 
@@ -8192,6 +8327,7 @@ rpm(
     sha256 = "a3e0ddfd4af0ac976d4c422c7b24527c878a0fb7ba5482179ca8d1fc1ba0bd3d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libsemanage-3.11-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/a3e0ddfd4af0ac976d4c422c7b24527c878a0fb7ba5482179ca8d1fc1ba0bd3d",
     ],
 )
 
@@ -8227,6 +8363,7 @@ rpm(
     sha256 = "c991e4818487a78f15d5402df0d18df53dae95754d46dba5797f86312d8bae28",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libsepol-3.11-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c991e4818487a78f15d5402df0d18df53dae95754d46dba5797f86312d8bae28",
     ],
 )
 
@@ -8235,6 +8372,7 @@ rpm(
     sha256 = "7e43b194d86e4f30ebd8d69bf15232534dcfe2c5c8c6db2ecfa99e56791d4c89",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libsepol-3.11-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7e43b194d86e4f30ebd8d69bf15232534dcfe2c5c8c6db2ecfa99e56791d4c89",
     ],
 )
 
@@ -8243,6 +8381,7 @@ rpm(
     sha256 = "e87020deb70e7848af31df235a3ce169625c3eeaaa2c1b37238b9f9b0bdf9af7",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libsepol-3.11-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e87020deb70e7848af31df235a3ce169625c3eeaaa2c1b37238b9f9b0bdf9af7",
     ],
 )
 
@@ -8656,6 +8795,7 @@ rpm(
     sha256 = "257bc857e73a36b62346de3e82557811d6d41156a6a50a543a7cd7528b3821d2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libsss_idmap-2.13.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/257bc857e73a36b62346de3e82557811d6d41156a6a50a543a7cd7528b3821d2",
     ],
 )
 
@@ -8664,6 +8804,7 @@ rpm(
     sha256 = "c475d52bb78ef13f7becb1998224b0a2c657c3e42a0b6826d5e940c9407fc515",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libsss_idmap-2.13.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/c475d52bb78ef13f7becb1998224b0a2c657c3e42a0b6826d5e940c9407fc515",
     ],
 )
 
@@ -8672,6 +8813,7 @@ rpm(
     sha256 = "ee0a84acd59c5cecd4aedc5c85ca738ad82ce6e57410419304129ac1b286224f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libsss_idmap-2.13.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ee0a84acd59c5cecd4aedc5c85ca738ad82ce6e57410419304129ac1b286224f",
     ],
 )
 
@@ -8707,6 +8849,7 @@ rpm(
     sha256 = "9b213033c65136c519242233bff48bbb897525244c98267f95dd575104d7006a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libsss_nss_idmap-2.13.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/9b213033c65136c519242233bff48bbb897525244c98267f95dd575104d7006a",
     ],
 )
 
@@ -8715,6 +8858,7 @@ rpm(
     sha256 = "0ca64647ad4316b852ed6567c01403e537b4596b3fdab058ca826eb2c5adb279",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libsss_nss_idmap-2.13.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/0ca64647ad4316b852ed6567c01403e537b4596b3fdab058ca826eb2c5adb279",
     ],
 )
 
@@ -8723,6 +8867,7 @@ rpm(
     sha256 = "c5e93a82f9184a255d17459f72786d6e71921b2ff79fc90384edcb48d1b60856",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libsss_nss_idmap-2.13.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/c5e93a82f9184a255d17459f72786d6e71921b2ff79fc90384edcb48d1b60856",
     ],
 )
 
@@ -8791,6 +8936,7 @@ rpm(
     sha256 = "679a6cc25c19ac308280c321395ced594bdc15152c0ab74728f80b2debab762c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libstdc++-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/679a6cc25c19ac308280c321395ced594bdc15152c0ab74728f80b2debab762c",
     ],
 )
 
@@ -8799,6 +8945,7 @@ rpm(
     sha256 = "bf96a6e6c0e04014767d9ff65b57923f5051bf74dab42c7f59592349e9282568",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libstdc++-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/bf96a6e6c0e04014767d9ff65b57923f5051bf74dab42c7f59592349e9282568",
     ],
 )
 
@@ -8807,6 +8954,7 @@ rpm(
     sha256 = "66ffeeacd4bb82cdfa1ec9cb85ae4c49c391a0aea50b63ffe2c17b902ab08942",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libstdc++-14.4.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/66ffeeacd4bb82cdfa1ec9cb85ae4c49c391a0aea50b63ffe2c17b902ab08942",
     ],
 )
 
@@ -9022,6 +9170,7 @@ rpm(
     sha256 = "4dd5f3705e471bcc058692c67e0c2319a15854eed0b65586dbe82e07e5a1c7a8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libubsan-14.4.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/4dd5f3705e471bcc058692c67e0c2319a15854eed0b65586dbe82e07e5a1c7a8",
     ],
 )
 
@@ -9030,6 +9179,7 @@ rpm(
     sha256 = "8e1b461f5605610205d8c46839285ee1f707328739e2031c59260363f963b202",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libubsan-14.4.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/8e1b461f5605610205d8c46839285ee1f707328739e2031c59260363f963b202",
     ],
 )
 
@@ -9416,6 +9566,7 @@ rpm(
     sha256 = "c3f54107217a6d1350e7ff7551493ba52999bcdd75e77546197cd28376c8a47c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libvirt-client-12.5.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c3f54107217a6d1350e7ff7551493ba52999bcdd75e77546197cd28376c8a47c",
     ],
 )
 
@@ -9424,6 +9575,7 @@ rpm(
     sha256 = "af6d6ce9017c509b45816fb7a8124fbf0b9e6cc9d61b445ab31e214ccf3f63be",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-client-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/af6d6ce9017c509b45816fb7a8124fbf0b9e6cc9d61b445ab31e214ccf3f63be",
     ],
 )
 
@@ -9432,6 +9584,7 @@ rpm(
     sha256 = "aee03c2fc2b875b96a8bc2e5e938179d0c8c2bdcb7f53acb752c17c4a3c027c5",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-client-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/aee03c2fc2b875b96a8bc2e5e938179d0c8c2bdcb7f53acb752c17c4a3c027c5",
     ],
 )
 
@@ -9473,6 +9626,7 @@ rpm(
     sha256 = "6e31293bfc022e4446495a7b4eb6909ed688153ddeb55971c78d92ce88494c28",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-12.5.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6e31293bfc022e4446495a7b4eb6909ed688153ddeb55971c78d92ce88494c28",
     ],
 )
 
@@ -9481,6 +9635,7 @@ rpm(
     sha256 = "3586750f012e4aae3e051f693db02527af644119860e1945fa4ebee6ea4e9516",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-daemon-common-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/3586750f012e4aae3e051f693db02527af644119860e1945fa4ebee6ea4e9516",
     ],
 )
 
@@ -9489,6 +9644,7 @@ rpm(
     sha256 = "9a374607673f75fe482b76c411e4e7bc067107c7779d6323d570708faabe0809",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-daemon-common-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9a374607673f75fe482b76c411e4e7bc067107c7779d6323d570708faabe0809",
     ],
 )
 
@@ -9530,6 +9686,7 @@ rpm(
     sha256 = "b074e36551b538536ee64477abdd2fa16011726d93dc52dad965bfdfca8c208f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-12.5.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/b074e36551b538536ee64477abdd2fa16011726d93dc52dad965bfdfca8c208f",
     ],
 )
 
@@ -9538,6 +9695,7 @@ rpm(
     sha256 = "21212a139557ca907d6463a2bddec6a5581ccf594cfe4957712e24d4d875ad8a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-qemu-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/21212a139557ca907d6463a2bddec6a5581ccf594cfe4957712e24d4d875ad8a",
     ],
 )
 
@@ -9546,6 +9704,7 @@ rpm(
     sha256 = "7219c73683d7aa5c001455e95371db35ebbc52d7e2f09ddcbde56bb874c9a0f2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-qemu-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/7219c73683d7aa5c001455e95371db35ebbc52d7e2f09ddcbde56bb874c9a0f2",
     ],
 )
 
@@ -9578,6 +9737,7 @@ rpm(
     sha256 = "a4dd5c65cdc27036ba0687fb5be053fb085d20a27a7274cf3933af11377b1804",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-secret-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/a4dd5c65cdc27036ba0687fb5be053fb085d20a27a7274cf3933af11377b1804",
     ],
 )
 
@@ -9586,6 +9746,7 @@ rpm(
     sha256 = "d0d5c817bbe046a078a7773046a3414eb573dcf44f0620d463a67803b7e4a2f8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-secret-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d0d5c817bbe046a078a7773046a3414eb573dcf44f0620d463a67803b7e4a2f8",
     ],
 )
 
@@ -9618,6 +9779,7 @@ rpm(
     sha256 = "6047c0ca7461a73f92917252b9f473683521168aa78d7d8deae2b251c6922f0c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-storage-core-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/6047c0ca7461a73f92917252b9f473683521168aa78d7d8deae2b251c6922f0c",
     ],
 )
 
@@ -9626,6 +9788,7 @@ rpm(
     sha256 = "b1ba34383d52edf38bc55f95e2fc07e85694ca46127833e8ce96561da91306dd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-storage-core-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b1ba34383d52edf38bc55f95e2fc07e85694ca46127833e8ce96561da91306dd",
     ],
 )
 
@@ -9667,6 +9830,7 @@ rpm(
     sha256 = "9c22aab601ae1bd672447137a3b7de05556b335ed15e168235b7b418c5429d12",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-12.5.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/9c22aab601ae1bd672447137a3b7de05556b335ed15e168235b7b418c5429d12",
     ],
 )
 
@@ -9675,6 +9839,7 @@ rpm(
     sha256 = "9e6fda904050320177c87be0e4ef824a022a78e2946811edf4aeb1819e8187e8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-daemon-log-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/9e6fda904050320177c87be0e4ef824a022a78e2946811edf4aeb1819e8187e8",
     ],
 )
 
@@ -9683,6 +9848,7 @@ rpm(
     sha256 = "e24878305469c14e8bed44e4d41a3d662100ebc84449cedf6685e606ca6bded0",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-daemon-log-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e24878305469c14e8bed44e4d41a3d662100ebc84449cedf6685e606ca6bded0",
     ],
 )
 
@@ -9718,6 +9884,7 @@ rpm(
     sha256 = "50c2f174fc234bbd1345b213eeecb3ee2b8b9a4731646d33db009e874fe0fb8e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/aarch64/os/Packages/libvirt-devel-12.5.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/50c2f174fc234bbd1345b213eeecb3ee2b8b9a4731646d33db009e874fe0fb8e",
     ],
 )
 
@@ -9726,6 +9893,7 @@ rpm(
     sha256 = "8fb1cf3d3c235b44253892a0581f4529ea554a650f15a7d5931f25f83f251168",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/s390x/os/Packages/libvirt-devel-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/8fb1cf3d3c235b44253892a0581f4529ea554a650f15a7d5931f25f83f251168",
     ],
 )
 
@@ -9734,6 +9902,7 @@ rpm(
     sha256 = "44592fcc4fbe4e78bb413dd6dee9eacbee1d6ce184e05f3bad115de670e838e6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/CRB/x86_64/os/Packages/libvirt-devel-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/44592fcc4fbe4e78bb413dd6dee9eacbee1d6ce184e05f3bad115de670e838e6",
     ],
 )
 
@@ -9775,6 +9944,7 @@ rpm(
     sha256 = "c7ca0d77187f26b5dc950a5b27a0554734b5bce425d280a0dcf684d77002da83",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libvirt-libs-12.5.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c7ca0d77187f26b5dc950a5b27a0554734b5bce425d280a0dcf684d77002da83",
     ],
 )
 
@@ -9783,6 +9953,7 @@ rpm(
     sha256 = "0d2f6fbb140f5c68c088d343c88675cb4d47618bf3e90526d2f88a789eb87afb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libvirt-libs-12.5.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/0d2f6fbb140f5c68c088d343c88675cb4d47618bf3e90526d2f88a789eb87afb",
     ],
 )
 
@@ -9791,6 +9962,7 @@ rpm(
     sha256 = "5901f77f9eddaaedd5a3e89b4219e54db09222fdc5021c632734733e6348fdfd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libvirt-libs-12.5.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/5901f77f9eddaaedd5a3e89b4219e54db09222fdc5021c632734733e6348fdfd",
     ],
 )
 
@@ -9799,6 +9971,7 @@ rpm(
     sha256 = "be19f26c5caf0c90cbd564d1c159ca16bda32e5cb605c76e285ee8baeaa07592",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/libwsman1-2.8.1-3.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/be19f26c5caf0c90cbd564d1c159ca16bda32e5cb605c76e285ee8baeaa07592",
     ],
 )
 
@@ -9807,6 +9980,7 @@ rpm(
     sha256 = "06642a7cce89d3d0321fba4fac83b6936589015af679734d641fd375c82bfc85",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libwsman1-2.8.1-3.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/06642a7cce89d3d0321fba4fac83b6936589015af679734d641fd375c82bfc85",
     ],
 )
 
@@ -9815,6 +9989,7 @@ rpm(
     sha256 = "e4464a739999e998c4a42dc5782b786c0cdeac455546deb50cae0a0916eb89bb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libwsman1-2.8.1-3.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e4464a739999e998c4a42dc5782b786c0cdeac455546deb50cae0a0916eb89bb",
     ],
 )
 
@@ -9985,6 +10160,7 @@ rpm(
     sha256 = "ccc9cf0d3b200eee84b7c862decbf72b49708eaeb196b20c3632fbf3d7bc0ea7",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/libxml2-2.12.5-15.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/ccc9cf0d3b200eee84b7c862decbf72b49708eaeb196b20c3632fbf3d7bc0ea7",
     ],
 )
 
@@ -9993,6 +10169,7 @@ rpm(
     sha256 = "79a99e98d88311a9c8a4e57b51d28b532aff59e62b303701493af9b2cc7d3965",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/libxml2-2.12.5-15.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/79a99e98d88311a9c8a4e57b51d28b532aff59e62b303701493af9b2cc7d3965",
     ],
 )
 
@@ -10001,6 +10178,7 @@ rpm(
     sha256 = "450072d9f4fae0d3f92e7a0547ed6aec57fca9ee8eda2931ca22d462943dc051",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/libxml2-2.12.5-15.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/450072d9f4fae0d3f92e7a0547ed6aec57fca9ee8eda2931ca22d462943dc051",
     ],
 )
 
@@ -10069,6 +10247,7 @@ rpm(
     sha256 = "28a5d34b6e713855b5d1fbeeab273786b61c349aeb03ce50e6a216ee772885e5",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/libxslt-1.1.39-10.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/28a5d34b6e713855b5d1fbeeab273786b61c349aeb03ce50e6a216ee772885e5",
     ],
 )
 
@@ -10077,6 +10256,7 @@ rpm(
     sha256 = "46f179e253d2f4e04340c120e1d00f8e4b5fa3095a1e96f1ecd61cb5b3e3d4a8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/libxslt-1.1.39-10.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/46f179e253d2f4e04340c120e1d00f8e4b5fa3095a1e96f1ecd61cb5b3e3d4a8",
     ],
 )
 
@@ -10688,6 +10868,7 @@ rpm(
     sha256 = "dd3bb41e0c662d4d03a6209d65ec1e69cb99fd638eb4b6096dcf1415a4c62e1f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/nftables-1.1.5-6.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/dd3bb41e0c662d4d03a6209d65ec1e69cb99fd638eb4b6096dcf1415a4c62e1f",
     ],
 )
 
@@ -10696,6 +10877,7 @@ rpm(
     sha256 = "358748eec24c5b053192afa99495ae823e1b387cda13513bfe0c5efac9e6c706",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/nftables-1.1.5-6.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/358748eec24c5b053192afa99495ae823e1b387cda13513bfe0c5efac9e6c706",
     ],
 )
 
@@ -10704,6 +10886,7 @@ rpm(
     sha256 = "545480abe9fa456c70ca62b1eca50770a6dc725fb465f7aced776a6af309ba14",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/nftables-1.1.5-6.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/545480abe9fa456c70ca62b1eca50770a6dc725fb465f7aced776a6af309ba14",
     ],
 )
 
@@ -10988,6 +11171,7 @@ rpm(
     sha256 = "e816157a9c4d38a11edcbdf83151ac53b11bd47622b5336b4d5ce703e6a5eb90",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/openssl-fips-provider-3.5.7-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/e816157a9c4d38a11edcbdf83151ac53b11bd47622b5336b4d5ce703e6a5eb90",
     ],
 )
 
@@ -10996,6 +11180,7 @@ rpm(
     sha256 = "6ac2ab1f8fe53b29dd4a6fcc23e7ca867952612836488e860d6de8c5eb9c7aee",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/openssl-fips-provider-3.5.7-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/6ac2ab1f8fe53b29dd4a6fcc23e7ca867952612836488e860d6de8c5eb9c7aee",
     ],
 )
 
@@ -11004,6 +11189,7 @@ rpm(
     sha256 = "b926e18f47cb365073de44161e0c0c91d61a6518ab634db68be61c035da2b5ea",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/openssl-fips-provider-3.5.7-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b926e18f47cb365073de44161e0c0c91d61a6518ab634db68be61c035da2b5ea",
     ],
 )
 
@@ -11045,6 +11231,7 @@ rpm(
     sha256 = "5ed8809767201250f209d3fe8e9df81b98205002b2940b17c633b0a3026f3d6b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/openssl-libs-3.5.7-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/5ed8809767201250f209d3fe8e9df81b98205002b2940b17c633b0a3026f3d6b",
     ],
 )
 
@@ -11053,6 +11240,7 @@ rpm(
     sha256 = "7868cc492c7eb4d0f3985b21e9a77d29c45ef4fa298395664f6c73a50b5e31b5",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/openssl-libs-3.5.7-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7868cc492c7eb4d0f3985b21e9a77d29c45ef4fa298395664f6c73a50b5e31b5",
     ],
 )
 
@@ -11061,6 +11249,7 @@ rpm(
     sha256 = "dee195446815a5f0aa8a64920f2a1b8bd4343fb333ee46f33d7a26bf3762b911",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/openssl-libs-3.5.7-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/dee195446815a5f0aa8a64920f2a1b8bd4343fb333ee46f33d7a26bf3762b911",
     ],
 )
 
@@ -11186,6 +11375,7 @@ rpm(
     sha256 = "a3cfdc5bde366b5f88222ad2154f578de277bfe0a35e5631c8fe1503d39ad810",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/p11-kit-0.26.4-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a3cfdc5bde366b5f88222ad2154f578de277bfe0a35e5631c8fe1503d39ad810",
     ],
 )
 
@@ -11194,6 +11384,7 @@ rpm(
     sha256 = "d8fcc01535dfbcfdc173293236d6b28f59a669f0fea76860de258491ec91e901",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/p11-kit-0.26.4-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/d8fcc01535dfbcfdc173293236d6b28f59a669f0fea76860de258491ec91e901",
     ],
 )
 
@@ -11202,6 +11393,7 @@ rpm(
     sha256 = "8a4a97c411dbda23a0b91fadfd269f14aa669af424002eca91ac9fc202400204",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/p11-kit-0.26.4-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/8a4a97c411dbda23a0b91fadfd269f14aa669af424002eca91ac9fc202400204",
     ],
 )
 
@@ -11246,6 +11438,7 @@ rpm(
     sha256 = "465c251c3f8b10ae8afa72da7a4d99f615048eb96b7602954f05fc1bf86e14fb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/p11-kit-trust-0.26.4-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/465c251c3f8b10ae8afa72da7a4d99f615048eb96b7602954f05fc1bf86e14fb",
     ],
 )
 
@@ -11254,6 +11447,7 @@ rpm(
     sha256 = "e1317a46aaaa816a201c3ec6eab8482c00e2e14db2332fa3686b724c3b8b42ee",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/p11-kit-trust-0.26.4-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/e1317a46aaaa816a201c3ec6eab8482c00e2e14db2332fa3686b724c3b8b42ee",
     ],
 )
 
@@ -11262,6 +11456,7 @@ rpm(
     sha256 = "4ac0cba633e175b2893ec96e1ac7ab5d70b8d77d19c688cda7458b1ff573e53e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/p11-kit-trust-0.26.4-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4ac0cba633e175b2893ec96e1ac7ab5d70b8d77d19c688cda7458b1ff573e53e",
     ],
 )
 
@@ -11330,6 +11525,7 @@ rpm(
     sha256 = "fd793d1a843b964f4b3401af997408434ac9d437a14638e06c6cb46fcc7d729e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/pam-1.6.1-11.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/fd793d1a843b964f4b3401af997408434ac9d437a14638e06c6cb46fcc7d729e",
     ],
 )
 
@@ -11338,6 +11534,7 @@ rpm(
     sha256 = "d675a36c6006db2e1fe6c8473a26ac19d8c7770380787099667eaad48e411e92",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/pam-1.6.1-11.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/d675a36c6006db2e1fe6c8473a26ac19d8c7770380787099667eaad48e411e92",
     ],
 )
 
@@ -11346,6 +11543,7 @@ rpm(
     sha256 = "efe85d43b11c5f60c2d18422740c8d8cc92dff79a5a5d79dbf424019f613d8f0",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/pam-1.6.1-11.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/efe85d43b11c5f60c2d18422740c8d8cc92dff79a5a5d79dbf424019f613d8f0",
     ],
 )
 
@@ -11354,6 +11552,7 @@ rpm(
     sha256 = "9b730de5039b508cea3b478b58f529d138694dbf89dc260ee61a8cc605a5902f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/pam-libs-1.6.1-11.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/9b730de5039b508cea3b478b58f529d138694dbf89dc260ee61a8cc605a5902f",
     ],
 )
 
@@ -11362,6 +11561,7 @@ rpm(
     sha256 = "82b0636b6527f0b2d2254965dd052f46426bc08502c60dc286d2dd6d1da74f0e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/pam-libs-1.6.1-11.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/82b0636b6527f0b2d2254965dd052f46426bc08502c60dc286d2dd6d1da74f0e",
     ],
 )
 
@@ -11370,6 +11570,7 @@ rpm(
     sha256 = "4879d3c55fcc2d3ff3a9f3d73cd840adba191f22e3c33745cc81f5910cc3c51d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/pam-libs-1.6.1-11.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4879d3c55fcc2d3ff3a9f3d73cd840adba191f22e3c33745cc81f5910cc3c51d",
     ],
 )
 
@@ -11441,6 +11642,7 @@ rpm(
     sha256 = "1129e86fdc28f428eed119d74fd9b072989e46689155fec4e4a88a5e2b2937a1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/passt-0%5E20260728.gf8df3f1-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/1129e86fdc28f428eed119d74fd9b072989e46689155fec4e4a88a5e2b2937a1",
     ],
 )
 
@@ -11449,6 +11651,7 @@ rpm(
     sha256 = "7968714b4f561e0ce6b93966d60a166499f1985e76027602525b88a44fe020d0",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/passt-0%5E20260728.gf8df3f1-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7968714b4f561e0ce6b93966d60a166499f1985e76027602525b88a44fe020d0",
     ],
 )
 
@@ -11457,6 +11660,7 @@ rpm(
     sha256 = "a43832527266d5af8b612ddb7d6ee8e63d9e28e58ced37dd88dfb5733feb491a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/passt-0%5E20260728.gf8df3f1-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/a43832527266d5af8b612ddb7d6ee8e63d9e28e58ced37dd88dfb5733feb491a",
     ],
 )
 
@@ -11816,6 +12020,7 @@ rpm(
     sha256 = "fcba2137d59dc834ee206d0589097f9403695bd9326180986c248e4d76fbf2ca",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/policycoreutils-3.11-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/fcba2137d59dc834ee206d0589097f9403695bd9326180986c248e4d76fbf2ca",
     ],
 )
 
@@ -11824,6 +12029,7 @@ rpm(
     sha256 = "2574155fc8559bfbb36ba9f9d45a1086b7e17ebc108eb421d61794841f5d7f8e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/policycoreutils-3.11-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/2574155fc8559bfbb36ba9f9d45a1086b7e17ebc108eb421d61794841f5d7f8e",
     ],
 )
 
@@ -11832,6 +12038,7 @@ rpm(
     sha256 = "8ac2a357f19531ecfd47a2e98f03aec8a8354011e388539133538418f4010b8a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/policycoreutils-3.11-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/8ac2a357f19531ecfd47a2e98f03aec8a8354011e388539133538418f4010b8a",
     ],
 )
 
@@ -12251,6 +12458,7 @@ rpm(
     sha256 = "3ea49ca259b2d06851c7133db0dec68b0affa5012cd02b002e6745dced324a1e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/python3-3.12.13-3.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3ea49ca259b2d06851c7133db0dec68b0affa5012cd02b002e6745dced324a1e",
     ],
 )
 
@@ -12259,6 +12467,7 @@ rpm(
     sha256 = "145e4a63a76862cece3e587763516214bb1da55e9a76fa0be283fac08871b427",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/python3-3.12.13-3.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/145e4a63a76862cece3e587763516214bb1da55e9a76fa0be283fac08871b427",
     ],
 )
 
@@ -12267,6 +12476,7 @@ rpm(
     sha256 = "1870fa35c5fd797d2c9049290ca8b948f18bd308c64d4f850b71b39205a27136",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/python3-3.12.13-3.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1870fa35c5fd797d2c9049290ca8b948f18bd308c64d4f850b71b39205a27136",
     ],
 )
 
@@ -12572,6 +12782,7 @@ rpm(
     sha256 = "35e109f5b2b4e784cfec5b013d9899ba524c946c89ca4d5b6e9444564db12f26",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/python3-libs-3.12.13-3.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/35e109f5b2b4e784cfec5b013d9899ba524c946c89ca4d5b6e9444564db12f26",
     ],
 )
 
@@ -12580,6 +12791,7 @@ rpm(
     sha256 = "975d4d06477cab7c0ee1bb6cee48da9c17dd96c73cb4cccf33f3ef6fa21ae649",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/python3-libs-3.12.13-3.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/975d4d06477cab7c0ee1bb6cee48da9c17dd96c73cb4cccf33f3ef6fa21ae649",
     ],
 )
 
@@ -12588,6 +12800,7 @@ rpm(
     sha256 = "1b387e19fea7974c305e514f7cf56e5fdda47dc0f8c7947b35cec4cc6845761e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/python3-libs-3.12.13-3.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1b387e19fea7974c305e514f7cf56e5fdda47dc0f8c7947b35cec4cc6845761e",
     ],
 )
 
@@ -13001,6 +13214,7 @@ rpm(
     sha256 = "6684ea67efeb23cfcb12f57c1c6c92287b7d5e36b0b94e066f66e25e2762de51",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/python3-wcwidth-0.2.13-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/6684ea67efeb23cfcb12f57c1c6c92287b7d5e36b0b94e066f66e25e2762de51",
     ],
 )
 
@@ -13009,6 +13223,7 @@ rpm(
     sha256 = "6684ea67efeb23cfcb12f57c1c6c92287b7d5e36b0b94e066f66e25e2762de51",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/python3-wcwidth-0.2.13-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/6684ea67efeb23cfcb12f57c1c6c92287b7d5e36b0b94e066f66e25e2762de51",
     ],
 )
 
@@ -13017,6 +13232,7 @@ rpm(
     sha256 = "6684ea67efeb23cfcb12f57c1c6c92287b7d5e36b0b94e066f66e25e2762de51",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/python3-wcwidth-0.2.13-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/6684ea67efeb23cfcb12f57c1c6c92287b7d5e36b0b94e066f66e25e2762de51",
     ],
 )
 
@@ -13058,6 +13274,7 @@ rpm(
     sha256 = "703491e57b5615ba18ffed662e2c36403df1a7fa1b37c951a6d940232ac4246d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-img-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/703491e57b5615ba18ffed662e2c36403df1a7fa1b37c951a6d940232ac4246d",
     ],
 )
 
@@ -13066,6 +13283,7 @@ rpm(
     sha256 = "9f49e4c76752dafd9cf6c59c81c29f464747e021d428addecaea4913a909ff9c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/qemu-img-10.1.0-25.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/9f49e4c76752dafd9cf6c59c81c29f464747e021d428addecaea4913a909ff9c",
     ],
 )
 
@@ -13074,6 +13292,7 @@ rpm(
     sha256 = "2a19355fbbdbc57d23e5db75ab925036c23226dd6e8913a3c123447e3cb68c6d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-img-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2a19355fbbdbc57d23e5db75ab925036c23226dd6e8913a3c123447e3cb68c6d",
     ],
 )
 
@@ -13115,6 +13334,7 @@ rpm(
     sha256 = "34c9ddc22d60cbd2e796622452c53639a9ad101da6b5fc110e60c97edf80e25e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-kvm-common-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/34c9ddc22d60cbd2e796622452c53639a9ad101da6b5fc110e60c97edf80e25e",
     ],
 )
 
@@ -13123,6 +13343,7 @@ rpm(
     sha256 = "3fd09ca7e7f52b6f717c25b92284c554d7dbff69b8a19c2b12a90884b3931735",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/qemu-kvm-common-10.1.0-25.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/3fd09ca7e7f52b6f717c25b92284c554d7dbff69b8a19c2b12a90884b3931735",
     ],
 )
 
@@ -13131,6 +13352,7 @@ rpm(
     sha256 = "67140e8c5459eb096ab602f7765054a5efb5afdfc6ce6ea551e30b93557bda16",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-common-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/67140e8c5459eb096ab602f7765054a5efb5afdfc6ce6ea551e30b93557bda16",
     ],
 )
 
@@ -13172,6 +13394,7 @@ rpm(
     sha256 = "061794576b13b245ba2ae206c993aedde2b061307f2cba80e1a7a08f416b0487",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-kvm-core-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/061794576b13b245ba2ae206c993aedde2b061307f2cba80e1a7a08f416b0487",
     ],
 )
 
@@ -13180,6 +13403,7 @@ rpm(
     sha256 = "36772bc8fba43fb0a37196aa1940b9f75d1b6ae9b42cad620fdac0a9497b2618",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/qemu-kvm-core-10.1.0-25.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/36772bc8fba43fb0a37196aa1940b9f75d1b6ae9b42cad620fdac0a9497b2618",
     ],
 )
 
@@ -13188,6 +13412,7 @@ rpm(
     sha256 = "499ffc111321b0b1313cdae1100bf742de86c3285f2dce22ca32af74f0788d54",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-core-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/499ffc111321b0b1313cdae1100bf742de86c3285f2dce22ca32af74f0788d54",
     ],
 )
 
@@ -13223,6 +13448,7 @@ rpm(
     sha256 = "af0de63b04bcc89f5ebbe1a9b60b2b18dd9e816401b645610866fd38f8a713fd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/af0de63b04bcc89f5ebbe1a9b60b2b18dd9e816401b645610866fd38f8a713fd",
     ],
 )
 
@@ -13231,6 +13457,7 @@ rpm(
     sha256 = "fb6b593c8f2df0625515726c9d48f025086302b5db848d01593fd717aac4f882",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-10.1.0-25.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/fb6b593c8f2df0625515726c9d48f025086302b5db848d01593fd717aac4f882",
     ],
 )
 
@@ -13239,6 +13466,7 @@ rpm(
     sha256 = "f2035a014a7aa4700d5c4554e2045f9b18116214a2f679dfd27f622a23bbeee5",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f2035a014a7aa4700d5c4554e2045f9b18116214a2f679dfd27f622a23bbeee5",
     ],
 )
 
@@ -13256,6 +13484,7 @@ rpm(
     sha256 = "e94fabfd5c2a0cb9bdf88d0d38bc02be94f35d04da344c7a12f4bd235c913835",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-ccw-10.1.0-25.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/e94fabfd5c2a0cb9bdf88d0d38bc02be94f35d04da344c7a12f4bd235c913835",
     ],
 )
 
@@ -13282,6 +13511,7 @@ rpm(
     sha256 = "19eb935c42fd322782802bdaaf1592f58e9ce80f530ad5054fdec9f92884d859",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/19eb935c42fd322782802bdaaf1592f58e9ce80f530ad5054fdec9f92884d859",
     ],
 )
 
@@ -13290,6 +13520,7 @@ rpm(
     sha256 = "b3e43ebd7423baf1ae240520b9629d7ef0361fc57ee1619e45dfcab1ef6f80aa",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b3e43ebd7423baf1ae240520b9629d7ef0361fc57ee1619e45dfcab1ef6f80aa",
     ],
 )
 
@@ -13307,6 +13538,7 @@ rpm(
     sha256 = "febfb6261ff1525097f3de27f676de40514b6e664e6cbd9439c373e27be71fe9",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-vga-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/febfb6261ff1525097f3de27f676de40514b6e664e6cbd9439c373e27be71fe9",
     ],
 )
 
@@ -13342,6 +13574,7 @@ rpm(
     sha256 = "19466b9c0382ad28b8867e1bb3b270776d8058afd12ebe8c0cd8fc3100424547",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-host-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/19466b9c0382ad28b8867e1bb3b270776d8058afd12ebe8c0cd8fc3100424547",
     ],
 )
 
@@ -13350,6 +13583,7 @@ rpm(
     sha256 = "7d1a0f3cda86fe01fa00ea94f845f87a96e4be25f00b8bd0f2098e73e8f63360",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/qemu-kvm-device-usb-host-10.1.0-25.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7d1a0f3cda86fe01fa00ea94f845f87a96e4be25f00b8bd0f2098e73e8f63360",
     ],
 )
 
@@ -13358,6 +13592,7 @@ rpm(
     sha256 = "e71bb82722a959a1152bb543d7f1e496db34874621fa3b62080a0363fec6d0a2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-host-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e71bb82722a959a1152bb543d7f1e496db34874621fa3b62080a0363fec6d0a2",
     ],
 )
 
@@ -13384,6 +13619,7 @@ rpm(
     sha256 = "d8a42ffbc1eadbb60abb6d4768f64195b8edca69cafb9b233d14b9c78f96efb4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-redirect-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/d8a42ffbc1eadbb60abb6d4768f64195b8edca69cafb9b233d14b9c78f96efb4",
     ],
 )
 
@@ -13392,6 +13628,7 @@ rpm(
     sha256 = "668116d16982a9f7d5e24f76bc66e5ca4da43614ddd06f286c45ca229c8bd6c7",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-redirect-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/668116d16982a9f7d5e24f76bc66e5ca4da43614ddd06f286c45ca229c8bd6c7",
     ],
 )
 
@@ -13418,6 +13655,7 @@ rpm(
     sha256 = "3e67914b5c7e64ccaca408e40d405fafd7e41faf54339103368db31969db7b40",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/qemu-pr-helper-10.1.0-25.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3e67914b5c7e64ccaca408e40d405fafd7e41faf54339103368db31969db7b40",
     ],
 )
 
@@ -13426,6 +13664,7 @@ rpm(
     sha256 = "1e5d9d3c7788db6be88f53da842aa9e206ff3ae01545c823fb1f56bf8f256d80",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/qemu-pr-helper-10.1.0-25.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1e5d9d3c7788db6be88f53da842aa9e206ff3ae01545c823fb1f56bf8f256d80",
     ],
 )
 
@@ -13632,6 +13871,7 @@ rpm(
     sha256 = "3841184d110ecb10d75de78a6160ee7a76c291e4f83b0bade9a03ed2a834d8ad",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/rpm-sequoia-1.10.2.3-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/3841184d110ecb10d75de78a6160ee7a76c291e4f83b0bade9a03ed2a834d8ad",
     ],
 )
 
@@ -13640,6 +13880,7 @@ rpm(
     sha256 = "ef2dec97518fe350c16a8250d9946ce77d68606f8045f662b6e3c8148e0bce58",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/rpm-sequoia-1.10.2.3-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ef2dec97518fe350c16a8250d9946ce77d68606f8045f662b6e3c8148e0bce58",
     ],
 )
 
@@ -13834,6 +14075,7 @@ rpm(
     sha256 = "62553a614c3d85ba8b37cf80e1f7afd523574eb82c65c2324798a7145506f99a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/selinux-policy-42.1.26-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/62553a614c3d85ba8b37cf80e1f7afd523574eb82c65c2324798a7145506f99a",
     ],
 )
 
@@ -13842,6 +14084,7 @@ rpm(
     sha256 = "62553a614c3d85ba8b37cf80e1f7afd523574eb82c65c2324798a7145506f99a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/selinux-policy-42.1.26-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/62553a614c3d85ba8b37cf80e1f7afd523574eb82c65c2324798a7145506f99a",
     ],
 )
 
@@ -13850,6 +14093,7 @@ rpm(
     sha256 = "62553a614c3d85ba8b37cf80e1f7afd523574eb82c65c2324798a7145506f99a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/selinux-policy-42.1.26-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/62553a614c3d85ba8b37cf80e1f7afd523574eb82c65c2324798a7145506f99a",
     ],
 )
 
@@ -13891,6 +14135,7 @@ rpm(
     sha256 = "56cde793172af5e03ab59125e3ae2691d12e536fb588260aae31d0f5df3407db",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/selinux-policy-targeted-42.1.26-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/56cde793172af5e03ab59125e3ae2691d12e536fb588260aae31d0f5df3407db",
     ],
 )
 
@@ -13899,6 +14144,7 @@ rpm(
     sha256 = "56cde793172af5e03ab59125e3ae2691d12e536fb588260aae31d0f5df3407db",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/selinux-policy-targeted-42.1.26-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/56cde793172af5e03ab59125e3ae2691d12e536fb588260aae31d0f5df3407db",
     ],
 )
 
@@ -13907,6 +14153,7 @@ rpm(
     sha256 = "56cde793172af5e03ab59125e3ae2691d12e536fb588260aae31d0f5df3407db",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/selinux-policy-targeted-42.1.26-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/56cde793172af5e03ab59125e3ae2691d12e536fb588260aae31d0f5df3407db",
     ],
 )
 
@@ -14005,6 +14252,7 @@ rpm(
     sha256 = "a55f9afb87de4255e90deba2e45dfdd0d384ea23095ec667b7f6bc25faf4b6a4",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/shadow-utils-4.15.0-13.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a55f9afb87de4255e90deba2e45dfdd0d384ea23095ec667b7f6bc25faf4b6a4",
     ],
 )
 
@@ -14013,6 +14261,7 @@ rpm(
     sha256 = "405cb51e9e6312ecb997e0f63a24ac5109e4ddcd559c78a8e906fdd37c9fb51b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/shadow-utils-4.15.0-13.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/405cb51e9e6312ecb997e0f63a24ac5109e4ddcd559c78a8e906fdd37c9fb51b",
     ],
 )
 
@@ -14021,6 +14270,7 @@ rpm(
     sha256 = "f2827e8ef5b980b81720b85300a6a1162e09fe29f26f4d596e5bc060a22149b1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/shadow-utils-4.15.0-13.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f2827e8ef5b980b81720b85300a6a1162e09fe29f26f4d596e5bc060a22149b1",
     ],
 )
 
@@ -14182,6 +14432,7 @@ rpm(
     sha256 = "18ab82b2d5a081ec82bdd9b76f6f6e7088a8c37083ecc1a2de532f7347b2248a",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/sssd-client-2.13.1-2.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/18ab82b2d5a081ec82bdd9b76f6f6e7088a8c37083ecc1a2de532f7347b2248a",
     ],
 )
 
@@ -14190,6 +14441,7 @@ rpm(
     sha256 = "67444203b82eaf34edacf6829c40ff2be131ab0c92e5ab61a66ef9f80b443980",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/sssd-client-2.13.1-2.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/67444203b82eaf34edacf6829c40ff2be131ab0c92e5ab61a66ef9f80b443980",
     ],
 )
 
@@ -14198,6 +14450,7 @@ rpm(
     sha256 = "012e3563d7d0ac5ee83352fb564da4b0d044648202dfb98b8a43552b2a215a02",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/sssd-client-2.13.1-2.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/012e3563d7d0ac5ee83352fb564da4b0d044648202dfb98b8a43552b2a215a02",
     ],
 )
 
@@ -14260,6 +14513,7 @@ rpm(
     sha256 = "3ca7ceeb6f732819ba804f1652d417bd760c837286adb74374f3e0a542b6efa8",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/swtpm-0.9.0-6.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3ca7ceeb6f732819ba804f1652d417bd760c837286adb74374f3e0a542b6efa8",
     ],
 )
 
@@ -14268,6 +14522,7 @@ rpm(
     sha256 = "d5594f8b2a627edfada36c4adf267c25a2fb6f6b2dcbd10ce5aa2c86d3bcff99",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/swtpm-0.9.0-6.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/d5594f8b2a627edfada36c4adf267c25a2fb6f6b2dcbd10ce5aa2c86d3bcff99",
     ],
 )
 
@@ -14276,6 +14531,7 @@ rpm(
     sha256 = "8f83fe274d7c277a79d4533261e20e656a24174b0c615631af2db1e263d919e7",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/swtpm-0.9.0-6.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/8f83fe274d7c277a79d4533261e20e656a24174b0c615631af2db1e263d919e7",
     ],
 )
 
@@ -14311,6 +14567,7 @@ rpm(
     sha256 = "7a2e2e2bc91e9246d190ad792326eab347e27dd194f3ce994964fe809ae15882",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/swtpm-libs-0.9.0-6.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/7a2e2e2bc91e9246d190ad792326eab347e27dd194f3ce994964fe809ae15882",
     ],
 )
 
@@ -14319,6 +14576,7 @@ rpm(
     sha256 = "7034bd97e7bac86004d1763c7abd5ee0ab69d0080a170704c2e7e010e24839f2",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/swtpm-libs-0.9.0-6.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/7034bd97e7bac86004d1763c7abd5ee0ab69d0080a170704c2e7e010e24839f2",
     ],
 )
 
@@ -14327,6 +14585,7 @@ rpm(
     sha256 = "13613c79433115db7f838f0a1cff204f3d8d91ce99ad7b368aae37ecbf13e08f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/swtpm-libs-0.9.0-6.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/13613c79433115db7f838f0a1cff204f3d8d91ce99ad7b368aae37ecbf13e08f",
     ],
 )
 
@@ -14362,6 +14621,7 @@ rpm(
     sha256 = "0ce8f707710d2e2a13c3c781c77d75cc0cef3a11d01e60441d416c214a94dc6b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/swtpm-tools-0.9.0-6.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/0ce8f707710d2e2a13c3c781c77d75cc0cef3a11d01e60441d416c214a94dc6b",
     ],
 )
 
@@ -14370,6 +14630,7 @@ rpm(
     sha256 = "b0205a6dfb12d738830a51ef54bb465618d7935a78fa7d96614eeddba623601f",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/s390x/os/Packages/swtpm-tools-0.9.0-6.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/b0205a6dfb12d738830a51ef54bb465618d7935a78fa7d96614eeddba623601f",
     ],
 )
 
@@ -14378,6 +14639,7 @@ rpm(
     sha256 = "54d796f24241c346042d0f7ad5deb04133f337d0a255b3d6cbcd72557daebf44",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/swtpm-tools-0.9.0-6.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/54d796f24241c346042d0f7ad5deb04133f337d0a255b3d6cbcd72557daebf44",
     ],
 )
 
@@ -14419,6 +14681,7 @@ rpm(
     sha256 = "e5c71c2da8ce99723f041951a8d1e079462c7af06a0e19bf9029a45046c568d1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/systemd-257-32.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/e5c71c2da8ce99723f041951a8d1e079462c7af06a0e19bf9029a45046c568d1",
     ],
 )
 
@@ -14427,6 +14690,7 @@ rpm(
     sha256 = "4a504d57720c3ca359917c12805135db7e2b21ccbb8347b5705d7e8afcf3e6a0",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/systemd-257-32.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/4a504d57720c3ca359917c12805135db7e2b21ccbb8347b5705d7e8afcf3e6a0",
     ],
 )
 
@@ -14435,6 +14699,7 @@ rpm(
     sha256 = "ed19d88764748b7b3c51108064eda5903cd8feac9f555245c796de6f6cbdcfbd",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/systemd-257-32.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ed19d88764748b7b3c51108064eda5903cd8feac9f555245c796de6f6cbdcfbd",
     ],
 )
 
@@ -14476,6 +14741,7 @@ rpm(
     sha256 = "6ada6410689ed38132c908ea20192a51a1a7a7838145f70fb8c9bb6a7d8459b5",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/systemd-container-257-32.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6ada6410689ed38132c908ea20192a51a1a7a7838145f70fb8c9bb6a7d8459b5",
     ],
 )
 
@@ -14484,6 +14750,7 @@ rpm(
     sha256 = "6bee2cfea829d2c80462d5793ea43bdb7855b32a8d019e40a90cbdb622372d48",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/systemd-container-257-32.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/6bee2cfea829d2c80462d5793ea43bdb7855b32a8d019e40a90cbdb622372d48",
     ],
 )
 
@@ -14492,6 +14759,7 @@ rpm(
     sha256 = "93c7a44fe37a9fe21da9b5ef9f07898de35123c45f26fb9fa0674e0ba31317a1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/systemd-container-257-32.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/93c7a44fe37a9fe21da9b5ef9f07898de35123c45f26fb9fa0674e0ba31317a1",
     ],
 )
 
@@ -14533,6 +14801,7 @@ rpm(
     sha256 = "4ab2e48ec9cb2f28ba90a67e35d71ce2eb0128302a94359cd54e94f5b85a53d3",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/systemd-libs-257-32.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/4ab2e48ec9cb2f28ba90a67e35d71ce2eb0128302a94359cd54e94f5b85a53d3",
     ],
 )
 
@@ -14541,6 +14810,7 @@ rpm(
     sha256 = "11626d34914df592c4f8b2f7e2549c30348bdc93bcd78b519697342d5e550311",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/systemd-libs-257-32.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/11626d34914df592c4f8b2f7e2549c30348bdc93bcd78b519697342d5e550311",
     ],
 )
 
@@ -14549,6 +14819,7 @@ rpm(
     sha256 = "0686ae7c294e3f1a3af058c529e9dd6c9c0de4463f31e08a6981ed218075b93e",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/systemd-libs-257-32.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/0686ae7c294e3f1a3af058c529e9dd6c9c0de4463f31e08a6981ed218075b93e",
     ],
 )
 
@@ -14590,6 +14861,7 @@ rpm(
     sha256 = "5a404bc91bc9a7fa61d1afa8cdcc2fb906851073b4bfdc6f35329f2eac853d9b",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/systemd-pam-257-32.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/5a404bc91bc9a7fa61d1afa8cdcc2fb906851073b4bfdc6f35329f2eac853d9b",
     ],
 )
 
@@ -14598,6 +14870,7 @@ rpm(
     sha256 = "2a463d92134bf5fed886d1c162bef14e970639e705245fcdf43d05530086f5c6",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/systemd-pam-257-32.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/2a463d92134bf5fed886d1c162bef14e970639e705245fcdf43d05530086f5c6",
     ],
 )
 
@@ -14606,6 +14879,7 @@ rpm(
     sha256 = "b84cd14566bc23e396bafdbba52821ad8b301ffc3c71315ac4f93c4548ce6f80",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/systemd-pam-257-32.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b84cd14566bc23e396bafdbba52821ad8b301ffc3c71315ac4f93c4548ce6f80",
     ],
 )
 
@@ -14878,6 +15152,7 @@ rpm(
     sha256 = "1adf28729e5405f33ef173a38974eb82a915cd58ae3ea61659829040990d2b96",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/tzdata-2026c-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/1adf28729e5405f33ef173a38974eb82a915cd58ae3ea61659829040990d2b96",
     ],
 )
 
@@ -14886,6 +15161,7 @@ rpm(
     sha256 = "1adf28729e5405f33ef173a38974eb82a915cd58ae3ea61659829040990d2b96",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/tzdata-2026c-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/1adf28729e5405f33ef173a38974eb82a915cd58ae3ea61659829040990d2b96",
     ],
 )
 
@@ -14894,6 +15170,7 @@ rpm(
     sha256 = "1adf28729e5405f33ef173a38974eb82a915cd58ae3ea61659829040990d2b96",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/tzdata-2026c-1.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/1adf28729e5405f33ef173a38974eb82a915cd58ae3ea61659829040990d2b96",
     ],
 )
 
@@ -14902,6 +15179,7 @@ rpm(
     sha256 = "02fc6dd32654aba7928b3de3b1f4a287f20e70c480df14fddb77e8ef623143b9",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/unbound-libs-1.26.0-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/02fc6dd32654aba7928b3de3b1f4a287f20e70c480df14fddb77e8ef623143b9",
     ],
 )
 
@@ -14910,6 +15188,7 @@ rpm(
     sha256 = "db191fab4646db3b6e2030aee21c837e9f508a67d776595c8b25aaab8b9daaec",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/unbound-libs-1.26.0-1.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/db191fab4646db3b6e2030aee21c837e9f508a67d776595c8b25aaab8b9daaec",
     ],
 )
 
@@ -14918,6 +15197,7 @@ rpm(
     sha256 = "eb0f24ecc604a70e771142721d96776f7c82cd07ddda7b92bc30a6e921ef5c2c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/unbound-libs-1.26.0-1.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/eb0f24ecc604a70e771142721d96776f7c82cd07ddda7b92bc30a6e921ef5c2c",
     ],
 )
 
@@ -15151,6 +15431,7 @@ rpm(
     sha256 = "c796694ce49995da990376423615f0bf706105796bab8db8f7503f826735e97d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/vim-data-9.1.083-22.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/c796694ce49995da990376423615f0bf706105796bab8db8f7503f826735e97d",
     ],
 )
 
@@ -15159,6 +15440,7 @@ rpm(
     sha256 = "c796694ce49995da990376423615f0bf706105796bab8db8f7503f826735e97d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/vim-data-9.1.083-22.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/c796694ce49995da990376423615f0bf706105796bab8db8f7503f826735e97d",
     ],
 )
 
@@ -15167,6 +15449,7 @@ rpm(
     sha256 = "c796694ce49995da990376423615f0bf706105796bab8db8f7503f826735e97d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/vim-data-9.1.083-22.el10.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/c796694ce49995da990376423615f0bf706105796bab8db8f7503f826735e97d",
     ],
 )
 
@@ -15208,6 +15491,7 @@ rpm(
     sha256 = "3a751c83b0c62ed44268b6c8e8bc1f2a2bfb92793ad1d85636efd00d77b98be1",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/vim-minimal-9.1.083-22.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3a751c83b0c62ed44268b6c8e8bc1f2a2bfb92793ad1d85636efd00d77b98be1",
     ],
 )
 
@@ -15216,6 +15500,7 @@ rpm(
     sha256 = "1d737b6af6c3bd4d174db20d3cb3cc3c7864b806c192927d2c6bb36b144beb8c",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/vim-minimal-9.1.083-22.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/1d737b6af6c3bd4d174db20d3cb3cc3c7864b806c192927d2c6bb36b144beb8c",
     ],
 )
 
@@ -15224,6 +15509,7 @@ rpm(
     sha256 = "bf500ca3e499984ec296a66b6b42337349f2e7b644aa7d7db350da777a309adb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/vim-minimal-9.1.083-22.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/bf500ca3e499984ec296a66b6b42337349f2e7b644aa7d7db350da777a309adb",
     ],
 )
 
