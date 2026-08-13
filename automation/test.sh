@@ -28,6 +28,8 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+readonly NETWORK_SMOKE_LABELS="conformance"
+
 source hack/config-default.sh
 
 # Skip if it's docs changes only
@@ -555,7 +557,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     # Run only Windows tests
     label_filter='(Windows)'
   elif [[ $TARGET =~ sig-network-smoke ]]; then
-    label_filter='(sig-network && conformance)'
+    label_filter="(sig-network && (${NETWORK_SMOKE_LABELS}))"
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
     # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
@@ -564,6 +566,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
       add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
     else
       add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
+    fi
+    if [[ $SKIP_SMOKE == "true" ]]; then
+      add_to_label_filter "(!(${NETWORK_SMOKE_LABELS}))" "&&"
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='(sig-storage)'
