@@ -46,8 +46,7 @@ var _ = Describe("Domain Watcher", func() {
 			err := ghostRecordStore.Add("test-ns", "test-domain", socketPath, podUID)
 			Expect(err).ToNot(HaveOccurred())
 
-			socketFiles, err := listSockets(ghostRecordStore.list())
-			Expect(err).ToNot(HaveOccurred())
+			socketFiles := listSockets(ghostRecordStore.list())
 			Expect(socketFiles).To(HaveLen(1))
 			Expect(socketFiles[0]).To(Equal(socketPath))
 

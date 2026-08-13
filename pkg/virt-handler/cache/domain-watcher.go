@@ -152,11 +152,7 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 }
 
 func (d *domainWatcher) handleResync(ctx context.Context) {
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		log.Log.Reason(err).Error("failed to list sockets")
-		return
-	}
+	socketFiles := listSockets(GhostRecordGlobalStore.list())
 
 	log.Log.Infof("resyncing virt-launcher domains")
 	for _, socket := range socketFiles {
@@ -190,11 +186,7 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeout int) error {
 	var unresponsive []string
 
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		log.Log.Reason(err).Error("failed to list sockets")
-		return err
-	}
+	socketFiles := listSockets(GhostRecordGlobalStore.list())
 
 	for _, socket := range socketFiles {
 		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
@@ -266,10 +258,7 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 func listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		return nil, err
-	}
+	socketFiles := listSockets(GhostRecordGlobalStore.list())
 	for _, socketFile := range socketFiles {
 
 		exists, err := diskutils.FileExists(socketFile)
@@ -336,12 +325,12 @@ func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.result
 }
 
-func listSockets(ghostRecords []ghostRecord) ([]string, error) {
+func listSockets(ghostRecords []ghostRecord) []string {
 	var sockets []string
 
 	for _, record := range ghostRecords {
 		sockets = append(sockets, record.SocketFile)
 	}
 
-	return sockets, nil
+	return sockets
 }
