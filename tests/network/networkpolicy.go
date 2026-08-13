@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"time"
 
@@ -278,9 +279,19 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 	})
 }))
 
+func filterOutLinkLocalAddresses(ips []string) []string {
+	return slices.DeleteFunc(slices.Clone(ips), func(ip string) bool {
+		addr := net.ParseIP(ip)
+		return addr != nil && addr.IsLinkLocalUnicast()
+	})
+}
+
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ipAddressesToPing := filterOutLinkLocalAddresses(toVmi.Status.Interfaces[0].IPs)
+	Expect(ipAddressesToPing).NotTo(BeEmpty(), "no IPs left to ping after filtering link-local addresses")
+
 	ConsistentlyWithOffset(1, func() error {
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ipAddressesToPing {
 			if err := libnet.PingFromVMConsole(fromVmi, toIp); err != nil {
 				return err
 			}
@@ -290,9 +301,12 @@ func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 }
 
 func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ipAddressesToPing := filterOutLinkLocalAddresses(toVmi.Status.Interfaces[0].IPs)
+	Expect(ipAddressesToPing).NotTo(BeEmpty(), "no IPs left to ping after filtering link-local addresses")
+
 	EventuallyWithOffset(1, func() error {
 		var err error
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ipAddressesToPing {
 			if err = libnet.PingFromVMConsole(fromVmi, toIp); err == nil {
 				return nil
 			}
@@ -302,7 +316,7 @@ func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
 
 	ConsistentlyWithOffset(1, func() error {
 		var err error
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ipAddressesToPing {
 			if err = libnet.PingFromVMConsole(fromVmi, toIp); err == nil {
 				return nil
 			}
