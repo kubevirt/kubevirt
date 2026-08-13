@@ -33,7 +33,6 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -253,59 +252,6 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 	}
 
 	return nil
-}
-
-func listAllKnownDomains() ([]*api.Domain, error) {
-	var domains []*api.Domain
-
-	ghostRecords := (GhostRecordGlobalStore.list())
-	for _, record := range ghostRecords {
-		socketFile := record.SocketFile
-
-		exists, err := diskutils.FileExists(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed access cmd client socket")
-			continue
-		}
-
-		if !exists {
-			domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-			domain.ObjectMeta.UID = record.UID
-			now := metav1.Now()
-			domain.ObjectMeta.DeletionTimestamp = &now
-			log.Log.Object(domain).Warning("detected stale domain from ghost record")
-			domains = append(domains, domain)
-			continue
-		}
-
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
-			domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-			domain.ObjectMeta.UID = record.UID
-			domain.Spec.Metadata.KubeVirt.UID = record.UID
-			domain.Status.Status = api.Unknown
-			domains = append(domains, domain)
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
-			domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-			domain.ObjectMeta.UID = record.UID
-			domain.Spec.Metadata.KubeVirt.UID = record.UID
-			domain.Status.Status = api.Unknown
-			domains = append(domains, domain)
-			continue
-		}
-		if exists {
-			domains = append(domains, domain)
-		}
-	}
-	return domains, nil
 }
 
 func (d *domainWatcher) Stop() {
