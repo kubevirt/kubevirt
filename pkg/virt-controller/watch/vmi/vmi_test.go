@@ -3247,12 +3247,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 				},
 			})
-			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "token",
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{},
-				},
-			})
 			for _, index := range indexes {
 				pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 					Name: fmt.Sprintf("volume%d", index),
@@ -5580,18 +5574,12 @@ func newPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 			Phase: phase,
 		},
 		Spec: k8sv1.PodSpec{
-			// +2 for empty dir and token
+			// + empty dir
 			Volumes: []k8sv1.Volume{
 				{
 					Name: "hotplug-disks",
 					VolumeSource: k8sv1.VolumeSource{
 						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: "default-token",
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{},
 					},
 				},
 			},
