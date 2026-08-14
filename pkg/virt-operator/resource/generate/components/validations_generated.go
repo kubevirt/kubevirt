@@ -1472,6 +1472,17 @@ var CRDsValidation map[string]string = map[string]string{
             minCPUModel:
               description: deprecated
               type: string
+            multiIOThreadAutoPolicy:
+              description: MultiIOThreadAutoPolicy controls the behavior for auto
+                IOThread Policy for virtio-blk devices.
+              nullable: true
+              properties:
+                enabled:
+                  description: Enables the auto IOThread Policy to use multiple iothreads
+                    for virtio-blk devices.
+                  nullable: true
+                  type: boolean
+              type: object
             network:
               description: NetworkConfiguration holds network options
               properties:

@@ -483,6 +483,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.MemoryStatus":                                                            schema_kubevirtio_api_core_v1_MemoryStatus(ref),
 		"kubevirt.io/api/core/v1.MigrateOptions":                                                          schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		"kubevirt.io/api/core/v1.MigrationConfiguration":                                                  schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
+		"kubevirt.io/api/core/v1.MultiIOThreadAutoPolicy":                                                 schema_kubevirtio_api_core_v1_MultiIOThreadAutoPolicy(ref),
 		"kubevirt.io/api/core/v1.MultusNetwork":                                                           schema_kubevirtio_api_core_v1_MultusNetwork(ref),
 		"kubevirt.io/api/core/v1.NUMA":                                                                    schema_kubevirtio_api_core_v1_NUMA(ref),
 		"kubevirt.io/api/core/v1.NUMAGuestMappingPassthrough":                                             schema_kubevirtio_api_core_v1_NUMAGuestMappingPassthrough(ref),
@@ -23032,6 +23033,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.VirtTemplateDeployment"),
 						},
 					},
+					"multiIOThreadAutoPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MultiIOThreadAutoPolicy controls the behavior for auto IOThread Policy for virtio-blk devices.",
+							Ref:         ref("kubevirt.io/api/core/v1.MultiIOThreadAutoPolicy"),
+						},
+					},
 					"instancetype": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Instancetype configuration",
@@ -23086,7 +23093,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.ConfidentialComputeConfiguration", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.HypervisorConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.PersistentReservationConfiguration", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtTemplateDeployment", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.ConfidentialComputeConfiguration", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.HypervisorConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.MultiIOThreadAutoPolicy", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.PersistentReservationConfiguration", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtTemplateDeployment", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 
@@ -24111,6 +24118,25 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_MultiIOThreadAutoPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enables the auto IOThread Policy to use multiple iothreads for virtio-blk devices.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
