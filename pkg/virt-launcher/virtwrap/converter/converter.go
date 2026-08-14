@@ -214,6 +214,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	hasIOThreads := iothreads.HasIOThreads(vmi)
 	var ioThreadCount, autoThreads, scsiControllerThreads int
 	if hasIOThreads {
+		// ioThreadCount here accounts for total of autoThreads + dedicatedIOThreads
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 		if c.SCSIMultiIOThreadEnabled {
 			// if autoThreads is 0, then supplementalPool is being used
@@ -221,6 +222,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				scsiControllerThreads = ioThreadCount
 			} else {
 				scsiControllerThreads = autoThreads
+				if c.MultiIOThreadAutoPolicyEnabled {
+					// if config is set, cap auto thread pool size for both domain spec and scsi controller
+					ioThreadCount = min(ioThreadCount, iothreads.AutoThreadPoolMax)
+					scsiControllerThreads = min(autoThreads, iothreads.AutoThreadPoolMax)
+				}
 			}
 		}
 	}
@@ -286,6 +292,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			storage.DiskWithApplyCBT(c.ApplyCBT),
 			storage.DiskWithDisksInfo(c.DisksInfo),
 			storage.DiskWithEphemeralDiskCreator(c.EphemeraldiskCreator),
+			storage.DiskWithScsiMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
+			storage.DiskWithMultiIOThreadAutoPolicyEnabled(c.MultiIOThreadAutoPolicyEnabled),
 		),
 		compute.UsbRedirectDeviceDomainConfigurator{},
 		compute.NewControllersDomainConfigurator(

@@ -109,6 +109,7 @@ message ClusterConfig{
   bool VGPULiveMigrationEnabled = 6;
   bool GraceIOVirtualizationEnabled = 7;
   bool SCSIMultiIOThreadEnabled = 8;
+  bool MultiIOThreadAutoPolicy = 9;
 }
 
 message InterfaceBindingMigration{

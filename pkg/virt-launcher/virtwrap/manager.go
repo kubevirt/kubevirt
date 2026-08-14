@@ -1375,6 +1375,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.GraceIOVirtualizationEnabled = options.GetClusterConfig().GetGraceIOVirtualizationEnabled()
 			vGPULiveMigrationEnabled = options.GetClusterConfig().GetVGPULiveMigrationEnabled()
 			c.SCSIMultiIOThreadEnabled = options.GetClusterConfig().GetSCSIMultiIOThreadEnabled()
+			c.MultiIOThreadAutoPolicyEnabled = options.GetClusterConfig().GetMultiIOThreadAutoPolicy()
 		}
 
 		c.GraceHostDeviceAliases = options.GetGraceHostDeviceAliases()
