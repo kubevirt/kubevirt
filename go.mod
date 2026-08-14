@@ -72,7 +72,7 @@ require (
 	k8s.io/apimachinery v0.36.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.28.2
-	k8s.io/kube-openapi v0.31.0
+	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
 	k8s.io/streaming v0.36.4
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
@@ -204,7 +204,6 @@ replace (
 	k8s.io/klog => k8s.io/klog v0.4.0
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.36.4
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.36.4
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.36.4
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.36.4
 	k8s.io/kubectl => k8s.io/kubectl v0.36.4
