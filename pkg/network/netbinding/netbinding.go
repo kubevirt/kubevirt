@@ -22,9 +22,12 @@ package netbinding
 import (
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
@@ -33,7 +36,8 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 		registeredBindings = config.NetworkConfiguration.Binding
 	}
 
-	sidecars := map[string]hooks.HookSidecar{}
+	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
+	sidecars := map[string]*hooks.HookSidecar{}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.Binding == nil {
@@ -50,18 +54,26 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 		}
 
 		if _, seen := sidecars[iface.Binding.Name]; !seen {
-			sidecars[iface.Binding.Name] = hooks.HookSidecar{
+			sidecars[iface.Binding.Name] = &hooks.HookSidecar{
 				Image:                    pluginInfo.SidecarImage,
 				ImagePullPolicy:          config.ImagePullPolicy,
 				DownwardAPI:              pluginInfo.DownwardAPI,
 				NetworkBindingPluginName: iface.Binding.Name,
 			}
 		}
+
+		if net, ok := networkByName[iface.Name]; ok && vmispec.IsDRANetwork(net) {
+			sidecars[iface.Binding.Name].ResourceClaims = append(sidecars[iface.Binding.Name].ResourceClaims,
+				k8sv1.ResourceClaim{
+					Name:    net.ResourceClaim.ClaimName,
+					Request: net.ResourceClaim.RequestName,
+				})
+		}
 	}
 
 	result := make(hooks.HookSidecarList, 0, len(sidecars))
 	for _, sc := range sidecars {
-		result = append(result, sc)
+		result = append(result, *sc)
 	}
 
 	return result, nil
