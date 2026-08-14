@@ -49,12 +49,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	hasIOThreads := iothreads.HasIOThreads(vmi)
 	var ioThreadCount, autoThreads, scsiControllerThreads int
 	if hasIOThreads {
+		// ioThreadCount here accounts for total of autoThreads + dedicatedIOThreads
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 		if c.SCSIMultiIOThreadEnabled && vmi.Spec.Domain.IOThreadsPolicy != nil {
 			if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
 				scsiControllerThreads = ioThreadCount
 			} else {
 				scsiControllerThreads = autoThreads
+				if c.MultiIOThreadAutoPolicyEnabled {
+					dedicatedThreads := ioThreadCount - autoThreads
+					// if multiIO auto is set, cap auto thread pool size for scsi controller allocation
+					scsiControllerThreads = min(autoThreads, iothreads.AutoThreadPoolMax)
+					// total iothreads assigned to domain should use this capped pool size along with any declared dedicated threads
+					ioThreadCount = scsiControllerThreads + dedicatedThreads
+				}
 			}
 		}
 	}
@@ -120,6 +128,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			storage.DiskWithApplyCBT(c.ApplyCBT),
 			storage.DiskWithDisksInfo(c.DisksInfo),
 			storage.DiskWithEphemeralDiskCreator(c.EphemeraldiskCreator),
+			storage.DiskWithScsiMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
+			storage.DiskWithMultiIOThreadAutoPolicyEnabled(c.MultiIOThreadAutoPolicyEnabled),
 		),
 		compute.UsbRedirectDeviceDomainConfigurator{},
 		compute.NewControllersDomainConfigurator(
