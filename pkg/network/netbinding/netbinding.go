@@ -22,9 +22,12 @@ package netbinding
 import (
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
@@ -33,6 +36,7 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 		registeredBindings = config.NetworkConfiguration.Binding
 	}
 
+	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
 	sidecars := map[string]*hooks.HookSidecar{}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -56,6 +60,14 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 				DownwardAPI:              pluginInfo.DownwardAPI,
 				NetworkBindingPluginName: iface.Binding.Name,
 			}
+		}
+
+		if net, ok := networkByName[iface.Name]; ok && vmispec.IsDRANetwork(net) {
+			sidecars[iface.Binding.Name].ResourceClaims = append(sidecars[iface.Binding.Name].ResourceClaims,
+				k8sv1.ResourceClaim{
+					Name:    net.ResourceClaim.ClaimName,
+					Request: net.ResourceClaim.RequestName,
+				})
 		}
 	}
 

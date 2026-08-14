@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -101,6 +103,48 @@ var _ = Describe("Network Binding", func() {
 				),
 				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
 				hooks.HookSidecarList{{Image: testSidecarImage1, NetworkBindingPluginName: testBindingName1}}),
+			Entry("VMI has multiple DRA networks on same binding plugin including shared claim with different requests",
+				libvmi.New(
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}),
+					libvmi.WithNetwork(libvmi.DRANetwork(testNetworkName1, "claim1", "req1")),
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName2, Binding: &v1.PluginBinding{Name: testBindingName1}}),
+					libvmi.WithNetwork(libvmi.DRANetwork(testNetworkName2, "claim2", "req2")),
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName3, Binding: &v1.PluginBinding{Name: testBindingName1}}),
+					libvmi.WithNetwork(libvmi.DRANetwork(testNetworkName3, "claim1", "req3")),
+				),
+				map[string]v1.InterfaceBindingPlugin{testBindingName1: {SidecarImage: testSidecarImage1}},
+				hooks.HookSidecarList{{
+					Image:                    testSidecarImage1,
+					NetworkBindingPluginName: testBindingName1,
+					ResourceClaims: []k8sv1.ResourceClaim{
+						{Name: "claim1", Request: "req1"},
+						{Name: "claim2", Request: "req2"},
+						{Name: "claim1", Request: "req3"},
+					},
+				}}),
+			Entry("VMI has binding plugin with DRA networks on different binding plugins",
+				libvmi.New(
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}),
+					libvmi.WithNetwork(libvmi.DRANetwork(testNetworkName1, "claim1", "req1")),
+					libvmi.WithInterface(v1.Interface{Name: testNetworkName2, Binding: &v1.PluginBinding{Name: testBindingName2}}),
+					libvmi.WithNetwork(libvmi.DRANetwork(testNetworkName2, "claim2", "req2")),
+				),
+				map[string]v1.InterfaceBindingPlugin{
+					testBindingName1: {SidecarImage: testSidecarImage1},
+					testBindingName2: {SidecarImage: testSidecarImage2},
+				},
+				hooks.HookSidecarList{
+					{
+						Image:                    testSidecarImage1,
+						NetworkBindingPluginName: testBindingName1,
+						ResourceClaims:           []k8sv1.ResourceClaim{{Name: "claim1", Request: "req1"}},
+					},
+					{
+						Image:                    testSidecarImage2,
+						NetworkBindingPluginName: testBindingName2,
+						ResourceClaims:           []k8sv1.ResourceClaim{{Name: "claim2", Request: "req2"}},
+					},
+				}),
 		)
 
 		It("should retrun an error when VMI has binding plugin but config doesn't exist", func() {
