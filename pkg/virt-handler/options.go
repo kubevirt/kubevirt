@@ -71,6 +71,7 @@ func virtualMachineOptions(
 			MDevVGPULiveMigrationEnabled: clusterConfig.MDevVGPULiveMigrationEnabled(),
 			GraceIOVirtualizationEnabled: clusterConfig.GraceIOVirtualizationEnabled(),
 			SCSIMultiIOThreadEnabled:     clusterConfig.SCSIMultiIOThreadEnabled(),
+			MultiIOThreadAutoPolicy:      clusterConfig.MultiIOThreadAutoPolicyEnabled(),
 		}
 		options.GraceHostDeviceAliases = graceHostDeviceAliases(vmi, clusterConfig)
 	}

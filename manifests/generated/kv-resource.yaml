@@ -950,6 +950,20 @@ spec:
                   minCPUModel:
                     description: deprecated
                     type: string
+                  multiIOThreadAutoPolicy:
+                    description: |-
+                      MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy
+                      to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.
+                      This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.
+                          Requires SCSIMultiIOThread feature gate to be enabled.
+                        nullable: true
+                        type: boolean
+                    type: object
                   network:
                     description: NetworkConfiguration holds network options
                     properties:
@@ -5558,6 +5572,20 @@ spec:
                   minCPUModel:
                     description: deprecated
                     type: string
+                  multiIOThreadAutoPolicy:
+                    description: |-
+                      MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy
+                      to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.
+                      This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.
+                          Requires SCSIMultiIOThread feature gate to be enabled.
+                        nullable: true
+                        type: boolean
+                    type: object
                   network:
                     description: NetworkConfiguration holds network options
                     properties:

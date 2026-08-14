@@ -1448,6 +1448,65 @@ var _ = Describe("DiskConfigurator", func() {
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
+
+		It("should keep dedicated IOThreads exclusive under multi-IO auto policy", func() {
+			vmi := libvmi.New(
+				libvmi.WithCPURequest("2"),
+				libvmi.WithPersistentVolumeClaim("auto-disk1", "claim1"),
+				libvmi.WithPersistentVolumeClaim("auto-disk2", "claim2"),
+				libvmi.WithPersistentVolumeClaim("dedicated-disk", "claim3", libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+			)
+			configurator := storage.NewDiskConfigurator(
+				storage.DiskWithArchitecture(amd64),
+				storage.DiskWithVirtioModel(virtioModel),
+				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{
+					"auto-disk1": {}, "auto-disk2": {}, "dedicated-disk": {},
+				}),
+				storage.DiskWithScsiMultiIOThreadEnabled(true),
+				storage.DiskWithMultiIOThreadAutoPolicyEnabled(true),
+			)
+			var domain api.Domain
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			autoPool := &api.DiskIOThreads{
+				IOThread: []api.DiskIOThread{{Id: 1}, {Id: 2}},
+			}
+			expectedDomain := newDomainWithDisks(
+				newDisk("auto-disk1",
+					diskWithDevice("disk"), diskWithType("file"),
+					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk1")}),
+					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap",
+						IOThreads: autoPool,
+					}),
+					diskWithModel(virtioModel),
+				),
+				newDisk("auto-disk2",
+					diskWithDevice("disk"), diskWithType("file"),
+					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk2")}),
+					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap",
+						IOThreads: autoPool,
+					}),
+					diskWithModel(virtioModel),
+				),
+				newDisk("dedicated-disk",
+					diskWithDevice("disk"), diskWithType("file"),
+					diskWithSource(api.DiskSource{File: volumepath.Filesystem("dedicated-disk")}),
+					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdc"}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap",
+						IOThread: new(uint(3)),
+					}),
+					diskWithModel(virtioModel),
+				),
+			)
+			Expect(domain).To(Equal(expectedDomain))
+		})
 	})
 
 	Context("device naming", func() {

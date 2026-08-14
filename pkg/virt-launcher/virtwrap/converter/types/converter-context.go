@@ -74,4 +74,5 @@ type ConverterContext struct {
 	HostArchitecture                string
 	VSOCKProcPath                   string
 	SCSIMultiIOThreadEnabled        bool
+	MultiIOThreadAutoPolicyEnabled  bool
 }
