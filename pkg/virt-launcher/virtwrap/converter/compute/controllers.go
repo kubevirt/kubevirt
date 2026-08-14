@@ -30,10 +30,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
-const (
-	defaultIOThread = uint(1)
-)
-
 type ControllersDomainConfigurator struct {
 	isUSBNeeded               bool
 	scsiModel                 string

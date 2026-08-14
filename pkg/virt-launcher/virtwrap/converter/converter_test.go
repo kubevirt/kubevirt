@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -2475,34 +2476,28 @@ var _ = Describe("Converter", func() {
 			}))
 		})
 
-		It("Should set iothreads for a vmi using auto policy with scsi and virtio-blk disks", func() {
-			cores := uint(4)
+		DescribeTable("Should set iothreads for a vmi with scsi and virtio-blk disks", func(multiIOAuto bool) {
+			cores := uint(2)
 			vmi := libvmi.New(
 				libvmi.WithCPURequest(strconv.Itoa(int(cores))),
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
-				libvmi.WithPersistentVolumeClaim("disk0", "pvc0", libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0"),
 				libvmi.WithPersistentVolumeClaim("disk1", "pvc1"),
 				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 			)
-			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: true})
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator,
+				SCSIMultiIOThreadEnabled:       true,
+				MultiIOThreadAutoPolicyEnabled: multiIOAuto,
+			})
 
-			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(3)))
-
-			autoThreads := 2
-			// disk0 will get its own dedicated thread from the three total iothreads,
-			// with two auto threads this disk should be the last thread
-			disk0, err := getDiskByName(domain.Spec, "disk0")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(int(*disk0.Driver.IOThread)).To(Equal(autoThreads+1), "dedicated thread for this disk should be one index after the last auto thread")
-
-			// disk1 gets assigned thread in round robin from total auto threads
-			// since first disk uses dedicated thread, this disk will get the first auto thread
-			disk1, err := getDiskByName(domain.Spec, "disk1")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(int(*disk1.Driver.IOThread)).To(Equal(1), "disk should get first thread from auto pool")
+			// total auto threads are calculated by the amount of disks in VMI
+			// however, when constructing the iothread pool a minimum is taken between
+			// the total auto threads and the number of vCPUS as to not overallocate
+			autoThreads := min(len(vmi.Spec.Domain.Devices.Disks), int(cores))
 
 			// scsi controller should get allocated all total auto threads
-			// making sure to exclude any dedicated io threads
 			iothreads := &api.DiskIOThreads{}
 			for id := 1; id <= autoThreads; id++ {
 				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
@@ -2518,6 +2513,56 @@ var _ = Describe("Converter", func() {
 					Queues:    &cores,
 				},
 			}))
+
+			disk0, err := getDiskByName(domain.Spec, "disk0")
+			Expect(err).ToNot(HaveOccurred())
+			disk1, err := getDiskByName(domain.Spec, "disk1")
+			Expect(err).ToNot(HaveOccurred())
+
+			if multiIOAuto {
+				// if configured to use mutliIO auto policy, virtio-blk disks should also get iothread pool
+				Expect(disk0.Driver.IOThreads).To(Equal(iothreads))
+				Expect(disk1.Driver.IOThreads).To(Equal(iothreads))
+			} else {
+				Expect(int(*disk0.Driver.IOThread)).To(Equal(1), "disk should get first thread from auto pool")
+				Expect(int(*disk1.Driver.IOThread)).To(Equal(2), "disk should get second thread from auto pool")
+			}
+
+		},
+			Entry("using mutliIO auto policy", true),
+			Entry("using legacy auto policy", false),
+		)
+
+		It("Should cap auto thread pool size for virtio-blk disks when it exceeds the maximum", func() {
+			maxThreads := iothreads.AutoThreadPoolMax
+			count := uint(maxThreads + 2)
+			opts := []libvmi.Option{
+				libvmi.WithCPURequest(strconv.Itoa(int(count))),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+			}
+
+			// create VMI with disks and CPU count that exceed the maximum auto thread size
+			for i := range maxThreads + 2 {
+				diskName := fmt.Sprintf("disk-%d", i)
+				opts = append(opts, libvmi.WithEmptyDisk(diskName, v1.DiskBusVirtio, resource.MustParse("1Gi")))
+			}
+
+			vmi := libvmi.New(opts...)
+
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator,
+				SCSIMultiIOThreadEnabled:       true,
+				MultiIOThreadAutoPolicyEnabled: true,
+			})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(maxThreads)))
+
+			for i := range maxThreads + 2 {
+				disk, err := getDiskByName(domain.Spec, fmt.Sprintf("disk-%d", i))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(disk.Driver.IOThreads.IOThread).To(HaveLen(maxThreads))
+			}
 		})
 
 		It("Should set the scsi controller iothread pool with the supplementalPool policy", func() {

@@ -221,6 +221,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			} else {
 				scsiControllerThreads = autoThreads
 			}
+
+			if c.MultiIOThreadAutoPolicyEnabled {
+				ioThreadCount = min(ioThreadCount, iothreads.AutoThreadPoolMax)
+			}
 		}
 	}
 
@@ -285,6 +289,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			storage.DiskWithApplyCBT(c.ApplyCBT),
 			storage.DiskWithDisksInfo(c.DisksInfo),
 			storage.DiskWithEphemeralDiskCreator(c.EphemeraldiskCreator),
+			storage.DiskWithScsiMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
+			storage.DiskWithMultiIOThreadAutoPolicyEnabled(c.MultiIOThreadAutoPolicyEnabled),
 		),
 		compute.UsbRedirectDeviceDomainConfigurator{},
 		compute.NewControllersDomainConfigurator(
