@@ -3178,6 +3178,10 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	VirtTemplateDeployment *VirtTemplateDeployment `json:"virtTemplateDeployment,omitempty"`
 
+	// MultiIOThreadAutoPolicy controls the behavior for auto IOThread Policy for virtio-blk devices.
+	// +nullable
+	MultiIOThreadAutoPolicy *MultiIOThreadAutoPolicy `json:"multiIOThreadAutoPolicy,omitempty"`
+
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
@@ -3285,6 +3289,12 @@ type CommonInstancetypesDeployment struct {
 
 type VirtTemplateDeployment struct {
 	// Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type MultiIOThreadAutoPolicy struct {
+	// Enables the auto IOThread Policy to use multiple iothreads for virtio-blk devices.
 	// +nullable
 	Enabled *bool `json:"enabled,omitempty"`
 }
