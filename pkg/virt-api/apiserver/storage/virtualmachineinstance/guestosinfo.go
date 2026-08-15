@@ -50,6 +50,7 @@ func NewGuestOSInfoREST(getter vmiGuestOSInfoGetter) *GuestOSInfoREST {
 var (
 	_ = rest.Storage(&GuestOSInfoREST{})
 	_ = rest.Connecter(&GuestOSInfoREST{})
+	_ = rest.StorageMetadata(&GuestOSInfoREST{})
 )
 
 func (r *GuestOSInfoREST) New() runtime.Object {
@@ -57,6 +58,18 @@ func (r *GuestOSInfoREST) New() runtime.Object {
 }
 
 func (r *GuestOSInfoREST) Destroy() {}
+
+func (r *GuestOSInfoREST) ProducesMIMETypes(string) []string { return nil }
+
+// ProducesObject documents the guest agent payload this subresource answers
+// with. A Connecter otherwise reports an opaque string, which would drop
+// VirtualMachineInstanceGuestAgentInfo from the generated OpenAPI.
+func (r *GuestOSInfoREST) ProducesObject(verb string) interface{} {
+	if verb == http.MethodGet {
+		return v1.VirtualMachineInstanceGuestAgentInfo{}
+	}
+	return nil
+}
 
 func (r *GuestOSInfoREST) ConnectMethods() []string {
 	return []string{http.MethodGet}

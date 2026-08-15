@@ -50,7 +50,17 @@ func NewUserListREST(getter vmiUserListGetter) *UserListREST {
 var (
 	_ = rest.Storage(&UserListREST{})
 	_ = rest.Connecter(&UserListREST{})
+	_ = rest.StorageMetadata(&UserListREST{})
 )
+
+func (r *UserListREST) ProducesMIMETypes(string) []string { return nil }
+
+func (r *UserListREST) ProducesObject(verb string) interface{} {
+	if verb == http.MethodGet {
+		return v1.VirtualMachineInstanceGuestOSUserList{}
+	}
+	return nil
+}
 
 func (r *UserListREST) New() runtime.Object {
 	return &v1.VirtualMachineInstance{}

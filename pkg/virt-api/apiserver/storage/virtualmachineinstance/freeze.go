@@ -61,6 +61,13 @@ func (r *FreezeREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+func (r *FreezeREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &v1.FreezeUnfreezeTimeout{}
+	}
+	return nil
+}
+
 func (r *FreezeREST) NewConnectOptions() (runtime.Object, bool, string) {
 	return nil, false, ""
 }

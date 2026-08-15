@@ -61,6 +61,13 @@ func (r *MigrateREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+func (r *MigrateREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &v1.MigrateOptions{}
+	}
+	return nil
+}
+
 func (r *MigrateREST) NewConnectOptions() (runtime.Object, bool, string) {
 	return nil, false, ""
 }

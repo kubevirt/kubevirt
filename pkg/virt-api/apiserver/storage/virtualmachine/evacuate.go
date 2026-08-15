@@ -65,6 +65,13 @@ func (r *EvacuateCancelREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+func (r *EvacuateCancelREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &v1.EvacuateCancelOptions{}
+	}
+	return nil
+}
+
 func (r *EvacuateCancelREST) NewConnectOptions() (runtime.Object, bool, string) {
 	return nil, true, "path"
 }

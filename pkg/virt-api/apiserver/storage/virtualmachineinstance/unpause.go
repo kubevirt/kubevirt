@@ -61,6 +61,13 @@ func (r *UnpauseREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+func (r *UnpauseREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &v1.UnpauseOptions{}
+	}
+	return nil
+}
+
 func (r *UnpauseREST) NewConnectOptions() (runtime.Object, bool, string) {
 	return nil, false, ""
 }

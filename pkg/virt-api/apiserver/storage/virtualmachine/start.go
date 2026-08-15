@@ -64,6 +64,13 @@ func (r *StartREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+func (r *StartREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &v1.StartOptions{}
+	}
+	return nil
+}
+
 // NewConnectOptions returns nil because start takes no options from the
 // URL/query string. The StartOptions payload travels in the request body and
 // is decoded inside the Connect handler

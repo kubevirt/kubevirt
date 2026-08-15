@@ -20,6 +20,7 @@
 package apiserver
 
 import (
+	"net/http"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,6 +65,9 @@ func NewOpenAPIConfig(scheme *runtime.Scheme) *common.Config {
 		GetOperationIDAndTags: apiopenapi.GetOperationIDAndTags,
 		GetDefinitions:        getDefinitions,
 		GetDefinitionName:     getDefinitionName,
+		CommonResponses: map[int]spec.Response{
+			http.StatusUnauthorized: unauthorizedResponse(),
+		},
 	}
 }
 
@@ -80,6 +84,29 @@ func NewOpenAPIV3Config(scheme *runtime.Scheme) *common.OpenAPIV3Config {
 		GetOperationIDAndTags: apiopenapi.GetOperationIDAndTags,
 		GetDefinitions:        getDefinitions,
 		GetDefinitionName:     getDefinitionName,
+		CommonResponses: map[int]*spec3.Response{
+			http.StatusUnauthorized: {
+				ResponseProps: spec3.ResponseProps{Description: http.StatusText(http.StatusUnauthorized)},
+			},
+		},
+	}
+}
+
+// unauthorizedResponse is the shared 401 response documented on every operation.
+func unauthorizedResponse() spec.Response {
+	return spec.Response{
+		ResponseProps: spec.ResponseProps{Description: http.StatusText(http.StatusUnauthorized)},
+	}
+}
+
+// stringResponse builds a response whose body is a plain string, matching the
+// shape the pre-migration go-restful routes documented for their status codes.
+func stringResponse(code int) spec.Response {
+	return spec.Response{
+		ResponseProps: spec.ResponseProps{
+			Description: http.StatusText(code),
+			Schema:      &spec.Schema{SchemaProps: spec.SchemaProps{Type: spec.StringOrArray{"string"}}},
+		},
 	}
 }
 

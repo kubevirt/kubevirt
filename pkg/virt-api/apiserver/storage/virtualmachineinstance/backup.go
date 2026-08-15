@@ -29,6 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 
+	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -59,6 +60,13 @@ func (r *BackupREST) Destroy() {}
 
 func (r *BackupREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
+}
+
+func (r *BackupREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &backupv1alpha1.BackupOptions{}
+	}
+	return nil
 }
 
 func (r *BackupREST) NewConnectOptions() (runtime.Object, bool, string) {

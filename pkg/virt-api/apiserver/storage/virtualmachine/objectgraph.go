@@ -50,7 +50,17 @@ func NewObjectGraphREST(getter vmObjectGraphGetter) *ObjectGraphREST {
 var (
 	_ = rest.Storage(&ObjectGraphREST{})
 	_ = rest.Connecter(&ObjectGraphREST{})
+	_ = rest.StorageMetadata(&ObjectGraphREST{})
 )
+
+func (r *ObjectGraphREST) ProducesMIMETypes(string) []string { return nil }
+
+func (r *ObjectGraphREST) ProducesObject(verb string) interface{} {
+	if verb == http.MethodGet {
+		return v1.ObjectGraphNode{}
+	}
+	return nil
+}
 
 func (r *ObjectGraphREST) New() runtime.Object {
 	return &v1.VirtualMachine{}
@@ -60,6 +70,13 @@ func (r *ObjectGraphREST) Destroy() {}
 
 func (r *ObjectGraphREST) ConnectMethods() []string {
 	return []string{http.MethodGet}
+}
+
+func (r *ObjectGraphREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodGet {
+		return &v1.ObjectGraphOptions{}
+	}
+	return nil
 }
 
 func (r *ObjectGraphREST) NewConnectOptions() (runtime.Object, bool, string) {

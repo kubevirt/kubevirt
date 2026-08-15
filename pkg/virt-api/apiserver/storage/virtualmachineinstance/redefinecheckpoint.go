@@ -29,6 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 
+	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -60,6 +61,13 @@ func (r *RedefineCheckpointREST) Destroy() {}
 
 func (r *RedefineCheckpointREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
+}
+
+func (r *RedefineCheckpointREST) ConnectRequestBody(method string) interface{} {
+	if method == http.MethodPut {
+		return &backupv1alpha1.BackupCheckpoint{}
+	}
+	return nil
 }
 
 func (r *RedefineCheckpointREST) NewConnectOptions() (runtime.Object, bool, string) {

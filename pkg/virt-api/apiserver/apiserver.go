@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -213,6 +214,12 @@ func (a *APIServer) Run(
 		klog.Errorf("Failed to apply authorization options: %v", err)
 		return err
 	}
+	// AlwaysAllowPaths cannot exempt the cluster level routes, because they are
+	// resource requests. Union the exemption in front of the delegated authorizer.
+	config.Authorization.Authorizer = union.New(
+		clusterLevelAlwaysAllowAuthorizer(apiGroups),
+		config.Authorization.Authorizer,
+	)
 
 	server, err := config.Complete().New(name, genericapiserver.NewEmptyDelegate())
 	if err != nil {
