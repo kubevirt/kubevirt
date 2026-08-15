@@ -435,14 +435,14 @@ go_repository(
 # Pull go_image_base
 pull(
     name = "go_image_base",
-    digest = "sha256:6f23ea6c3ce8b2a62c92e3b59c076118a366fb470af3fbf7d149bb51b98234ed",
+    digest = "sha256:6dda3ce74e0685a5de84634001c2fa6f3fd134b77c39c4cb1ad697dc1b5da1c4",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
 
 pull(
     name = "go_image_base_aarch64",
-    digest = "sha256:a09192f27226e9e704bf7b4d0d69368c4fa0df54b21bcaabbaf5cc54dec4d77c",
+    digest = "sha256:8021099fa372c2085661f0532d67596a4bd7e7b3c4eb18fdbcefe748eeca1292",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
@@ -3130,6 +3130,15 @@ rpm(
 )
 
 rpm(
+    name = "fips-provider-next-0__1.5.2-4.el9.s390x",
+    sha256 = "564f6f701c028c4d69fd33192656e9ab6a9eec359443463f7f041c06426088c0",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/fips-provider-next-1.5.2-4.el9.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/564f6f701c028c4d69fd33192656e9ab6a9eec359443463f7f041c06426088c0",
+    ],
+)
+
+rpm(
     name = "fips-provider-next-0__1.5.2-4.el9.x86_64",
     sha256 = "07217cf3d796c8d2f8fe69c9c7551a3f61fe293214a6531508904ccb3dcb98ef",
     urls = [
@@ -3925,11 +3934,29 @@ rpm(
 )
 
 rpm(
-    name = "glibc-langpack-et-0__2.34-276.el9.x86_64",
-    sha256 = "2215d165953e55197f7012030640ace9c4752e280eca99d53d8c129b0cf5316a",
+    name = "glibc-langpack-dz-0__2.34-276.el9.s390x",
+    sha256 = "c816b2ef3f73fc0e50d6715fb674816581351102e9e8b9f5aab54a42e5bdc1aa",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-et-2.34-276.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/2215d165953e55197f7012030640ace9c4752e280eca99d53d8c129b0cf5316a",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-dz-2.34-276.el9.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/c816b2ef3f73fc0e50d6715fb674816581351102e9e8b9f5aab54a42e5bdc1aa",
+    ],
+)
+
+rpm(
+    name = "glibc-langpack-en-0__2.34-276.el9.x86_64",
+    sha256 = "d68753402994e921381d4c525526493484a749299de078471c16d9643e823151",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-en-2.34-276.el9.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d68753402994e921381d4c525526493484a749299de078471c16d9643e823151",
+    ],
+)
+
+rpm(
+    name = "glibc-langpack-es-0__2.34-276.el9.aarch64",
+    sha256 = "78e16f4c6d08def7fce3fa2cd98c2c8a2c044277e12c729baf9bf32c0c037f2f",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-es-2.34-276.el9.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/78e16f4c6d08def7fce3fa2cd98c2c8a2c044277e12c729baf9bf32c0c037f2f",
     ],
 )
 
@@ -3939,15 +3966,6 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glibc-langpack-et-2.39-135.el10.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/3f88a49a47d602b7dc0759baeb9533cef4225ab45630432fbb3788f9ed2539e8",
-    ],
-)
-
-rpm(
-    name = "glibc-langpack-fa-0__2.34-276.el9.s390x",
-    sha256 = "d1a0c3b59cc69a11434ea858a0f98be703c142253779275f1cfea7da7e63976c",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-fa-2.34-276.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d1a0c3b59cc69a11434ea858a0f98be703c142253779275f1cfea7da7e63976c",
     ],
 )
 
@@ -3966,15 +3984,6 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-langpack-ga-2.39-135.el10.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/56950b2002df0623488b8e5c32d08cf13d1877f81c316b58a9c3cb9866874eac",
-    ],
-)
-
-rpm(
-    name = "glibc-langpack-gd-0__2.34-276.el9.aarch64",
-    sha256 = "c76ea1e4a6af13f6b70c04671e414287fe0bdf47e697c1caeefd0758be88fa30",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-gd-2.34-276.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c76ea1e4a6af13f6b70c04671e414287fe0bdf47e697c1caeefd0758be88fa30",
     ],
 )
 
