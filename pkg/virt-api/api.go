@@ -36,7 +36,6 @@ import (
 	flag "github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
@@ -511,7 +510,7 @@ func (app *virtAPIApp) healthAndMetricsMuxHandlers() []apiserver.MuxHandler {
 	return []apiserver.MuxHandler{
 		{Path: "/metrics", Handler: promhttp.Handler()},
 		{
-			Path: "/healthz",
+			Path: apiserver.HealthzPath,
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				healthzHandler(restful.NewRequest(r), restful.NewResponse(w))
 			}),
@@ -526,46 +525,32 @@ func (app *virtAPIApp) healthAndMetricsMuxHandlers() []apiserver.MuxHandler {
 func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandler {
 	clusterProfilerHandler := clusterprofiler.NewHandler(app.virtClient, app.k8sClient, app.clusterConfig)
 
-	matchesResource := func(resource string) func(*request.RequestInfo) bool {
-		return func(info *request.RequestInfo) bool {
-			return info.IsResourceRequest &&
-				info.APIGroup == v1.SubresourceGroupName &&
-				info.Resource == resource
-		}
+	handlers := map[string]http.Handler{
+		"expand-vm-spec": expand.NewHandler(app.clusterConfig, app.virtClient),
+		"version":        versionhandler.NewHandler(),
+		"guestfs":        guestfs.NewHandler(app.clusterConfig),
+		"healthz": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)(restful.NewRequest(r), restful.NewResponse(w))
+		}),
+		"start-cluster-profiler": http.HandlerFunc(clusterProfilerHandler.StartClusterProfilerHTTP),
+		"stop-cluster-profiler":  http.HandlerFunc(clusterProfilerHandler.StopClusterProfilerHTTP),
+		"dump-cluster-profiler":  http.HandlerFunc(clusterProfilerHandler.DumpClusterProfilerHTTP),
 	}
 
-	return []apiserver.ConditionalAPIHandler{
-		{
-			Matches: matchesResource("expand-vm-spec"),
-			Handler: expand.NewHandler(app.clusterConfig, app.virtClient),
-		},
-		{
-			Matches: matchesResource("version"),
-			Handler: versionhandler.NewHandler(),
-		},
-		{
-			Matches: matchesResource("guestfs"),
-			Handler: guestfs.NewHandler(app.clusterConfig),
-		},
-		{
-			Matches: matchesResource("healthz"),
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)(restful.NewRequest(r), restful.NewResponse(w))
-			}),
-		},
-		{
-			Matches: matchesResource("start-cluster-profiler"),
-			Handler: http.HandlerFunc(clusterProfilerHandler.StartClusterProfilerHTTP),
-		},
-		{
-			Matches: matchesResource("stop-cluster-profiler"),
-			Handler: http.HandlerFunc(clusterProfilerHandler.StopClusterProfilerHTTP),
-		},
-		{
-			Matches: matchesResource("dump-cluster-profiler"),
-			Handler: http.HandlerFunc(clusterProfilerHandler.DumpClusterProfilerHTTP),
-		},
+	// Driven by ClusterLevelRoutes so the served endpoints, the AlwaysAllowPaths
+	// whitelist and the generated OpenAPI all come from one declaration.
+	var apiHandlers []apiserver.ConditionalAPIHandler
+	for _, route := range apiserver.ClusterLevelRoutes() {
+		handler, ok := handlers[route.Resource]
+		if !ok {
+			panic(fmt.Sprintf("no handler wired for cluster level route %q", route.Resource))
+		}
+		apiHandlers = append(apiHandlers, apiserver.ConditionalAPIHandler{
+			Matches: route.Matches(v1.SubresourceGroupName),
+			Handler: handler,
+		})
 	}
+	return apiHandlers
 }
 
 // componentProfilerMuxHandlers returns the component level profiler endpoints
@@ -578,11 +563,23 @@ func (app *virtAPIApp) componentProfilerMuxHandlers() []apiserver.MuxHandler {
 			h(restful.NewRequest(r), restful.NewResponse(w))
 		})
 	}
-	return []apiserver.MuxHandler{
-		{Path: "/start-profiler", Handler: adapt(componentProfiler.HandleStartProfiler)},
-		{Path: "/stop-profiler", Handler: adapt(componentProfiler.HandleStopProfiler)},
-		{Path: "/dump-profiler", Handler: adapt(componentProfiler.HandleDumpProfiler)},
+	handlers := map[string]http.Handler{
+		"/start-profiler": adapt(componentProfiler.HandleStartProfiler),
+		"/stop-profiler":  adapt(componentProfiler.HandleStopProfiler),
+		"/dump-profiler":  adapt(componentProfiler.HandleDumpProfiler),
 	}
+
+	// Driven by ComponentProfilerPaths so the served paths and the generated
+	// OpenAPI come from one declaration.
+	var muxHandlers []apiserver.MuxHandler
+	for _, path := range apiserver.ComponentProfilerPaths() {
+		handler, ok := handlers[path]
+		if !ok {
+			panic(fmt.Sprintf("no handler wired for component profiler path %q", path))
+		}
+		muxHandlers = append(muxHandlers, apiserver.MuxHandler{Path: path, Handler: handler})
+	}
+	return muxHandlers
 }
 
 // Detects if a config has been applied that requires

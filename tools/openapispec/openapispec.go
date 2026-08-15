@@ -27,15 +27,16 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/spf13/pflag"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	klog "kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/virt-api/apiserver"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
-func dumpOpenApiSpec(dumppath *string, apiws []*restful.WebService) {
-	openapispec := openapi.LoadOpenAPISpec(append(apiws, restful.RegisteredWebServices()...))
+func dumpOpenApiSpec(dumppath *string, openapispec *spec.Swagger) {
 	data, err := json.MarshalIndent(openapispec, " ", " ")
 	if err != nil {
 		log.Fatal(err)
@@ -44,6 +45,32 @@ func dumpOpenApiSpec(dumppath *string, apiws []*restful.WebService) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// addSubresourcePaths copies the paths of the aggregated API server into the
+// spec built from the go-restful definitions.
+func addSubresourcePaths(base, subresources *spec.Swagger) *spec.Swagger {
+	if base.Paths == nil {
+		base.Paths = &spec.Paths{}
+	}
+	if base.Paths.Paths == nil {
+		base.Paths.Paths = map[string]spec.PathItem{}
+	}
+	if subresources.Paths != nil {
+		for path, item := range subresources.Paths.Paths {
+			base.Paths.Paths[path] = item
+		}
+	}
+
+	if base.Definitions == nil {
+		base.Definitions = spec.Definitions{}
+	}
+	for name, definition := range subresources.Definitions {
+		if _, exists := base.Definitions[name]; !exists {
+			base.Definitions[name] = definition
+		}
+	}
+	return base
 }
 
 func main() {
@@ -55,5 +82,12 @@ func main() {
 
 	klog.InitializeLogging("openapispec")
 
-	dumpOpenApiSpec(dumpapispecpath, definitions.ComposeAPIDefinitions())
+	crdSpec := openapi.LoadOpenAPISpec(append(definitions.ComposeAPIDefinitions(), restful.RegisteredWebServices()...))
+
+	subresourceSpec, err := apiserver.BuildSubresourceOpenAPISpec()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dumpOpenApiSpec(dumpapispecpath, addSubresourcePaths(crdSpec, subresourceSpec))
 }

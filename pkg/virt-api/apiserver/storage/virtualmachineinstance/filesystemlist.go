@@ -50,7 +50,17 @@ func NewFilesystemListREST(getter vmiFilesystemListGetter) *FilesystemListREST {
 var (
 	_ = rest.Storage(&FilesystemListREST{})
 	_ = rest.Connecter(&FilesystemListREST{})
+	_ = rest.StorageMetadata(&FilesystemListREST{})
 )
+
+func (r *FilesystemListREST) ProducesMIMETypes(string) []string { return nil }
+
+func (r *FilesystemListREST) ProducesObject(verb string) interface{} {
+	if verb == http.MethodGet {
+		return v1.VirtualMachineInstanceFileSystemList{}
+	}
+	return nil
+}
 
 func (r *FilesystemListREST) New() runtime.Object {
 	return &v1.VirtualMachineInstance{}
