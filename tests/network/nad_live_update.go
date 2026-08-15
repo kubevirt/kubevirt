@@ -100,8 +100,6 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 
 	BeforeEach(func() {
 		nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-		const minNoOfNodesNeeded = 2
-		Expect(len(nodes.Items)).To(BeNumerically(">=", minNoOfNodesNeeded))
 		sourceNodeName = nodes.Items[0].Name
 
 		const (
