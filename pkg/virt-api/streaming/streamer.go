@@ -46,7 +46,7 @@ type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (stri
 
 // Streamer proxies a connection between an aggregated API client and virt-handler
 type Streamer struct {
-	virtClient           kubecli.KubevirtClient
+	virtClient        kubecli.KubevirtClient
 	consoleServerPort int
 	tlsConfig         *tls.Config
 	httpClient        *http.Client
@@ -54,7 +54,7 @@ type Streamer struct {
 
 func NewStreamer(virtClient kubecli.KubevirtClient, consoleServerPort int, tlsConfig *tls.Config) *Streamer {
 	return &Streamer{
-		virtClient:           virtClient,
+		virtClient:        virtClient,
 		consoleServerPort: consoleServerPort,
 		tlsConfig:         tlsConfig,
 		httpClient: &http.Client{
