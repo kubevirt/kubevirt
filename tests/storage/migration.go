@@ -382,7 +382,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		It("should continously report storage migration metrics", func() {
 			var pod *k8sv1.Pod
-			var metricsIPs []string
 			volName := "disk0"
 			sc, exist := libstorage.GetRWOFileSystemStorageClass()
 			Expect(exist).To(BeTrue())
@@ -422,9 +421,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 			Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
-			for _, ip := range pod.Status.PodIPs {
-				metricsIPs = append(metricsIPs, ip.IP)
-			}
 			By("Waiting until the Migration Completes")
 
 			By("Update volumes")
