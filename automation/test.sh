@@ -92,6 +92,7 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
     export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
     export KUBEVIRT_WITH_SRIOV=true
+    export KUBEVIRT_NUM_NUMA_NODES=2
     export KUBEVIRT_NUM_NODES=3
     export KUBEVIRT_DEPLOY_CDI=false
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
