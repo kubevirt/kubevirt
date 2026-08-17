@@ -22847,6 +22847,11 @@
      "error": {
       "$ref": "#/definitions/v1beta1.Error"
      },
+     "freezeFailures": {
+      "description": "FreezeFailures is the number of failed filesystem freeze attempts.",
+      "type": "integer",
+      "format": "int32"
+     },
      "readyToUse": {
       "type": "boolean"
      },

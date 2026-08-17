@@ -35968,6 +35968,13 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 							},
 						},
 					},
+					"freezeFailures": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FreezeFailures is the number of failed filesystem freeze attempts.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},
@@ -37012,6 +37019,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotContentStatus(
 									},
 								},
 							},
+						},
+					},
+					"freezeFailures": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FreezeFailures is the number of failed filesystem freeze attempts.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
