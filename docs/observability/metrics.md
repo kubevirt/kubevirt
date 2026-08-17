@@ -152,6 +152,7 @@
 | node:kubevirt_vmi_phase:sum | Recording rule | Gauge | Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]. |
 | pod_container:kubevirt_vm_memory_request_margin_based_on_rss_bytes:sum | Recording rule | Gauge | Difference between requested memory and rss for VM containers (request margin). Can be negative when usage exceeds request. |
 | pod_container:kubevirt_vm_memory_request_margin_based_on_working_set_bytes:sum | Recording rule | Gauge | Difference between requested memory and working set for VM containers (request margin). Can be negative when usage exceeds request. |
+| pvc:kubevirt_suspected_orphaned_storage_bytes:info | Recording rule | Gauge | Suspected orphaned persistent volume claims with their requested storage size in bytes. A PVC is considered suspected orphaned when it is not mounted by any pod and not allocated to any KubeVirt virtual machine disk. |
 | pvc:kubevirt_vmsnapshot_labels:info | Recording rule | Gauge | Returns the labels of the persistent volume claims that are used for restoring virtual machines. |
 | vm:kubevirt_vmsnapshot_disks_restored:sum | Recording rule | Gauge | Returns the total number of virtual machine disks restored from the source virtual machine. |
 | vm:kubevirt_vmsnapshot_restored_bytes:sum | Recording rule | Gauge | Returns the amount of space in bytes restored from the source virtual machine. |
