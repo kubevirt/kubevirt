@@ -577,6 +577,203 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(metric1.Value).To(BeNumerically("<", metric2.Value))
 		})
 	})
+
+	Context("VMI Resource Requests", func() {
+		const (
+			testMetricVMIResourceRequests = "kubevirt_vmi_resource_requests"
+			testVMIName                   = "test-vmi"
+			testVMINamespace              = "test-ns"
+		)
+
+		findRequest := func(crs []operatormetrics.CollectorResult, resourceName, unit, source string) *operatormetrics.CollectorResult {
+			for i, cr := range crs {
+				if cr.Metric.GetOpts().Name == testMetricVMIResourceRequests &&
+					len(cr.Labels) == 5 &&
+					cr.Labels[0] == testVMIName && cr.Labels[1] == testVMINamespace &&
+					cr.Labels[2] == resourceName && cr.Labels[3] == unit && cr.Labels[4] == source {
+					return &crs[i]
+				}
+			}
+			return nil
+		}
+
+		It("should report default CPU when no CPU topology is set", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testVMIName,
+					Namespace: testVMINamespace,
+				},
+			}
+
+			crs := collectVMIResourceRequests(vmi)
+
+			Expect(findRequest(crs, "cpu", "cores", "default")).ToNot(BeNil())
+			Expect(findRequest(crs, "cpu", "threads", "default").Value).To(BeEquivalentTo(1))
+			Expect(findRequest(crs, "cpu", "sockets", "default").Value).To(BeEquivalentTo(1))
+			Expect(findRequest(crs, "cpu", "cores", "guest_effective").Value).To(BeEquivalentTo(1))
+		})
+
+		It("should report guest and domain memory so overcommit can be compared", func() {
+			guestMemory := resource.MustParse("4Gi")
+			requestMemory := resource.MustParse("2Gi")
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testVMIName,
+					Namespace: testVMINamespace,
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Memory: &k6tv1.Memory{Guest: &guestMemory},
+						Resources: k6tv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: requestMemory,
+							},
+						},
+					},
+				},
+			}
+
+			crs := collectVMIResourceRequests(vmi)
+
+			domain := findRequest(crs, "memory", "bytes", "domain")
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Value).To(BeEquivalentTo(float64(requestMemory.Value())))
+
+			guest := findRequest(crs, "memory", "bytes", "guest")
+			Expect(guest).ToNot(BeNil())
+			Expect(guest.Value).To(BeEquivalentTo(float64(guestMemory.Value())))
+
+			effective := findRequest(crs, "memory", "bytes", "guest_effective")
+			Expect(effective).ToNot(BeNil())
+			Expect(effective.Value).To(BeEquivalentTo(float64(guestMemory.Value())))
+		})
+
+		It("should collect domain CPU metrics and guest_effective from topology", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testVMIName,
+					Namespace: testVMINamespace,
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						CPU: &k6tv1.CPU{
+							Cores:   2,
+							Threads: 4,
+							Sockets: 1,
+						},
+					},
+				},
+			}
+
+			crs := collectVMIResourceRequests(vmi)
+
+			Expect(findRequest(crs, "cpu", "cores", "domain").Value).To(BeEquivalentTo(2))
+			Expect(findRequest(crs, "cpu", "threads", "domain").Value).To(BeEquivalentTo(4))
+			Expect(findRequest(crs, "cpu", "sockets", "domain").Value).To(BeEquivalentTo(1))
+			Expect(findRequest(crs, "cpu", "cores", "guest_effective").Value).To(BeEquivalentTo(8))
+			Expect(findRequest(crs, "cpu", "cores", "default")).To(BeNil())
+		})
+
+		It("should collect CPU requests when resources are set", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testVMIName,
+					Namespace: testVMINamespace,
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Resources: k6tv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU: *resource.NewMilliQuantity(500, resource.BinarySI),
+							},
+						},
+					},
+				},
+			}
+
+			crs := collectVMIResourceRequests(vmi)
+
+			req := findRequest(crs, "cpu", "cores", "requests")
+			Expect(req).ToNot(BeNil())
+			Expect(req.Value).To(BeEquivalentTo(0.5))
+			Expect(findRequest(crs, "cpu", "cores", "guest_effective").Value).To(BeEquivalentTo(1))
+		})
+
+		It("should collect hugepages memory", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testVMIName,
+					Namespace: testVMINamespace,
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Memory: &k6tv1.Memory{
+							Hugepages: &k6tv1.Hugepages{PageSize: "2Mi"},
+						},
+					},
+				},
+			}
+
+			crs := collectVMIResourceRequests(vmi)
+
+			hugepages := findRequest(crs, "memory", "bytes", "hugepages")
+			Expect(hugepages).ToNot(BeNil())
+			pageSize := resource.MustParse("2Mi")
+			Expect(hugepages.Value).To(BeEquivalentTo(float64(pageSize.Value())))
+		})
+
+		It("should collect virt-launcher pod resource requests", func() {
+			setupTestCollector()
+
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testVMIName,
+					Namespace: testVMINamespace,
+					UID:       "test-vmi-resource-uid",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					NodeName: "test-node",
+				},
+			}
+
+			podMemory := resource.MustParse("2Gi")
+			podCPU := resource.MustParse("500m")
+			Expect(indexers.KVPod.Add(&k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "virt-launcher-test-vmi",
+					Namespace: testVMINamespace,
+					Labels:    map[string]string{k6tv1.CreatedByLabel: string(vmi.UID)},
+				},
+				Spec: k8sv1.PodSpec{
+					NodeName: "test-node",
+					Containers: []k8sv1.Container{
+						{
+							Name: computeContainerName,
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									k8sv1.ResourceMemory: podMemory,
+									k8sv1.ResourceCPU:    podCPU,
+								},
+							},
+						},
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			})).To(Succeed())
+
+			crs := collectVMIResourceRequests(vmi)
+
+			podMem := findRequest(crs, "memory", "bytes", "pod")
+			Expect(podMem).ToNot(BeNil())
+			Expect(podMem.Value).To(BeEquivalentTo(float64(podMemory.Value())))
+
+			podCPUResult := findRequest(crs, "cpu", "cores", "pod")
+			Expect(podCPUResult).ToNot(BeNil())
+			Expect(podCPUResult.Value).To(BeEquivalentTo(0.5))
+		})
+	})
 })
 
 func setupMigrationPods() {
