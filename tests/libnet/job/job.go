@@ -84,7 +84,7 @@ fi`,
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
 func NewHelloWorldJobTCP(host, port string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; \
+	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(ncat %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; \
 	  if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)
 	return NewHelloWorldJob(check)
 }
