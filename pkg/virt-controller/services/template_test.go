@@ -69,7 +69,11 @@ import (
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
-var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
+var testHookSidecar = hooks.HookSidecar{
+	Image:           "test-image",
+	ImagePullPolicy: "test-policy",
+	ResourceClaims:  []k8sv1.ResourceClaim{{Name: "test-claim", Request: "test-req"}},
+}
 
 var _ = Describe("Template", func() {
 	const expectedNetworkResource = "amazing-network-resource.com"
@@ -3254,6 +3258,8 @@ var _ = Describe("Template", func() {
 				Name:  hooks.ContainerNameEnvVar,
 				Value: "hook-sidecar-0",
 			}))
+
+			Expect(pod.Spec.Containers[1].Resources.Claims).To(Equal(testHookSidecar.ResourceClaims))
 		})
 
 		Context("with pod networking", func() {

@@ -887,6 +887,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		})
 	}
 
+	resources.Claims = requestedHookSidecar.ResourceClaims
 	sidecarOpts := []Option{
 		WithCommand(requestedHookSidecar.Command),
 		WithResourceRequirements(resources),
