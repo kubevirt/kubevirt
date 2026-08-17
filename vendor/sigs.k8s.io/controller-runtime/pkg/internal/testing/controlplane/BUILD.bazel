@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "apiserver.go",
+        "auth.go",
+        "etcd.go",
+        "kubectl.go",
+        "plane.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/controlplane",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/internal/testing/controlplane",
+    visibility = ["//vendor/sigs.k8s.io/controller-runtime/pkg:__subpackages__"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd/api:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/addr:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/certs:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/process:go_default_library",
+    ],
+)
