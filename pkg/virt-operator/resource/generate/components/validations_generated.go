@@ -35004,6 +35004,10 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
           type: object
+        freezeFailures:
+          description: FreezeFailures is the number of failed filesystem freeze attempts.
+          format: int32
+          type: integer
         readyToUse:
           type: boolean
         volumeSnapshotStatus:

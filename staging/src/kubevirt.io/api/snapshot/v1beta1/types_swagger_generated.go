@@ -121,6 +121,7 @@ func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 		"readyToUse":           "+optional",
 		"error":                "+optional",
 		"volumeSnapshotStatus": "+optional\n+listType=atomic",
+		"freezeFailures":       "FreezeFailures is the number of failed filesystem freeze attempts.\n+optional",
 	}
 }
 

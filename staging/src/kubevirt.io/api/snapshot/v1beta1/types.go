@@ -82,6 +82,7 @@ const (
 	VMSnapshotNoGuestAgentIndication    Indication = "NoGuestAgent"
 	VMSnapshotGuestAgentIndication      Indication = "GuestAgent"
 	VMSnapshotQuiesceTimeoutIndication  Indication = "QuiesceTimeout"
+	VMSnapshotQuiesceFailedIndication   Indication = "QuiesceFailed"
 	VMSnapshotPausedIndication          Indication = "Paused"
 	VMSnapshotPartialSnapshotIndication Indication = "PartialSnapshot"
 )
@@ -287,6 +288,10 @@ type VirtualMachineSnapshotContentStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
+
+	// FreezeFailures is the number of failed filesystem freeze attempts.
+	// +optional
+	FreezeFailures int32 `json:"freezeFailures,omitempty"`
 }
 
 // VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources
