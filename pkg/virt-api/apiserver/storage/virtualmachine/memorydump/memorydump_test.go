@@ -55,10 +55,10 @@ const (
 
 func expectStatusCode(statusErr *errors.StatusError, code int) {
 	if code == http.StatusAccepted {
-		Expect(statusErr).To(BeNil())
+		Expect(statusErr).ToNot(HaveOccurred())
 		return
 	}
-	Expect(statusErr).ToNot(BeNil())
+	Expect(statusErr).To(HaveOccurred())
 	Expect(int(statusErr.Status().Code)).To(Equal(code))
 }
 
@@ -149,6 +149,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)

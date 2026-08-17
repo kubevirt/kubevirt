@@ -132,7 +132,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 	}
 
 	expectStatusError := func(statusErr *errors.StatusError, code int, message string) {
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(BeNumerically("==", code))
 		if message != "" {
 			Expect(statusErr.Error()).To(ContainSubstring(message))
@@ -147,7 +147,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			))
 			expectVMI(true, false)
 
-			Expect(handler.FreezeVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(BeNil())
+			Expect(handler.FreezeVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(Succeed())
 		})
 
 		It("rejects a non-running VMI", func() {
@@ -166,7 +166,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			))
 			expectVMI(true, false)
 
-			Expect(handler.UnfreezeVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(BeNil())
+			Expect(handler.UnfreezeVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(Succeed())
 		})
 
 		It("rejects a non-running VMI", func() {
@@ -185,7 +185,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			))
 			expectVMI(true, false)
 
-			Expect(handler.ResetVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(BeNil())
+			Expect(handler.ResetVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(Succeed())
 		})
 
 		It("adds context when resetting a non-running VMI fails", func() {
@@ -215,7 +215,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			))
 			expectVMI(true, false, guestAgentConnected)
 
-			Expect(handler.SoftRebootVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(BeNil())
+			Expect(handler.SoftRebootVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(Succeed())
 		})
 
 		It("rejects a non-running VMI", func() {
@@ -259,7 +259,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			expectVMI(true, false)
 
 			statusErr := handler.PauseVMI(context.Background(), metav1.NamespaceDefault, testVMIName, optionsBody(options))
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 			Expect(backend.ReceivedRequests()).To(HaveLen(expectedRequests))
 		},
 			Entry("default", &v1.PauseOptions{}, 1),
@@ -287,7 +287,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			))
 			expectVMI(true, false, withGuestAgentPingLivenessProbe)
 
-			Expect(handler.PauseVMI(context.Background(), metav1.NamespaceDefault, testVMIName, optionsBody(&v1.PauseOptions{}))).To(BeNil())
+			Expect(handler.PauseVMI(context.Background(), metav1.NamespaceDefault, testVMIName, optionsBody(&v1.PauseOptions{}))).To(Succeed())
 		})
 	})
 
@@ -337,7 +337,7 @@ var _ = Describe("VirtualMachineInstance lifecycle", func() {
 			expectVMI(true, true)
 
 			statusErr := handler.UnpauseVMI(context.Background(), metav1.NamespaceDefault, testVMIName, optionsBody(options))
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 			Expect(backend.ReceivedRequests()).To(HaveLen(expectedRequests))
 		},
 			Entry("default", &v1.UnpauseOptions{}, 1),

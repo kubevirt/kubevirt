@@ -99,7 +99,7 @@ var _ = Describe("VirtualMachineInstance backup", func() {
 	}
 
 	expectStatusError := func(statusErr *errors.StatusError, code int, message string) {
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(BeNumerically("==", code))
 		Expect(statusErr.Error()).To(ContainSubstring(message))
 	}
@@ -115,7 +115,7 @@ var _ = Describe("VirtualMachineInstance backup", func() {
 				Status:     v1.VirtualMachineInstanceStatus{Phase: v1.Running},
 			})
 
-			Expect(handler.BackupVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(BeNil())
+			Expect(handler.BackupVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(Succeed())
 		})
 
 		It("fails when the VMI is not running", func() {
@@ -148,7 +148,7 @@ var _ = Describe("VirtualMachineInstance backup", func() {
 				},
 			})
 
-			Expect(handler.RedefineCheckpointVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(BeNil())
+			Expect(handler.RedefineCheckpointVMI(context.Background(), metav1.NamespaceDefault, testVMIName, nil)).To(Succeed())
 		})
 
 		It("fails when ChangedBlockTracking is not enabled", func() {

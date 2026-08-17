@@ -121,14 +121,14 @@ var _ = Describe("Object Graph", func() {
 			It("should return an error if the FG is not enabled", func() {
 				disableFeatureGates()
 				_, statusErr := handler.GetVMIObjectGraph(metav1.NamespaceDefault, testVMName, nil)
-				Expect(statusErr).ToNot(BeNil())
+				Expect(statusErr).To(HaveOccurred())
 				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusBadRequest))
 				Expect(statusErr.Error()).To(ContainSubstring("ObjectGraph feature gate not enabled: Unable to return object graph."))
 			})
 
 			It("should return an error if the VMI is not found", func() {
 				_, statusErr := handler.GetVMIObjectGraph(metav1.NamespaceDefault, testVMName, nil)
-				Expect(statusErr).ToNot(BeNil())
+				Expect(statusErr).To(HaveOccurred())
 				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusNotFound))
 				Expect(statusErr.Error()).To(ContainSubstring(`virtualmachineinstance.kubevirt.io "testvm" not found`))
 			})
@@ -138,14 +138,14 @@ var _ = Describe("Object Graph", func() {
 			It("should return an error if the FG is not enabled", func() {
 				disableFeatureGates()
 				_, statusErr := handler.GetVMObjectGraph(metav1.NamespaceDefault, testVMName, nil)
-				Expect(statusErr).ToNot(BeNil())
+				Expect(statusErr).To(HaveOccurred())
 				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusBadRequest))
 				Expect(statusErr.Error()).To(ContainSubstring("ObjectGraph feature gate not enabled: Unable to return object graph."))
 			})
 
 			It("should return an error if the VM is not found", func() {
 				_, statusErr := handler.GetVMObjectGraph(metav1.NamespaceDefault, testVMName, nil)
-				Expect(statusErr).ToNot(BeNil())
+				Expect(statusErr).To(HaveOccurred())
 				Expect(int(statusErr.Status().Code)).To(Equal(http.StatusNotFound))
 				Expect(statusErr.Error()).To(ContainSubstring(`virtualmachine.kubevirt.io "testvm" not found`))
 			})

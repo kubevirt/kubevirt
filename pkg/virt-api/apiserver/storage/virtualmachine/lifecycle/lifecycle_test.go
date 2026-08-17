@@ -94,7 +94,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 	})
 
 	expectStatusError := func(statusErr *errors.StatusError, code int) {
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(BeNumerically("==", code))
 	}
 
@@ -169,7 +169,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 			)
 
 			statusErr := handler.RestartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, restartOptions)
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		},
 			Entry("with non-nil terminationGracePeriod", pointer.P(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
 			Entry("with nil terminationGracePeriod", nil, &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
@@ -250,7 +250,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
 
 			statusErr := handler.RestartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, &v1.RestartOptions{})
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		})
 
 		It("should start VirtualMachine if VMI doesn't exist", func() {
@@ -262,7 +262,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
 
 			statusErr := handler.RestartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, &v1.RestartOptions{})
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		})
 
 		It("should fail when the volume migration in ongoing", func() {
@@ -314,7 +314,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 				})
 
 			statusErr := handler.StopVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, stopOptions)
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		},
 			Entry("in status Running with default", v1.Running, &v1.StopOptions{GracePeriod: gracePeriodZero}),
 			Entry("in status Failed with default", v1.Failed, &v1.StopOptions{GracePeriod: gracePeriodZero}),
@@ -343,7 +343,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
 
 			statusErr := handler.RestartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, &v1.RestartOptions{})
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		},
 			Entry("Always", v1.RunStrategyAlways),
 			Entry("Manual", v1.RunStrategyManual),
@@ -423,7 +423,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 					})
 
 				statusErr := handler.StartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, &v1.StartOptions{})
-				Expect(statusErr).To(BeNil())
+				Expect(statusErr).ToNot(HaveOccurred())
 			},
 			Entry("RerunOnFailure with VMI in state Succeeded", v1.RunStrategyRerunOnFailure, v1.Succeeded, http.StatusOK),
 			Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
@@ -466,7 +466,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 				expectStatusError(statusErr, http.StatusConflict)
 				Expect(statusErr.Error()).To(ContainSubstring(msg))
 			} else {
-				Expect(statusErr).To(BeNil())
+				Expect(statusErr).ToNot(HaveOccurred())
 			}
 		},
 			Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false, &v1.StopOptions{}),
@@ -532,7 +532,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 				expectStatusError(statusErr, http.StatusConflict)
 				Expect(statusErr.Error()).To(ContainSubstring("Halted only supports manual stop requests with a shorter graceperiod"))
 			} else {
-				Expect(statusErr).To(BeNil())
+				Expect(statusErr).ToNot(HaveOccurred())
 			}
 		},
 			Entry("fail with nil graceperiod", pointer.P(int64(1800)), nil, true),
@@ -556,7 +556,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 			}
 
 			statusErr := handler.StopVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, &v1.StopOptions{})
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		},
 			Entry("Always", v1.RunStrategyAlways),
 			Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
@@ -628,7 +628,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 					Expect(opts.DryRun).To(BeEquivalentTo(migrateOptions.DryRun))
 				}).Return(&migration, nil)
 			statusErr := handler.MigrateVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, migrateOptions)
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		},
 			Entry("with default", &v1.MigrateOptions{}),
 			Entry("with dry-run option", &v1.MigrateOptions{DryRun: withDryRun()}),
@@ -836,7 +836,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 				})
 
 			statusErr := handler.StartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, startOptions)
-			Expect(statusErr).To(BeNil())
+			Expect(statusErr).ToNot(HaveOccurred())
 		},
 			Entry("with default", &v1.StartOptions{Paused: Paused}),
 			Entry("with dry-run option", &v1.StartOptions{Paused: Paused, DryRun: withDryRun()}),
@@ -855,7 +855,7 @@ var _ = Describe("VirtualMachine lifecycle", func() {
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
 
 				statusErr := handler.StartVM(context.Background(), k8smetav1.NamespaceDefault, testVMName, startOptions)
-				Expect(statusErr).To(BeNil())
+				Expect(statusErr).ToNot(HaveOccurred())
 			},
 			Entry("Manual RunStrategy", v1.RunStrategyManual),
 			Entry("RerunOnFailure RunStrategy", v1.RunStrategyRerunOnFailure),
