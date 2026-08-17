@@ -84,7 +84,7 @@ var _ = Describe("VNC streaming", func() {
 
 		statusErr := streamVNC(testVMIName)
 
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
 	},
 		Entry("should fail if there is no graphics device", false, v1.Running),
@@ -93,7 +93,7 @@ var _ = Describe("VNC streaming", func() {
 
 	It("should fail if the vmi is not found", func() {
 		statusErr := streamVNC(testVMIName)
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusNotFound)))
 	})
 
@@ -108,7 +108,7 @@ var _ = Describe("VNC streaming", func() {
 
 		_, statusErr := handler.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
 
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
 	},
 		Entry("should fail if there is no graphics device", false, v1.Running),
@@ -117,7 +117,7 @@ var _ = Describe("VNC streaming", func() {
 
 	It("should fail to take a screenshot if the vmi is not found", func() {
 		_, statusErr := handler.Screenshot(context.Background(), metav1.NamespaceDefault, testVMIName)
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusNotFound)))
 	})
 })

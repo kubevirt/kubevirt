@@ -82,7 +82,7 @@ var _ = Describe("USBRedir streaming", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		statusErr := streamUSBRedir(testVMIName)
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusConflict)))
 	})
 
@@ -96,7 +96,7 @@ var _ = Describe("USBRedir streaming", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		statusErr := streamUSBRedir(testVMIName)
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
 	})
 })

@@ -84,6 +84,8 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		handler.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		handler.k8sClient, err = kubecli.GetK8sClientFromFlags(server.URL(), "")
+		Expect(err).ToNot(HaveOccurred())
 		handler.clusterConfig = config
 		handler.profilerComponentPort = backendPort
 

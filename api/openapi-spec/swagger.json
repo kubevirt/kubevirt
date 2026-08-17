@@ -14,32 +14,6 @@
    }
   },
   "paths": {
-   "/": {
-    "get": {
-     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
-     "produces": [
-      "application/json"
-     ],
-     "schemes": [
-      "https"
-     ],
-     "tags": [
-      ""
-     ],
-     "operationId": "readIndex",
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.RootPaths"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      }
-     }
-    }
-   },
    "/apis/": {
     "get": {
      "description": "get available API versions",
@@ -15095,24 +15069,7 @@
      }
     }
    },
-   "io.k8s.apimachinery.pkg.apis.meta.v1.RootPaths": {
-    "description": "RootPaths lists the paths available at root. For example: \"/healthz\", \"/apis\".",
-    "type": "object",
-    "required": [
-     "paths"
-    ],
-    "properties": {
-     "paths": {
-      "description": "paths are the paths available at root.",
-      "type": "array",
-      "items": {
-       "type": "string"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
-   "io.k8s.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
+   "k8s.io.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
     "type": "object",
     "required": [

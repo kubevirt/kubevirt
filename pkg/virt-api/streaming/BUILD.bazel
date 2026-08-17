@@ -28,6 +28,7 @@ go_test(
         "streaming_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",

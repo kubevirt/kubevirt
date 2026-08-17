@@ -88,7 +88,7 @@ var _ = Describe("Console streaming", func() {
 
 		statusErr := streamConsole(testVMIName)
 
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
 	},
 		Entry("should fail if there is no serial console", false, v1.Running),
@@ -108,7 +108,7 @@ var _ = Describe("Console streaming", func() {
 
 		statusErr := streamConsole(testVMIName)
 
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusConflict)))
 	})
 })

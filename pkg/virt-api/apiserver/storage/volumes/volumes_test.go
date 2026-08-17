@@ -56,10 +56,10 @@ func newMinimalVM(name string) *v1.VirtualMachine {
 
 func expectStatusCode(statusErr *errors.StatusError, code int) {
 	if code == http.StatusAccepted {
-		Expect(statusErr).To(BeNil())
+		Expect(statusErr).ToNot(HaveOccurred())
 		return
 	}
-	Expect(statusErr).ToNot(BeNil())
+	Expect(statusErr).To(HaveOccurred())
 	Expect(int(statusErr.Status().Code)).To(Equal(code))
 }
 

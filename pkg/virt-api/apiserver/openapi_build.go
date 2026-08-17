@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	restful "github.com/emicklei/go-restful/v3"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
@@ -322,7 +321,7 @@ func installClusterLevelOpenAPIRoutes(container *restful.Container, groupVersion
 func installRootLevelOpenAPIRoutes(container *restful.Container, groupVersions []schema.GroupVersion) {
 	noop := func(*restful.Request, *restful.Response) {}
 
-	paths := []string{"/", HealthzPath}
+	paths := []string{HealthzPath}
 	paths = append(paths, ComponentProfilerPaths()...)
 	paths = append(paths, "/openapi/v2", "/openapi/v3")
 	for _, gv := range groupVersions {
@@ -332,15 +331,11 @@ func installRootLevelOpenAPIRoutes(container *restful.Container, groupVersions [
 	ws := new(restful.WebService)
 	ws.Path("/")
 	for _, path := range paths {
-		builder := ws.GET(path).
+		ws.Route(ws.GET(path).
 			To(noop).
 			Operation("read" + rootLevelOperationName(path)).
 			Doc("Endpoint served by virt-api outside of the aggregated API surface.").
-			Produces(restful.MIME_JSON)
-		if path == "/" {
-			builder = builder.Writes(metav1.RootPaths{})
-		}
-		ws.Route(builder)
+			Produces(restful.MIME_JSON))
 	}
 	container.Add(ws)
 }

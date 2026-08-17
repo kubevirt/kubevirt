@@ -85,7 +85,7 @@ var _ = Describe("PortForward streaming", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		statusErr := streamPortForward(testVMIName, "8080", "tcp")
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusConflict)))
 	})
 
@@ -101,7 +101,7 @@ var _ = Describe("PortForward streaming", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		statusErr := streamPortForward(testVMIName, "", "tcp")
-		Expect(statusErr).ToNot(BeNil())
+		Expect(statusErr).To(HaveOccurred())
 		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
 	})
 })
