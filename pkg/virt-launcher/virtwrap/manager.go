@@ -1067,10 +1067,20 @@ func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func isPVCPreallocated(volumeName string, vmi *v1.VirtualMachineInstance) bool {
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == volumeName && vs.PersistentVolumeClaimInfo != nil {
+			return vs.PersistentVolumeClaimInfo.Preallocated
+		}
+	}
+	return false
+}
+
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
-		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+		volumeName := disk.Alias.GetName()
+		if !isPVCBacked(volumeName, vmi) {
 			continue
 		}
 		if shouldExpandOffline(disk) {
@@ -1080,7 +1090,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 				logger.Errorf("Failed to get possible guest size from disk")
 				continue
 			}
-			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize)
+			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize, isPVCPreallocated(volumeName, vmi))
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -1088,10 +1098,10 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 	}
 }
 
-func expandDiskImageOffline(imagePath string, size int64) error {
+func expandDiskImageOffline(imagePath string, size int64, preallocated bool) error {
 	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
 	var preallocateFlag string
-	if converter.IsPreAllocated(imagePath) {
+	if preallocated {
 		preallocateFlag = "--preallocation=falloc"
 	} else {
 		preallocateFlag = "--preallocation=off"
