@@ -68,6 +68,11 @@ const (
 	snapshotRetryInterval = 5 * time.Second
 
 	contentDeletionInterval = 5 * time.Second
+
+	// A freeze operation can normally take up to 60s to complete. During that
+	// time, each retry cycle takes ~15s (10s HTTP timeout + 5s reconcile interval),
+	// so 4 retries cover the 60s window, plus 2 for margin.
+	MaxFreezeRetries = 6
 )
 
 // Indication messages
@@ -76,6 +81,7 @@ var snapshotIndicationMessages = map[snapshotv1.Indication]string{
 	snapshotv1.VMSnapshotGuestAgentIndication:      "Guest agent was active and attempted to quiesce the filesystem for application consistency.",
 	snapshotv1.VMSnapshotNoGuestAgentIndication:    "Guest agent was not available. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotQuiesceTimeoutIndication:  "Guest agent quiesced the filesystem, but the freeze window timed out before completion. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotQuiesceFailedIndication:   "Filesystem quiescing failed after exhausting retries. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotPausedIndication:          "Snapshot taken while the VM was paused. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotPartialSnapshotIndication: "Not all snapshotable volumes were included in the snapshot. Check status.snapshotVolumes for excluded volumes and VM VolumeSnapshotStatus for details.",
 }
@@ -419,20 +425,28 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 					return 0, fmt.Errorf("unable to get snapshot source")
 				}
 
-				if err := source.Freeze(); err != nil {
-					contentCpy.Status.Error = &snapshotv1.Error{
-						Time:    currentTime(),
-						Message: pointer.P(err.Error()),
+				if content.Status != nil && content.Status.FreezeFailures > 0 &&
+					content.Status.Error != nil && content.Status.Error.Time != nil {
+					if elapsed := time.Since(content.Status.Error.Time.Time); elapsed < snapshotRetryInterval {
+						return snapshotRetryInterval - elapsed, nil
 					}
-					contentCpy.Status.ReadyToUse = pointer.P(false)
-					// Retry again in 5 seconds
-					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 				}
 
-				// assuming that VM is frozen once Freeze() returns
-				// which should be the case
-				// if Freeze() were async, we'd have to return
-				// and only continue when source.Frozen() == true
+				if err := source.Freeze(); err != nil {
+					contentCpy.Status.FreezeFailures++
+
+					if contentCpy.Status.FreezeFailures >= MaxFreezeRetries {
+						log.Log.Warningf("Freeze failed after %d attempts for snapshot %s/%s, proceeding with crash-consistent snapshot: %v",
+							contentCpy.Status.FreezeFailures, vmSnapshot.Namespace, vmSnapshot.Name, err)
+					} else {
+						contentCpy.Status.Error = &snapshotv1.Error{
+							Time:    currentTime(),
+							Message: pointer.P(err.Error()),
+						}
+						contentCpy.Status.ReadyToUse = pointer.P(false)
+						return snapshotRetryInterval, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+					}
+				}
 
 				didFreeze = true
 			}
@@ -822,7 +836,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, source.LockMsg()))
 			}
 
-			updateSnapshotSourceIndications(vmSnapshotCpy, source)
+			updateSnapshotSourceIndications(vmSnapshotCpy, source, content)
 		} else {
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
@@ -863,7 +877,7 @@ func IndicationMessage(indication snapshotv1.Indication) string {
 }
 
 // updateSnapshotSourceIndications updates both the old and new indication fields
-func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) {
+func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource, content *snapshotv1.VirtualMachineSnapshotContent) {
 	if source.Online() {
 		indications := sets.New(snapshot.Status.Indications...)
 		indications = sets.Insert(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
@@ -876,6 +890,10 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 			if snapErr != nil && snapErr.Message != nil &&
 				strings.Contains(*snapErr.Message, VSSFreezeLimitReached) {
 				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceTimeoutIndication)
+			}
+			if content != nil && content.Status != nil &&
+				content.Status.FreezeFailures >= MaxFreezeRetries {
+				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
 			}
 		} else {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
