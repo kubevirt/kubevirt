@@ -887,6 +887,9 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		})
 	}
 
+	// resources already contains the CPU and memory spec of the sidecar container
+	// add the DRA ResourceClaims as well
+	resources.Claims = requestedHookSidecar.ResourceClaims
 	sidecarOpts := []Option{
 		WithCommand(requestedHookSidecar.Command),
 		WithResourceRequirements(resources),
