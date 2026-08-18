@@ -227,8 +227,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			listResults, err := listAllKnownDomains()
-			Expect(err).ToNot(HaveOccurred())
+			listResults := listAllKnownDomains()
 
 			Expect(listResults).To(HaveLen(1))
 		})
@@ -251,8 +250,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			listResults, err := listAllKnownDomains()
-			Expect(err).ToNot(HaveOccurred())
+			listResults := listAllKnownDomains()
 
 			// includes both the domain with an active socket and the ghost record with deleted socket
 			Expect(listResults).To(HaveLen(2))

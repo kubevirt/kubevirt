@@ -243,10 +243,7 @@ func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record
 
 func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
 	log.Log.V(3).Info("Synchronizing domains")
-	domains, err := listAllKnownDomains()
-	if err != nil {
-		return nil, err
-	}
+	domains := listAllKnownDomains()
 	list := api.DomainList{
 		Items: []api.Domain{},
 	}
@@ -256,7 +253,7 @@ func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
 	return &list, nil
 }
 
-func listAllKnownDomains() ([]*api.Domain, error) {
+func listAllKnownDomains() []*api.Domain {
 	var domains []*api.Domain
 
 	ghostRecords := (GhostRecordGlobalStore.list())
@@ -306,5 +303,5 @@ func listAllKnownDomains() ([]*api.Domain, error) {
 			domains = append(domains, domain)
 		}
 	}
-	return domains, nil
+	return domains
 }
