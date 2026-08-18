@@ -267,10 +267,9 @@ func listAllKnownDomains() []*api.Domain {
 		}
 
 		if !exists {
-			domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-			domain.ObjectMeta.UID = record.UID
+			domain := newDomainFromGhostRecord(record, api.DomainStatus{})
 			now := metav1.Now()
-			domain.ObjectMeta.DeletionTimestamp = &now
+			domain.DeletionTimestamp = &now
 			log.Log.Object(domain).Warning("detected stale domain from ghost record")
 			domains = append(domains, domain)
 			continue
@@ -280,10 +279,7 @@ func listAllKnownDomains() []*api.Domain {
 		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {
 			log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
-			domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-			domain.ObjectMeta.UID = record.UID
-			domain.Spec.Metadata.KubeVirt.UID = record.UID
-			domain.Status.Status = api.Unknown
+			domain := newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
 			domains = append(domains, domain)
 			continue
 		}
@@ -292,10 +288,7 @@ func listAllKnownDomains() []*api.Domain {
 		domain, exists, err := client.GetDomain()
 		if err != nil {
 			log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
-			domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-			domain.ObjectMeta.UID = record.UID
-			domain.Spec.Metadata.KubeVirt.UID = record.UID
-			domain.Status.Status = api.Unknown
+			domain := newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
 			domains = append(domains, domain)
 			continue
 		}
@@ -304,4 +297,13 @@ func listAllKnownDomains() []*api.Domain {
 		}
 	}
 	return domains
+}
+
+func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {
+	domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+	domain.ObjectMeta.UID = record.UID
+	domain.Spec.Metadata.KubeVirt.UID = record.UID
+	domain.Status = status
+
+	return domain
 }
