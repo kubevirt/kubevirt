@@ -58,28 +58,6 @@ func WaitForJobToSucceed(job *batchv1.Job, timeout time.Duration) error {
 	return WaitForJob(job, toSucceed, timeout)
 }
 
-// NewHelloWorldJobUDP takes a DNS entry or an IP and a port which it will use create a pod
-// which tries to contact the host on the provided port. It expects to receive "Hello UDP World!" to succeed.
-// Note that in case of UDP, the server will not see the connection unless something is sent over it
-// However, netcat does not work well with UDP and closes before the answer arrives, we make netcat wait until
-// the defined timeout is expired to prevent this from happening.
-func NewHelloWorldJobUDP(host, port string) *batchv1.Job {
-	timeout := 5
-	check := fmt.Sprintf(`set -x
-x=$(cat <(echo) <(sleep %[1]d) | nc -u %s %s -i %[1]d -w %[1]d | head -n 1)
-echo "$x"
-if [ "$x" = "Hello UDP World!" ]; then
-  echo "succeeded"
-  exit 0
-else
-  echo "failed"
-  exit 1
-fi`,
-		timeout, host, port)
-
-	return NewHelloWorldJob(check)
-}
-
 // NewHelloWorldJob takes a DNS entry or an IP and a port which it will use to create a job
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
