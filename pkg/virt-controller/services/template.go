@@ -1179,10 +1179,14 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		if claimName == "" {
 			continue
 		}
-		skipMount := false
-		if hotplugVolumeStatusMap[volume.Name] == v1.VolumeReady || hotplugVolumeStatusMap[volume.Name] == v1.HotplugVolumeMounted {
-			skipMount = true
-		}
+		// Skip container mounts for regular hotplug volumes already served by the old
+		// attachment pod (VolumeReady or HotplugVolumeMounted). Utility volumes always
+		// need a mount in the replacement pod so virt-handler can bind-mount when the
+		// volume set expands. Skipping during HotplugVolumeMounted avoids duplicate
+		// container mounts on overlapping attachment pods (same node as virt-launcher)
+		// while the disk is still attaching via the old pod.
+		phase := hotplugVolumeStatusMap[volume.Name]
+		skipMount := !types.IsUtilityVolume(vmi, volume.Name) && (phase == v1.VolumeReady || phase == v1.HotplugVolumeMounted)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volume.Name,
 			VolumeSource: k8sv1.VolumeSource{
