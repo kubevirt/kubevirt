@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"kubevirt.io/client-go/kubecli"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,14 +66,9 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		staticVMI2IP   = "10.1.1.20"
 		subnetMask     = "/24"
 	)
-	var (
-		testNamespace string
-		virtClient    kubecli.KubevirtClient
-	)
+	var testNamespace string
 
 	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
@@ -85,7 +79,7 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		currentKv := libkubevirt.GetCurrentKv(virtClient)
+		currentKv := libkubevirt.GetCurrentKv(kubevirt.Client())
 		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
