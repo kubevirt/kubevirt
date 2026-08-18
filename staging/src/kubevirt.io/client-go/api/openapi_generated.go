@@ -19616,7 +19616,7 @@ func schema_kubevirtio_api_core_v1_ContainerDiskInfo(ref common.ReferenceCallbac
 				Properties: map[string]spec.Schema{
 					"checksum": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+							Description: "deprecated; Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -21994,7 +21994,7 @@ func schema_kubevirtio_api_core_v1_InitrdInfo(ref common.ReferenceCallback) comm
 				Properties: map[string]spec.Schema{
 					"checksum": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Checksum is the checksum of the initrd file",
+							Description: "deprecated; Checksum is the checksum of the initrd file",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -22636,7 +22636,7 @@ func schema_kubevirtio_api_core_v1_KernelInfo(ref common.ReferenceCallback) comm
 				Properties: map[string]spec.Schema{
 					"checksum": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Checksum is the checksum of the kernel image",
+							Description: "deprecated; Checksum is the checksum of the kernel image",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},

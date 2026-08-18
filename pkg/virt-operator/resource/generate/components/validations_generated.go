@@ -15327,7 +15327,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: InitrdInfo show info about the initrd file
               properties:
                 checksum:
-                  description: Checksum is the checksum of the initrd file
+                  description: deprecated; Checksum is the checksum of the initrd
+                    file
                   format: int64
                   maximum: 4294967295
                   minimum: 0
@@ -15337,7 +15338,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: KernelInfo show info about the kernel image
               properties:
                 checksum:
-                  description: Checksum is the checksum of the kernel image
+                  description: deprecated; Checksum is the checksum of the kernel
+                    image
                   format: int64
                   maximum: 4294967295
                   minimum: 0
@@ -16036,8 +16038,8 @@ var CRDsValidation map[string]string = map[string]string{
                   if the volume is a containerdisk
                 properties:
                   checksum:
-                    description: Checksum is the checksum of the rootdisk or kernel
-                      artifacts inside the containerdisk
+                    description: deprecated; Checksum is the checksum of the rootdisk
+                      or kernel artifacts inside the containerdisk
                     format: int64
                     maximum: 4294967295
                     minimum: 0
