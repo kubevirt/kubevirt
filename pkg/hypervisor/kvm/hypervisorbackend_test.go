@@ -40,7 +40,7 @@ import (
 
 var _ = Describe("GetMemoryOverhead calculation", func() {
 	// VirtLauncherMonitorOverhead + VirtLauncherOverhead + VirtlogdOverhead + VirtqemudOverhead + QemuOverhead + IothreadsOverhead
-	const staticOverheadString = "223Mi"
+	const staticOverheadString = "243Mi"
 	var (
 		vmi                     *v1.VirtualMachineInstance
 		staticOverhead          *resource.Quantity
