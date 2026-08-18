@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
@@ -103,13 +104,11 @@ func AdjustKubeVirtResource() {
 			},
 		},
 	}
-	// Disable CPUManager Featuregate for s390x as it is not supported.
-	if translateBuildArch() != "s390x" {
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			featuregate.CPUManager,
-		)
-	}
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+	arch := libnode.GetArch()
+	unsupportedGates := unsupportedFeatureGatesForArch(arch)
+
+	for _, gate := range []string{
+		featuregate.CPUManager,
 		featuregate.IgnitionGate,
 		featuregate.SidecarGate,
 		featuregate.IncrementalBackupGate,
@@ -123,7 +122,12 @@ func AdjustKubeVirtResource() {
 		featuregate.UtilityVolumesGate,
 		featuregate.RebootPolicy,
 		featuregate.ContainerPathVolumesGate,
-	)
+	} {
+		if !unsupportedGates[gate] {
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, gate)
+		}
+	}
 
 	// ImageVolume is enabled by default for k8s 1.35+ (image volume feature gate in kubelet).
 	// Disable it on older clusters to avoid CI failures.
@@ -251,25 +255,19 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	return kv
 }
 
-/*
-translateBuildArch translates the build_arch to arch
-
-	case1:
-	  build_arch is crossbuild-s390x, which will be translated to s390x arch
-	case2:
-	  build_arch is s390x, which will be translated to s390x arch
-*/
-func translateBuildArch() string {
-	buildArch := os.Getenv("BUILD_ARCH")
-
-	if buildArch == "" {
-		return ""
+// unsupportedFeatureGatesForArch returns the set of feature gates that must not
+// be enabled on the given architecture because the underlying hardware or
+// platform capability does not exist (e.g. AMD SEV on s390x).
+func unsupportedFeatureGatesForArch(arch string) map[string]bool {
+	switch arch {
+	case "s390x":
+		return map[string]bool{
+			featuregate.CPUManager:            true,
+			featuregate.WorkloadEncryptionSEV: true,
+		}
+	default:
+		return nil
 	}
-	archElements := strings.Split(buildArch, "-")
-	if len(archElements) == 2 {
-		return archElements[1]
-	}
-	return archElements[0]
 }
 
 func parseVerbosityEnv() (*v1.LogVerbosity, error) {
