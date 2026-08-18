@@ -187,6 +187,18 @@ case "$TARGET" in
     ;;
 esac
 
+# Auto-detect CentOS Stream version from provider when not explicitly set.
+# k8s >= 1.37 providers are based on CentOS Stream 10.
+if [ -z "${KUBEVIRT_CENTOS_STREAM_VERSION:-}" ]; then
+  provider_version=$(echo "${KUBEVIRT_PROVIDER:-}" | sed -n 's/^k8s-\([0-9]*\.[0-9]*\).*/\1/p')
+  if [ -n "$provider_version" ]; then
+    min_cs10_version="1.37"
+    if [ "$(printf '%s\n' "$min_cs10_version" "$provider_version" | sort -V | head -n1)" = "$min_cs10_version" ]; then
+      export KUBEVIRT_CENTOS_STREAM_VERSION=10
+    fi
+  fi
+fi
+
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
