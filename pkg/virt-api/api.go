@@ -66,6 +66,7 @@ import (
 	versionhandler "kubevirt.io/kubevirt/pkg/virt-api/apiserver/cluster/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachine"
 	"kubevirt.io/kubevirt/pkg/virt-api/apiserver/storage/virtualmachineinstance"
+	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
@@ -95,7 +96,13 @@ type VirtApi interface {
 type virtAPIApp struct {
 	apiServer *apiserver.APIServer
 
-	// LEGACY(virt-api-migration): still passed by virt-operator but no longer read
+	// useGenericAPIServer opts virt-api into the GenericAPIServer based
+	// implementation. When false (the default) virt-api serves the legacy
+	// go-restful based server, matching the behavior on main. virt-operator
+	// toggles this via the --use-generic-apiserver flag based on an annotation
+	// on the KubeVirt CR.
+	useGenericAPIServer bool
+
 	SubresourcesOnly bool
 	virtClient       kubecli.KubevirtClient
 	k8sClient        kubernetes.Interface
@@ -109,6 +116,11 @@ type virtAPIApp struct {
 	handlerCertManager      certificate2.Manager
 	handlerCertFilePath     string
 	handlerKeyFilePath      string
+
+	// Legacy (go-restful) server state, only used when useGenericAPIServer is false.
+	authorizor  rest.VirtApiAuthorizor
+	certmanager certificate2.Manager
+	tlsConfig   *tls.Config
 
 	// Serving certificate handed to the GenericAPIServer.
 	caConfigMapName   string
@@ -163,6 +175,13 @@ func (app *virtAPIApp) Execute() {
 	}
 
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(clientConfig)
+
+	// The authorizor is only consumed by the legacy go-restful server, but it
+	// is cheap to construct and keeps Run() free of client wiring.
+	app.authorizor, err = rest.NewAuthorizor(app.reloadableWebhookRateLimiter)
+	if err != nil {
+		panic(err)
+	}
 
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
@@ -426,6 +445,15 @@ func (app *virtAPIApp) Run() {
 
 	go app.handlerCertManager.Start()
 
+	if !app.useGenericAPIServer {
+		// Default path: the legacy go-restful based virt-api server, matching
+		// the behavior on main.
+		if err := app.runLegacyServer(kubeInformerFactory, webhookInformers); err != nil {
+			panic(err)
+		}
+		return
+	}
+
 	app.setupHandlerTLS(kubeInformerFactory)
 	metrics.SetVirtAPIReady()
 
@@ -537,8 +565,6 @@ func (app *virtAPIApp) clusterLevelAPIHandlers() []apiserver.ConditionalAPIHandl
 		"dump-cluster-profiler":  http.HandlerFunc(clusterProfilerHandler.DumpClusterProfilerHTTP),
 	}
 
-	// Driven by ClusterLevelRoutes so the served endpoints, the AlwaysAllowPaths
-	// whitelist and the generated OpenAPI all come from one declaration.
 	var apiHandlers []apiserver.ConditionalAPIHandler
 	for _, route := range apiserver.ClusterLevelRoutes() {
 		handler, ok := handlers[route.Resource]
@@ -569,8 +595,6 @@ func (app *virtAPIApp) componentProfilerMuxHandlers() []apiserver.MuxHandler {
 		"/dump-profiler":  adapt(componentProfiler.HandleDumpProfiler),
 	}
 
-	// Driven by ComponentProfilerPaths so the served paths and the generated
-	// OpenAPI come from one declaration.
 	var muxHandlers []apiserver.MuxHandler
 	for _, path := range apiserver.ComponentProfilerPaths() {
 		handler, ok := handlers[path]
@@ -623,6 +647,8 @@ func (app *virtAPIApp) AddFlags() {
 
 	app.apiServer.AddFlags(flag.CommandLine)
 
+	flag.BoolVar(&app.useGenericAPIServer, "use-generic-apiserver", false,
+		"Serve virt-api using the k8s.io/apiserver GenericAPIServer implementation instead of the legacy go-restful server")
 	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,
 		"Only serve subresource endpoints")
 	flag.IntVar(&app.consoleServerPort, "console-server-port", DefaultConsoleServerPort,
