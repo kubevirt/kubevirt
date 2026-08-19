@@ -24596,11 +24596,34 @@
     "in": "path",
     "required": true
    },
+   "namespace-vgWSWtn3": {
+    "uniqueItems": true,
+    "type": "string",
+    "description": "object name and auth scope, such as for teams and projects",
+    "name": "namespace",
+    "in": "path",
+    "required": true
+   },
    "orphanDependents-uRB25kX5": {
     "uniqueItems": true,
     "type": "boolean",
     "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
     "name": "orphanDependents",
+    "in": "query"
+   },
+   "path-z6Ciiujn": {
+    "uniqueItems": true,
+    "type": "string",
+    "description": "path to the resource",
+    "name": "path",
+    "in": "path",
+    "required": true
+   },
+   "pretty-tJGM1-ng": {
+    "uniqueItems": true,
+    "type": "string",
+    "description": "If 'true', then the output is pretty printed. Defaults to 'false' unless the user-agent indicates a browser or command-line HTTP tool (curl and wget).",
+    "name": "pretty",
     "in": "query"
    },
    "propagationPolicy-6jk3prlO": {
