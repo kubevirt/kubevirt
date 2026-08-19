@@ -106,6 +106,22 @@ func (a *APIServer) WithSecureServingPort(port int) *APIServer {
 	return a
 }
 
+// BindPort returns the configured secure serving port. It lets the legacy
+// virt-api server reuse the same --secure-port flag as the GenericAPIServer.
+func (a *APIServer) BindPort() int {
+	return a.secureServingOpts.BindPort
+}
+
+// CertFile returns the configured serving certificate file path.
+func (a *APIServer) CertFile() string {
+	return a.secureServingOpts.ServerCert.CertKey.CertFile
+}
+
+// KeyFile returns the configured serving private key file path.
+func (a *APIServer) KeyFile() string {
+	return a.secureServingOpts.ServerCert.CertKey.KeyFile
+}
+
 func (a *APIServer) WithSecureServingCertDirectory(dir string) *APIServer {
 	a.secureServingOpts.ServerCert.CertDirectory = dir
 	return a
