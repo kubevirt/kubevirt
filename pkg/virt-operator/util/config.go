@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -60,6 +61,10 @@ const (
 	VirtTemplateApiserverImageEnvName         = "VIRT_TEMPLATE_APISERVER_IMAGE"
 	VirtTemplateControllerImageEnvName        = "VIRT_TEMPLATE_CONTROLLER_IMAGE"
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
+
+	// KubeletRootDirEnvName is the operator env var used to override the host
+	// kubelet root directory for distributions with a non-default kubelet root.
+	KubeletRootDirEnvName = "KUBELET_ROOT_DIR"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
@@ -160,6 +165,11 @@ type KubeVirtDeploymentConfig struct {
 	// matches the image tag, if tags are used, either by the manifest, or by the KubeVirt CR
 	// used on the KubeVirt CR status and on annotations, and for determining up-/downgrade paths
 	KubeVirtVersion string `json:"kubeVirtVersion,omitempty" optional:"true"`
+
+	// KubeletRootDir is the host directory where the kubelet stores its state.
+	// It defaults to /var/lib/kubelet and can be overridden for distributions
+	// that use a non-standard kubelet root (e.g. k0s, RKE2, some managed offerings).
+	KubeletRootDir string `json:"kubeletRootDir,omitempty" optional:"true"`
 
 	// the images names of every image we use
 	ComponentImages
@@ -349,8 +359,9 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	GsImage := envVarManager.Getenv(GsImageEnvName)
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
+	kubeletRootDir := envVarManager.Getenv(KubeletRootDirEnvName)
 
-	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
+	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, kubeletRootDir, additionalProperties, passthroughEnv)
 }
 
 func VerifyEnv() error {
@@ -384,11 +395,12 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage, kubeletRootDir string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:        registry,
 		ImagePrefix:     imagePrefix,
 		KubeVirtVersion: tag,
+		KubeletRootDir:  kubeletRootDir,
 		ComponentImages: ComponentImages{
 			VirtOperatorImage:                  operatorImage,
 			VirtApiImage:                       apiImage,
@@ -490,6 +502,15 @@ func (c *KubeVirtDeploymentConfig) GetSidecarShimVersion() string {
 
 func (c *KubeVirtDeploymentConfig) GetKubeVirtVersion() string {
 	return c.KubeVirtVersion
+}
+
+// GetKubeletRootDir returns the configured host kubelet root directory,
+// falling back to the default /var/lib/kubelet when unset.
+func (c *KubeVirtDeploymentConfig) GetKubeletRootDir() string {
+	if c.KubeletRootDir == "" {
+		return virtutil.KubeletRoot
+	}
+	return c.KubeletRootDir
 }
 
 func (c *KubeVirtDeploymentConfig) GetImageRegistry() string {
