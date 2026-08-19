@@ -70,6 +70,15 @@ func addSubresourcePaths(base, subresources *spec.Swagger) *spec.Swagger {
 			base.Definitions[name] = definition
 		}
 	}
+
+	if base.Parameters == nil {
+		base.Parameters = map[string]spec.Parameter{}
+	}
+	for name, parameter := range subresources.Parameters {
+		if _, exists := base.Parameters[name]; !exists {
+			base.Parameters[name] = parameter
+		}
+	}
 	return base
 }
 
