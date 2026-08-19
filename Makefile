@@ -1,6 +1,6 @@
 export GO15VENDOREXPERIMENT := 1
 
-KUBEVIRT_CENTOS_STREAM_VERSION ?= 9
+KUBEVIRT_CENTOS_STREAM_VERSION ?= 10
 
 ifeq (${CI}, true)
   # If we're running under a test lane, enable timestamps and disable progress output
