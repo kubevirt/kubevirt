@@ -386,23 +386,24 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	DescribeTable("should include the storage metrics for a running VM", func(metricName, operator string) {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
-
 		By("Checking the collected metrics")
 		for _, vmi := range preparedVMIs {
 			for _, vol := range vmi.Spec.Volumes {
-				fetcher := metricsutil.NewMetricsFetcher("")
-				fetcher.AddNameFilter(metricName)
-				fetcher.AddLabelFilter("name", vmi.Name, "drive", vol.Name)
+				Eventually(func(g Gomega) {
+					metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+					fetcher := metricsutil.NewMetricsFetcher("")
+					fetcher.AddNameFilter(metricName)
+					fetcher.AddLabelFilter("name", vmi.Name, "drive", vol.Name)
 
-				metrics, err := fetcher.LoadMetrics(metricsPayload)
-				Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
+					metrics, err := fetcher.LoadMetrics(metricsPayload)
+					g.Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
 
-				results := metrics[metricName]
-				Expect(results).ToNot(BeEmpty(), "Expected to find metric for VMI %s and disk %s", vmi.Name, vol.Name)
+					results := metrics[metricName]
+					g.Expect(results).ToNot(BeEmpty(), "Expected to find metric for VMI %s and disk %s", vmi.Name, vol.Name)
 
-				GinkgoLogr.Info("Metric value", "value", results[0].Value)
-				Expect(results[0].Value).To(BeNumerically(operator, 0.0))
+					GinkgoLogr.Info("Metric value", "value", results[0].Value)
+					g.Expect(results[0].Value).To(BeNumerically(operator, 0.0))
+				}, 15*time.Second, 2*time.Second).Should(Succeed())
 			}
 		}
 	},
@@ -423,20 +424,22 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	)
 
 	DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+		Eventually(func(g Gomega) {
+			metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter(metricSubstring)
+			fetcher := metricsutil.NewMetricsFetcher("")
+			fetcher.AddNameFilter(metricSubstring)
 
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
-		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected for %s", metricSubstring)
+			metrics, err := fetcher.LoadMetrics(metricsPayload)
+			g.Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
+			g.Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected for %s", metricSubstring)
 
-		for _, results := range metrics {
-			for _, result := range results {
-				Expect(result.Value).To(BeNumerically(operator, float64(0.0)))
+			for _, results := range metrics {
+				for _, result := range results {
+					g.Expect(result.Value).To(BeNumerically(operator, float64(0.0)))
+				}
 			}
-		}
+		}, 15*time.Second, 2*time.Second).Should(Succeed())
 	},
 		Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
 		Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
