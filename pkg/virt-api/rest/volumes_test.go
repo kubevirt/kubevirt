@@ -85,6 +85,18 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
+	disableDeclarativeHotplugFeatureGate := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates:         make([]string, 0),
+						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+					},
+				},
+			},
+		})
+	}
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -131,6 +143,9 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		DescribeTable("Should succeed with add/volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
 			if enableGate {
 				enableFeatureGates(featureGate)
+			} else {
+				// DeclarativeHotplugVolumes is enabled by default, so we need to explicitly disable it
+				disableDeclarativeHotplugFeatureGate()
 			}
 			if addOpts != nil {
 				request.Request.Body = newAddVolumeBody(addOpts)
