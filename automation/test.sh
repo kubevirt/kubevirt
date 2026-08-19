@@ -199,13 +199,7 @@ if [ ! -d "kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   exit 1
 fi
 
-if [[ $TARGET =~ sriov.* ]]; then
-  if [[ $TARGET =~ kind.* ]]; then
-    export KUBEVIRT_NUM_NODES=3
-  fi
-  export KUBEVIRT_DEPLOY_CDI="false"
-  export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
-elif [[ $TARGET =~ vgpu.* ]]; then
+if [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
   export KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-2}
@@ -561,7 +555,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-network && conformance)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
-    # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
+    # SR-IOV tests runs on dedicated lane
     add_to_label_filter "(!SRIOV)" "&&"
     if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
       add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
@@ -606,8 +600,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     else
       label_filter='(sig-operator)'
     fi
-  elif [[ $TARGET =~ sriov.* ]]; then
-    label_filter='(SRIOV)'
   elif [[ $TARGET =~ emulated-igb ]]; then
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
