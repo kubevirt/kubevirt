@@ -857,6 +857,28 @@ tests:
         alertname: LowKVMNodesCount
         exp_alerts: []
 
+  # Single node with KVM (SNO) - must not fire; live migration is not expected
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="sno"}'
+        values: "110 110 110 110 110 110"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LowKVMNodesCount
+        exp_alerts: []
+
+  # Single node without KVM (SNO) - must not fire; the rule requires allocatable nodes > 1
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="sno"}'
+        values: "0 0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LowKVMNodesCount
+        exp_alerts: []
+
   # Test recording rule
   - interval: 1m
     input_series:
@@ -1994,6 +2016,61 @@ tests:
     alert_rule_test:
       - eval_time: 60m
         alertname: LowVirtOperatorCount
+        exp_alerts: []
+
+  # SNO: a single desired replica that is running must not fire LowVirt*Count
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Running"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-api", namespace="ci"}'
+        values: '1+0x61'
+
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: LowVirtAPICount
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
+        values: '1+0x11'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-controller", namespace="ci"}'
+        values: '1+0x11'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: LowVirtControllersCount
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-1", phase="Running"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-operator", namespace="ci"}'
+        values: '1+0x61'
+
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: LowVirtOperatorCount
+        exp_alerts: []
+
+  # SNO + extra worker: desired replicas stay 1. Extra nodes must not fire
+  # LowVirtAPICount because the expression uses spec.replicas, not node count.
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Running"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-api", namespace="ci"}'
+        values: '1+0x61'
+      - series: 'kube_node_status_allocatable{resource="cpu", node="sno"}'
+        values: '8+0x61'
+      - series: 'kube_node_status_allocatable{resource="cpu", node="worker"}'
+        values: '8+0x61'
+
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: LowVirtAPICount
         exp_alerts: []
 
   # VM non-recoverable OS panic
