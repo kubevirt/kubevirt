@@ -81,6 +81,8 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 	Context("Cross-architecture emulation", func() {
 		const (
 			crossArchAllowed = true
+			guestArchARM64   = "arm64"
+			hostArchAMD64    = "amd64"
 		)
 
 		BeforeEach(func() {
@@ -95,9 +97,9 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		})
 
 		It("Should set domain type to qemu and emulator path for cross-arch", func() {
-			vmi.Spec.Architecture = "arm64"
+			vmi.Spec.Architecture = guestArchARM64
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
@@ -105,9 +107,9 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		})
 
 		It("Should return error when cross-arch feature gate is disabled", func() {
-			vmi.Spec.Architecture = "arm64"
+			vmi.Spec.Architecture = guestArchARM64
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, !crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, !crossArchAllowed, hostArchAMD64,
 			)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
@@ -115,9 +117,9 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		})
 
 		It("Should succeed for cross-arch even when useEmulation is disabled", func() {
-			vmi.Spec.Architecture = "arm64"
+			vmi.Spec.Architecture = guestArchARM64
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				!emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				!emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
@@ -125,9 +127,9 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		})
 
 		It("Should not trigger cross-arch when guest matches host", func() {
-			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Architecture = hostArchAMD64
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal(""))
@@ -136,16 +138,16 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		It("Should not trigger cross-arch when guest architecture is empty", func() {
 			vmi.Spec.Architecture = ""
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal(""))
 		})
 
 		It("Should set correct emulator path for amd64 guest on arm64 host", func() {
-			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Architecture = hostArchAMD64
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "arm64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, guestArchARM64,
 			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
@@ -155,7 +157,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		It("Should set correct emulator path for s390x guest", func() {
 			vmi.Spec.Architecture = "s390x"
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
@@ -167,9 +169,9 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 				return fmt.Errorf("required emulator binary not found: %s", path)
 			})
 
-			vmi.Spec.Architecture = "arm64"
+			vmi.Spec.Architecture = guestArchARM64
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
@@ -180,7 +182,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		It("Should return error for unsupported guest architecture", func() {
 			vmi.Spec.Architecture = "riscv64"
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
-				emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
+				emulationAllowed, kvmEnabled, crossArchAllowed, hostArchAMD64,
 			)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())

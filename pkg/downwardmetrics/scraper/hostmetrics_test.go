@@ -29,6 +29,8 @@ import (
 )
 
 var _ = Describe("Hostmetrics", func() {
+	const socket0CoreSiblingsList = "0-5"
+
 	var tempSysDir string
 
 	BeforeEach(func() {
@@ -44,32 +46,32 @@ var _ = Describe("Hostmetrics", func() {
 		for i, cpuTopology := range []topology{{
 			coreID:             "0",
 			physicalPackageID:  "0",
-			coreSiblingsList:   "0-5",
+			coreSiblingsList:   socket0CoreSiblingsList,
 			threadSiblingsList: "0,4",
 		}, {
 			coreID:             "1",
 			physicalPackageID:  "0",
-			coreSiblingsList:   "0-5",
+			coreSiblingsList:   socket0CoreSiblingsList,
 			threadSiblingsList: "1,5",
 		}, {
 			coreID:             "2",
 			physicalPackageID:  "0",
-			coreSiblingsList:   "0-5",
+			coreSiblingsList:   socket0CoreSiblingsList,
 			threadSiblingsList: "2",
 		}, {
 			coreID:             "3",
 			physicalPackageID:  "0",
-			coreSiblingsList:   "0-5",
+			coreSiblingsList:   socket0CoreSiblingsList,
 			threadSiblingsList: "3",
 		}, {
 			coreID:             "0",
 			physicalPackageID:  "0",
-			coreSiblingsList:   "0-5",
+			coreSiblingsList:   socket0CoreSiblingsList,
 			threadSiblingsList: "1,4",
 		}, {
 			coreID:             "1",
 			physicalPackageID:  "0",
-			coreSiblingsList:   "0-5",
+			coreSiblingsList:   socket0CoreSiblingsList,
 			threadSiblingsList: "2,5",
 		}, {
 			coreID:             "2",

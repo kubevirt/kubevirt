@@ -27,6 +27,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const soundModelIch9 = "ich9"
+
 type SoundDomainConfigurator struct{}
 
 func (s SoundDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -38,8 +40,8 @@ func (s SoundDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	model := vmiSoundDevice.Model
 	switch model {
 	case "":
-		model = "ich9"
-	case "ich9", "ac97":
+		model = soundModelIch9
+	case soundModelIch9, "ac97":
 	default:
 		return fmt.Errorf("invalid model: %s", model)
 	}

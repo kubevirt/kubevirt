@@ -25,6 +25,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	modelNone    = "none"
+	iommuEnabled = "on"
+)
+
 type BalloonDomainConfigurator struct {
 	useLaunchSecuritySEV  bool
 	useLaunchSecurityPV   bool
@@ -50,7 +55,7 @@ func (b BalloonDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	domain.Spec.Devices.Ballooning = newBalloon
 
 	if vmi.Spec.Domain.Devices.AutoattachMemBalloon != nil && !*vmi.Spec.Domain.Devices.AutoattachMemBalloon {
-		newBalloon.Model = "none"
+		newBalloon.Model = modelNone
 		return nil
 	}
 
@@ -62,7 +67,7 @@ func (b BalloonDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 
 	if b.useLaunchSecuritySEV || b.useLaunchSecurityPV {
 		newBalloon.Driver = &api.MemBalloonDriver{
-			IOMMU: "on",
+			IOMMU: iommuEnabled,
 		}
 	}
 

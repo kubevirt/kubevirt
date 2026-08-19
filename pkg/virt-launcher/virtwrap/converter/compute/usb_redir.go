@@ -44,10 +44,10 @@ func (UsbRedirectDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInsta
 	for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
 		path := fmt.Sprintf("/var/run/kubevirt-private/%s/virt-usbredir-%d", vmi.ObjectMeta.UID, i)
 		redirectDevices[i] = api.RedirectedDevice{
-			Type: "unix",
-			Bus:  "usb",
+			Type: socketTypeUnix,
+			Bus:  busUSB,
 			Source: api.RedirectedDeviceSource{
-				Mode: "bind",
+				Mode: socketModeBind,
 				Path: path,
 			},
 		}

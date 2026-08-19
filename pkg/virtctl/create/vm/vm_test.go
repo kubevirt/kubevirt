@@ -29,7 +29,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
-const runCmdGAManageSSH = "runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"
+const (
+	runCmdGAManageSSH = "runcmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"
+	certConfigMapName = "my-cert"
+	vddkUUID          = "123e-11"
+	vddkBackingFile   = "backing-file"
+	testThumbprint    = "test-thumbprint"
+)
 
 var _ = Describe("create vm", func() {
 	const (
@@ -51,7 +57,16 @@ chpasswd: { expire: False }`
 
 	Context("Manifest is created successfully", func() {
 		const (
+			dataSourceKind        = "DataSource"
 			importedVolumeRegexp  = `imported-volume-\w{5}`
+			importSecretRef       = "test-credentials"
+			pvcSourceName         = "pvc"
+			secretRefName         = "secret-ref"
+			snapshotVolumeName    = "snapshot"
+			sourceNamespace       = k8sv1.NamespaceDefault
+			sourceDataSourceName  = "datasource"
+			sourceURL             = "http://url.com"
+			sshAccessSecretName   = "my-keys"
 			sysprepDisk           = "sysprepdisk"
 			sysprepConfigMap      = "configMap"
 			sysprepSecret         = "secret"
@@ -433,7 +448,7 @@ chpasswd: { expire: False }`
 				Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtName))
 			}
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal(dataSourceKind))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dsName))
 			if dsNamespace == "" {
 				Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(BeNil())
@@ -536,7 +551,7 @@ chpasswd: { expire: False }`
 			}
 
 			if (source != nil && (source.PVC != nil || source.Registry != nil || source.Snapshot != nil)) ||
-				(sourceRef != nil && sourceRef.Kind == "DataSource") {
+				(sourceRef != nil && sourceRef.Kind == dataSourceKind) {
 				// In this case inference should be possible
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
 				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(vm.Spec.Template.Spec.Volumes[0].Name))
@@ -553,27 +568,27 @@ chpasswd: { expire: False }`
 			Entry("with blank source", "type:blank,size:256Mi", "", "256Mi", 0, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
 			Entry("with blank source and bootorder", "type:blank,size:256Mi,bootorder:1", "", "256Mi", 1, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
 			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "blank-name", "256Mi", 0, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, nil),
-			Entry("with GCS source", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials", "", "256Mi", 0, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
-			Entry("with GCS source and bootorder", "type:gcs,size:256Mi,url:http://url.com,secretref:test-credentials,bootorder:2", "", "256Mi", 2, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: "http://url.com", SecretRef: "test-credentials"}}, nil),
-			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "", "256Mi", 0, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
-			Entry("with http source and bootorder", "type:http,size:256Mi,url:http://url.com,bootorder:3", "", "256Mi", 3, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, nil),
-			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "", "256Mi", 0, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with imageio source and bootorder", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref,bootorder:4", "", "256Mi", 4, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc", "", "256Mi", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with PVC source and bootorder", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume,bootorder:5", "imported-volume", "256Mi", 5, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, nil),
-			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
-			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref,name:imported-volume,bootorder:6", "imported-volume", "256Mi", 6, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P("my-cert"), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P("http://url.com"), SecretRef: pointer.P("secret-ref")}}, nil),
-			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "", "256Mi", 0, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with S3 source and bootorder", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref,bootorder:7", "", "256Mi", 7, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, nil),
-			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials", "", "256Mi", 0, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
-			Entry("with VDDK source and bootorder", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11,url:http://url.com,thumbprint:test-thumbprint,secretref:test-credentials,bootorder:8", "", "256Mi", 8, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11", URL: "http://url.com", Thumbprint: "test-thumbprint", SecretRef: "test-credentials"}}, nil),
-			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with Snapshot source and bootorder", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume,bootorder:9", "imported-volume", "256Mi", 9, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, nil),
-			Entry("with DataSource source", "type:ds,src:default/datasource,name:imported-ds", "imported-ds", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
-			Entry("with DataSource source without namespace", "type:ds,src:datasource", "", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource"}),
-			Entry("with DataSource source and bootorder", "type:ds,src:default/datasource,name:imported-ds,bootorder:1", "imported-ds", "", 1, nil, &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: "datasource", Namespace: pointer.P("default")}),
+			Entry("with GCS source", "type:gcs,size:256Mi,url:"+sourceURL+",secretref:"+importSecretRef, "", "256Mi", 0, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: sourceURL, SecretRef: importSecretRef}}, nil),
+			Entry("with GCS source and bootorder", "type:gcs,size:256Mi,url:"+sourceURL+",secretref:"+importSecretRef+",bootorder:2", "", "256Mi", 2, &cdiv1.DataVolumeSource{GCS: &cdiv1.DataVolumeSourceGCS{URL: sourceURL, SecretRef: importSecretRef}}, nil),
+			Entry("with http source", "type:http,size:256Mi,url:"+sourceURL, "", "256Mi", 0, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: sourceURL}}, nil),
+			Entry("with http source and bootorder", "type:http,size:256Mi,url:"+sourceURL+",bootorder:3", "", "256Mi", 3, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: sourceURL}}, nil),
+			Entry("with imageio source", "type:imageio,size:256Mi,url:"+sourceURL+",diskid:1,secretref:"+secretRefName, "", "256Mi", 0, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: secretRefName, URL: sourceURL}}, nil),
+			Entry("with imageio source and bootorder", "type:imageio,size:256Mi,url:"+sourceURL+",diskid:1,secretref:"+secretRefName+",bootorder:4", "", "256Mi", 4, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: secretRefName, URL: sourceURL}}, nil),
+			Entry("with PVC source", "type:pvc,size:256Mi,src:"+sourceNamespace+"/"+pvcSourceName, "", "256Mi", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: pvcSourceName, Namespace: sourceNamespace}}, nil),
+			Entry("with PVC source and bootorder", "type:pvc,size:256Mi,src:"+sourceNamespace+"/"+pvcSourceName+",name:imported-volume,bootorder:5", "imported-volume", "256Mi", 5, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: pvcSourceName, Namespace: sourceNamespace}}, nil),
+			Entry("with PVC source without size", "type:pvc,src:"+sourceNamespace+"/"+pvcSourceName+",name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: pvcSourceName, Namespace: sourceNamespace}}, nil),
+			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:"+sourceURL+",secretref:"+secretRefName+",name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P(certConfigMapName), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P(sourceURL), SecretRef: pointer.P(secretRefName)}}, nil),
+			Entry("with registry source and bootorder", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:"+sourceURL+",secretref:"+secretRefName+",name:imported-volume,bootorder:6", "imported-volume", "256Mi", 6, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.P(certConfigMapName), PullMethod: pointer.P(cdiv1.RegistryPullMethod("pod")), URL: pointer.P(sourceURL), SecretRef: pointer.P(secretRefName)}}, nil),
+			Entry("with S3 source", "type:s3,size:256Mi,url:"+sourceURL+",certconfigmap:my-cert,secretref:"+secretRefName, "", "256Mi", 0, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: certConfigMapName, SecretRef: secretRefName, URL: sourceURL}}, nil),
+			Entry("with S3 source and bootorder", "type:s3,size:256Mi,url:"+sourceURL+",certconfigmap:my-cert,secretref:"+secretRefName+",bootorder:7", "", "256Mi", 7, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: certConfigMapName, SecretRef: secretRefName, URL: sourceURL}}, nil),
+			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:"+sourceURL+",uuid:123e-11,url:"+sourceURL+",thumbprint:"+testThumbprint+",secretref:"+importSecretRef, "", "256Mi", 0, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: vddkBackingFile, InitImageURL: sourceURL, UUID: vddkUUID, URL: sourceURL, Thumbprint: testThumbprint, SecretRef: importSecretRef}}, nil),
+			Entry("with VDDK source and bootorder", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:"+sourceURL+",uuid:123e-11,url:"+sourceURL+",thumbprint:"+testThumbprint+",secretref:"+importSecretRef+",bootorder:8", "", "256Mi", 8, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: vddkBackingFile, InitImageURL: sourceURL, UUID: vddkUUID, URL: sourceURL, Thumbprint: testThumbprint, SecretRef: importSecretRef}}, nil),
+			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:"+sourceNamespace+"/"+snapshotVolumeName+",name:imported-volume", "imported-volume", "256Mi", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: snapshotVolumeName, Namespace: sourceNamespace}}, nil),
+			Entry("with Snapshot source and bootorder", "type:snapshot,size:256Mi,src:"+sourceNamespace+"/"+snapshotVolumeName+",name:imported-volume,bootorder:9", "imported-volume", "256Mi", 9, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: snapshotVolumeName, Namespace: sourceNamespace}}, nil),
+			Entry("with Snapshot source without size", "type:snapshot,src:"+sourceNamespace+"/"+snapshotVolumeName+",name:imported-volume", "imported-volume", "", 0, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: snapshotVolumeName, Namespace: sourceNamespace}}, nil),
+			Entry("with DataSource source", "type:ds,src:"+sourceNamespace+"/"+sourceDataSourceName+",name:imported-ds", "imported-ds", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: dataSourceKind, Name: sourceDataSourceName, Namespace: pointer.P(sourceNamespace)}),
+			Entry("with DataSource source without namespace", "type:ds,src:"+sourceDataSourceName, "", "", 0, nil, &cdiv1.DataVolumeSourceRef{Kind: dataSourceKind, Name: sourceDataSourceName}),
+			Entry("with DataSource source and bootorder", "type:ds,src:"+sourceNamespace+"/"+sourceDataSourceName+",name:imported-ds,bootorder:1", "imported-ds", "", 1, nil, &cdiv1.DataVolumeSourceRef{Kind: dataSourceKind, Name: sourceDataSourceName, Namespace: pointer.P(sourceNamespace)}),
 		)
 
 		DescribeTable("VM with multiple volume-import sources and name", func(params1, params2 string, src1, src2 *cdiv1.DataVolumeSource) {
@@ -608,7 +623,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with blank source", "type:blank,size:256Mi,name:volume-source1", "type:blank,size:256Mi,name:volume-source2", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
-			Entry("with blank source and http source", "type:blank,size:256Mi,name:volume-source1", "type:http,size:256Mi,url:http://url.com,name:volume-source2", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}),
+			Entry("with blank source and http source", "type:blank,size:256Mi,name:volume-source1", "type:http,size:256Mi,url:"+sourceURL+",name:volume-source2", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: sourceURL}}),
 		)
 
 		DescribeTable("VM with specified clone pvc", func(params, dvtName, dvtSize string, bootOrder int) {
@@ -1040,7 +1055,7 @@ chpasswd: { expire: False }`
 						SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 							Source: v1.SSHPublicKeyAccessCredentialSource{
 								Secret: &v1.AccessCredentialSecretSource{
-									SecretName: "my-keys",
+									SecretName: sshAccessSecretName,
 								},
 							},
 							PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
@@ -1096,7 +1111,7 @@ chpasswd: { expire: False }`
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 						Source: v1.SSHPublicKeyAccessCredentialSource{
 							Secret: &v1.AccessCredentialSecretSource{
-								SecretName: "my-keys",
+								SecretName: sshAccessSecretName,
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
@@ -1132,7 +1147,7 @@ chpasswd: { expire: False }`
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 						Source: v1.SSHPublicKeyAccessCredentialSource{
 							Secret: &v1.AccessCredentialSecretSource{
-								SecretName: "my-keys",
+								SecretName: sshAccessSecretName,
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
@@ -1237,7 +1252,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
 			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(MatchRegexp(importedVolumeRegexp))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal(dataSourceKind))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(PointTo(Equal(dsNamespace)))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dsName))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(dvtSize)))
@@ -1333,7 +1348,7 @@ chpasswd: { expire: False }`
 				vmName     = "my-vm"
 				cdSource   = "src:my.registry/my-image:my-tag"
 				user       = "my-user"
-				secretName = "my-keys"
+				secretName = sshAccessSecretName
 			)
 
 			out, err := runCmd(

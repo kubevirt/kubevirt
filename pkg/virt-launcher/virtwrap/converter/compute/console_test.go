@@ -33,10 +33,15 @@ import (
 )
 
 var _ = Describe("Console Domain Configurator", func() {
-	const uid = "test-uid"
+	const (
+		uid               = "test-uid"
+		consoleTypeSerial = "serial"
+		consoleTypePTY    = "pty"
+		consoleTypeUnix   = "unix"
+	)
 	serialPort := uint(0)
 	socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, uid, serialPort)
-	serialType := "serial"
+	serialType := consoleTypeSerial
 
 	DescribeTable("should configure serial console when AutoattachSerialConsole is not disabled",
 		func(autoattach *bool) {
@@ -51,7 +56,7 @@ var _ = Describe("Console Domain Configurator", func() {
 					Devices: api.Devices{
 						Consoles: []api.Console{
 							{
-								Type: "pty",
+								Type: consoleTypePTY,
 								Target: &api.ConsoleTarget{
 									Type: &serialType,
 									Port: &serialPort,
@@ -60,9 +65,9 @@ var _ = Describe("Console Domain Configurator", func() {
 						},
 						Serials: []api.Serial{
 							{
-								Type: "unix",
+								Type: consoleTypeUnix,
 								Source: &api.SerialSource{
-									Mode: "bind",
+									Mode: modeBind,
 									Path: socketPath,
 								},
 								Target: &api.SerialTarget{
@@ -99,7 +104,7 @@ var _ = Describe("Console Domain Configurator", func() {
 				Devices: api.Devices{
 					Consoles: []api.Console{
 						{
-							Type: "pty",
+							Type: consoleTypePTY,
 							Target: &api.ConsoleTarget{
 								Type: &serialType,
 								Port: &serialPort,
@@ -108,9 +113,9 @@ var _ = Describe("Console Domain Configurator", func() {
 					},
 					Serials: []api.Serial{
 						{
-							Type: "unix",
+							Type: consoleTypeUnix,
 							Source: &api.SerialSource{
-								Mode: "bind",
+								Mode: modeBind,
 								Path: socketPath,
 							},
 							Target: &api.SerialTarget{
@@ -118,7 +123,7 @@ var _ = Describe("Console Domain Configurator", func() {
 							},
 							Log: &api.SerialLog{
 								File:   socketPath + "-log",
-								Append: "on",
+								Append: stateOn,
 							},
 						},
 					},

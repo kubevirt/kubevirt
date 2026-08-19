@@ -59,7 +59,7 @@ func (r RNGDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 
 	if r.useLaunchSecuritySEV || r.useLaunchSecurityPV {
 		newRng.Driver = &api.RngDriver{
-			IOMMU: "on",
+			IOMMU: iommuEnabled,
 		}
 	}
 

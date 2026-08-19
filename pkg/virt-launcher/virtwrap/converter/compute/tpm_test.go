@@ -28,6 +28,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	tpmBackendTypeEmulator = "emulator"
+	tpmBackendVersion20    = "2.0"
+	tpmPersistentStateYes  = "yes"
+)
+
 var _ = Describe("TPM Domain Configurator", func() {
 	It("Should not configure a TPM device when TPM is unspecified in VMI", func() {
 		vmi := libvmi.New()
@@ -50,8 +56,8 @@ var _ = Describe("TPM Domain Configurator", func() {
 						{
 							Model: "tpm-tis",
 							Backend: api.TPMBackend{
-								Type:    "emulator",
-								Version: "2.0",
+								Type:    tpmBackendTypeEmulator,
+								Version: tpmBackendVersion20,
 							},
 						},
 					},
@@ -74,9 +80,9 @@ var _ = Describe("TPM Domain Configurator", func() {
 						{
 							Model: "tpm-crb",
 							Backend: api.TPMBackend{
-								Type:            "emulator",
-								Version:         "2.0",
-								PersistentState: "yes",
+								Type:            tpmBackendTypeEmulator,
+								Version:         tpmBackendVersion20,
+								PersistentState: tpmPersistentStateYes,
 							},
 						},
 					},

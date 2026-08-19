@@ -34,6 +34,12 @@ import (
 )
 
 var _ = Describe("Preferences - annotations", func() {
+	const (
+		dontOverwriteAnnotationValue = "dont-overwrite"
+		annotationKey1               = "annotation-1"
+		annotationKey2               = "annotation-2"
+	)
+
 	Context("set annotations", func() {
 		const preferenceName = "preference-name"
 
@@ -90,8 +96,8 @@ var _ = Describe("Preferences - annotations", func() {
 
 			preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 				Annotations: map[string]string{
-					"annotation-1": "1",
-					"annotation-2": "2",
+					annotationKey1: "1",
+					annotationKey2: "2",
 				},
 			}
 		})
@@ -103,9 +109,9 @@ var _ = Describe("Preferences - annotations", func() {
 
 		It("should not overwrite already existing values", func() {
 			vmiAnnotations := map[string]string{
-				"annotation-1": "dont-overwrite",
-				"annotation-2": "dont-overwrite",
-				"annotation-3": "dont-overwrite",
+				annotationKey1: dontOverwriteAnnotationValue,
+				annotationKey2: dontOverwriteAnnotationValue,
+				"annotation-3": dontOverwriteAnnotationValue,
 			}
 			vmi.Annotations = vmiAnnotations
 

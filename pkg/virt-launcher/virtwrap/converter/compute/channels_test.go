@@ -31,6 +31,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	channelTypeUnix       = "unix"
+	channelGuestAgentName = "org.qemu.guest_agent.0"
+)
+
 var _ = Describe("Channels Domain Configurator", func() {
 	It("Should always configure guest-agent channel", func() {
 		vmi := libvmi.New()
@@ -43,10 +48,10 @@ var _ = Describe("Channels Domain Configurator", func() {
 				Devices: api.Devices{
 					Channels: []api.Channel{
 						{
-							Type:   "unix",
+							Type:   channelTypeUnix,
 							Source: nil,
 							Target: &api.ChannelTarget{
-								Name: "org.qemu.guest_agent.0",
+								Name: channelGuestAgentName,
 								Type: v1.VirtIO,
 							},
 						},
@@ -68,17 +73,17 @@ var _ = Describe("Channels Domain Configurator", func() {
 				Devices: api.Devices{
 					Channels: []api.Channel{
 						{
-							Type:   "unix",
+							Type:   channelTypeUnix,
 							Source: nil,
 							Target: &api.ChannelTarget{
-								Name: "org.qemu.guest_agent.0",
+								Name: channelGuestAgentName,
 								Type: v1.VirtIO,
 							},
 						},
 						{
-							Type: "unix",
+							Type: channelTypeUnix,
 							Source: &api.ChannelSource{
-								Mode: "bind",
+								Mode: modeBind,
 								Path: downwardmetrics.DownwardMetricsChannelSocket,
 							},
 							Target: &api.ChannelTarget{

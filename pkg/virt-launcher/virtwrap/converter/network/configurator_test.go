@@ -79,7 +79,7 @@ var _ = Describe("Network Domain Configurator", func() {
 			"when an interface using a non-tap binding plugin is specified",
 			libvmi.New(
 				libvmi.WithInterface(
-					libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "passt"})),
+					libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: passtBindingPluginName})),
 				),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),

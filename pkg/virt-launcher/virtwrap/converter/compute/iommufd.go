@@ -25,6 +25,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const featureYes = "yes"
+
 type IOMMUFDConfigurator struct {
 	iommufdEnabled bool
 }
@@ -38,7 +40,7 @@ func NewIOMMUFDConfigurator(iommufdEnabled bool) IOMMUFDConfigurator {
 func (i IOMMUFDConfigurator) Configure(_ *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if i.iommufdEnabled {
 		domain.Spec.IOMMUFD = &api.IOMMUFD{
-			Enabled: "yes",
+			Enabled: featureYes,
 			FDGroup: "iommu",
 		}
 	}

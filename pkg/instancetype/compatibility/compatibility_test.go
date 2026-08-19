@@ -35,7 +35,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
+const (
+	controllerRevisionName = "crName"
+	clusterPreferenceKind  = "VirtualMachineClusterPreference"
+)
+
 var _ = Describe("compatibility", func() {
+	const (
+		vmInstancetypeKind        = "VirtualMachineInstancetype"
+		vmClusterInstancetypeKind = "VirtualMachineClusterInstancetype"
+	)
 	generateUnknownObjectControllerRevision := func() *appsv1.ControllerRevision {
 		unknownObject := snapshotv1beta1.VirtualMachineSnapshot{
 			TypeMeta: metav1.TypeMeta{
@@ -47,7 +56,7 @@ var _ = Describe("compatibility", func() {
 		Expect(err).ToNot(HaveOccurred())
 		return &appsv1.ControllerRevision{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "crName",
+				Name: controllerRevisionName,
 			},
 			Data: runtime.RawExtension{
 				Raw: unknownObjectBytes,
@@ -87,7 +96,7 @@ var _ = Describe("compatibility", func() {
 		DescribeTable("decode ControllerRevision containing ", func(getRevisionData func() []byte) {
 			revision := &appsv1.ControllerRevision{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "crName",
+					Name: controllerRevisionName,
 				},
 				Data: runtime.RawExtension{
 					Raw: getRevisionData(),
@@ -107,7 +116,7 @@ var _ = Describe("compatibility", func() {
 				instancetype := v1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineInstancetype",
+						Kind:       vmInstancetypeKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "VirtualMachineInstancetype",
@@ -128,7 +137,7 @@ var _ = Describe("compatibility", func() {
 				instancetype := v1beta1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterInstancetype",
+						Kind:       vmClusterInstancetypeKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "VirtualMachineClusterInstancetype",
@@ -172,7 +181,7 @@ var _ = Describe("compatibility", func() {
 		DescribeTable("decode ControllerRevision containing ", func(getRevisionData func() []byte) {
 			revision := &appsv1.ControllerRevision{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "crName",
+					Name: controllerRevisionName,
 				},
 				Data: runtime.RawExtension{
 					Raw: getRevisionData(),
@@ -187,10 +196,10 @@ var _ = Describe("compatibility", func() {
 				preference := v1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
+						Kind:       clusterPreferenceKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "VirtualMachineClusterPreference",
+						Name: clusterPreferenceKind,
 					},
 					Spec: generatev1beta1PreferenceSpec(),
 				}
@@ -203,10 +212,10 @@ var _ = Describe("compatibility", func() {
 				preference := v1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
+						Kind:       clusterPreferenceKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "VirtualMachineClusterPreference",
+						Name: clusterPreferenceKind,
 					},
 					Spec: generatev1beta1PreferenceSpec(),
 				}

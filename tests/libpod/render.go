@@ -31,13 +31,15 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const testAppLabelValue = "test"
+
 func RenderPrivilegedPod(name string, cmd, args []string) *v1.Pod {
 	pod := v1.Pod{
 		ObjectMeta: v12.ObjectMeta{
 			Namespace:    testsuite.NamespacePrivileged,
 			GenerateName: name,
 			Labels: map[string]string{
-				v13.AppLabel: "test",
+				v13.AppLabel: testAppLabelValue,
 			},
 		},
 		Spec: v1.PodSpec{
@@ -64,7 +66,7 @@ func RenderPod(name string, cmd, args []string) *v1.Pod {
 		ObjectMeta: v12.ObjectMeta{
 			GenerateName: name,
 			Labels: map[string]string{
-				v13.AppLabel: "test",
+				v13.AppLabel: testAppLabelValue,
 			},
 		},
 		Spec: v1.PodSpec{
@@ -115,17 +117,19 @@ func renderPrivilegedContainerSpec(imgPath, name string, cmd, args []string) v1.
 	}
 }
 
+const hostpathMount = "hostpath-mount"
+
 func RenderHostPathPod(
 	podName, dir string, hostPathType v1.HostPathType, mountPropagation v1.MountPropagationMode, cmd, args []string,
 ) *v1.Pod {
 	pod := RenderPrivilegedPod(podName, cmd, args)
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, v1.VolumeMount{
-		Name:             "hostpath-mount",
+		Name:             hostpathMount,
 		MountPropagation: &mountPropagation,
 		MountPath:        dir,
 	})
 	pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
-		Name: "hostpath-mount",
+		Name: hostpathMount,
 		VolumeSource: v1.VolumeSource{
 			HostPath: &v1.HostPathVolumeSource{
 				Path: dir,
@@ -139,9 +143,11 @@ func RenderHostPathPod(
 
 func RenderTargetcliPod(name, disksPVC string) *v1.Pod {
 	const (
-		disks   = "disks"
-		dbus    = "dbus"
-		modules = "modules"
+		disks      = "disks"
+		dbus       = "dbus"
+		modules    = "modules"
+		varRunDbus = "/var/run/dbus"
+		libModules = "/lib/modules"
 	)
 	hostPathDirectory := v1.HostPathDirectory
 	targetcliContainer := renderPrivilegedContainerSpec(
@@ -156,19 +162,19 @@ func RenderTargetcliPod(name, disksPVC string) *v1.Pod {
 		{
 			Name:      dbus,
 			ReadOnly:  false,
-			MountPath: "/var/run/dbus",
+			MountPath: varRunDbus,
 		},
 		{
 			Name:      modules,
 			ReadOnly:  false,
-			MountPath: "/lib/modules",
+			MountPath: libModules,
 		},
 	}
 	return &v1.Pod{
 		ObjectMeta: v12.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				v13.AppLabel: "test",
+				v13.AppLabel: testAppLabelValue,
 			},
 		},
 		Spec: v1.PodSpec{
@@ -189,7 +195,7 @@ func RenderTargetcliPod(name, disksPVC string) *v1.Pod {
 					Name: dbus,
 					VolumeSource: v1.VolumeSource{
 						HostPath: &v1.HostPathVolumeSource{
-							Path: "/var/run/dbus",
+							Path: varRunDbus,
 							Type: &hostPathDirectory,
 						},
 					},
@@ -198,7 +204,7 @@ func RenderTargetcliPod(name, disksPVC string) *v1.Pod {
 					Name: modules,
 					VolumeSource: v1.VolumeSource{
 						HostPath: &v1.HostPathVolumeSource{
-							Path: "/lib/modules",
+							Path: libModules,
 							Type: &hostPathDirectory,
 						},
 					},

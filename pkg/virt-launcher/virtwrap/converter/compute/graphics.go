@@ -89,11 +89,11 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 	}
 
 	switch g.architecture {
-	case "amd64":
+	case archAmd64:
 		g.configureAMD64VideoDevice(vmi, domain)
-	case "arm64":
+	case archArm64:
 		g.configureARM64VideoDevice(domain)
-	case "s390x":
+	case archS390x:
 		g.configureS390XVideoDevice(domain)
 	}
 }

@@ -25,6 +25,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const featureStateOff = "off"
+
 type HypervisorFeaturesDomainConfigurator struct {
 	hasVMPort            bool
 	useLaunchSecurityTDX bool
@@ -47,7 +49,7 @@ func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineIn
 	convertFeaturesToAPIFeatures(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
 
 	if h.hasVMPort {
-		domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
+		domain.Spec.Features.VMPort = &api.FeatureState{State: featureStateOff}
 	}
 
 	return nil
@@ -90,7 +92,7 @@ func convertFeaturesToAPIFeatures(source *v1.Features, features *api.Features, u
 
 	if useLaunchSecurityTDX {
 		features.PMU = &api.FeatureState{
-			State: "off",
+			State: featureStateOff,
 		}
 	}
 }

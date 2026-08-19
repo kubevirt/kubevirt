@@ -32,6 +32,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	clockOffsetUTC         = "utc"
+	clockTickPolicyCatchup = "catchup"
+	clockTickPolicyDelay   = "delay"
+	clockTimerNameKVM      = "kvmclock"
+	clockTimerNameHPET     = "hpet"
+	clockTimerNameHyperv   = "hypervclock"
+	clockTimerNameRTC      = "rtc"
+	clockTimerNamePIT      = "pit"
+	clockTimerNameTSC      = "tsc"
+)
+
 var _ = Describe("Clock Domain Configurator", func() {
 	It("should not set clock when clock is unspecified on the VMI", func() {
 		vmi := libvmi.New()
@@ -69,8 +81,8 @@ var _ = Describe("Clock Domain Configurator", func() {
 				},
 			})),
 			&api.Clock{
-				Offset:     "utc",
-				Adjustment: "reset",
+				Offset:     clockOffsetUTC,
+				Adjustment: watchdogActionReset,
 			},
 		),
 		Entry("utc offset with seconds adjustment",
@@ -82,7 +94,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 				},
 			})),
 			&api.Clock{
-				Offset:     "utc",
+				Offset:     clockOffsetUTC,
 				Adjustment: "3600",
 			},
 		),
@@ -98,7 +110,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			})),
 			&api.Clock{
 				Timer: []api.Timer{
-					{Name: "rtc", Track: "guest", TickPolicy: "catchup", Present: "yes"},
+					{Name: clockTimerNameRTC, Track: "guest", TickPolicy: clockTickPolicyCatchup, Present: osYes},
 				},
 			},
 		),
@@ -113,7 +125,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			})),
 			&api.Clock{
 				Timer: []api.Timer{
-					{Name: "pit", TickPolicy: "delay", Present: "no"},
+					{Name: clockTimerNamePIT, TickPolicy: clockTickPolicyDelay, Present: "no"},
 				},
 			},
 		),
@@ -125,7 +137,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			})),
 			&api.Clock{
 				Timer: []api.Timer{
-					{Name: "kvmclock", Present: "yes"},
+					{Name: clockTimerNameKVM, Present: osYes},
 				},
 			},
 		),
@@ -140,7 +152,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			})),
 			&api.Clock{
 				Timer: []api.Timer{
-					{Name: "hpet", TickPolicy: "delay", Present: "yes"},
+					{Name: clockTimerNameHPET, TickPolicy: clockTickPolicyDelay, Present: osYes},
 				},
 			},
 		),
@@ -154,7 +166,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			})),
 			&api.Clock{
 				Timer: []api.Timer{
-					{Name: "hypervclock", Present: "yes"},
+					{Name: clockTimerNameHyperv, Present: osYes},
 				},
 			},
 		),
@@ -172,14 +184,14 @@ var _ = Describe("Clock Domain Configurator", func() {
 				},
 			})),
 			&api.Clock{
-				Offset:     "utc",
-				Adjustment: "reset",
+				Offset:     clockOffsetUTC,
+				Adjustment: watchdogActionReset,
 				Timer: []api.Timer{
-					{Name: "rtc", Track: "wall", TickPolicy: "delay", Present: "yes"},
-					{Name: "pit", TickPolicy: "catchup", Present: "yes"},
-					{Name: "kvmclock", Present: "yes"},
-					{Name: "hpet", TickPolicy: "catchup", Present: "yes"},
-					{Name: "hypervclock", Present: "yes"},
+					{Name: "rtc", Track: "wall", TickPolicy: clockTickPolicyDelay, Present: osYes},
+					{Name: "pit", TickPolicy: clockTickPolicyCatchup, Present: osYes},
+					{Name: clockTimerNameKVM, Present: osYes},
+					{Name: clockTimerNameHPET, TickPolicy: clockTickPolicyCatchup, Present: osYes},
+					{Name: clockTimerNameHyperv, Present: osYes},
 				},
 			},
 		),
@@ -190,7 +202,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			),
 			&api.Clock{
 				Timer: []api.Timer{
-					{Name: "tsc", Frequency: "1234567890"},
+					{Name: clockTimerNameTSC, Frequency: "1234567890"},
 				},
 			},
 		),
@@ -208,11 +220,11 @@ var _ = Describe("Clock Domain Configurator", func() {
 				libvmistatus.WithStatus(libvmistatus.New(withTSCFrequency(9999))),
 			),
 			&api.Clock{
-				Offset:     "utc",
-				Adjustment: "reset",
+				Offset:     clockOffsetUTC,
+				Adjustment: watchdogActionReset,
 				Timer: []api.Timer{
-					{Name: "kvmclock", Present: "yes"},
-					{Name: "tsc", Frequency: "9999"},
+					{Name: clockTimerNameKVM, Present: osYes},
+					{Name: clockTimerNameTSC, Frequency: "9999"},
 				},
 			},
 		),

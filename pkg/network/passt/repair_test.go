@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/passt"
 )
 
+const alternativeNetworkName = "alternative"
+
 var _ = Describe("Passt Repair Handler", func() {
 	Context("should not run passt repair", func() {
 		var vmi *v1.VirtualMachineInstance
@@ -91,7 +93,7 @@ var _ = Describe("Passt Repair Handler", func() {
 					Name: v1.DefaultPodNetwork().Name,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: "alternative",
+							NetworkName: alternativeNetworkName,
 							Default:     true,
 						},
 					},
@@ -128,7 +130,7 @@ var _ = Describe("Passt Repair Handler", func() {
 					Name: v1.DefaultPodNetwork().Name,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: "alternative",
+							NetworkName: alternativeNetworkName,
 							Default:     true,
 						},
 					},

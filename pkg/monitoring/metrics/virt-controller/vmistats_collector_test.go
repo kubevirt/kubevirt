@@ -60,26 +60,26 @@ var _ = Describe("VMI Stats Collector", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "running#0",
 						Annotations: map[string]string{
-							annotationPrefix + "os":       "centos8",
-							annotationPrefix + "workload": "server",
-							annotationPrefix + "flavor":   "tiny",
+							annotationPrefix + "os":       testAnnotationOSCentos8,
+							annotationPrefix + "workload": testAnnotationWorkloadServer,
+							annotationPrefix + "flavor":   testAnnotationFlavorTiny,
 						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Running",
+						Phase: testVMIPhaseRunning,
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "running#1",
 						Annotations: map[string]string{
-							annotationPrefix + "os":       "centos8",
-							annotationPrefix + "workload": "server",
-							annotationPrefix + "flavor":   "tiny",
+							annotationPrefix + "os":       testAnnotationOSCentos8,
+							annotationPrefix + "workload": testAnnotationWorkloadServer,
+							annotationPrefix + "flavor":   testAnnotationFlavorTiny,
 						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Running",
+						Phase: testVMIPhaseRunning,
 					},
 				},
 				{
@@ -105,28 +105,28 @@ var _ = Describe("VMI Stats Collector", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "scheduling#0",
 						Annotations: map[string]string{
-							annotationPrefix + "os":       "centos7",
-							annotationPrefix + "workload": "server",
-							annotationPrefix + "flavor":   "medium",
-							annotationPrefix + "dummy":    "dummy",
+							annotationPrefix + "os":       testAnnotationOSCentos7,
+							annotationPrefix + "workload": testAnnotationWorkloadServer,
+							annotationPrefix + "flavor":   testAnnotationFlavorMedium,
+							annotationPrefix + "dummy":    testAnnotationDummy,
 						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Scheduling",
+						Phase: testVMIPhaseScheduling,
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "scheduling#1",
 						Annotations: map[string]string{
-							annotationPrefix + "os":       "centos7",
-							annotationPrefix + "workload": "server",
-							annotationPrefix + "flavor":   "medium",
+							annotationPrefix + "os":       testAnnotationOSCentos7,
+							annotationPrefix + "workload": testAnnotationWorkloadServer,
+							annotationPrefix + "flavor":   testAnnotationFlavorMedium,
 							annotationPrefix + "phase":    "dummy",
 						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Scheduling",
+						Phase: testVMIPhaseScheduling,
 					},
 				},
 			}
@@ -188,8 +188,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			vmis := []*k6tv1.VirtualMachineInstance{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        "running",
-						Namespace:   "test-ns",
+						Name:        testPhaseRunningLower,
+						Namespace:   testNamespace,
 						Annotations: annotations,
 					},
 				},
@@ -225,8 +225,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			vmis := []*k6tv1.VirtualMachineInstance{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        "running",
-						Namespace:   "test-ns",
+						Name:        testPhaseRunningLower,
+						Namespace:   testNamespace,
 						Annotations: annotations,
 					},
 				},
@@ -285,11 +285,11 @@ var _ = Describe("VMI Stats Collector", func() {
 		DescribeTable("kubevirt_vmi_status_addresses metrics", func(ifaceValues [][]string) {
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvmi",
+					Namespace: testNamespace,
+					Name:      testVMIName,
 				},
 				Status: k6tv1.VirtualMachineInstanceStatus{
-					NodeName:   "testNode",
+					NodeName:   testNodeName,
 					Interfaces: interfacesFor(ifaceValues),
 				},
 			}
@@ -298,35 +298,35 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(metrics).To(HaveLen(len(ifaceValues)))
 
 			for i, labelValues := range ifaceValues {
-				values := append([]string{"testNode", "test-ns", "testvmi"}, labelValues...)
+				values := append([]string{testNodeName, testNamespace, testVMIName}, labelValues...)
 				Expect(metrics[i].Labels).To(Equal(values))
 			}
 		},
 			Entry("no interfaces", [][]string{}),
-			Entry("one interface", [][]string{{"default", "", "192.168.1.2", "ExternalInterface"}}),
+			Entry("one interface", [][]string{{testLabelDefault, "", "192.168.1.2", vmiInterfaceTypeExternal}}),
 			Entry("two interfaces", [][]string{
-				{"networkA", "", "170.170.170.170", "ExternalInterface"},
-				{"networkB", "", "180.180.180.180", "ExternalInterface"},
+				{"networkA", "", "170.170.170.170", vmiInterfaceTypeExternal},
+				{"networkB", "", "180.180.180.180", vmiInterfaceTypeExternal},
 			}),
 		)
 
 		It("should create metric for interfaces with empty name, but with interface name", func() {
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvmi",
+					Namespace: testNamespace,
+					Name:      testVMIName,
 				},
 				Status: k6tv1.VirtualMachineInstanceStatus{
-					NodeName: "testNode",
+					NodeName: testNodeName,
 					Interfaces: []k6tv1.VirtualMachineInstanceNetworkInterface{
 						{
-							InfoSource:    "guest-agent",
-							InterfaceName: "br-int",
+							InfoSource:    testInfoSourceGuestAgent,
+							InterfaceName: testBridgeInterfaceName,
 							MAC:           "00:00:00:00:00:01",
 						},
 						{
-							InfoSource:    "guest-agent",
-							InterfaceName: "ovs-system",
+							InfoSource:    testInfoSourceGuestAgent,
+							InterfaceName: testOVSSystemInterface,
 							MAC:           "00:00:00:00:00:02",
 						},
 					},
@@ -335,35 +335,39 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			metrics := collectVMIInterfacesInfo(vmi)
 			Expect(metrics).To(HaveLen(2))
-			Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "", "br-int", "", "SystemInterface"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "", "ovs-system", "", "SystemInterface"}))
+			Expect(metrics[0].Labels).To(Equal([]string{
+				testNodeName, testNamespace, testVMIName, "", testBridgeInterfaceName, "", vmiInterfaceTypeSystem,
+			}))
+			Expect(metrics[1].Labels).To(Equal([]string{
+				testNodeName, testNamespace, testVMIName, "", testOVSSystemInterface, "", vmiInterfaceTypeSystem,
+			}))
 		})
 
 		It("should not create metric for an interface with empty IP address, name and interface name", func() {
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "testvmi",
+					Namespace: testNamespace,
+					Name:      testVMIName,
 				},
 				Status: k6tv1.VirtualMachineInstanceStatus{
-					NodeName: "testNode",
+					NodeName: testNodeName,
 					Interfaces: []k6tv1.VirtualMachineInstanceNetworkInterface{
 						{
 							InfoSource:    "domain, guest-agent, multus-status",
-							Name:          "net-0",
-							InterfaceName: "br-ex",
-							IP:            "10.11.126.126",
+							Name:          testVMIInterfaceName,
+							InterfaceName: testVMIInterfaceBridge,
+							IP:            testVMIInterfaceIP,
 						},
 						{
-							InfoSource:    "guest-agent",
-							InterfaceName: "ovs-system",
+							InfoSource:    testInfoSourceGuestAgent,
+							InterfaceName: testOVSSystemInterface,
 						},
 						{
-							InfoSource:    "guest-agent",
-							InterfaceName: "br-int",
+							InfoSource:    testInfoSourceGuestAgent,
+							InterfaceName: testBridgeInterfaceName,
 						},
 						{
-							InfoSource: "guest-agent",
+							InfoSource: testInfoSourceGuestAgent,
 						},
 					},
 				},
@@ -371,9 +375,15 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			metrics := collectVMIInterfacesInfo(vmi)
 			Expect(metrics).To(HaveLen(3))
-			Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "net-0", "br-ex", "10.11.126.126", "ExternalInterface"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "", "ovs-system", "", "SystemInterface"}))
-			Expect(metrics[2].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "", "br-int", "", "SystemInterface"}))
+			Expect(metrics[0].Labels).To(Equal([]string{
+				testNodeName, testNamespace, testVMIName, testVMIInterfaceName, testVMIInterfaceBridge, testVMIInterfaceIP, vmiInterfaceTypeExternal,
+			}))
+			Expect(metrics[1].Labels).To(Equal([]string{
+				testNodeName, testNamespace, testVMIName, "", testOVSSystemInterface, "", vmiInterfaceTypeSystem,
+			}))
+			Expect(metrics[2].Labels).To(Equal([]string{
+				testNodeName, testNamespace, testVMIName, "", testBridgeInterfaceName, "", vmiInterfaceTypeSystem,
+			}))
 		})
 	})
 
@@ -385,11 +395,11 @@ var _ = Describe("VMI Stats Collector", func() {
 			It("should not create migration metrics for a VMI with no migration state", func() {
 				vmi := &k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "test-ns",
-						Name:      "testvmi",
+						Namespace: testNamespace,
+						Name:      testVMIName,
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						NodeName: "testNode",
+						NodeName: testNodeName,
 					},
 				}
 
@@ -400,13 +410,13 @@ var _ = Describe("VMI Stats Collector", func() {
 			It("should create kubevirt_vmi_migration_start_time metric for a migration in progress", func() {
 				vmi := &k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "test-ns",
-						Name:      "testvmi",
+						Namespace: testNamespace,
+						Name:      testVMIName,
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						NodeName: "testNode",
+						NodeName: testNodeName,
 						MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
-							MigrationUID:   "test-migration-uid",
+							MigrationUID:   testMigrationUID,
 							StartTimestamp: &now,
 						},
 					},
@@ -417,19 +427,19 @@ var _ = Describe("VMI Stats Collector", func() {
 
 				Expect(metrics[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_migration_start_time"))
 				Expect(metrics[0].Value).To(BeEquivalentTo(nowFloatValue))
-				Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration"}))
+				Expect(metrics[0].Labels).To(Equal([]string{testNodeName, testNamespace, testVMIName, testMigrationName}))
 			})
 
 			It("should create kubevirt_vmi_migration_end_time metric for a completedmigration", func() {
 				vmi := &k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "test-ns",
-						Name:      "testvmi",
+						Namespace: testNamespace,
+						Name:      testVMIName,
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						NodeName: "testNode",
+						NodeName: testNodeName,
 						MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
-							MigrationUID:   "test-migration-uid",
+							MigrationUID:   testMigrationUID,
 							StartTimestamp: &now,
 							EndTimestamp:   &now,
 							Completed:      true,
@@ -443,11 +453,11 @@ var _ = Describe("VMI Stats Collector", func() {
 
 				Expect(metrics[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_migration_start_time"))
 				Expect(metrics[0].Value).To(BeEquivalentTo(nowFloatValue))
-				Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration"}))
+				Expect(metrics[0].Labels).To(Equal([]string{testNodeName, testNamespace, testVMIName, testMigrationName}))
 
 				Expect(metrics[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_migration_end_time"))
 				Expect(metrics[1].Value).To(BeEquivalentTo(nowFloatValue))
-				Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration", "succeeded"}))
+				Expect(metrics[1].Labels).To(Equal([]string{testNodeName, testNamespace, testVMIName, testMigrationName, migrationStatusSucceeded}))
 			})
 		})
 	})
@@ -457,8 +467,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			ifaces, nets := newVNICTestInterfaces()
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-vmi",
+					Namespace: testNamespace,
+					Name:      testVMINameDashed,
 				},
 				Spec: k6tv1.VirtualMachineInstanceSpec{
 					Domain:   k6tv1.DomainSpec{Devices: k6tv1.Devices{Interfaces: ifaces}},
@@ -469,23 +479,31 @@ var _ = Describe("VMI Stats Collector", func() {
 			metrics := CollectVmisVnicInfo(vmi)
 			Expect(metrics).To(HaveLen(4))
 
-			Expect(metrics[0].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface1", "core", "pod networking", "bridge", "virtio"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface2", "core", "pod networking", "masquerade", "e1000e"}))
-			Expect(metrics[2].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface3", "core", "multus-net", "sriov", "<none>"}))
-			Expect(metrics[3].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin", "<none>"}))
+			Expect(metrics[0].Labels).To(Equal([]string{
+				testVMINameDashed, testNamespace, testVNICIface1, bindingTypeCore, networkNamePod, bindingNameBridge, testModelVirtio,
+			}))
+			Expect(metrics[1].Labels).To(Equal([]string{
+				testVMINameDashed, testNamespace, testVNICIface2, bindingTypeCore, networkNamePod, bindingNameMasquerade, testModelE1000E,
+			}))
+			Expect(metrics[2].Labels).To(Equal([]string{
+				testVMINameDashed, testNamespace, testVNICIface3, bindingTypeCore, testMultusNetwork, bindingNameSRIOV, modelNone,
+			}))
+			Expect(metrics[3].Labels).To(Equal([]string{
+				testVMINameDashed, testNamespace, testVNICIface4, bindingTypePlugin, testNetworkCustom, testCustomPluginName, modelNone,
+			}))
 		})
 		It("should not collect kubevirt_vmi_vnic_info metric when interface name is not matching network name", func() {
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-vmi",
+					Namespace: testNamespace,
+					Name:      testVMINameDashed,
 				},
 				Spec: k6tv1.VirtualMachineInstanceSpec{
 					Domain: k6tv1.DomainSpec{
 						Devices: k6tv1.Devices{
 							Interfaces: []k6tv1.Interface{
 								{
-									Name: "iface1",
+									Name: testVNICIface1,
 									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 										Bridge: &k6tv1.InterfaceBridge{},
 									},
@@ -495,7 +513,7 @@ var _ = Describe("VMI Stats Collector", func() {
 					},
 					Networks: []k6tv1.Network{
 						{
-							Name:          "iface2",
+							Name:          testVNICIface2,
 							NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
 						},
 					},
@@ -511,8 +529,8 @@ var _ = Describe("VMI Stats Collector", func() {
 		It("should collect kubevirt_vmi_launcher_memory_overhead_bytes metric for a VMI", func() {
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
-					Name:      "test-vmi",
+					Namespace: testNamespace,
+					Name:      testVMINameDashed,
 				},
 				Spec: k6tv1.VirtualMachineInstanceSpec{
 					Domain: k6tv1.DomainSpec{
@@ -529,14 +547,14 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			Expect(metric).ToNot(BeNil())
 			Expect(metric.Metric.GetOpts().Name).To(Equal("kubevirt_vmi_launcher_memory_overhead_bytes"))
-			Expect(metric.Labels).To(Equal([]string{"test-ns", "test-vmi"}))
+			Expect(metric.Labels).To(Equal([]string{testNamespace, testVMINameDashed}))
 			Expect(metric.Value).To(BeNumerically(">", 0))
 		})
 
 		It("should calculate different overhead for different VMI configurations", func() {
 			vmi1 := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
+					Namespace: testNamespace,
 					Name:      "test-vmi-1",
 				},
 				Spec: k6tv1.VirtualMachineInstanceSpec{
@@ -552,7 +570,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			vmi2 := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test-ns",
+					Namespace: testNamespace,
 					Name:      "test-vmi-2",
 				},
 				Spec: k6tv1.VirtualMachineInstanceSpec{
@@ -581,7 +599,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 func setupMigrationPods() {
 	originalPod := &k8sv1.Pod{
-		ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", "test-ns", "test-vmi-uid"),
+		ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", testNamespace, "test-vmi-uid"),
 		Spec: k8sv1.PodSpec{
 			NodeName: "initial-node",
 		},
@@ -590,7 +608,7 @@ func setupMigrationPods() {
 		},
 	}
 	targetPod := &k8sv1.Pod{
-		ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", "test-ns", "test-vmi-uid"),
+		ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", testNamespace, "test-vmi-uid"),
 		Spec: k8sv1.PodSpec{
 			NodeName: "target-node",
 		},
@@ -606,8 +624,8 @@ func setupMigrationPods() {
 func createMigrationVMI(nodeName, targetPod string, completed, failed bool) *k6tv1.VirtualMachineInstance {
 	return &k6tv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-vmi",
-			Namespace: "test-ns",
+			Name:      testVMINameDashed,
+			Namespace: testNamespace,
 			UID:       "test-vmi-uid",
 		},
 		Status: k6tv1.VirtualMachineInstanceStatus{
@@ -625,27 +643,27 @@ func createMigrationVMI(nodeName, targetPod string, completed, failed bool) *k6t
 func newVNICTestInterfaces() ([]k6tv1.Interface, []k6tv1.Network) {
 	return []k6tv1.Interface{
 			{
-				Name: "iface1",
+				Name: testVNICIface1,
 				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 					Bridge: &k6tv1.InterfaceBridge{},
 				},
-				Model: "virtio",
+				Model: testModelVirtio,
 			},
 			{
-				Name: "iface2",
+				Name: testVNICIface2,
 				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 					Masquerade: &k6tv1.InterfaceMasquerade{},
 				},
 				Model: "e1000e",
 			},
 			{
-				Name: "iface3",
+				Name: testVNICIface3,
 				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
 					SRIOV: &k6tv1.InterfaceSRIOV{},
 				},
 			},
 			{
-				Name:    "iface4",
+				Name:    testVNICIface4,
 				Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
 			},
 		}, []k6tv1.Network{
@@ -654,17 +672,17 @@ func newVNICTestInterfaces() ([]k6tv1.Interface, []k6tv1.Network) {
 				NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
 			},
 			{
-				Name:          "iface2",
+				Name:          testVNICIface2,
 				NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
 			},
 			{
-				Name: "iface3",
+				Name: testVNICIface3,
 				NetworkSource: k6tv1.NetworkSource{
 					Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"},
 				},
 			},
 			{
-				Name: "iface4",
+				Name: testVNICIface4,
 				NetworkSource: k6tv1.NetworkSource{
 					Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"},
 				},
@@ -689,8 +707,8 @@ func createVMIForEviction(
 ) *k6tv1.VirtualMachineInstance {
 	vmi := &k6tv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test-ns",
-			Name:      "testvmi",
+			Namespace: testNamespace,
+			Name:      testVMIName,
 		},
 		Status: k6tv1.VirtualMachineInstanceStatus{
 			NodeName: "testNode",
@@ -719,10 +737,10 @@ func setupTestCollector() {
 	controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "test-ns", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("i-managed", testNamespace, "kubevirt.io"),
 	})
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "test-ns", "some-user"),
+		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", testNamespace, "some-user"),
 	})
 
 	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
@@ -741,10 +759,10 @@ func setupTestCollector() {
 	})
 
 	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "test-ns", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("p-managed", testNamespace, "kubevirt.io"),
 	})
 	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "test-ns", "some-vendor.com"),
+		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", testNamespace, "some-vendor.com"),
 	})
 
 	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
@@ -781,7 +799,7 @@ func setupTestCollector() {
 	indexers.KVPod = kvPodInformer.GetIndexer()
 
 	_ = indexers.KVPod.Add(&k8sv1.Pod{
-		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", "test-ns", "test-vmi-uid"),
+		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", testNamespace, "test-vmi-uid"),
 	})
 
 	// VMI Migration informer
@@ -793,8 +811,8 @@ func setupTestCollector() {
 
 	_ = indexers.VMIMigration.Add(&k6tv1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-migration",
-			Namespace: "test-ns",
+			Name:      testMigrationName,
+			Namespace: testNamespace,
 			UID:       "test-migration-uid",
 		},
 	})

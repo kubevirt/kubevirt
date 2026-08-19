@@ -30,6 +30,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	sysinfoTypeSMBIOS = "smbios"
+	sysinfoUUID       = "uuid"
+	sysinfoSerial     = "serial"
+)
+
 var _ = Describe("SysInfo Domain Configurator", func() {
 	const (
 		expectedUUID   = "1234567890"
@@ -40,6 +46,8 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 		expectedProduct      = "product"
 		expectedSKU          = "sku"
 		expectedVersion      = "version"
+
+		expectedAsset = "asset"
 
 		expectedChassisManufacturer = "chassisManufacturer"
 		expectedChassisVersion      = "chassisVersion"
@@ -89,15 +97,15 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 			"Without firmware chassis and cluster-wide SMBIOS",
 			libvmi.New(),
 			nil,
-			api.SysInfo{Type: "smbios"},
+			api.SysInfo{Type: sysinfoTypeSMBIOS},
 		),
 		Entry(
 			"With firmware UUID",
 			libvmi.New(libvmi.WithFirmwareUUID(expectedUUID)),
 			nil,
 			api.SysInfo{
-				Type:   "smbios",
-				System: []api.Entry{{Name: "uuid", Value: expectedUUID}},
+				Type:   sysinfoTypeSMBIOS,
+				System: []api.Entry{{Name: sysinfoUUID, Value: expectedUUID}},
 			},
 		),
 		Entry(
@@ -108,10 +116,10 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 			),
 			nil,
 			api.SysInfo{
-				Type: "smbios",
+				Type: sysinfoTypeSMBIOS,
 				System: []api.Entry{
-					{Name: "uuid", Value: expectedUUID},
-					{Name: "serial", Value: expectedSerial},
+					{Name: sysinfoUUID, Value: expectedUUID},
+					{Name: sysinfoSerial, Value: expectedSerial},
 				},
 			},
 		),
@@ -123,15 +131,15 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 			),
 			&clusterWideSMBIOS,
 			api.SysInfo{
-				Type: "smbios",
+				Type: sysinfoTypeSMBIOS,
 				System: []api.Entry{
-					{Name: "uuid", Value: expectedUUID},
-					{Name: "serial", Value: expectedSerial},
-					{Name: "manufacturer", Value: expectedManufacturer},
-					{Name: "family", Value: expectedFamily},
-					{Name: "product", Value: expectedProduct},
-					{Name: "sku", Value: expectedSKU},
-					{Name: "version", Value: expectedVersion},
+					{Name: sysinfoUUID, Value: expectedUUID},
+					{Name: sysinfoSerial, Value: expectedSerial},
+					{Name: expectedManufacturer, Value: expectedManufacturer},
+					{Name: expectedFamily, Value: expectedFamily},
+					{Name: expectedProduct, Value: expectedProduct},
+					{Name: expectedSKU, Value: expectedSKU},
+					{Name: expectedVersion, Value: expectedVersion},
 				},
 			},
 		),
@@ -140,13 +148,13 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 			libvmi.New(),
 			&clusterWideSMBIOS,
 			api.SysInfo{
-				Type: "smbios",
+				Type: sysinfoTypeSMBIOS,
 				System: []api.Entry{
-					{Name: "manufacturer", Value: expectedManufacturer},
-					{Name: "family", Value: expectedFamily},
-					{Name: "product", Value: expectedProduct},
-					{Name: "sku", Value: expectedSKU},
-					{Name: "version", Value: expectedVersion},
+					{Name: expectedManufacturer, Value: expectedManufacturer},
+					{Name: expectedFamily, Value: expectedFamily},
+					{Name: expectedProduct, Value: expectedProduct},
+					{Name: expectedSKU, Value: expectedSKU},
+					{Name: expectedVersion, Value: expectedVersion},
 				},
 			},
 		),
@@ -159,22 +167,22 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 			),
 			&clusterWideSMBIOS,
 			api.SysInfo{
-				Type: "smbios",
+				Type: sysinfoTypeSMBIOS,
 				System: []api.Entry{
-					{Name: "uuid", Value: expectedUUID},
-					{Name: "serial", Value: expectedSerial},
-					{Name: "manufacturer", Value: expectedManufacturer},
-					{Name: "family", Value: expectedFamily},
-					{Name: "product", Value: expectedProduct},
-					{Name: "sku", Value: expectedSKU},
-					{Name: "version", Value: expectedVersion},
+					{Name: sysinfoUUID, Value: expectedUUID},
+					{Name: sysinfoSerial, Value: expectedSerial},
+					{Name: expectedManufacturer, Value: expectedManufacturer},
+					{Name: expectedFamily, Value: expectedFamily},
+					{Name: expectedProduct, Value: expectedProduct},
+					{Name: expectedSKU, Value: expectedSKU},
+					{Name: expectedVersion, Value: expectedVersion},
 				},
 				Chassis: []api.Entry{
-					{Name: "manufacturer", Value: expectedChassisManufacturer},
-					{Name: "version", Value: expectedChassisVersion},
-					{Name: "serial", Value: expectedChassisSerial},
-					{Name: "asset", Value: expectedChassisAsset},
-					{Name: "sku", Value: expectedChassisSKU},
+					{Name: expectedManufacturer, Value: expectedChassisManufacturer},
+					{Name: expectedVersion, Value: expectedChassisVersion},
+					{Name: sysinfoSerial, Value: expectedChassisSerial},
+					{Name: expectedAsset, Value: expectedChassisAsset},
+					{Name: expectedSKU, Value: expectedChassisSKU},
 				},
 			},
 		),
@@ -183,13 +191,13 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 			libvmi.New(withChassis(&chassis)),
 			nil,
 			api.SysInfo{
-				Type: "smbios",
+				Type: sysinfoTypeSMBIOS,
 				Chassis: []api.Entry{
-					{Name: "manufacturer", Value: expectedChassisManufacturer},
-					{Name: "version", Value: expectedChassisVersion},
-					{Name: "serial", Value: expectedChassisSerial},
-					{Name: "asset", Value: expectedChassisAsset},
-					{Name: "sku", Value: expectedChassisSKU},
+					{Name: expectedManufacturer, Value: expectedChassisManufacturer},
+					{Name: expectedVersion, Value: expectedChassisVersion},
+					{Name: sysinfoSerial, Value: expectedChassisSerial},
+					{Name: expectedAsset, Value: expectedChassisAsset},
+					{Name: expectedSKU, Value: expectedChassisSKU},
 				},
 			},
 		),

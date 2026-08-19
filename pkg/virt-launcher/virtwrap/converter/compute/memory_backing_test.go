@@ -30,6 +30,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const (
+	memoryBackingSourceTypeMemfd  = "memfd"
+	memoryBackingAccessModeShared = "shared"
+)
+
 var _ = Describe("MemoryBackingConfigurator", func() {
 	const memfdSupported = true
 
@@ -55,7 +60,7 @@ var _ = Describe("MemoryBackingConfigurator", func() {
 			memfdSupported,
 			&api.MemoryBacking{
 				HugePages: &api.HugePages{},
-				Source:    &api.MemoryBackingSource{Type: "memfd"},
+				Source:    &api.MemoryBackingSource{Type: memoryBackingSourceTypeMemfd},
 			},
 		),
 		Entry("hugepages with memfd annotation false",
@@ -72,16 +77,16 @@ var _ = Describe("MemoryBackingConfigurator", func() {
 			libvmi.New(libvmi.WithFilesystemPVC("test-pvc")),
 			memfdSupported,
 			&api.MemoryBacking{
-				Access: &api.MemoryBackingAccess{Mode: "shared"},
-				Source: &api.MemoryBackingSource{Type: "memfd"},
+				Access: &api.MemoryBackingAccess{Mode: memoryBackingAccessModeShared},
+				Source: &api.MemoryBackingSource{Type: memoryBackingSourceTypeMemfd},
 			},
 		),
 		Entry("passt",
 			libvmi.New(libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding()))),
 			memfdSupported,
 			&api.MemoryBacking{
-				Access: &api.MemoryBackingAccess{Mode: "shared"},
-				Source: &api.MemoryBackingSource{Type: "memfd"},
+				Access: &api.MemoryBackingAccess{Mode: memoryBackingAccessModeShared},
+				Source: &api.MemoryBackingSource{Type: memoryBackingSourceTypeMemfd},
 			},
 		),
 		Entry("hugepages with virtiofs",
@@ -92,8 +97,8 @@ var _ = Describe("MemoryBackingConfigurator", func() {
 			memfdSupported,
 			&api.MemoryBacking{
 				HugePages: &api.HugePages{},
-				Access:    &api.MemoryBackingAccess{Mode: "shared"},
-				Source:    &api.MemoryBackingSource{Type: "memfd"},
+				Access:    &api.MemoryBackingAccess{Mode: memoryBackingAccessModeShared},
+				Source:    &api.MemoryBackingSource{Type: memoryBackingSourceTypeMemfd},
 			},
 		),
 		Entry("hugepages without memfd support",
@@ -107,7 +112,7 @@ var _ = Describe("MemoryBackingConfigurator", func() {
 			libvmi.New(libvmi.WithFilesystemPVC("test-pvc")),
 			!memfdSupported,
 			&api.MemoryBacking{
-				Access: &api.MemoryBackingAccess{Mode: "shared"},
+				Access: &api.MemoryBackingAccess{Mode: memoryBackingAccessModeShared},
 			},
 		),
 	)

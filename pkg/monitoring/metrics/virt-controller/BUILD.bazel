@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "component_metrics.go",
+        "constants.go",
         "leader_metrics.go",
         "metrics.go",
         "migration_metrics.go",
@@ -53,6 +54,7 @@ go_test(
         "migration_metrics_test.go",
         "migrationstats_collector_test.go",
         "perfscale_metrics_test.go",
+        "test_constants_test.go",
         "virt_controller_suite_test.go",
         "vmistats_collector_test.go",
         "vmsnapshot_test.go",

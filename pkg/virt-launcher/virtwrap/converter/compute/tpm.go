@@ -42,7 +42,7 @@ func (t TPMDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if tpm.HasPersistentDevice(&vmi.Spec) {
-		newTPMDevice.Backend.PersistentState = "yes"
+		newTPMDevice.Backend.PersistentState = featureYes
 
 		// tpm-crb is not technically required for persistence, but since there was a desire for both,
 		//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,

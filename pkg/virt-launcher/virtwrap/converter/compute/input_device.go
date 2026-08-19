@@ -27,6 +27,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	archAmd64    = "amd64"
+	archArm64    = "arm64"
+	archS390x    = "s390x"
+	busUSB       = "usb"
+	typeTablet   = "tablet"
+	typeKeyboard = "keyboard"
+)
+
 type InputDeviceDomainConfigurator struct {
 	architecture string
 }
@@ -90,28 +99,28 @@ func apiInputDeviceFromV1InputDevice(input v1.Input) (api.Input, error) {
 
 func (i InputDeviceDomainConfigurator) addArchitectureSpecificInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	switch i.architecture {
-	case "amd64":
+	case archAmd64:
 		// No architecture-specific input devices required
-	case "arm64":
+	case archArm64:
 		if !hasTabletDevice(vmi) {
 			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
 				api.Input{
-					Bus:  "usb",
-					Type: "tablet",
+					Bus:  busUSB,
+					Type: typeTablet,
 				},
 			)
 		}
 		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
 			api.Input{
-				Bus:  "usb",
-				Type: "keyboard",
+				Bus:  busUSB,
+				Type: typeKeyboard,
 			},
 		)
-	case "s390x":
+	case archS390x:
 		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
 			api.Input{
 				Bus:  "virtio",
-				Type: "keyboard",
+				Type: typeKeyboard,
 			},
 		)
 	}
@@ -121,7 +130,7 @@ func (i InputDeviceDomainConfigurator) addArchitectureSpecificInputDevices(vmi *
 func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		for _, device := range vmi.Spec.Domain.Devices.Inputs {
-			if device.Type == "tablet" {
+			if device.Type == typeTablet {
 				return true
 			}
 		}
