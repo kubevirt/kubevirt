@@ -1132,9 +1132,6 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:  "DEADLINE",
 		Value: getDeadlineValue(deadline, vmExport).Format(time.RFC3339),
 	}, corev1.EnvVar{
-		Name:  "EXPORT_VM_DEF_URI",
-		Value: manifestsPath,
-	}, corev1.EnvVar{
 		Name:  "EXPORT_SECRET_DEF_URI",
 		Value: secretManifestPath,
 	})
