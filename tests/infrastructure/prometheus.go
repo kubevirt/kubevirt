@@ -306,20 +306,14 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 	},
-		Entry("[QUARANTINE][test_id:4142] storage flush requests metric", decorators.Quarantine,
-			"kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:4142] time spent on cache flushing metric",
-			"kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage flush requests metric", "kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:4142] time spent on cache flushing metric", "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
 		Entry("[test_id:4142] I/O read operations metric", "kubevirt_vmi_storage_iops_read_total", ">="),
 		Entry("[test_id:4142] I/O write operations metric", "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:4142] storage read operation time metric",
-			"kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[QUARANTINE][test_id:4142] storage read traffic in bytes metric", decorators.Quarantine,
-			"kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[QUARANTINE][test_id:4142] storage write operation time metric", decorators.Quarantine,
-			"kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[QUARANTINE][test_id:4142] storage write traffic in bytes metric", decorators.Quarantine,
-			"kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage read operation time metric", "kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage read traffic in bytes metric", "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage write operation time metric", "kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage write traffic in bytes metric", "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 	)
 
 	DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
