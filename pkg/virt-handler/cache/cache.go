@@ -258,41 +258,7 @@ func listAllKnownDomains() []*api.Domain {
 
 	ghostRecords := (GhostRecordGlobalStore.list())
 	for _, record := range ghostRecords {
-		socketFile := record.SocketFile
-
-		exists, err := diskutils.FileExists(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed access cmd client socket")
-			continue
-		}
-
-		if !exists {
-			domain := newDomainFromGhostRecord(record, api.DomainStatus{})
-			now := metav1.Now()
-			domain.DeletionTimestamp = &now
-			log.Log.Object(domain).Warning("detected stale domain from ghost record")
-			domains = append(domains, domain)
-			continue
-		}
-
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
-			domain := newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
-			domains = append(domains, domain)
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
-			domain := newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
-			domains = append(domains, domain)
-			continue
-		}
-		if exists {
+		if domain := getDomainFromRecord(record); domain != nil {
 			domains = append(domains, domain)
 		}
 	}
@@ -305,5 +271,41 @@ func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.
 	domain.Spec.Metadata.KubeVirt.UID = record.UID
 	domain.Status = status
 
+	return domain
+}
+
+func getDomainFromRecord(record ghostRecord) *api.Domain {
+	socketFile := record.SocketFile
+
+	exists, err := diskutils.FileExists(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Error("failed access cmd client socket")
+		return nil
+	}
+
+	if !exists {
+		domain := newDomainFromGhostRecord(record, api.DomainStatus{})
+		now := metav1.Now()
+		domain.DeletionTimestamp = &now
+		log.Log.Object(domain).Warning("detected stale domain from ghost record")
+		return domain
+	}
+
+	log.Log.V(3).Infof("List domains from sock %s", socketFile)
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	defer client.Close()
+
+	domain, exists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	if !exists {
+		return nil
+	}
 	return domain
 }
