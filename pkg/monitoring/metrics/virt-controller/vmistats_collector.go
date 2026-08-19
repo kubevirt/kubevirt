@@ -75,7 +75,7 @@ var (
 		},
 		[]string{
 			// Basic info
-			"node", "namespace", "name",
+			"node", "namespace", "name", "uid",
 			// Domain info
 			"phase", "os", "workload", "flavor",
 			// Instance type
@@ -206,7 +206,7 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 	return operatormetrics.CollectorResult{
 		Metric: vmiInfo,
 		Labels: []string{
-			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name, string(vmi.UID),
 			getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
 			kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
 			strconv.FormatBool(isVMEvictable(vmi)),
