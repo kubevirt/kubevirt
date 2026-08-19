@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	VirtHandlerName = "virt-handler"
-	kubeletPodsPath = util.KubeletRoot + "/pods"
-	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
-	PrHelperName    = "pr-helper"
-	prVolumeName    = "pr-helper-socket-vol"
-	devDirVol       = "dev-dir"
-	SidecarShimName = "sidecar-shim"
-	etcMultipath    = "etc-multipath"
+	VirtLauncherName = "virt-launcher"
+	VirtHandlerName  = "virt-handler"
+	kubeletPodsPath  = util.KubeletRoot + "/pods"
+	runtimesPath     = "/var/run/kubevirt-libvirt-runtimes"
+	PrHelperName     = "pr-helper"
+	prVolumeName     = "pr-helper-socket-vol"
+	devDirVol        = "dev-dir"
+	SidecarShimName  = "sidecar-shim"
+	etcMultipath     = "etc-multipath"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -190,6 +191,15 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			ImagePullPolicy: config.GetImagePullPolicy(),
 			Command:         []string{"/bin/sh", "-c"},
 			Args:            []string{"sleep infinity"},
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: pointer.P(false),
+				ReadOnlyRootFilesystem:   pointer.P(true),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{
+						"ALL",
+					},
+				},
+			},
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceCPU:    resource.MustParse("100m"),
