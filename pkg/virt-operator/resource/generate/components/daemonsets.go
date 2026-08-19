@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	VirtHandlerName = "virt-handler"
-	kubeletPodsPath = util.KubeletRoot + "/pods"
-	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
-	PrHelperName    = "pr-helper"
-	prVolumeName    = "pr-helper-socket-vol"
-	devDirVol       = "dev-dir"
-	SidecarShimName = "sidecar-shim"
-	etcMultipath    = "etc-multipath"
+	VirtLauncherName = "virt-launcher"
+	VirtHandlerName  = "virt-handler"
+	kubeletPodsPath  = util.KubeletRoot + "/pods"
+	runtimesPath     = "/var/run/kubevirt-libvirt-runtimes"
+	PrHelperName     = "pr-helper"
+	prVolumeName     = "pr-helper-socket-vol"
+	devDirVol        = "dev-dir"
+	SidecarShimName  = "sidecar-shim"
+	etcMultipath     = "etc-multipath"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {

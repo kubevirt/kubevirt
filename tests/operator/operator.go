@@ -2543,6 +2543,86 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			verifyAggregateLabels(kubevirt.Client(), "true")
 		})
 	})
+
+	Describe("Security", func() {
+		It("all infrastructure deployments should have readOnlyRootFilesystem set to true", func() {
+			deploymentNames := []string{components.VirtAPIName, components.VirtControllerName, components.VirtOperatorName, components.VirtExportProxyName, components.VirtSynchronizationControllerName}
+			for _, name := range deploymentNames {
+				deployment, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "getting deployment %s", name)
+
+				for _, c := range deployment.Spec.Template.Spec.Containers {
+					Expect(c.SecurityContext).ToNot(BeNil(),
+						"container %s in deployment %s should have SecurityContext", c.Name, name)
+					Expect(c.SecurityContext.ReadOnlyRootFilesystem).ToNot(BeNil(),
+						"container %s in deployment %s should have ReadOnlyRootFilesystem set", c.Name, name)
+					Expect(*c.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue(),
+						"container %s in deployment %s should have ReadOnlyRootFilesystem=true", c.Name, name)
+				}
+			}
+		})
+
+		It("virt-api should have emptyDir /tmp volume", func() {
+			deployment, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), components.VirtAPIName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			hasTmpVolume := false
+			for _, vol := range deployment.Spec.Template.Spec.Volumes {
+				if vol.Name == components.TmpDirName {
+					Expect(vol.VolumeSource.EmptyDir).ToNot(BeNil())
+					hasTmpVolume = true
+					break
+				}
+			}
+			Expect(hasTmpVolume).To(BeTrue(), "virt-api should have tmp-dir emptyDir volume")
+
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				hasTmpMount := false
+				for _, m := range c.VolumeMounts {
+					if m.Name == components.TmpDirName && m.MountPath == components.TmpDirMountPath {
+						hasTmpMount = true
+						break
+					}
+				}
+				Expect(hasTmpMount).To(BeTrue(),
+					"container %s in virt-api should mount tmp-dir at /tmp", c.Name)
+			}
+		})
+
+		It("virt-handler daemonset should NOT have readOnlyRootFilesystem on privileged containers", func() {
+			dsList, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var handlerDS *appsv1.DaemonSet
+			for i := range dsList.Items {
+				if dsList.Items[i].Name == components.VirtHandlerName {
+					handlerDS = &dsList.Items[i]
+					break
+				}
+			}
+			Expect(handlerDS).ToNot(BeNil(), "virt-handler daemonset should exist")
+
+			for _, c := range handlerDS.Spec.Template.Spec.Containers {
+				Expect(c.SecurityContext).ToNot(BeNil(),
+					"container %s in virt-handler should have SecurityContext", c.Name)
+				if c.SecurityContext.Privileged != nil && *c.SecurityContext.Privileged {
+					Expect(c.SecurityContext.ReadOnlyRootFilesystem).To(BeNil(),
+						"privileged container %s should not set readOnlyRootFilesystem", c.Name)
+				}
+			}
+
+			for _, c := range handlerDS.Spec.Template.Spec.InitContainers {
+				if c.Name == components.VirtLauncherName {
+					Expect(c.SecurityContext).ToNot(BeNil(),
+						"init container virt-launcher should have SecurityContext")
+					Expect(c.SecurityContext.Privileged).ToNot(BeNil())
+					Expect(*c.SecurityContext.Privileged).To(BeTrue())
+					Expect(c.SecurityContext.ReadOnlyRootFilesystem).To(BeNil(),
+						"privileged init container virt-launcher should not set readOnlyRootFilesystem")
+				}
+			}
+		})
+	})
 })
 
 func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResourceDefinition) []byte {
