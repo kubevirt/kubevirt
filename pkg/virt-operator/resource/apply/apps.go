@@ -292,14 +292,17 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 				return false, nil, waiting
 			}
 		}
-		// rollout has completed and all virt-handlers are ready revert
-		// maxUnavailable to default value
-		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-		newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
-		if err != nil {
-			return false, err, failed
+		if !daemonHasDefaultRolloutStrategy(cachedDaemonSet) {
+			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
+			newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+			if err != nil {
+				return false, err, failed
+			}
+			SetGeneration(&r.kv.Status.Generations, newDS)
+			log.V(2).Infof("daemonSet %v reverted maxUnavailable to default", newDS.GetName())
+			return false, nil, waiting
 		}
-		SetGeneration(&r.kv.Status.Generations, newDS)
+		SetGeneration(&r.kv.Status.Generations, cachedDaemonSet)
 		log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
 		return true, nil, successful
 	default:
@@ -360,13 +363,10 @@ func unattachCertificateSecret(spec *corev1.PodSpec, secretName string) {
 func getMaxUnavailable(daemonSet *appsv1.DaemonSet) int {
 	update := daemonSet.Spec.UpdateStrategy.RollingUpdate
 
-	if update == nil {
-		return 0
+	if update == nil || update.MaxUnavailable == nil {
+		return daemonSetDefaultMaxUnavailable.IntValue()
 	}
-	if update.MaxUnavailable != nil {
-		return update.MaxUnavailable.IntValue()
-	}
-	return daemonSetDefaultMaxUnavailable.IntValue()
+	return update.MaxUnavailable.IntValue()
 }
 
 func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
