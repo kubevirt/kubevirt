@@ -510,12 +510,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    97,
-		Regex: regexp.MustCompile(`"level":"error","msg":"xorrisofs returned non-zero exit code while generating iso file .*","pos":"cloud-init\.go.*"reason":"signal: killed"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"xorrisofs returned non-zero exit code while generating iso file .*","pos":"cloud-init\.go.*"reason":"(signal: killed|exit status \d+)"`),
 		SIGs:  SIGCompute | SIGPerformance,
 	},
 	{
 		ID:    98,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"pos":"server\.go.*"reason":"generating local cloud-init data failed: signal: killed"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"pos":"server\.go.*"reason":"generating local cloud-init data failed: (signal: killed|exit status \d+)"`),
 		SIGs:  SIGCompute | SIGPerformance,
 	},
 	{
