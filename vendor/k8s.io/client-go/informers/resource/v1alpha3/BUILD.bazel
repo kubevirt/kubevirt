@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "devicetaintrule.go",
         "interface.go",
+        "resourcepoolstatusrequest.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/informers/resource/v1alpha3",
     importpath = "k8s.io/client-go/informers/resource/v1alpha3",
@@ -13,6 +14,7 @@ go_library(
         "//vendor/k8s.io/api/resource/v1alpha3:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/informers/internalinterfaces:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",

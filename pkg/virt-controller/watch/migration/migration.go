@@ -1282,7 +1282,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	}
 
 	if err := c.patchVMI(vmi, vmiCopy); err != nil {
-		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+		c.recorder.Event(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err
 	}
 
@@ -1333,7 +1333,7 @@ func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMach
 		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
-			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedAbortMigrationReason, msg)
+			c.recorder.Event(migration, k8sv1.EventTypeWarning, controller.FailedAbortMigrationReason, msg)
 			return fmt.Errorf("%s", msg)
 		}
 		log.Log.Object(vmi).Infof("Signaled migration %s/%s to be aborted.", migration.Namespace, migration.Name)
@@ -1791,7 +1791,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 		}
 		if err = c.handleMigrationBackoff(key, vmi, migration); errors.Is(err, migrationBackoffError) {
 			warningMsg := fmt.Sprintf("backoff migrating vmi %s/%s", vmi.Namespace, vmi.Name)
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, err.Error(), warningMsg)
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), warningMsg)
 			return nil
 		}
 
@@ -2510,7 +2510,7 @@ func (c *Controller) alertIfHostModelIsUnschedulable(vmi *virtv1.VirtualMachineI
 
 	if !fittingNodeFound {
 		warningMsg := fmt.Sprintf("Migration cannot proceed since no node is suitable to run the required CPU model / required features: %v", requiredNodeLabels)
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.NoSuitableNodesForHostModelMigration, warningMsg)
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.NoSuitableNodesForHostModelMigration, warningMsg)
 		log.Log.Object(vmi).Warning(warningMsg)
 	}
 }

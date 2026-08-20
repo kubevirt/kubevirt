@@ -1,4 +1,4 @@
-// Copyright 2018 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,8 +23,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/prometheus/procfs/internal/util"
 	fsp "io/fs"
+
+	"github.com/prometheus/procfs/internal/util"
 )
 
 // ClassThermalZoneStats contains info from files in /sys/class/thermal/thermal_zone<zone>
@@ -50,7 +51,7 @@ func (fs FS) ClassThermalZoneStats() ([]ClassThermalZoneStats, error) {
 	for _, zone := range zones {
 		zoneStats, err := parseClassThermalZone(zone)
 		if err != nil {
-			if errors.Is(err, syscall.ENODATA) || errors.As(err, new(*fsp.PathError)) {
+			if errors.Is(err, syscall.ENODATA) || errors.As(err, new(*fsp.PathError)) || errors.Is(err, syscall.EAGAIN) {
 				continue
 			}
 			return nil, err
@@ -71,7 +72,7 @@ func parseClassThermalZone(zone string) (ClassThermalZoneStats, error) {
 	if err != nil {
 		return ClassThermalZoneStats{}, err
 	}
-	zoneTemp, err := util.ReadIntFromFile(filepath.Join(zone, "temp"))
+	zoneTemp, err := util.SysReadIntFromFile(filepath.Join(zone, "temp"))
 	if err != nil {
 		return ClassThermalZoneStats{}, err
 	}
@@ -84,12 +85,13 @@ func parseClassThermalZone(zone string) (ClassThermalZoneStats, error) {
 	zoneMode := util.ParseBool(mode)
 
 	var zonePassive *uint64
-	passive, err := util.ReadUintFromFile(filepath.Join(zone, "passive"))
-	if os.IsNotExist(err) || os.IsPermission(err) {
+	passive, err := util.SysReadUintFromFile(filepath.Join(zone, "passive"))
+	switch {
+	case os.IsNotExist(err), os.IsPermission(err):
 		zonePassive = nil
-	} else if err != nil {
+	case err != nil:
 		return ClassThermalZoneStats{}, err
-	} else {
+	default:
 		zonePassive = &passive
 	}
 

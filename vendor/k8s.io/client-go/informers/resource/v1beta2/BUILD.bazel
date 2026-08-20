@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "deviceclass.go",
+        "devicetaintrule.go",
         "interface.go",
         "resourceclaim.go",
         "resourceclaimtemplate.go",
@@ -16,6 +17,7 @@ go_library(
         "//vendor/k8s.io/api/resource/v1beta2:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/informers/internalinterfaces:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
