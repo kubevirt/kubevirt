@@ -194,6 +194,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, metadataBasePath strin
 			Alias:   api.NewUserDefinedAlias(deviceinfo.SRIOVAliasPrefix + iface.Name),
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 
