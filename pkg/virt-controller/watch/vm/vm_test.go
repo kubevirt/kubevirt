@@ -7119,7 +7119,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			})
 
-			PIt("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
+			It("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
@@ -7129,6 +7129,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				controller.crIndexer.Add(createVMRevision(vm))
 
@@ -7142,6 +7143,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Not(HaveOccurred()))
 				controller.Queue.Add(key)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				By("Change RunStrategy to Halted")
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
@@ -7151,13 +7153,18 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
-				controller.crIndexer.Delete(createVMRevision(vm))
+				cr := createVMRevision(vm)
+				controller.crIndexer.Delete(cr)
+				err = k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.TODO(), cr.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				// let the controller pick up the deletion
 				controller.Queue.Add(key)
 				controller.vmiIndexer.Delete(vmi)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
@@ -7170,6 +7177,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
