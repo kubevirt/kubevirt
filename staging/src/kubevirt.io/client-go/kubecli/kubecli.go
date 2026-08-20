@@ -130,108 +130,6 @@ func FlagSet() *flag.FlagSet {
 	return set
 }
 
-func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	config.GroupVersion = &v1.SubresourceStorageGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-
-	restClient, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	coreClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	generatedKubeVirtClient, err := generatedclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cdiClient, err := cdiclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	networkClient, err := networkclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	extensionsClient, err := extclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	secClient, err := secv1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	routeClient, err := routev1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	prometheusClient, err := promclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	snapshotClient, err := k8ssnapshotclient.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	migrationsClient, err := migrationsv1.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cloneClient, err := clone.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &kubevirtClient{
-		master,
-		kubeconfig,
-		restClient,
-		config,
-		generatedKubeVirtClient,
-		cdiClient,
-		networkClient,
-		extensionsClient,
-		secClient,
-		routeClient,
-		discoveryClient,
-		prometheusClient,
-		snapshotClient,
-		dynamicClient,
-		migrationsClient,
-		cloneClient,
-		coreClient,
-	}, nil
-}
-
 // DefaultClientConfig creates a clientcmd.ClientConfig with the following hierarchy:
 //
 //  1. Use the kubeconfig builder.  The number of merges and overrides here gets a little crazy.  Stay with me.
@@ -442,10 +340,6 @@ func GetKubevirtClient() (KubevirtClient, error) {
 		virtclient, err = GetKubevirtClientFromFlags(master, kubeconfig)
 	})
 	return virtclient, err
-}
-
-func GetKubevirtSubresourceClient() (KubevirtClient, error) {
-	return GetKubevirtSubresourceClientFromFlags(master, kubeconfig)
 }
 
 // Deprecated: Use GetKubevirtClientConfig instead
