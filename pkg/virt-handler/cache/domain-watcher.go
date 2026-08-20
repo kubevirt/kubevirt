@@ -264,65 +264,35 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 }
 
 func listAllKnownDomains() ([]*api.Domain, error) {
-	var domains []*api.Domain
-
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		return nil, err
 	}
+
+	var domains []*api.Domain
 	for _, socketFile := range socketFiles {
+		record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
+		if !recordExists {
+			continue
+		}
+
+		domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+		domain.ObjectMeta.UID = record.UID
+		domain.Spec.Metadata.KubeVirt.UID = record.UID
 
 		exists, err := diskutils.FileExists(socketFile)
 		if err != nil {
 			log.Log.Reason(err).Error("failed access cmd client socket")
-			continue
+			domain.Status.Status = api.Unknown
+		} else if !exists {
+			now := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &now
+			log.Log.Object(domain).Warning("detected stale domain from ghost record")
+		} else {
+			domain.Status.Status = api.Unknown
 		}
 
-		if !exists {
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
-				log.Log.Object(domain).Warning("detected stale domain from ghost record")
-				domains = append(domains, domain)
-			}
-			continue
-		}
-
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				domain.Status.Status = api.Unknown
-				domains = append(domains, domain)
-			}
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				domain.Status.Status = api.Unknown
-				domains = append(domains, domain)
-			}
-			continue
-		}
-		if exists {
-			domains = append(domains, domain)
-		}
+		domains = append(domains, domain)
 	}
 	return domains, nil
 }

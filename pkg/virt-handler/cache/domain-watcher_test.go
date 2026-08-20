@@ -133,6 +133,12 @@ var _ = Describe("Domain Watcher", func() {
 			InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
 		})
 
+		It("should return empty list when no ghost records exist", func() {
+			domains, err := listAllKnownDomains()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domains).To(BeEmpty())
+		})
+
 		It("should return domain with Unknown status when socket exists but connection fails", func() {
 			socketDir := GinkgoT().TempDir()
 			socketPath := filepath.Join(socketDir, "cmd.sock")
@@ -149,6 +155,7 @@ var _ = Describe("Domain Watcher", func() {
 			Expect(domains[0].ObjectMeta.Namespace).To(Equal("test-ns"))
 			Expect(domains[0].ObjectMeta.Name).To(Equal("test-vmi"))
 			Expect(domains[0].ObjectMeta.UID).To(BeEquivalentTo("uid-1234"))
+			Expect(domains[0].Spec.Metadata.KubeVirt.UID).To(BeEquivalentTo("uid-1234"))
 			Expect(domains[0].Status.Status).To(Equal(api.Unknown))
 			Expect(domains[0].ObjectMeta.DeletionTimestamp).To(BeNil())
 		})
@@ -164,6 +171,8 @@ var _ = Describe("Domain Watcher", func() {
 			Expect(domains).To(HaveLen(1))
 			Expect(domains[0].ObjectMeta.Namespace).To(Equal("test-ns"))
 			Expect(domains[0].ObjectMeta.Name).To(Equal("test-vmi"))
+			Expect(domains[0].ObjectMeta.UID).To(BeEquivalentTo("uid-1234"))
+			Expect(domains[0].Spec.Metadata.KubeVirt.UID).To(BeEquivalentTo("uid-1234"))
 			Expect(domains[0].ObjectMeta.DeletionTimestamp).ToNot(BeNil())
 		})
 
