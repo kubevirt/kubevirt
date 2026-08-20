@@ -29,6 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -103,12 +104,17 @@ func addVolumeRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	k8sClient, err := clientconfig.K8sClientFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+
 	dryRunOption := setDryRunOption(dryRun)
 
-	return addVolume(args[0], volumeName, diskName, namespace, virtClient, &dryRunOption)
+	return addVolume(args[0], volumeName, diskName, namespace, virtClient, k8sClient, &dryRunOption)
 }
 
-func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
+func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) (*v1.HotplugVolumeSource, error) {
 	//Check if data volume exists.
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
 	if err == nil {
@@ -120,7 +126,7 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 		}, nil
 	}
 	// DataVolume not found, try PVC
-	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	_, err = k8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
 	if err == nil {
 		return &v1.HotplugVolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
@@ -135,8 +141,8 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 	return nil, fmt.Errorf("Volume %s is not a DataVolume or PersistentVolumeClaim", volumeName)
 }
 
-func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
-	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
+func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, dryRunOption *[]string) error {
+	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient, k8sClient)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}

@@ -61,12 +61,12 @@ func (p *passwordCommandFlags) AddToCommand(cmd *cobra.Command) {
 func (p *passwordCommandFlags) runSetPasswordCommand(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	cli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("error getting kubevirt client or namespace: %w", err)
 	}
 
-	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
+	vm, err := virtClient.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
@@ -81,8 +81,13 @@ func (p *passwordCommandFlags) runSetPasswordCommand(cmd *cobra.Command, args []
 		return err
 	}
 
+	k8sClient, err := clientconfig.K8sClientFromContext(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("error getting kubernetes client: %w", err)
+	}
+
 	if !p.Force {
-		secret, errSecret := cli.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
+		secret, errSecret := k8sClient.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
 		if errSecret != nil {
 			return fmt.Errorf("error getting secret \"%s\": %w", secretName, errSecret)
 		}
@@ -99,7 +104,7 @@ func (p *passwordCommandFlags) runSetPasswordCommand(cmd *cobra.Command, args []
 	}
 
 	// Try patch to only add the new key.
-	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(),
+	_, err = k8sClient.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(),
 		secretName,
 		types.JSONPatchType,
 		addKeyPatch,
@@ -114,7 +119,7 @@ func (p *passwordCommandFlags) runSetPasswordCommand(cmd *cobra.Command, args []
 		if err != nil {
 			return err
 		}
-		_, err = cli.CoreV1().Secrets(vmNamespace).Patch(cmd.Context(), secretName, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
+		_, err = k8sClient.CoreV1().Secrets(vmNamespace).Patch(cmd.Context(), secretName, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("error patching secret \"%s\": %w", secretName, err)
 		}

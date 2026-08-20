@@ -33,8 +33,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
@@ -69,6 +71,9 @@ var _ = Describe("Add volume command", func() {
 		cdiClient = cdifake.NewSimpleClientset()
 		coreClient = k8sfake.NewSimpleClientset()
 		virtClient = kubevirtfake.NewSimpleClientset()
+		kubecli.GetK8sClientFromClientConfig = func(_ clientcmd.ClientConfig) (kubernetes.Interface, error) {
+			return coreClient, nil
+		}
 	})
 
 	DescribeTable("should fail with missing required or invalid parameters", func(expected string, extraArgs ...string) {
@@ -83,7 +88,6 @@ var _ = Describe("Add volume command", func() {
 
 	It("should fail when trying to add volume with invalid disk type", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 
 		_, err := coreClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Create(context.Background(), &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -98,7 +102,6 @@ var _ = Describe("Add volume command", func() {
 
 	DescribeTable("should fail addvolume when no source is found according to option", func(dryRun bool) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 
 		args := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
 		if dryRun {
@@ -253,7 +256,6 @@ var _ = Describe("Add volume command", func() {
 		Context("with PVC", func() {
 			BeforeEach(func() {
 				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 				_, err := coreClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Create(
 					context.Background(),
 					&k8sv1.PersistentVolumeClaim{
