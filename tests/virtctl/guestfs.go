@@ -30,6 +30,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -47,7 +49,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	)
 
 	// fakeCreateAttacher simulates the attacher to the pod console. It has to block until the test terminates.
-	fakeCreateAttacher := func(_ *guestfs.K8sClient, _ *corev1.Pod, _ string) error {
+	fakeCreateAttacher := func(_ *rest.Config, _ kubernetes.Interface, _ *corev1.Pod, _ string) error {
 		<-done
 		return nil
 	}
