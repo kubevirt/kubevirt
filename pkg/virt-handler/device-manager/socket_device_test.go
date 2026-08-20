@@ -100,9 +100,8 @@ var _ = Describe("Socket device", func() {
 
 	It("Should stop if the device plugin socket file is deleted", func() {
 		errChan := runHealthCheck()
-		Consistently(func() string {
-			return dpi.devs[0].Health
-		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		By("waiting for the initial check to advertise the intact device")
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Eventually(errChan, 5*time.Second).Should(Receive(BeNil()))
@@ -111,8 +110,9 @@ var _ = Describe("Socket device", func() {
 	DescribeTable("Should monitor health of device node", func(remove, recreate func()) {
 		runHealthCheck()
 
-		By("waiting for the health check to be watching an intact device")
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
+		By("waiting for the initial check to advertise the intact device")
+		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
 		Consistently(dpi.health, 500*time.Millisecond, 100*time.Millisecond).ShouldNot(Receive())
 
 		By("Removing the (fake) device node")
@@ -145,8 +145,9 @@ var _ = Describe("Socket device", func() {
 
 		runHealthCheck()
 
-		By("degrading to Unhealthy instead of erroring out")
-		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Unhealthy)))
+		By("staying Unhealthy instead of erroring out; the report is deduplicated as the devices already start that way")
+		Consistently(dpi.health, 500*time.Millisecond, 100*time.Millisecond).ShouldNot(Receive())
+		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
 
 		By("recovering once the directory and its socket are recreated")
 		Expect(os.Mkdir(deviceDir, 0o755)).To(Succeed())
@@ -155,11 +156,14 @@ var _ = Describe("Socket device", func() {
 	})
 
 	It("Should reconcile stale health on start, as it survives a plugin restart", func() {
-		dpi.healthy = false
+		By("Simulating a restart that left stale Healthy state behind, with the socket gone")
+		dpi.healthy = true
+		dpi.devs[0].Health = pluginapi.Healthy
+		Expect(os.Remove(sockDevPath)).To(Succeed())
 
 		runHealthCheck()
 
-		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Unhealthy)))
 	})
 
 	It("Should error out when a device's permissions cannot be applied, so the plugin is restarted with backoff", func() {
@@ -169,6 +173,8 @@ var _ = Describe("Socket device", func() {
 		dpi.p = failingPermManager
 
 		By("Removing the (fake) device node before the health check starts")
+		// Stale Healthy state makes the initial Unhealthy report observable, as a sync point for the watch being armed.
+		dpi.healthy = true
 		Expect(os.Remove(sockDevPath)).To(Succeed())
 
 		errChan := runHealthCheck()
