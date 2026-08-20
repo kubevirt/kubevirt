@@ -1081,8 +1081,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 			return vm, nil
 		}
 
-		// when coming here from a different RunStrategy we have to start the VM
-		if !hasStartRequest(vm) && vm.Status.RunStrategy == runStrategy {
+		if !shouldStartRerunOnFailure(vm, runStrategy) {
 			return vm, nil
 		}
 
@@ -1226,6 +1225,15 @@ func (c *Controller) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
 	return dels > 0
 }
 
+// shouldStartRerunOnFailure reports whether a VM using the RerunOnFailure
+// strategy should create a new VMI when no VMI currently exists
+// It returns true when there is an explicit StartRequest
+// or when the RunStrategy has just been switched to RerunOnFailure from
+// a different strategy (detected via vm.Status.RunStrategy)
+func shouldStartRerunOnFailure(vm *virtv1.VirtualMachine, runStrategy virtv1.VirtualMachineRunStrategy) bool {
+	return hasStartRequest(vm) || vm.Status.RunStrategy != runStrategy
+}
+
 // isSetToStart determines whether a VM is configured to be started (running).
 func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	runStrategy, err := vm.RunStrategy()
@@ -1248,7 +1256,7 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 		if vmi != nil {
 			return vmi.Status.Phase != virtv1.Succeeded
 		}
-		return true
+		return shouldStartRerunOnFailure(vm, runStrategy)
 	case virtv1.RunStrategyOnce:
 		if vmi == nil {
 			return true
