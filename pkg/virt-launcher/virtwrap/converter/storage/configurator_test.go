@@ -49,6 +49,8 @@ import (
 const (
 	amd64 = "amd64"
 	s390x = "s390x"
+
+	virtioModel = "virtio-non-transitional"
 )
 
 var _ = Describe("DiskConfigurator", func() {
@@ -56,7 +58,7 @@ var _ = Describe("DiskConfigurator", func() {
 		vmi := libvmi.New()
 		configurator := storage.NewDiskConfigurator(
 			storage.DiskWithArchitecture(amd64),
-			storage.DiskWithVirtioModel("virtio-non-transitional"),
+			storage.DiskWithVirtioModel(virtioModel),
 		)
 		var domain api.Domain
 
@@ -72,7 +74,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 			)
 			var domain api.Domain
@@ -85,7 +87,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -96,7 +98,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				storage.DiskWithIsBlockPVC(map[string]bool{"mypvc": true}),
 			)
@@ -110,7 +112,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{Name: "mypvc", Dev: volumepath.BlockDevice("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -121,7 +123,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.HotplugVolumeMounted}}),
 			)
 			var domain api.Domain
@@ -134,7 +136,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -145,7 +147,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.HotplugVolumeMounted}}),
 				storage.DiskWithIsBlockPVC(map[string]bool{"hotplug-pvc": true}),
 			)
@@ -159,7 +161,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{Dev: volumepath.HotplugBlockDevice("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -170,7 +172,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-dv": {Phase: v1.HotplugVolumeMounted}}),
 			)
 			var domain api.Domain
@@ -183,7 +185,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-dv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -194,7 +196,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-dv": {Phase: v1.HotplugVolumeMounted}}),
 				storage.DiskWithIsBlockDV(map[string]bool{"hotplug-dv": true}),
 			)
@@ -208,7 +210,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{Dev: volumepath.HotplugBlockDevice("hotplug-dv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -220,7 +222,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"perm-disk": {}}),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.VolumeBound}}),
 			)
@@ -234,7 +236,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("perm-disk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -245,7 +247,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.VolumeReady}}),
 			)
 			var domain api.Domain
@@ -258,7 +260,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -269,7 +271,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				storage.DiskWithVolumesDiscardIgnore([]string{"mypvc"}),
 			)
@@ -283,7 +285,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -294,7 +296,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.HotplugVolumeMounted}}),
 				storage.DiskWithVolumesDiscardIgnore([]string{"hotplug-pvc"}),
 			)
@@ -308,7 +310,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -319,7 +321,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-dv": {Phase: v1.HotplugVolumeMounted}}),
 				storage.DiskWithVolumesDiscardIgnore([]string{"hotplug-dv"}),
 			)
@@ -333,7 +335,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-dv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -344,7 +346,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mydv": {}}),
 			)
 			var domain api.Domain
@@ -357,7 +359,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mydv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -368,7 +370,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mydv": {}}),
 				storage.DiskWithIsBlockDV(map[string]bool{"mydv": true}),
 			)
@@ -382,7 +384,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{Name: "mydv", Dev: volumepath.BlockDevice("mydv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -393,7 +395,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				storage.DiskWithApplyCBT(map[string]string{"mypvc": "/cbt/mypvc.qcow2"}),
 			)
@@ -418,7 +420,7 @@ var _ = Describe("DiskConfigurator", func() {
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -429,7 +431,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				storage.DiskWithIsBlockPVC(map[string]bool{"mypvc": true}),
 				storage.DiskWithApplyCBT(map[string]string{"mypvc": "/cbt/mypvc.qcow2"}),
@@ -456,7 +458,7 @@ var _ = Describe("DiskConfigurator", func() {
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -467,7 +469,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.HotplugVolumeMounted}}),
 				storage.DiskWithApplyCBT(map[string]string{"hotplug-pvc": "/cbt/hotplug-pvc.qcow2"}),
 			)
@@ -492,7 +494,7 @@ var _ = Describe("DiskConfigurator", func() {
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -503,7 +505,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-pvc": {Phase: v1.HotplugVolumeMounted}}),
 				storage.DiskWithIsBlockPVC(map[string]bool{"hotplug-pvc": true}),
 				storage.DiskWithApplyCBT(map[string]string{"hotplug-pvc": "/cbt/hotplug-pvc.qcow2"}),
@@ -529,7 +531,7 @@ var _ = Describe("DiskConfigurator", func() {
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -540,7 +542,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myhostdisk": {}}),
 			)
 			var domain api.Domain
@@ -553,7 +555,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: hostdisk.GetMountedHostDiskPath("myhostdisk", "/data/disk.img")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -564,7 +566,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myhostdisk": {}}),
 				storage.DiskWithApplyCBT(map[string]string{"myhostdisk": "/cbt/myhostdisk.qcow2"}),
 			)
@@ -589,7 +591,7 @@ var _ = Describe("DiskConfigurator", func() {
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -601,7 +603,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mysysprep": {}}),
 			)
 			var domain api.Domain
@@ -624,7 +626,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"cloudinitdisk": {}}),
 			)
 			var domain api.Domain
@@ -637,7 +639,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, vmi.Name, vmi.Namespace)}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -648,7 +650,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"cloudinitdisk": {}}),
 			)
 			var domain api.Domain
@@ -661,7 +663,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: cloudinit.GetIsoFilePath(cloudinit.DataSourceConfigDrive, vmi.Name, vmi.Namespace)}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -672,7 +674,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myemptydisk": {}}),
 			)
 			var domain api.Domain
@@ -685,7 +687,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: emptydisk.NewEmptyDiskCreator().FilePathForVolumeName("myemptydisk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -697,7 +699,7 @@ var _ = Describe("DiskConfigurator", func() {
 			ephemeralCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mycontainerdisk": {}}),
 				storage.DiskWithEphemeralDiskCreator(ephemeralCreator),
 				storage.DiskWithDisksInfo(map[string]*disk.DiskInfo{"mycontainerdisk": {Format: "qcow2"}}),
@@ -712,7 +714,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: ephemeralCreator.GetFilePath("mycontainerdisk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 				diskWithBackingStore(api.BackingStore{
 					Type: "file",
 					Format: &api.BackingStoreFormat{
@@ -733,7 +735,7 @@ var _ = Describe("DiskConfigurator", func() {
 			ephemeralCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myephemeral": {}}),
 				storage.DiskWithEphemeralDiskCreator(ephemeralCreator),
 			)
@@ -767,7 +769,7 @@ var _ = Describe("DiskConfigurator", func() {
 			ephemeralCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myephemeral": {}}),
 				storage.DiskWithEphemeralDiskCreator(ephemeralCreator),
 				storage.DiskWithIsBlockPVC(map[string]bool{"myephemeral": true}),
@@ -802,7 +804,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myconfigmap": {}}),
 			)
 			var domain api.Domain
@@ -823,7 +825,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mysecret": {}}),
 			)
 			var domain api.Domain
@@ -844,7 +846,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mydownwardapi": {}}),
 			)
 			var domain api.Domain
@@ -865,7 +867,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mysa-disk": {}}),
 			)
 			var domain api.Domain
@@ -886,7 +888,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mymetrics": {}}),
 			)
 			var domain api.Domain
@@ -899,7 +901,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: config.DownwardMetricDisk}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 				diskWithReadOnly(),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -911,7 +913,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-hd": {Phase: v1.HotplugVolumeMounted}}),
 			)
 			var domain api.Domain
@@ -924,7 +926,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-hd")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -935,7 +937,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 			)
 			var domain api.Domain
 
@@ -973,7 +975,7 @@ var _ = Describe("DiskConfigurator", func() {
 				)
 				configurator := storage.NewDiskConfigurator(
 					storage.DiskWithArchitecture(amd64),
-					storage.DiskWithVirtioModel("virtio-non-transitional"),
+					storage.DiskWithVirtioModel(virtioModel),
 					storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				)
 				var domain api.Domain
@@ -986,7 +988,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 					diskWithCapacity(expected),
 				))
 				Expect(domain).To(Equal(expectedDomain))
@@ -999,7 +1001,7 @@ var _ = Describe("DiskConfigurator", func() {
 			vmi := libvmi.New(vmiOpt)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myvol": {}}),
 			)
 			var domain api.Domain
@@ -1028,7 +1030,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 			)
 			var domain api.Domain
@@ -1041,7 +1043,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(2))}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -1052,7 +1054,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 			)
 			var domain api.Domain
@@ -1065,7 +1067,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", IO: "native", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -1099,7 +1101,7 @@ var _ = Describe("DiskConfigurator", func() {
 				))
 				Expect(domain).To(Equal(expectedDomain))
 			},
-			Entry("on amd64", amd64, "virtio-non-transitional", uint(1234), uint(1234)),
+			Entry("on amd64", amd64, virtioModel, uint(1234), uint(1234)),
 			Entry("1024 on s390x", s390x, "virtio", uint(1024), uint(1024)),
 			Entry("2048 on s390x", s390x, "virtio", uint(2048), uint(2048)),
 			Entry("4096 on s390x", s390x, "virtio", uint(4096), uint(4096)),
@@ -1137,7 +1139,7 @@ var _ = Describe("DiskConfigurator", func() {
 			}
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				storage.DiskWithOptimalBlockIODetector(stubDetector),
 			)
@@ -1151,7 +1153,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 				diskWithBlockIO(api.BlockIO{LogicalBlockSize: 512, PhysicalBlockSize: 4096}),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -1163,7 +1165,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 			)
 			var domain api.Domain
@@ -1176,7 +1178,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "none", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 				diskWithShareable(),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -1188,7 +1190,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				storage.DiskWithUseLaunchSecuritySEV(true),
 			)
@@ -1202,7 +1204,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOMMU: "on"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -1213,7 +1215,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 			)
 			var domain api.Domain
@@ -1226,7 +1228,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 				diskWithBootOrder(1),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -1238,7 +1240,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mylun": {}}),
 			)
 			var domain api.Domain
@@ -1276,7 +1278,7 @@ var _ = Describe("DiskConfigurator", func() {
 				)
 				configurator := storage.NewDiskConfigurator(
 					storage.DiskWithArchitecture(amd64),
-					storage.DiskWithVirtioModel("virtio-non-transitional"),
+					storage.DiskWithVirtioModel(virtioModel),
 					storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
 				)
 				var domain api.Domain
@@ -1289,7 +1291,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: policy, Discard: "unmap"}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				))
 				Expect(domain).To(Equal(expectedDomain))
 			},
@@ -1308,7 +1310,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"disk1": {}, "disk2": {}}),
 			)
 			var domain api.Domain
@@ -1321,14 +1323,14 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 				newDisk("disk2",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 			)
 			Expect(domain).To(Equal(expectedDomain))
@@ -1342,7 +1344,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"auto-disk": {}, "dedicated-disk": {}}),
 			)
 			var domain api.Domain
@@ -1355,14 +1357,14 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 				newDisk("dedicated-disk",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("dedicated-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 			)
 			Expect(domain).To(Equal(expectedDomain))
@@ -1375,7 +1377,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"scsi-disk": {}}),
 			)
 			var domain api.Domain
@@ -1402,7 +1404,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mydisk": {}}),
 			)
 			var domain api.Domain
@@ -1425,7 +1427,7 @@ var _ = Describe("DiskConfigurator", func() {
 						},
 					},
 				}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -1439,7 +1441,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"virtio-disk": {}, "scsi-lun": {}}),
 			)
 			var domain api.Domain
@@ -1453,7 +1455,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("virtio-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 				newDisk("scsi-lun",
 					diskWithDevice("lun"),
@@ -1478,7 +1480,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"disk1": {}, "disk2": {}}),
 			)
 			var domain api.Domain
@@ -1492,7 +1494,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 				newDisk("disk2",
 					diskWithDevice("disk"),
@@ -1500,7 +1502,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-					diskWithModel("virtio-non-transitional"),
+					diskWithModel(virtioModel),
 				),
 			)
 			Expect(domain).To(Equal(expectedDomain))
@@ -1515,7 +1517,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mydisk": {}}),
 			)
 			var domain api.Domain
@@ -1528,7 +1530,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mydisk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel("virtio-non-transitional"),
+				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
 		})
@@ -1545,7 +1547,7 @@ var _ = Describe("DiskConfigurator", func() {
 			)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"boot": {}, "cdrom": {}, "newhotplug": {}}),
 			)
 			var domain api.Domain
@@ -1596,7 +1598,7 @@ var _ = Describe("DiskConfigurator", func() {
 			vmi := libvmi.New(vmiOpts...)
 			configurator := storage.NewDiskConfigurator(
 				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel("virtio-non-transitional"),
+				storage.DiskWithVirtioModel(virtioModel),
 				storage.DiskWithPermanentVolumes(permanentVolumes),
 			)
 			var domain api.Domain
