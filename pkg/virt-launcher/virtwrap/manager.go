@@ -1143,7 +1143,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 	preferredSize := *disk.Capacity
 	usableSize, err := getUsableDiskSize(dt.BackendPath())
 	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
+		log.DefaultLogger().Reason(err).Infof("Failed to get total usable space, using disk capacity instead")
 		usableSize = preferredSize
 	}
 	preferredSize = min(usableSize, preferredSize)
