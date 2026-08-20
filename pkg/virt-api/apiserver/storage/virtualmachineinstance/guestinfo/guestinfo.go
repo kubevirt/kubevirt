@@ -19,6 +19,8 @@
 
 package guestinfo
 
+// Invalidate stale bazel remote cache entries after CI CacheNotFoundException.
+
 import (
 	"context"
 	"crypto/tls"
