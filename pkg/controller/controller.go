@@ -110,6 +110,8 @@ const (
 	// ImagePullBackOffReason is set when an error has occurred while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
+	// InvalidImageNameReason is set when a container image reference for a containerDisk VM volume is malformed.
+	InvalidImageNameReason = "InvalidImageName"
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
 	// is suitable for migration (since CPU model / required features are not supported)
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
@@ -119,6 +121,20 @@ const (
 	// and virt-controller is backing off before retrying.
 	MigrationBackoffReason = "MigrationBackoff"
 )
+
+// IsContainerImageErrorReason reports whether a container waiting reason indicates an image
+// reference or pull failure for a containerDisk volume.
+func IsContainerImageErrorReason(reason string) bool {
+	return reason == ErrImagePullReason ||
+		reason == ImagePullBackOffReason ||
+		reason == InvalidImageNameReason
+}
+
+// IsErrImagePullPrintableStatusReason reports whether a VMI Synchronized condition reason
+// should surface the VM ErrImagePull printable status.
+func IsErrImagePullPrintableStatusReason(reason string) bool {
+	return reason == ErrImagePullReason || reason == InvalidImageNameReason
+}
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {

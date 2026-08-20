@@ -984,7 +984,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 			continue
 		}
 		reason := containerStatus.State.Waiting.Reason
-		if reason == controller.ErrImagePullReason || reason == controller.ImagePullBackOffReason {
+		if controller.IsContainerImageErrorReason(reason) {
 			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
 		}
 	}
