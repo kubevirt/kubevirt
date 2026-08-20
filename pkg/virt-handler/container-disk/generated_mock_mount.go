@@ -41,21 +41,6 @@ func (m *MockMounter) EXPECT() *MockMounterMockRecorder {
 	return m.recorder
 }
 
-// ComputeChecksums mocks base method.
-func (m *MockMounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ComputeChecksums", vmi)
-	ret0, _ := ret[0].(*DiskChecksums)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ComputeChecksums indicates an expected call of ComputeChecksums.
-func (mr *MockMounterMockRecorder) ComputeChecksums(vmi any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComputeChecksums", reflect.TypeOf((*MockMounter)(nil).ComputeChecksums), vmi)
-}
-
 // ContainerDisksReady mocks base method.
 func (m *MockMounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
 	m.ctrl.T.Helper()

@@ -108,6 +108,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,CDRomTarget,ReadOnly
 API rule violation: names_match,kubevirt.io/api/core/v1,CPU,DedicatedCPUPlacement
 API rule violation: names_match,kubevirt.io/api/core/v1,CloudInitConfigDriveSource,UserDataSecretRef
 API rule violation: names_match,kubevirt.io/api/core/v1,CloudInitNoCloudSource,UserDataSecretRef
+API rule violation: names_match,kubevirt.io/api/core/v1,ContainerDiskInfo,DeprecatedChecksum
 API rule violation: names_match,kubevirt.io/api/core/v1,DeveloperConfiguration,LessPVCSpaceToleration
 API rule violation: names_match,kubevirt.io/api/core/v1,Devices,GPUs
 API rule violation: names_match,kubevirt.io/api/core/v1,Devices,NetworkInterfaceMultiQueue
@@ -122,10 +123,12 @@ API rule violation: names_match,kubevirt.io/api/core/v1,FeatureSpinlocks,Retries
 API rule violation: names_match,kubevirt.io/api/core/v1,FeatureVendorID,VendorID
 API rule violation: names_match,kubevirt.io/api/core/v1,HPETTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,HypervTimer,Enabled
+API rule violation: names_match,kubevirt.io/api/core/v1,InitrdInfo,DeprecatedChecksum
 API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedMacvtap
 API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedPasst
 API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedSlirp
 API rule violation: names_match,kubevirt.io/api/core/v1,KVMTimer,Enabled
+API rule violation: names_match,kubevirt.io/api/core/v1,KernelInfo,DeprecatedChecksum
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,DeprecatedMinCPUModel
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,MigrationConfiguration
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,NetworkConfiguration

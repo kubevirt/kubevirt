@@ -441,8 +441,8 @@ type KernelInfo struct {
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=4294967295
-	// Checksum is the checksum of the kernel image
-	Checksum uint32 `json:"checksum,omitempty"`
+	// deprecated; Checksum is the checksum of the kernel image
+	DeprecatedChecksum uint32 `json:"checksum,omitempty"`
 }
 
 // InitrdInfo show info about the initrd file
@@ -450,8 +450,8 @@ type InitrdInfo struct {
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=4294967295
-	// Checksum is the checksum of the initrd file
-	Checksum uint32 `json:"checksum,omitempty"`
+	// deprecated; Checksum is the checksum of the initrd file
+	DeprecatedChecksum uint32 `json:"checksum,omitempty"`
 }
 
 // KernelBootStatus contains info about the kernelBootContainer
@@ -487,8 +487,8 @@ type ContainerDiskInfo struct {
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=4294967295
-	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
-	Checksum uint32 `json:"checksum,omitempty"`
+	// deprecated; Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
+	DeprecatedChecksum uint32 `json:"checksum,omitempty"`
 }
 
 // VolumePhase indicates the current phase of the hotplug process.
