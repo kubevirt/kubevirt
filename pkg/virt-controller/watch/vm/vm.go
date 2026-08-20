@@ -1233,7 +1233,7 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 		if vmi != nil {
 			return vmi.Status.Phase != virtv1.Succeeded
 		}
-		return true
+		return hasStartRequest(vm) || vm.Status.RunStrategy != runStrategy
 	case virtv1.RunStrategyOnce:
 		if vmi == nil {
 			return true
