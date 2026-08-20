@@ -124,6 +124,7 @@ const (
 	ExportPaused                          = "ExportPaused"
 	secretCreatedEvent                    = "SecretCreated"
 	serviceCreatedEvent                   = "ServiceCreated"
+	serviceDeletedEvent                   = "ServiceDeleted"
 	certParamsChangedEvent                = "CertificateParametersChanged"
 	exporterManifestConfigMapCreatedEvent = "DataManifestCreated"
 	exporterManifestConfigMapUpdatedEvent = "DataManifestUpdated"
@@ -1036,19 +1037,63 @@ func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMa
 
 func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport, source exportSource) (*corev1.Service, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportServiceName(vmExport))
-	if service, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key); err != nil {
+	obj, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key)
+	if err != nil {
 		return nil, err
-	} else if !exists {
-		service := ctrl.createServiceManifest(vmExport, source)
-		log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
-		service, err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
-		if err == nil {
-			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
-		}
-		return service, err
-	} else {
-		return service.(*corev1.Service), nil
 	}
+	if exists {
+		existing := obj.(*corev1.Service)
+		if !exportServiceNeedsRecreate(existing) {
+			return existing, nil
+		}
+		// ClusterIP and conversion to headless are immutable; delete and wait
+		// for the informer to drop the old Service before creating the replacement.
+		// Creating immediately races with a terminating Service (AlreadyExists)
+		// and with a stale cache (which would delete the replacement).
+		if err := ctrl.deleteIncompatibleExportService(vmExport, existing); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)
+	}
+
+	service := ctrl.createServiceManifest(vmExport, source)
+	log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
+	service, err = ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
+	return service, nil
+}
+
+func exportServiceNeedsRecreate(service *corev1.Service) bool {
+	if service.Spec.ClusterIP != corev1.ClusterIPNone {
+		return true
+	}
+	if len(service.Spec.Ports) == 0 {
+		return true
+	}
+	for _, port := range service.Spec.Ports {
+		if port.Port != ExportServerPort || port.TargetPort.IntVal != ExportServerPort {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctrl *VMExportController) deleteIncompatibleExportService(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) error {
+	if service.DeletionTimestamp != nil {
+		return nil
+	}
+	log.Log.V(3).Infof("Deleting incompatible exporter service %s/%s", service.Namespace, service.Name)
+	err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if err == nil {
+		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceDeletedEvent, "Deleted incompatible service %s/%s", service.Namespace, service.Name)
+	}
+	return nil
 }
 
 func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport, source exportSource) *corev1.Service {
