@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/clientcmd"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 	fakecdiclient "kubevirt.io/client-go/containerizeddataimporter/fake"
@@ -484,9 +485,10 @@ var _ = Describe("ImageUpload", func() {
 		kubeClient = fakek8sclient.NewSimpleClientset(kubeobjects...)
 		cdiClient = fakecdiclient.NewSimpleClientset(cdiobjects...)
 
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
+		kubecli.GetK8sClientFromClientConfig = func(_ clientcmd.ClientConfig) (kubernetes.Interface, error) {
+			return kubeClient, nil
+		}
 
 		addReactors()
 
