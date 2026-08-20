@@ -29,6 +29,7 @@ go_library(
         "//pkg/network/setup:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/service:go_default_library",
+        "//pkg/storage/resources:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/ratelimiter:go_default_library",
         "//pkg/util/tls:go_default_library",

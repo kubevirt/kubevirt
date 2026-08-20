@@ -37,6 +37,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
+	storageresources "kubevirt.io/kubevirt/pkg/storage/resources"
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -269,6 +270,7 @@ func (app *virtHandlerApp) Run() {
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 	backupTrackerInformer := factory.VirtualMachineBackupTracker()
+	pvcInformer := factory.PersistentVolumeClaim()
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
@@ -398,6 +400,7 @@ func (app *virtHandlerApp) Run() {
 		factory.KubeVirt().HasSynced,
 		nodeInformer.HasSynced,
 		backupTrackerInformer.HasSynced,
+		pvcInformer.HasSynced,
 		pluginInformer.HasSynced,
 	)
 
@@ -443,10 +446,11 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		netConf,
 		netStat,
-		netresources.MemoryCalculator{},
 		passtRepairHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
+		netresources.NewMemoryCalculator(app.clusterConfig),
+		storageresources.NewMemoryCalculator(pvcInformer.GetStore(), backupTrackerInformer),
 	)
 	if err != nil {
 		panic(err)

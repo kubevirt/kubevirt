@@ -37,6 +37,7 @@ pkg/network/vmliveupdate
 pkg/pointer
 pkg/storage/oci
 pkg/storage/pod/annotations
+pkg/storage/resources
 pkg/storage/reservation
 pkg/storage/velero
 pkg/tpm
