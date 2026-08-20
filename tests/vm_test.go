@@ -632,6 +632,45 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		Context("Using RunStrategyRerunOnFailure", func() {
+			It("should remain Stopped after PVC is deleted and recreated", func() {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				Expect(exists).To(BeTrue())
+				ns := testsuite.GetTestNamespace(nil)
+				pvcName := "rerun-pvc-test"
+
+				By("Creating a PVC")
+				pvc := libstorage.NewPVC(pvcName, "1Gi", sc)
+				_, err := virtClient.CoreV1().PersistentVolumeClaims(ns).Create(context.Background(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating a VM with RunStrategyRerunOnFailure and the PVC")
+				vm := libvmi.NewVirtualMachine(
+					libvmifact.NewGuestless(libvmi.WithPersistentVolumeClaim("testdisk", pvcName)),
+					libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure),
+				)
+				vm, err = virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VM to be running")
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusRunning))
+
+				By("Stopping the VM")
+				vm = libvmops.StopVirtualMachine(vm)
+				Eventually(ThisVM(vm), 60*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStopped))
+
+				By("Deleting the PVC")
+				err = virtClient.CoreV1().PersistentVolumeClaims(ns).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisPVCWith(ns, pvcName), 60*time.Second, 1*time.Second).Should(BeGone())
+
+				By("Recreating the PVC")
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(ns).Create(context.Background(), libstorage.NewPVC(pvcName, "1Gi", sc), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VM remains Stopped")
+				Consistently(ThisVM(vm), 30*time.Second, 5*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStopped))
+			})
+
 			It("[test_id:2188] should remove a succeeded VMI", decorators.WgS390x, func() {
 				By("Creating a VM with RunStrategyRerunOnFailure")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
