@@ -49,7 +49,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
-	exportpkg "kubevirt.io/kubevirt/pkg/storage/export/export"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 )
@@ -925,7 +925,7 @@ var _ = Describe("vmexport", func() {
 				Spec: k8sv1.ServiceSpec{
 					Ports: []k8sv1.ServicePort{{
 						Name: "export",
-						Port: int32(exportpkg.ExportServerPort),
+						Port: int32(storagetypes.ExportServerPort),
 					}},
 				},
 			}
@@ -952,7 +952,7 @@ var _ = Describe("vmexport", func() {
 				vmexport.PORT_FORWARD_FLAG,
 				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
-			Expect(err).To(MatchError(fmt.Sprintf("Service virt-export-test-vme does not have a service port %d", exportpkg.ExportServerPort)))
+			Expect(err).To(MatchError(fmt.Sprintf("Service virt-export-test-vme does not have a service port %d", storagetypes.ExportServerPort)))
 		})
 
 		It("VirtualMachineExport download with port-forward fails when the service doesn't have a valid pod ", func() {
