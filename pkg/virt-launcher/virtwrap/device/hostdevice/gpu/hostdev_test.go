@@ -77,6 +77,7 @@ var _ = Describe("GPU HostDevice", func() {
 			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + gpuName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 
