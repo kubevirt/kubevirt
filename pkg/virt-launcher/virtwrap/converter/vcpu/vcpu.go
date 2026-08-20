@@ -671,31 +671,56 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 		memoryBytes = memoryBytes - mod*hugepagesSize
 	}
 
-	virtualCellID := -1
+	hostToGuest := map[uint32]int{}
+	id := 0
+	for _, cell := range topology.NumaCells {
+		if _, exists := numamap[cell.Id]; exists {
+			hostToGuest[cell.Id] = id
+			id++
+		}
+	}
+
 	for _, cell := range topology.NumaCells {
 		if vcpus, exists := numamap[cell.Id]; exists {
 			var cpus []string
 			for _, cpu := range vcpus {
 				cpus = append(cpus, strconv.Itoa(int(cpu)))
 			}
-			virtualCellID++
+			guestCellID := hostToGuest[cell.Id]
+
+			var distances *api.NUMACellDistances
+			if len(cell.Distances) > 0 {
+				var siblings []api.NUMACellSibling
+				for _, hostSibling := range cell.Distances {
+					if guestSiblingID, exists := hostToGuest[hostSibling.Id]; exists {
+						siblings = append(siblings, api.NUMACellSibling{
+							ID:    strconv.Itoa(guestSiblingID),
+							Value: hostSibling.Value,
+						})
+					}
+				}
+				if len(siblings) > 0 {
+					distances = &api.NUMACellDistances{Siblings: siblings}
+				}
+			}
 
 			cellMemory := memoryBytes / uint64(len(numamap))
 			domain.CPU.NUMA.Cells = append(domain.CPU.NUMA.Cells, api.NUMACell{
-				ID:     strconv.Itoa(virtualCellID),
-				CPUs:   strings.Join(cpus, ","),
-				Memory: &cellMemory,
-				Unit:   memory.Unit,
+				ID:        strconv.Itoa(guestCellID),
+				CPUs:      strings.Join(cpus, ","),
+				Memory:    &cellMemory,
+				Unit:      memory.Unit,
+				Distances: distances,
 			})
 			domain.NUMATune.MemNodes = append(domain.NUMATune.MemNodes, api.MemNode{
-				CellID:  uint32(virtualCellID),
+				CellID:  uint32(guestCellID),
 				Mode:    "strict",
 				NodeSet: strconv.Itoa(int(cell.Id)),
 			})
 			domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
 				Size:    strconv.Itoa(int(hugepagesSize)),
 				Unit:    hugepagesUnit,
-				NodeSet: strconv.Itoa(virtualCellID),
+				NodeSet: strconv.Itoa(guestCellID),
 			})
 		}
 	}
