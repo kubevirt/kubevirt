@@ -50,34 +50,6 @@ func withVMLabelFrom(expr, sourceLabel string) string {
 
 var vmsAlerts = []promv1.Rule{
 	{
-		Alert: "VirtLauncherPodsStuckFailed",
-		Expr:  intstr.FromString("sum by (namespace) (kube_pod_status_phase{phase='Failed', pod=~'virt-launcher-.*'}) >= 200"),
-		For:   ptr.To(promv1.Duration("10m")),
-		Annotations: map[string]string{
-			summaryAnnotationKey: "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes.",
-		},
-		Labels: map[string]string{
-			severityAlertLabelKey:        "critical",
-			operatorHealthImpactLabelKey: "critical",
-		},
-	},
-	{
-		Alert: "OrphanedVirtualMachineInstances",
-		Expr: intstr.FromString(
-			"(((max by (namespace, node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} " +
-				"* on(pod, namespace) group_left(node) max by(namespace,pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) " +
-				"or (count by (namespace, node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0",
-		),
-		For: ptr.To(promv1.Duration("10m")),
-		Annotations: map[string]string{
-			summaryAnnotationKey: "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",
-		},
-		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "warning",
-		},
-	},
-	{
 		Alert: "VMCannotBeEvicted",
 		Expr: intstr.FromString(withVMLabel(
 			"kubevirt_vmi_non_evictable * on(name, namespace) group_left() " +
