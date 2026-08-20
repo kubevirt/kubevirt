@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
@@ -154,7 +155,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
 		shareDir := GinkgoT().TempDir()
-		privateDir := GinkgoT().TempDir()
 		podsDir, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(os.RemoveAll, podsDir)
@@ -222,8 +222,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			recorder,
 			virtClient,
 			host,
-			privateDir,
-			podsDir,
 			"127.1.1.1", // migration ip address
 			launcherClientManager,
 			vmiInformer,
@@ -239,9 +237,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			migrationTargetPasstRepairHandler,
 			nil,
 			nil,
+			containerdisk.NewMounter(mockIsolationDetector, GinkgoT().TempDir(), config),
+			mockHotplugVolumeMounter,
 		)
-
-		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()

@@ -80,7 +80,9 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	hcontainerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
+	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -426,12 +428,24 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	containerDiskState := filepath.Join(app.VirtPrivateDir, "container-disk-mount-state")
+	if err := os.MkdirAll(containerDiskState, 0o700); err != nil {
+		panic(err)
+	}
+
+	cdMounter := hcontainerdisk.NewMounter(podIsolationDetector, containerDiskState, app.clusterConfig)
+
+	hotplugState := filepath.Join(app.VirtPrivateDir, "hotplug-volume-mount-state")
+	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
+		panic(err)
+	}
+
+	hvMounter := hotplugvolume.NewVolumeMounter(hotplugState, app.KubeletPodsDir, app.HostOverride)
+
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
 		app.virtClient,
 		app.HostOverride,
-		app.VirtPrivateDir,
-		app.KubeletPodsDir,
 		migrationIpAddress,
 		launcherClientsManager,
 		vmiTargetInformer,
@@ -447,6 +461,8 @@ func (app *virtHandlerApp) Run() {
 		passtRepairHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
+		cdMounter,
+		hvMounter,
 	)
 	if err != nil {
 		panic(err)
@@ -460,8 +476,6 @@ func (app *virtHandlerApp) Run() {
 		app.k8sClient,
 		nodeInformer.GetStore(),
 		app.HostOverride,
-		app.VirtPrivateDir,
-		app.KubeletPodsDir,
 		launcherClientsManager,
 		vmiSourceInformer,
 		vmiInformer.GetStore(),
@@ -478,6 +492,8 @@ func (app *virtHandlerApp) Run() {
 		cbtHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
+		cdMounter,
+		hvMounter,
 	)
 	if err != nil {
 		panic(err)

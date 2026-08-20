@@ -134,8 +134,6 @@ func NewVirtualMachineController(
 	k8sClient kubernetes.Interface,
 	nodeStore cache.Store,
 	host string,
-	virtPrivateDir string,
-	kubeletPodsDir string,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	vmiGlobalStore cache.Store,
@@ -152,6 +150,8 @@ func NewVirtualMachineController(
 	cbtHandler *CBTHandler,
 	pluginStore cache.Store,
 	pluginExecutor plugins.NodeHookExecutor,
+	cdMounter containerdisk.Mounter,
+	hvMounter hotplugvolume.VolumeMounter,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -184,23 +184,13 @@ func NewVirtualMachineController(
 		return nil, err
 	}
 
-	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
-	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
-		return nil, err
-	}
-
-	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
-	if err := os.MkdirAll(hotplugState, 0700); err != nil {
-		return nil, err
-	}
-
 	c := &VirtualMachineController{
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
 		virtClient:               virtClient,
-		containerDiskMounter:     containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		containerDiskMounter:     cdMounter,
 		downwardMetricsManager:   downwardMetricsManager,
-		hotplugVolumeMounter:     hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		hotplugVolumeMounter:     hvMounter,
 		hostCpuModel:             hostCpuModel,
 		ioErrorRetryManager:      NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 		heartBeatInterval:        1 * time.Minute,
