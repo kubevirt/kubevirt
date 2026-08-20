@@ -21,15 +21,14 @@ import (
 )
 
 const (
-	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
-	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
-	PrHelperName                   = "pr-helper"
-	prVolumeName                   = "pr-helper-socket-vol"
-	devDirVol                      = "dev-dir"
-	SidecarShimName                = "sidecar-shim"
-	etcMultipath                   = "etc-multipath"
-	SupportsMigrationCNsValidation = "kubevirt.io/supports-migration-cn-types"
+	VirtHandlerName = "virt-handler"
+	kubeletPodsPath = util.KubeletRoot + "/pods"
+	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
+	PrHelperName    = "pr-helper"
+	prVolumeName    = "pr-helper-socket-vol"
+	devDirVol       = "dev-dir"
+	SidecarShimName = "sidecar-shim"
+	etcMultipath    = "etc-multipath"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -106,8 +105,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			Namespace: config.GetNamespace(),
 			Name:      VirtHandlerName,
 			Labels: map[string]string{
-				virtv1.AppLabel:                VirtHandlerName,
-				SupportsMigrationCNsValidation: "true",
+				virtv1.AppLabel: VirtHandlerName,
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
@@ -228,6 +226,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		"8187",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
+		"--migration-cn-types",
+		"migration",
 		"-v",
 		config.GetVerbosity(),
 	}
@@ -308,7 +308,6 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		mountPath        string
 		mountPropagation *corev1.MountPropagationMode
 	}
-	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
 	attachCertificateSecret(pod, VirtHandlerMigrationClientCertSecretName, "/etc/virt-handler/migrationservercertificates")
 	attachCertificateSecret(pod, VirtHandlerVsockClientCertSecretName, "/etc/virt-handler/vsockclientcertificates")
