@@ -17,19 +17,23 @@ CS_CONFIG="cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
 
 # Version-specific package versions
 if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
-    # CS10: use unversioned packages (latest available)
-    LIBVIRT_VERSION=${LIBVIRT_VERSION:-}
-    QEMU_VERSION=${QEMU_VERSION:-}
-    SEABIOS_VERSION=${SEABIOS_VERSION:-}
-    EDK2_VERSION=${EDK2_VERSION:-}
-    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-}
-    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-}
-    PASST_VERSION=${PASST_VERSION:-}
-    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-}
-    SWTPM_VERSION=${SWTPM_VERSION:-}
-    LIBNBD_VERSION=${LIBNBD_VERSION:-}
+    # CS10 pinned versions
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:12.5.0-1.el10}
+    QEMU_VERSION=${QEMU_VERSION:-18:10.1.0-25.el10}
+    # Pinned to 1.16.3 rather than 1.17.0: SeaBIOS 1.17.0 dropped the internal
+    # ACPI table generator, so a BIOS guest launched with ACPI disabled
+    # (features.acpi.enabled=false) no longer receives any ACPI tables and fails
+    # to boot. Keep the 1.16.x fallback until disabling ACPI is deprecated.
+    SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-5.el10}
+    EDK2_VERSION=${EDK2_VERSION:-0:20260221-6.el10}
+    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.60.1-1.el10}
+    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.56.0-1.el10}
+    PASST_VERSION=${PASST_VERSION:-0:0^20260728.gf8df3f1-1.el10}
+    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.3-2.el10}
+    SWTPM_VERSION=${SWTPM_VERSION:-0:0.9.0-6.el10}
+    LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.25.7-1.el10}
 else
-    # CS9 defaults (current pinned versions)
+    # CS9 pinned versions
     LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.10.0-12.el9}
     QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-20.el9}
     SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
