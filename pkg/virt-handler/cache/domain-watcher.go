@@ -33,7 +33,6 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -152,11 +151,7 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 }
 
 func (d *domainWatcher) handleResync(ctx context.Context) {
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		log.Log.Reason(err).Error("failed to list sockets")
-		return
-	}
+	socketFiles := listSockets(GhostRecordGlobalStore.list())
 
 	log.Log.Infof("resyncing virt-launcher domains")
 	for _, socket := range socketFiles {
@@ -190,11 +185,7 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeout int) error {
 	var unresponsive []string
 
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		log.Log.Reason(err).Error("failed to list sockets")
-		return err
-	}
+	socketFiles := listSockets(GhostRecordGlobalStore.list())
 
 	for _, socket := range socketFiles {
 		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
@@ -263,70 +254,6 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 	return nil
 }
 
-func listAllKnownDomains() ([]*api.Domain, error) {
-	var domains []*api.Domain
-
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		return nil, err
-	}
-	for _, socketFile := range socketFiles {
-
-		exists, err := diskutils.FileExists(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed access cmd client socket")
-			continue
-		}
-
-		if !exists {
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
-				log.Log.Object(domain).Warning("detected stale domain from ghost record")
-				domains = append(domains, domain)
-			}
-			continue
-		}
-
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				domain.Status.Status = api.Unknown
-				domains = append(domains, domain)
-			}
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				domain.Status.Status = api.Unknown
-				domains = append(domains, domain)
-			}
-			continue
-		}
-		if exists {
-			domains = append(domains, domain)
-		}
-	}
-	return domains, nil
-}
-
 func (d *domainWatcher) Stop() {
 	d.cancel()
 	d.wg.Wait()
@@ -336,12 +263,12 @@ func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.result
 }
 
-func listSockets(ghostRecords []ghostRecord) ([]string, error) {
+func listSockets(ghostRecords []ghostRecord) []string {
 	var sockets []string
 
 	for _, record := range ghostRecords {
 		sockets = append(sockets, record.SocketFile)
 	}
 
-	return sockets, nil
+	return sockets
 }

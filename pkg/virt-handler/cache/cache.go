@@ -38,8 +38,10 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 )
 
@@ -231,23 +233,79 @@ func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}
 	lw := &cache.ListWatch{
-		ListWithContextFunc: func(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
-			log.Log.V(3).Info("Synchronizing domains")
-			domains, err := listAllKnownDomains()
-			if err != nil {
-				return nil, err
-			}
-			list := api.DomainList{
-				Items: []api.Domain{},
-			}
-			for _, domain := range domains {
-				list.Items = append(list.Items, *domain)
-			}
-			return &list, nil
-		},
+		ListWithContextFunc: List,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
 			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
 		},
 	}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
+}
+
+func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+	log.Log.V(3).Info("Synchronizing domains")
+	domains := listAllKnownDomains()
+	list := api.DomainList{
+		Items: []api.Domain{},
+	}
+	for _, domain := range domains {
+		list.Items = append(list.Items, *domain)
+	}
+	return &list, nil
+}
+
+func listAllKnownDomains() []*api.Domain {
+	var domains []*api.Domain
+
+	ghostRecords := (GhostRecordGlobalStore.list())
+	for _, record := range ghostRecords {
+		if domain := getDomainFromRecord(record); domain != nil {
+			domains = append(domains, domain)
+		}
+	}
+	return domains
+}
+
+func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {
+	domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+	domain.ObjectMeta.UID = record.UID
+	domain.Spec.Metadata.KubeVirt.UID = record.UID
+	domain.Status = status
+
+	return domain
+}
+
+func getDomainFromRecord(record ghostRecord) *api.Domain {
+	socketFile := record.SocketFile
+
+	exists, err := diskutils.FileExists(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Error("failed access cmd client socket")
+		return nil
+	}
+
+	if !exists {
+		domain := newDomainFromGhostRecord(record, api.DomainStatus{})
+		now := metav1.Now()
+		domain.DeletionTimestamp = &now
+		log.Log.Object(domain).Warning("detected stale domain from ghost record")
+		return domain
+	}
+
+	log.Log.V(3).Infof("List domains from sock %s", socketFile)
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	defer client.Close()
+
+	domain, exists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	if !exists {
+		return nil
+	}
+	return domain
 }
