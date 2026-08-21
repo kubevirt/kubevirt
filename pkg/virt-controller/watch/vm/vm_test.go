@@ -4410,6 +4410,45 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("PersistentVolumeClaim is in Lost phase", k8sv1.ClaimLost),
 				)
 
+				It("Should NOT set WaitingForVolumeBinding when RerunOnFailure VM was stopped and PVC is unbound", func() {
+					err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Delete(context.TODO(), vm.Name, metav1.DeleteOptions{})
+					Expect(err).To(Succeed())
+
+					vm, _ = watchtesting.DefaultVirtualMachine(true)
+					vm.Spec.Running = nil
+					vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+					vm.Status.RunStrategy = v1.RunStrategyRerunOnFailure
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "test1",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvc1",
+							}},
+						},
+					})
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					pvc := k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pvc1",
+							Namespace: vm.Namespace,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimPending,
+						},
+					}
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
+				})
+
 			})
 
 			It("should set a Running status when VMI is running but not paused", func() {
@@ -6956,7 +6995,65 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("Manual", v1.RunStrategyManual),
 			)
 
-			PIt("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
+			DescribeTable("shouldStartRerunOnFailure should", func(stateChangeRequests []v1.VirtualMachineStateChangeRequest, statusRunStrategy v1.VirtualMachineRunStrategy, expected bool) {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Status.StateChangeRequests = stateChangeRequests
+				vm.Status.RunStrategy = statusRunStrategy
+
+				result := shouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
+				Expect(result).To(Equal(expected))
+			},
+				Entry("return true when VM was never started (empty status RunStrategy)",
+					[]v1.VirtualMachineStateChangeRequest{},
+					v1.VirtualMachineRunStrategy(""),
+					true,
+				),
+				Entry("return false when VM was stopped and status matches spec",
+					[]v1.VirtualMachineStateChangeRequest{},
+					v1.RunStrategyRerunOnFailure,
+					false,
+				),
+				Entry("return true when a StartRequest is present after VMI failure",
+					[]v1.VirtualMachineStateChangeRequest{{Action: v1.StartRequest}},
+					v1.RunStrategyRerunOnFailure,
+					true,
+				),
+				Entry("return true when RunStrategy was changed from Always",
+					[]v1.VirtualMachineStateChangeRequest{},
+					v1.RunStrategyAlways,
+					true,
+				),
+				Entry("return true when RunStrategy was changed from Halted",
+					[]v1.VirtualMachineStateChangeRequest{},
+					v1.RunStrategyHalted,
+					true,
+				),
+				Entry("return true when StartRequest is present and RunStrategy was also changed",
+					[]v1.VirtualMachineStateChangeRequest{{Action: v1.StartRequest}},
+					v1.RunStrategyAlways,
+					true,
+				),
+			)
+
+			It("should not start a RerunOnFailure VM that was manually stopped", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.Running = nil
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+				vm.Status.RunStrategy = v1.RunStrategyRerunOnFailure
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+			})
+
+			It("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
@@ -6966,6 +7063,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				controller.crIndexer.Add(createVMRevision(vm))
 
@@ -6979,6 +7077,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Not(HaveOccurred()))
 				controller.Queue.Add(key)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				By("Change RunStrategy to Halted")
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
@@ -6988,13 +7087,18 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
-				controller.crIndexer.Delete(createVMRevision(vm))
+				cr := createVMRevision(vm)
+				controller.crIndexer.Delete(cr)
+				err = k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.TODO(), cr.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				// let the controller pick up the deletion
 				controller.Queue.Add(key)
 				controller.vmiIndexer.Delete(vmi)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
@@ -7007,6 +7111,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 				sanityExecute(vm)
+				clearExpectations(vm)
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
