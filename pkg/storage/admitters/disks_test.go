@@ -347,6 +347,37 @@ var _ = Describe("Disk Validation", func() {
 			Expect(causes[0].Field).To(Equal("fake[0].serial"))
 		})
 
+		It("should reject serial set for lun disk", func() {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:   "lun-disk",
+				Serial: "testserial",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus: v1.DiskBusSCSI,
+					},
+				},
+			})
+
+			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake[0].serial"))
+		})
+
+		It("should accept serial set for scsi disk", func() {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:   "scsi-disk",
+				Serial: "testserial",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusSCSI,
+					},
+				},
+			})
+
+			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should reject SN > maxStrLen characters", func() {
 			order := uint(1)
 			sn := strings.Repeat("1", maxStrLen+1)

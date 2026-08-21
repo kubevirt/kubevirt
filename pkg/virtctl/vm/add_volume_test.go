@@ -215,6 +215,11 @@ var _ = Describe("Add volume command", func() {
 					MatchError(ContainSubstring("Invalid bus type 'virtio' for LUN disk. Only 'scsi' bus is supported.")))
 			})
 
+			It("should fail addvolume with LUN and serial", func() {
+				Expect(runCmd("--disk-type=lun --bus=scsi --serial=test")).To(
+					MatchError(ContainSubstring("Serial definition is not supported for LUN disks")))
+			})
+
 			DescribeTable("when volume name exceeds 63 chars", func(valid bool) {
 				longVolName := rand.String(64)
 				_, err := cdiClient.CdiV1beta1().DataVolumes(metav1.NamespaceDefault).Create(
