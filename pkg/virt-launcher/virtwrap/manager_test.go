@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -2831,6 +2832,53 @@ var _ = Describe("Manager", func() {
 			Entry("running", libvirt.DOMAIN_RUNNING),
 			Entry("paused", libvirt.DOMAIN_PAUSED),
 		)
+	})
+	Context("on soft reboot", func() {
+		withAgentConnected := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceAgentConnected,
+				Status: k8sv1.ConditionTrue,
+			})
+		}
+		withACPI := func(vmi *v1.VirtualMachineInstance, enabled bool) {
+			vmi.Spec.Domain.Features = &v1.Features{
+				ACPI: v1.FeatureState{Enabled: virtpointer.P(enabled)},
+			}
+		}
+
+		It("should reboot via the guest agent when the agent is connected", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			withAgentConnected(vmi)
+			// ACPI is irrelevant to the guest-agent reboot path.
+			withACPI(vmi, false)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().Reboot(libvirt.DOMAIN_REBOOT_GUEST_AGENT).Return(nil)
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			Expect(manager.SoftRebootVMI(vmi)).To(Succeed())
+		})
+		It("should reboot via the ACPI power button when the agent is not connected and ACPI is enabled", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			withACPI(vmi, true)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().Reboot(libvirt.DOMAIN_REBOOT_ACPI_POWER_BTN).Return(nil)
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			Expect(manager.SoftRebootVMI(vmi)).To(Succeed())
+		})
+		It("should fail without issuing a reboot when the agent is not connected and ACPI is disabled", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			withACPI(vmi, false)
+
+			// No LookupDomainByName/Reboot expectations: the rejection is
+			// derived purely from the VMI spec, before touching the domain.
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			err := manager.SoftRebootVMI(vmi)
+			Expect(err).To(MatchError(ContainSubstring("VMI neither have the agent connected nor the ACPI feature enabled")))
+		})
 	})
 	DescribeTable("on successful list all domains",
 		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {
