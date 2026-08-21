@@ -285,7 +285,7 @@ function _add_extra_mounts() {
     readOnly: true
 EOF
 
-    if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* || "$KUBEVIRT_PROVIDER" =~ vgpu.* ]]; then
+    if [[ "$KUBEVIRT_PROVIDER" =~ vgpu.* ]]; then
         cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
   - containerPath: /dev/vfio/
     hostPath: /dev/vfio/

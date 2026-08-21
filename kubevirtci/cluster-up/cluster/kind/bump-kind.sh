@@ -21,8 +21,8 @@
 # If no parameters beside provider, are used, it will take latest kind version,
 # with k8s version according latest kubevirtci vm based provider.
 # If only kind_version is used, it will take k8s version according latest kubevirtci vm based provider
-# examples: ./hack/bump-kind.sh kind-sriov v0.19.0
-#           ./hack/bump-kind.sh kind-sriov v0.19.0 1.28
+# examples: ./hack/bump-kind.sh kind-1.36 v0.30.0
+#           ./hack/bump-kind.sh kind-1.36 v0.30.0 1.36
 #
 # Note: always takes the latest patch available
 #
