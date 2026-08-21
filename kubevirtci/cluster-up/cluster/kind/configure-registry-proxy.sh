@@ -27,7 +27,7 @@ export CRI_BIN=${CRI_BIN:-$(detect_cri)}
 
 KIND_BIN="${KIND_BIN:-./kind}"
 PROXY_HOSTNAME="${PROXY_HOSTNAME:-docker-registry-proxy}"
-CLUSTER_NAME="${CLUSTER_NAME:-sriov}"
+CLUSTER_NAME="${CLUSTER_NAME:-kind}"
 
 SETUP_URL="http://${PROXY_HOSTNAME}:3128/setup/systemd"
 pids=""
