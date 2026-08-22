@@ -1346,6 +1346,37 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Should(Or(matcher.BeInPhase(v1.Succeeded), matcher.BeInPhase(v1.Failed)))
 		})
 	})
+	Describe("Force-delete a VirtualMachineInstance's Pod", decorators.WgS390x, func() {
+		It("should allow a new VMI with the same name to start", func() {
+			vmiName := "force-delete-test-" + rand.String(12)
+
+			By("Creating the first VirtualMachineInstance")
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(libvmi.WithName(vmiName)), startupTimeout)
+			ns := testsuite.GetTestNamespace(vmi)
+
+			By("Force-deleting the virt-launcher pod")
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, ns)
+			Expect(err).ToNot(HaveOccurred())
+			err = kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: pointer.P(int64(0)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the first VMI to reach a finalized state")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).
+				Should(Or(matcher.BeInPhase(v1.Succeeded), matcher.BeInPhase(v1.Failed)))
+
+			By("Deleting the first VMI")
+			err = kubevirt.Client().VirtualMachineInstance(ns).Delete(context.Background(), vmiName, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).Should(matcher.BeGone())
+
+			By("Creating a second VMI with the same name")
+			newVMI := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(libvmi.WithName(vmiName)), startupTimeout)
+			Expect(newVMI.UID).ToNot(Equal(vmi.UID))
+		})
+	})
+
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance", func() {
 		Context("with an active pod.", decorators.WgS390x, func() {
 			It("[test_id:1651]should result in pod being terminated", func() {
