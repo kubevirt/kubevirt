@@ -188,7 +188,7 @@ func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceD
 		baseDir := filepath.Join(secretSourceDir, secretName+"-access-cred")
 		files, err := os.ReadDir(baseDir)
 		if err != nil {
-			return keys, err
+			return keys, fmt.Errorf("Unable to read access creds directory %s: %w", baseDir, err)
 		}
 
 		for _, file := range files {
