@@ -106,7 +106,7 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []v1.Vir
 			displayEnabled := gpu.VirtualGPUOptions.Display.Enabled
 			if displayEnabled == nil || *displayEnabled {
 				hostDevice.Display = "on"
-				if gpu.VirtualGPUOptions.Display.RamFB == nil || *gpu.VirtualGPUOptions.Display.RamFB.Enabled {
+				if gpu.VirtualGPUOptions.Display.RamFB == nil || gpu.VirtualGPUOptions.Display.RamFB.Enabled == nil || *gpu.VirtualGPUOptions.Display.RamFB.Enabled {
 					hostDevice.RamFB = "on"
 				}
 			}
