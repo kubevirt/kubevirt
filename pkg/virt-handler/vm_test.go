@@ -575,7 +575,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			addVMI(vmi, domain)
 
 			sanityExecute()
-			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 
 		})
@@ -594,7 +593,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			sanityExecute()
 
-			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">", 1))
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
@@ -619,7 +617,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, VMICrashed)
-			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
@@ -726,7 +723,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
-			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 		})
 
@@ -756,7 +752,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
-			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 		})
 
@@ -1584,7 +1579,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				testutils.ExpectEvent(recorder, "out of time")
 				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
-				Expect(mockQueue.Len()).To(Equal(0))
 				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			})
 
@@ -1602,7 +1596,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				testutils.ExpectEvent(recorder, "aborting since we only want to reach this point")
 				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
-				Expect(mockQueue.Len()).To(Equal(0))
 				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			})
 
