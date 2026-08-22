@@ -39,6 +39,7 @@ service Cmd {
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
   rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
   rpc RedefineCheckpoint(RedefineCheckpointRequest) returns (RedefineCheckpointResponse) {}
+  rpc EnableVMStats(VMStatsRequest) returns (Response) {}
   rpc GetVMStats(VMStatsRequest) returns (VMStatsResponse) {}
 }
 

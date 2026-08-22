@@ -61,6 +61,28 @@ func AgentDataCommandKeys() []string {
 	return keys
 }
 
+func (l *Launcher) EnableVMStats(ctx context.Context, request *cmdv1.VMStatsRequest) (*cmdv1.Response, error) {
+	if !l.vmStatsCollectorEnabled {
+		return &cmdv1.Response{
+			Success: false,
+			Message: "VMStatsCollector feature gate is not enabled",
+		}, nil
+	}
+
+	for _, f := range agentDataFields {
+		if err := l.domainManager.EnableAgentData(f.commandKey, f.requested(request)); err != nil {
+			return &cmdv1.Response{
+				Success: false,
+				Message: fmt.Sprintf("failed to enable agent data %s: %v", f.commandKey, err),
+			}, nil
+		}
+	}
+
+	return &cmdv1.Response{
+		Success: true,
+	}, nil
+}
+
 func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest) (*cmdv1.VMStatsResponse, error) {
 	if !l.vmStatsCollectorEnabled {
 		return nil, fmt.Errorf("VMStatsCollector feature gate is not enabled")
