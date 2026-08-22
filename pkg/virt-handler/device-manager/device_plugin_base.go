@@ -22,6 +22,8 @@ package device_manager
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"path"
 	"sync"
@@ -33,24 +35,85 @@ import (
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
+const (
+	DeviceNamespace   = "devices.kubevirt.io"
+	connectionTimeout = 5 * time.Second
+)
+
 type DevicePluginBase struct {
-	devs         []*pluginapi.Device
-	server       *grpc.Server
-	socketPath   string
-	stop         <-chan struct{}
-	health       chan deviceHealth
-	resourceName string
-	done         chan struct{}
-	initialized  bool
-	lock         *sync.Mutex
-	deregistered chan struct{}
-	devicePath   string
-	deviceRoot   string
-	deviceName   string
+	devs              []*pluginapi.Device
+	server            *grpc.Server
+	socketPath        string
+	stop              <-chan struct{}
+	health            chan deviceHealth
+	resourceName      string
+	done              chan struct{}
+	initialized       bool
+	lock              *sync.Mutex
+	deregistered      chan struct{}
+	deviceRoot        string                                                                                 // Absolute base path for where this DP is inside virt-handler (typically intended to be either "/" or util.HostRootMount)
+	devicePath        string                                                                                 // Device path on the host filesystem. When accessed from a virt-handler, it should be combined with deviceRoot.
+	allocateDP        func(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) // REQUIRED function to allocate the device.
+	setupDevicePlugin func() error                                                                           // Optional function to perform additional setup steps that are not covered by the default implementation
+	deviceNameByID    func(deviceID string) string                                                           // Optional function to convert device id to a human-readable name for logging
+	healthCheck       func() error                                                                           // Required function to perform health checks
 }
 
-func (dpi *DevicePluginBase) GetDeviceName() string {
+func (dpi *DevicePluginBase) GetResourceName() string {
 	return dpi.resourceName
+}
+
+func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
+	logger := log.DefaultLogger()
+	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
+
+	if err := dpi.cleanup(); err != nil {
+		return err
+	}
+
+	// If a custom setupDevicePlugin hook is implemented, call it
+	// for additional setup steps that are not covered by the default implementation
+	if dpi.setupDevicePlugin != nil {
+		if err = dpi.setupDevicePlugin(); err != nil {
+			return err
+		}
+	}
+
+	sock, err := net.Listen("unix", dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
+	}
+
+	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.stopDevicePlugin()
+
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+
+	errChan := make(chan error, 2)
+
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+	}()
+
+	if err = waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
+		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
+
+	if err = dpi.register(); err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
+	}
+
+	go func() {
+		errChan <- dpi.healthCheck()
+	}()
+
+	dpi.setInitialized(true)
+	logger.Infof("%s device plugin started", dpi.resourceName)
+	err = <-errChan
+
+	return err
 }
 
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
@@ -84,6 +147,13 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 	return nil
 }
 
+func (dpi *DevicePluginBase) getFriendlyName(deviceID string) string {
+	if dpi.deviceNameByID == nil {
+		return "device plugin (" + deviceID + ")"
+	}
+	return dpi.deviceNameByID(deviceID)
+}
+
 func (dpi *DevicePluginBase) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
 	return res, nil
@@ -97,19 +167,10 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 }
 
 func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
-	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
-	response := pluginapi.AllocateResponse{}
-	containerResponse := new(pluginapi.ContainerAllocateResponse)
-
-	dev := new(pluginapi.DeviceSpec)
-	dev.HostPath = dpi.devicePath
-	dev.ContainerPath = dpi.devicePath
-	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
-
-	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
-
-	return &response, nil
+	if dpi.allocateDP != nil {
+		return dpi.allocateDP(ctx, r)
+	}
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (dpi *DevicePluginBase) stopDevicePlugin() error {
