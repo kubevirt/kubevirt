@@ -82,8 +82,8 @@ const (
 )
 
 const (
-	Preemtible    = "preemtible"
-	NonPreemtible = "non-preemtible"
+	Preemptible    = "preemptible"
+	NonPreemptible = "non-preemptible"
 )
 
 const (
@@ -656,42 +656,42 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 	}
 }
 
-func GetPreemtible() *schedulingv1.PriorityClass {
-	preemtionPolicy := k8sv1.PreemptLowerPriority
+func GetPreemptible() *schedulingv1.PriorityClass {
+	preemptionPolicy := k8sv1.PreemptLowerPriority
 	pc := schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: schedulingv1.SchemeGroupVersion.String(),
 			Kind:       "PriorityClass",
 		},
 		GlobalDefault:    false,
-		Description:      "Priority class for VMs which are allowed to be preemtited.",
-		PreemptionPolicy: &preemtionPolicy,
+		Description:      "Priority class for VMs which are allowed to be preemptited.",
+		PreemptionPolicy: &preemptionPolicy,
 		Value:            1000000,
 	}
-	pc.ObjectMeta.Name = "preemtible"
+	pc.ObjectMeta.Name = "preemptible"
 	return &pc
 }
 
-func GetNonPreemtible() *schedulingv1.PriorityClass {
-	preemtionPolicy := k8sv1.PreemptNever
+func GetNonPreemptible() *schedulingv1.PriorityClass {
+	preemptionPolicy := k8sv1.PreemptNever
 	pc := schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: schedulingv1.SchemeGroupVersion.String(),
 			Kind:       "PriorityClass",
 		},
 		GlobalDefault:    false,
-		Description:      "Priority class for VMs which should not be preemtited.",
-		PreemptionPolicy: &preemtionPolicy,
+		Description:      "Priority class for VMs which should not be preemptited.",
+		PreemptionPolicy: &preemptionPolicy,
 		Value:            999999999,
 	}
-	pc.ObjectMeta.Name = NonPreemtible
+	pc.ObjectMeta.Name = NonPreemptible
 	return &pc
 }
 
 func GetVMPriorityClass() *v1.VirtualMachine {
 	vm := GetVMCirros()
-	vm.Spec.Template.Spec.PriorityClassName = NonPreemtible
-	vm.ObjectMeta.Name = "vm-non-preemtible"
+	vm.Spec.Template.Spec.PriorityClassName = NonPreemptible
+	vm.ObjectMeta.Name = "vm-non-preemptible"
 	return vm
 }
 
