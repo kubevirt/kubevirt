@@ -37,6 +37,10 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/expand"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -54,11 +58,20 @@ type VMRestoreController struct {
 	StorageClassInformer      cache.SharedIndexInformer
 	CRInformer                cache.SharedIndexInformer
 
+	InstancetypeInformer        cache.SharedIndexInformer
+	ClusterInstancetypeInformer cache.SharedIndexInformer
+	PreferenceInformer          cache.SharedIndexInformer
+	ClusterPreferenceInformer   cache.SharedIndexInformer
+
+	ClusterConfig *virtconfig.ClusterConfig
+
 	VolumeSnapshotProvider VolumeSnapshotProvider
 
 	Recorder record.EventRecorder
 
 	vmRestoreQueue workqueue.TypedRateLimitingInterface[string]
+
+	expandHandler expandHandler
 }
 
 // Init initializes the restore controller
@@ -67,6 +80,20 @@ func (ctrl *VMRestoreController) Init() error {
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-restore-vmrestore"},
 	)
+
+	instancetypeFinder := find.NewSpecFinder(
+		ctrl.InstancetypeInformer.GetStore(),
+		ctrl.ClusterInstancetypeInformer.GetStore(),
+		ctrl.CRInformer.GetStore(),
+		ctrl.Client,
+	)
+	preferenceFinder := preferencefind.NewSpecFinder(
+		ctrl.PreferenceInformer.GetStore(),
+		ctrl.ClusterPreferenceInformer.GetStore(),
+		ctrl.CRInformer.GetStore(),
+		ctrl.Client,
+	)
+	ctrl.expandHandler = expand.New(ctrl.ClusterConfig, instancetypeFinder, preferenceFinder)
 
 	_, err := ctrl.VMRestoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

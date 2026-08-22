@@ -29,6 +29,7 @@ import (
 	"go.uber.org/mock/gomock"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,8 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	clone "kubevirt.io/api/clone/v1beta1"
-	virtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -70,11 +72,11 @@ var _ = Describe("Clone", func() {
 
 		client    *kubevirtfake.Clientset
 		k8sClient *k8sfake.Clientset
-		sourceVM  *virtv1.VirtualMachine
+		sourceVM  *v1.VirtualMachine
 		vmClone   *clone.VirtualMachineClone
 	)
 
-	addVM := func(vm *virtv1.VirtualMachine) {
+	addVM := func(vm *v1.VirtualMachine) {
 		err := controller.vmStore.Add(vm)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
@@ -184,7 +186,7 @@ var _ = Describe("Clone", func() {
 	setupResources := func() {
 		sourceVMI := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		sourceVMI.Namespace = metav1.NamespaceDefault
 		sourceVM = libvmi.NewVirtualMachine(sourceVMI)
@@ -209,16 +211,22 @@ var _ = Describe("Clone", func() {
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
 		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+		crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, kvcontroller.GetControllerRevisionInformerIndexers())
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		controller, _ = NewVmCloneController(
 			virtClient,
 			cloneInformer,
@@ -227,6 +235,12 @@ var _ = Describe("Clone", func() {
 			vmInformer,
 			snapshotContentInformer,
 			pvcInformer,
+			instancetypeInformer,
+			clusterInstancetypeInformer,
+			preferenceInformer,
+			clusterPreferenceInformer,
+			crInformer,
+			config,
 			recorder)
 		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
 		controller.vmCloneQueue = mockQueue
@@ -267,7 +281,7 @@ var _ = Describe("Clone", func() {
 			})
 
 			It("clone should fail if source VM has backendstorage", func() {
-				sourceVM.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
+				sourceVM.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.P(true),
 				}
 				addVM(sourceVM)
@@ -280,10 +294,10 @@ var _ = Describe("Clone", func() {
 			})
 
 			It("should report event if VM volumeSnapshots are invalid", func() {
-				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
+				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk0",
-					VolumeSource: virtv1.VolumeSource{
-						DataVolume: &virtv1.DataVolumeSource{
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
 							Name: "testdv",
 						},
 					},
@@ -298,15 +312,15 @@ var _ = Describe("Clone", func() {
 			})
 
 			It("should report event if VM volumeSnapshots are not snapshotable", func() {
-				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
+				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "disk0",
-					VolumeSource: virtv1.VolumeSource{
-						DataVolume: &virtv1.DataVolumeSource{
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
 							Name: "testdv",
 						},
 					},
 				})
-				sourceVM.Status.VolumeSnapshotStatuses = []virtv1.VolumeSnapshotStatus{
+				sourceVM.Status.VolumeSnapshotStatuses = []v1.VolumeSnapshotStatus{
 					{
 						Name:    "disk0",
 						Enabled: false,
@@ -739,7 +753,7 @@ var _ = Describe("Clone", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				snapshot.Status.ReadyToUse = pointer.P(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
-				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
+				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.P(true),
 				}
 
@@ -758,10 +772,10 @@ var _ = Describe("Clone", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				snapshot.Status.ReadyToUse = pointer.P(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
-				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = append(snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes, virtv1.Volume{
+				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = append(snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "vol1",
-					VolumeSource: virtv1.VolumeSource{
-						DataVolume: &virtv1.DataVolumeSource{
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
 							Name: "dv1",
 						},
 					},
@@ -836,8 +850,8 @@ var _ = Describe("Clone", func() {
 			expectCloneBeInPhase(clone.RestoreInProgress)
 		})
 
-		offlinePatchVM := func(vm *virtv1.VirtualMachine, patches []string) (virtv1.VirtualMachine, error) {
-			patchedVM := virtv1.VirtualMachine{}
+		offlinePatchVM := func(vm *v1.VirtualMachine, patches []string) (v1.VirtualMachine, error) {
+			patchedVM := v1.VirtualMachine{}
 
 			marshalledVM, err := json.Marshal(vm)
 			if err != nil {
@@ -864,7 +878,7 @@ var _ = Describe("Clone", func() {
 			return patchedVM, nil
 		}
 
-		expectVMCreationFromPatches := func(expectedVM *virtv1.VirtualMachine) {
+		expectVMCreationFromPatches := func(expectedVM *v1.VirtualMachine) {
 			restore, err := client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
@@ -930,12 +944,12 @@ var _ = Describe("Clone", func() {
 				const interfaceNamePattern = "test-interface-%d"
 
 				newMacAddresses := make(map[string]string, numberOfDevicesToAdd/2)
-				originalInterfaces := make([]virtv1.Interface, numberOfDevicesToAdd)
-				expectedInterfaces := make([]virtv1.Interface, numberOfDevicesToAdd)
+				originalInterfaces := make([]v1.Interface, numberOfDevicesToAdd)
+				expectedInterfaces := make([]v1.Interface, numberOfDevicesToAdd)
 
 				// Changing only even addresses
 				for i := 0; i < numberOfDevicesToAdd; i++ {
-					iface := virtv1.Interface{}
+					iface := v1.Interface{}
 					iface.Name = fmt.Sprintf(interfaceNamePattern, i)
 					iface.MacAddress = generateNewMacAddress()
 
@@ -970,7 +984,7 @@ var _ = Describe("Clone", func() {
 			const emptySerial = ""
 
 			BeforeEach(func() {
-				sourceVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{Serial: originalSerial}
+				sourceVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: originalSerial}
 			})
 
 			expectSMbiosSerial := func(serial string) {
@@ -1137,7 +1151,7 @@ var _ = Describe("Clone", func() {
 			var newSMBiosSerial = "new-serial"
 
 			// Set a firmware UUID and a MAC address on the first interface of the VM
-			sourceVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{Serial: "initial-serial"}
+			sourceVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: "initial-serial"}
 			interfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
 			Expect(interfaces).To(HaveLen(1))
 			interfaces[0].Name = interfaceName
@@ -1167,7 +1181,7 @@ var _ = Describe("Clone", func() {
 			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
 
 			expectedVM := sourceVM.DeepCopy()
-			expectedVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{Serial: "replaced-serial"}
+			expectedVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{Serial: "replaced-serial"}
 			expectedVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress = "DE-AD-00-FF-FF-FF"
 			expectVMCreationFromPatches(expectedVM)
 		})
@@ -1176,7 +1190,7 @@ var _ = Describe("Clone", func() {
 			const sourceFakeUUID = "source-fake-uuid"
 
 			BeforeEach(func() {
-				sourceVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: sourceFakeUUID}
+				sourceVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: sourceFakeUUID}
 			})
 
 			It("should strip firmware UUID from VM", func() {
@@ -1218,7 +1232,7 @@ var _ = Describe("Clone", func() {
 	})
 })
 
-func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineSnapshot {
+func createVirtualMachineSnapshot(vm *v1.VirtualMachine, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineSnapshot {
 	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            testSnapshotName,
@@ -1237,7 +1251,7 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.Own
 	}
 }
 
-func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
+func createVirtualMachineSnapshotContent(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
 	return &snapshotv1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testSnapshotContentName,
@@ -1257,7 +1271,7 @@ func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.
 	}
 }
 
-func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineRestore {
+func createVirtualMachineRestore(vm *v1.VirtualMachine, snapshotName string, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineRestore {
 	return &snapshotv1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            testRestoreName,
