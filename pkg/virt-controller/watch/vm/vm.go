@@ -424,15 +424,13 @@ func (c *Controller) execute(key string) error {
 		}
 	}
 
-	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeStore)
+	dvClaimCandidates, err := storagetypes.ListDataVolumeClaimCandidates(vm, c.dataVolumeStore)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
 	}
-
-	if len(dataVolumes) != 0 {
-		dataVolumes, err = cm.ClaimMatchedDataVolumes(dataVolumes)
-		if err != nil {
+	if len(dvClaimCandidates) != 0 {
+		if _, err = cm.ClaimMatchedDataVolumes(dvClaimCandidates, vm.Spec.DataVolumeTemplates); err != nil {
 			return err
 		}
 	}
