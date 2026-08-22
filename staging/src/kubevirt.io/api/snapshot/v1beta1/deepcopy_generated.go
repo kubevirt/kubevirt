@@ -475,6 +475,11 @@ func (in *VirtualMachineSnapshotContentStatus) DeepCopyInto(out *VirtualMachineS
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.FreezeAttempts != nil {
+		in, out := &in.FreezeAttempts, &out.FreezeAttempts
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 
