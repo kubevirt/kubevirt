@@ -656,38 +656,38 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
 	} else if t.clusterConfig.ImageVolumeEnabled() && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" {
-		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
-		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
-		// and the digest can be fetched directly from the Pod volume status.
-		// Generate init containers for regular volumes
-		for _, volume := range vmi.Spec.Volumes {
-			containerDiskImageIDAlreadyExists := strings.Contains(imageIDs[volume.Name], "@sha256:")
-			if volume.ContainerDisk == nil || containerDiskImageIDAlreadyExists {
-				continue
-			}
-			initContainer := containerdisk.CreateImageVolumeInitContainer(
-				vmi,
-				t.clusterConfig,
-				volume.Name,
-				volume.ContainerDisk.Image,
-				volume.ContainerDisk.ImagePullPolicy,
-			)
-			initContainers = append(initContainers, initContainer)
-		}
-
-		// Generate init container for kernel boot if needed
-		kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
-		if util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
-			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
-			initContainer := containerdisk.CreateImageVolumeInitContainer(
-				vmi,
-				t.clusterConfig,
-				containerdisk.KernelBootVolumeName,
-				kernelBootContainer.Image,
-				kernelBootContainer.ImagePullPolicy,
-			)
-			initContainers = append(initContainers, initContainer)
-		}
+		// // TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
+		// // in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
+		// // and the digest can be fetched directly from the Pod volume status.
+		// // Generate init containers for regular volumes
+		// for _, volume := range vmi.Spec.Volumes {
+		// 	containerDiskImageIDAlreadyExists := strings.Contains(imageIDs[volume.Name], "@sha256:")
+		// 	if volume.ContainerDisk == nil || containerDiskImageIDAlreadyExists {
+		// 		continue
+		// 	}
+		// 	initContainer := containerdisk.CreateImageVolumeInitContainer(
+		// 		vmi,
+		// 		t.clusterConfig,
+		// 		volume.Name,
+		// 		volume.ContainerDisk.Image,
+		// 		volume.ContainerDisk.ImagePullPolicy,
+		// 	)
+		// 	initContainers = append(initContainers, initContainer)
+		// }
+		//
+		// // Generate init container for kernel boot if needed
+		// kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
+		// if util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
+		// 	kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+		// 	initContainer := containerdisk.CreateImageVolumeInitContainer(
+		// 		vmi,
+		// 		t.clusterConfig,
+		// 		containerdisk.KernelBootVolumeName,
+		// 		kernelBootContainer.Image,
+		// 		kernelBootContainer.ImagePullPolicy,
+		// 	)
+		// 	initContainers = append(initContainers, initContainer)
+		// }
 	}
 
 	hostName := dns.SanitizeHostname(vmi)
