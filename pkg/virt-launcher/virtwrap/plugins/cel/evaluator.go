@@ -25,12 +25,14 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/ext"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"libvirt.org/go/libvirtxml"
+
+	celutil "kubevirt.io/kubevirt/pkg/plugins/cel"
 )
 
 const costLimit = 10_000_000
@@ -56,26 +58,15 @@ func GetEvaluator() *Evaluator {
 }
 
 func NewEvaluator() (*Evaluator, error) {
-	base, err := cel.NewEnv(
-		ext.NativeTypes(
-			reflect.TypeOf(&libvirtxml.Domain{}),
-			reflect.TypeOf(&v1.VirtualMachineInstance{}),
-		),
-		cel.Container("libvirtxml"),
+	env, err := celutil.NewBaseEvaluator(
+		celutil.WithNativeTypes(reflect.TypeOf(&libvirtxml.Domain{}),
+			reflect.TypeOf(&v1.VirtualMachineInstance{})),
+		celutil.WithContainer("libvirtxml"),
+		celutil.WithCustomTypeProvider(func(wrap types.Provider) types.Provider { return &sparseProvider{delegate: wrap} }),
+		celutil.WithVariable("domainSpec", cel.ObjectType("libvirtxml.Domain")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating base CEL environment: %w", err)
-	}
-
-	wrapper := &sparseProvider{delegate: base.CELTypeProvider()}
-
-	env, err := base.Extend(
-		cel.CustomTypeProvider(wrapper),
-		cel.Variable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
-		cel.Variable("domainSpec", cel.ObjectType("libvirtxml.Domain")),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("extending CEL environment: %w", err)
 	}
 
 	return &Evaluator{env: env}, nil

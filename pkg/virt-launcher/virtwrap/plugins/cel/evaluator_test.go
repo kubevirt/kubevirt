@@ -142,6 +142,24 @@ var _ = Describe("CEL Evaluator", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("mutation must return a Domain object"))
 		})
+
+		It("should be able to use lists extension to create new domain elements", func() {
+			domain.IOThreads = uint(4)
+
+			// expression should create new DomainIOThreadIDs and populate elements for each IOThread
+			expr := `Domain{IOThreadIDs: DomainIOThreadIDs{IOThreads: .lists.range(int(domainSpec.IOThreads))
+				.map(i, DomainIOThread{ID: uint(i+1), PoolMin: uint(1), PoolMax: uint(1)})}}`
+
+			result, err := evaluator.EvaluateMutation(expr, vmi, domain)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.IOThreadIDs).NotTo(BeNil())
+			Expect(result.IOThreadIDs.IOThreads).NotTo(BeEmpty())
+			Expect(result.IOThreadIDs.IOThreads).To(HaveLen(int(domain.IOThreads)))
+			for _, t := range result.IOThreadIDs.IOThreads {
+				Expect(int(*t.PoolMax)).To(Equal(1))
+				Expect(int(*t.PoolMin)).To(Equal(1))
+			}
+		})
 	})
 
 	Context("deep merge", func() {
