@@ -30,10 +30,11 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtAPIDown",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_api_pods_running:count == 0"),
+			Expr:  intstr.FromString(componentDownExpr(namespace, "api")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "No running virt-api pods were detected for the last 10 min.",
+				summaryAnnotationKey:     "No running virt-api pods were detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-api", ""),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -42,13 +43,11 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowReadyVirtAPICount",
-			Expr: intstr.FromString(
-				"cluster:kubevirt_virt_api_ready:sum < cluster:kubevirt_virt_api_pods_running:count " +
-					"and cluster:kubevirt_virt_api_ready:sum > 0",
-			),
-			For: ptr.To(promv1.Duration("10m")),
+			Expr:  intstr.FromString(lowReadyAlertExpr(namespace, "api")),
+			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "Some virt-api pods are running but not ready.",
+				summaryAnnotationKey:     "Some virt-api pods are running but not ready.",
+				descriptionAnnotationKey: "virt-api pod {{ $labels.pod }} has been running but not ready for more than 10 minutes.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -57,7 +56,7 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtAPI",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_api_ready:sum == 0"),
+			Expr:  intstr.FromString(noReadyAlertExpr(namespace, "api")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-api was detected for the last 10 min.",
