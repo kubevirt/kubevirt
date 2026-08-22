@@ -111,7 +111,7 @@ var _ = Describe("OCI export", func() {
 	It("should return 503 while OCI is not ready", func() {
 		es := newTestServer(testToken)
 		es.ociBuilder = &oci.Builder{}
-		es.Paths = &export.ServerPaths{}
+		es.Paths = &export.ServerPaths{OCIURI: testOCIURI}
 		es.initHandler()
 
 		rec := httptest.NewRecorder()

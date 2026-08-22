@@ -1416,4 +1416,38 @@ var _ = Describe("exportserver", func() {
 
 		})
 	})
+
+	Context("readiness with backup paths", func() {
+		It("should return 503 when backup paths exist but tunnel is not established", func() {
+			es := newTestServer("token")
+			es.Paths = &export.ServerPaths{
+				Backups: []export.BackupInfo{
+					{Path: "vol1", DataURI: "/exports/vol1/data", MapURI: "/exports/vol1/map"},
+				},
+			}
+			es.initHandler()
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, export.ReadinessPath, http.NoBody)
+			es.handler.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+
+		It("should return 200 when backup paths exist and tunnel is established", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			es := newTestServer("token")
+			es.Paths = &export.ServerPaths{
+				Backups: []export.BackupInfo{
+					{Path: "vol1", DataURI: "/exports/vol1/data", MapURI: "/exports/vol1/map"},
+				},
+			}
+			es.nbdClient = nbdv1.NewMockNBDClient(ctrl)
+			es.initHandler()
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, export.ReadinessPath, http.NoBody)
+			es.handler.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+	})
 })
