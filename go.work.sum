@@ -804,6 +804,7 @@ k8s.io/klog v0.4.0 h1:lCJCxf/LIowc2IGS9TPjWDyXY4nOmdGdfcwwDQCOURQ=
 k8s.io/klog/v2 v2.9.0/go.mod h1:hy9LJ/NvuK+iVyP4Ehqva4HxZG/oXyIS3n3Jmire4Ec=
 k8s.io/klog/v2 v2.120.1/go.mod h1:3Jpz1GvMt720eyJH1ckRHK1EDfpxISzJ7I9OYgaDtPE=
 k8s.io/kms v0.34.2 h1:91rj4MDZLyIT9KxG8J5/CcMH666Z88CF/xJQeuPfJc8=
+k8s.io/kube-openapi v0.0.0-20181031203759-72693cb1fadd/go.mod h1:BXM9ceUBTj2QnfH2MK1odQs778ajze1RxcmP6S8RVVc=
 k8s.io/kubernetes v1.11.8-beta.0.0.20190124204751-3a10094374f2 h1:CzIOMOEjH+sQw35LY1Gl0jwthkyOojzaq2HIeYZYOrM=
 k8s.io/metrics v0.31.0/go.mod h1:UNsz6swyX8FWkDoKN9ixPF75TBREMbHZIKjD7fydaOY=
 k8s.io/metrics v0.32.5/go.mod h1:8O9Z5auVmgi8gcfiZEEmlw0GCaftvJ5/MZhdu5Zv6sI=
