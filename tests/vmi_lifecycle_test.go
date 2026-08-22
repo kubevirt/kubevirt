@@ -1421,6 +1421,51 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
 			})
+
+			It("[test_id:1657]should gracefully shut down via ACPI when the guest agent is not available", decorators.Conformance, func() {
+				// This test relies on the kubevirt default termination grace
+				// period (30s) being shorter than libvirt's agent shutdown
+				// timeout (60s): the guest-agent path would otherwise win the
+				// race even without this fix and the test could silently invert
+				// its semantics. Guard against such config drift.
+				if v1.DefaultGracePeriodSeconds >= 60 {
+					Skip(fmt.Sprintf("DefaultGracePeriodSeconds (%ds) must be less than libvirt's agent shutdown timeout (60s) for this test", v1.DefaultGracePeriodSeconds))
+				}
+
+				By("Creating a VirtualMachineInstance with the default grace period")
+				vmi := libvmifact.NewAlpineWithTestTooling()
+
+				By("Creating the VirtualMachineInstance")
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+
+				By("Logging into the VirtualMachineInstance")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Waiting for the guest agent to connect")
+				Eventually(matcher.ThisVMI(vmi), 60*time.Second, 2*time.Second).Should(
+					matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Stopping the guest agent to force the ACPI shutdown path")
+				Expect(console.RunCommand(vmi, "rc-service qemu-guest-agent stop", 10*time.Second)).To(Succeed())
+
+				By("Verifying the guest agent is no longer connected")
+				Eventually(matcher.ThisVMI(vmi), 60*time.Second, 2*time.Second).Should(
+					matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Deleting the VirtualMachineInstance")
+				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
+
+				// With the default grace period (30s) being shorter than
+				// libvirt's agent command timeout (60s), graceful shutdown used
+				// to block on the guest agent channel and the domain was
+				// force-destroyed once the grace period expired, leaving the
+				// VMI in the Failed phase. With the explicit ACPI power button
+				// signal the guest shuts down promptly, so the VMI must
+				// transition to Succeeded instead.
+				By("Verifying the VirtualMachineInstance transitions to Succeeded (graceful shutdown)")
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Duration(v1.DefaultGracePeriodSeconds) * time.Second).WithPolling(time.Second).Should(
+					matcher.BeInPhase(v1.Succeeded))
+			})
 		})
 	})
 
