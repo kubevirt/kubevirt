@@ -63,6 +63,7 @@ type VirtualMachineInstanceExpansion interface {
 	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
 	SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error
+	TDXInjectInitdata(ctx context.Context, name string, tdxInitdata *v1.TDXInitdataOptions) error
 	EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error
 }
 
@@ -433,6 +434,23 @@ func (c *virtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, nam
 		Resource("virtualmachineinstances").
 		Name(name).
 		SubResource("sev", "injectlaunchsecret").
+		Body(body).
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachineInstances) TDXInjectInitdata(ctx context.Context, name string, tdxInitdata *v1.TDXInitdataOptions) error {
+	body, err := json.Marshal(tdxInitdata)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachineinstances").
+		Name(name).
+		SubResource("tdx", "injectInitdata").
 		Body(body).
 		Do(ctx).
 		Error()
