@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//cmd/test-helpers/dra-test-driver/pkg/driver:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/kubeletplugin:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/resourceslice:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "dra-test-driver",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
