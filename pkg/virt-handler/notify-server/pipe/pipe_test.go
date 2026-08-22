@@ -94,7 +94,7 @@ var _ = Describe("Proxy", func() {
 
 		exit := make(chan struct{})
 		go func() {
-			Proxy(log.Log, pipeS, func() (net.Conn, error) { return notifyS, nil })
+			Proxy(log.Log, func() (net.Conn, error) { return notifyS, nil })(pipeS)
 			exit <- struct{}{}
 		}()
 
