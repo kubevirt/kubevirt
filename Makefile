@@ -92,6 +92,9 @@ go-test: go-build
 
 test: bazel-test
 
+test-integration:
+	hack/dockerized "go test ./tests/envtest/... -count=1 -v"
+
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
 
@@ -304,4 +307,5 @@ vmlog-checker:
 	rpm-deps-all \
 	feature-gate-report \
 	vmlog-checker \
+	test-integration \
 	$(NULL)
