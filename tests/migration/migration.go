@@ -2872,28 +2872,30 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			By("Creating ResourceQuota with enough memory for the vmi but not enough for migration")
 			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
 			resourceQuota = createResourceQuota(resourceQuota)
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Waiting for the ResourceQuota status to reflect the VMI's resource consumption")
 			Eventually(func() error {
 				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				for key := range resourcesToLimit {
-					if _, ok := quota.Status.Hard[key]; !ok {
-						return fmt.Errorf("Missing %s in status", key)
+				if quota.Status.Used == nil {
+					return fmt.Errorf("resource quota status.used not yet populated")
+				}
+				for k := range resourcesToLimit {
+					actualValue, found := quota.Status.Used[k]
+					if !found {
+						return fmt.Errorf("resource %s not yet in status.used", k)
 					}
-					value := quota.Status.Hard[key]
-					if value.Cmp(resourcesToLimit[key]) != 0 {
-						return fmt.Errorf("%v should equal %v", value, resourcesToLimit[key])
-					}
-					if _, ok := quota.Status.Used[key]; !ok {
-						return fmt.Errorf("Missing %s in status.used", key)
+					if actualValue.IsZero() {
+						return fmt.Errorf("resource %s status.used is still zero, waiting for quota controller to account for the running VMI", k)
 					}
 				}
 				return err
 			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
-
-			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Trying to migrate the VirtualMachineInstance")
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
