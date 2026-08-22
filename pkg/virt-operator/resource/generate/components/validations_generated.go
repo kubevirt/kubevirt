@@ -9631,8 +9631,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         pvcName:
           description: |-
-            PvcName required in push mode. Specifies the name of the PVC
-            where the backup output will be stored
+            PvcName specifies the name of the PVC where the backup output will be stored.
+            When omitted, the controller creates a filesystem RWO PVC automatically and
+            records the name in status.pvcName.
           type: string
         skipQuiesce:
           description: SkipQuiesce indicates whether the VM's filesystem shoule not
@@ -9694,8 +9695,6 @@ var CRDsValidation map[string]string = map[string]string{
       x-kubernetes-validations:
       - message: spec is immutable after creation
         rule: self == oldSelf
-      - message: pvcName is required
-        rule: has(self.pvcName) && self.pvcName != ""
       - message: tokenSecretRef is required when mode is Pull
         rule: '!has(self.mode) || self.mode != ''Pull'' || (has(self.tokenSecretRef)
           && self.tokenSecretRef != "")'
@@ -9799,6 +9798,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        pvcName:
+          description: PvcName is the name of the PVC used to store the backup output
+          type: string
         type:
           description: Type indicates if the backup was full or incremental
           type: string
@@ -9884,6 +9886,10 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
             name:
+              type: string
+            pvcName:
+              description: PvcName is the name of the PVC that stores the backup data
+                for this checkpoint
               type: string
             volumes:
               description: Volumes lists volumes included in the backup

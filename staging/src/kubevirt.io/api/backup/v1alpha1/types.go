@@ -54,6 +54,9 @@ type BackupCheckpoint struct {
 	// +optional
 	// +listType=atomic
 	Volumes []BackupVolumeInfo `json:"volumes,omitempty"`
+	// PvcName is the name of the PVC that stores the backup data for this checkpoint
+	// +optional
+	PvcName *string `json:"pvcName,omitempty"`
 }
 
 // BackupType is the const type for the backup possible types
@@ -164,7 +167,6 @@ type VirtualMachineBackupList struct {
 
 // VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable after creation"
-// +kubebuilder:validation:XValidation:rule="has(self.pvcName) && self.pvcName != \"\"",message="pvcName is required"
 // +kubebuilder:validation:XValidation:rule="!has(self.mode) || self.mode != 'Pull' || (has(self.tokenSecretRef) && self.tokenSecretRef != \"\")",message="tokenSecretRef is required when mode is Pull"
 type VirtualMachineBackupSpec struct {
 	// Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.
@@ -182,8 +184,9 @@ type VirtualMachineBackupSpec struct {
 	// Mode specifies the way the backup output will be recieved
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional
-	// PvcName required in push mode. Specifies the name of the PVC
-	// where the backup output will be stored
+	// PvcName specifies the name of the PVC where the backup output will be stored.
+	// When omitted, the controller creates a filesystem RWO PVC automatically and
+	// records the name in status.pvcName.
 	PvcName *string `json:"pvcName,omitempty"`
 	// +optional
 	// SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup
@@ -228,6 +231,9 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// +optional
+	// PvcName is the name of the PVC used to store the backup output
+	PvcName *string `json:"pvcName,omitempty"`
 	// +optional
 	// EndpointCert is the raw CACert that is to be used when connecting
 	// to an exported backup endpoint in pull mode.
