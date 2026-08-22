@@ -26,6 +26,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
@@ -87,4 +89,51 @@ func getTargetDomainNamespace(vmi *v1.VirtualMachineInstance) string {
 		return *vmi.Status.MigrationState.TargetState.DomainNamespace
 	}
 	return ""
+}
+
+// ContainerDiskPathHook repoints container disk backing stores at the volume-name-based
+// path the target created. Domains started before that naming still reference
+// disk_<index>.img, which does not exist on the target. Matching on the ua-<volumeName>
+// alias keeps this a no-op for domains already using the new naming.
+func ContainerDiskPathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+	if domain.Devices == nil {
+		return nil
+	}
+
+	containerDiskVolumes := make(map[string]string)
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk != nil {
+			containerDiskVolumes[api.UserAliasPrefix+volume.Name] = volume.Name
+		}
+	}
+	if len(containerDiskVolumes) == 0 {
+		return nil
+	}
+
+	for i := range domain.Devices.Disks {
+		disk := &domain.Devices.Disks[i]
+		if disk.Alias == nil {
+			continue
+		}
+		volumeName, isContainerDisk := containerDiskVolumes[disk.Alias.Name]
+		if !isContainerDisk {
+			continue
+		}
+		// The container disk image is the backing store of the ephemeral overlay,
+		// not the disk source itself.
+		if disk.BackingStore == nil || disk.BackingStore.Source == nil || disk.BackingStore.Source.File == nil {
+			continue
+		}
+
+		expectedPath := containerdisk.GetDiskTargetPathFromLauncherView(volumeName)
+		if disk.BackingStore.Source.File.File == expectedPath {
+			continue
+		}
+
+		log.Log.Object(vmi).V(4).Infof("containerDiskPathHook: updating container disk path from %s to %s",
+			disk.BackingStore.Source.File.File, expectedPath)
+		disk.BackingStore.Source.File.File = expectedPath
+	}
+
+	return nil
 }
