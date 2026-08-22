@@ -44,6 +44,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virtselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	virtchroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
 type CgroupVersion string
@@ -82,7 +86,7 @@ var (
 	}
 )
 
-type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
+type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, version CgroupVersion) error
 type getCurrentlyDefinedRulesFunc func(cgManager cgroups.Manager) ([]*devices.Rule, error)
 
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
@@ -360,7 +364,7 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 
 // execVirtChrootCgroups executes virt-chroot cgroups command to apply changes via virt-chroot.
 // This is needed since high privileges are needed and root is needed to change.
-func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, version CgroupVersion) error {
 	marshalledRules, err := json.Marshal(*r)
 	if err != nil {
 		return fmt.Errorf("failed to marshall resources. err: %v resources: %+v", err, *r)
@@ -372,14 +376,14 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 	}
 
 	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
 		"set-cgroups-resources",
 		"--subsystem-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
 		"--resources", base64.StdEncoding.EncodeToString(marshalledRules),
-		fmt.Sprintf("--rootless=%t", rootless),
 		fmt.Sprintf("--isV2=%t", version == V2),
 	}
 
-	cmd := exec.Command("virt-chroot", args...)
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
 
 	log.Log.V(loggingVerbosity).Infof("setting resources for cgroup %s: %+v", version, *r)
 	log.Log.V(loggingVerbosity).Infof("applying resources with virt-chroot. Full command: %s", cmd.String())
@@ -389,6 +393,105 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
 	}
 	return nil
+}
+
+// execVirtChrootSpliceDeviceMap calls virt-chroot splice-device-map to splice
+// an eBPF map lookup into the cgroup's device filter program. This is a
+// one-time operation per cgroup; subsequent calls are a no-op if the map
+// is already pinned.
+//
+// launcherPid is the virt-launcher PID. Its parent (conmon) is discovered
+// automatically and used as the SELinux exec label, so the BPF program
+// carries container_runtime_t rather than spc_t. This allows systemd to
+// re-attach the spliced program on scope property changes without SELinux
+// denials.
+func execVirtChrootSpliceDeviceMap(cgroupPaths []string, launcherPid int) error {
+	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
+		"splice-device-map",
+		"--cgroup-paths", strings.Join(cgroupPaths, ","),
+	}
+
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
+
+	log.Log.V(loggingVerbosity).Infof("splicing eBPF device map for cgroup paths %v. Full command: %s", cgroupPaths, cmd.String())
+
+	// The container runtime (conmon) is the parent of the container's PID 1.
+	// Exec virt-chroot under its SELinux label (container_runtime_t) so the
+	// BPF program carries that label, allowing systemd to re-attach it.
+	if pid1, err := isolation.GetPPid(launcherPid); err != nil {
+		log.Log.Warningf("cannot find container PID 1 for %d, skipping SELinux context switch: %v", launcherPid, err)
+	} else if runtimePid, err := isolation.GetPPid(pid1); err != nil {
+		log.Log.Warningf("cannot find container runtime PID for %d, skipping SELinux context switch: %v", pid1, err)
+	} else {
+		ctxExec, err := virtselinux.NewContextExecutor(runtimePid, cmd)
+		if err != nil {
+			log.Log.Warningf("cannot create SELinux context executor for pid %d: %v", runtimePid, err)
+		} else {
+			return ctxExec.Execute()
+		}
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
+	}
+	log.Log.V(loggingVerbosity).Infof("splice-device-map output:\n%s", output)
+	return nil
+}
+
+// execVirtChrootUpdateDevice calls virt-chroot update-device to add or remove
+// a device entry in the pinned eBPF device map for the given cgroup path.
+func execVirtChrootUpdateDevice(cgroupPath string, deviceType string, major, minor int64, permissions string, allow bool) error {
+	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
+		"update-device",
+		"--cgroup-path", cgroupPath,
+		"--device-type", deviceType,
+		"--major", strconv.FormatInt(major, 10),
+		"--minor", strconv.FormatInt(minor, 10),
+		fmt.Sprintf("--allow=%t", allow),
+	}
+	if permissions != "" {
+		args = append(args, "--permissions", permissions)
+	}
+
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
+
+	action := "allowing"
+	if !allow {
+		action = "removing"
+	}
+	log.Log.V(loggingVerbosity).Infof("%s device %s %d:%d (perms=%s) via virt-chroot. Full command: %s",
+		action, deviceType, major, minor, permissions, cmd.String())
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
+	}
+	return nil
+}
+
+// execVirtChrootListDevices calls virt-chroot list-devices and parses the JSON output.
+func execVirtChrootListDevices(cgroupPath string) ([]cgroupconsts.DeviceMapEntry, error) {
+	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
+		"list-devices",
+		"--cgroup-path", cgroupPath,
+	}
+
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed running command %s, err: %v", cmd.String(), err)
+	}
+
+	var entries []cgroupconsts.DeviceMapEntry
+	if err := json.Unmarshal(output, &entries); err != nil {
+		return nil, fmt.Errorf("cannot parse device list from virt-chroot: %w", err)
+	}
+	return entries, nil
 }
 
 func getCgroupThreadsHelper(manager Manager, fname string) ([]int, error) {
