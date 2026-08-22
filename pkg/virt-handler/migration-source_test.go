@@ -384,6 +384,142 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 	})
 
+	Context("failPostMigration", func() {
+		DescribeTable("should mark the VMI as failed",
+			func(migrationState *v1.VirtualMachineInstanceMigrationState, expectMigrationStateUpdated bool) {
+				vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(v1.Running),
+				)))
+				vmi.Status.MigrationState = migrationState
+
+				Expect(func() { controller.failPostMigration(vmi) }).ToNot(Panic())
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+
+				if !expectMigrationStateUpdated {
+					Expect(vmi.Status.MigrationState).To(BeNil())
+					return
+				}
+
+				Expect(vmi.Status.MigrationState).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+				Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+				Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+			},
+			Entry("when MigrationState is nil", nil, false),
+			Entry("when MigrationState is present", &v1.VirtualMachineInstanceMigrationState{}, true),
+		)
+
+		It("should preserve an existing EndTimestamp", func() {
+			existingEnd := metav1.NewTime(time.Now().Add(-time.Minute))
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					EndTimestamp: &existingEnd,
+				}),
+			)))
+
+			controller.failPostMigration(vmi)
+
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(&existingEnd))
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+		})
+	})
+
+	Context("updateStatus after domain migration", func() {
+		migratedDomain := func() *api.Domain {
+			d := api.NewMinimalDomain("testvmi")
+			d.Status.Status = api.Shutoff
+			d.Status.Reason = api.ReasonMigrated
+			return d
+		}
+
+		It("should not finalize handoff while the domain is still running", func() {
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					SourceNode: host,
+				}),
+			)))
+			originalStatus := vmi.Status.DeepCopy()
+
+			runningDomain := api.NewMinimalDomain("testvmi")
+			runningDomain.Status.Status = api.Running
+
+			Expect(controller.updateStatus(vmi, runningDomain)).To(Succeed())
+			Expect(vmi.Status).To(Equal(*originalStatus))
+		})
+
+		It("should not panic and should fail the VMI when MigrationState is nil", func() {
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+			)))
+
+			Expect(func() {
+				Expect(controller.updateStatus(vmi, migratedDomain())).To(Succeed())
+			}).ToNot(Panic())
+
+			Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+			Expect(vmi.Status.MigrationState).To(BeNil())
+			testutils.ExpectEvent(recorder, v1.Migrated.String())
+		})
+
+		It("should fail the VMI when TargetNode is empty", func() {
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{}),
+			)))
+
+			Expect(controller.updateStatus(vmi, migratedDomain())).To(Succeed())
+
+			Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+			testutils.ExpectEvent(recorder, v1.Migrated.String())
+		})
+
+		It("should fail the VMI when the target never detects the domain within the timeout", func() {
+			oldEnd := metav1.NewTime(time.Now().Add(-2 * time.Minute))
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					TargetNode:   "othernode",
+					EndTimestamp: &oldEnd,
+				}),
+			)))
+
+			Expect(controller.updateStatus(vmi, migratedDomain())).To(Succeed())
+
+			Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(&oldEnd))
+			testutils.ExpectEvent(recorder, v1.Migrated.String())
+		})
+
+		It("should not fail the VMI when the target has detected the domain", func() {
+			now := metav1.Now()
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					TargetNode:   "othernode",
+					EndTimestamp: &now,
+					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+						DomainDetected:       true,
+						DomainReadyTimestamp: &now,
+					},
+				}),
+			)))
+
+			Expect(controller.updateStatus(vmi, migratedDomain())).To(Succeed())
+
+			Expect(vmi.Status.Phase).To(Equal(v1.Running))
+			Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+			Expect(vmi.Status.MigrationState.Completed).To(BeFalse())
+		})
+	})
+
 	Context("handleMigrationAbort", func() {
 		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 			client.EXPECT().CancelVirtualMachineMigration(vmi)
