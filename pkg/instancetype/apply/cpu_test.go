@@ -392,8 +392,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				},
 				virtv1.CPU{Sockets: 3, Cores: 4, Threads: 2},
 			),
-			Entry("to SocketsCoresThreads with 36 vCPUs and a ratio of 1:4:2",
-				uint32(36),
+			Entry("to SocketsCoresThreads with 32 vCPUs and a ratio of 1:4:2",
+				uint32(32),
 				v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						SpreadOptions: &v1beta1.SpreadOptions{

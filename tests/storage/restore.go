@@ -694,6 +694,48 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("with a running VM", v1.RunStrategyAlways),
 				Entry("with a stopped VM", v1.RunStrategyHalted),
 			)
+
+			It("should restore instancetype and preference ControllerRevisions captured from an offline snapshot", decorators.StorageCritical, Label("instancetype", "preference", "restore"), func() {
+				libvmi.WithRunStrategy(v1.RunStrategyHalted)(vm)
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until the VM has instancetype and preference ControllerRevision refs")
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
+
+				for _, dvt := range vm.Spec.DataVolumeTemplates {
+					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
+				}
+
+				By("Creating an offline VirtualMachineSnapshot")
+				snapshot = createSnapshot(vm)
+
+				By("Asserting that the snapshot content captured instancetype and preference ControllerRevision names")
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(content.Spec.Source.VirtualMachine).ToNot(BeNil())
+				Expect(content.Spec.Source.VirtualMachine.Spec.Instancetype).ToNot(BeNil())
+				Expect(content.Spec.Source.VirtualMachine.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+				Expect(content.Spec.Source.VirtualMachine.Spec.Preference).ToNot(BeNil())
+				Expect(content.Spec.Source.VirtualMachine.Spec.Preference.RevisionName).ToNot(BeEmpty())
+
+				By("Deleting the instancetype and preference to prevent controller re-reconciliation from masking a missing CR capture")
+				err = virtClient.VirtualMachineInstancetype(vm.Namespace).Delete(context.Background(), vm.Spec.Instancetype.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = virtClient.VirtualMachinePreference(vm.Namespace).Delete(context.Background(), vm.Spec.Preference.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating a VirtualMachineRestore")
+				restore = createRestoreDef(vm.Name, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until the restore completes")
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+
+				By("Asserting that the restored VM has instancetype and preference ControllerRevisions sourced from the snapshot")
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
+			})
 		})
 	})
 

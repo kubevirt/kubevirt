@@ -368,21 +368,38 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	return snapshotCR.Name, nil
 }
 
+func instancetypeRevisionName(specRevisionName string, statusRef *kubevirtv1.InstancetypeStatusRef) string {
+	if specRevisionName != "" {
+		return specRevisionName
+	}
+	if statusRef != nil && statusRef.ControllerRevisionRef != nil {
+		return statusRef.ControllerRevisionRef.Name
+	}
+	return ""
+}
+
+// captureInstancetypeControllerRevisions captures the instancetype and preference ControllerRevisions
+// for the snapshot. The vm parameter is a copy used to build the snapshot content (with Status zeroed
+// for offline snapshots), so s.vm.Status.*Ref is consulted directly for the revision name fallback.
 func (s *vmSnapshotSource) captureInstancetypeControllerRevisions(vm *snapshotv1.VirtualMachine) error {
-	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-		snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, vm.Spec.Instancetype.RevisionName)
-		if err != nil {
-			return err
+	if vm.Spec.Instancetype != nil {
+		if revisionName := instancetypeRevisionName(vm.Spec.Instancetype.RevisionName, s.vm.Status.InstancetypeRef); revisionName != "" {
+			snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, revisionName)
+			if err != nil {
+				return err
+			}
+			vm.Spec.Instancetype.RevisionName = snapshotCRName
 		}
-		vm.Spec.Instancetype.RevisionName = snapshotCRName
 	}
 
-	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-		snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, vm.Spec.Preference.RevisionName)
-		if err != nil {
-			return err
+	if vm.Spec.Preference != nil {
+		if revisionName := instancetypeRevisionName(vm.Spec.Preference.RevisionName, s.vm.Status.PreferenceRef); revisionName != "" {
+			snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, revisionName)
+			if err != nil {
+				return err
+			}
+			vm.Spec.Preference.RevisionName = snapshotCRName
 		}
-		vm.Spec.Preference.RevisionName = snapshotCRName
 	}
 
 	return nil
