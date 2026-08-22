@@ -459,6 +459,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
 	nonRoot bool,
+	guestDeviceMetrics bool,
 ) error {
 
 	eventChan := make(chan libvirtEvent, 10)
@@ -479,6 +480,7 @@ func (n *Notifier) StartDomainNotifier(
 		qemuAgentUserInterval,
 		qemuAgentVersionInterval,
 		qemuAgentFSFreezeStatusInterval,
+		guestDeviceMetrics,
 	)
 
 	// Run the event process logic in a separate go-routine to not block libvirt

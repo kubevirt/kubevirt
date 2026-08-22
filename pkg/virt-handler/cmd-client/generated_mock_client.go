@@ -129,6 +129,21 @@ func (mr *MockLauncherClientMockRecorder) FreezeVirtualMachine(vmi, unfreezeTime
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).FreezeVirtualMachine), vmi, unfreezeTimeoutSeconds)
 }
 
+// GetDevices mocks base method.
+func (m *MockLauncherClient) GetDevices() ([]api.GuestDevice, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDevices")
+	ret0, _ := ret[0].([]api.GuestDevice)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDevices indicates an expected call of GetDevices.
+func (mr *MockLauncherClientMockRecorder) GetDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDevices", reflect.TypeOf((*MockLauncherClient)(nil).GetDevices))
+}
+
 // GetDomain mocks base method.
 func (m *MockLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	m.ctrl.T.Helper()

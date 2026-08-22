@@ -70,6 +70,10 @@ var _ = Describe("domain stats collector", func() {
 			},
 		}
 
+		BeforeEach(func() {
+			settings = &collectorSettings{clusterConfig: &stubClusterConfig{guestDeviceMetrics: true}}
+		})
+
 		It("should collect metrics for each vmi", func() {
 			concCollector := fakeCollector{
 				vmis:     vmis,

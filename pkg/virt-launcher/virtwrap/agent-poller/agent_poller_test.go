@@ -20,6 +20,7 @@
 package agentpoller
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -258,6 +259,20 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 	})
 
+	Context("isCommandNotFoundError", func() {
+		DescribeTable("should detect unsupported commands by libvirt error code",
+			func(err error, expected bool) {
+				Expect(isCommandNotFoundError(err)).To(Equal(expected))
+			},
+			Entry("nil error", nil, false),
+			Entry("ERR_ARGUMENT_UNSUPPORTED", libvirt.Error{Code: libvirt.ERR_ARGUMENT_UNSUPPORTED}, true),
+			Entry("ERR_OPERATION_UNSUPPORTED", libvirt.Error{Code: libvirt.ERR_OPERATION_UNSUPPORTED}, true),
+			Entry("ERR_NO_SUPPORT", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}, true),
+			Entry("transient agent error", libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}, false),
+			Entry("unrelated error", fmt.Errorf("some other failure"), false),
+		)
+	})
+
 	Context("UpdateFromEvent", func() {
 		var agentPoller *AgentPoller
 
@@ -400,7 +415,7 @@ func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout, 
 	defer close(c)
 	done := make(chan struct{})
 
-	go w.Poll(func() { done <- struct{}{} }, c, initialInterval)
+	go w.Poll(func() bool { done <- struct{}{}; return true }, c, initialInterval)
 
 	if timeout == 0 {
 		// Calculate the time needed for the poll to execute the commands.

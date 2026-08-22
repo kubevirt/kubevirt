@@ -105,5 +105,18 @@ func (d DomainstatsScraper) gatherMetrics(socketFile string) (bool, *VirtualMach
 		return false, nil, fmt.Errorf("failed to update filesystem stats from socket %s: %w", socketFile, err)
 	}
 
+	if settings.clusterConfig.GuestDeviceMetricsEnabled() {
+		devices, err := cli.GetDevices()
+		if err != nil {
+			if cmdclient.IsUnimplemented(err) {
+				// A pre-upgrade virt-launcher does not implement GetDevices yet.
+				log.Log.Reason(err).V(logVerbosityWarning).Infof("getDevices not implemented, consider to upgrade kubevirt (socket %s)", socketFile)
+			} else {
+				log.Log.Reason(err).Warningf("failed to get guest device stats from socket %s", socketFile)
+			}
+		}
+		vmStats.DeviceStats = devices
+	}
+
 	return exists, vmStats, nil
 }

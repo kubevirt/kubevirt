@@ -145,6 +145,20 @@ func (mr *MockDomainManagerMockRecorder) GetAgentData(dataKey any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentData", reflect.TypeOf((*MockDomainManager)(nil).GetAgentData), dataKey)
 }
 
+// GetDevices mocks base method.
+func (m *MockDomainManager) GetDevices() []api.GuestDevice {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDevices")
+	ret0, _ := ret[0].([]api.GuestDevice)
+	return ret0
+}
+
+// GetDevices indicates an expected call of GetDevices.
+func (mr *MockDomainManagerMockRecorder) GetDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDevices", reflect.TypeOf((*MockDomainManager)(nil).GetDevices))
+}
+
 // GetDomainDirtyRateStats mocks base method.
 func (m *MockDomainManager) GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error) {
 	m.ctrl.T.Helper()

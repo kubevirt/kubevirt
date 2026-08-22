@@ -161,6 +161,26 @@ func (mr *MockCmdClientMockRecorder) FreezeVirtualMachine(ctx, in any, opts ...a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).FreezeVirtualMachine), varargs...)
 }
 
+// GetDevices mocks base method.
+func (m *MockCmdClient) GetDevices(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GuestDevicesResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetDevices", varargs...)
+	ret0, _ := ret[0].(*GuestDevicesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDevices indicates an expected call of GetDevices.
+func (mr *MockCmdClientMockRecorder) GetDevices(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDevices", reflect.TypeOf((*MockCmdClient)(nil).GetDevices), varargs...)
+}
+
 // GetDomain mocks base method.
 func (m *MockCmdClient) GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error) {
 	m.ctrl.T.Helper()
@@ -873,6 +893,21 @@ func (m *MockCmdServer) FreezeVirtualMachine(arg0 context.Context, arg1 *FreezeR
 func (mr *MockCmdServerMockRecorder) FreezeVirtualMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).FreezeVirtualMachine), arg0, arg1)
+}
+
+// GetDevices mocks base method.
+func (m *MockCmdServer) GetDevices(arg0 context.Context, arg1 *EmptyRequest) (*GuestDevicesResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDevices", arg0, arg1)
+	ret0, _ := ret[0].(*GuestDevicesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDevices indicates an expected call of GetDevices.
+func (mr *MockCmdServerMockRecorder) GetDevices(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDevices", reflect.TypeOf((*MockCmdServer)(nil).GetDevices), arg0, arg1)
 }
 
 // GetDomain mocks base method.

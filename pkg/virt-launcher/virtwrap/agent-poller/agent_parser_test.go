@@ -102,5 +102,129 @@ var _ = Describe("Qemu agent poller", func() {
 			}
 			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))
 		})
+
+		It("should parse Devices", func() {
+			const jsonInput = `{
+                "return":[
+                    {
+                        "driver-date": 1721001600000000000,
+                        "driver-name": "Red Hat VirtIO Ethernet Adapter",
+                        "driver-version": "100.95.104.26200",
+                        "id": {
+                            "device-id": 4161,
+                            "vendor-id": 6900,
+                            "type": "pci"
+                        }
+                    },
+                    {
+                        "driver-date": 1577836800000000000,
+                        "driver-name": "Red Hat VirtIO SCSI controller",
+                        "driver-version": "100.80.104.17800",
+                        "id": {
+                            "device-id": 4164,
+                            "vendor-id": 6900,
+                            "type": "pci"
+                        }
+                    }
+                ]
+            }`
+
+			expectedDevices := []api.GuestDevice{
+				{
+					DriverName:    "Red Hat VirtIO Ethernet Adapter",
+					DriverVersion: "100.95.104.26200",
+					DriverDate:    1721001600000000000,
+					DeviceID:      4161,
+				},
+				{
+					DriverName:    "Red Hat VirtIO SCSI controller",
+					DriverVersion: "100.80.104.17800",
+					DriverDate:    1577836800000000000,
+					DeviceID:      4164,
+				},
+			}
+
+			devices, err := parseDevices(jsonInput)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(Equal(expectedDevices))
+		})
+
+		It("should skip Devices missing driver-date", func() {
+			const jsonInput = `{
+                "return":[
+                    {
+                        "driver-name": "Device without driver date",
+                        "driver-version": "1.0.0.0",
+                        "id": {
+                            "device-id": 4161,
+                            "vendor-id": 6900,
+                            "type": "pci"
+                        }
+                    },
+                    {
+                        "driver-date": 1577836800000000000,
+                        "driver-name": "Red Hat VirtIO SCSI controller",
+                        "driver-version": "100.80.104.17800",
+                        "id": {
+                            "device-id": 4164,
+                            "vendor-id": 6900,
+                            "type": "pci"
+                        }
+                    }
+                ]
+            }`
+
+			// The device without driver-date is skipped, so only the complete
+			// device is returned.
+			expectedDevices := []api.GuestDevice{
+				{
+					DriverName:    "Red Hat VirtIO SCSI controller",
+					DriverVersion: "100.80.104.17800",
+					DriverDate:    1577836800000000000,
+					DeviceID:      4164,
+				},
+			}
+
+			devices, err := parseDevices(jsonInput)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(Equal(expectedDevices))
+		})
+
+		It("should skip Devices missing id", func() {
+			const jsonInput = `{
+                "return":[
+                    {
+                        "driver-date": 1721001600000000000,
+                        "driver-name": "Device without id",
+                        "driver-version": "2.0.0.0"
+                    },
+                    {
+                        "driver-date": 1577836800000000000,
+                        "driver-name": "Red Hat VirtIO SCSI controller",
+                        "driver-version": "100.80.104.17800",
+                        "id": {
+                            "device-id": 4164,
+                            "vendor-id": 6900,
+                            "type": "pci"
+                        }
+                    }
+                ]
+            }`
+
+			// The device without id is skipped, so only the complete device is
+			// returned.
+			expectedDevices := []api.GuestDevice{
+				{
+					DriverName:    "Red Hat VirtIO SCSI controller",
+					DriverVersion: "100.80.104.17800",
+					DriverDate:    1577836800000000000,
+					DeviceID:      4164,
+				},
+			}
+
+			devices, err := parseDevices(jsonInput)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(Equal(expectedDevices))
+		})
 	})
 })
