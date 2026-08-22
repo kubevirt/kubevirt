@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
@@ -1166,7 +1165,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		const vmiLaunchTimeout = 360
 
 		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, decorators.WgS390x, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
+			// The agent reboot path does not depend on ACPI, so ACPI is left
+			// at its default (enabled) to keep the guest bootable on firmware
+			// that no longer synthesizes ACPI tables when ACPI is disabled.
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			bootID, err := readBootID(vmi, console.LoginToFedora)
@@ -1197,15 +1199,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
 		})
 
-		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.WgS390x, decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withoutACPI()), vmiLaunchTimeout)
-
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
-
-			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
-			Expect(err).To(MatchError(ContainSubstring("VMI neither have the agent connected nor the ACPI feature enabled")))
-		})
+		// The "neither agent connected nor ACPI enabled" rejection is a
+		// spec-level check in the domain manager and is covered deterministically
+		// by a unit test (pkg/virt-launcher/virtwrap/manager_test.go). It is not
+		// exercised here because it would require booting a BIOS guest with ACPI
+		// disabled, which modern SeaBIOS (>=1.17.0) no longer supports.
 
 		It("soft reboot vmi should fail to soft reboot a paused vmi", decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
@@ -1560,10 +1558,3 @@ func waitForBootIDChange(vmi *v1.VirtualMachineInstance, login console.LoginToFu
 	}, 300*time.Second, 5*time.Second).ShouldNot(Equal(preRebootBootID), "expected guest to reboot (boot_id change)")
 }
 
-func withoutACPI() libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Features = &v1.Features{
-			ACPI: v1.FeatureState{Enabled: pointer.P(false)},
-		}
-	}
-}
