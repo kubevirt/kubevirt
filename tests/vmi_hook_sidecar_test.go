@@ -87,7 +87,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
-		Context("set sidecar resources", func() {
+		Context("set sidecar resources", decorators.ModifiesKubeVirtCR, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			BeforeEach(func() {
 				originalConfig = *libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()

@@ -98,7 +98,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", decorators.WgS390x, func() {
-		Context("should obey the disk verification limits in the KubeVirt CR", Serial, func() {
+		Context("should obey the disk verification limits in the KubeVirt CR", Serial, decorators.ModifiesKubeVirtCR, func() {
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")
 				kv := libkubevirt.GetCurrentKv(virtClient)
@@ -170,7 +170,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, decorators.WgArm64, func() {
 		Context("with ephemeral registry disk", func() {
-			It("[test_id:4299]should not have world write permissions", Serial, func() {
+			It("[test_id:4299]should not have world write permissions", Serial, decorators.ModifiesKubeVirtCR, func() {
 				if checks.HasFeature(featuregate.ImageVolume) {
 					config.DisableFeatureGate(featuregate.ImageVolume)
 					DeferCleanup(config.EnableFeatureGate, featuregate.ImageVolume)
@@ -251,7 +251,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
+	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ModifiesKubeVirtCR, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
 			v, err := checks.GetKubernetesVersion()
 			Expect(err).ToNot(HaveOccurred())

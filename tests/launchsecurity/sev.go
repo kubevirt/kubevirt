@@ -259,7 +259,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		}, tikBase64, tekBase64
 	}
 
-	Context("device management", Serial, func() {
+	Context("device management", Serial, decorators.ModifiesKubeVirtCR, func() {
 		const (
 			sevResourceName = "devices.kubevirt.io/sev"
 			sevDevicePath   = "/proc/1/root/dev/sev"

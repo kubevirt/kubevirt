@@ -1700,7 +1700,7 @@ var _ = Describe(SIG("Export", func() {
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 	})
 
-	Context("with limit range", func() {
+	Context("with limit range", decorators.ModifiesKubeVirtCR, func() {
 		var (
 			lr             *k8sv1.LimitRange
 			originalConfig v1.KubeVirtConfiguration
@@ -2290,7 +2290,7 @@ var _ = Describe(SIG("Export", func() {
 		}
 	})
 
-	Context(" with potential KubeVirt CR update", Serial, func() {
+	Context(" with potential KubeVirt CR update", Serial, decorators.ModifiesKubeVirtCR, func() {
 		var beforeCertParams *v1.KubeVirtCertificateRotateStrategy
 
 		BeforeEach(func() {
@@ -2360,7 +2360,7 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, func() {
+	Context("OCI export", Serial, Ordered, decorators.ModifiesKubeVirtCR, decorators.OncePerOrderedCleanup, func() {
 		const (
 			reasonDigestsComputed = "DigestsComputed"
 		)

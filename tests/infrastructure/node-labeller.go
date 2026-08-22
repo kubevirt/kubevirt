@@ -50,7 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIGSerial("Node-labeller", func() {
+var _ = Describe(SIGSerial("Node-labeller", decorators.ModifiesKubeVirtCR, func() {
 	const trueStr = "true"
 
 	var (

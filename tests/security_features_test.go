@@ -59,7 +59,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 		virtClient = kubevirt.Client()
 	})
 
-	Context("Check virt-launcher securityContext", Serial, func() {
+	Context("Check virt-launcher securityContext", Serial, decorators.ModifiesKubeVirtCR, func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
 		BeforeEach(func() {

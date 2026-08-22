@@ -448,7 +448,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			Expect(console.RunCommand(targetVMI, "cat /home/alpine/test/data.txt", 30*time.Second)).To(Succeed())
 		})
 
-		Context("with RWOFs backend storage class", func() {
+		Context("with RWOFs backend storage class", decorators.ModifiesKubeVirtCR, func() {
 			checkTPM := func(vmi *v1.VirtualMachineInstance) {
 				By("Ensuring the TPM is still functional and its state carried over")
 				ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{

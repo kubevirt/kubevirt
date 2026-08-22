@@ -32,7 +32,7 @@ const (
 	cmdNumberUSBs   = "dmesg | grep -c idVendor=46f4"
 )
 
-var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
+var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial, decorators.ModifiesKubeVirtCR,
 	decorators.Quarantine, decorators.SigCompute, decorators.USB, func() {
 		var virtClient kubecli.KubevirtClient
 		var config v1.KubeVirtConfiguration

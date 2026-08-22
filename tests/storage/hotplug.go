@@ -886,7 +886,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				return sc
 			}
 
-			Context("with legacy hotplug", Serial, func() {
+			Context("with legacy hotplug", Serial, decorators.ModifiesKubeVirtCR, func() {
 				BeforeEach(func() {
 					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
@@ -1509,7 +1509,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		)
 	})
 
-	Context("with limit range in namespace", decorators.RequiresRWXBlock, func() {
+	Context("with limit range in namespace", decorators.ModifiesKubeVirtCR, decorators.RequiresRWXBlock, func() {
 		var (
 			sc                         string
 			lr                         *k8sv1.LimitRange
@@ -2083,7 +2083,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
-	Context("with PCI HostDevices", Serial, func() {
+	Context("with PCI HostDevices", Serial, decorators.ModifiesKubeVirtCR, func() {
 		const deviceName = "example.org/soundcard"
 
 		BeforeEach(func() {

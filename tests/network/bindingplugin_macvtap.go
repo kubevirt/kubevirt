@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin", decorators.Macvtap, decorators.NetCustomBindingPlugins, Serial, func() {
+var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin", decorators.Macvtap, decorators.NetCustomBindingPlugins, Serial, decorators.ModifiesKubeVirtCR, func() {
 	const (
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"

@@ -145,7 +145,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, decorators.Sto
 		})
 	})
 
-	Context("VirtIO-FS with an empty PVC", func() {
+	Context("VirtIO-FS with an empty PVC", decorators.ModifiesKubeVirtCR, func() {
 		var (
 			pvc            = "empty-pvc1"
 			originalConfig v1.KubeVirtConfiguration

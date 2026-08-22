@@ -369,7 +369,7 @@ var _ = Describe(SIG("CPU", func() {
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
 
-		It("[test_id:3129]should set CPU request from kubevirt-config", Serial, func() {
+		It("[test_id:3129]should set CPU request from kubevirt-config", Serial, decorators.ModifiesKubeVirtCR, func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
@@ -388,7 +388,7 @@ var _ = Describe(SIG("CPU", func() {
 		})
 	})
 
-	Context("with automatic CPU limit configured in the CR", Serial, func() {
+	Context("with automatic CPU limit configured in the CR", Serial, decorators.ModifiesKubeVirtCR, func() {
 		const autoCPULimitLabel = "autocpulimit"
 		BeforeEach(func() {
 			By("Adding a label selector to the CR for auto CPU limit")

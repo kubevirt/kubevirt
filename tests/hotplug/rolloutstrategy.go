@@ -34,7 +34,7 @@ var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Seri
 		virtClient = kubevirt.Client()
 	})
 
-	Context("When using the Stage rollout strategy", func() {
+	Context("When using the Stage rollout strategy", decorators.ModifiesKubeVirtCR, func() {
 		BeforeEach(func() {
 			rolloutStrategy := pointer.P(v1.VMRolloutStrategyStage)
 			err := config.RegisterKubevirtConfigChange(
