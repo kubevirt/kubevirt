@@ -693,6 +693,64 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Entry("drops DowntimeTuning when gate is disabled", false),
 	)
 
+	DescribeTable("should gate Compression on MigrationCompression feature gate", func(enableGate bool) {
+		kv := &v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{},
+		}
+		if enableGate {
+			kv.DeveloperConfiguration.FeatureGates = []string{featuregate.MigrationCompression}
+		}
+		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+
+		compression := v1.MigrationCompressionZstd
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = map[string]string{v1.MigrationTargetNodeNameLabel: "othernode"}
+		vmi.Status.NodeName = host
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:                     "othernode",
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     host,
+			MigrationUID:                   "123",
+			TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+			VMIMConfigurationOptions: &v1.VMIMConfigurationOptions{
+				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+				ProgressTimeout:         pointer.P(int64(150)),
+				CompletionTimeoutPerGiB: pointer.P(int64(150)),
+				UnsafeMigrationOverride: pointer.P(false),
+				AllowAutoConverge:       pointer.P(false),
+				AllowPostCopy:           pointer.P(false),
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					Compression: &compression,
+				},
+			},
+		}
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue},
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+		addVMI(vmi, domain)
+
+		client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+			if enableGate {
+				Expect(options.Compression).To(HaveValue(Equal("zstd")))
+			} else {
+				Expect(options.Compression).To(BeNil())
+			}
+		}).Times(1).Return(nil)
+
+		sanityExecute()
+		testutils.ExpectEvent(recorder, VMIMigrating)
+	},
+		Entry("passes Compression when gate is enabled", true),
+		Entry("drops Compression when gate is disabled", false),
+	)
+
 	It("should migrate vmi once target address is known", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.UID = vmiTestUUID
