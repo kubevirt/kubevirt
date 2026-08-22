@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/util/trace:go_default_library",
         "//pkg/virt-controller/watch/common:go_default_library",
