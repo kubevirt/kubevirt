@@ -2141,6 +2141,35 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("ImagePullBackOff in compute container", false, kvcontroller.ImagePullBackOffReason),
 		)
 
+		It("should surface CreateContainerError on volume init container with annotation hint", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
+
+			pod.Status.InitContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "volumerootdisk",
+				State: k8sv1.ContainerState{
+					Waiting: &k8sv1.ContainerStateWaiting{
+						Reason:  kvcontroller.CreateContainerErrorReason,
+						Message: "image not known",
+					},
+				},
+			}}
+
+			addVirtualMachine(vmi)
+			addPod(pod)
+
+			sanityExecute()
+			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+					"Status":  Equal(k8sv1.ConditionFalse),
+					"Reason":  Equal(kvcontroller.CreateContainerErrorReason),
+					"Message": ContainSubstring(virtv1.ImageVolumeSkipDigestResolutionAnnotation),
+				})),
+			)
+		})
+
 		DescribeTable("should override Synchronized=False condition reason when it's already set", func(prevReason, newReason string) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduling
