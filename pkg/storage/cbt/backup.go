@@ -709,7 +709,11 @@ func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachi
 	if err != nil {
 		return fmt.Errorf("failed to add finalizer: %w", err)
 	}
+	status := backup.Status
 	patched.DeepCopyInto(backup)
+	if status != nil && backup.Status == nil {
+		backup.Status = status
+	}
 	return nil
 }
 
