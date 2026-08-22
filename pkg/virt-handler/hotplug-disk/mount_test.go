@@ -169,7 +169,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 			}
 			record = &vmiMountTargetRecord{
@@ -290,7 +290,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
@@ -748,7 +748,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
 			}
@@ -997,7 +997,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,

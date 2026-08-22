@@ -37,7 +37,7 @@ var _ = Describe("Domain Watcher", func() {
 
 			ghostCacheDir := GinkgoT().TempDir()
 
-			ghostRecordStore := InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+			ghostRecordStore := InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 			err := ghostRecordStore.Add("test-ns", "test-domain", socketPath, podUID)
 			Expect(err).ToNot(HaveOccurred())

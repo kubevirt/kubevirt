@@ -57,7 +57,7 @@ var _ = Describe("Domain informer", func() {
 		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
-		ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+		ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 	})
 
@@ -93,7 +93,7 @@ var _ = Describe("Domain informer", func() {
 			err = ghostRecordStore.Add("test2-namespace", "test2", "somefile2", "1234-2")
 			Expect(err).ToNot(HaveOccurred())
 
-			ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+			ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 			record, exists := ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
@@ -492,7 +492,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 
 var _ = Describe("Iterable checkpoint manager", func() {
 	It("should list all keys", func() {
-		icp := NewIterableCheckpointManager(GinkgoT().TempDir())
+		icp := NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(icp.Store("one", "hi")).To(Succeed())
 		Expect(icp.Store("two", "hey")).To(Succeed())
@@ -507,7 +507,7 @@ var _ = Describe("List", func() {
 
 	BeforeEach(func() {
 		ghostCacheDir = GinkgoT().TempDir()
-		InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+		InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 	})
 
 	It("should return domain with Unknown status when socket exists but connection fails", func() {
