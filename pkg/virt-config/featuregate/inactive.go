@@ -205,6 +205,13 @@ const (
 	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
 	// on the target before migration starts.
 	LibvirtHooksServerAndClient = "LibvirtHooksServerAndClient"
+
+	// PodSecondaryInterfaceNamingUpgrade enables the upgrade mechanism for VMs
+	// stuck with the obsolete ordinal naming scheme for their pod secondary networks
+	// Owner: SIG network
+	// Beta: v1.8.0
+	// GA: v1.10.0
+	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
 )
 
 func init() {
@@ -251,4 +258,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: GA})
 }
