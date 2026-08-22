@@ -354,7 +354,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			)
 		})
 
-		DescribeTable("should migrate the source volume from a source DV to a destination DV", func(allowPostCopy bool) {
+		DescribeTable("should migrate the source volume from a source DV to a destination DV", decorators.StorageCritical, func(allowPostCopy bool) {
 			policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 			migrationPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
 			migrationPolicy.Spec.AllowPostCopy = pointer.P(allowPostCopy)

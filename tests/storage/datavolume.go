@@ -303,7 +303,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}
 			})
 
-			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
+			It("[test_id:6686]should successfully start multiple concurrent VMIs", decorators.StorageCritical, func() {
 
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
@@ -617,7 +617,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			}
 		})
 
-		It("[test_id:837]deleting VM with background propagation policy should automatically delete DataVolumes and VMI owned by VM.", func() {
+		It("[test_id:837]deleting VM with background propagation policy should automatically delete DataVolumes and VMI owned by VM.", decorators.StorageCritical, func() {
 			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -834,7 +834,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}
 			}
 
-			DescribeTable("should resolve DataVolume sourceRef", func(createDataSourceFunc func() *cdiv1.DataSource) {
+			DescribeTable("should resolve DataVolume sourceRef", decorators.StorageCritical, func(createDataSourceFunc func() *cdiv1.DataSource) {
 				// convert DV to use datasource
 				dvt := &vm.Spec.DataVolumeTemplates[0]
 				ds := createDataSourceFunc()
