@@ -73,6 +73,7 @@ var _ = Describe("VMTemplate source", func() {
 		controller         *VMExportController
 		recorder           *record.FakeRecorder
 		pvcInformer        cache.SharedIndexInformer
+		pvInformer         cache.SharedIndexInformer
 		vmExportInformer   cache.SharedIndexInformer
 		dvInformer         cache.SharedIndexInformer
 		vmTemplateInformer cache.SharedIndexInformer
@@ -85,6 +86,7 @@ var _ = Describe("VMTemplate source", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
@@ -137,7 +139,7 @@ var _ = Describe("VMTemplate source", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), pvInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               fakeCertManager,
 			RouteCache:                  routeInformer.GetStore(),
 			IngressCache:                ingressInformer.GetStore(),
