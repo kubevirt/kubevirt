@@ -2928,6 +2928,12 @@ var CRDsValidation map[string]string = map[string]string{
                 WARNING: this is an advanced feature that prevents auto-scaling for core kubevirt components. Please use with caution!
               type: integer
           type: object
+        kubeletRootDir:
+          description: |-
+            KubeletRootDir is the root directory of the kubelet on the host.
+            Defaults to /var/lib/kubelet. Useful for configurations that use non-standard kubelet root directories (e.g. k3s, k0s).
+          pattern: ^/.*
+          type: string
         monitorAccount:
           description: |-
             The name of the Prometheus service account that needs read-access to KubeVirt endpoints

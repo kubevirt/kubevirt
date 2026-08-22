@@ -434,6 +434,7 @@ spec:
         tolerationSeconds: 5
         value: valueValue
     replicas: 248
+  kubeletRootDir: kubeletRootDirValue
   monitorAccount: monitorAccountValue
   monitorNamespace: monitorNamespaceValue
   productComponent: productComponentValue

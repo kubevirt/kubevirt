@@ -2619,6 +2619,12 @@ type KubeVirtSpec struct {
 	// Specify the port to listen on for VMI status synchronization traffic. Default is 9185
 	SynchronizationPort string `json:"synchronizationPort,omitempty"`
 
+	// KubeletRootDir is the root directory of the kubelet on the host.
+	// Defaults to /var/lib/kubelet. Useful for configurations that use non-standard kubelet root directories (e.g. k3s, k0s).
+	// +kubebuilder:validation:Pattern:=^/.*
+	// +optional
+	KubeletRootDir *string `json:"kubeletRootDir,omitempty"`
+
 	// holds kubevirt configurations.
 	// same as the virt-configMap
 	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`

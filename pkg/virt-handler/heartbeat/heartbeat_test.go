@@ -21,6 +21,7 @@ package heartbeat
 
 import (
 	"context"
+	"os"
 	"sync"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -58,7 +60,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 	Context("upon finishing", func() {
 		It("should set the node to not schedulable", func() {
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode")
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", virtutil.KubeletRoot)
 			stopChan := make(chan struct{})
 			done := heartbeat.Run(30*time.Second, stopChan)
 			Eventually(func() map[string]string {
@@ -77,7 +79,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(featuregate.CPUManager), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(featuregate.CPUManager), "mynode", virtutil.KubeletRoot)
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
@@ -112,8 +114,27 @@ var _ = Describe("Heartbeat", func() {
 		),
 	)
 
+	It("should detect cpu manager state file under a custom kubelet root directory", func() {
+		tmpDir, err := os.MkdirTemp("", "heartbeat-kubeletroot-test")
+		Expect(err).ToNot(HaveOccurred())
+		defer os.RemoveAll(tmpDir)
+
+		// Copy the static cpu_manager_state testdata into the custom kubelet root.
+		content, err := os.ReadFile(cpu_manager_static_path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(tmpDir+"/cpu_manager_state", content, 0600)).To(Succeed())
+
+		hb := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(featuregate.CPUManager), "mynode", tmpDir)
+		hb.do()
+
+		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(node.Labels).To(HaveKeyWithValue(virtv1.CPUManager, "true"),
+			"cpu manager label must be set when cpu_manager_state exists under the custom kubelet root")
+	})
+
 	DescribeTable("without cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, schedulable string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode", virtutil.KubeletRoot)
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -132,7 +153,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without deviceplugin and", func(deviceController device_manager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode", virtutil.KubeletRoot)
 		heartbeat.devicePluginWaitTimeout = 2 * time.Second
 		heartbeat.devicePluginPollIntervall = 10 * time.Millisecond
 		stopChan := make(chan struct{})
