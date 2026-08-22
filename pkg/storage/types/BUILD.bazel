@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cdi.go",
         "dv.go",
+        "export.go",
         "pvc.go",
         "volume.go",
     ],

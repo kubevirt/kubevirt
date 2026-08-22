@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -422,7 +423,7 @@ var _ = Describe("proxyHandler", func() {
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(capture.lastReq.URL.Scheme).To(Equal("https"))
-		Expect(capture.lastReq.URL.Host).To(Equal(testBackendHost + ":443"))
+		Expect(capture.lastReq.URL.Host).To(Equal(fmt.Sprintf("%s:%d", testBackendHost, storagetypes.ExportServerPort)))
 		Expect(capture.lastReq.URL.Path).To(Equal("/volumes/disk.img"))
 		Expect(capture.lastReq.Host).To(Equal(""))
 	})
