@@ -45,6 +45,40 @@ We will consider test failures only in jobs where less than 5 tests failed, so
 that we don't take into account systemic failures caused for instance by an
 infrastructure problem.
 
+### Lifecycle
+
+Once a quarantine PR is merged, the following timeline applies:
+
+| Milestone              | Deadline                                 | Action                                                                   |
+|------------------------|------------------------------------------|--------------------------------------------------------------------------|
+| SIG assignment         | 2 days from merge                        | SIG chair ensures a dedicated owner is assigned within 2 days            |
+| Warning                | 3 weeks from merge                       | SIG is notified that the fix deadline expires in 1 week                  |
+| Fix deadline           | 4 weeks from merge                       | Fix must land; if not, a merge hold begins (see [escalation](#enforcement-escalation)) |
+| Extension (optional)   | Up to 2 weeks after fix deadline         | Assignee must request with a concrete plan                               |
+| Test removal           | 6 weeks from merge (or end of extension) | sig-ci opens a PR to remove the test (see [removal options](#test-removal-options)) |
+
+These deadlines apply to all quarantined tests, including release blockers.
+
+#### Example timeline
+
+```mermaid
+gantt
+    title Quarantine Test Lifecycle
+    dateFormat YYYY-MM-DD
+    tickInterval 1week
+
+    section Windows
+        SIG assignment              :vert, m1, 2026-05-01, 0d
+        Warning to SIG              :vert, m2, 2026-05-20, 0d
+        Fix deadline / merge hold   :vert, m3, 2026-05-27, 0d
+        Test removal                :vert, m4, 2026-06-10, 0d
+        SIG assignment window             :active, sig, 2026-04-29, 2d
+        Fix window                        :fix, 2026-04-29, 28d
+        Warning period                    :crit, warn, 2026-05-20, 7d
+        Merge hold + extension window     :crit, ext, 2026-05-27, 14d
+```
+
+
 ### Putting tests in quarantine
 
 A test must be put in quarantine when any of these conditions is met:
@@ -93,6 +127,39 @@ Each quarantined test must have a team owner. The PR will add the text
 `[sig-{compute,network,storage,operator}]` to each test's description and
 the proper label decorator.
 
+#### Tracking issues
+
+Every quarantined test must have a corresponding GitHub issue. The quarantine
+PR must reference the tracking issue. The tracking issue must include:
+
+* Labels: `kind/flake`, `priority/critical-urgent`, and the owning SIG label
+  (e.g. `sig/compute`)
+* Quarantine entry date (date the quarantine PR was merged)
+* The SIG chair is responsible for ensuring the tracking issue has an assigned
+  owner within 2 days; the chair may assign any SIG member (including
+  themselves) as the dedicated owner
+* The assignee decides whether to fix or remove the test within the fix window
+  (see [removal options](#test-removal-options))
+* The quarantine deadline (6 weeks from entry date)
+
+The owning SIG must provide a status update on the tracking issue every 2 weeks.
+If no update is provided, sig-ci will ping the SIG chair on the issue.
+
+The tracking issue body should follow this template:
+
+```yaml
+---
+quarantine:
+  test_name: "<full test name including SIG prefix>"
+  quarantine_pr: "<PR URL>"
+  entry_date: "<date the quarantine PR was merged>"
+  deadline: "<6 weeks from entry date>"
+  owning_sig: "<e.g. sig-compute, sig-network — see [sigs.yaml]>"
+  assigned_owner: "<GitHub handle>"
+  plan: "<fix | remove>"
+---
+```
+
 #### Quarantining release blockers
 
 When a test marked with the [release-blocker] meets the conditions to be
@@ -130,6 +197,78 @@ again. A member of the team assigned to each
 quarantined test will propose a PR to remove the text `[QUARANTINE]` and the
 label decorator from the test description in the code.
 After merging this PR the test will be out of quarantine.
+
+#### Fix deadline
+
+The owning SIG has 4 weeks from the date the quarantine PR is merged to provide
+a fix. The fix must bring the test's failure rate to 0.1% or less, as described
+above.
+
+At the 3-week mark, the owning SIG will be notified that the fix deadline
+expires in 1 week.
+
+#### Extension
+
+The assignee may request a one-time extension of up to 2 weeks by updating
+the tracking issue before the fix deadline. The extension must include a
+concrete plan for resolution. If the extension expires without a fix, sig-ci
+proceeds with test removal.
+
+The extension request should follow this template (posted as a comment on the
+tracking issue):
+
+```yaml
+---
+extension_request:
+  requested_duration: "<1–2 weeks>"
+  root_cause_status: "<identified | under investigation>"
+  fix_approach: "<brief description of the planned fix>"
+  expected_fix_pr: "<date or 'within N days'>"
+  remaining_blockers: "<any dependencies or open questions>"
+---
+```
+
+#### Enforcement escalation
+
+Before test removal, sig-ci may apply graduated enforcement:
+
+1. **Warning** (3 weeks): SIG is notified the fix deadline is approaching.
+2. **Merge hold** (4 weeks, if no fix): New feature and refactoring PRs from
+   the owning SIG are held from merging until the flaky test is resolved.
+   Bug fixes and test fixes are exempt. This mirrors the existing
+   [test lane quarantine](#test-lane-quarantine) policy.
+3. **Test removal** (6 weeks, or after extension): sig-ci opens a removal PR
+   (see [removal options](#test-removal-options)).
+
+#### Test removal options
+
+When a quarantined test reaches its deadline without a fix, the owning SIG
+decides how to remove it. There are two valid approaches:
+
+* **Deletion**: Remove the test entirely. The tracking issue remains open to
+  ensure the test is re-added when the underlying problem is fixed. This is
+  appropriate when there is no hard commitment to fix the underlying issue
+  or when the tested behavior is not currently guaranteed.
+* **`PEntry` (Pending)**: Convert the test entry to `PEntry` so it remains
+  in the codebase but does not execute. This signals that the feature is still
+  expected to work and the test should be re-enabled once the fix lands. This
+  is appropriate when there is a concrete plan to fix the underlying issue.
+
+The owning SIG has the final say on which approach to use. In either case, the
+tracking issue must remain open until the test is restored or explicitly closed.
+
+If the owning SIG does not express a preference before the deadline, sig-ci
+will default to deletion with the tracking issue kept open.
+
+#### Test expiration
+
+If no fix has been provided within the deadline (including any granted
+extension), sig-ci will open a PR to remove the test and ensure it is merged.
+A quarantined test that cannot be stabilized within this window is not providing
+value to the suite and should be removed.
+
+This policy applies equally to all quarantined tests, including those marked
+as release blockers.
 
 # The `NoFlakeCheck` Decorator
 
@@ -208,3 +347,4 @@ rate, the test lane should be set back to required as soon as possible
 [2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
 [3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
 [on testgrid]: https://testgrid.k8s.io/kubevirt-periodics
+[sigs.yaml]: https://github.com/kubevirt/community/blob/main/sigs.yaml
