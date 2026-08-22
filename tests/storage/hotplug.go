@@ -31,6 +31,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -50,12 +51,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -1926,6 +1929,124 @@ var _ = Describe(SIG("Hotplug", func() {
 			Entry("without dedicated IO and shared policy", false),
 			Entry("with dedicated IO and auto policy", true),
 		)
+
+		Context("virtqueue mapping for virtio-scsi", Serial, func() {
+
+			BeforeEach(func() {
+				kvconfig.EnableFeatureGate(featuregate.SCSIMultiIOThread)
+			})
+
+			AfterEach(func() {
+				kvconfig.DisableFeatureGate(featuregate.SCSIMultiIOThread)
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				config := kv.Spec.Configuration
+				config.MultiIOThreadAutoPolicy = &v1.MultiIOThreadAutoPolicy{}
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			})
+
+			enableMultiIOAutoPolicy := func() {
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				config := kv.Spec.Configuration
+				config.MultiIOThreadAutoPolicy = &v1.MultiIOThreadAutoPolicy{
+					Enabled: pointer.P(true),
+				}
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			}
+
+			getBlockDisk := func(domainSpec *api.DomainSpec, name string) *api.Disk {
+				var blkDisk api.Disk
+				Expect(domainSpec.Devices.Disks).To(ContainElement(
+					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Alias": Equal(api.NewUserDefinedAlias(name)),
+					}), &blkDisk))
+				Expect(blkDisk).ToNot(BeNil())
+				return &blkDisk
+			}
+
+			DescribeTable("should allow adding hotplugged volumes", func(multiIOAuto bool) {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Fail("Fail no filesystem storage class available")
+				}
+
+				if multiIOAuto {
+					enableMultiIOAutoPolicy()
+				}
+
+				dv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+					libvmi.WithCPURequest("4"),
+					libvmi.WithEmptyDisk("blk-disk", v1.DiskBusVirtio, resource.MustParse("1G")),
+					libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1G")),
+				)
+
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
+				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
+
+				By("Verifying iothreads populated in scsi controller")
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				// vmi has 2 empty disks with a container disk and cloudinit disk
+				// that equates to 4 auto threads which will become the thread pool
+				threadPoolSize := 4
+				var scsiController api.Controller
+				Expect(domainSpec.Devices.Controllers).To(ContainElement(
+					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type": Equal("scsi"),
+					}), &scsiController))
+				Expect(scsiController).ToNot(BeNil())
+				Expect(scsiController.Driver.IOThreads.IOThread).To(HaveLen(threadPoolSize))
+
+				By("Verifying iothreads populated in virtio-blk disk")
+				blkDisk := getBlockDisk(domainSpec, "blk-disk")
+
+				if multiIOAuto {
+					// when multiIOAuto configuration is set with feature gate,
+					// blk disks should also get assigned a pool of auto threads
+					Expect(blkDisk.Driver.IOThreads.IOThread).To(HaveLen(threadPoolSize))
+				} else {
+					Expect(blkDisk.Driver.IOThreads).To(BeNil())
+					// blk disk should be assigned a single io thread from the auto pool instead of whole pool
+					Expect(blkDisk.Driver.IOThread).ToNot(BeNil())
+				}
+
+				By("Adding new virtio-blk disk")
+				testvolume := "testvolume"
+				addDVVolumeVMI(vmi.Name, vmi.Namespace, testvolume, dv.Name, v1.DiskBusVirtio, false, "")
+
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, testvolume)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testvolume)
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+
+				By("Verify IOThread populated for new hotplugged volume")
+				domainSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				hotplugDisk := getBlockDisk(domainSpec, "testvolume")
+				if multiIOAuto {
+					// should recieve same pool of threads as previous block disk
+					Expect(hotplugDisk.Driver.IOThreads).To(Equal(blkDisk.Driver.IOThreads))
+				} else {
+					// should get assigned a single iothread
+					Expect(blkDisk.Driver.IOThreads).To(BeNil())
+					Expect(blkDisk.Driver.IOThread).ToNot(BeNil())
+				}
+			},
+				Entry("with multiIO auto enabled", true),
+				Entry("with multiIO auto disabled", false),
+			)
+		})
 	})
 
 	Context("hostpath-separate-device", func() {

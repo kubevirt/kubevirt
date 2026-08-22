@@ -16163,6 +16163,10 @@
       "description": "deprecated",
       "type": "string"
      },
+     "multiIOThreadAutoPolicy": {
+      "description": "MultiIOThreadAutoPolicy controls the behavior for auto IOThread Policy for virtio-blk devices.",
+      "$ref": "#/definitions/v1.MultiIOThreadAutoPolicy"
+     },
      "network": {
       "$ref": "#/definitions/v1.NetworkConfiguration"
      },
@@ -16803,6 +16807,15 @@
       "description": "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
       "type": "integer",
       "format": "int64"
+     }
+    }
+   },
+   "v1.MultiIOThreadAutoPolicy": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enables the auto IOThread Policy to use multiple iothreads for virtio-blk devices.",
+      "type": "boolean"
      }
     }
    },
