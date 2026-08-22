@@ -53,8 +53,6 @@ import (
 )
 
 const (
-	vmBackupFinalizer = "backup.kubevirt.io/vmbackup-protection"
-
 	backupAbortingEvent             = "VirtualMachineBackupAborting"
 	backupCompletedEvent            = "VirtualMachineBackupCompletedSuccessfully"
 	backupCompletedWithWarningEvent = "VirtualMachineBackupCompletedWithWarning"
@@ -72,6 +70,7 @@ const (
 	vmNoVolumesToBackupMsg               = "vm %s has no volumes to backup"
 	vmNoChangedBlockTrackingMsg          = "vm %s has no ChangedBlockTracking, cannot start backup"
 	backupTrackerNotFoundMsg             = "BackupTracker %s does not exist"
+	trackerDeletingMsg                   = "tracker %s is being deleted"
 	trackerCheckpointRedefinitionPending = "Waiting for checkpoint redefinition on tracker %s"
 	invalidBackupModeMsg                 = "invalid backup mode: %s"
 	vmMigrationInProgressMsg             = "vm %s is currently migrating, waiting for migration to complete before starting backup"
@@ -84,6 +83,7 @@ const (
 var (
 	errSourceNameEmpty = errors.New("source name is empty")
 	errCleanupPending  = errors.New("cleanup pending")
+	errActiveBackups   = errors.New("active backups pending")
 )
 
 type VMBackupController struct {
@@ -162,6 +162,7 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.handleBackupTracker,
 			UpdateFunc: func(oldObj, newObj interface{}) { c.handleBackupTracker(newObj) },
+			DeleteFunc: c.handleBackupTracker,
 		},
 	)
 	if err != nil {
@@ -192,15 +193,23 @@ func (ctrl *VMBackupController) handleBackup(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if backup, ok := obj.(*backupv1.VirtualMachineBackup); ok {
-		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(backup)
-		if err != nil {
-			log.Log.Errorf("failed to get key from object: %v, %v", err, backup)
-			return
-		}
+	backup, ok := obj.(*backupv1.VirtualMachineBackup)
+	if !ok {
+		return
+	}
 
-		log.Log.V(3).Infof("enqueued %q for sync", objName)
-		ctrl.backupQueue.Add(objName)
+	objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(backup)
+	if err != nil {
+		log.Log.Errorf("failed to get key from object: %v, %v", err, backup)
+		return
+	}
+
+	log.Log.V(3).Infof("enqueued %q for sync", objName)
+	ctrl.backupQueue.Add(objName)
+
+	if backup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
+		trackerKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()
+		ctrl.trackerQueue.Add(trackerKey)
 	}
 }
 
@@ -261,8 +270,10 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 
 	key := types.NamespacedName{Namespace: tracker.Namespace, Name: tracker.Name}.String()
 
-	// Enqueue tracker for checkpoint redefinition if needed
-	if trackerNeedsCheckpointRedefinition(tracker) {
+	if isTrackerDeleting(tracker) && controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
+		log.Log.V(3).Infof("enqueued tracker %q for deletion cleanup", key)
+		ctrl.trackerQueue.Add(key)
+	} else if trackerNeedsCheckpointRedefinition(tracker) {
 		log.Log.V(3).Infof("enqueued tracker %q for checkpoint redefinition", key)
 		ctrl.trackerQueue.Add(key)
 	}
@@ -537,6 +548,9 @@ func (ctrl *VMBackupController) checkPrerequisites(backup *backupv1.VirtualMachi
 	if reason := ctrl.verifyVMIEligibleForBackup(vmi); reason != "" {
 		return reason, nil
 	}
+	if isTrackerDeleting(backupTracker) {
+		return fmt.Sprintf(trackerDeletingMsg, backupTracker.Name), nil
+	}
 	if trackerNeedsCheckpointRedefinition(backupTracker) {
 		return fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name), nil
 	}
@@ -618,6 +632,12 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 		return err
 	}
 
+	if backupTracker != nil {
+		if err := ctrl.addTrackerFinalizer(backupTracker); err != nil {
+			return err
+		}
+	}
+
 	backupOptions := backupv1.BackupOptions{
 		BackupName:      backup.Name,
 		Cmd:             backupv1.Start,
@@ -693,12 +713,12 @@ func generateFinalizerPatch(test, replace []string) ([]byte, error) {
 }
 
 func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachineBackup) error {
-	if controller.HasFinalizer(backup, vmBackupFinalizer) {
+	if controller.HasFinalizer(backup, backupv1.VirtualMachineBackupFinalizer) {
 		return nil
 	}
 
 	cpy := backup.DeepCopy()
-	controller.AddFinalizer(cpy, vmBackupFinalizer)
+	controller.AddFinalizer(cpy, backupv1.VirtualMachineBackupFinalizer)
 
 	patchBytes, err := generateFinalizerPatch(backup.Finalizers, cpy.Finalizers)
 	if err != nil {
@@ -714,12 +734,12 @@ func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachi
 }
 
 func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMachineBackup) error {
-	if !controller.HasFinalizer(backup, vmBackupFinalizer) {
+	if !controller.HasFinalizer(backup, backupv1.VirtualMachineBackupFinalizer) {
 		return nil
 	}
 
 	cpy := backup.DeepCopy()
-	controller.RemoveFinalizer(cpy, vmBackupFinalizer)
+	controller.RemoveFinalizer(cpy, backupv1.VirtualMachineBackupFinalizer)
 
 	patchBytes, err := generateFinalizerPatch(backup.Finalizers, cpy.Finalizers)
 	if err != nil {
@@ -729,6 +749,49 @@ func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMa
 	_, err = ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to patch backup to remove finalizer: %w", err)
+	}
+	return nil
+}
+
+func (ctrl *VMBackupController) addTrackerFinalizer(tracker *backupv1.VirtualMachineBackupTracker) error {
+	if controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
+		return nil
+	}
+
+	cpy := tracker.DeepCopy()
+	controller.AddFinalizer(cpy, backupv1.VirtualMachineBackupTrackerFinalizer)
+
+	patchBytes, err := generateFinalizerPatch(tracker.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return fmt.Errorf("failed to generate tracker finalizer patch: %w", err)
+	}
+
+	patched, err := ctrl.client.VirtualMachineBackupTracker(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to add tracker finalizer: %w", err)
+	}
+	if patched.DeletionTimestamp != nil {
+		return fmt.Errorf("tracker %s/%s is being deleted", tracker.Namespace, tracker.Name)
+	}
+	return nil
+}
+
+func (ctrl *VMBackupController) removeTrackerFinalizer(tracker *backupv1.VirtualMachineBackupTracker) error {
+	if !controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
+		return nil
+	}
+
+	cpy := tracker.DeepCopy()
+	controller.RemoveFinalizer(cpy, backupv1.VirtualMachineBackupTrackerFinalizer)
+
+	patchBytes, err := generateFinalizerPatch(tracker.Finalizers, cpy.Finalizers)
+	if err != nil {
+		return fmt.Errorf("failed to generate tracker finalizer patch: %w", err)
+	}
+
+	_, err = ctrl.client.VirtualMachineBackupTracker(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to remove tracker finalizer: %w", err)
 	}
 	return nil
 }
