@@ -27,13 +27,17 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	klog "github.com/go-kit/log"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -71,7 +75,8 @@ type FilteredVerbosityLogger struct {
 }
 
 type FilteredLogger struct {
-	logger                klog.Logger
+	logger                logr.Logger
+	context               []interface{}
 	component             string
 	filterLevel           LogLevel
 	currentLogLevel       LogLevel
@@ -112,11 +117,32 @@ func InitializeLogging(comp string) {
 	Log = DefaultLogger()
 	goflag.CommandLine.Set("component", comp)
 	goflag.CommandLine.Set("logtostderr", "true")
-	log.SetOutput(klog.NewStdlibAdapter(Log))
+	log.SetOutput(stdlibAdapter{logger: Log})
 }
 
-// Wrap a go-kit logger in a FilteredLogger. Not cached
-func MakeLogger(logger klog.Logger) *FilteredLogger {
+// NewJSONLogger returns a logr.Logger which writes each log entry to w as a
+// single JSON line. All of zap's own entry fields (level, timestamp, caller,
+// message) are omitted; FilteredLogger injects its equivalents as ordinary
+// key-value pairs so the emitted JSON shape stays under its control.
+func NewJSONLogger(w io.Writer) logr.Logger {
+	encoderConfig := zapcore.EncoderConfig{
+		MessageKey:     zapcore.OmitKey,
+		LevelKey:       zapcore.OmitKey,
+		TimeKey:        zapcore.OmitKey,
+		NameKey:        zapcore.OmitKey,
+		CallerKey:      zapcore.OmitKey,
+		FunctionKey:    zapcore.OmitKey,
+		StacktraceKey:  zapcore.OmitKey,
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+	}
+	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), zapcore.AddSync(w), zapcore.DebugLevel)
+	return zapr.NewLogger(zap.New(core))
+}
+
+// Wrap a logr logger in a FilteredLogger. Not cached
+func MakeLogger(logger logr.Logger) *FilteredLogger {
 	defaultLogLevel := INFO
 
 	// This verbosity will be used for info logs without setting a custom verbosity level
@@ -132,10 +158,6 @@ func MakeLogger(logger klog.Logger) *FilteredLogger {
 	}
 }
 
-type NullLogger struct{}
-
-func (n NullLogger) Log(params ...interface{}) error { return nil }
-
 var loggers = make(map[string]*FilteredLogger)
 var defaultComponent = ""
 var defaultVerbosity = 0
@@ -145,8 +167,7 @@ func createLogger(component string) {
 	defer lock.Unlock()
 	_, ok := loggers[component]
 	if ok == false {
-		logger := klog.NewJSONLogger(os.Stderr)
-		log := MakeLogger(logger)
+		log := MakeLogger(NewJSONLogger(os.Stderr))
 		log.component = component
 		loggers[component] = log
 	}
@@ -167,11 +188,11 @@ func DefaultLogger() *FilteredLogger {
 // SetIOWriter is meant to be used for testing. "log" and "glog" logs are sent to /dev/nil.
 // KubeVirt related log messages will be sent to this writer
 func (l *FilteredLogger) SetIOWriter(w io.Writer) {
-	l.logger = klog.NewJSONLogger(w)
+	l.logger = NewJSONLogger(w)
 	goflag.CommandLine.Set("logtostderr", "false")
 }
 
-func (l *FilteredLogger) SetLogger(logger klog.Logger) *FilteredLogger {
+func (l *FilteredLogger) SetLogger(logger logr.Logger) *FilteredLogger {
 	l.logger = logger
 	return l
 }
@@ -205,7 +226,7 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 		(l.currentVerbosityLevel <= l.verbosityLevel)) {
 		now := time.Now().UTC()
 		_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
-		logParams := make([]interface{}, 0, 8)
+		logParams := make([]interface{}, 0, 8+len(l.context)+len(params)+1)
 
 		logParams = append(logParams,
 			"level", LogLevelNames[l.currentLogLevel],
@@ -213,12 +234,29 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 			"component", l.component,
 		)
+		logParams = append(logParams, l.context...)
 		if l.err != nil {
-			l.logger = klog.With(l.logger, "reason", l.err)
+			logParams = append(logParams, "reason", l.err)
 		}
-		return klog.WithPrefix(l.logger, logParams...).Log(params...)
+		logParams = append(logParams, params...)
+		l.logger.Info("", sanitizeKeyVals(logParams)...)
 	}
 	return nil
+}
+
+// sanitizeKeyVals enforces the key-value pair contract of logr: an odd
+// trailing key gets a placeholder value and non-string keys are stringified,
+// both of which the previous go-kit backend tolerated.
+func sanitizeKeyVals(keyVals []interface{}) []interface{} {
+	if len(keyVals)%2 != 0 {
+		keyVals = append(keyVals, "(MISSING)")
+	}
+	for i := 0; i < len(keyVals); i += 2 {
+		if _, ok := keyVals[i].(string); !ok {
+			keyVals[i] = fmt.Sprint(keyVals[i])
+		}
+	}
+	return keyVals
 }
 
 func (l FilteredVerbosityLogger) Log(params ...interface{}) error {
@@ -274,13 +312,21 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 }
 
 func (l FilteredLogger) With(obj ...interface{}) *FilteredLogger {
-	l.logger = klog.With(l.logger, obj...)
+	l.context = appendContext(l.context, obj)
 	return &l
 }
 
 func (l *FilteredLogger) with(obj ...interface{}) *FilteredLogger {
-	l.logger = klog.With(l.logger, obj...)
+	l.context = appendContext(l.context, obj)
 	return l
+}
+
+// appendContext always allocates a fresh slice so that FilteredLogger copies
+// sharing a backing array can never observe each other's appended values.
+func appendContext(context []interface{}, obj []interface{}) []interface{} {
+	merged := make([]interface{}, 0, len(context)+len(obj))
+	merged = append(merged, context...)
+	return append(merged, obj...)
 }
 
 func (l *FilteredLogger) SetLogLevel(filterLevel LogLevel) error {
@@ -358,6 +404,27 @@ func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
 	l.Level(FATAL).msgf(msg, args...)
 }
 
+// stdlibRegexp matches the configurable prefix of the standard library's log
+// package: an optional date, an optional time and an optional file:line.
+var stdlibRegexp = regexp.MustCompile(`(?s)^(?:[0-9]{4}/[0-9]{2}/[0-9]{2} )?(?:[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)? )?(?:.+?:[0-9]+: )?(?P<msg>.*)`)
+
+// stdlibAdapter redirects the standard library's global "log" package output
+// into a FilteredLogger, stripping the date/time/file prefix so the message
+// is not duplicated by the structured fields. It replaces the equivalent
+// adapter that go-kit/log used to provide.
+type stdlibAdapter struct {
+	logger *FilteredLogger
+}
+
+func (a stdlibAdapter) Write(p []byte) (int, error) {
+	msg := string(p)
+	if match := stdlibRegexp.FindStringSubmatch(msg); match != nil {
+		msg = match[stdlibRegexp.SubexpIndex("msg")]
+	}
+	a.logger.Log("msg", strings.TrimRight(msg, "\n"))
+	return len(p), nil
+}
+
 func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 
 	if len(strings.TrimSpace(line)) == 0 {
@@ -367,7 +434,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	fragments := strings.SplitN(line, ": ", 5)
 	if len(fragments) < 4 {
 		now := time.Now()
-		logger.logger.Log(
+		logger.logger.Info("",
 			"level", "info",
 			"timestamp", now.Format(logTimestampFormat),
 			"component", logger.component,
@@ -412,7 +479,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 
 	if !isPos {
 		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
-		logger.logger.Log(
+		logger.logger.Info("",
 			"level", severity,
 			"timestamp", t.Format(logTimestampFormat),
 			"component", logger.component,
@@ -421,7 +488,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 			"msg", msg,
 		)
 	} else {
-		logger.logger.Log(
+		logger.logger.Info("",
 			"level", severity,
 			"timestamp", t.Format(logTimestampFormat),
 			"pos", pos,
@@ -453,7 +520,7 @@ func LogQemuLogLine(logger *FilteredLogger, line string) {
 	}
 
 	now := time.Now()
-	logger.logger.Log(
+	logger.logger.Info("",
 		"level", "info",
 		"timestamp", now.Format(logTimestampFormat),
 		"component", logger.component,
