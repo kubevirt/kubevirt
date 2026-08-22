@@ -599,8 +599,33 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 					"resource.k8s.io",
 				},
 				Resources: []string{
-					"resourceslices",
 					"resourceclaims",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+					"get",
+					"create",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
+					"resourceclaims/binding",
+				},
+				Verbs: []string{
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
+					"resourceclaimtemplates",
 				},
 				Verbs: []string{
 					"list",
