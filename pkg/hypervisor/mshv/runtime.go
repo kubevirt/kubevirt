@@ -27,13 +27,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/vmitrait"
 	"kubevirt.io/kubevirt/pkg/hypervisor/common"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 var ListProcesses = ps.Processes

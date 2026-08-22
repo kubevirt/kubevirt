@@ -14,7 +14,7 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/vmitrait"
+	"kubevirt.io/kubevirt/pkg/apimachinery/vmitrait"
 )
 
 const (
