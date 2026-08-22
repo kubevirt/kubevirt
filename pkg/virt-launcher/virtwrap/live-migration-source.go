@@ -326,6 +326,8 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		Mode:           migrationMode,
 	}
 	l.metadataCache.Migration.Store(m)
+	l.domainInfoStats = &stats.DomainJobInfo{}
+	l.metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{})
 	log.Log.V(4).Infof("initialize migration metadata: %v", m)
 	return false, nil
 }
@@ -892,10 +894,6 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 
 	m.start = time.Now().UTC().UnixNano()
 	m.lastProgressUpdate = m.start
-
-	defer func() {
-		m.l.domainInfoStats = &stats.DomainJobInfo{}
-	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)

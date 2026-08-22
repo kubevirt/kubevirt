@@ -135,6 +135,22 @@ var _ = Describe("StatsConverter", func() {
 			}
 			Expect(equal).To(BeTrue())
 		})
+
+		DescribeTable("should convert downtime fields from job stats", func(jobType libvirt.DomainJobType) {
+			jobInfo := &libvirt.DomainJobInfo{
+				Type:        jobType,
+				DowntimeSet: true,
+				Downtime:    150,
+			}
+
+			converted := Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(jobInfo)
+
+			Expect(converted.DowntimeSet).To(BeTrue())
+			Expect(converted.Downtime).To(Equal(uint64(150)))
+		},
+			Entry("completed job", libvirt.DOMAIN_JOB_COMPLETED),
+			Entry("active job", libvirt.DOMAIN_JOB_UNBOUNDED),
+		)
 	})
 })
 

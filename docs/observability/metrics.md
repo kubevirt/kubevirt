@@ -59,8 +59,10 @@
 | kubevirt_vmi_migration_data_processed_bytes | Metric | Gauge | The total Guest OS data processed and migrated to the new VM. |
 | kubevirt_vmi_migration_data_remaining_bytes | Metric | Gauge | The remaining guest OS data to be migrated to the new VM. |
 | kubevirt_vmi_migration_dirty_memory_rate_bytes | Metric | Gauge | The rate of memory being dirty in the Guest OS. |
+| kubevirt_vmi_migration_downtime_seconds | Metric | Histogram | Histogram of the time, in seconds, a guest was paused during successful live migration cut-over. |
 | kubevirt_vmi_migration_end_time_seconds | Metric | Gauge | The time at which the migration ended. |
 | kubevirt_vmi_migration_failed | Metric | Gauge | Indicates if the VMI migration failed. |
+| kubevirt_vmi_migration_last_downtime_seconds | Metric | Gauge | Time, in seconds, the guest was paused during the cut-over of its last successful live migration. |
 | kubevirt_vmi_migration_memory_transfer_rate_bytes | Metric | Gauge | The rate at which the memory is being transferred. |
 | kubevirt_vmi_migration_phase_transition_time_from_creation_seconds | Metric | Histogram | Histogram of VM migration phase transitions duration from creation time in seconds. |
 | kubevirt_vmi_migration_start_time_seconds | Metric | Gauge | The time at which the migration started. |

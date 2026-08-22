@@ -49,6 +49,10 @@ type result struct {
 	namespace string
 	node      string
 
+	// Set only for finished migrations. In-flight job stats carry an estimated
+	// downtime that must not be published as a final value.
+	completed bool
+
 	domainJobInfo stats.DomainJobInfo
 	timestamp     time.Time
 }
