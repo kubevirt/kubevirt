@@ -27,6 +27,7 @@ export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
+readonly LATEST_K8S_PROVIDER="k8s-1.36"
 
 readonly NETWORK_SMOKE_LABELS="conformance"
 
@@ -89,6 +90,11 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    if [[ "${KUBEVIRT_PROVIDER}" == "${LATEST_K8S_PROVIDER}" ]]; then
+      export KUBEVIRT_WITH_SRIOV=true
+      export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
+      add_feature_gate "ExternalNetResourceInjection"
+    fi
     ;;
   *emulated-igb*)
     export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
@@ -557,8 +563,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter="(sig-network && (${NETWORK_SMOKE_LABELS}))"
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
-    # SR-IOV tests runs on dedicated lane
-    add_to_label_filter "(!SRIOV)" "&&"
+    if [[ "${KUBEVIRT_PROVIDER}" != "${LATEST_K8S_PROVIDER}" ]]; then
+      add_to_label_filter "(!SRIOV)" "&&"
+    fi
     if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
       add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
     else
