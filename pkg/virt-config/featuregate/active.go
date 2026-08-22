@@ -283,6 +283,14 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-compute / @nhoriguchi
+	// Alpha: v1.10.0
+	//
+	// DataVolumeOwnershipProtection enables strict isolation of ownership handling
+	// for DataVolume, ensuring that existing DataVolumes are never reused by
+	// subsequent VM creation with dataVolumeTemplates.
+	DataVolumeOwnershipProtection = "DataVolumeOwnershipProtection"
 )
 
 func init() {
@@ -332,4 +340,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DataVolumeOwnershipProtection, State: Alpha})
 }
