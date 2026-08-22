@@ -24,7 +24,7 @@ func (c *KubeVirtController) getCachedInstallStrategy(config *operatorutil.KubeV
 	}
 
 	if cachedEntry.key == fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation) {
-		return cachedEntry.value, true
+		return cachedEntry.value.DeepCopy(), true
 	}
 	return nil, false
 }
