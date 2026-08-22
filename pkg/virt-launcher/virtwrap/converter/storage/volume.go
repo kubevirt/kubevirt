@@ -32,8 +32,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 )
 
 const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
@@ -147,24 +145,6 @@ func convertVolumeSourceToDisk(volumeName, cbtPath string, isBlock bool, disk *a
 	return convertVolumeWithoutCBT(volumeName, isBlock, disk, volumesDiscardIgnore)
 }
 
-func convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return convertVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockPVC[name], disk, c.VolumesDiscardIgnore)
-}
-
-// convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
-func convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return convertHotplugVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockPVC[name], disk, c.VolumesDiscardIgnore)
-}
-
-func convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return convertVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockDV[name], disk, c.VolumesDiscardIgnore)
-}
-
-// convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
-func convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return convertHotplugVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockDV[name], disk, c.VolumesDiscardIgnore)
-}
-
 // convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
@@ -184,9 +164,9 @@ func convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 	return nil
 }
 
-func convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, c *convertertypes.ConverterContext) error {
+func convert_v1_HostDisk_To_api_Disk(volumeName, path, cbtPath string, disk *api.Disk) error {
 	disk.Type = "file"
-	if cbtPath, ok := c.ApplyCBT[volumeName]; ok {
+	if cbtPath != "" {
 		disk.Driver.Type = "qcow2"
 		disk.Source.File = cbtPath
 		disk.Source.DataStore = &api.DataStore{
@@ -217,7 +197,7 @@ func convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) err
 	return nil
 }
 
-func convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Disk, c *convertertypes.ConverterContext) error {
+func convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Disk, vmiNamespace, vmiName string) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
@@ -231,13 +211,13 @@ func convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 		return fmt.Errorf("Only nocloud and configdrive are valid cloud-init volumes")
 	}
 
-	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
+	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, vmiName, vmiNamespace)
 	disk.Type = "file"
 	setDiskDriver(disk, "raw", false)
 	return nil
 }
 
-func convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *convertertypes.ConverterContext) error {
+func convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, virtioModel string) error {
 	disk.Type = "file"
 	disk.ReadOnly = toApiReadOnly(true)
 	disk.Driver = &api.DiskDriver{
@@ -245,7 +225,7 @@ func convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *convertertyp
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+	disk.Model = virtioModel
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -264,46 +244,42 @@ func convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, c *convertertypes.ConverterContext, diskIndex int) error {
+func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, ephemeralDiskPath string, diskIndex int, diskFormat string) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 	disk.Type = "file"
 	setDiskDriver(disk, "qcow2", true)
-	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
+	disk.Source.File = ephemeralDiskPath
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},
 	}
 
 	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
-	if info := c.DisksInfo[volumeName]; info != nil {
-		disk.BackingStore.Format.Type = info.Format
-	} else {
-		return fmt.Errorf("no disk info provided for volume %s", volumeName)
-	}
+	disk.BackingStore.Format.Type = diskFormat
 	disk.BackingStore.Source.File = source
 	disk.BackingStore.Type = "file"
 
 	return nil
 }
 
-func convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *convertertypes.ConverterContext) error {
+func convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName, ephemeralDiskPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	setDiskDriver(disk, "qcow2", true)
-	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
+	disk.Source.File = ephemeralDiskPath
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},
 	}
 
 	backingDisk := &api.Disk{Driver: &api.DiskDriver{}}
-	if c.IsBlockPVC[volumeName] {
-		if err := convert_v1_BlockVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore); err != nil {
+	if isBlock {
+		if err := convert_v1_BlockVolumeSource_To_api_Disk(volumeName, backingDisk, volumesDiscardIgnore); err != nil {
 			return err
 		}
 	} else {
-		if err := convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore); err != nil {
+		if err := convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, volumesDiscardIgnore); err != nil {
 			return err
 		}
 	}
@@ -312,75 +288,6 @@ func convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	disk.BackingStore.Type = backingDisk.Type
 
 	return nil
-}
-
-func convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *convertertypes.ConverterContext, diskIndex int) error {
-
-	if source.ContainerDisk != nil {
-		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
-	}
-
-	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
-		return convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, c)
-	}
-
-	if source.Sysprep != nil {
-		return convert_v1_SysprepSource_To_api_Disk(source.Name, disk)
-	}
-
-	if source.HostDisk != nil {
-		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
-	}
-
-	if source.PersistentVolumeClaim != nil {
-		return convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
-	}
-
-	if source.DataVolume != nil {
-		return convert_v1_DataVolume_To_api_Disk(source.Name, disk, c)
-	}
-
-	if source.Ephemeral != nil {
-		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, disk, c)
-	}
-	if source.EmptyDisk != nil {
-		return convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
-	}
-	if source.ConfigMap != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
-	}
-	if source.Secret != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
-	}
-	if source.DownwardAPI != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.DownwardAPI)
-	}
-	if source.ServiceAccount != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
-	}
-	if source.DownwardMetrics != nil {
-		return convert_v1_DownwardMetricSource_To_api_Disk(disk, c)
-	}
-
-	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
-}
-
-// convert_v1_Hotplug_Volume_To_api_Disk convers a hotplug volume to an api disk
-func convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
-	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
-	if source.HostDisk != nil {
-		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
-	}
-
-	if source.PersistentVolumeClaim != nil {
-		return convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
-	}
-
-	if source.DataVolume != nil {
-		return convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, c)
-	}
-	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
 
 // convert_v1_Missing_Volume_To_api_Disk sets defaults when no volume for disk (cdrom, floppy, etc) is provided
