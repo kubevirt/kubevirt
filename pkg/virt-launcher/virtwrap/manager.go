@@ -1266,6 +1266,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		sev := kutil.IsSEVVMI(vmi) && !kutil.IsSEVSNPVMI(vmi)
 		snp := kutil.IsSEVSNPVMI(vmi)
 		tdx := kutil.IsTDXVMI(vmi)
+		cca := kutil.IsCCAVMI(vmi)
 
 		vmType := efi.None
 		if sev {
@@ -1274,6 +1275,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			vmType = efi.SNP
 		} else if tdx {
 			vmType = efi.TDX
+		} else if cca {
+			vmType = efi.CCA
 		}
 
 		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled {
@@ -1284,8 +1287,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			}
 		} else {
 			if !efiEnv.Bootable(secureBoot, vmType) {
-				log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-				return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+				log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v, CCA=%v", secureBoot, sev, snp, tdx, cca)
+				return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v, CCA=%v", secureBoot, sev, snp, tdx, cca)
 			}
 
 			// TDX Secure Boot uses stateless ROM with embedded keys, so libvirt's
@@ -1319,6 +1322,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseLaunchSecuritySEV:      kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
 		UseLaunchSecurityTDX:      kutil.IsTDXVMI(vmi),
 		UseLaunchSecurityPV:       kutil.IsSecureExecutionVMI(vmi),
+		UseLaunchSecurityCCA:      kutil.IsCCAVMI(vmi),
 		FreePageReporting:         isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:          isSerialConsoleLogEnabled(false, vmi),
 		HypervisorName:            l.hypervisorName,
