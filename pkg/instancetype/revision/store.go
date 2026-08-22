@@ -46,19 +46,21 @@ import (
 )
 
 func (h *revisionHandler) Store(vm *virtv1.VirtualMachine) error {
-	instancetypeStatusRef, err := h.storeInstancetypeRevision(vm)
+	_, err := h.storeInstancetypeRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachineInstancetypeSpec for the Virtualmachine.")
 		return err
 	}
 
-	preferenceStatusRef, err := h.storePreferenceRevision(vm)
+	_, err = h.storePreferenceRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachinePreferenceSpec for the Virtualmachine.")
 		return err
 	}
 
-	return h.patchVM(instancetypeStatusRef, preferenceStatusRef, vm)
+	// Status refs already updated in local vm object by store*Revision() calls above.
+	// VM controller will detect Status change and persist via UpdateStatus().
+	return nil
 }
 
 func syncStatusWithMatcher(
