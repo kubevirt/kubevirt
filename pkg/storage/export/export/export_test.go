@@ -19,6 +19,7 @@
 package export
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -115,6 +116,7 @@ var _ = Describe("Export controller", func() {
 		pvcInformer                 cache.SharedIndexInformer
 		podInformer                 cache.SharedIndexInformer
 		cmInformer                  cache.SharedIndexInformer
+		externalCAConfigMapInformer cache.SharedIndexInformer
 		vmExportInformer            cache.SharedIndexInformer
 		vmExportSource              *framework.FakeControllerSource
 		serviceInformer             cache.SharedIndexInformer
@@ -202,6 +204,7 @@ var _ = Describe("Export controller", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		externalCAConfigMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
 		vmExportInformer, vmExportSource = testutils.NewFakeInformerWithIndexersFor(&exportv1.VirtualMachineExport{}, virtcontroller.GetVirtualMachineExportInformerIndexers())
 		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
@@ -241,6 +244,8 @@ var _ = Describe("Export controller", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
 			Return(vmExportClient.ExportV1().VirtualMachineExports(testNamespace)).AnyTimes()
+		virtClient.EXPECT().KubeVirt(gomock.Any()).
+			Return(vmExportClient.KubevirtV1().KubeVirts("kubevirt")).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,
@@ -257,6 +262,7 @@ var _ = Describe("Export controller", func() {
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
 			RouteConfigMapInformer:      cmInformer,
+			ExternalCAConfigMapInformer: externalCAConfigMapInformer,
 			SecretInformer:              secretInformer,
 			VMSnapshotInformer:          vmSnapshotInformer,
 			VMSnapshotContentInformer:   vmSnapshotContentInformer,
@@ -295,31 +301,35 @@ var _ = Describe("Export controller", func() {
 			}),
 		).To(Succeed())
 
-		Expect(
-			kvInformer.GetStore().Add(&virtv1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: controller.KubevirtNamespace,
-					Name:      "kv",
-				},
-				Spec: virtv1.KubeVirtSpec{
-					CertificateRotationStrategy: virtv1.KubeVirtCertificateRotateStrategy{
-						SelfSigned: &virtv1.KubeVirtSelfSignConfiguration{
-							CA: &virtv1.CertConfig{
-								Duration:    &metav1.Duration{Duration: 24 * time.Hour},
-								RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
-							},
-							Server: &virtv1.CertConfig{
-								Duration:    &metav1.Duration{Duration: 2 * time.Hour},
-								RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
-							},
+		kv := &virtv1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       controller.KubevirtNamespace,
+				Name:            "kv",
+				ResourceVersion: "1",
+			},
+			Spec: virtv1.KubeVirtSpec{
+				CertificateRotationStrategy: virtv1.KubeVirtCertificateRotateStrategy{
+					SelfSigned: &virtv1.KubeVirtSelfSignConfiguration{
+						CA: &virtv1.CertConfig{
+							Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+							RenewBefore: &metav1.Duration{Duration: 3 * time.Hour},
+						},
+						Server: &virtv1.CertConfig{
+							Duration:    &metav1.Duration{Duration: 2 * time.Hour},
+							RenewBefore: &metav1.Duration{Duration: 1 * time.Hour},
 						},
 					},
 				},
-				Status: virtv1.KubeVirtStatus{
-					Phase: virtv1.KubeVirtPhaseDeployed,
-				},
-			}),
+			},
+			Status: virtv1.KubeVirtStatus{
+				Phase: virtv1.KubeVirtPhaseDeployed,
+			},
+		}
+		Expect(
+			kvInformer.GetStore().Add(kv),
 		).To(Succeed())
+		_, err = vmExportClient.KubevirtV1().KubeVirts(controller.KubevirtNamespace).Create(context.Background(), kv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	generateCertFromTime := func(cn string, before, after *time.Time) string {
@@ -330,12 +340,14 @@ var _ = Describe("Export controller", func() {
 			NotAfter:   after,
 		}
 		defer GinkgoRecover()
-		caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
+		// Include cn in the CA name so concurrently generated chains in the same
+		// unix second do not share a CommonName and confuse issuer chain lookup.
+		caKeyPair, _ := triple.NewCA(fmt.Sprintf("kubevirt.io-%s", cn), time.Hour*24*7)
 
 		intermediateKey, err := certutil.NewECDSAPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
 		intermediateConfig := certutil.Config{
-			CommonName: fmt.Sprintf("%s@%d", "intermediate", time.Now().Unix()),
+			CommonName: fmt.Sprintf("%s@%d", "intermediate-"+cn, time.Now().Unix()),
 			NotBefore:  before,
 			NotAfter:   after,
 		}
@@ -392,6 +404,11 @@ var _ = Describe("Export controller", func() {
 	}
 
 	var expectedPem = generateExpectedCert()
+	var expectedExternalPem = func() string {
+		before := time.Now()
+		after := before.AddDate(0, 0, 7)
+		return generateCertFromTime("external override cert", &before, &after)
+	}()
 	var expectedFuturePem = generateExpectedPem(expectedFuturePemAll)
 	var expectedExpiredPem = generateExpectedPem(expectedExpiredPemAll)
 
@@ -416,10 +433,10 @@ var _ = Describe("Export controller", func() {
 		return strings.TrimSpace(pemOut.String()) + "\n" + expectedPem
 	}
 
-	createRouteConfigMapFromString := func(ca string) *k8sv1.ConfigMap {
+	createRouteConfigMapFromString := func(name, ca string) *k8sv1.ConfigMap {
 		return &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      routeCAConfigMapName,
+				Name:      name,
 				Namespace: controller.KubevirtNamespace,
 			},
 			Data: map[string]string{
@@ -429,15 +446,15 @@ var _ = Describe("Export controller", func() {
 	}
 
 	createRouteConfigMapFromFunc := func(certFunc func() string) *k8sv1.ConfigMap {
-		return createRouteConfigMapFromString(certFunc())
+		return createRouteConfigMapFromString(routeCAConfigMapName, certFunc())
 	}
 
 	createFutureRouteConfigMap := func() *k8sv1.ConfigMap {
-		return createRouteConfigMapFromString(expectedFuturePemAll)
+		return createRouteConfigMapFromString(routeCAConfigMapName, expectedFuturePemAll)
 	}
 
 	createExpiredRouteConfigMap := func() *k8sv1.ConfigMap {
-		return createRouteConfigMapFromString(expectedExpiredPem)
+		return createRouteConfigMapFromString(routeCAConfigMapName, expectedExpiredPem)
 	}
 
 	createOverlappingRouteConfigMap := func() *k8sv1.ConfigMap {
@@ -446,6 +463,10 @@ var _ = Describe("Export controller", func() {
 
 	createRouteConfigMap := func() *k8sv1.ConfigMap {
 		return createRouteConfigMapFromFunc(generateRouteCert)
+	}
+
+	createExternalCAConfigMap := func() *k8sv1.ConfigMap {
+		return createRouteConfigMapFromString(components.KubeVirtExportExternalCAConfigMapName, expectedExternalPem)
 	}
 
 	validIngressDefaultBackend := func(serviceName string) *networkingv1.Ingress {
@@ -691,9 +712,11 @@ var _ = Describe("Export controller", func() {
 			},
 		}
 		syncCaches(stop)
-		mockVMExportQueue.ExpectAdds(2)
+		mockVMExportQueue.ExpectAdds(1)
 		vmExportSource.Add(vmExport)
+		mockVMExportQueue.Wait()
 		controller.processVMExportWorkItem()
+		mockVMExportQueue.ExpectAdds(1)
 		pvcInformer.GetStore().Add(pvc)
 		vmiInformer.GetStore().Add(vmi)
 		controller.handleVMI(vmi)
@@ -736,10 +759,10 @@ var _ = Describe("Export controller", func() {
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
 		vmExportSource.Add(vmExport)
+		mockVMExportQueue.Wait()
 		controller.processVMExportWorkItem()
 		vmiInformer.GetStore().Add(vmi)
 		controller.handleVMI(vmi)
-		mockVMExportQueue.Wait()
 	})
 
 	It("Should create a service based on the name of the VMExport", func() {
@@ -1521,19 +1544,183 @@ var _ = Describe("Export controller", func() {
 		Entry("ingress with rules no backend service", ingressRulesNoBackend(), ""),
 	)
 
-	DescribeTable("should find host when route is defined", func(createCMFunc func() *k8sv1.ConfigMap, route *routev1.Route, hostname, expectedCert string) {
+	setExternalCertificationStrategy := func(strategy virtv1.ExternalCertificationStrategy) {
+		obj, exists, err := controller.KubeVirtInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+		kv := obj.(*virtv1.KubeVirt).DeepCopy()
+		strategyCopy := strategy
+		kv.Spec.Configuration.ExportConfiguration = &virtv1.ExportConfiguration{
+			ExternalCertificationStrategy: &strategyCopy,
+		}
+		// ResourceVersion must change uniquely so ClusterConfig reloads configuration.
+		kv.ResourceVersion = fmt.Sprintf("%s-%s", kv.ResourceVersion, strategy)
+		Expect(controller.KubeVirtInformer.GetStore().Update(kv)).To(Succeed())
+	}
+
+	addExportCAConfigMap := func(cm *k8sv1.ConfigMap) {
+		if cm.Name == components.KubeVirtExportExternalCAConfigMapName {
+			Expect(controller.ExternalCAConfigMapInformer.GetStore().Add(cm)).To(Succeed())
+			return
+		}
+		Expect(controller.RouteConfigMapInformer.GetStore().Add(cm)).To(Succeed())
+	}
+
+	DescribeTable("should find host when route is defined", func(strategy *virtv1.ExternalCertificationStrategy, createCMFuncs []func() *k8sv1.ConfigMap, route *routev1.Route, hostname, expectedCert string) {
+		if strategy != nil {
+			setExternalCertificationStrategy(*strategy)
+		}
 		controller.RouteCache.Add(route)
-		controller.RouteConfigMapInformer.GetStore().Add(createCMFunc())
+		for _, createCMFunc := range createCMFuncs {
+			addExportCAConfigMap(createCMFunc())
+		}
 		host, cert := controller.getExternalLinkHostAndCert()
 		Expect(host).To(Equal(hostname))
 		Expect(cert).To(Equal(expectedCert))
 	},
-		Entry("route with service and host", createRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
-		Entry("route with different service and host", createRouteConfigMap, routeToHostAndService("other-service"), "", ""),
-		Entry("route with service and no ingress", createRouteConfigMap, routeToHostAndNoIngress(), "", ""),
-		Entry("should not find route cert if in future", createFutureRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedFuturePem),
-		Entry("should not find route cert if expired", createExpiredRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedExpiredPem),
-		Entry("should find correct route cert if overlapping exists", createOverlappingRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+		Entry("route with service and host", nil, []func() *k8sv1.ConfigMap{createRouteConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+		Entry("route with different service and host", nil, []func() *k8sv1.ConfigMap{createRouteConfigMap}, routeToHostAndService("other-service"), "", ""),
+		Entry("route with service and no ingress", nil, []func() *k8sv1.ConfigMap{createRouteConfigMap}, routeToHostAndNoIngress(), "", ""),
+		Entry("should not find route cert if in future", nil, []func() *k8sv1.ConfigMap{createFutureRouteConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedFuturePem),
+		Entry("should not find route cert if expired", nil, []func() *k8sv1.ConfigMap{createExpiredRouteConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedExpiredPem),
+		Entry("should find correct route cert if overlapping exists", nil, []func() *k8sv1.ConfigMap{createOverlappingRouteConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+		Entry("SystemTrust leaves external cert empty", pointer.P(virtv1.ExternalCertificationStrategySystemTrust), []func() *k8sv1.ConfigMap{createRouteConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", ""),
+		Entry("CustomRootCA uses export external CA config map", pointer.P(virtv1.ExternalCertificationStrategyCustomRootCA), []func() *k8sv1.ConfigMap{createRouteConfigMap, createExternalCAConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedExternalPem),
+		Entry("CustomRootCA with missing config map leaves cert blank", pointer.P(virtv1.ExternalCertificationStrategyCustomRootCA), []func() *k8sv1.ConfigMap{createRouteConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", ""),
+		Entry("ClusterRootCA ignores export external CA config map", pointer.P(virtv1.ExternalCertificationStrategyClusterRootCA), []func() *k8sv1.ConfigMap{createRouteConfigMap, createExternalCAConfigMap}, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
+	)
+
+	getKubeVirtCondition := func(condType virtv1.KubeVirtConditionType) *virtv1.KubeVirtCondition {
+		kv, err := vmExportClient.KubevirtV1().KubeVirts(controller.KubevirtNamespace).Get(context.Background(), "kv", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for i := range kv.Status.Conditions {
+			if kv.Status.Conditions[i].Type == condType {
+				return &kv.Status.Conditions[i]
+			}
+		}
+		return nil
+	}
+
+	DescribeTable("should update ExportCustomExternalCA condition", func(strategy virtv1.ExternalCertificationStrategy, withExternalCA bool, expectPresent bool, expectedStatus k8sv1.ConditionStatus) {
+		setExternalCertificationStrategy(strategy)
+		if withExternalCA {
+			addExportCAConfigMap(createExternalCAConfigMap())
+		}
+		Expect(controller.reconcileExportExternalCertification()).To(Succeed())
+
+		cond := getKubeVirtCondition(virtv1.KubeVirtConditionExportCustomExternalCA)
+		if !expectPresent {
+			Expect(cond).To(BeNil())
+			return
+		}
+		Expect(cond).ToNot(BeNil())
+		Expect(cond.Status).To(Equal(expectedStatus))
+	},
+		Entry("condition absent when CustomRootCA and ConfigMap present", virtv1.ExternalCertificationStrategyCustomRootCA, true, false, k8sv1.ConditionStatus("")),
+		Entry("ConditionFalse when CustomRootCA and ConfigMap missing", virtv1.ExternalCertificationStrategyCustomRootCA, false, true, k8sv1.ConditionFalse),
+		Entry("condition removed for ClusterRootCA", virtv1.ExternalCertificationStrategyClusterRootCA, false, false, k8sv1.ConditionStatus("")),
+		Entry("condition removed for SystemTrust", virtv1.ExternalCertificationStrategySystemTrust, false, false, k8sv1.ConditionStatus("")),
+	)
+
+	It("should clear ExportCustomExternalCA condition when the ConfigMap appears", func() {
+		setExternalCertificationStrategy(virtv1.ExternalCertificationStrategyCustomRootCA)
+		Expect(controller.reconcileExportExternalCertification()).To(Succeed())
+		Expect(getKubeVirtCondition(virtv1.KubeVirtConditionExportCustomExternalCA)).ToNot(BeNil())
+
+		kv, err := vmExportClient.KubevirtV1().KubeVirts(controller.KubevirtNamespace).Get(context.Background(), "kv", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.KubeVirtInformer.GetStore().Update(kv)).To(Succeed())
+
+		addExportCAConfigMap(createExternalCAConfigMap())
+		Expect(controller.reconcileExportExternalCertification()).To(Succeed())
+		Expect(getKubeVirtCondition(virtv1.KubeVirtConditionExportCustomExternalCA)).To(BeNil())
+	})
+
+	It("should remove ExportCustomExternalCA condition when switching away from CustomRootCA", func() {
+		setExternalCertificationStrategy(virtv1.ExternalCertificationStrategyCustomRootCA)
+		Expect(controller.reconcileExportExternalCertification()).To(Succeed())
+		Expect(getKubeVirtCondition(virtv1.KubeVirtConditionExportCustomExternalCA)).ToNot(BeNil())
+
+		// Keep informer store in sync with the status write so the next reconcile
+		// sees the existing condition and can clear it.
+		kv, err := vmExportClient.KubevirtV1().KubeVirts(controller.KubevirtNamespace).Get(context.Background(), "kv", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.KubeVirtInformer.GetStore().Update(kv)).To(Succeed())
+
+		setExternalCertificationStrategy(virtv1.ExternalCertificationStrategyClusterRootCA)
+		Expect(controller.reconcileExportExternalCertification()).To(Succeed())
+		Expect(getKubeVirtCondition(virtv1.KubeVirtConditionExportCustomExternalCA)).To(BeNil())
+	})
+
+	It("should enqueue export external certification and VMExports when ExportConfiguration changes on KubeVirt", func() {
+		testVMExport := createPVCVMExport()
+		Expect(controller.VMExportInformer.GetStore().Add(testVMExport)).To(Succeed())
+		// condition sync key + VMExport key
+		mockVMExportQueue.ExpectAdds(2)
+
+		obj, exists, err := controller.KubeVirtInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+		oldKV := obj.(*virtv1.KubeVirt).DeepCopy()
+		newKV := oldKV.DeepCopy()
+		strategy := virtv1.ExternalCertificationStrategyCustomRootCA
+		newKV.Spec.Configuration.ExportConfiguration = &virtv1.ExportConfiguration{
+			ExternalCertificationStrategy: &strategy,
+		}
+		newKV.ResourceVersion = "export-config-updated"
+		Expect(controller.KubeVirtInformer.GetStore().Update(newKV)).To(Succeed())
+
+		controller.handleKubeVirtUpdate(oldKV, newKV)
+		mockVMExportQueue.Wait()
+
+		Expect(controller.processVMExportWorkItem()).To(BeTrue())
+		cond := getKubeVirtCondition(virtv1.KubeVirtConditionExportCustomExternalCA)
+		Expect(cond).ToNot(BeNil())
+		Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+	})
+
+	It("should requeue export external certification on KubeVirt status-only updates", func() {
+		mockVMExportQueue.ExpectAdds(1)
+		obj, exists, err := controller.KubeVirtInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue())
+		oldKV := obj.(*virtv1.KubeVirt).DeepCopy()
+		newKV := oldKV.DeepCopy()
+		newKV.Status.Phase = virtv1.KubeVirtPhaseDeployed
+		newKV.ResourceVersion = "status-only"
+		controller.handleKubeVirtUpdate(oldKV, newKV)
+		mockVMExportQueue.Wait()
+	})
+
+	addIngressTLSSecret := func() {
+		Expect(controller.SecretInformer.GetStore().Add(&k8sv1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ingressSecret,
+				Namespace: controller.KubevirtNamespace,
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(expectedPem),
+			},
+		})).To(Succeed())
+	}
+
+	DescribeTable("should apply external certification strategy for Ingress", func(strategy *virtv1.ExternalCertificationStrategy, withExternalCA bool, expectedCert string) {
+		if strategy != nil {
+			setExternalCertificationStrategy(*strategy)
+		}
+		Expect(controller.IngressCache.Add(ingressToHost())).To(Succeed())
+		addIngressTLSSecret()
+		if withExternalCA {
+			addExportCAConfigMap(createExternalCAConfigMap())
+		}
+		host, cert := controller.getExternalLinkHostAndCert()
+		Expect(host).To(Equal("test-host"))
+		Expect(cert).To(Equal(expectedCert))
+	},
+		Entry("default ClusterRootCA uses Ingress TLS secret", nil, false, expectedPem),
+		Entry("SystemTrust leaves external cert empty", pointer.P(virtv1.ExternalCertificationStrategySystemTrust), false, ""),
+		Entry("CustomRootCA uses export external CA config map", pointer.P(virtv1.ExternalCertificationStrategyCustomRootCA), true, expectedExternalPem),
+		Entry("CustomRootCA with missing config map leaves cert blank", pointer.P(virtv1.ExternalCertificationStrategyCustomRootCA), false, ""),
 	)
 
 	It("should pick ingress over route if both exist", func() {
