@@ -84,6 +84,7 @@
 | kubevirt_vmi_phase_transition_time_from_creation_seconds | Metric | Histogram | Histogram of VM phase transitions duration from creation time in seconds. |
 | kubevirt_vmi_phase_transition_time_from_deletion_seconds | Metric | Histogram | Histogram of VM phase transitions duration from deletion time in seconds. |
 | kubevirt_vmi_phase_transition_time_seconds | Metric | Histogram | Histogram of VM phase transitions duration between different phases in seconds. |
+| kubevirt_vmi_resource_requests | Metric | Gauge | Resources requested by Virtual Machine Instance. Reports memory and CPU requests from the VMI specification and from the virt-launcher pod. |
 | kubevirt_vmi_status_addresses | Metric | Gauge | The addresses of a VirtualMachineInstance. This metric provides the address of an available network interface associated with the VMI in the 'address' label, and about the type of address, such as internal IP, in the 'type' label. |
 | kubevirt_vmi_storage_flush_requests_total | Metric | Counter | Total storage flush requests. |
 | kubevirt_vmi_storage_flush_times_seconds_total | Metric | Counter | Total time spent on cache flushing. |

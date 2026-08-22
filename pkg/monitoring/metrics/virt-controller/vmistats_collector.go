@@ -25,6 +25,7 @@ import (
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -36,8 +37,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 const (
@@ -47,6 +50,7 @@ const (
 
 	annotationPrefix        = "vm.kubevirt.io/"
 	instancetypeVendorLabel = "instancetype.kubevirt.io/vendor"
+	computeContainerName    = "compute"
 )
 
 var (
@@ -64,6 +68,7 @@ var (
 			vmiMigrationEndTime,
 			vmiVnicInfo,
 			vmiLauncherMemoryOverhead,
+			vmiResourceRequests,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -139,6 +144,14 @@ var (
 		},
 		[]string{"namespace", "name"},
 	)
+
+	vmiResourceRequests = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_resource_requests",
+			Help: "Resources requested by Virtual Machine Instance. Reports memory and CPU requests from the VMI specification and from the virt-launcher pod.",
+		},
+		[]string{"name", "namespace", "resource", "unit", "source"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -166,6 +179,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
 		crs = append(crs, CollectVmisVnicInfo(vmi)...)
 		crs = append(crs, collectVMILauncherMemoryOverhead(vmi))
+		crs = append(crs, collectVMIResourceRequests(vmi)...)
 	}
 
 	return crs
@@ -274,9 +288,22 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 }
 
 func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
+	pod := findRunningVMIPod(vmi)
+	if pod == nil {
+		return none
+	}
+
+	return pod.Name
+}
+
+func findRunningVMIPod(vmi *k6tv1.VirtualMachineInstance) *k8sv1.Pod {
+	if indexers == nil || indexers.KVPod == nil {
+		return nil
+	}
+
 	objs, err := indexers.KVPod.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
-		return none
+		return nil
 	}
 
 	for _, obj := range objs {
@@ -285,14 +312,14 @@ func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
 			continue
 		}
 
-		if pod.Labels["kubevirt.io/created-by"] == string(vmi.UID) && pod.Status.Phase == k8sv1.PodRunning {
+		if pod.Labels[k6tv1.CreatedByLabel] == string(vmi.UID) && pod.Status.Phase == k8sv1.PodRunning {
 			if vmi.Status.NodeName == pod.Spec.NodeName {
-				return pod.Name
+				return pod
 			}
 		}
 	}
 
-	return none
+	return nil
 }
 
 func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
@@ -501,4 +528,195 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 	}
 
 	return results
+}
+
+func collectVMIResourceRequests(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	results = append(results, collectVMIMemoryResourceRequests(vmi)...)
+	results = append(results, collectVMICPUResourceRequestsFromDomainCPU(vmi)...)
+	results = append(results, collectVMICPUResourceRequestsFromDomainResources(vmi)...)
+	results = append(results, collectVMIAllocatedCPUValues(vmi)...)
+	results = append(results, collectVMIAllocatedMemoryValues(vmi)...)
+	results = append(results, collectVMIPodResourceRequests(vmi)...)
+
+	return results
+}
+
+func collectVMIMemoryResourceRequests(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	memoryRequested := vmi.Spec.Domain.Resources.Requests.Memory()
+	if !memoryRequested.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(memoryRequested.Value()),
+			Labels: []string{vmi.Name, vmi.Namespace, "memory", "bytes", "domain"},
+		})
+	}
+
+	if vmi.Spec.Domain.Memory == nil {
+		return cr
+	}
+
+	guestMemory := vmi.Spec.Domain.Memory.Guest
+	if guestMemory != nil && !guestMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(guestMemory.Value()),
+			Labels: []string{vmi.Name, vmi.Namespace, "memory", "bytes", "guest"},
+		})
+	}
+
+	hugepagesMemory := vmi.Spec.Domain.Memory.Hugepages
+	if hugepagesMemory != nil {
+		quantity, err := resource.ParseQuantity(hugepagesMemory.PageSize)
+		if err == nil {
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmiResourceRequests,
+				Value:  float64(quantity.Value()),
+				Labels: []string{vmi.Name, vmi.Namespace, "memory", "bytes", "hugepages"},
+			})
+		}
+	}
+
+	return cr
+}
+
+func collectVMICPUResourceRequestsFromDomainCPU(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vmi.Spec.Domain.CPU == nil {
+		return cr
+	}
+
+	if vmi.Spec.Domain.CPU.Cores != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(vmi.Spec.Domain.CPU.Cores),
+			Labels: []string{vmi.Name, vmi.Namespace, "cpu", "cores", "domain"},
+		})
+	}
+	if vmi.Spec.Domain.CPU.Threads != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(vmi.Spec.Domain.CPU.Threads),
+			Labels: []string{vmi.Name, vmi.Namespace, "cpu", "threads", "domain"},
+		})
+	}
+	if vmi.Spec.Domain.CPU.Sockets != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(vmi.Spec.Domain.CPU.Sockets),
+			Labels: []string{vmi.Name, vmi.Namespace, "cpu", "sockets", "domain"},
+		})
+	}
+	return cr
+}
+
+func collectVMICPUResourceRequestsFromDomainResources(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	cpuRequests := vmi.Spec.Domain.Resources.Requests.Cpu()
+	if cpuRequests == nil || cpuRequests.IsZero() {
+		// If no CPU requests and no Domain CPU are set, default to 1 thread with 1 core and 1 socket
+		if vmi.Spec.Domain.CPU == nil {
+			return append(cr,
+				operatormetrics.CollectorResult{
+					Metric: vmiResourceRequests, Value: 1.0,
+					Labels: []string{vmi.Name, vmi.Namespace, "cpu", "cores", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmiResourceRequests, Value: 1.0,
+					Labels: []string{vmi.Name, vmi.Namespace, "cpu", "threads", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmiResourceRequests, Value: 1.0,
+					Labels: []string{vmi.Name, vmi.Namespace, "cpu", "sockets", "default"},
+				},
+			)
+		}
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmiResourceRequests,
+		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vmi.Name, vmi.Namespace, "cpu", "cores", "requests"},
+	})
+	return cr
+}
+
+func collectVMIAllocatedCPUValues(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vmi.Spec.Domain.CPU != nil {
+		allocatedVCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(allocatedVCPUs),
+			Labels: []string{vmi.Name, vmi.Namespace, "cpu", "cores", "guest_effective"},
+		})
+	} else {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  1.0,
+			Labels: []string{vmi.Name, vmi.Namespace, "cpu", "cores", "guest_effective"},
+		})
+	}
+	return cr
+}
+
+func collectVMIAllocatedMemoryValues(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	allocatedMemory := vcpu.GetVirtualMemory(vmi)
+	if allocatedMemory != nil && !allocatedMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(allocatedMemory.Value()),
+			Labels: []string{vmi.Name, vmi.Namespace, "memory", "bytes", "guest_effective"},
+		})
+	}
+	return cr
+}
+
+func collectVMIPodResourceRequests(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	pod := findRunningVMIPod(vmi)
+	if pod == nil {
+		return nil
+	}
+
+	var compute *k8sv1.Container
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == computeContainerName {
+			compute = &pod.Spec.Containers[i]
+			break
+		}
+	}
+	if compute == nil {
+		return nil
+	}
+
+	var cr []operatormetrics.CollectorResult
+
+	memoryRequested := compute.Resources.Requests.Memory()
+	if memoryRequested != nil && !memoryRequested.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(memoryRequested.Value()),
+			Labels: []string{vmi.Name, vmi.Namespace, "memory", "bytes", "pod"},
+		})
+	}
+
+	cpuRequested := compute.Resources.Requests.Cpu()
+	if cpuRequested != nil && !cpuRequested.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiResourceRequests,
+			Value:  float64(cpuRequested.ScaledValue(resource.Milli)) / 1000,
+			Labels: []string{vmi.Name, vmi.Namespace, "cpu", "cores", "pod"},
+		})
+	}
+
+	return cr
 }
