@@ -77,10 +77,12 @@ type guestfsCommand struct {
 	gid        string
 	pullPolicy string
 	vm         string
+
+	virtClient kubecli.KubevirtClient
+	k8sClient  kubernetes.Interface
 }
 
 // Following variables allow overriding the default functions (useful for unit testing)
-var CreateClientFunc = CreateClient
 var CreateAttacherFunc = CreateAttacher
 var ImageSetFunc = SetImage
 var ImageInfoGetFunc = GetImageInfo
@@ -118,8 +120,9 @@ func usage() string {
 func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
 	c.pvc = args[0]
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
-	if err != nil {
+	var namespace string
+	var err error
+	if c.virtClient, namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
 		return err
 	}
 
@@ -128,42 +131,33 @@ func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
 		c.pullPolicy != string(corev1.PullIfNotPresent) {
 		return fmt.Errorf("Invalid pull policy: %s", c.pullPolicy)
 	}
-	var inUse bool
-	client, err := CreateClientFunc(virtClient)
-	if err != nil {
+	if c.k8sClient, err = clientconfig.K8sClientFromContext(cmd.Context()); err != nil {
 		return err
 	}
 	if c.image == "" {
-		c.image, err = ImageSetFunc(client.VirtClient)
+		c.image, err = ImageSetFunc(c.virtClient)
 		if err != nil {
 			return err
 		}
 	}
 	fmt.Printf("Use image: %s \n", c.image)
-	exist, _ := client.existsPVC(c.pvc, namespace)
+	exist, _ := existsPVC(c.k8sClient, c.pvc, namespace)
 	if !exist {
 		return fmt.Errorf("The PVC %s doesn't exist", c.pvc)
 	}
-	inUse, err = client.isPVCinUse(c.pvc, namespace)
+	inUse, err := isPVCinUse(c.k8sClient, c.pvc, namespace)
 	if err != nil {
 		return err
 	}
 	if inUse {
 		return fmt.Errorf("PVC %s is used by another pod", c.pvc)
 	}
-	isBlock, err := client.isPVCVolumeBlock(c.pvc, namespace)
+	isBlock, err := isPVCVolumeBlock(c.k8sClient, c.pvc, namespace)
 	if err != nil {
 		return err
 	}
-	defer client.removePod(namespace, genPodName(c.pvc))
-	return c.createInteractivePodWithPVC(client, namespace, "/entrypoint.sh", []string{}, isBlock)
-}
-
-// K8sClient holds the information of the Kubernetes client
-type K8sClient struct {
-	Client     kubernetes.Interface
-	config     *rest.Config
-	VirtClient kubecli.KubevirtClient
+	defer removePod(c.k8sClient, namespace, genPodName(c.pvc))
+	return c.createInteractivePodWithPVC(namespace, "/entrypoint.sh", []string{}, isBlock)
 }
 
 // SetImage sets the image name based on the information retrieved by the KubeVirt server.
@@ -207,20 +201,8 @@ func GetImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, erro
 	return info, nil
 }
 
-func CreateClient(virtClient kubecli.KubevirtClient) (*K8sClient, error) {
-	client, err := kubernetes.NewForConfig(virtClient.Config())
-	if err != nil {
-		return &K8sClient{}, err
-	}
-	return &K8sClient{
-		Client:     client,
-		config:     virtClient.Config(),
-		VirtClient: virtClient,
-	}, nil
-}
-
-func (client *K8sClient) existsPVC(pvc, ns string) (bool, error) {
-	p, err := client.Client.CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), pvc, metav1.GetOptions{})
+func existsPVC(client kubernetes.Interface, pvc, ns string) (bool, error) {
+	p, err := client.CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), pvc, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -230,8 +212,8 @@ func (client *K8sClient) existsPVC(pvc, ns string) (bool, error) {
 	return true, nil
 }
 
-func (client *K8sClient) isPVCVolumeBlock(pvc, ns string) (bool, error) {
-	p, err := client.Client.CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), pvc, metav1.GetOptions{})
+func isPVCVolumeBlock(client kubernetes.Interface, pvc, ns string) (bool, error) {
+	p, err := client.CoreV1().PersistentVolumeClaims(ns).Get(context.TODO(), pvc, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -241,8 +223,8 @@ func (client *K8sClient) isPVCVolumeBlock(pvc, ns string) (bool, error) {
 	return false, nil
 }
 
-func (client *K8sClient) isPVCinUse(pvc, ns string) (bool, error) {
-	pods, err := client.getPodsForPVC(pvc, ns)
+func isPVCinUse(client kubernetes.Interface, pvc, ns string) (bool, error) {
+	pods, err := getPodsForPVC(client, pvc, ns)
 	if err != nil {
 		return false, err
 	}
@@ -252,7 +234,7 @@ func (client *K8sClient) isPVCinUse(pvc, ns string) (bool, error) {
 	return false, nil
 }
 
-func (client *K8sClient) waitForContainerRunning(podName, ns string, timeout time.Duration) error {
+func waitForContainerRunning(client kubernetes.Interface, podName, ns string, timeout time.Duration) error {
 	terminated := "Terminated"
 	chTerm := make(chan os.Signal, 1)
 	c := make(chan string, 1)
@@ -260,13 +242,13 @@ func (client *K8sClient) waitForContainerRunning(podName, ns string, timeout tim
 	// if the user killed the guestfs command, the libguestfs-tools pod is also removed
 	go func() {
 		<-chTerm
-		client.removePod(ns, podName)
+		removePod(client, ns, podName)
 		c <- terminated
 	}()
 
 	go func() {
 		for {
-			pod, err := client.Client.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
+			pod, err := client.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
 			if err != nil {
 				c <- err.Error()
 			}
@@ -294,8 +276,8 @@ func (client *K8sClient) waitForContainerRunning(podName, ns string, timeout tim
 	}
 }
 
-func (client *K8sClient) getPodsForPVC(pvcName, ns string) ([]corev1.Pod, error) {
-	nsPods, err := client.Client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
+func getPodsForPVC(client kubernetes.Interface, pvcName, ns string) ([]corev1.Pod, error) {
+	nsPods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return []corev1.Pod{}, err
 	}
@@ -374,7 +356,7 @@ func (c *guestfsCommand) setGIDLibguestfs() (*int64, error) {
 	return nil, nil
 }
 
-func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, args []string, isBlock bool) (*corev1.Pod, error) {
+func (c *guestfsCommand) createLibguestfsPod(ns, cmd string, args []string, isBlock bool) (*corev1.Pod, error) {
 	var (
 		resources    corev1.ResourceRequirements
 		tolerations  []corev1.Toleration
@@ -390,7 +372,7 @@ func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, 
 		}
 	}
 	if c.vm != "" {
-		if vm, err := client.VirtClient.VirtualMachine(ns).Get(context.Background(), c.vm, metav1.GetOptions{}); err == nil {
+		if vm, err := c.virtClient.VirtualMachine(ns).Get(context.Background(), c.vm, metav1.GetOptions{}); err == nil {
 			tolerations = vm.Spec.Template.Spec.Tolerations
 			affinity = vm.Spec.Template.Spec.Affinity
 			labels = vm.Spec.Template.ObjectMeta.Labels
@@ -529,7 +511,7 @@ func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, 
 		fmt.Printf("The PVC has been mounted at %s \n", diskDir)
 	}
 
-	p, err := client.Client.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
+	p, err := c.k8sClient.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -538,8 +520,8 @@ func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, 
 }
 
 // CreateAttacher attaches the stdin, stdout, and stderr to the container shell
-func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
-	req := client.Client.CoreV1().RESTClient().Post().
+func CreateAttacher(restConfig *rest.Config, client kubernetes.Interface, p *corev1.Pod, command string) error {
+	req := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(p.Name).
 		Namespace(p.Namespace).
@@ -553,11 +535,11 @@ func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 			TTY:       true,
 		}, scheme.ParameterCodec,
 	)
-	spdyExec, err := remotecommand.NewSPDYExecutor(client.config, "POST", req.URL())
+	spdyExec, err := remotecommand.NewSPDYExecutor(restConfig, "POST", req.URL())
 	if err != nil {
 		return err
 	}
-	wsExec, err := remotecommand.NewWebSocketExecutor(client.config, "POST", req.URL().String())
+	wsExec, err := remotecommand.NewWebSocketExecutor(restConfig, "POST", req.URL().String())
 	if err != nil {
 		return err
 	}
@@ -581,20 +563,20 @@ func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 		"If you don't see a command prompt, try pressing enter.", resChan)
 }
 
-func (c *guestfsCommand) createInteractivePodWithPVC(client *K8sClient, ns, command string, args []string, isblock bool) error {
-	pod, err := c.createLibguestfsPod(client, ns, command, args, isblock)
+func (c *guestfsCommand) createInteractivePodWithPVC(ns, command string, args []string, isblock bool) error {
+	pod, err := c.createLibguestfsPod(ns, command, args, isblock)
 	if err != nil {
 		return err
 	}
-	err = client.waitForContainerRunning(genPodName(c.pvc), ns, timeout)
+	err = waitForContainerRunning(c.k8sClient, genPodName(c.pvc), ns, timeout)
 	if err != nil {
 		return err
 	}
-	return CreateAttacherFunc(client, pod, command)
+	return CreateAttacherFunc(c.virtClient.Config(), c.k8sClient, pod, command)
 }
 
-func (client *K8sClient) removePod(ns, podName string) error {
-	return client.Client.CoreV1().Pods(ns).Delete(context.TODO(), podName, metav1.DeleteOptions{})
+func removePod(client kubernetes.Interface, ns, podName string) error {
+	return client.CoreV1().Pods(ns).Delete(context.TODO(), podName, metav1.DeleteOptions{})
 }
 
 func genPodName(pvc string) string {

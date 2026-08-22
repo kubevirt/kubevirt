@@ -42,6 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	kubectlutil "k8s.io/kubectl/pkg/util"
@@ -195,7 +197,7 @@ var HandleHTTPGetRequestFn = HandleHTTPGetRequest
 // RunPortForwardFn allows overriding the default port-forwarder (useful for unit testing)
 var RunPortForwardFn = RunPortForward
 
-var exportFunction func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
+var exportFunction func(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vmeInfo *VMExportInfo) error
 
 // TODO Should use cmd.Printf and cmd.SetOut
 var printToOutput = fmt.Printf
@@ -289,10 +291,15 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	k8sClient, err := clientconfig.K8sClientFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	vmeInfo.Namespace = namespace
 
 	// Finally, run the vmexport function (create|delete|download)
-	if err := exportFunction(virtClient, &vmeInfo); err != nil {
+	if err := exportFunction(virtClient, k8sClient, &vmeInfo); err != nil {
 		return err
 	}
 
@@ -313,7 +320,10 @@ func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) err
 			return err
 		}
 	case DELETE:
-		exportFunction = DeleteVirtualMachineExport
+		// Delete only touches the KubeVirt API, the k8s client of exportFunction is unused.
+		exportFunction = func(virtClient kubecli.KubevirtClient, _ kubernetes.Interface, vmeInfo *VMExportInfo) error {
+			return DeleteVirtualMachineExport(virtClient, vmeInfo)
+		}
 		if err := handleDeleteFlags(); err != nil {
 			return err
 		}
@@ -428,8 +438,8 @@ func getVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInf
 }
 
 // CreateVirtualMachineExport serves as a wrapper to create the virtualMachineExport object and, if needed, do error handling
-func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error {
-	vmexport, err := getVirtualMachineExport(client, vmeInfo)
+func CreateVirtualMachineExport(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vmeInfo *VMExportInfo) error {
+	vmexport, err := getVirtualMachineExport(virtClient, vmeInfo)
 	if err != nil {
 		return err
 	}
@@ -454,13 +464,13 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		vmexport.Spec.TTLDuration = &vmeInfo.TTL
 	}
 
-	vmexport, err = client.VirtualMachineExport(vmeInfo.Namespace).Create(context.TODO(), vmexport, metav1.CreateOptions{})
+	vmexport, err = virtClient.VirtualMachineExport(vmeInfo.Namespace).Create(context.TODO(), vmexport, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 
 	// Generate/get secret to be used with the vmexport
-	_, err = getOrCreateTokenSecret(client, vmexport)
+	_, err = getOrCreateTokenSecret(k8sClient, vmexport)
 	if err != nil {
 		return err
 	}
@@ -470,8 +480,8 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 }
 
 // DeleteVirtualMachineExport serves as a wrapper to delete the virtualMachineExport object
-func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error {
-	if err := client.VirtualMachineExport(vmeInfo.Namespace).Delete(context.TODO(), vmeInfo.Name, metav1.DeleteOptions{}); err != nil {
+func DeleteVirtualMachineExport(virtClient kubecli.KubevirtClient, vmeInfo *VMExportInfo) error {
+	if err := virtClient.VirtualMachineExport(vmeInfo.Namespace).Delete(context.TODO(), vmeInfo.Name, metav1.DeleteOptions{}); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
@@ -484,9 +494,9 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 }
 
 // DownloadVirtualMachineExport handles the process of downloading the requested volume from a VirtualMachineExport object
-func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error {
+func DownloadVirtualMachineExport(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vmeInfo *VMExportInfo) error {
 	for attempt := 0; attempt <= vmeInfo.DownloadRetries; attempt++ {
-		succeeded, err := downloadVirtualMachineExport(client, vmeInfo)
+		succeeded, err := downloadVirtualMachineExport(virtClient, k8sClient, vmeInfo)
 		if err != nil {
 			return err
 		}
@@ -501,9 +511,9 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 	return fmt.Errorf("retry count reached, exiting unsuccessfully")
 }
 
-func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (bool, error) {
+func downloadVirtualMachineExport(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vmeInfo *VMExportInfo) (bool, error) {
 	if vmeInfo.ShouldCreate {
-		if err := CreateVirtualMachineExport(client, vmeInfo); err != nil {
+		if err := CreateVirtualMachineExport(virtClient, k8sClient, vmeInfo); err != nil {
 			if errExportAlreadyExists(err) {
 				// Don't delete VMExports that already exist unless specified explicitely
 				vmeInfo.KeepVme = true
@@ -514,11 +524,11 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 	}
 
 	if shouldDeleteVMExport(vmeInfo) {
-		defer DeleteVirtualMachineExport(client, vmeInfo)
+		defer DeleteVirtualMachineExport(virtClient, vmeInfo)
 	}
 
 	if vmeInfo.PortForward {
-		stopChan, err := setupPortForward(client, vmeInfo)
+		stopChan, err := setupPortForward(virtClient, k8sClient, vmeInfo)
 		if err != nil {
 			return false, err
 		}
@@ -526,11 +536,11 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 	}
 
 	// Wait for the vmexport object to be ready
-	if err := WaitForVirtualMachineExportFn(client, vmeInfo, processingWaitInterval, vmeInfo.ReadinessTimeout); err != nil {
+	if err := WaitForVirtualMachineExportFn(virtClient, vmeInfo, processingWaitInterval, vmeInfo.ReadinessTimeout); err != nil {
 		return false, err
 	}
 
-	vmexport, err := getVirtualMachineExport(client, vmeInfo)
+	vmexport, err := getVirtualMachineExport(virtClient, vmeInfo)
 	if err != nil {
 		return false, err
 	}
@@ -540,15 +550,15 @@ func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 
 	// Grab the VM Manifest and display it.
 	if vmeInfo.ExportManifest {
-		return getVirtualMachineManifest(client, vmexport, vmeInfo)
+		return getVirtualMachineManifest(k8sClient, vmexport, vmeInfo)
 	}
 
 	// Download the exported volume
-	return downloadVolume(client, vmexport, vmeInfo)
+	return downloadVolume(k8sClient, vmexport, vmeInfo)
 }
 
-func printRequestBody(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo, manifestUrl string, headers map[string]string) (bool, error) {
-	resp, err := HandleHTTPGetRequestFn(client, vmexport, manifestUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, headers)
+func printRequestBody(k8sClient kubernetes.Interface, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo, manifestUrl string, headers map[string]string) (bool, error) {
+	resp, err := HandleHTTPGetRequestFn(k8sClient, vmexport, manifestUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, headers)
 	if err != nil {
 		return false, err
 	}
@@ -567,7 +577,7 @@ func printRequestBody(client kubecli.KubevirtClient, vmexport *exportv1.VirtualM
 	return true, nil
 }
 
-func getVirtualMachineManifest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (bool, error) {
+func getVirtualMachineManifest(k8sClient kubernetes.Interface, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (bool, error) {
 	manifestMap, err := GetManifestUrlsFromVirtualMachineExport(vmexport, vmeInfo)
 	if err != nil {
 		return false, err
@@ -577,18 +587,18 @@ func getVirtualMachineManifest(client kubecli.KubevirtClient, vmexport *exportv1
 	if strings.ToLower(vmeInfo.OutputFormat) == OUTPUT_FORMAT_JSON {
 		headers[ACCEPT] = APPLICATION_JSON
 	}
-	succeeded, err := printRequestBody(client, vmexport, vmeInfo, manifestMap[exportv1.AllManifests], headers)
+	succeeded, err := printRequestBody(k8sClient, vmexport, vmeInfo, manifestMap[exportv1.AllManifests], headers)
 	if err != nil || !succeeded {
 		return false, err
 	}
 	if vmeInfo.IncludeSecret {
-		return printRequestBody(client, vmexport, vmeInfo, manifestMap[exportv1.AuthHeader], headers)
+		return printRequestBody(k8sClient, vmexport, vmeInfo, manifestMap[exportv1.AuthHeader], headers)
 	}
 	return true, nil
 }
 
 // downloadVolume handles the process of downloading the requested volume from a VirtualMachineExport
-func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (bool, error) {
+func downloadVolume(k8sClient kubernetes.Interface, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (bool, error) {
 	var downloadUrl string
 	var err error
 
@@ -615,7 +625,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 		}
 	}
 
-	resp, err := HandleHTTPGetRequestFn(client, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
+	resp, err := HandleHTTPGetRequestFn(k8sClient, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
 	if err != nil {
 		return false, err
 	}
@@ -776,8 +786,8 @@ func WaitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 }
 
 // HandleHTTPGetRequest generates the GET request with proper certificate handling
-func HandleHTTPGetRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
-	token, err := getTokenFromSecret(client, vmexport)
+func HandleHTTPGetRequest(k8sClient kubernetes.Interface, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+	token, err := getTokenFromSecret(k8sClient, vmexport)
 	if err != nil {
 		return nil, err
 	}
@@ -848,7 +858,7 @@ func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress b
 }
 
 // getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
-func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
+func getOrCreateTokenSecret(k8sClient kubernetes.Interface, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
 	// Securely randomize a 20 char string to be used as a token
 	token, err := util.GenerateVMExportToken()
 	if err != nil {
@@ -876,7 +886,7 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		},
 	}
 
-	secret, err = client.CoreV1().Secrets(vmexport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	secret, err = k8sClient.CoreV1().Secrets(vmexport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
@@ -885,13 +895,13 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 }
 
 // getTokenFromSecret extracts the token from the secret specified on the virtualMachineExport
-func getTokenFromSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (string, error) {
+func getTokenFromSecret(k8sClient kubernetes.Interface, vmexport *exportv1.VirtualMachineExport) (string, error) {
 	secretName := ""
 	if vmexport.Status != nil && vmexport.Status.TokenSecretRef != nil {
 		secretName = *vmexport.Status.TokenSecretRef
 	}
 
-	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	secret, err := k8sClient.CoreV1().Secrets(vmexport.Namespace).Get(context.Background(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -1115,10 +1125,10 @@ func translateServicePortToTargetPort(localPort string, remotePort string, svc k
 }
 
 // waitForExportServiceToBeReady waits until the vmexport service is ready for port-forwarding
-func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
+func waitForExportServiceToBeReady(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
 	service := &k8sv1.Service{}
 	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
-		vmexport, err := getVirtualMachineExport(client, vmeInfo)
+		vmexport, err := getVirtualMachineExport(virtClient, vmeInfo)
 		if err != nil || vmexport == nil {
 			return false, err
 		}
@@ -1134,7 +1144,7 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 			return false, nil
 		}
 
-		service, err = client.CoreV1().Services(vmeInfo.Namespace).Get(ctx, serviceName, metav1.GetOptions{})
+		service, err = k8sClient.CoreV1().Services(vmeInfo.Namespace).Get(ctx, serviceName, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				printToOutput("waiting for service %s to be ready before port-forwarding...\n", serviceName)
@@ -1149,9 +1159,9 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 }
 
 // setupPortForward runs a port-forward after initializing all required arguments
-func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (chan struct{}, error) {
+func setupPortForward(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vmeInfo *VMExportInfo) (chan struct{}, error) {
 	// Wait for the vmexport object to be ready
-	service, err := waitForExportServiceToBeReady(client, vmeInfo, processingWaitInterval, vmeInfo.ReadinessTimeout)
+	service, err := waitForExportServiceToBeReady(virtClient, k8sClient, vmeInfo, processingWaitInterval, vmeInfo.ReadinessTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1170,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	podSelector := labels.SelectorFromSet(service.Spec.Selector)
 
 	// List the pods matching the selector
-	podList, err := client.CoreV1().Pods(vmeInfo.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
+	podList, err := k8sClient.CoreV1().Pods(vmeInfo.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %v", err)
 	}
@@ -1179,7 +1189,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	stopChan := make(chan struct{}, 1)
 	readyChan := make(chan struct{})
 	portChan := make(chan uint16)
-	go RunPortForwardFn(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan, portChan)
+	go RunPortForwardFn(virtClient.Config(), k8sClient, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan, portChan)
 
 	// Wait for the port forwarding to be ready
 	select {
@@ -1199,21 +1209,21 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 }
 
 // RunPortForward is the actual function that runs the port-forward. Meant to be run concurrently
-func RunPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
+func RunPortForward(restConfig *rest.Config, k8sClient kubernetes.Interface, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
 	// Create a port forwarding request
-	req := client.CoreV1().RESTClient().Post().
+	req := k8sClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
 		Namespace(namespace).
 		SubResource("portforward")
 
 	// Set up the port forwarding options
-	spdyTransport, upgrader, err := spdy.RoundTripperFor(client.Config())
+	spdyTransport, upgrader, err := spdy.RoundTripperFor(restConfig)
 	if err != nil {
 		log.Fatalf("Failed to set up transport: %v", err)
 	}
 	spdyDialer := spdy.NewDialer(upgrader, &http.Client{Transport: spdyTransport}, "POST", req.URL())
-	wsDialer, err := portforward.NewSPDYOverWebsocketDialer(req.URL(), client.Config())
+	wsDialer, err := portforward.NewSPDYOverWebsocketDialer(req.URL(), restConfig)
 	if err != nil {
 		log.Fatalf("Failed to set up websocket transport: %v", err)
 	}
