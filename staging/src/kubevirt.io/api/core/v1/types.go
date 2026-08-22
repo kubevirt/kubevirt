@@ -3571,8 +3571,12 @@ type VMIMConfigurationOptions struct {
 	// permitted, migration will be switched to post-copy or the VMI will be
 	// paused to allow the migration to complete
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
-	// When set to true, DisableTLS will disable the additional layer of live migration encryption
-	// provided by KubeVirt. This is usually a bad idea. Defaults to false
+	// DisableTLS disables both TLS encryption and mutual TLS authentication
+	// on the migration proxy when set to true. This removes all cryptographic
+	// protection from the migration data stream.
+	// When disabled, implement network-level access controls to restrict
+	// migration traffic to trusted sources only.
+	// Defaults to false.
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
@@ -3636,8 +3640,12 @@ type MigrationConfiguration struct {
 	// permitted, migration will be switched to post-copy or the VMI will be
 	// paused to allow the migration to complete
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
-	// When set to true, DisableTLS will disable the additional layer of live migration encryption
-	// provided by KubeVirt. This is usually a bad idea. Defaults to false
+	// DisableTLS disables both TLS encryption and mutual TLS authentication
+	// on the migration proxy when set to true. This removes all cryptographic
+	// protection from the migration data stream.
+	// When disabled, implement network-level access controls to restrict
+	// migration traffic to trusted sources only.
+	// Defaults to false.
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
