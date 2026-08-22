@@ -478,12 +478,13 @@ func getMinimalInitContainerDiskResources(vmi *v1.VirtualMachineInstance, config
 
 // CreateImageVolumeInitContainer creates a single init container for ImageVolume feature
 func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, name, image string, imagePullPolicy kubev1.PullPolicy) kubev1.Container {
+	const containerBinary = "/container-disk-binary"
 	resources := getMinimalInitContainerDiskResources(vmi, config)
 	return kubev1.Container{
 		Name:            fmt.Sprintf("volume%s", name),
 		Image:           image,
 		ImagePullPolicy: imagePullPolicy,
-		Command:         []string{filepath.Join(util.ContainerBinary, "/usr/bin/container-disk")},
+		Command:         []string{filepath.Join(containerBinary, "/usr/bin/container-disk")},
 		Args:            []string{"--no-op"},
 		Resources:       resources,
 		SecurityContext: &kubev1.SecurityContext{
@@ -496,7 +497,7 @@ func CreateImageVolumeInitContainer(vmi *v1.VirtualMachineInstance, config *virt
 		},
 		VolumeMounts: []kubev1.VolumeMount{{
 			Name:      LauncherVolume,
-			MountPath: util.ContainerBinary,
+			MountPath: containerBinary,
 			ReadOnly:  true,
 		}},
 	}
