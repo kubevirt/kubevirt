@@ -2560,7 +2560,7 @@ var _ = Describe("Template", func() {
 					Entry("memory requests only - not expect overcommit", notExpectOvercommit, setMemoryRequests),
 					Entry("memory limits only - not expect overcommit", notExpectOvercommit, setMemoryLimits),
 					Entry("guest memory only - expect overcommit", expectOvercommit, setGuestMemory),
-					Entry("hugepages memory only - expect overcommit", expectOvercommit, setHugePagesMemory),
+					Entry("hugepages memory only - not expect overcommit", notExpectOvercommit, setHugePagesMemory),
 
 					// Pairs of memory setters
 					Entry("memory requests and limits - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits),
@@ -2568,7 +2568,7 @@ var _ = Describe("Template", func() {
 					Entry("memory requests and hugepages - not expect overcommit", notExpectOvercommit, setMemoryRequests, setHugePagesMemory),
 					Entry("memory limits and guest memory - not expect overcommit", notExpectOvercommit, setMemoryLimits, setGuestMemory),
 					Entry("memory limits and hugepages - not expect overcommit", notExpectOvercommit, setMemoryLimits, setHugePagesMemory),
-					Entry("guest memory and hugepages - expect overcommit", expectOvercommit, setGuestMemory, setHugePagesMemory),
+					Entry("guest memory and hugepages - not expect overcommit", notExpectOvercommit, setGuestMemory, setHugePagesMemory),
 
 					// Triplets of memory setters
 					Entry("memory requests, limits and guest memory - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits, setGuestMemory),
