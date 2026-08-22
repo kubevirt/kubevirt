@@ -284,7 +284,8 @@ var Testdataexpected = `{
      "MegabytesPerSecondSet": false,
      "MegabytesPerSecond": 0
    },
-   "Load": null
+   "Load": null,
+   "CgroupMemory": null
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {
