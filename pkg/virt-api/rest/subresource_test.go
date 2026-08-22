@@ -134,8 +134,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backendIP = backendAddr[0]
 		Expect(err).ToNot(HaveOccurred())
 		app.consoleServerPort = backendPort
-		app.virtClient = virtClient
-		app.k8sClient = kubeClient
+		app.virtCli = virtClient
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
 		app.handlerHttpClient = &http.Client{
@@ -314,7 +313,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Entry("with RunStrategyManual", "VM is not running: Halted", nil, pointer.P(v1.RunStrategyManual)),
 			)
 
-			DescribeTable("should ForceRestart VirtualMachine according to options", func(terminationGracePeriod *int64, restartOptions *v1.RestartOptions) {
+			DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -323,123 +322,81 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      testVMName,
-						Namespace: k8smetav1.NamespaceDefault,
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						TerminationGracePeriodSeconds: terminationGracePeriod,
-					},
+					Spec: v1.VirtualMachineInstanceSpec{},
 				}
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
+				pod := &k8sv1.Pod{}
+				pod.Labels = map[string]string{}
+				pod.Annotations = map[string]string{}
+				pod.Labels[v1.AppLabel] = "virt-launcher"
+				pod.ObjectMeta.Name = "virt-launcher-testvm"
+				pod.Spec.NodeName = "mynode"
+				pod.Status.Phase = k8sv1.PodRunning
+				pod.Status.PodIP = "10.35.1.1"
+				pod.Labels[v1.CreatedByLabel] = string(vmi.UID)
+				pod.Annotations[v1.DomainAnnotation] = vm.Name
+
+				podList := k8sv1.PodList{}
+				podList.Items = []k8sv1.Pod{}
+				podList.Items = append(podList.Items, *pod)
+
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
-				gomock.InOrder(
-					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-							Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
-
-							patchSet := patch.New()
-							if terminationGracePeriod != nil {
-								patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *terminationGracePeriod))
-							} else {
-								patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
-							}
-							patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", int64(1)))
-							patchBytes, err := patchSet.GeneratePayload()
-							Expect(err).ToNot(HaveOccurred())
-							Expect(string(data)).To(Equal(string(patchBytes)))
-							return &vmi, nil
-						}),
-					vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions) (interface{}, interface{}) {
-							Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
-							return vm, nil
-						}),
-				)
+				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions) (interface{}, interface{}) {
+						//check that dryRun option has been propagated to patch request
+						Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
+						return vm, nil
+					})
+				kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					return true, &podList, nil
+				})
+				kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					_, ok := action.(testing.DeleteAction)
+					Expect(ok).To(BeTrue())
+					return true, nil, nil
+				})
 
 				app.RestartVMRequestHandler(request, response)
 
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
-				Entry("with non-nil terminationGracePeriod", pointer.P(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
-				Entry("with nil terminationGracePeriod", nil, &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
-				Entry("with dry-run option", pointer.P(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero, DryRun: withDryRun()}),
+				Entry("with default", &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}),
+				Entry("with dry-run option", &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero, DryRun: withDryRun()}),
 			)
 
-			It("should return error when VMI terminationGracePeriod patch fails during ForceRestart", func() {
+			It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				restartOptions := &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}
-				bytesRepresentation, _ := json.Marshal(restartOptions)
+				body := map[string]int64{
+					"gracePeriodSeconds": 0,
+				}
+				bytesRepresentation, _ := json.Marshal(body)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vm := newVirtualMachineWithRunning(pointer.P(Running))
-				var terminationGracePeriodSeconds int64 = 600
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      testVMName,
-						Namespace: k8smetav1.NamespaceDefault,
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					},
+					Spec: v1.VirtualMachineInstanceSpec{},
 				}
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
+				podList := k8sv1.PodList{}
+				podList.Items = []k8sv1.Pod{}
+
+				kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					return true, &podList, nil
+				})
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("optimistic locking conflict"))
+				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
 
 				app.RestartVMRequestHandler(request, response)
 
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			})
-
-			It("should rollback VMI terminationGracePeriod when VM PatchStatus fails after successful VMI patch", func() {
-				request.PathParameters()["name"] = testVMName
-				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
-
-				restartOptions := &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}
-				bytesRepresentation, _ := json.Marshal(restartOptions)
-				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
-
-				vm := newVirtualMachineWithRunning(pointer.P(Running))
-				var terminationGracePeriodSeconds int64 = 600
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:      testVMName,
-						Namespace: k8smetav1.NamespaceDefault,
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
-					},
-				}
-				vmi.ObjectMeta.SetUID(uuid.NewUUID())
-
-				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
-				gomock.InOrder(
-					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(&vmi, nil),
-					vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("status patch conflict")),
-					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-							patchSet := patch.New()
-							patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", int64(1)))
-							patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", terminationGracePeriodSeconds))
-							patchBytes, err := patchSet.GeneratePayload()
-							Expect(err).ToNot(HaveOccurred())
-							Expect(string(data)).To(Equal(string(patchBytes)))
-							return &vmi, nil
-						}),
-				)
-
-				app.RestartVMRequestHandler(request, response)
-
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
+				Expect(response.Error()).ToNot(HaveOccurred())
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			})
 
 			It("should restart VirtualMachine", func() {
@@ -1331,16 +1288,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				FailureThreshold:    1,
 			}
 		}
-		withGuestAgentPingLivenessProbe := func(vmi *v1.VirtualMachineInstance) {
-			vmi.Spec.LivenessProbe = &v1.Probe{
-				Handler:             v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}},
-				InitialDelaySeconds: 120,
-				TimeoutSeconds:      120,
-				PeriodSeconds:       120,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			}
-		}
 		nilAdditionalOps := func(vmi *v1.VirtualMachineInstance) {
 			return
 		}
@@ -1362,27 +1309,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a running but paused VMI", Running, Paused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict, "VMI is already paused"),
 			Entry("a running but paused VMI with dry-run option", Running, Paused, nilAdditionalOps, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusConflict, "VMI is already paused"),
 
-			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with a non-GuestAgentPing LivenessProbe is not supported"),
-			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusForbidden, "Pausing VMIs with a non-GuestAgentPing LivenessProbe is not supported"),
+			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
+			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
 		)
-
-		It("Should allow pausing a running VMI with a GuestAgentPing LivenessProbe", func() {
-			backend.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/pause"),
-					ghttp.RespondWith(http.StatusOK, ""),
-				),
-			)
-			expectVMI(Running, UnPaused, withGuestAgentPingLivenessProbe)
-
-			bytesRepresentation, _ := json.Marshal(&v1.PauseOptions{})
-			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
-
-			app.PauseVMIRequestHandler(request, response)
-
-			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-			Expect(backend.ReceivedRequests()).To(HaveLen(1))
-		})
 
 		DescribeTable("Should fail unpausing due to VMI state", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
 
