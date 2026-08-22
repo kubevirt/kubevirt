@@ -468,7 +468,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	cbtHandler := virthandler.NewCBTHandler(app.virtClient, backupTrackerInformer)
+	cbtHandler := virthandler.NewCBTHandler(backupTrackerInformer)
 
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,

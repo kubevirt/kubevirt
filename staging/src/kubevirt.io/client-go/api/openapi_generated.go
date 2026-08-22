@@ -17810,10 +17810,10 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref
 							Ref:         ref("kubevirt.io/api/backup/v1alpha1.BackupCheckpoint"),
 						},
 					},
-					"checkpointRedefinitionRequired": {
+					"lastTrackedPodUID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CheckpointRedefinitionRequired is set to true by virt-handler when the VM restarts and has a checkpoint that needs to be redefined in libvirt. virt-controller will process this flag, attempt redefinition, and clear it.",
-							Type:        []string{"boolean"},
+							Description: "LastTrackedPodUID is the UID of the virt-launcher pod associated with the VMI being tracked for which checkpoints were last defined in libvirt. After a VM restart, the new pod UID will differ, signaling that checkpoint redefinition is needed before backups can resume.",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
