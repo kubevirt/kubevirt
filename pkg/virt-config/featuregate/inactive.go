@@ -219,6 +219,15 @@ const (
 	// Beta: v1.8.0
 	// GA: v1.10.0
 	ExternalNetResourceInjection = "ExternalNetResourceInjection"
+
+	// Owner: sig-compute
+	// Alpha: v0.58.0
+	// Beta: v1.8.0
+	// GA: v1.10.0
+	//
+	// KubevirtSeccompProfile installs a custom seccomp profile on each node and
+	// allows virt-launcher pods to reference it, enabling post-copy migration under PSA.
+	KubevirtSeccompProfile = "KubevirtSeccompProfile"
 )
 
 func init() {
@@ -267,4 +276,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: GA})
 }
