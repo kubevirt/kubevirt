@@ -50,10 +50,14 @@ func InstallPolicy(kubeletRoot string) error {
 		return fmt.Errorf(errMsgFormat, err)
 	}
 	if bytes.Equal(currentProfileBytes, profileBytes) {
+		// Correct permissions on profiles formerly deployed with a too-permissive mode.
+		if err := os.Chmod(profilePath, 0600); err != nil {
+			return fmt.Errorf(errMsgFormat, err)
+		}
 		return nil
 	}
 
-	if err := os.WriteFile(profilePath, profileBytes, 0700); err != nil {
+	if err := os.WriteFile(profilePath, profileBytes, 0600); err != nil {
 		return fmt.Errorf(errMsgFormat, err)
 	}
 
