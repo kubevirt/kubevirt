@@ -103,7 +103,7 @@ func getBaseEnv() (*cel.Env, error) {
 	return baseEnv, baseEnvErr
 }
 
-func NewBaseEvaluator(opts ...Option) (*cel.Env, error) {
+func NewBaseEnv(opts ...Option) (*cel.Env, error) {
 	cfg := &config{}
 	for _, o := range opts {
 		o(cfg)
@@ -148,7 +148,7 @@ func NewBaseEvaluator(opts ...Option) (*cel.Env, error) {
 
 func NewEvaluator(opts ...Option) (*Evaluator, error) {
 	envOpts := append([]Option{WithNativeTypesJSON(reflect.TypeOf(&v1.VirtualMachineInstance{}))}, opts...)
-	env, err := NewBaseEvaluator(envOpts...)
+	env, err := NewBaseEnv(envOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}

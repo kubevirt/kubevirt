@@ -69,9 +69,9 @@ var _ = Describe("CEL Evaluator", func() {
 		}
 	})
 
-	Context("NewBaseEvaluator", func() {
+	Context("NewBaseEnv", func() {
 		It("should create base evaluator", func() {
-			_, err := cel.NewBaseEvaluator()
+			_, err := cel.NewBaseEnv()
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -143,7 +143,7 @@ var _ = Describe("CEL Evaluator", func() {
 		})
 
 		It("should accept go struct parsing when default tag parser is not JSON", func() {
-			eval, err := cel.NewBaseEvaluator(
+			eval, err := cel.NewBaseEnv(
 				cel.WithNativeTypes(reflect.TypeOf(&v1.VirtualMachineInstance{})),
 			)
 			Expect(err).ToNot(HaveOccurred())

@@ -58,7 +58,7 @@ func GetEvaluator() *Evaluator {
 }
 
 func NewEvaluator() (*Evaluator, error) {
-	env, err := celutil.NewBaseEvaluator(
+	env, err := celutil.NewBaseEnv(
 		celutil.WithNativeTypes(reflect.TypeOf(&libvirtxml.Domain{}),
 			reflect.TypeOf(&v1.VirtualMachineInstance{})),
 		celutil.WithContainer("libvirtxml"),
