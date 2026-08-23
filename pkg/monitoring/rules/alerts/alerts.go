@@ -39,6 +39,7 @@ const (
 
 	partOfAlertLabelKey    = "kubernetes_operator_part_of"
 	componentAlertLabelKey = "kubernetes_operator_component"
+	namespaceAlertLabelKey = "namespace"
 	kubevirtLabelValue     = "kubevirt"
 
 	durationFiveMinutes = "5 minutes"
