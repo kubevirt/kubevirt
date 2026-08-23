@@ -38,11 +38,10 @@ type variable struct {
 }
 
 type config struct {
-	variables       []variable
-	containers      []string
-	nativeTypes     []reflect.Type
-	nativeTypesJSON []reflect.Type
-	typeProvider    func(types.Provider) types.Provider
+	variables    []variable
+	containers   []string
+	nativeTypes  []reflect.Type
+	typeProvider func(types.Provider) types.Provider
 }
 
 type Option func(*config)
@@ -62,12 +61,6 @@ func WithContainer(name string) Option {
 func WithNativeTypes(types ...reflect.Type) Option {
 	return func(c *config) {
 		c.nativeTypes = append(c.nativeTypes, types...)
-	}
-}
-
-func WithNativeTypesJSON(types ...reflect.Type) Option {
-	return func(c *config) {
-		c.nativeTypesJSON = append(c.nativeTypesJSON, types...)
 	}
 }
 
@@ -118,10 +111,6 @@ func NewBaseEnv(opts ...Option) (*cel.Env, error) {
 		envOpts = append(envOpts, ext.NativeTypes(t))
 	}
 
-	for _, t := range cfg.nativeTypesJSON {
-		envOpts = append(envOpts, ext.NativeTypes(t, ext.ParseStructTag("json")))
-	}
-
 	for _, container := range cfg.containers {
 		envOpts = append(envOpts, cel.Container(container))
 	}
@@ -142,12 +131,12 @@ func NewBaseEnv(opts ...Option) (*cel.Env, error) {
 		}
 	}
 
-	return env, err
+	return env, nil
 }
 
 func NewEvaluator(opts ...Option) (*Evaluator, error) {
 	envOpts := append([]Option{
-		WithNativeTypesJSON(reflect.TypeOf(&v1.VirtualMachineInstance{})),
+		WithNativeTypes(reflect.TypeOf(&v1.VirtualMachineInstance{})),
 		WithVariable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
 	}, opts...)
 	env, err := NewBaseEnv(envOpts...)
