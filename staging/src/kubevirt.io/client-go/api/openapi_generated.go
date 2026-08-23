@@ -24087,7 +24087,7 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 					},
 					"disableTLS": {
 						SchemaProps: spec.SchemaProps{
-							Description: "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
+							Description: "DisableTLS disables both TLS encryption and mutual TLS authentication on the migration proxy when set to true. This removes all cryptographic protection from the migration data stream. When disabled, implement network-level access controls to restrict migration traffic to trusted sources only. Defaults to false.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -26932,7 +26932,7 @@ func schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref common.Reference
 					},
 					"disableTLS": {
 						SchemaProps: spec.SchemaProps{
-							Description: "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
+							Description: "DisableTLS disables both TLS encryption and mutual TLS authentication on the migration proxy when set to true. This removes all cryptographic protection from the migration data stream. When disabled, implement network-level access controls to restrict migration traffic to trusted sources only. Defaults to false.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
