@@ -56,11 +56,6 @@ func OpenFileWithNosec(pathName string, flag int) (*os.File, error) {
 	return os.OpenFile(pathName, flag, 0644)
 }
 
-func WriteFileWithNosec(pathName string, data []byte) error {
-	// #nosec G306, Expect WriteFile permissions to be 0600 or less
-	return os.WriteFile(pathName, data, 0644)
-}
-
 func WriteBytes(f *os.File, c byte, n int64) error {
 	var err error
 	var i, total int64
