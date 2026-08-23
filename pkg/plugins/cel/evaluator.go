@@ -95,7 +95,6 @@ func getBaseEnv() (*cel.Env, error) {
 			ext.Strings(),
 			ext.Math(),
 			ext.Lists(),
-			cel.Variable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
 			cel.CrossTypeNumericComparisons(true),
 			cel.EagerlyValidateDeclarations(true),
 		)
@@ -147,7 +146,10 @@ func NewBaseEnv(opts ...Option) (*cel.Env, error) {
 }
 
 func NewEvaluator(opts ...Option) (*Evaluator, error) {
-	envOpts := append([]Option{WithNativeTypesJSON(reflect.TypeOf(&v1.VirtualMachineInstance{}))}, opts...)
+	envOpts := append([]Option{
+		WithNativeTypesJSON(reflect.TypeOf(&v1.VirtualMachineInstance{})),
+		WithVariable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
+	}, opts...)
 	env, err := NewBaseEnv(envOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)

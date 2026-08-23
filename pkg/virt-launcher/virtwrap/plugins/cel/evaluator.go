@@ -63,6 +63,7 @@ func NewEvaluator() (*Evaluator, error) {
 			reflect.TypeOf(&v1.VirtualMachineInstance{})),
 		celutil.WithContainer("libvirtxml"),
 		celutil.WithCustomTypeProvider(func(wrap types.Provider) types.Provider { return &sparseProvider{delegate: wrap} }),
+		celutil.WithVariable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
 		celutil.WithVariable("domainSpec", cel.ObjectType("libvirtxml.Domain")),
 	)
 	if err != nil {
