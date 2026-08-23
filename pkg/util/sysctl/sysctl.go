@@ -20,8 +20,6 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -64,5 +62,5 @@ func (*procSysctl) GetSysctl(sysctl string) (string, error) {
 
 // SetSysctl modifies the specified sysctl flag to the new value
 func (*procSysctl) SetSysctl(sysctl string, newVal string) error {
-	return util.WriteFileWithNosec(path.Join(sysctlBase, sysctl), []byte(newVal))
+	return os.WriteFile(path.Join(sysctlBase, sysctl), []byte(newVal), 0600)
 }
