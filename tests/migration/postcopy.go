@@ -100,7 +100,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -133,7 +133,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 
 		DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Namespace = testsuite.NamespacePrivileged
 
 			switch settingsType {
 			case applyWithMigrationPolicy:
@@ -178,7 +177,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithRng(),
-					libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),
 				)
 
@@ -328,11 +326,6 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 	mode := v1.MigrationPreCopy
 	if migrationPolicy != nil && migrationPolicy.Spec.AllowPostCopy != nil && *migrationPolicy.Spec.AllowPostCopy {
 		mode = v1.MigrationPostCopy
-	}
-
-	// postcopy needs a privileged namespace
-	if mode == v1.MigrationPostCopy {
-		vmi.Namespace = testsuite.NamespacePrivileged
 	}
 
 	disks := vmi.Spec.Domain.Devices.Disks
