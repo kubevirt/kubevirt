@@ -304,7 +304,16 @@ func formatVFIOCdevDeviceSpecs(pciAddress string) []*v1beta1.DeviceSpec {
 
 	devSpecs := make([]*v1beta1.DeviceSpec, 0, len(entries))
 	for _, entry := range entries {
-		cdevPath := filepath.Join("/dev/vfio/devices", entry.Name())
+		cdevPath := filepath.Join(vfioDevicesRoot, entry.Name())
+		// Only add the device spec if the actual device file exists
+		if _, err := os.Stat(cdevPath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.DefaultLogger().V(4).Infof("VFIO cdev %s does not exist, skipping", cdevPath)
+			} else {
+				log.DefaultLogger().Reason(err).Warningf("Failed to stat VFIO cdev %s", cdevPath)
+			}
+			continue
+		}
 		devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
 			HostPath:      cdevPath,
 			ContainerPath: cdevPath,
