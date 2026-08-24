@@ -100,7 +100,20 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
 	currentDedicatedThread := uint(autoThreads + 1)
-	supplementalIOThreads := iothreads.BuildSupplementalPoolIOThreads(vmi)
+
+	var ioThreadPool *api.DiskIOThreads
+	useMultiIOAuto := d.c.SCSIMultiIOThreadEnabled && d.c.MultiIOThreadAutoPolicyEnabled
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
+		if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+			// vmi admitter requires SupplementalPoolThreadCount to be set when using this thread policy
+			ioThreadPool = iothreads.BuildIOThreadPool(int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount))
+		} else if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto && useMultiIOAuto {
+			// when feature gate and config set,
+			// auto policy matches virtio-scsi behavior in assigning each disk the entire auto thread pool
+			autoPoolSize := min(autoThreads, int(vcpus))
+			ioThreadPool = iothreads.BuildIOThreadPool(autoPoolSize)
+		}
+	}
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 		emptyCDRom := false
@@ -147,7 +160,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
+			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, ioThreadPool, autoThreads, currentDedicatedThread, currentAutoThread)
 		}
 	}
 
