@@ -983,7 +983,10 @@ type Console struct {
 	Type   string         `xml:"type,attr"`
 	Target *ConsoleTarget `xml:"target,omitempty"`
 	Source *ConsoleSource `xml:"source,omitempty"`
-	Alias  *Alias         `xml:"alias,omitempty"`
+	// Log configures logging for the console device. Used on s390x to log
+	// the SCLP console output without a duplicate serial device.
+	Log   *SerialLog     `xml:"log,omitempty"`
+	Alias *Alias         `xml:"alias,omitempty"`
 }
 
 type ConsoleTarget struct {

@@ -31,11 +31,13 @@ import (
 
 type ConsoleDomainConfigurator struct {
 	useSerialConsoleLog bool
+	architecture        string
 }
 
-func NewConsoleDomainConfigurator(useSerialConsoleLog bool) ConsoleDomainConfigurator {
+func NewConsoleDomainConfigurator(useSerialConsoleLog bool, architecture string) ConsoleDomainConfigurator {
 	return ConsoleDomainConfigurator{
 		useSerialConsoleLog: useSerialConsoleLog,
+		architecture:        architecture,
 	}
 }
 
@@ -48,10 +50,41 @@ func (c ConsoleDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 		serialPortIndex = uint(0)
 		serialType      = "serial"
 		consoleType     = "pty"
+		consoleSCLPType = "sclp"
 		serialTypeUnix  = "unix"
 		bindMode        = "bind"
 		logAppend       = "on"
 	)
+
+	socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPortIndex)
+
+	// On s390x, libvirt maps both <serial> and <console> devices to the SCLP console.
+	// When a <serial type="unix"> is submitted, libvirt automatically creates a <console>
+	// alias and copies the <log> element to it, causing every log line to be written twice.
+	// To avoid this, on s390x we submit only a <console type="unix"> with target type "sclp".
+	// Libvirt does NOT create a reverse serial alias in that case, so there is only one
+	// logging device.
+	if c.architecture == "s390x" {
+		console := api.Console{
+			Type: serialTypeUnix,
+			Source: &api.ConsoleSource{
+				Mode: bindMode,
+				Path: socketPath,
+			},
+			Target: &api.ConsoleTarget{
+				Type: pointer.P(consoleSCLPType),
+				Port: pointer.P(serialPortIndex),
+			},
+		}
+		if c.useSerialConsoleLog {
+			console.Log = &api.SerialLog{
+				File:   fmt.Sprintf("%s-log", socketPath),
+				Append: logAppend,
+			}
+		}
+		domain.Spec.Devices.Consoles = []api.Console{console}
+		return nil
+	}
 
 	domain.Spec.Devices.Consoles = []api.Console{
 		{
@@ -63,7 +96,6 @@ func (c ConsoleDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 		},
 	}
 
-	socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPortIndex)
 	serial := api.Serial{
 		Type: serialTypeUnix,
 		Target: &api.SerialTarget{
