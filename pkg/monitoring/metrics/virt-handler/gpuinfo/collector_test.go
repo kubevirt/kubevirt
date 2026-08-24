@@ -23,7 +23,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "kubevirt.io/api/core/v1"
 )
+
+func newVMI(namespace, name, hostname string) *v1.VirtualMachineInstance {
+	return &v1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		Spec:       v1.VirtualMachineInstanceSpec{Hostname: hostname},
+	}
+}
 
 var _ = Describe("GPU Info Collector", func() {
 	Context("collectCallback", func() {
@@ -41,12 +52,14 @@ var _ = Describe("GPU Info Collector", func() {
 					{
 						Namespace: "test-ns",
 						PodName:   "virt-launcher-test-vmi-abc123",
+						VMIName:   "test-vmi",
 						Resource:  "nvidia.com/NVIDIA_A2-2Q",
 						UUID:      "gpu-uuid-123",
 					},
 					{
 						Namespace: "test-ns",
 						PodName:   "virt-launcher-test-vmi-abc123",
+						VMIName:   "test-vmi",
 						Resource:  "nvidia.com/NVIDIA_A2-2Q",
 						UUID:      "gpu-uuid-456",
 					},
@@ -60,6 +73,7 @@ var _ = Describe("GPU Info Collector", func() {
 			Expect(results[0].ConstLabels["node"]).To(Equal("worker-1"))
 			Expect(results[0].ConstLabels["namespace"]).To(Equal("test-ns"))
 			Expect(results[0].ConstLabels["pod"]).To(Equal("virt-launcher-test-vmi-abc123"))
+			Expect(results[0].ConstLabels["name"]).To(Equal("test-vmi"))
 			Expect(results[0].ConstLabels["resource"]).To(Equal("nvidia.com/NVIDIA_A2-2Q"))
 			Expect(results[0].ConstLabels["uuid"]).To(Equal("gpu-uuid-123"))
 
@@ -74,6 +88,38 @@ var _ = Describe("GPU Info Collector", func() {
 
 			results := collectCallback()
 			Expect(results).To(BeEmpty())
+		})
+	})
+
+	Context("resolveVMIName", func() {
+		It("returns the VMI name for the matching virt-launcher pod", func() {
+			vmis := []*v1.VirtualMachineInstance{newVMI("test-ns", "my-vmi", "")}
+			Expect(resolveVMIName("test-ns", "virt-launcher-my-vmi-abc12", vmis)).To(Equal("my-vmi"))
+		})
+
+		It("disambiguates hyphenated VMI names using the launcher suffix", func() {
+			vmis := []*v1.VirtualMachineInstance{
+				newVMI("test-ns", "foo", ""),
+				newVMI("test-ns", "foo-bar", ""),
+			}
+			Expect(resolveVMIName("test-ns", "virt-launcher-foo-bar-abc12", vmis)).To(Equal("foo-bar"))
+			Expect(resolveVMIName("test-ns", "virt-launcher-foo-abc12", vmis)).To(Equal("foo"))
+		})
+
+		It("respects the VMI Spec.Hostname override", func() {
+			vmis := []*v1.VirtualMachineInstance{newVMI("test-ns", "my-vmi", "custom-host")}
+			Expect(resolveVMIName("test-ns", "virt-launcher-custom-host-abc12", vmis)).To(Equal("my-vmi"))
+		})
+
+		It("returns empty string when no VMI matches by name or namespace", func() {
+			vmis := []*v1.VirtualMachineInstance{newVMI("test-ns", "my-vmi", "")}
+			Expect(resolveVMIName("test-ns", "virt-launcher-other-abc12", vmis)).To(BeEmpty())
+			Expect(resolveVMIName("other-ns", "virt-launcher-my-vmi-abc12", vmis)).To(BeEmpty())
+		})
+
+		It("returns empty string when the pod suffix is not a valid launcher suffix", func() {
+			vmis := []*v1.VirtualMachineInstance{newVMI("test-ns", "my-vmi", "")}
+			Expect(resolveVMIName("test-ns", "virt-launcher-my-vmi-toolongsuffix", vmis)).To(BeEmpty())
 		})
 	})
 })
