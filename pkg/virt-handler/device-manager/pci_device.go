@@ -44,7 +44,10 @@ const (
 	vfioMount      = "/dev/vfio/vfio"
 )
 
-var pciBasePath = "/sys/bus/pci/devices"
+var (
+	pciBasePath     = "/sys/bus/pci/devices"
+	vfioDevicesRoot = "/dev/vfio/devices"
+)
 
 type PCIDevice struct {
 	pciID      string
