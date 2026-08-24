@@ -25,8 +25,8 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -38,9 +38,11 @@ type variable struct {
 }
 
 type config struct {
-	variables   []variable
-	containers  []string
-	nativeTypes []reflect.Type
+	variables       []variable
+	containers      []string
+	nativeTypes     []reflect.Type
+	nativeTypesJSON []reflect.Type
+	typeProvider    func(types.Provider) types.Provider
 }
 
 type Option func(*config)
@@ -63,30 +65,62 @@ func WithNativeTypes(types ...reflect.Type) Option {
 	}
 }
 
+func WithNativeTypesJSON(types ...reflect.Type) Option {
+	return func(c *config) {
+		c.nativeTypesJSON = append(c.nativeTypesJSON, types...)
+	}
+}
+
+func WithCustomTypeProvider(wrap func(types.Provider) types.Provider) Option {
+	return func(c *config) {
+		c.typeProvider = wrap
+	}
+}
+
 type Evaluator struct {
 	env   *cel.Env
 	mu    sync.RWMutex
 	cache map[string]cel.Program
 }
 
-func NewEvaluator(opts ...Option) (*Evaluator, error) {
+var (
+	baseEnvOnce sync.Once
+	baseEnv     *cel.Env
+	baseEnvErr  error
+)
+
+func getBaseEnv() (*cel.Env, error) {
+	baseEnvOnce.Do(func() {
+		baseEnv, baseEnvErr = cel.NewEnv(
+			ext.Strings(),
+			ext.Math(),
+			ext.Lists(),
+			cel.Variable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
+			cel.CrossTypeNumericComparisons(true),
+			cel.EagerlyValidateDeclarations(true),
+		)
+	})
+	return baseEnv, baseEnvErr
+}
+
+func NewBaseEvaluator(opts ...Option) (*cel.Env, error) {
 	cfg := &config{}
 	for _, o := range opts {
 		o(cfg)
 	}
 
-	nativeTypes := []any{reflect.TypeFor[*v1.VirtualMachineInstance]()}
-	for _, t := range cfg.nativeTypes {
-		nativeTypes = append(nativeTypes, t)
+	base, err := getBaseEnv()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create base CEL environment: %w", err)
 	}
 
-	envOpts := []cel.EnvOption{
-		ext.NativeTypes(append(nativeTypes, ext.ParseStructTag("json"))...),
-		ext.Strings(),
-		ext.Math(),
-		ext.Lists(),
-		cel.Variable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
-		cel.CrossTypeNumericComparisons(true),
+	var envOpts []cel.EnvOption
+	for _, t := range cfg.nativeTypes {
+		envOpts = append(envOpts, ext.NativeTypes(t))
+	}
+
+	for _, t := range cfg.nativeTypesJSON {
+		envOpts = append(envOpts, ext.NativeTypes(t, ext.ParseStructTag("json")))
 	}
 
 	for _, container := range cfg.containers {
@@ -97,7 +131,24 @@ func NewEvaluator(opts ...Option) (*Evaluator, error) {
 		envOpts = append(envOpts, cel.Variable(v.name, v.typ))
 	}
 
-	env, err := cel.NewEnv(envOpts...)
+	env, err := base.Extend(envOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
+	}
+
+	if cfg.typeProvider != nil {
+		env, err = env.Extend(cel.CustomTypeProvider(cfg.typeProvider(env.CELTypeProvider())))
+		if err != nil {
+			return nil, fmt.Errorf("failed to extend CEL environment with custom type provider: %w", err)
+		}
+	}
+
+	return env, err
+}
+
+func NewEvaluator(opts ...Option) (*Evaluator, error) {
+	envOpts := append([]Option{WithNativeTypesJSON(reflect.TypeOf(&v1.VirtualMachineInstance{}))}, opts...)
+	env, err := NewBaseEvaluator(envOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
