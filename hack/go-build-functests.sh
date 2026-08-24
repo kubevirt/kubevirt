@@ -22,22 +22,11 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-PLATFORM=$(uname -m)
-case ${PLATFORM} in
-x86_64* | i?86_64* | amd64*)
-    ARCH="amd64"
-    ;;
-aarch64* | arm64*)
-    ARCH="arm64"
-    ;;
-s390x)
-    ARCH="s390x"
-    ;;
-*)
-    echo "invalid Arch, only support x86_64, aarch64 and s390x"
-    exit 1
-    ;;
-esac
+if [ -n "${BUILD_ARCH}" ]; then
+    ARCH=$(format_archname "${BUILD_ARCH}" tag)
+else
+    ARCH=$(format_archname "$(uname -m)" tag)
+fi
 
 function build_func_tests() {
     echo "building functional tests"

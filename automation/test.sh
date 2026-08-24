@@ -64,9 +64,6 @@ add_feature_gate() {
 export KUBEVIRT_NO_BAZEL=true
 
 export KUBEVIRT_DEPLOY_CDI=true
-# TODO: Remove this once Prow job configs set KUBEVIRT_NO_BAZEL externally.
-# Hardcoded here temporarily to enable container build testing in CI.
-export KUBEVIRT_NO_BAZEL=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
   add_feature_gate "NodeRestriction"
   export KUBEVIRT_PSA="true"

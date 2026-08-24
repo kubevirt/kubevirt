@@ -100,7 +100,7 @@ if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
 
     echo ""
     echo "Building functional test binaries"
-    ${KUBEVIRT_PATH}hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
+    ${KUBEVIRT_PATH}hack/dockerized "export KUBEVIRT_NO_BAZEL=true && BUILD_ARCH=${BUILD_ARCH} KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
 
     echo "Building container images"
     ${KUBEVIRT_PATH}hack/multi-arch-container.sh

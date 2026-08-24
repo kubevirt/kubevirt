@@ -5,7 +5,7 @@ ARG LIBVIRT_DEVEL_IMAGE=quay.io/vamsi_siddu/libvirt-devel:bazeldnf
 FROM ${LIBVIRT_DEVEL_IMAGE} AS devel-deps
 FROM ${HANDLERBASE_IMAGE} AS handlerbase
 
-FROM ${BUILDER_IMAGE} AS builder
+FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
 
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION

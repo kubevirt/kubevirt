@@ -4,7 +4,7 @@ ARG LIBVIRT_DEVEL_IMAGE=quay.io/vamsi_siddu/libvirt-devel:bazeldnf
 
 FROM ${LIBVIRT_DEVEL_IMAGE} AS devel-deps
 
-FROM ${BUILDER_IMAGE} AS builder
+FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
 
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION
@@ -20,13 +20,23 @@ COPY . .
 RUN source /etc/profile.d/gimme.sh && \
     export PKG_CONFIG_PATH="/devel/usr/lib64/pkgconfig:${PKG_CONFIG_PATH}" && \
     export CGO_CFLAGS="-I/devel/usr/include" && \
-    export CGO_LDFLAGS="-L/devel/usr/lib64" && \
+    export CGO_LDFLAGS="-L/devel/usr/lib64 -Wl,--allow-shlib-undefined" && \
     KUBEVIRT_NO_BAZEL=true hack/build-go.sh install \
     cmd/virt-launcher cmd/virt-launcher-monitor cmd/virt-freezer cmd/virt-probe cmd/virt-tail && \
-    CGO_ENABLED=0 go build -o _out/cmd/libvirt-hook-client/libvirt-hook-client ./cmd/virt-launcher/libvirt-hook-client
+    case ${BUILD_ARCH} in \
+        arm64|aarch64|crossbuild-aarch64) HOOK_GOARCH=arm64 ;; \
+        s390x|crossbuild-s390x) HOOK_GOARCH=s390x ;; \
+        *) HOOK_GOARCH=amd64 ;; \
+    esac && \
+    GOOS=linux GOARCH=${HOOK_GOARCH} CGO_ENABLED=0 go build -o _out/cmd/libvirt-hook-client/libvirt-hook-client ./cmd/virt-launcher/libvirt-hook-client
 
 RUN mkdir -p _out/cmd/container-disk-v2alpha && \
-    gcc -static -o _out/cmd/container-disk-v2alpha/container-disk \
+    case ${BUILD_ARCH} in \
+        arm64|aarch64|crossbuild-aarch64) DISK_CC=aarch64-linux-gnu-gcc ;; \
+        s390x|crossbuild-s390x) DISK_CC=s390x-linux-gnu-gcc ;; \
+        *) DISK_CC=gcc ;; \
+    esac && \
+    ${DISK_CC} -static -o _out/cmd/container-disk-v2alpha/container-disk \
         cmd/container-disk-v2alpha/main.c && \
     chmod +x _out/cmd/container-disk-v2alpha/container-disk
 
@@ -43,7 +53,7 @@ RUN chmod 755 /etc/libvirt && \
 COPY --from=builder --chmod=644 /workspace/cmd/virt-launcher/qemu.conf /etc/libvirt/qemu.conf
 COPY --from=builder --chmod=644 /workspace/cmd/virt-launcher/virtqemud.conf /etc/libvirt/virtqemud.conf
 COPY --from=builder --chmod=644 /workspace/cmd/virt-launcher/nsswitch.conf /etc/nsswitch.conf
-COPY --from=builder --chmod=755 --chown=107:107 /workspace/cmd/virt-launcher/qemu /etc/libvirt/hooks/qemu
+COPY --from=builder --chmod=755 --chown=107:107 /workspace/_out/cmd/libvirt-hook-client/libvirt-hook-client /etc/libvirt/hooks/qemu
 
 COPY --from=builder /workspace/_out/cmd/virt-launcher/virt-launcher /usr/bin/virt-launcher
 COPY --from=builder /workspace/_out/cmd/virt-launcher-monitor/virt-launcher-monitor /usr/bin/virt-launcher-monitor

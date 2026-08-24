@@ -45,6 +45,7 @@ if [ "$build_count" -gt 1 ]; then
             IMAGE_PREFIX=${IMAGE_PREFIX} \
             KUBEVIRT_CRI=${KUBEVIRT_CRI} \
             BUILDER_IMAGE=${BUILDER_IMAGE} \
+            PUSH_TARGETS="${PUSH_TARGETS}" \
             ./hack/build-images-container.sh
     done
 
@@ -60,6 +61,7 @@ else
         IMAGE_PREFIX=${IMAGE_PREFIX} \
         KUBEVIRT_CRI=${KUBEVIRT_CRI} \
         BUILDER_IMAGE=${BUILDER_IMAGE} \
+        PUSH_TARGETS="${PUSH_TARGETS}" \
         ./hack/build-images-container.sh
 
     echo ""

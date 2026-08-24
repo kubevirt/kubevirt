@@ -14,10 +14,12 @@ RUN case ${BUILD_ARCH} in \
     echo "${BAZEL_ARCH}" > /tmp/bazel_arch
 
 COPY _out/rpm-tars/libvirt-devel_*_cs${CENTOS_STREAM_VERSION}.tar /tmp/
+COPY _out/rpm-tars/libnbd-devel_*_cs${CENTOS_STREAM_VERSION}.tar /tmp/
 
 RUN BAZEL_ARCH=$(cat /tmp/bazel_arch) && \
     mkdir -p /devel && \
-    tar -xf /tmp/libvirt-devel_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /devel --overwrite
+    tar -xf /tmp/libvirt-devel_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /devel --overwrite && \
+    tar -xf /tmp/libnbd-devel_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /devel --overwrite
 
 FROM scratch
 

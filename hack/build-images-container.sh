@@ -56,9 +56,24 @@ BUILD_OUTPUT_DIR=${BUILD_OUTPUT_DIR:-_out}
 DIGESTS_DIR=${DIGESTS_DIR:-${BUILD_OUTPUT_DIR}/digests}
 
 BUILDER_VERSION=$(grep 'kubevirt_builder_version=' hack/dockerized | cut -d'"' -f2)
-BUILDER_IMAGE=${BUILDER_IMAGE:-quay.io/kubevirt/builder:${BUILDER_VERSION}}
+CS10_BUILDER_VERSION=$(grep 'kubevirt_cs10_builder_version=' hack/dockerized | cut -d'"' -f2)
 
+RESOLVED_ARCH=$(format_archname "${BUILD_ARCH}")
 PLATFORM_ARCH=$(format_archname ${BUILD_ARCH} tag)
+
+if [ -z "${BUILDER_IMAGE}" ]; then
+    if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" == "10" ]; then
+        BUILDER_IMAGE="quay.io/kubevirt/builder-cs10:${CS10_BUILDER_VERSION}"
+        CROSS_IMAGE="quay.io/kubevirt/builder-cs10-cross:${CS10_BUILDER_VERSION}"
+    else
+        BUILDER_IMAGE="quay.io/kubevirt/builder:${BUILDER_VERSION}"
+        CROSS_IMAGE="quay.io/kubevirt/builder-cross:${BUILDER_VERSION}"
+    fi
+    if [[ ${RESOLVED_ARCH} =~ ^cross ]]; then
+        BUILDER_IMAGE="${CROSS_IMAGE}"
+        echo "Cross-compilation detected: using ${BUILDER_IMAGE}"
+    fi
+fi
 
 case ${PLATFORM_ARCH} in
 amd64)
@@ -128,7 +143,6 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
         alpine-ext-kernel-boot-demo
         alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
-        network-slirp-binding
         network-passt-binding
         network-passt-binding-cni
         example-node-hook-plugin
@@ -176,9 +190,6 @@ get_containerfile_path() {
         ;;
     sidecar-shim)
         echo "cmd/sidecars/Containerfile"
-        ;;
-    network-slirp-binding)
-        echo "cmd/sidecars/network-slirp-binding/Containerfile"
         ;;
     network-passt-binding)
         echo "cmd/sidecars/network-passt-binding/Containerfile"

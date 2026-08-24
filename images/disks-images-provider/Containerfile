@@ -2,7 +2,7 @@ ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
 ARG BUILD_ARCH=amd64
 ARG TESTING_BASE_IMAGE=quay.io/kubevirt/kubevirt-testing-base:latest
 
-FROM ${BUILDER_IMAGE} AS disk-builder
+FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS disk-builder
 ARG BUILD_ARCH
 
 WORKDIR /workspace

@@ -115,6 +115,11 @@ get_rpmtree_targets_for_image() {
         targets="${targets} passt_tree_${bazel_arch}_cs${cs_version}"
     fi
 
+    # libvirt-devel also needs libnbd-devel for cross-compilation linking
+    if [[ "${image}" == "libvirt-devel" ]]; then
+        targets="${targets} libnbd-devel_${bazel_arch}_cs${cs_version}"
+    fi
+
     echo "${targets}"
 }
 
