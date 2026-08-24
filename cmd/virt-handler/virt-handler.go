@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
 
@@ -277,14 +278,20 @@ func (app *virtHandlerApp) Run() {
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
+	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
 	err = util.MkdirAllWithNosec(checkpointPath)
+	if err != nil {
+		panic(err)
+	}
+
+	err = util.MkdirAllWithNosec(checkpointPathTmp)
 	if err != nil {
 		panic(err)
 	}
 	// We keep a record on disk of every VMI virt-handler starts.
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
-	_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath))
+	_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
@@ -433,14 +440,29 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	cdMounter := hcontainerdisk.NewMounter(podIsolationDetector, containerDiskState, app.clusterConfig)
+	containerDiskStateTmp := filepath.Join(app.VirtPrivateDir, "container-disk-mount-state-temp")
+	if err := os.MkdirAll(containerDiskStateTmp, 0700); err != nil {
+		panic(err)
+	}
+
+	cdMounter := hcontainerdisk.NewMounter(podIsolationDetector,
+		checkpoint.NewSimpleCheckpointManager(containerDiskState, containerDiskStateTmp),
+		app.clusterConfig,
+	)
 
 	hotplugState := filepath.Join(app.VirtPrivateDir, "hotplug-volume-mount-state")
 	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
 		panic(err)
 	}
+	hotplugStateTmp := filepath.Join(app.VirtPrivateDir, "hotplug-volume-mount-state-temp")
+	if err := os.MkdirAll(hotplugStateTmp, 0o700); err != nil {
+		panic(err)
+	}
 
-	hvMounter := hotplugvolume.NewVolumeMounter(hotplugState, app.KubeletPodsDir, app.HostOverride)
+	hvMounter := hotplugvolume.NewVolumeMounter(
+		checkpoint.NewSimpleCheckpointManager(hotplugState, hotplugStateTmp),
+		app.KubeletPodsDir, app.HostOverride,
+	)
 
 	migrationTargetController, err := virthandler.NewMigrationTargetController(
 		recorder,
