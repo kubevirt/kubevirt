@@ -106,6 +106,8 @@ var _ = Describe("VMTemplate source", func() {
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		vmBackupInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
 		vmTemplateInformer, _ = testutils.NewFakeInformerFor(&v1beta1.VirtualMachineTemplate{})
+		pvInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
+		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		fakeVolumeSnapshotProvider := &MockVolumeSnapshotProvider{
@@ -137,7 +139,7 @@ var _ = Describe("VMTemplate source", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), pvInformer.GetStore(), nodeInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               fakeCertManager,
 			RouteCache:                  routeInformer.GetStore(),
 			IngressCache:                ingressInformer.GetStore(),
