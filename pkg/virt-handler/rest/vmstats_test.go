@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,18 +51,16 @@ var _ = Describe("VMStats handler", func() {
 		handler  *VMStatsHandler
 	)
 
-	makeRequest := func(queryString ...string) *httptest.ResponseRecorder {
-		url := "/v1/vmstats"
-		if len(queryString) > 0 {
-			url += queryString[0]
-		}
-		httpReq, _ := http.NewRequest("GET", url, nil)
+	makeRequest := func(body string) *httptest.ResponseRecorder {
+		httpReq, _ := http.NewRequest("POST", "/v1/vmstats", strings.NewReader(body))
+		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Accept", "application/json")
 
 		recorder := httptest.NewRecorder()
 
 		ws := new(restful.WebService)
-		ws.Route(ws.GET("/v1/vmstats").To(handler.GetVMStats).Produces(restful.MIME_JSON))
+		ws.Route(ws.POST("/v1/vmstats").To(handler.GetVMStats).
+			Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON))
 
 		container := restful.NewContainer()
 		container.Add(ws)
@@ -110,71 +109,69 @@ var _ = Describe("VMStats handler", func() {
 
 	It("should return 403 when feature gate is disabled", func() {
 		disableFeatureGate()
-		recorder := makeRequest()
+		recorder := makeRequest(`{"vmis":{"default/test-vm":{"domainStats":{}}}}`)
 		Expect(recorder.Code).To(Equal(http.StatusForbidden))
 	})
 
-	It("should return 400 when no stats categories are requested", func() {
+	It("should return 400 when the body has no VMIs", func() {
 		enableFeatureGate()
-		recorder := makeRequest()
+		recorder := makeRequest(`{"vmis":{}}`)
 		Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 	})
 
-	It("should return 200 when valid query params are provided", func() {
+	It("should return 400 when a VMI requests no stats categories", func() {
 		enableFeatureGate()
-		recorder := makeRequest("?domainStats=true")
-		Expect(recorder.Code).To(Equal(http.StatusOK))
-		Expect(recorder.Body.String()).To(MatchJSON(`{}`))
+		recorder := makeRequest(`{"vmis":{"default/test-vm":{}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("should report VMI not found on node for keys absent from the store", func() {
+		enableFeatureGate()
+		recorder := makeRequest(`{"vmis":{"default/missing-vm":{"domainStats":{}}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusOK))
+		Expect(recorder.Body.String()).To(MatchJSON(
+			`{"default/missing-vm":{"error":"VMI not found on node"}}`))
+	})
+
+	It("should report stats not available for an on-node VMI with no socket", func() {
+		enableFeatureGate()
+		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-vm"},
+		})).To(Succeed())
+
+		recorder := makeRequest(`{"vmis":{"default/test-vm":{"domainStats":{}}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusOK))
+		Expect(recorder.Body.String()).To(MatchJSON(
+			`{"default/test-vm":{"error":"stats not available: VMI socket not found or busy"}}`))
+	})
 })
 
-var _ = Describe("buildVMStatsRequestFromQuery", func() {
-	buildRequest := func(queryString string) *cmdv1.VMStatsRequest {
-		httpReq, _ := http.NewRequest("GET", "/v1/vmstats"+queryString, nil)
-		restReq := restful.NewRequest(httpReq)
-		return buildVMStatsRequestFromQuery(restReq)
+var _ = Describe("parseVMStatsRequests", func() {
+	parse := func(body string) (map[string]*cmdv1.VMStatsRequest, error) {
+		httpReq, _ := http.NewRequest("POST", "/v1/vmstats", strings.NewReader(body))
+		httpReq.Header.Set("Content-Type", "application/json")
+		return parseVMStatsRequests(restful.NewRequest(httpReq))
 	}
 
-	It("should return empty request when no query params are provided", func() {
-		req := buildRequest("")
-		Expect(req.DomainStats).To(BeNil())
-		Expect(req.DirtyRate).To(BeNil())
-		Expect(req.GuestGetLoad).To(BeNil())
+	It("should decode a per-VMI request map", func() {
+		requests, err := parse(`{"vmis":{"default/vm1":{"domainStats":{}},"default/vm2":{"dirtyRate":{}}}}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(requests).To(HaveLen(2))
+		Expect(requests["default/vm1"].DomainStats).ToNot(BeNil())
+		Expect(requests["default/vm1"].DirtyRate).To(BeNil())
+		Expect(requests["default/vm2"].DirtyRate).ToNot(BeNil())
+		Expect(requests["default/vm2"].DomainStats).To(BeNil())
 	})
 
-	It("should return only requested fields", func() {
-		req := buildRequest("?domainStats=true&guestGetLoad=true")
-		Expect(req.DomainStats).ToNot(BeNil())
-		Expect(req.GuestGetLoad).ToNot(BeNil())
-
-		Expect(req.DirtyRate).To(BeNil())
-		Expect(req.GuestGetCpuStats).To(BeNil())
-		Expect(req.GuestGetDiskStats).To(BeNil())
-		Expect(req.GuestGetTime).To(BeNil())
-		Expect(req.GuestGetVcpus).To(BeNil())
-		Expect(req.GuestGetMemoryBlockInfo).To(BeNil())
-		Expect(req.GuestGetUsers).To(BeNil())
-		Expect(req.GuestGetOsInfo).To(BeNil())
-		Expect(req.GuestGetDisks).To(BeNil())
-		Expect(req.GuestGetHostName).To(BeNil())
-		Expect(req.GuestGetTimezone).To(BeNil())
-		Expect(req.GuestNetworkGetRoute).To(BeNil())
-		Expect(req.GuestNetworkGetInterfaces).To(BeNil())
-		Expect(req.GuestGetMemoryBlocks).To(BeNil())
+	It("should return an empty map when no vmis are provided", func() {
+		requests, err := parse(`{"vmis":{}}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(requests).To(BeEmpty())
 	})
 
-	It("should ignore params with non-true values", func() {
-		req := buildRequest("?domainStats=false&guestGetLoad=yes")
-		Expect(req.DomainStats).To(BeNil())
-		Expect(req.GuestGetLoad).To(BeNil())
-	})
-
-	It("should enable a single field", func() {
-		req := buildRequest("?dirtyRate=true")
-		Expect(req.DirtyRate).ToNot(BeNil())
-		Expect(req.DomainStats).To(BeNil())
-		Expect(req.GuestGetLoad).To(BeNil())
+	It("should return an error for malformed JSON", func() {
+		_, err := parse(`{"vmis":`)
+		Expect(err).To(HaveOccurred())
 	})
 })
 
