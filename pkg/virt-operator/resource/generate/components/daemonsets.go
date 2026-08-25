@@ -266,6 +266,13 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 				},
 			},
 		},
+		{
+			// Advertised as a node label by virt-handler so workload-update
+			// migrations can be steered towards nodes whose handler has
+			// already rolled out to this deployment.
+			Name:  operatorutil.DeploymentIDEnvName,
+			Value: config.GetDeploymentID(),
+		},
 	}
 
 	container.Env = append(container.Env, containerEnv...)

@@ -11,6 +11,7 @@ import (
 	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,10 +44,15 @@ var _ = Describe("Workload Updater", func() {
 		fakeVirtClient *kubevirtfake.Clientset
 		kubeClient     *fake.Clientset
 
-		controller *WorkloadUpdateController
+		controller        *WorkloadUpdateController
+		daemonSetInformer cache.SharedIndexInformer
 
 		expectedImage string
 	)
+
+	addDaemonSet := func(ds *appsv1.DaemonSet) {
+		Expect(daemonSetInformer.GetStore().Add(ds)).To(Succeed())
+	}
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
 		key, err := virtcontroller.KeyFunc(kv)
@@ -97,8 +103,9 @@ var _ = Describe("Workload Updater", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
+		daemonSetInformer, _ = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 
-		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
+		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, daemonSetInformer, recorder, virtClient, config)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
@@ -136,6 +143,48 @@ var _ = Describe("Workload Updater", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(migrations.Items).To(HaveLen(1))
 			Expect(migrations.Items[0].Spec.VMIName).To(Equal("testvm"))
+		})
+
+		It("should target the migration at nodes running the updated virt-handler", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "madeup")
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+			kv.Status.ObservedDeploymentID = "v2"
+			kv.Status.TargetDeploymentID = "v2"
+
+			addKubeVirt(kv)
+			addDaemonSet(newVirtHandlerDaemonSet(1))
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrations.Items).To(HaveLen(1))
+			Expect(migrations.Items[0].Spec.AddedNodeSelector).To(HaveKeyWithValue(v1.VirtHandlerDeploymentIDLabel, "v2"))
+		})
+
+		It("should defer the migration until at least one node runs the updated virt-handler", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "madeup")
+			pod := newLauncherPodForVMI(vmi)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+			kv.Status.ObservedDeploymentID = "v2"
+			kv.Status.TargetDeploymentID = "v2"
+
+			addKubeVirt(kv)
+			addDaemonSet(newVirtHandlerDaemonSet(0))
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+
+			sanityExecute()
+			migrations, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrations.Items).To(BeEmpty())
 		})
 
 		It("should do nothing if deployment is updating", func() {
@@ -743,6 +792,18 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 		Status: v1.KubeVirtStatus{
 			Phase:                                   v1.KubeVirtPhaseDeployed,
 			OutdatedVirtualMachineInstanceWorkloads: &expectedNumOutdated,
+		},
+	}
+}
+
+func newVirtHandlerDaemonSet(updatedNumberScheduled int32) *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      virtHandlerDaemonSetName,
+			Namespace: k8sv1.NamespaceDefault,
+		},
+		Status: appsv1.DaemonSetStatus{
+			UpdatedNumberScheduled: updatedNumberScheduled,
 		},
 	}
 }

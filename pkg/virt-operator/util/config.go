@@ -62,6 +62,9 @@ const (
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
+	// DeploymentIDEnvName carries the KubeVirt deployment ID into the
+	// virt-handler container so it can advertise it as a node label.
+	DeploymentIDEnvName = "KUBEVIRT_DEPLOYMENT_ID"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
 	// Deprecated, use TargetDeploymentConfig instead

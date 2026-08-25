@@ -48,12 +48,13 @@ type HeartBeat struct {
 	deviceManagerController   device_manager.DeviceControllerInterface
 	clusterConfig             *virtconfig.ClusterConfig
 	host                      string
+	deploymentID              string
 	cpuManagerPaths           []string
 	devicePluginPollIntervall time.Duration
 	devicePluginWaitTimeout   time.Duration
 }
 
-func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host, deploymentID string) *HeartBeat {
 	const cpuManagerOS3Path = virtutil.HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 	const cpuManagerPath = virtutil.KubeletRoot + "/cpu_manager_state"
 	return &HeartBeat{
@@ -61,6 +62,7 @@ func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager
 		deviceManagerController: deviceManager,
 		clusterConfig:           clusterConfig,
 		host:                    host,
+		deploymentID:            deploymentID,
 		// This is a temporary workaround until k8s bug #66525 is resolved
 		cpuManagerPaths:           []string{cpuManagerPath, cpuManagerOS3Path},
 		devicePluginPollIntervall: 1 * time.Second,
@@ -157,10 +159,15 @@ func (h *HeartBeat) do() {
 		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
 	}
 
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s}}}`,
+	deploymentIDLabel := ""
+	if h.deploymentID != "" {
+		deploymentIDLabel = fmt.Sprintf(`, "%s": "%s"`, v1.VirtHandlerDeploymentIDLabel, h.deploymentID)
+	}
+	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"%s}, "annotations": {"%s": %s}}}`,
 		v1.NodeSchedulable, kubevirtSchedulable,
 		v1.DeprecatedCPUManager, cpuManagerEnabled,
 		v1.CPUManager, cpuManagerEnabled,
+		deploymentIDLabel,
 		v1.VirtHandlerHeartbeat, string(now),
 	))
 	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})

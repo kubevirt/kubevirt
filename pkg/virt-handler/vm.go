@@ -72,6 +72,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -240,7 +241,7 @@ func NewVirtualMachineController(
 		deviceManager.PermanentHostDevicePlugins(c.hypervisorNodeInfo.GetHypervisorDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
-	c.heartBeat = heartbeat.NewHeartBeat(k8sClient.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.heartBeat = heartbeat.NewHeartBeat(k8sClient.CoreV1(), c.deviceManagerController, clusterConfig, host, os.Getenv(operatorutil.DeploymentIDEnvName))
 
 	return c, nil
 }

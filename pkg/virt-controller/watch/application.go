@@ -192,6 +192,8 @@ type VirtControllerApp struct {
 	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
 
+	daemonSetInformer cache.SharedIndexInformer
+
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
@@ -402,6 +404,8 @@ func Execute() {
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
+
+	app.daemonSetInformer = app.informerFactory.OperatorDaemonSet()
 
 	app.controllerRevisionInformer = app.informerFactory.ControllerRevision()
 
@@ -877,6 +881,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 		vca.kvPodInformer,
 		vca.migrationInformer,
 		vca.kubeVirtInformer,
+		vca.daemonSetInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)

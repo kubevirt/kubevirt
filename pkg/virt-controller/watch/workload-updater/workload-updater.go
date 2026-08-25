@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -60,12 +61,16 @@ const defaultThrottleInterval = 5 * time.Second
 const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
 
+// name of the virt-handler DaemonSet, used to look up its rollout status
+const virtHandlerDaemonSetName = "virt-handler"
+
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
 	queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiStore              cache.Store
 	podIndexer            cache.Indexer
 	migrationIndexer      cache.Indexer
+	daemonSetStore        cache.Store
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	kubeVirtStore         cache.Store
@@ -92,6 +97,7 @@ func NewWorkloadUpdateController(
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
+	daemonSetInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -110,6 +116,7 @@ func NewWorkloadUpdateController(
 		vmiStore:              vmiInformer.GetStore(),
 		podIndexer:            podInformer.GetIndexer(),
 		migrationIndexer:      migrationInformer.GetIndexer(),
+		daemonSetStore:        daemonSetInformer.GetStore(),
 		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
 		clientset:             clientset,
@@ -117,7 +124,7 @@ func NewWorkloadUpdateController(
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
 		hasSynced: func() bool {
-			return migrationInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && kubeVirtInformer.HasSynced()
+			return migrationInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && kubeVirtInformer.HasSynced() && daemonSetInformer.HasSynced()
 		},
 	}
 
@@ -146,7 +153,37 @@ func NewWorkloadUpdateController(
 		return nil, err
 	}
 
+	// Re-reconcile as the virt-handler DaemonSet rolls out so newly updated
+	// nodes become eligible migration targets as soon as they appear.
+	_, err = daemonSetInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addDaemonSet,
+		UpdateFunc: c.updateDaemonSet,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
+}
+
+func (c *WorkloadUpdateController) addDaemonSet(obj interface{}) {
+	c.enqueueDaemonSet(obj)
+}
+
+func (c *WorkloadUpdateController) updateDaemonSet(_, curr interface{}) {
+	c.enqueueDaemonSet(curr)
+}
+
+func (c *WorkloadUpdateController) enqueueDaemonSet(obj interface{}) {
+	ds, ok := obj.(*appsv1.DaemonSet)
+	if !ok || ds.Name != virtHandlerDaemonSetName {
+		return
+	}
+	key, err := c.getKubeVirtKey()
+	if key == "" || err != nil {
+		return
+	}
+	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
 func (c *WorkloadUpdateController) getKubeVirtKey() (string, error) {
@@ -161,6 +198,31 @@ func (c *WorkloadUpdateController) getKubeVirtKey() (string, error) {
 		return controller.KeyFunc(kv)
 	}
 	return "", nil
+}
+
+// updatedHandlerNodesAvailable reports whether at least one node has already
+// been rolled out to the target virt-handler. Workload-update migrations are
+// steered towards these nodes (via AddedNodeSelector), so creating them before
+// any node is updated would only produce unschedulable target pods. Returns
+// true (fail-open) if the DaemonSet can't be inspected, preserving the previous
+// behaviour rather than blocking updates on a lookup failure.
+func (c *WorkloadUpdateController) updatedHandlerNodesAvailable(namespace string) bool {
+	key := namespace + "/" + virtHandlerDaemonSetName
+	obj, exists, err := c.daemonSetStore.GetByKey(key)
+	if err != nil || !exists {
+		return true
+	}
+	ds, ok := obj.(*appsv1.DaemonSet)
+	if !ok {
+		return true
+	}
+	// Only trust the rollout counters once the DaemonSet controller has
+	// observed the current spec, otherwise UpdatedNumberScheduled may still
+	// refer to the previous pod template.
+	if ds.Status.ObservedGeneration < ds.Generation {
+		return false
+	}
+	return ds.Status.UpdatedNumberScheduled > 0
 }
 
 func (c *WorkloadUpdateController) addMigration(obj interface{}) {
@@ -539,6 +601,15 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	}
 
 	migrateCount := int(math.Min(float64(maxNewMigrations), float64(len(data.migratableOutdatedVMIs))))
+	// Don't create workload-update migrations until at least one node has been
+	// rolled out to the target virt-handler. The migrations target updated
+	// nodes only (see AddedNodeSelector below), so creating them earlier would
+	// only pile up unschedulable target pods. The periodic re-enqueue and the
+	// DaemonSet event handlers ensure we retry once a node becomes available.
+	if migrateCount > 0 && !c.updatedHandlerNodesAvailable(kv.Namespace) {
+		log.Log.V(2).Infof("Deferring %d workload-update migration(s): no node has been updated to the target virt-handler yet", migrateCount)
+		migrateCount = 0
+	}
 	var migrationCandidates []*virtv1.VirtualMachineInstance
 	if migrateCount > 0 {
 		migrationCandidates = data.migratableOutdatedVMIs[0:migrateCount]
@@ -578,6 +649,15 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
+			}
+			// Steer the migration towards a node whose virt-handler has already
+			// been rolled out to the current deployment, so the target launcher
+			// is never older than the source. At this point ObservedDeploymentID
+			// equals TargetDeploymentID (enforced in execute()).
+			if kv.Status.ObservedDeploymentID != "" {
+				wuMigration.Spec.AddedNodeSelector = map[string]string{
+					virtv1.VirtHandlerDeploymentIDLabel: kv.Status.ObservedDeploymentID,
+				}
 			}
 			// default is upgrade
 			priority := v1.PrioritySystemCritical

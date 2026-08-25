@@ -280,7 +280,9 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 					"daemonsets",
 				},
 				Verbs: []string{
+					"get",
 					"list",
+					"watch",
 				},
 			},
 			{
