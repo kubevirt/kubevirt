@@ -48,7 +48,7 @@ var _ collector.MetricsScraper = &VMStatsScraper{}
 type VMStatsScraper struct {
 	ch        chan *vmStatsChannelResult
 	newClient func(string) (cmdclient.LauncherClient, error)
-	request   *cmdv1.VMStatsRequest
+	requests  map[string]*cmdv1.VMStatsRequest
 }
 
 type vmStatsChannelResult struct {
@@ -57,17 +57,23 @@ type vmStatsChannelResult struct {
 	errMsg string
 }
 
-func NewVMStatsScraper(channelLength int, newClient func(string) (cmdclient.LauncherClient, error), request *cmdv1.VMStatsRequest) *VMStatsScraper {
+func NewVMStatsScraper(channelLength int, newClient func(string) (cmdclient.LauncherClient, error), requests map[string]*cmdv1.VMStatsRequest) *VMStatsScraper {
 	return &VMStatsScraper{
 		ch:        make(chan *vmStatsChannelResult, channelLength),
 		newClient: newClient,
-		request:   request,
+		requests:  requests,
 	}
 }
 
 func (s *VMStatsScraper) Scrape(socketFile string, vmi *v1.VirtualMachineInstance) {
 	ts := time.Now()
 	key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
+
+	req, ok := s.requests[key]
+	if !ok {
+		s.ch <- &vmStatsChannelResult{key: key, errMsg: "no stats request configured for VMI"}
+		return
+	}
 
 	cli, err := s.newClient(socketFile)
 	if err != nil {
@@ -77,7 +83,7 @@ func (s *VMStatsScraper) Scrape(socketFile string, vmi *v1.VirtualMachineInstanc
 	}
 	defer cli.Close()
 
-	vmStats, err := cli.GetVMStats(s.request)
+	vmStats, err := cli.GetVMStats(req)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to get VM stats")
 		s.ch <- &vmStatsChannelResult{key: key, errMsg: err.Error()}
