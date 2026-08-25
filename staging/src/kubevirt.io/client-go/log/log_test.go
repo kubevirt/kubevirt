@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -36,13 +37,29 @@ import (
 var logCalled bool = false
 var logParams []interface{} = make([]interface{}, 0)
 
-type MockLogger struct {
+type MockLogSink struct {
 }
 
-func (l MockLogger) Log(params ...interface{}) error {
+func (s MockLogSink) Init(info logr.RuntimeInfo) {}
+
+func (s MockLogSink) Enabled(level int) bool { return true }
+
+func (s MockLogSink) Info(level int, msg string, keyVals ...interface{}) {
 	logCalled = true
-	logParams = append(logParams, params)
-	return nil
+	logParams = append(logParams, keyVals)
+}
+
+func (s MockLogSink) Error(err error, msg string, keyVals ...interface{}) {
+	logCalled = true
+	logParams = append(logParams, keyVals)
+}
+
+func (s MockLogSink) WithValues(keyVals ...interface{}) logr.LogSink { return s }
+
+func (s MockLogSink) WithName(name string) logr.LogSink { return s }
+
+func mockLogger() logr.Logger {
+	return logr.New(MockLogSink{})
 }
 
 func assert(t *testing.T, condition bool, failMessage string) {
@@ -65,7 +82,7 @@ func tearDown() {
 
 func TestDefaultLogLevels(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.Log("default level message")
 	assert(t, logCalled, "default loglevel should have been info")
 	tearDown()
@@ -73,13 +90,13 @@ func TestDefaultLogLevels(t *testing.T) {
 
 // Simply a self-check test as most tests will depend on this behavior working
 // Enforces that unit tests are run in isolated contexts
-func TestMockLogger(t *testing.T) {
+func TestMockLogSink(t *testing.T) {
 	setUp()
-	l := MockLogger{}
+	l := mockLogger()
 	assert(t, !logCalled, "Test Case was not correctly initialized")
 	assert(t, len(logParams) == 0, "logParams was not reset")
-	l.Log("test", "message")
-	assert(t, logCalled, "MockLogger was not called")
+	l.Info("message", "key", "value")
+	assert(t, logCalled, "MockLogSink was not called")
 	tearDown()
 }
 
@@ -102,7 +119,7 @@ func TestGoodLevel(t *testing.T) {
 
 func TestComponent(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.Log("foo", "bar")
 
 	assert(t, len(logParams) == 1, "Expected 1 log line")
@@ -116,7 +133,7 @@ func TestComponent(t *testing.T) {
 
 func TestWith(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 
 	log.With("arg1", "val1").Log("foo1", "bar1")
 	log.With("arg2", "val2").Log("foo2", "bar2")
@@ -136,7 +153,7 @@ func TestWith(t *testing.T) {
 
 func TestInfoCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(WARNING)
 	assert(t, log.filterLevel == WARNING, "Unable to set log level")
 
@@ -152,7 +169,7 @@ func TestInfoCutoff(t *testing.T) {
 
 func TestVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 
 	assert(t, log.verbosityLevel == 2, "Default verbosity should be 2")
 
@@ -187,7 +204,7 @@ func TestVerbosity(t *testing.T) {
 
 func TestNegativeVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	err := log.SetVerbosityLevel(-1)
 	assert(t, err != nil, "Requesting a negative verbosity should not have been allowed")
 	tearDown()
@@ -195,9 +212,8 @@ func TestNegativeVerbosity(t *testing.T) {
 
 func TestCachedLoggers(t *testing.T) {
 	setUp()
-	logger := MockLogger{}
 	log := Logger("test")
-	log.SetLogger(logger)
+	log.SetLogger(mockLogger())
 
 	// set a value on this log class
 	log.SetLogLevel(ERROR)
@@ -212,7 +228,7 @@ func TestCachedLoggers(t *testing.T) {
 
 func TestWarningCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 
 	log.Level(WARNING).Log("message", "test warning message")
 	assert(t, logCalled, "Warning level message should have been recorded")
@@ -224,7 +240,7 @@ func TestWarningCutoff(t *testing.T) {
 
 func TestLogConcurrency(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	// create a new log object from the previous one.
 	log2 := log.Level(WARNING)
 	assert(t, log.currentLogLevel != log2.currentLogLevel, "log and log2 should not have the same log level")
@@ -234,7 +250,7 @@ func TestLogConcurrency(t *testing.T) {
 
 func TestInfoMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	log.Level(INFO).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
@@ -248,7 +264,7 @@ func TestInfoMessage(t *testing.T) {
 
 func TestWarningMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(WARNING)
 	log.Level(WARNING).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
@@ -262,7 +278,7 @@ func TestWarningMessage(t *testing.T) {
 
 func TestErrorMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(ERROR)
 	log.Level(ERROR).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
@@ -276,7 +292,7 @@ func TestErrorMessage(t *testing.T) {
 
 func TestCriticalMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(FATAL)
 	log.Level(FATAL).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
@@ -290,7 +306,7 @@ func TestCriticalMessage(t *testing.T) {
 
 func TestError(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	err := errors.New("Test error")
 	log.Level(ERROR).Log(err)
@@ -313,7 +329,7 @@ func TestError(t *testing.T) {
 
 func TestMultipleLevels(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	// change levels more than once
 	log.Level(WARNING).Level(INFO).Level(WARNING).msg("test")
@@ -332,7 +348,7 @@ func TestMultipleLevels(t *testing.T) {
 
 func TestLogVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
 
@@ -355,7 +371,7 @@ func TestLogVerbosity(t *testing.T) {
 
 func TestErrWithMsgf(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.Reason(fmt.Errorf("testerror")).msgf("%s", "test")
 
 	logEntry := logParams[0].([]interface{})
@@ -392,7 +408,7 @@ func TestObjectLogging(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			setUp()
-			log := MakeLogger(MockLogger{})
+			log := MakeLogger(mockLogger())
 			log.SetLogLevel(INFO)
 			if tc.configure != nil {
 				tc.configure(log)
@@ -419,7 +435,7 @@ func TestObjectLogging(t *testing.T) {
 
 func TestObjectContextLeakage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	if err := log.SetVerbosityLevel(0); err != nil {
 		t.Fatal(err)
@@ -489,7 +505,7 @@ func TestVerbosityFlagSharesDefaultVerbosity(t *testing.T) {
 
 func TestInfofVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
 
