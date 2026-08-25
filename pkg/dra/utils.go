@@ -20,17 +20,18 @@
 package dra
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+
+	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/dynamic-resource-allocation/api/metadata"
+	"k8s.io/dynamic-resource-allocation/devicemetadata"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
+)
 
-	// TODO: Replace with k8s.io types when KEP-5304 is implemented in kubernetes
-	"kubevirt.io/kubevirt/pkg/dra/metadata"
+var (
+	readResourceClaim         = devicemetadata.ReadResourceClaimMetadata
+	readResourceClaimTemplate = devicemetadata.ReadResourceClaimTemplateMetadata
 )
 
 // IsGPUDRA returns true if the GPU is a DRA GPU
@@ -43,29 +44,22 @@ func IsHostDeviceDRA(hd v1.HostDevice) bool {
 	return hd.DeviceName == "" && hd.ClaimRequest != nil
 }
 
-// KEP-5304 defines the in-container directory layout for DRA device metadata files.
-// See: kubernetes/enhancements#5304, k8s.io/dynamic-resource-allocation/api/metadata
 const (
-	DefaultMetadataBasePath      = "/var/run/kubernetes.io/dra-device-attributes"
-	resourceClaimsSubdir         = "resourceclaims"
-	resourceClaimTemplatesSubdir = "resourceclaimtemplates"
-	metadataFileSuffix           = "-metadata.json"
+	PCIBusIDAttribute = resourcev1.QualifiedName("resource.kubernetes.io/pciBusID")
+	MDevUUIDAttribute = resourcev1.QualifiedName("mdevUUID")
 )
 
 // GetPCIAddressForClaim returns the PCI address for a device in the given claim and request.
-// It lazily reads the KEP-5304 metadata file at lookup time.
 func GetPCIAddressForClaim(
-	basePath string,
 	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
 	claimRefName,
 	requestName string,
 ) (string, error) {
-	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
+	device, err := deviceLookupFromClaim(resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return "", err
 	}
-
-	if attr, ok := device.Attributes[metadata.PCIBusIDAttribute]; ok {
+	if attr, ok := device.Attributes[PCIBusIDAttribute]; ok {
 		if attr.StringValue != nil && *attr.StringValue != "" {
 			return *attr.StringValue, nil
 		}
@@ -74,19 +68,16 @@ func GetPCIAddressForClaim(
 }
 
 // GetMDevUUIDForClaim returns the mdev UUID for a device in the given claim and request.
-// It lazily reads the KEP-5304 metadata file at lookup time.
 func GetMDevUUIDForClaim(
-	basePath string,
 	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
 	claimRefName,
 	requestName string,
 ) (string, error) {
-	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
+	device, err := deviceLookupFromClaim(resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return "", err
 	}
-
-	if attr, ok := device.Attributes[metadata.MDevUUIDAttribute]; ok {
+	if attr, ok := device.Attributes[MDevUUIDAttribute]; ok {
 		if attr.StringValue != nil && *attr.StringValue != "" {
 			return *attr.StringValue, nil
 		}
@@ -94,15 +85,12 @@ func GetMDevUUIDForClaim(
 	return "", fmt.Errorf("mdevUUID not found for claim %q request %q", claimRefName, requestName)
 }
 
-// resolveDevice finds and reads the metadata file for a specific claim ref and
-// request, returning the single device from that request.
-func resolveDevice(
-	basePath string,
+func deviceLookupFromClaim(
 	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
 	claimRefName,
 	requestName string,
 ) (*metadata.Device, error) {
-	md, err := resolveClaimMetadata(basePath, resourceClaims, claimRefName, requestName)
+	md, err := readClaimMetadata(resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return nil, err
 	}
@@ -130,11 +118,7 @@ func resolveDevice(
 	)
 }
 
-// resolveClaimMetadata reads the metadata file for a claim ref + request pair.
-// Direct claims:   {base}/resourceclaims/{claimName}/{requestName}/{driverName}-metadata.json
-// Template claims: {base}/resourceclaimtemplates/{podClaimName}/{requestName}/{driverName}-metadata.json
-func resolveClaimMetadata(
-	basePath string,
+func readClaimMetadata(
 	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
 	claimRefName,
 	requestName string,
@@ -143,37 +127,12 @@ func resolveClaimMetadata(
 		if rc.Name != claimRefName {
 			continue
 		}
-		if rc.ResourceClaimName != nil && *rc.ResourceClaimName != "" {
-			return readMetadataFromDir(filepath.Join(basePath, resourceClaimsSubdir), *rc.ResourceClaimName, requestName)
+		if rc.ResourceClaimName != nil {
+			return readResourceClaim(*rc.ResourceClaimName, requestName)
 		}
-		return readMetadataFromDir(filepath.Join(basePath, resourceClaimTemplatesSubdir), rc.Name, requestName)
+		return readResourceClaimTemplate(rc.Name, requestName)
 	}
 	return nil, fmt.Errorf("metadata not found for claim %q", claimRefName)
-}
-
-// readMetadataFromDir reads the single metadata file matching
-// {basePath}/{claimName}/{requestName}/*-metadata.json.
-// KubeVirt expects exactly one driver per request; multiple files indicate
-// a count > 1 allocation across drivers which is not supported.
-func readMetadataFromDir(basePath, claimName, requestName string) (*metadata.DeviceMetadata, error) {
-	pattern := filepath.Join(basePath, claimName, requestName, "*"+metadataFileSuffix)
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to glob metadata for claim %q request %q: %w", claimName, requestName, err)
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: no files matching %s", claimName, requestName, pattern)
-	}
-	if len(matches) > 1 {
-		return nil, fmt.Errorf(
-			"found %d metadata files for claim %q request %q but KubeVirt only supports exactly one driver per request",
-			len(matches),
-			claimName,
-			requestName,
-		)
-	}
-	log.Log.Infof("Reading DRA device metadata file %s", matches[0])
-	return readMetadataFile(matches[0])
 }
 
 func metadataRequestNames(md *metadata.DeviceMetadata) []string {
@@ -182,63 +141,4 @@ func metadataRequestNames(md *metadata.DeviceMetadata) []string {
 		names = append(names, req.Name)
 	}
 	return names
-}
-
-// readMetadataFile reads a KEP-5304 metadata file. The file is a JSON stream
-// containing the same data encoded once per API version (newest first).
-// We iterate through the stream and decode the first object whose apiVersion
-// we understand, skipping unknown versions so that a driver upgrade does not
-// break older consumers.
-func readMetadataFile(path string) (*metadata.DeviceMetadata, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening metadata file %q: %w", path, err)
-	}
-	defer f.Close()
-
-	md, err := decodeMetadataFromStream(json.NewDecoder(f))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	return md, nil
-}
-
-// decodeMetadataFromStream is a lightweight equivalent of
-// devicemetadata.DecodeMetadataFromStream that iterates a JSON stream and
-// returns the first object whose apiVersion is supported. Entries whose
-// apiVersion is not supported by KubeVirt (e.g. a newer version written by an
-// upgraded driver) are skipped silently. Any other failure is fatal.
-func decodeMetadataFromStream(dec *json.Decoder) (*metadata.DeviceMetadata, error) {
-	var unknownVersions []string
-	for dec.More() {
-		var raw json.RawMessage
-		if err := dec.Decode(&raw); err != nil {
-			return nil, fmt.Errorf("read object from metadata stream: %w", err)
-		}
-
-		var peek struct {
-			APIVersion string `json:"apiVersion"`
-		}
-		if err := json.Unmarshal(raw, &peek); err != nil {
-			return nil, fmt.Errorf("decode metadata object: %w", err)
-		}
-		if peek.APIVersion == "" {
-			return nil, fmt.Errorf("decode metadata object: missing apiVersion")
-		}
-
-		if !metadata.IsSupportedAPIVersion(peek.APIVersion) {
-			unknownVersions = append(unknownVersions, peek.APIVersion)
-			continue
-		}
-
-		var md metadata.DeviceMetadata
-		if err := json.Unmarshal(raw, &md); err != nil {
-			return nil, fmt.Errorf("decode %s: %w", peek.APIVersion, err)
-		}
-		return &md, nil
-	}
-	if len(unknownVersions) == 0 {
-		return nil, fmt.Errorf("no metadata objects found in stream")
-	}
-	return nil, fmt.Errorf("no compatible metadata version found in stream (unknown versions: %s)", strings.Join(unknownVersions, ", "))
 }

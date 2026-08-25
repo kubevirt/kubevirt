@@ -1,68 +1,36 @@
 package dra
 
-/*
-These unit tests verify the behaviour of CreateDRAGPUHostDevices,
-which converts the DRA-related information stored in KEP-5304 metadata files
-into libvirt HostDevice definitions that virt-launcher will add to the
-libvirt domain.
-*/
-
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/dra/metadata"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("CreateDRAGPUHostDevices", func() {
-	var (
-		tempDir string
-	)
-
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "dra-gpu-test")
-		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			getMDevUUID = drautil.GetMDevUUIDForClaim
+			getPCIAddress = drautil.GetPCIAddressForClaim
+		})
 	})
-
-	AfterEach(func() {
-		os.RemoveAll(tempDir)
-	})
-
-	createMetadataFile := func(claimName, requestName, driver string, md *metadata.DeviceMetadata) {
-		dir := filepath.Join(tempDir, "resourceclaims", claimName, requestName)
-		Expect(os.MkdirAll(dir, 0755)).To(Succeed())
-
-		data, err := json.Marshal(md)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(os.WriteFile(filepath.Join(dir, driver+"-metadata.json"), data, 0644)).To(Succeed())
-	}
 
 	Context("when the VMI has no GPUs with DRA", func() {
 		It("should return an empty slice without error", func() {
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{},
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
+				Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(BeEmpty())
 		})
@@ -71,33 +39,13 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 	Context("when the VMI has a physical GPU (PCI) allocated through DRA", func() {
 		It("should create exactly one PCI host device", func() {
 			pciAddr := "0000:02:00.0"
-
-			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "gpu-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) {
+				return "", fmt.Errorf("no mdev")
+			}
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return pciAddr, nil }
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
 				Spec: v1.VirtualMachineInstanceSpec{
 					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
@@ -106,27 +54,22 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							GPUs: []v1.GPU{{
-								Name: "gpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
+								Name:         "gpu1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
 			dev := hostDevices[0]
 			Expect(dev.Type).To(Equal(api.HostDevicePCI))
 			Expect(dev.Managed).To(Equal("no"))
-			Expect(dev.Alias).ToNot(BeNil())
 			Expect(dev.Alias.GetName()).To(Equal(AliasPrefix + "gpu1"))
-			Expect(dev.Source.Address).ToNot(BeNil())
 			Expect(dev.Source.Address.Type).To(Equal(api.AddressPCI))
 		})
 	})
@@ -134,33 +77,10 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 	Context("when the VMI has a virtual GPU (mdev) allocated through DRA", func() {
 		It("should create exactly one mdev host device with display enabled", func() {
 			uuid := "123e4567-e89b-12d3-a456-426614174000"
-
-			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "gpu-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return uuid, nil }
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
 				Spec: v1.VirtualMachineInstanceSpec{
 					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
@@ -169,18 +89,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							GPUs: []v1.GPU{{
-								Name: "vgpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
+								Name:         "vgpu1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -189,7 +106,6 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			Expect(dev.Display).To(Equal("on"))
 			Expect(dev.RamFB).To(Equal("on"))
 			Expect(dev.Alias.GetName()).To(Equal(AliasPrefix + "vgpu1"))
-			Expect(dev.Source.Address).ToNot(BeNil())
 			Expect(dev.Source.Address.UUID).To(Equal(uuid))
 		})
 	})
@@ -198,34 +114,11 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 		It("should prefer mdevUUID and create an mdev host device", func() {
 			pciAddr := "0000:01:01.0"
 			mdevUUID := "abcd1234-e89b-12d3-a456-426614174000"
-
-			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "gpu-pool",
-						Name:   "vgpu-device",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
-							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return mdevUUID, nil }
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return pciAddr, nil }
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
 				Spec: v1.VirtualMachineInstanceSpec{
 					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
@@ -234,18 +127,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							GPUs: []v1.GPU{{
-								Name: "vgpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
+								Name:         "vgpu1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -261,57 +151,23 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 	Context("when VMI has both a pGPU and a vGPU", func() {
 		It("should create one PCI and one mdev host device", func() {
 			pciAddr := "0000:00:01.0"
-			vgpuPCIAddr := "0000:01:01.0"
 			mdevUUID := "deadbeef-e89b-12d3-a456-426614174000"
 
-			createMetadataFile("pgpu-claim", "gpu", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "pgpu-claim",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "gpu",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "node01",
-						Name:   "gpu-0",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
-						},
-					}},
-				}},
-			})
-
-			createMetadataFile("vgpu-claim", "vgpu", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "vgpu-claim",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "vgpu",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "node01",
-						Name:   "gpu-0-vgpu-0",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &vgpuPCIAddr},
-							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, claimRefName, _ string) (string, error) {
+				if claimRefName == "vgpu" {
+					return mdevUUID, nil
+				}
+				return "", fmt.Errorf("no mdev for %q", claimRefName)
+			}
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, claimRefName, _ string) (string, error) {
+				if claimRefName == "pgpu" {
+					return pciAddr, nil
+				}
+				return "", fmt.Errorf("no pci for %q", claimRefName)
+			}
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
 				Spec: v1.VirtualMachineInstanceSpec{
 					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "pgpu", ResourceClaimName: ptr.To("pgpu-claim")},
@@ -320,27 +176,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							GPUs: []v1.GPU{
-								{
-									Name: "pgpu0",
-									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   "pgpu",
-										RequestName: "gpu",
-									},
-								},
-								{
-									Name: "vgpu0",
-									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   "vgpu",
-										RequestName: "vgpu",
-									},
-								},
+								{Name: "pgpu0", ClaimRequest: &v1.ClaimRequest{ClaimName: "pgpu", RequestName: "gpu"}},
+								{Name: "vgpu0", ClaimRequest: &v1.ClaimRequest{ClaimName: "vgpu", RequestName: "vgpu"}},
 							},
 						},
 					},
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(2))
 
@@ -367,32 +211,18 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 	Context("validation errors", func() {
 		It("should return an error when metadata is missing for a DRA GPU", func() {
 			pciAddr := "0000:02:00.0"
-			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "gpu.example.com",
-						Pool:   "gpu-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) {
+				return "", fmt.Errorf("no mdev")
+			}
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, claimRefName, _ string) (string, error) {
+				if claimRefName == "claim1" {
+					return pciAddr, nil
+				}
+				return "", fmt.Errorf("attribute not found")
+			}
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"},
 				Spec: v1.VirtualMachineInstanceSpec{
 					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
@@ -401,27 +231,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							GPUs: []v1.GPU{
-								{
-									Name: "gpu1",
-									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   "claim1",
-										RequestName: "req1",
-									},
-								},
-								{
-									Name: "gpu2",
-									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   "claim2",
-										RequestName: "req2",
-									},
-								},
+								{Name: "gpu1", ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"}},
+								{Name: "gpu2", ClaimRequest: &v1.ClaimRequest{ClaimName: "claim2", RequestName: "req2"}},
 							},
 						},
 					},
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(hostDevices).To(BeNil())
 		})

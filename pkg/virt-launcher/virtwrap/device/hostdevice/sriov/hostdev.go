@@ -141,9 +141,11 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 	}
 }
 
+var getPCIAddress = drautil.GetPCIAddressForClaim
+
 // CreateDRAHostDevices creates SR-IOV host devices for networks that use DRA.
 // PCI addresses are resolved from pod-local DRA metadata files.
-func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, metadataBasePath string) ([]api.HostDevice, error) {
+func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	sriovInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
 	if len(sriovInterfaces) == 0 {
 		return []api.HostDevice{}, nil
@@ -169,8 +171,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, metadataBasePath strin
 		claimName := network.NetworkSource.ResourceClaim.ClaimName
 		requestName := network.NetworkSource.ResourceClaim.RequestName
 
-		pciAddress, err := drautil.GetPCIAddressForClaim(
-			metadataBasePath,
+		pciAddress, err := getPCIAddress(
 			vmi.Spec.ResourceClaims,
 			claimName,
 			requestName,

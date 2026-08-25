@@ -17,20 +17,12 @@
  *
  */
 
-package sriov_test
+package sriov
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
-	resourcev1 "k8s.io/api/resource/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
-
-	"kubevirt.io/kubevirt/pkg/dra/metadata"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -42,17 +34,14 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
 
 const (
 	netname1 = "net1"
 	netname2 = "net2"
-
-	sriovDRADriverName       = "sriovnetwork.k8snetworkplumbingwg.io"
-	sriovDRAMetadataFileName = sriovDRADriverName + "-metadata.json"
 )
 
 var _ = Describe("SRIOV HostDevice", func() {
@@ -60,7 +49,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 		It("creates no device given no interfaces", func() {
 			vmi := &v1.VirtualMachineInstance{}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
 		It("creates no device given no SRIOV interfaces", func() {
@@ -69,7 +58,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			vmi := &v1.VirtualMachineInstance{}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
 		It("creates no device given SRIOV interface that has no status", func() {
@@ -77,7 +66,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			vmi := &v1.VirtualMachineInstance{}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
 		It("creates no device given SRIOV interface without multus info source", func() {
@@ -90,7 +79,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				}},
 			}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
 		It("fails to create device given no available host PCI", func() {
@@ -104,7 +93,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				}},
 			}
 
-			_, err := sriov.CreateHostDevices(vmi)
+			_, err := CreateHostDevices(vmi)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -113,7 +102,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			ifaces := []v1.Interface{newSRIOVInterface("net1")}
 			pool := newPCIAddressPoolStub("0bad0pci0address0")
 
-			_, err := sriov.CreateHostDevicesFromIfacesAndPool(ifaces, pool)
+			_, err := CreateHostDevicesFromIfacesAndPool(ifaces, pool)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -123,7 +112,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface.PciAddress = "0bad0pci0address0"
 			pool := newPCIAddressPoolStub("0000:81:01.0")
 
-			_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+			_, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -133,7 +122,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface2 := newSRIOVInterface(netname1)
 			pool := newPCIAddressPoolStub("0000:81:01.0")
 
-			_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+			_, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -143,7 +132,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface2 := newSRIOVInterface(netname1)
 			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:01.1")
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+			devices, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
@@ -167,7 +156,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface2 := newSRIOVInterface(netname2)
 			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+			devices, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
@@ -191,7 +180,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface.PciAddress = "0000:01:01.0"
 			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+			devices, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			guestPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x01", Slot: "0x01", Function: "0x0"}
@@ -225,7 +214,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}
 				hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 
-				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+				devices, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 				Expect(err).NotTo(HaveOccurred())
 
 				expectHostDevice1 := api.HostDevice{
@@ -266,7 +255,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface.BootOrder = &val
 			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+			devices, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
@@ -296,7 +285,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}
 				hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 
-				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+				devices, err := CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 				Expect(err).NotTo(HaveOccurred())
 
 				expectHostDevice1 := api.HostDevice{
@@ -333,17 +322,25 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	Context("DRA SR-IOV creation", func() {
-		It("uses metadata file path for direct ResourceClaim", func() {
-			tempDir := GinkgoT().TempDir()
+		var mockPCIAddress string
+		var mockPCIErr error
 
+		BeforeEach(func() {
+			mockPCIAddress = ""
+			mockPCIErr = nil
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) {
+				return mockPCIAddress, mockPCIErr
+			}
+			DeferCleanup(func() {
+				getPCIAddress = drautil.GetPCIAddressForClaim
+			})
+		})
+
+		It("creates a host device from resolved DRA metadata", func() {
+			mockPCIAddress = "0000:65:0a.3"
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "claim-ref",
-				ResourceClaimName: ptr.To("manual-vf-claim"),
-			}}
-			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.3")).To(Succeed())
 
-			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			devices, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(devices).To(HaveLen(1))
 
@@ -361,109 +358,57 @@ var _ = Describe("SRIOV HostDevice", func() {
 			Expect(devices).To(Equal([]api.HostDevice{expectedHostDevice}))
 		})
 
-		It("uses metadata file path for ResourceClaimTemplate-backed pod claim", func() {
-			tempDir := GinkgoT().TempDir()
-
-			vmi := newDRAVMI("generated-claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name: "generated-claim-ref",
-			}}
-			Expect(writeMetadataFile(tempDir, "resourceclaimtemplates", "generated-claim-ref", "vf", "0000:65:0a.4")).To(Succeed())
-
-			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(devices).To(HaveLen(1))
-
-			expectedHostAddr, err := device.NewPciAddressField("0000:65:0a.4")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(devices[0].Source.Address).To(Equal(expectedHostAddr))
-		})
-
-		It("propagates boot order from DRA SR-IOV interface", func() {
-			tempDir := GinkgoT().TempDir()
-
+		It("propagates boot order", func() {
+			mockPCIAddress = "0000:65:0a.5"
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "claim-ref",
-				ResourceClaimName: ptr.To("manual-vf-claim"),
-			}}
 			bootOrder := uint(1)
 			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = &bootOrder
-			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.5")).To(Succeed())
 
-			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			devices, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(devices).To(HaveLen(1))
 			Expect(devices[0].BootOrder).To(Equal(&api.BootOrder{Order: bootOrder}))
 		})
 
-		It("does not set guest PCI address when DRA SR-IOV interface has no guest PCI address", func() {
-			tempDir := GinkgoT().TempDir()
-
+		It("does not set an absent guest PCI address", func() {
+			mockPCIAddress = "0000:65:0a.6"
 			vmi := newDRAVMI("claim-ref", "vf")
 			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = ""
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "claim-ref",
-				ResourceClaimName: ptr.To("manual-vf-claim"),
-			}}
-			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.6")).To(Succeed())
 
-			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			devices, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(devices).To(HaveLen(1))
 			Expect(devices[0].Address).To(BeNil())
 		})
 
-		It("fails when DRA SR-IOV interface has malformed guest PCI address", func() {
-			tempDir := GinkgoT().TempDir()
-
+		It("rejects a malformed guest PCI address", func() {
+			mockPCIAddress = "0000:65:0a.7"
 			vmi := newDRAVMI("claim-ref", "vf")
 			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "not-a-pci-address"
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "claim-ref",
-				ResourceClaimName: ptr.To("manual-vf-claim"),
-			}}
-			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.7")).To(Succeed())
 
-			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to interpret the guest PCI address for interface net1"))
+			_, err := CreateDRAHostDevices(vmi)
+			Expect(err).To(MatchError(ContainSubstring("failed to interpret the guest PCI address for interface net1")))
 		})
 
-		It("fails when metadata file is missing for direct ResourceClaim", func() {
-			tempDir := GinkgoT().TempDir()
-
+		It("propagates metadata resolution errors", func() {
+			mockPCIErr = fmt.Errorf("metadata unavailable")
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "claim-ref",
-				ResourceClaimName: ptr.To("manual-vf-claim"),
-			}}
 
-			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to resolve PCI address for SR-IOV DRA interface net1"))
+			_, err := CreateDRAHostDevices(vmi)
+			Expect(err).To(MatchError(ContainSubstring("failed to resolve PCI address for SR-IOV DRA interface net1")))
 		})
 
-		It("fails when metadata has invalid host pciBusID", func() {
-			tempDir := GinkgoT().TempDir()
-
+		It("rejects an invalid resolved host PCI address", func() {
+			mockPCIAddress = "not-a-pci-address"
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
-				Name:              "claim-ref",
-				ResourceClaimName: ptr.To("manual-vf-claim"),
-			}}
-			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "not-a-pci-address")).To(Succeed())
 
-			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to create PCI address for SR-IOV DRA interface net1"))
+			_, err := CreateDRAHostDevices(vmi)
+			Expect(err).To(MatchError(ContainSubstring("failed to create PCI address for SR-IOV DRA interface net1")))
 		})
 
 		It("returns no host devices when there are no SR-IOV DRA interfaces", func() {
 			vmi := newDRAVMI("claim-ref", "vf")
 			vmi.Spec.Domain.Devices.Interfaces[0].SRIOV = nil
 
-			devices, err := sriov.CreateDRAHostDevices(vmi, GinkgoT().TempDir())
+			devices, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(devices).To(BeEmpty())
 		})
@@ -478,7 +423,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(Succeed())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 0)).To(Succeed())
 			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
@@ -488,7 +433,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(true, false)
 			c.sendEvent("foo")
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
 			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
@@ -498,7 +443,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("foo")
 			d := deviceDetacherStub{fail: true}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
 			Expect(c.EventChannel()).To(HaveLen(1))
 		})
 
@@ -507,7 +452,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 
 			c := newCallbackerStub(false, false)
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 0)).To(HaveOccurred())
 		})
 
 		It("fails due to a missing event from a sriov device", func() {
@@ -516,7 +461,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("non-sriov")
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(HaveOccurred())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(HaveOccurred())
 			Expect(c.EventChannel()).To(BeEmpty())
 		})
 
@@ -527,7 +472,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, true)
 			c.sendEvent(api.UserAliasPrefix + hostDevice.Alias.GetName())
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
@@ -538,7 +483,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent(api.UserAliasPrefix + hostDevice.Alias.GetName())
 			c.sendEvent(api.UserAliasPrefix + hostDevice2.Alias.GetName())
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
+			Expect(SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
 	})
 })
@@ -589,42 +534,6 @@ func newDRAVMI(claimRefName, requestName string) *v1.VirtualMachineInstance {
 			}},
 		},
 	}
-}
-
-func writeRawMetadataFile(basePath, claimSubdir, claimName, requestName, metadataJSON string) error {
-	dir := filepath.Join(basePath, claimSubdir, claimName, requestName)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(dir, sriovDRAMetadataFileName), []byte(metadataJSON), 0644)
-}
-
-func writeMetadataFile(basePath, claimSubdir, claimName, requestName, pciAddress string) error {
-	md := metadata.DeviceMetadata{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: metadata.APIVersionV1Alpha1,
-			Kind:       "DeviceMetadata",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: claimName,
-		},
-		Requests: []metadata.DeviceMetadataRequest{{
-			Name: requestName,
-			Devices: []metadata.Device{{
-				Driver: sriovDRADriverName,
-				Pool:   "pool0",
-				Name:   "dev0",
-				Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-					metadata.PCIBusIDAttribute: {StringValue: ptr.To(pciAddress)},
-				},
-			}},
-		}},
-	}
-	data, err := json.Marshal(md)
-	if err != nil {
-		return err
-	}
-	return writeRawMetadataFile(basePath, claimSubdir, claimName, requestName, string(data))
 }
 
 type stubPCIAddressPool struct {
