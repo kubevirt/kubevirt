@@ -587,7 +587,7 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 		}
 	}
 
-	log.Log.Error("Re-registered domain and agent callbacks for new connection")
+	log.Log.Infof("Re-registered domain and agent callbacks for new connection")
 
 	if l.reconnect != nil {
 		// Notify the callback about the reconnect through channel.
