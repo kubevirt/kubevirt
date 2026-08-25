@@ -168,7 +168,7 @@ func (c *Controller) processHotplugVolumeStatus(
 			log.Log.V(3).Infof("Setting phase %s for volume %s", statusCopy.Phase, volumeName)
 			statusCopy.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volumeName)
 			statusCopy.Reason = controller.SuccessfulCreatePodReason
-			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, statusCopy.Reason, statusCopy.Message)
+			c.recorder.Event(vmi, k8sv1.EventTypeNormal, statusCopy.Reason, statusCopy.Message)
 		}
 		// Handle race condition where an unplugged volume was quickly re-attached.
 		// The old attachment pod may still be cleaning up while the new one is created,
@@ -325,7 +325,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 			if status.Phase == virtv1.HotplugVolumeDetaching && attachmentPod.DeletionTimestamp != nil {
 				status.Message = fmt.Sprintf("Deleted hotplug attachment pod %s, for volume %s", attachmentPod.Name, volumeName)
 				status.Reason = controller.SuccessfulDeletePodReason
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
+				c.recorder.Event(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
 			}
 			// If the pod exists, we keep the status.
 			newStatus = append(newStatus, status)

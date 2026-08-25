@@ -798,7 +798,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 }
 
 func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, deleteReason, message string) error {
-	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, deleteReason, message)
+	ctrl.Recorder.Event(vmExport, corev1.EventTypeWarning, deleteReason, message)
 	if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !errors.IsNotFound(err) {
 		return err
 	}

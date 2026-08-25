@@ -1,4 +1,4 @@
-// Copyright 2021 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 )
 
 const sasPortClassPath = "class/sas_port"
@@ -105,10 +106,8 @@ func (spc *SASPortClass) GetByName(name string) *SASPort {
 // GetByPhy finds the SASPort that contains the provided PHY name.
 func (spc *SASPortClass) GetByPhy(name string) *SASPort {
 	for _, d := range *spc {
-		for _, p := range d.SASPhys {
-			if p == name {
-				return d
-			}
+		if slices.Contains(d.SASPhys, name) {
+			return d
 		}
 	}
 	return nil
@@ -117,10 +116,8 @@ func (spc *SASPortClass) GetByPhy(name string) *SASPort {
 // GetByExpander finds the SASPort that contains the provided SAS expander name.
 func (spc *SASPortClass) GetByExpander(name string) *SASPort {
 	for _, d := range *spc {
-		for _, e := range d.Expanders {
-			if e == name {
-				return d
-			}
+		if slices.Contains(d.Expanders, name) {
+			return d
 		}
 	}
 	return nil
@@ -129,10 +126,8 @@ func (spc *SASPortClass) GetByExpander(name string) *SASPort {
 // GetByEndDevice finds the SASPort that contains the provided SAS end device name.
 func (spc *SASPortClass) GetByEndDevice(name string) *SASPort {
 	for _, d := range *spc {
-		for _, e := range d.EndDevices {
-			if e == name {
-				return d
-			}
+		if slices.Contains(d.EndDevices, name) {
+			return d
 		}
 	}
 	return nil
