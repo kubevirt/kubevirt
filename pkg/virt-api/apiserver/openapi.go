@@ -112,11 +112,19 @@ func stringResponse(code int) spec.Response {
 
 func getDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	defs := kubevirtopenapi.GetOpenAPIDefinitions(ref)
-	defs["k8s.io/apimachinery/pkg/version.Info"] = schemaVersionInfo()
+	// k8s 0.36+ names this type via OpenAPIModelName()
+	defs["io.k8s.apimachinery.pkg.version.Info"] = schemaVersionInfo()
 	return defs
 }
 
 func getDefinitionName(name string) (string, spec.Extensions) {
+	// Generated OpenAPIModelName for, e.g. "io.kubevirt.api.core.v1.StartOptions".
+	// Keep the published "<version>.<Kind>" definition keys (same as pkg/util/openapi).
+	if strings.HasPrefix(name, "io.kubevirt.") {
+		parts := strings.Split(name, ".")
+		return parts[len(parts)-2] + "." + parts[len(parts)-1], nil
+	}
+	// "kubevirt.io/api/core/v1.StartOptions"
 	if strings.Contains(name, "kubevirt.io") {
 		return name[strings.LastIndex(name, "/")+1:], nil
 	}

@@ -13746,7 +13746,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/k8s.io.apimachinery.pkg.version.Info"
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.version.Info"
        }
       },
       "401": {
@@ -14560,7 +14560,7 @@
       "description": "groups is a list of APIGroup.",
       "type": "array",
       "items": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
       },
       "x-kubernetes-list-type": "atomic"
      },
@@ -15069,7 +15069,7 @@
      }
     }
    },
-   "k8s.io.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
+   "io.k8s.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
     "type": "object",
     "required": [
@@ -15229,7 +15229,7 @@
     "type": "string",
     "format": "int-or-string"
    },
-   "k8s.io.apimachinery.pkg.version.Info": {
+   "io.k8s.apimachinery.pkg.version.Info": {
     "description": "Info contains versioning information for an API server, as exposed on /version.",
     "type": "object",
     "required": [
@@ -18437,7 +18437,7 @@
       }
      },
      "objectReference": {
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedObjectReference"
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedObjectReference"
      },
      "optional": {
       "type": "boolean"
@@ -20248,7 +20248,7 @@
       "type": "string"
      },
      "metadata": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
@@ -20384,7 +20384,7 @@
       "type": "string"
      },
      "metadata": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
    },
