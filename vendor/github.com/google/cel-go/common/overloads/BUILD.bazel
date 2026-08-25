@@ -7,8 +7,7 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "overloads.go",
-    ],
+    srcs = ["overloads.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/overloads",
     importpath = "github.com/google/cel-go/common/overloads",
 )

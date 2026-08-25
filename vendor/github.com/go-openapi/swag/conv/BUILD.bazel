@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "convert.go",
+        "convert_types.go",
+        "doc.go",
+        "format.go",
+        "sizeof.go",
+        "type_constraints.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/swag/conv",
+    importpath = "github.com/go-openapi/swag/conv",
+    visibility = ["//visibility:public"],
+)

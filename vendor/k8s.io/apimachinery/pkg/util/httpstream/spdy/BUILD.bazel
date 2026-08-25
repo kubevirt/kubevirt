@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "spdy.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apimachinery/pkg/util/httpstream/spdy",
+    importpath = "k8s.io/apimachinery/pkg/util/httpstream/spdy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/util/httpstream:go_default_library",
+        "//vendor/k8s.io/streaming/pkg/httpstream:go_default_library",
+        "//vendor/k8s.io/streaming/pkg/httpstream/spdy:go_default_library",
+    ],
+)

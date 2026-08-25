@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "camel.go",
+        "doc.go",
+        "helper.go",
+        "kebab.go",
+        "snake.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/stoewer/go-strcase",
+    importpath = "github.com/stoewer/go-strcase",
+    visibility = ["//visibility:public"],
+)

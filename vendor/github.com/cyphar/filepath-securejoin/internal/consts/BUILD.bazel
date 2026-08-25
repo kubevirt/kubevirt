@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["consts.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin/internal/consts",
+    importpath = "github.com/cyphar/filepath-securejoin/internal/consts",
+    visibility = ["//vendor/github.com/cyphar/filepath-securejoin:__subpackages__"],
+)

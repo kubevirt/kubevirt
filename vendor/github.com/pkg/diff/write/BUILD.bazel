@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "option.go",
+        "todo.go",
+        "unified.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/pkg/diff/write",
+    importpath = "github.com/pkg/diff/write",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/pkg/diff/edit:go_default_library"],
+)

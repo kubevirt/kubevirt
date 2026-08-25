@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metadata.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/metadata",
+    importpath = "google.golang.org/grpc/metadata",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/google.golang.org/grpc/internal:go_default_library"],
+)

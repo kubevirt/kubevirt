@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -21,30 +21,11 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "env.go",
-    ],
+    srcs = ["env.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/env",
     importpath = "github.com/google/cel-go/common/env",
     deps = [
-        "//common:go_default_library",
-        "//common/decls:go_default_library",
-        "//common/types:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    size = "small",
-    srcs = [
-        "env_test.go",
-    ],
-    data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
-    deps = [
-        "//common/decls:go_default_library",
-        "//common/operators:go_default_library",
-        "//common/overloads:go_default_library",
-        "//common/types:go_default_library",
-        "@in_gopkg_yaml_v3//:go_default_library",
+        "//vendor/github.com/google/cel-go/common/decls:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
     ],
 )

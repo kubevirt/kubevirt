@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "groupversion_info.go",
+        "virtualmachinetemplate_types.go",
+        "zz_generated.deepcopy.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/virt-template-api/core/subresourcesv1alpha1",
+    importpath = "kubevirt.io/virt-template-api/core/subresourcesv1alpha1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/scheme:go_default_library",
+    ],
+)

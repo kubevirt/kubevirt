@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["config.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/admission/plugin/policy/config",
+    importpath = "k8s.io/apiserver/pkg/admission/plugin/policy/config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/manifest:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/policy/config/apis/policyconfig:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/policy/config/apis/policyconfig/v1:go_default_library",
+    ],
+)

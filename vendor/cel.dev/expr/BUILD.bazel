@@ -1,11 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-package(default_visibility = ["//visibility:public"])
-
-licenses(["notice"])  # Apache 2.0
-
 go_library(
-    name = "expr",
+    name = "go_default_library",
     srcs = [
         "checked.pb.go",
         "eval.pb.go",
@@ -13,21 +9,16 @@ go_library(
         "syntax.pb.go",
         "value.pb.go",
     ],
+    importmap = "kubevirt.io/kubevirt/vendor/cel.dev/expr",
     importpath = "cel.dev/expr",
     visibility = ["//visibility:public"],
     deps = [
-        "@org_golang_google_protobuf//reflect/protoreflect",
-        "@org_golang_google_protobuf//runtime/protoimpl",
-        "@org_golang_google_protobuf//types/known/anypb",
-        "@org_golang_google_protobuf//types/known/durationpb",
-        "@org_golang_google_protobuf//types/known/emptypb",
-        "@org_golang_google_protobuf//types/known/structpb",
-        "@org_golang_google_protobuf//types/known/timestamppb",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/anypb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/durationpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/emptypb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/structpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/timestamppb:go_default_library",
     ],
-)
-
-alias(
-    name = "go_default_library",
-    actual = ":expr",
-    visibility = ["//visibility:public"],
 )

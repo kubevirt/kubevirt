@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "gojson.go",
+        "gojson_event_writer.go",
+        "gojson_reporter.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/v2/internal/reporters",
+    importpath = "github.com/onsi/ginkgo/v2/internal/reporters",
+    visibility = ["//vendor/github.com/onsi/ginkgo/v2:__subpackages__"],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
+        "//vendor/golang.org/x/tools/go/packages:go_default_library",
+    ],
+)

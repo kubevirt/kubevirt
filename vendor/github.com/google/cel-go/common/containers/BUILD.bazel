@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -7,25 +7,10 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "container.go",
-    ],
+    srcs = ["container.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/containers",
     importpath = "github.com/google/cel-go/common/containers",
     deps = [
-        "//common/ast:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    size = "small",
-    srcs = [
-        "container_test.go",
-    ],
-    embed = [
-        ":go_default_library",
-    ],
-    deps = [
-        "//common/ast:go_default_library",
+        "//vendor/github.com/google/cel-go/common/ast:go_default_library",
     ],
 )

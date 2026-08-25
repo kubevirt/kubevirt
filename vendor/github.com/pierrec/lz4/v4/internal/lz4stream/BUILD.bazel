@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "block.go",
+        "frame.go",
+        "frame_gen.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/pierrec/lz4/v4/internal/lz4stream",
+    importpath = "github.com/pierrec/lz4/v4/internal/lz4stream",
+    visibility = ["//vendor/github.com/pierrec/lz4/v4:__subpackages__"],
+    deps = [
+        "//vendor/github.com/pierrec/lz4/v4/internal/lz4block:go_default_library",
+        "//vendor/github.com/pierrec/lz4/v4/internal/lz4errors:go_default_library",
+        "//vendor/github.com/pierrec/lz4/v4/internal/xxh32:go_default_library",
+    ],
+)

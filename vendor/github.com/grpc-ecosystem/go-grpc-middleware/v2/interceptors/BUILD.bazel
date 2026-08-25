@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "callmeta.go",
+        "client.go",
+        "doc.go",
+        "reporter.go",
+        "server.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors",
+    importpath = "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
+    ],
+)

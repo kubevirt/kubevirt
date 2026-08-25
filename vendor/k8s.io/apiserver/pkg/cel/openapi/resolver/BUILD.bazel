@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "combined.go",
+        "definitions.go",
+        "discovery.go",
+        "refs.go",
+        "resolver.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/cel/openapi/resolver",
+    importpath = "k8s.io/apiserver/pkg/cel/openapi/resolver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/endpoints/openapi:go_default_library",
+        "//vendor/k8s.io/client-go/discovery:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/validation/spec:go_default_library",
+    ],
+)

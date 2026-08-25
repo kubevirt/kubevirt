@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "option.go",
+        "tempfile.go",
+        "writefile.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/renameio/v2",
+    importpath = "github.com/google/renameio/v2",
+    visibility = ["//visibility:public"],
+)
