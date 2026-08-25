@@ -135,7 +135,7 @@ var _ = Describe("VMBackupController", func() {
 
 		BeforeEach(func() {
 			ctrl = &VMBackupController{
-				client: virtClient,
+				virtClient: virtClient,
 			}
 
 			tracker = createTracker("tracker1", "test-vmi", true, true)
@@ -170,7 +170,7 @@ var _ = Describe("VMBackupController", func() {
 
 		BeforeEach(func() {
 			ctrl = &VMBackupController{
-				client: virtClient,
+				virtClient: virtClient,
 			}
 
 			tracker = createTracker("tracker1", "test-vmi", true, true)
@@ -214,7 +214,7 @@ var _ = Describe("VMBackupController", func() {
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(mockCtrl)
 
 			ctrl = &VMBackupController{
-				client:                virtClient,
+				virtClient:            virtClient,
 				backupTrackerInformer: trackerInformer,
 				vmiStore:              vmiInformer.GetStore(),
 				recorder:              recorder,
@@ -347,8 +347,8 @@ var _ = Describe("VMBackupController", func() {
 			recorder.IncludeObject = true
 
 			ctrl = &VMBackupController{
-				client:   virtClient,
-				recorder: recorder,
+				virtClient: virtClient,
+				recorder:   recorder,
 			}
 
 			tracker = createTracker("tracker1", "test-vmi", true, true)

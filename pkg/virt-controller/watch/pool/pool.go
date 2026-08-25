@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -48,7 +49,8 @@ import (
 
 // Controller is the main Controller struct.
 type Controller struct {
-	clientset       kubecli.KubevirtClient
+	virtClient      kubecli.KubevirtClient
+	k8sClient       kubernetes.Interface
 	queue           workqueue.TypedRateLimitingInterface[string]
 	vmIndexer       cache.Indexer
 	vmiStore        cache.Store
@@ -85,7 +87,8 @@ const (
 var virtControllerPoolWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 // NewController creates a new instance of the PoolController struct.
-func NewController(clientset kubecli.KubevirtClient,
+func NewController(virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	poolInformer cache.SharedIndexInformer,
@@ -95,7 +98,8 @@ func NewController(clientset kubecli.KubevirtClient,
 	recorder record.EventRecorder,
 	burstReplicas uint) (*Controller, error) {
 	c := &Controller{
-		clientset: clientset,
+		virtClient: virtClient,
+		k8sClient:  k8sClient,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-pool"},
@@ -671,7 +675,7 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 			defer wg.Done()
 			vm := deleteList[idx]
 
-			if err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{}); err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s/%s: %v", vm.Namespace, vm.Name, err)
 				errChan <- err
@@ -879,7 +883,7 @@ func (c *Controller) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (
 	}
 
 	c.expectations.RaiseExpectations(poolKey, 1, 0)
-	_, err = c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+	_, err = c.k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
 		c.expectations.CreationObserved(poolKey)
 		return "", err
@@ -954,7 +958,7 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
-			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err = c.virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 
 			if err != nil {
 				c.expectations.CreationObserved(poolKey)
@@ -1091,7 +1095,7 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 			// Preserve VM identity/specific fields that were set during VM creation
 			preserveVMIdentityFields(vm, vmCopy)
 
-			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+			_, err = c.virtClient.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 			if err != nil {
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error updating virtual machine %s/%s: %v", vm.Name, vm.Namespace, err)
 				log.Log.Object(pool).Reason(err).Errorf("Error encountered during update of vm %s/%s in pool", vmCopy.Namespace, vmCopy.Name)
@@ -1373,7 +1377,7 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 	}
 
 	for revisionName := range deletionMap {
-		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, metav1.DeleteOptions{})
+		err := c.k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, metav1.DeleteOptions{})
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
@@ -1513,7 +1517,7 @@ func (c *Controller) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*vi
 	pool.Status.ReadyReplicas = int32(len(c.filterReadyVMs(vms)))
 
 	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) || pool.Status.Replicas != pool.Status.ReadyReplicas {
-		_, err := c.clientset.VirtualMachinePool(pool.Namespace).UpdateStatus(context.Background(), pool, metav1.UpdateOptions{})
+		_, err := c.virtClient.VirtualMachinePool(pool.Namespace).UpdateStatus(context.Background(), pool, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -1567,7 +1571,7 @@ func (c *Controller) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := c.clientset.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
+		fresh, err := c.virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -1577,7 +1581,7 @@ func (c *Controller) execute(key string) error {
 
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, pool, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.virtClient}, pool, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
 	vms, err = cm.ReleaseDetachedVirtualMachines(vms)
 	if err != nil {
 		return err
@@ -1632,10 +1636,10 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 
 	switch updateType {
 	case proactiveUpdateTypeRestart:
-		err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+		err = c.virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 	case proactiveUpdateTypeVMDelete:
-		err = c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)})
+		err = c.virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)})
 		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
 	case proactiveUpdateTypePatchRevisionLabel:
 		patchSet := patch.New()
@@ -1663,7 +1667,7 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 			return fmt.Errorf("failed to marshal patch: %v", err)
 		}
 
-		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		_, err = c.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
 		}
@@ -1707,7 +1711,7 @@ func (c *Controller) removeFinalizer(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -1729,7 +1733,7 @@ func (c *Controller) addPoolFinalizer(pool *poolv1.VirtualMachinePool) error {
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -1748,7 +1752,7 @@ func (c *Controller) removePoolFinalizer(pool *poolv1.VirtualMachinePool) error 
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	_, err = c.virtClient.VirtualMachinePool(pool.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -1859,7 +1863,7 @@ func (c *Controller) removeDataVolumeOwnerReferences(vm *virtv1.VirtualMachine) 
 				return fmt.Errorf("failed to patch owner references for DataVolume %s: %v", dv.Name, err)
 			}
 
-			_, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Patch(context.Background(), dv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err = c.virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Patch(context.Background(), dv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to remove owner reference from DataVolume %s: %v", dv.Name, err)
 			}
@@ -1906,7 +1910,7 @@ func (c *Controller) removePVCOwnerReferences(vm *virtv1.VirtualMachine) error {
 			if err != nil {
 				return fmt.Errorf("failed to patch owner references for PVC %s: %v", pvc.Name, err)
 			}
-			_, err = c.clientset.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(), pvcName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err = c.k8sClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(), pvcName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to remove owner reference from PVC %s: %v", pvc.Name, err)
 			}

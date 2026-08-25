@@ -31,11 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	corev1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -112,7 +112,7 @@ func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachin
 	return pvcForMigrationTargetFromStore(pvcStore, migration)
 }
 
-func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration, pvcStore cache.Store, vmi *corev1.VirtualMachineInstance, launcherImage string) error {
+func RecoverFromBrokenMigration(client kubernetes.Interface, migration *corev1.VirtualMachineInstanceMigration, pvcStore cache.Store, vmi *corev1.VirtualMachineInstance, launcherImage string) error {
 	if migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == migration.Status.MigrationState.SourcePersistentStatePVCName {
 		// The migration either didn't actually start, or the backend storage is RWX.
@@ -310,7 +310,7 @@ func IsBackendStorageNeeded(obj interface{}) bool {
 
 // MigrationHandoff runs at the end of a successful live migration.
 // It labels the target backend-storage PVC as current for the VM and deletes the source backend-storage PVC.
-func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationHandoff(client kubernetes.Interface, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		(migration.Status.MigrationState.SourcePersistentStatePVCName == "" && !migration.IsDecentralized()) ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
@@ -369,7 +369,7 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 
 // MigrationAbort runs at the end of a failed live migration.
 // It just removes the target backend-storage PVC.
-func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationAbort(client kubernetes.Interface, migration *corev1.VirtualMachineInstanceMigration) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
 		return nil
@@ -392,14 +392,14 @@ func MigrationAbort(client kubecli.KubevirtClient, migration *corev1.VirtualMach
 }
 
 type BackendStorage struct {
-	client        kubecli.KubevirtClient
+	client        kubernetes.Interface
 	clusterConfig *virtconfig.ClusterConfig
 	scStore       cache.Store
 	spStore       cache.Store
 	pvcStore      cache.Store
 }
 
-func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store, pvcStore cache.Store) *BackendStorage {
+func NewBackendStorage(client kubernetes.Interface, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store, pvcStore cache.Store) *BackendStorage {
 	return &BackendStorage{
 		client:        client,
 		clusterConfig: clusterConfig,

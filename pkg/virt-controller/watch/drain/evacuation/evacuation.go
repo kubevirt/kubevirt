@@ -37,7 +37,7 @@ const (
 )
 
 type EvacuationController struct {
-	clientset             kubecli.KubevirtClient
+	virtClient            kubecli.KubevirtClient
 	Queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer            cache.Indexer
 	vmiPodIndexer         cache.Indexer
@@ -55,7 +55,7 @@ func NewEvacuationController(
 	nodeInformer cache.SharedIndexInformer,
 	vmiPodInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*EvacuationController, error) {
 
@@ -69,7 +69,7 @@ func NewEvacuationController(
 		nodeStore:             nodeInformer.GetStore(),
 		vmiPodIndexer:         vmiPodInformer.GetIndexer(),
 		recorder:              recorder,
-		clientset:             clientset,
+		virtClient:            virtClient,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
 	}
@@ -387,7 +387,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi, node.Name), v1.CreateOptions{})
+			createdMigration, err := c.virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi, node.Name), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)

@@ -140,7 +140,7 @@ func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("failed to generate attach backup target PVC patch: %w", err)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf(failedTargetPVCAttach, err)
 	}
@@ -175,7 +175,7 @@ func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInst
 		return fmt.Errorf(failedTargetPVCDetach, err)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf(failedTargetPVCDetach, err)
 	}

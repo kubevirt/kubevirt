@@ -11,9 +11,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/client-go/log"
 )
@@ -25,7 +24,7 @@ type NodeTopologyUpdater interface {
 type nodeTopologyUpdater struct {
 	nodeInformer cache.SharedIndexInformer
 	hinter       Hinter
-	client       kubecli.KubevirtClient
+	client       kubernetes.Interface
 }
 
 type updateStats struct {
@@ -104,7 +103,7 @@ func (n nodeTopologyUpdater) requiredFrequencies() ([]int64, error) {
 	return append(n.hinter.TSCFrequenciesInUse(), lowestFrequency), nil
 }
 
-func NewNodeTopologyUpdater(clientset kubecli.KubevirtClient, hinter Hinter, nodeInformer cache.SharedIndexInformer) NodeTopologyUpdater {
+func NewNodeTopologyUpdater(clientset kubernetes.Interface, hinter Hinter, nodeInformer cache.SharedIndexInformer) NodeTopologyUpdater {
 	return &nodeTopologyUpdater{
 		client:       clientset,
 		hinter:       hinter,
