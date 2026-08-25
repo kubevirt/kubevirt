@@ -57,6 +57,7 @@ add_feature_gate() {
 }
 
 export KUBEVIRT_DEPLOY_CDI=true
+export KUBEVIRT_CUSTOM_CDI_VERSION=v1.66.0
 if [[ ! $TARGET =~ .*kind.* ]]; then
   add_feature_gate "NodeRestriction"
   export KUBEVIRT_PSA="true"
