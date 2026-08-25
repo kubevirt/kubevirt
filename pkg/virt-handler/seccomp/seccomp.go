@@ -31,7 +31,7 @@ import (
 )
 
 // Install seccomp, kubeletRoot should be passed in format: /proc/1/root/var/lib/kubelet/
-func InstallPolicy(kubeletRoot string) error {
+func InstallPolicy(kubeletRoot string) (retErr error) {
 	const errMsgFormat string = "failed to install default seccomp profile: %v"
 
 	installPath := filepath.Join(kubeletRoot, "seccomp/kubevirt")
@@ -57,10 +57,37 @@ func InstallPolicy(kubeletRoot string) error {
 		return nil
 	}
 
-	if err := os.WriteFile(profilePath, profileBytes, 0600); err != nil {
+	// Write to a temp file in the same directory, sync, then rename over the
+	// target. os.Rename is atomic on Linux when source and destination are on
+	// the same filesystem, so readers never see a partial file.
+	tmp, err := os.CreateTemp(installPath, "kubevirt.json.*")
+	if err != nil {
 		return fmt.Errorf(errMsgFormat, err)
 	}
+	defer func() {
+		if err := tmp.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf(errMsgFormat, err)
+		}
+		if retErr != nil {
+			if err := os.Remove(tmp.Name()); err != nil && !errors.Is(err, os.ErrNotExist) {
+				retErr = fmt.Errorf("%w; %v", retErr, err)
+			}
+		}
+	}()
 
+	if _, err := tmp.Write(profileBytes); err != nil {
+		return fmt.Errorf(errMsgFormat, err)
+	}
+	// Ensure data is written to disk before the rename makes it visible.
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf(errMsgFormat, err)
+	}
+	if err := os.Chmod(tmp.Name(), 0600); err != nil {
+		return fmt.Errorf(errMsgFormat, err)
+	}
+	if err := os.Rename(tmp.Name(), profilePath); err != nil {
+		return fmt.Errorf(errMsgFormat, err)
+	}
 	return nil
 }
 
