@@ -1396,7 +1396,9 @@ func (ctrl *VMExportController) reconcileManifestAndAddToPod(vmExport *exportv1.
 func (ctrl *VMExportController) createManifestConfigMap(vmExport *exportv1.VirtualMachineExport, manifestKey string, manifestBytes []byte, service *corev1.Service, extraData map[string]string) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
-	data[internalHostKey] = fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
+	// Headless services do not remap ports, so clone DV HTTP URLs built from
+	// this host must include ExportServerPort (HTTPS default 443 will not work).
+	data[internalHostKey] = fmt.Sprintf("%s.%s.svc:%d", service.Name, service.Namespace, ExportServerPort)
 	cert, err := ctrl.internalExportCa()
 	if err != nil {
 		return nil, err

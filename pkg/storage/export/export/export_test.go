@@ -1739,7 +1739,7 @@ var _ = Describe("Export controller", func() {
 			Expect(cm.GetName()).To(Equal(cmName))
 			Expect(cm.GetNamespace()).To(Equal(testNamespace))
 			Expect(cm.Data).ToNot(BeEmpty())
-			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc:%d", controller.getExportServiceName(testVMExport), service.Namespace, ExportServerPort)))
 			Expect(cm.Data[vmManifest]).To(Equal(string(vmBytes)))
 			return true, cm, nil
 		})
@@ -1977,7 +1977,7 @@ var _ = Describe("Export controller", func() {
 			Expect(cm.GetName()).To(Equal(cmName))
 			Expect(cm.GetNamespace()).To(Equal(testNamespace))
 			Expect(cm.Data).ToNot(BeEmpty())
-			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc:%d", controller.getExportServiceName(testVMExport), service.Namespace, ExportServerPort)))
 			Expect(cm.Data[vmTemplateManifest]).To(Equal(string(tplBytes)))
 			Expect(cm.Data).ToNot(HaveKey(vmManifest))
 			return true, cm, nil
@@ -1985,6 +1985,72 @@ var _ = Describe("Export controller", func() {
 
 		err = controller.reconcileManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should update existing datamanifest when internal_host is missing the export port", func() {
+		populateIngressSecret()
+		testVMExport := createVMVMExportExternal()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		testPod := &k8sv1.Pod{
+			Spec: k8sv1.PodSpec{
+				Containers: []k8sv1.Container{
+					{
+						VolumeMounts: []k8sv1.VolumeMount{},
+					},
+				},
+				Volumes: []k8sv1.Volume{},
+			},
+		}
+		cmName := controller.getVmManifestConfigMapName(testVMExport)
+		stale := &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            cmName,
+				Namespace:       testNamespace,
+				ResourceVersion: "1",
+			},
+			Data: map[string]string{
+				internalHostKey: fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), testNamespace),
+			},
+		}
+		Expect(k8sClient.Tracker().Add(stale)).To(Succeed())
+
+		updated := false
+		k8sClient.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			cm, ok := update.GetObject().(*k8sv1.ConfigMap)
+			Expect(ok).To(BeTrue())
+			Expect(cm.GetName()).To(Equal(cmName))
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc:%d", controller.getExportServiceName(testVMExport), testNamespace, ExportServerPort)))
+			updated = true
+			return false, nil, nil
+		})
+
+		vmBytes, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
+		extra, err := controller.extraVMData(vm)
+		Expect(err).ToNot(HaveOccurred())
+		err = controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updated).To(BeTrue())
 	})
 
 	createVM := func() *virtv1.VirtualMachine {

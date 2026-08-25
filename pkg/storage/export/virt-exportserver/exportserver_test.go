@@ -594,6 +594,35 @@ var _ = Describe("exportserver", func() {
 			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume0"))
 		})
 
+		It("Should keep host port when volume URI is absolute", func() {
+			testVm := getTestVm()
+			getExpandedVM = func() *virtv1.VirtualMachine {
+				return testVm
+			}
+
+			getInternalHost := func() (string, error) {
+				return fmt.Sprintf("virt-export-test.default.svc:%d", export.ExportServerPort), nil
+			}
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			req.Header.Set("Accept", runtime.ContentTypeYAML)
+			resp := httptest.NewRecorder()
+			Expect(err).ToNot(HaveOccurred())
+			handler := vmHandler([]export.VolumeInfo{
+				{
+					RawGzURI: "/volumes/test-dv/disk.img.gz",
+				},
+			}, getInternalHost, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			out := strings.Split(resp.Body.String(), "---\n")
+			Expect(out).To(HaveLen(3))
+			resVm := &virtv1.VirtualMachine{}
+			err = yaml.Unmarshal([]byte(out[1]), resVm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal(fmt.Sprintf("https://virt-export-test.default.svc:%d/volumes/test-dv/disk.img.gz", export.ExportServerPort)))
+		})
+
 		It("Should override DVTemplates with new source URI, json", func() {
 			testVm := getTestVm()
 			getExpandedVM = func() *virtv1.VirtualMachine {
