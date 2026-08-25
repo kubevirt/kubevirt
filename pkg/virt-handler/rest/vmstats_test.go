@@ -203,7 +203,7 @@ var _ = Describe("VMStatsScraper", func() {
 		ctrl.Finish()
 	})
 
-	It("should collect stats using the provided request", func() {
+	It("should collect stats using the request configured for the VMI", func() {
 		expectedStats := &stats.VMStats{
 			DomainStats: stats.DomainStats{
 				Name: "default_test-vm",
@@ -221,13 +221,14 @@ var _ = Describe("VMStatsScraper", func() {
 		)
 		mockClient.EXPECT().Close()
 
-		request := &cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}}
+		requests := map[string]*cmdv1.VMStatsRequest{
+			"default/test-vm": {DomainStats: &cmdv1.DomainStatsRequest{}},
+		}
 		scraper := NewVMStatsScraper(1, func(socketFile string) (cmdclient.LauncherClient, error) {
 			return mockClient, nil
-		}, request)
+		}, requests)
 
-		vmi := newVMI("default", "test-vm")
-		scraper.Scrape("/some/socket", vmi)
+		scraper.Scrape("/some/socket", newVMI("default", "test-vm"))
 		scraper.Complete()
 
 		results := scraper.GetValues()
@@ -237,16 +238,79 @@ var _ = Describe("VMStatsScraper", func() {
 		Expect(results["default/test-vm"].Error).To(BeEmpty())
 	})
 
+	It("should send each VMI its own request", func() {
+		ctrl2 := gomock.NewController(GinkgoT())
+		mockClient2 := cmdclient.NewMockLauncherClient(ctrl2)
+
+		mockClient.EXPECT().GetVMStats(gomock.Any()).DoAndReturn(
+			func(req *cmdv1.VMStatsRequest) (*stats.VMStats, error) {
+				Expect(req.DomainStats).ToNot(BeNil())
+				Expect(req.DirtyRate).To(BeNil())
+				return &stats.VMStats{DomainStats: stats.DomainStats{Name: "default_vm1"}}, nil
+			},
+		)
+		mockClient.EXPECT().Close()
+		mockClient2.EXPECT().GetVMStats(gomock.Any()).DoAndReturn(
+			func(req *cmdv1.VMStatsRequest) (*stats.VMStats, error) {
+				Expect(req.DirtyRate).ToNot(BeNil())
+				Expect(req.DomainStats).To(BeNil())
+				return &stats.VMStats{DomainStats: stats.DomainStats{Name: "default_vm2"}}, nil
+			},
+		)
+		mockClient2.EXPECT().Close()
+
+		requests := map[string]*cmdv1.VMStatsRequest{
+			"default/vm1": {DomainStats: &cmdv1.DomainStatsRequest{}},
+			"default/vm2": {DirtyRate: &cmdv1.DirtyRateRequest{}},
+		}
+		callCount := 0
+		scraper := NewVMStatsScraper(2, func(socketFile string) (cmdclient.LauncherClient, error) {
+			callCount++
+			if socketFile == "/socket/1" {
+				return mockClient, nil
+			}
+			return mockClient2, nil
+		}, requests)
+
+		scraper.Scrape("/socket/1", newVMI("default", "vm1"))
+		scraper.Scrape("/socket/2", newVMI("default", "vm2"))
+		scraper.Complete()
+
+		results := scraper.GetValues()
+		Expect(results).To(HaveLen(2))
+		Expect(results["default/vm1"].Error).To(BeEmpty())
+		Expect(results["default/vm2"].Error).To(BeEmpty())
+
+		ctrl2.Finish()
+	})
+
+	It("should report an error when no request is configured for the VMI", func() {
+		scraper := NewVMStatsScraper(1, func(socketFile string) (cmdclient.LauncherClient, error) {
+			Fail("newClient should not be called when no request is configured")
+			return nil, nil
+		}, map[string]*cmdv1.VMStatsRequest{})
+
+		scraper.Scrape("/some/socket", newVMI("default", "test-vm"))
+		scraper.Complete()
+
+		results := scraper.GetValues()
+		Expect(results).To(HaveLen(1))
+		Expect(results["default/test-vm"].Stats).To(BeNil())
+		Expect(results["default/test-vm"].Error).To(Equal("no stats request configured for VMI"))
+	})
+
 	It("should report error when gRPC call fails", func() {
 		mockClient.EXPECT().GetVMStats(gomock.Any()).Return(nil, fmt.Errorf("gRPC connection failed"))
 		mockClient.EXPECT().Close()
 
+		requests := map[string]*cmdv1.VMStatsRequest{
+			"default/test-vm": {DomainStats: &cmdv1.DomainStatsRequest{}},
+		}
 		scraper := NewVMStatsScraper(1, func(socketFile string) (cmdclient.LauncherClient, error) {
 			return mockClient, nil
-		}, &cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}})
+		}, requests)
 
-		vmi := newVMI("default", "test-vm")
-		scraper.Scrape("/some/socket", vmi)
+		scraper.Scrape("/some/socket", newVMI("default", "test-vm"))
 		scraper.Complete()
 
 		results := scraper.GetValues()
@@ -256,56 +320,19 @@ var _ = Describe("VMStatsScraper", func() {
 	})
 
 	It("should report error when client creation fails", func() {
+		requests := map[string]*cmdv1.VMStatsRequest{
+			"default/test-vm": {DomainStats: &cmdv1.DomainStatsRequest{}},
+		}
 		scraper := NewVMStatsScraper(1, func(socketFile string) (cmdclient.LauncherClient, error) {
 			return nil, fmt.Errorf("socket not found")
-		}, &cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}})
+		}, requests)
 
-		vmi := newVMI("default", "test-vm")
-		scraper.Scrape("/some/socket", vmi)
+		scraper.Scrape("/some/socket", newVMI("default", "test-vm"))
 		scraper.Complete()
 
 		results := scraper.GetValues()
 		Expect(results).To(HaveLen(1))
 		Expect(results["default/test-vm"].Stats).To(BeNil())
 		Expect(results["default/test-vm"].Error).To(Equal("socket not found"))
-	})
-
-	It("should collect stats from multiple VMIs with partial failure", func() {
-		successStats := &stats.VMStats{
-			DomainStats: stats.DomainStats{Name: "default_vm1"},
-		}
-
-		ctrl2 := gomock.NewController(GinkgoT())
-		mockClient2 := cmdclient.NewMockLauncherClient(ctrl2)
-
-		mockClient.EXPECT().GetVMStats(gomock.Any()).Return(successStats, nil)
-		mockClient.EXPECT().Close()
-		mockClient2.EXPECT().GetVMStats(gomock.Any()).Return(nil, fmt.Errorf("vmi shutting down"))
-		mockClient2.EXPECT().Close()
-
-		callCount := 0
-		scraper := NewVMStatsScraper(2, func(socketFile string) (cmdclient.LauncherClient, error) {
-			callCount++
-			if callCount == 1 {
-				return mockClient, nil
-			}
-			return mockClient2, nil
-		}, &cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}})
-
-		scraper.Scrape("/socket/1", newVMI("default", "vm1"))
-		scraper.Scrape("/socket/2", newVMI("default", "vm2"))
-		scraper.Complete()
-
-		results := scraper.GetValues()
-		Expect(results).To(HaveLen(2))
-
-		Expect(results["default/vm1"].Stats).ToNot(BeNil())
-		Expect(results["default/vm1"].Stats.DomainStats.Name).To(Equal("default_vm1"))
-		Expect(results["default/vm1"].Error).To(BeEmpty())
-
-		Expect(results["default/vm2"].Stats).To(BeNil())
-		Expect(results["default/vm2"].Error).To(Equal("vmi shutting down"))
-
-		ctrl2.Finish()
 	})
 })
