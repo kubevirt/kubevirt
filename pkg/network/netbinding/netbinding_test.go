@@ -38,7 +38,7 @@ var _ = Describe("Network Binding", func() {
 		testNetworkName2  = "net2"
 		testBindingName2  = "binding2"
 		testSidecarImage2 = "image2"
-		testNetworkName3  = "net1"
+		testNetworkName3  = "net3"
 	)
 
 	Context("binding plugin sidecar list", func() {
