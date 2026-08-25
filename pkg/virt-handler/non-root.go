@@ -130,12 +130,14 @@ func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
+		return err
 	}
 	vfioPath, err := safepath.JoinNoFollow(vfioBasePath, "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
+		return err
 	}
 	err = safepath.ChmodAtNoFollow(vfioPath, 0666)
 	if err != nil {
