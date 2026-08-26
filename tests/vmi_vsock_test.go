@@ -217,10 +217,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		default:
 		}
 	},
-		// TODO: The TLS handshake will fail when using local namespace,
-		//   because the certificate server is listening in global namespace.
-		//   This will be fixed in a future commit. See "Change 4" in the VEP:
-		//   https://github.com/kubevirt/enhancements/blob/main/veps/sig-compute/222-vsock-netns-vep/vsock-netns-vep.md#change-4-on-demand-vsock-ca-service
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
 	)
