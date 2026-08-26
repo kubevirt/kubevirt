@@ -1092,8 +1092,6 @@ var _ = Describe(SIG("Storage", func() {
 				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
-<<<<<<< Updated upstream
-=======
 		Context("non-shareable disk conflict", func() {
 			It("should report a clear error when two VMs use the same DataVolume without shareable", decorators.RequiresRWXFilesystemStorage, func() {
 				sc, exists := libstorage.GetRWXFileSystemStorageClass()
@@ -1143,7 +1141,6 @@ var _ = Describe(SIG("Storage", func() {
 				}, time.Second*120, time.Second*5).Should(Succeed())
 			})
 		})
->>>>>>> Stashed changes
 		Context("write and read data from a shared disk", func() {
 			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
 				const diskName = "disk1"
