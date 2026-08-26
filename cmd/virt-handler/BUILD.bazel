@@ -153,6 +153,20 @@ pkg_tar(
     package_dir = "/",
 )
 
+# Symlink /var/run -> ../run for compatibility with libvirt socket paths
+# In CentOS Stream 10+, libvirt creates sockets in /run/libvirt/ but
+# KubeVirt expects them at /var/run/libvirt/
+# IMPORTANT: Must use relative symlink (../run) not absolute (/run) because
+# virt-handler accesses the container's filesystem via /proc/<pid>/root/var/run.
+# With an absolute symlink, the kernel would resolve /run relative to
+# virt-handler's root, not the container's root.
+pkg_tar(
+    name = "var-run-symlink-tar",
+    symlinks = {
+        "/var/run": "../run",
+    },
+)
+
 passt_repair_for_arch("x86_64")
 
 passt_repair_for_arch("aarch64")
@@ -218,6 +232,11 @@ layer_from_tar(
     src = ":virt-handler-tar",
 )
 
+layer_from_tar(
+    name = "var-run-symlink-layer",
+    src = ":var-run-symlink-tar",
+)
+
 image_manifest(
     name = "version-container",
     base = select({
@@ -232,6 +251,7 @@ image_manifest(
             ":nsswitch-layer",
             ":get-version-layer",
             ":passt-repair-layer-aarch64",
+            ":var-run-symlink-layer",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":handlerbase-layer-s390x",
@@ -239,6 +259,7 @@ image_manifest(
             ":nsswitch-layer",
             ":get-version-layer",
             ":passt-repair-layer-s390x",
+            ":var-run-symlink-layer",
         ],
         "//conditions:default": [
             ":handlerbase-layer-x86_64",
@@ -246,6 +267,7 @@ image_manifest(
             ":nsswitch-layer",
             ":get-version-layer",
             ":passt-repair-layer-x86_64",
+            ":var-run-symlink-layer",
         ],
     }),
 )
