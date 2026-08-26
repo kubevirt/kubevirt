@@ -7294,9 +7294,10 @@ var _ = Describe("VirtualMachine", func() {
 			fromCondList := []v1.VirtualMachineConditionType{
 				v1.VirtualMachineReady, v1.VirtualMachineFailure,
 				v1.VirtualMachinePaused, v1.VirtualMachineRestartRequired,
+				v1.VirtualMachineGuestTerminated,
 			}
 			toCondList := []v1.VirtualMachineConditionType{
-				v1.VirtualMachineReady, v1.VirtualMachinePaused,
+				v1.VirtualMachineReady, v1.VirtualMachinePaused, v1.VirtualMachineGuestTerminated,
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{}
 			for _, cond := range fromCondList {

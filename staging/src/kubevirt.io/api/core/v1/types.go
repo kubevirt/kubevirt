@@ -737,10 +737,16 @@ const (
 
 	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
 	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
+
+	// VirtualMachineInstanceGuestTerminated indicates whether the guest has terminated and, if known, why.
+	VirtualMachineInstanceGuestTerminated VirtualMachineInstanceConditionType = "GuestTerminated"
 )
 
 // These are valid reasons for VMI conditions.
 const (
+	// GuestNotTerminatedReason indicates that the guest is still active.
+	GuestNotTerminatedReason = "GuestNotTerminated"
+
 	// Reason means that VMI is not live migratable because of it's disks collection
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratable because of it's network interfaces collection
@@ -2359,6 +2365,9 @@ const (
 
 	// VirtualMachineManualRecoveryRequired is added when the VM spec needs to be manually recovered by the user
 	VirtualMachineManualRecoveryRequired VirtualMachineConditionType = "ManualRecoveryRequired"
+
+	// VirtualMachineGuestTerminated is copied to the virtual machine from its VMI.
+	VirtualMachineGuestTerminated VirtualMachineConditionType = "GuestTerminated"
 )
 
 type HostDiskType string

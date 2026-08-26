@@ -39,6 +39,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "client_suite_test.go",
+        "guest_termination_test.go",
         "notify_test.go",
     ],
     embed = [":go_default_library"],
@@ -64,6 +65,7 @@ go_test(
         "//vendor/google.golang.org/grpc/codes:go_default_library",
         "//vendor/google.golang.org/grpc/status:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",

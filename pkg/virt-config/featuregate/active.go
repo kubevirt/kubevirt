@@ -169,6 +169,13 @@ const (
 	// enabling the VM controller to recreate the VMI with updated configuration.
 	RebootPolicy = "RebootPolicy"
 
+	// Owner: sig-compute / @keinsword
+	// Alpha: v1.10.0
+	//
+	// GuestTermination enables reporting normalized guest termination reasons on
+	// VirtualMachineInstance and VirtualMachine conditions.
+	GuestTerminationGate = "GuestTermination"
+
 	// Owner: sig-compute / @0xFelix
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
@@ -317,6 +324,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: GuestTerminationGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})

@@ -201,6 +201,10 @@ func (config *ClusterConfig) RebootPolicyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.RebootPolicy)
 }
 
+func (config *ClusterConfig) GuestTerminationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GuestTerminationGate)
+}
+
 func (config *ClusterConfig) VmiMemoryOverheadReportEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VmiMemoryOverheadReport)
 }

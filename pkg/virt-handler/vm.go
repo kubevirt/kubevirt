@@ -982,6 +982,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
 	c.updateSoftwareEmulationCondition(vmi, domain, condManager)
+	c.updateGuestTerminatedCondition(vmi, domain, condManager)
 
 	return nil
 }
@@ -1525,6 +1526,10 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// Watch dog file and command client must be the last things removed here
 	c.launcherClients.CloseLauncherClient(vmi)
+
+	if c.clusterConfig.GuestTerminationEnabled() {
+		vhmetrics.DeleteGuestOSTerminationMetrics(vmi.Namespace, vmi.Name)
+	}
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
