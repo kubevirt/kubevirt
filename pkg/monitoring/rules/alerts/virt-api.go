@@ -57,8 +57,11 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtAPI",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_api_ready:sum == 0"),
-			For:   ptr.To(promv1.Duration("10m")),
+			Expr: intstr.FromString(
+				"cluster:kubevirt_virt_api_ready:sum == 0 " +
+					"and cluster:kubevirt_virt_api_pods_running:count > 0",
+			),
+			For: ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-api was detected for the last 10 min.",
 			},
