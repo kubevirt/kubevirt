@@ -187,6 +187,8 @@ case "$TARGET" in
     ;;
 esac
 
+detect_centos_stream_version
+
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
