@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,6 +52,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
@@ -4337,6 +4340,61 @@ var _ = Describe("Manager helper functions", func() {
 				},
 			}
 			Expect(isPVCBacked("nonexistent", vmi)).To(BeFalse())
+		})
+	})
+
+	Context("expandDiskImageOffline preallocation flag", func() {
+		const (
+			volumeName = "pvc-disk"
+			imagePath  = "/data/disk.img"
+			newSize    = 2 * 1024 * 1024
+		)
+
+		var (
+			origRunQemuImgResize func([]string) ([]byte, error)
+			capturedArgs         []string
+		)
+
+		BeforeEach(func() {
+			origRunQemuImgResize = runQemuImgResize
+			capturedArgs = nil
+			runQemuImgResize = func(args []string) ([]byte, error) {
+				capturedArgs = args
+				return nil, nil
+			}
+		})
+
+		AfterEach(func() {
+			runQemuImgResize = origRunQemuImgResize
+		})
+
+		expandedPVCVMI := func(preallocated bool) *v1.VirtualMachineInstance {
+			return libvmi.New(
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+						Name: volumeName,
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							Preallocated: preallocated,
+						},
+					}),
+				)),
+			)
+		}
+
+		It("should request --preallocation=falloc when the PVC is preallocated", func() {
+			vmi := expandedPVCVMI(true)
+
+			Expect(expandDiskImageOffline(imagePath, newSize, isPVCPreallocated(volumeName, vmi))).To(Succeed())
+
+			Expect(capturedArgs).To(ConsistOf("resize", "--preallocation=falloc", imagePath, strconv.FormatInt(newSize, 10)))
+		})
+
+		It("should request --preallocation=off when the PVC is not preallocated", func() {
+			vmi := expandedPVCVMI(false)
+
+			Expect(expandDiskImageOffline(imagePath, newSize, isPVCPreallocated(volumeName, vmi))).To(Succeed())
+
+			Expect(capturedArgs).To(ConsistOf("resize", "--preallocation=off", imagePath, strconv.FormatInt(newSize, 10)))
 		})
 	})
 
