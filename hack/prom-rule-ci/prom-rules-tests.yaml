@@ -1917,7 +1917,7 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_vmi_guest_os_panic_total{namespace="test", name="vm-01", type="unknown", bugcheck_code="unknown"}'
-        values: '0 0 6 6 6 6 6'
+        values: '_ _ 6 6 6 6 6'
 
     alert_rule_test:
       - eval_time: 1m
@@ -1937,3 +1937,30 @@ tests:
               kubernetes_operator_component: "kubevirt"
               namespace: "test"
               name: "vm-01"
+
+  # VMNonRecoverableOSPanic - increase path: 6 -> 13 within 24h (12h interval)
+  - interval: 12h
+    input_series:
+      - series: 'kubevirt_vmi_guest_os_panic_total{namespace="test", name="vm-02", type="unknown", bugcheck_code="unknown"}'
+        values: '6 6 6 13 13 13'
+
+    alert_rule_test:
+      # Still at 6 after 24h — no increase yet
+      - eval_time: 24h
+        alertname: VMNonRecoverableOSPanic
+        exp_alerts: []
+      # Jumped to 13; increase over 24h is 7
+      - eval_time: 48h
+        alertname: VMNonRecoverableOSPanic
+        exp_alerts:
+          - exp_annotations:
+              summary: "VM vm-02 in namespace test experienced a non-recoverable guest OS panic"
+              description: "The VM has experienced 7 non-recoverable guest OS panic(s) in the last 24 hours."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VMNonRecoverableOSPanic"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "test"
+              name: "vm-02"
