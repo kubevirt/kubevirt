@@ -46,7 +46,7 @@ import (
 const socketCheckInterval = 5 * time.Second
 
 type Notify struct {
-	EventChan chan watch.Event
+	eventChan chan watch.Event
 	recorder  record.EventRecorder
 	vmiStore  cache.Store
 }
@@ -81,14 +81,14 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 	log.Log.Object(domain).V(3).Infof("Received Domain Event of type %s", request.EventType)
 	switch request.EventType {
 	case string(watch.Added):
-		n.EventChan <- watch.Event{Type: watch.Added, Object: domain}
+		n.eventChan <- watch.Event{Type: watch.Added, Object: domain}
 	case string(watch.Modified):
-		n.EventChan <- watch.Event{Type: watch.Modified, Object: domain}
+		n.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	case string(watch.Deleted):
-		n.EventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+		n.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
 	case string(watch.Error):
 		log.Log.Object(domain).Errorf("Domain error event with message: %s", status.Message)
-		n.EventChan <- watch.Event{Type: watch.Error, Object: status}
+		n.eventChan <- watch.Event{Type: watch.Error, Object: status}
 	}
 	return response, nil
 }
@@ -131,7 +131,7 @@ func RunServer(virtShareDir string, stopChan <-chan struct{}, c chan watch.Event
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	notifyServer := &Notify{
-		EventChan: c,
+		eventChan: c,
 		recorder:  recorder,
 		vmiStore:  vmiStore,
 	}
