@@ -159,6 +159,11 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	return nil
 }
 
+// Deprecated: this is not a reliable signal of a volume's declared
+// preallocation. It only reflects whether the backing file happens to be
+// fully allocated right now, and a thin-provisioned disk that is simply
+// full evaluates to true - exactly the case CNV-95002 hit. Read
+// VolumeStatus.PersistentVolumeClaimInfo.Preallocated instead.
 func IsPreAllocated(path string) bool {
 	diskInf, err := disk.GetDiskInfo(path)
 	if err != nil {
