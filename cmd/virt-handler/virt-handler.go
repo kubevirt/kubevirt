@@ -799,7 +799,7 @@ func (app *virtHandlerApp) AddFlags() {
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
-		"Watchdog file timeout")
+		"Watchdog timeout, the time it takes for unresponsive launcher to be declared as failed")
 
 	// TODO: the Device Plugin API does not allow for infinitely available (shared) devices
 	// so the current approach is to register an arbitrary number.
