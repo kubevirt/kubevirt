@@ -106,9 +106,19 @@ var _ = Describe("GPU Info Collector", func() {
 			Expect(resolveVMIName("test-ns", "virt-launcher-foo-abc12", vmis)).To(Equal("foo"))
 		})
 
-		It("respects the VMI Spec.Hostname override", func() {
+		It("matches on the VMI name even when Spec.Hostname is set", func() {
+			// The launcher pod's GenerateName is derived from vmi.Name, not the
+			// sanitized hostname, so matching must use vmi.Name regardless of Spec.Hostname.
 			vmis := []*v1.VirtualMachineInstance{newVMI("test-ns", "my-vmi", "custom-host")}
-			Expect(resolveVMIName("test-ns", "virt-launcher-custom-host-abc12", vmis)).To(Equal("my-vmi"))
+			Expect(resolveVMIName("test-ns", "virt-launcher-my-vmi-abc12", vmis)).To(Equal("my-vmi"))
+			Expect(resolveVMIName("test-ns", "virt-launcher-custom-host-abc12", vmis)).To(BeEmpty())
+		})
+
+		It("matches VMI names containing dots", func() {
+			// vmi.Name may be a DNS subdomain containing dots; the pod name keeps
+			// the full name rather than truncating at the first dot.
+			vmis := []*v1.VirtualMachineInstance{newVMI("test-ns", "my.vmi", "")}
+			Expect(resolveVMIName("test-ns", "virt-launcher-my.vmi-abc12", vmis)).To(Equal("my.vmi"))
 		})
 
 		It("returns empty string when no VMI matches by name or namespace", func() {

@@ -33,12 +33,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/gpuinfo/podresources"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	kvgrpc "kubevirt.io/kubevirt/pkg/util/net/grpc"
 )
 
 // launcherPodSuffix matches the random suffix Kubernetes appends to a
-// virt-launcher pod's GenerateName ("virt-launcher-<hostname>-<suffix>").
+// virt-launcher pod's GenerateName ("virt-launcher-<vmi.Name>-<suffix>").
 var launcherPodSuffix = regexp.MustCompile(`^[a-z0-9]{5}$`)
 
 const (
@@ -164,15 +163,15 @@ func (c *gpuInfoCache) vmisInNamespace(namespace string) []*v1.VirtualMachineIns
 }
 
 // resolveVMIName returns the name of the VMI owning the given virt-launcher
-// pod, by recomputing each node-local VMI's expected pod-name prefix with the
-// same sanitization KubeVirt uses to build it and validating the trailing
-// GenerateName suffix. Returns "" when no VMI matches.
+// pod, by recomputing each node-local VMI's expected pod-name prefix from
+// vmi.Name (the value KubeVirt uses to build the pod's GenerateName) and
+// validating the trailing GenerateName suffix. Returns "" when no VMI matches.
 func resolveVMIName(namespace, podName string, vmis []*v1.VirtualMachineInstance) string {
 	for _, vmi := range vmis {
 		if vmi.Namespace != namespace {
 			continue
 		}
-		prefix := "virt-launcher-" + dns.SanitizeHostname(vmi) + "-"
+		prefix := "virt-launcher-" + vmi.Name + "-"
 		if !strings.HasPrefix(podName, prefix) {
 			continue
 		}
