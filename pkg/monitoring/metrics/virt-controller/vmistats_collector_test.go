@@ -142,15 +142,31 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(17))
+				Expect(cr.Labels).To(HaveLen(18))
 
-				Expect(cr.Labels[3]).To(Equal(getVMIPhase(vmis[i])))
+				Expect(cr.Labels[4]).To(Equal(getVMIPhase(vmis[i])))
 				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
-				Expect(cr.Labels[4]).To(Equal(os))
-				Expect(cr.Labels[5]).To(Equal(workload))
-				Expect(cr.Labels[6]).To(Equal(flavor))
-				Expect(cr.Labels[16]).To(Equal(getVMIPod(vmis[i])))
+				Expect(cr.Labels[5]).To(Equal(os))
+				Expect(cr.Labels[6]).To(Equal(workload))
+				Expect(cr.Labels[7]).To(Equal(flavor))
+				Expect(cr.Labels[17]).To(Equal(getVMIPod(vmis[i])))
 			}
+		})
+
+		It("should expose the VMI Kubernetes uid", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+					UID:       "bbbbbbbb-1111-2222-3333-444444444444",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+			}
+
+			cr := collectVMIInfo(vmi)
+			uid, err := cr.GetLabelValue("uid")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal(string(vmi.UID)))
 		})
 
 		It("should update the vmi_pod label correctly after migration", func() {
@@ -162,8 +178,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(17))
-			Expect(cr.Labels[16]).To(Equal("virt-launcher-targetpod"))
+			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels[17]).To(Equal("virt-launcher-targetpod"))
 		})
 
 		It("should return the original pod when migration failed", func() {
@@ -175,8 +191,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(17))
-			Expect(cr.Labels[16]).To(Equal("virt-launcher-originalpod"))
+			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels[17]).To(Equal("virt-launcher-originalpod"))
 		})
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey, instanceType, expected string) {
@@ -205,8 +221,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(17))
-			Expect(cr.Labels[7]).To(Equal(expected))
+			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no instance type expect empty string", k6tv1.InstancetypeAnnotation, "", ""),
 			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
@@ -242,8 +258,8 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(17))
-			Expect(cr.Labels[8]).To(Equal(expected))
+			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels[9]).To(Equal(expected))
 		},
 			Entry("with no preference expect empty string", k6tv1.PreferenceAnnotation, "", ""),
 			Entry("with managed preference expect its name", k6tv1.PreferenceAnnotation, "p-managed", "p-managed"),
