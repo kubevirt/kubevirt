@@ -276,17 +276,13 @@ func CleanNamespaces() {
 		Expect(virtCli.VirtualMachineExport(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove VirtualMachineTemplateRequests and strip finalizers
-		for _, version := range []string{"v1alpha1", "v1beta1"} {
-			vmtrGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: version, Resource: "virtualmachinetemplaterequests"}
-			Expect(removeAllGroupVersionResourceFromNamespace(vmtrGVR, namespace)).To(Succeed())
-			Expect(stripFinalizersFromGVR(vmtrGVR, namespace)).To(Succeed())
-		}
+		vmtrGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: "v1beta1", Resource: "virtualmachinetemplaterequests"}
+		Expect(removeAllGroupVersionResourceFromNamespace(vmtrGVR, namespace)).To(Succeed())
+		Expect(stripFinalizersFromGVR(vmtrGVR, namespace)).To(Succeed())
 
 		// Remove VirtualMachineTemplates
-		for _, version := range []string{"v1alpha1", "v1beta1"} {
-			vmtGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: version, Resource: "virtualmachinetemplates"}
-			Expect(removeAllGroupVersionResourceFromNamespace(vmtGVR, namespace)).To(Succeed())
-		}
+		vmtGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: "v1beta1", Resource: "virtualmachinetemplates"}
+		Expect(removeAllGroupVersionResourceFromNamespace(vmtGVR, namespace)).To(Succeed())
 
 	}
 }
