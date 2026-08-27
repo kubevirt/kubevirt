@@ -1059,6 +1059,47 @@ tests:
           - labels: 'vmi:kubevirt_vmi_memory_used_bytes:sum{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
             value: 234329980
 
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_gpu_info{node="node-1", namespace="default", pod="virt-launcher-vm-gpu-1", name="vm-gpu-1", resource="nvidia.com/GA100", uuid="GPU-owned-by-vmi"}'
+        values: "1 1 1"
+      - series: 'DCGM_FI_DEV_MEM_COPY_UTIL{UUID="GPU-owned-by-vmi", gpu="0", device="nvidia0", modelName="NVIDIA A100", Hostname="node-1", pci_bus_id="00000000:07:00.0"}'
+        values: "42 42 42"
+      - series: 'DCGM_FI_DEV_FB_FREE{UUID="GPU-owned-by-vmi", gpu="0", device="nvidia0", modelName="NVIDIA A100", Hostname="node-1", pci_bus_id="00000000:07:00.0"}'
+        values: "30000 30000 30000"
+      - series: 'DCGM_FI_DEV_FB_USED{UUID="GPU-owned-by-vmi", gpu="0", device="nvidia0", modelName="NVIDIA A100", Hostname="node-1", pci_bus_id="00000000:07:00.0"}'
+        values: "10000 10000 10000"
+      # Duplicate scrape of the same GPU (same UUID, different exporter-specific labels).
+      # max by(UUID) must collapse these so the recording rules do not silently double the value.
+      - series: 'DCGM_FI_DEV_MEM_COPY_UTIL{UUID="GPU-owned-by-vmi", gpu="0", device="nvidia0", modelName="NVIDIA A100", Hostname="node-2", pci_bus_id="00000000:07:00.0"}'
+        values: "42 42 42"
+      - series: 'DCGM_FI_DEV_FB_FREE{UUID="GPU-owned-by-vmi", gpu="0", device="nvidia0", modelName="NVIDIA A100", Hostname="node-2", pci_bus_id="00000000:07:00.0"}'
+        values: "30000 30000 30000"
+      - series: 'DCGM_FI_DEV_FB_USED{UUID="GPU-owned-by-vmi", gpu="0", device="nvidia0", modelName="NVIDIA A100", Hostname="node-2", pci_bus_id="00000000:07:00.0"}'
+        values: "10000 10000 10000"
+      - series: 'DCGM_FI_DEV_MEM_COPY_UTIL{UUID="GPU-unused", gpu="1", device="nvidia1", modelName="NVIDIA A100", Hostname="node-1", pci_bus_id="00000000:08:00.0"}'
+        values: "99 99 99"
+      - series: 'DCGM_FI_DEV_FB_FREE{UUID="GPU-unused", gpu="1", device="nvidia1", modelName="NVIDIA A100", Hostname="node-1", pci_bus_id="00000000:08:00.0"}'
+        values: "99 99 99"
+      - series: 'DCGM_FI_DEV_FB_USED{UUID="GPU-unused", gpu="1", device="nvidia1", modelName="NVIDIA A100", Hostname="node-1", pci_bus_id="00000000:08:00.0"}'
+        values: "99 99 99"
+    promql_expr_test:
+      - expr: 'vmi:kubevirt_vmi_gpu_mem_copy_util:sum'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'vmi:kubevirt_vmi_gpu_mem_copy_util:sum{namespace="default", name="vm-gpu-1", node="node-1", uuid="GPU-owned-by-vmi", resource="nvidia.com/GA100"}'
+            value: 0.42
+      - expr: 'vmi:kubevirt_vmi_gpu_fb_free:sum'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'vmi:kubevirt_vmi_gpu_fb_free:sum{namespace="default", name="vm-gpu-1", node="node-1", uuid="GPU-owned-by-vmi", resource="nvidia.com/GA100"}'
+            value: 31457280000
+      - expr: 'vmi:kubevirt_vmi_gpu_fb_used:sum'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'vmi:kubevirt_vmi_gpu_fb_used:sum{namespace="default", name="vm-gpu-1", node="node-1", uuid="GPU-owned-by-vmi", resource="nvidia.com/GA100"}'
+            value: 10485760000
+
   # Mass Failed virt-launcher pods should trigger critical alert after 10m
   - interval: 1m
     input_series:
