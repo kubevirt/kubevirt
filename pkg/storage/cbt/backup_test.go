@@ -761,6 +761,53 @@ var _ = Describe("Backup Controller", func() {
 		Expect(failedCond.Message).To(ContainSubstring("VMI backup status was lost"))
 	})
 
+	It("should not overwrite an already-completed backup when reconciling a stale pre-completion status snapshot", func() {
+		// Regression test: cleanupVMIState() clears the VMI's BackupStatus as
+		// part of normal completion, which re-triggers a reconcile for this
+		// backup via the VMI informer before this backup's OWN informer cache
+		// has necessarily observed the just-written Completed/Failed status
+		// (UpdateStatus only updates the API server; the local cache updates
+		// asynchronously via watch). Without a live re-check, that stale
+		// reconcile falls into "VMI backup status was lost while progressing"
+		// and overwrites a successful completion with a SourceLost failure.
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Status = &backupv1.VirtualMachineBackupStatus{
+			Type: backupv1.Full,
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+			},
+		}
+		backup.Finalizers = []string{vmBackupFinalizer}
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		vmi := createVMI() // BackupStatus already cleared, as cleanupVMIState leaves it after completion
+		controller.vmiStore.Add(vmi)
+
+		// The live (API server) object already reflects a successful
+		// completion that this reconcile's local/informer snapshot of
+		// `backup` hasn't observed yet.
+		liveBackup := backup.DeepCopy()
+		liveBackup.Status = &backupv1.VirtualMachineBackupStatus{
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionComplete), metav1.ConditionTrue, backupv1.ReasonCompleted, backupCompleted),
+			},
+		}
+		_, err := kubevirtClient.BackupV1alpha1().VirtualMachineBackups(testNamespace).Create(context.Background(), liveBackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmiInterface.EXPECT().
+			Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Times(0)
+
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeFalse(),
+			"a stale reconcile must not overwrite an already-completed backup with SourceLost -- "+
+				"it must re-check the live object and no-op once it sees the backup is already terminal")
+	})
+
 	Context("Backup deletion cleanup", func() {
 		It("should populate includedVolumes early when backup in progress and volumes available", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
