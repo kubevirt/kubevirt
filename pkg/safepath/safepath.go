@@ -122,7 +122,18 @@ func OpenAtNoFollow(path *Path) (file *File, err error) {
 		}
 		fd = newfd
 	}
-	return &File{fd: fd, path: path}, nil
+	file = &File{fd: fd, path: path}
+	fstat, err := os.Stat(file.SafePath())
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	if fstat.Mode()&os.ModeSymlink != 0 {
+		_ = file.Close()
+		return nil, fmt.Errorf("%s: the pathname is symlink", path)
+	}
+
+	return file, nil
 }
 
 func ChmodAtNoFollow(path *Path, mode os.FileMode) error {
