@@ -45,7 +45,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
-	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
@@ -1196,7 +1195,7 @@ func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]
 	if err != nil {
 		return nil, err
 	}
-	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath)
+	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1355,7 +1354,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, err
 		}
 
-		sriovDRADevices, err := sriov.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		sriovDRADevices, err := sriov.CreateDRAHostDevices(vmi)
 		if err != nil {
 			return nil, err
 		}
@@ -1372,7 +1371,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi)
 		if err != nil {
 			return nil, err
 		}

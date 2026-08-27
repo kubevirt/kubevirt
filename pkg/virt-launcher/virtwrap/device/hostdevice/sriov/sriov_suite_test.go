@@ -17,7 +17,7 @@
  *
  */
 
-package sriov_test
+package sriov
 
 import (
 	"testing"

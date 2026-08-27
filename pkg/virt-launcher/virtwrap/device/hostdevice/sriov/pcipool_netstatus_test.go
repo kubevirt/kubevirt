@@ -17,7 +17,7 @@
  *
  */
 
-package sriov_test
+package sriov
 
 import (
 	"encoding/json"
@@ -25,8 +25,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	sriovhostdev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 )
 
 var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
@@ -43,7 +41,7 @@ var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
 		]
 	}`)
 	It("should fail to create the pool when network-pci-map file is empty", func() {
-		pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus(emptyFileBytes)
+		pool, err := NewPCIAddressPoolWithNetworkStatus(emptyFileBytes)
 
 		var expectedTypeError *json.SyntaxError
 		Expect(errors.As(err, &expectedTypeError)).To(BeTrue())
@@ -51,14 +49,14 @@ var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
 	})
 
 	It("should create a pool with zero length when network-pci-map file holds empty map", func() {
-		pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus(emptyNetworkPCIMapBytes)
+		pool, err := NewPCIAddressPoolWithNetworkStatus(emptyNetworkPCIMapBytes)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pool.Len()).To(BeZero())
 	})
 
 	It("should fail to pop a pci-address from the pool when network-pci-map file has valid data but requested network is not in pool", func() {
-		pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus(networkPCIMapWithThreeNetworks)
+		pool, err := NewPCIAddressPoolWithNetworkStatus(networkPCIMapWithThreeNetworks)
 		Expect(err).ToNot(HaveOccurred())
 
 		_, err = pool.Pop("foo")
@@ -66,7 +64,7 @@ var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
 	})
 
 	It("should succeed to pop a pci-address from the pool when network-pci map is valid", func() {
-		pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus(networkPCIMapWithThreeNetworks)
+		pool, err := NewPCIAddressPoolWithNetworkStatus(networkPCIMapWithThreeNetworks)
 		Expect(err).ToNot(HaveOccurred())
 
 		expectedNetworkToPCIMap := map[string]string{
@@ -86,7 +84,7 @@ var _ = Describe("SRIOV PCI address pool with network-pci-map", func() {
 
 	DescribeTable("should return empty pool given network-info annotation with",
 		func(netInfo string) {
-			pool, err := sriovhostdev.NewPCIAddressPoolWithNetworkStatus([]byte(netInfo))
+			pool, err := NewPCIAddressPoolWithNetworkStatus([]byte(netInfo))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pool.Len()).To(Equal(0))
 		},

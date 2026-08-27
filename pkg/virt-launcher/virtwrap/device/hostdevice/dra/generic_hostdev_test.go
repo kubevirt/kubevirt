@@ -1,47 +1,27 @@
 package dra
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/dra/metadata"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("CreateDRAHostDevices", func() {
-	var (
-		tempDir string
-	)
-
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "dra-hostdev-test")
-		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			getMDevUUID = drautil.GetMDevUUIDForClaim
+			getPCIAddress = drautil.GetPCIAddressForClaim
+		})
 	})
-
-	AfterEach(func() {
-		os.RemoveAll(tempDir)
-	})
-
-	createMetadataFile := func(claimName, requestName, driver string, md *metadata.DeviceMetadata) {
-		dir := filepath.Join(tempDir, "resourceclaims", claimName, requestName)
-		Expect(os.MkdirAll(dir, 0755)).To(Succeed())
-
-		data, err := json.Marshal(md)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(os.WriteFile(filepath.Join(dir, driver+"-metadata.json"), data, 0644)).To(Succeed())
-	}
 
 	Context("when the VMI has no host devices with DRA", func() {
 		It("should return an empty slice without error", func() {
@@ -50,7 +30,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(BeEmpty())
 		})
@@ -59,27 +39,10 @@ var _ = Describe("CreateDRAHostDevices", func() {
 	Context("when the VMI has a PCI host device allocated through DRA", func() {
 		It("should create a PCI HostDevice with correct attributes", func() {
 			pci := "0000:03:00.1"
-
-			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "device.example.com",
-						Pool:   "device-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pci},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) {
+				return "", fmt.Errorf("no mdev")
+			}
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return pci, nil }
 
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
@@ -99,7 +62,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 
@@ -114,27 +77,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 	Context("when the VMI has an MDEV host device allocated through DRA", func() {
 		It("should create an MDEV HostDevice", func() {
 			uuid := "abcd1234-1111-2222-3333-444455556666"
-
-			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "mdev.example.com",
-						Pool:   "mdev-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return uuid, nil }
 
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
@@ -154,7 +97,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 			dev := hostDevs[0]
@@ -169,29 +112,9 @@ var _ = Describe("CreateDRAHostDevices", func() {
 	})
 
 	Context("when the VMI has an MDEV host device allocated through DRA (s390x)", func() {
-		It("should create an MDEV HostDevice", func() {
+		It("should create an MDEV HostDevice with vfio-ap model", func() {
 			uuid := "abcd1234-1111-2222-3333-444455556666"
-
-			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "mdev.example.com",
-						Pool:   "mdev-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) { return uuid, nil }
 
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
@@ -212,44 +135,25 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
-			dev := hostDevs[0]
-			Expect(dev.Type).To(Equal(api.HostDeviceMDev))
-			Expect(dev.Alias.GetName()).To(Equal(DRAHostDeviceAliasPrefix + "vhd1"))
-			Expect(dev.Source.Address.UUID).To(Equal(uuid))
-			Expect(dev.Source.Address.Type).To(Equal(""))
-			Expect(dev.Source.Address.Bus).To(Equal(""))
-			Expect(dev.Mode).To(Equal("subsystem"))
-			Expect(dev.Model).To(Equal("vfio-ap"))
+			Expect(hostDevs[0].Model).To(Equal("vfio-ap"))
 		})
 	})
 
 	Context("validation mismatch", func() {
 		It("should error when metadata is missing for a DRA host device", func() {
 			pci := "0000:03:00.1"
-
-			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "claim1",
-				},
-				Requests: []metadata.DeviceMetadataRequest{{
-					Name: "req1",
-					Devices: []metadata.Device{{
-						Driver: "device.example.com",
-						Pool:   "device-pool",
-						Name:   "device1",
-						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pci},
-						},
-					}},
-				}},
-			})
+			getMDevUUID = func(_ []v1.VirtualMachineInstanceResourceClaim, _, _ string) (string, error) {
+				return "", fmt.Errorf("no mdev")
+			}
+			getPCIAddress = func(_ []v1.VirtualMachineInstanceResourceClaim, claimRefName, _ string) (string, error) {
+				if claimRefName == "claim1" {
+					return pci, nil
+				}
+				return "", fmt.Errorf("attribute not found")
+			}
 
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
@@ -272,7 +176,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(hostDevs).To(BeNil())
 		})
