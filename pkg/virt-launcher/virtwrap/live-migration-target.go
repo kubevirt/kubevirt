@@ -176,7 +176,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	}
 
 	if l.hookServer != nil {
-		if err := l.hookServer.Start(c); err != nil {
+		if err := l.hookServer.Start(c, vmi); err != nil {
 			return err
 		}
 	}

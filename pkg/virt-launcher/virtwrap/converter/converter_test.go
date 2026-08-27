@@ -557,7 +557,6 @@ var _ = Describe("Converter", func() {
 		BeforeEach(func() {
 			c = &convertertypes.ConverterContext{
 				Architecture:                    archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine:                  vmi,
 				AllowEmulation:                  true,
 				HypervisorDeviceAvailable:       true,
 				IsBlockPVC:                      isBlockPVCMap,
@@ -1595,7 +1594,6 @@ var _ = Describe("Converter", func() {
 
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
 				AllowEmulation: true,
 				Topology: &cmdv1.Topology{
 					NumaCells: []*cmdv1.Cell{
@@ -1751,7 +1749,6 @@ var _ = Describe("Converter", func() {
 
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
 				AllowEmulation: true,
 				SMBios:         TestSmbios,
 				DomainAttachmentByInterfaceName: map[string]string{
@@ -3218,7 +3215,6 @@ var _ = Describe("Converter", func() {
 
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
 				AllowEmulation: true,
 			}
 		})
@@ -3342,7 +3338,6 @@ var _ = Describe("Converter", func() {
 			c = &convertertypes.ConverterContext{
 				Architecture:      archconverter.NewConverter(arch),
 				BochsForEFIGuests: enableFG,
-				VirtualMachine:    vmi,
 				AllowEmulation:    true,
 				EFIConfiguration:  &convertertypes.EFIConfiguration{},
 			}
@@ -3388,7 +3383,6 @@ var _ = Describe("Converter", func() {
 
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
 				AllowEmulation: true,
 			}
 
@@ -3484,7 +3478,6 @@ var _ = Describe("Converter", func() {
 
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
 				AllowEmulation: true,
 			}
 		})
@@ -3544,7 +3537,6 @@ var _ = Describe("Converter", func() {
 
 				c = &convertertypes.ConverterContext{
 					Architecture:   archconverter.NewConverter(runtime.GOARCH),
-					VirtualMachine: vmi,
 					AllowEmulation: true,
 					IsBlockPVC: map[string]bool{
 						"test-block-pvc": true,

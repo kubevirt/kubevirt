@@ -1304,7 +1304,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	c := &convertertypes.ConverterContext{
 		Architecture:              l.selectConverterArch(vmi.Spec.Architecture),
-		VirtualMachine:            vmi,
 		AllowEmulation:            allowEmulation,
 		AllowCrossArchEmulation:   l.allowCrossArchEmulation && vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH,
 		HostArchitecture:          runtime.GOARCH,
