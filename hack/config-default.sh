@@ -46,6 +46,26 @@ test_image_replicas=${KUBEVIRT_E2E_PARALLEL_NODES:-6}
 base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 kubevirt_test_config=${KUBEVIRT_TEST_CONFIG:-$(if [[ "${KUBEVIRT_STORAGE:-}" == rook-ceph* ]]; then echo "${base_dir}/tests/default-ceph-config.json"; else echo "${base_dir}/tests/default-config.json"; fi)}
 
+# Detect CentOS Stream version from the kubevirtci provider.
+# k8s >= 1.37 providers are based on CentOS Stream 10; older ones use CS9.
+# Respects KUBEVIRT_CENTOS_STREAM_VERSION if already set
+# Must be called after KUBEVIRT_PROVIDER is resolved.
+detect_centos_stream_version() {
+    if [ -n "${KUBEVIRT_CENTOS_STREAM_VERSION:-}" ]; then
+        return
+    fi
+    local provider_version
+    provider_version=$(echo "${KUBEVIRT_PROVIDER:-}" | sed -n 's/^k8s-\([0-9]*\.[0-9]*\).*/\1/p')
+    if [ -n "$provider_version" ]; then
+        local min_cs10_version="1.37"
+        if [ "$(printf '%s\n' "$min_cs10_version" "$provider_version" | sort -V | head -n1)" = "$min_cs10_version" ]; then
+            export KUBEVIRT_CENTOS_STREAM_VERSION=10
+            return
+        fi
+    fi
+    export KUBEVIRT_CENTOS_STREAM_VERSION=9
+}
+
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
 default_csv_version="${default_csv_version/devel/0.0.0}"

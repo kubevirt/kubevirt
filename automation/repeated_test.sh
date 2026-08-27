@@ -222,6 +222,8 @@ export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
 
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
+detect_centos_stream_version
+
 # add_to_label_filter appends the given label and separator to
 # $label_filter which is passed to Ginkgo --filter-label flag.
 # How to use:
