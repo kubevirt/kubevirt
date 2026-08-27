@@ -225,9 +225,7 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 				// this is possible with legacy VMIs that haven't
 				// been updated. The watchdog file will catch these.
 			} else {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
+				domain := newDomainFromGhostRecord(record, api.DomainStatus{})
 				now := metav1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
