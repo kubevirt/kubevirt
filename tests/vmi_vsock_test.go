@@ -38,7 +38,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/vsock"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -47,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -55,12 +53,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
+var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, func() {
 	const guestAgentPort = 1234
-
-	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.VSOCKGate)
-	})
 
 	Context("VM creation", func() {
 		DescribeTable("should expose a VSOCK device", func(useVirtioTransitional bool) {
