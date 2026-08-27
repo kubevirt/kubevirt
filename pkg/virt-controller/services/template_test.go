@@ -147,7 +147,7 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
-				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -3231,7 +3231,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -6080,7 +6080,7 @@ var _ = Describe("Template", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
 
-			netBindingPluginMemoryOverheadCalculator := &stubNetMemoryCalculator{}
+			memoryOverheadCalculator := &stubMemoryOverheadCalculator{}
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
@@ -6096,7 +6096,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithMemoryOverheadCalculators(memoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
@@ -6108,7 +6108,7 @@ var _ = Describe("Template", func() {
 			_, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
+			Expect(memoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
 
@@ -6568,11 +6568,11 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	return timeoutString
 }
 
-type stubNetMemoryCalculator struct {
+type stubMemoryOverheadCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubMemoryOverheadCalculator) Calculate(_ *v1.VirtualMachineInstance) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}

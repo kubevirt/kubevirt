@@ -3856,11 +3856,11 @@ func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
 }
 func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
 
-type stubNetBindingPluginMemoryCalculator struct {
+type stubMemoryOverheadCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubMemoryOverheadCalculator) Calculate(_ *v1.VirtualMachineInstance) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
