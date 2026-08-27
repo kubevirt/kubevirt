@@ -34,20 +34,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[sig-compute]SSH and SCP", decorators.SigCompute, Serial, decorators.VSOCK, Ordered,
+var _ = Describe(SIG("[sig-compute]SSH and SCP", decorators.SigCompute, decorators.VSOCK, Ordered,
 	decorators.OncePerOrderedCleanup, func() {
 		const randSuffixLen = 8
 		var (
@@ -56,10 +53,6 @@ var _ = Describe(SIG("[sig-compute]SSH and SCP", decorators.SigCompute, Serial, 
 		)
 
 		BeforeAll(func() {
-			if !checks.HasFeature(featuregate.VSOCKGate) {
-				config.EnableFeatureGate(featuregate.VSOCKGate)
-				DeferCleanup(config.DisableFeatureGate, featuregate.VSOCKGate)
-			}
 			vmi, keyFile = createVMWithPublicKey()
 		})
 
