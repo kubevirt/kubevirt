@@ -189,10 +189,6 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
 
-func (config *ClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PodSecondaryInterfaceNamingUpgrade)
-}
-
 func (config *ClusterConfig) ExternalNetResourceInjectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ExternalNetResourceInjection)
 }
