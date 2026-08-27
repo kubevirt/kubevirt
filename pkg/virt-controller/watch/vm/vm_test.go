@@ -6328,6 +6328,99 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(controller.syncRestartRequired(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
 					Expect(updatedVM).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				})
+
+				It("regression test for #18955: hotplugging an interface without model when preference specifies preferredInterfaceModel falsely sets RestartRequired", func() {
+					preference := &instancetypev1beta1.VirtualMachinePreference{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachinePreference",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "preference",
+							Namespace:  originalVM.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1beta1.DevicePreferences{
+								PreferredInterfaceModel: "virtio",
+							},
+						},
+					}
+
+					prefRevision, err := revision.CreateControllerRevision(originalVM, preference)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(controllerrevisionInformerStore.Add(prefRevision)).To(Succeed())
+
+					originalVM.Spec.Preference = &v1.PreferenceMatcher{
+						Name:         preference.Name,
+						Kind:         instancetypeapi.SingularPreferenceResourceName,
+						RevisionName: prefRevision.Name,
+					}
+					originalVM.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+						Name:                   "default",
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+						Model:                  "virtio",
+					}}
+					originalVM.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+					vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+						Name:                   "default",
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+						Model:                  "virtio",
+					}}
+					vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+					// Hotplug a secondary interface to the VM without specifying a model (relying on preference to supply it)
+					updatedVM = originalVM.DeepCopy()
+					updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces = append(
+						updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces,
+						v1.Interface{
+							Name:                   "secondary",
+							InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+						},
+					)
+					updatedVM.Spec.Template.Spec.Networks = append(
+						updatedVM.Spec.Template.Spec.Networks,
+						v1.Network{
+							Name: "secondary",
+							NetworkSource: v1.NetworkSource{
+								Multus: &v1.MultusNetwork{NetworkName: "net"},
+							},
+						},
+					)
+
+					// When hotplugging an interface, the network controller currently copies the interface
+					// directly to the VMI without applying preference attributes, leaving vmi.Spec with Model == "".
+					vmi.Spec.Domain.Devices.Interfaces = append(
+						vmi.Spec.Domain.Devices.Interfaces,
+						v1.Interface{
+							Name:                   "secondary",
+							InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+						},
+					)
+					vmi.Spec.Networks = append(
+						vmi.Spec.Networks,
+						v1.Network{
+							Name: "secondary",
+							NetworkSource: v1.NetworkSource{
+								Multus: &v1.MultusNetwork{NetworkName: "net"},
+							},
+						},
+					)
+
+					// FIXME: https://github.com/kubevirt/kubevirt/issues/18955
+					// Because preferences are not applied to the hotplugged interface in the VMI,
+					// syncRestartRequired expands preferences on currentVM (setting Model: "virtio"),
+					// detects a mismatch against vmi.Spec (Model: ""), and falsely flags RestartRequired=True.
+					// Once #18955 is resolved and preferences are applied to hotplugged interfaces in vmi.Spec:
+					// - syncRestartRequired should return false:
+					//     Expect(controller.syncRestartRequired(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
+					// - updatedVM should not have RestartRequired:
+					//     Expect(updatedVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+					Expect(controller.syncRestartRequired(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
+					Expect(updatedVM).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+				})
 			})
 		})
 
