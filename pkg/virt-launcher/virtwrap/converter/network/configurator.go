@@ -21,6 +21,7 @@ package network
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -114,6 +115,10 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 
 	if iface.MacAddress != "" {
 		builderOptions = append(builderOptions, withMACAddress(iface.MacAddress))
+	}
+
+	if iface.MTU != nil {
+		builderOptions = append(builderOptions, withMTU(strconv.Itoa(*iface.MTU)))
 	}
 
 	switch {

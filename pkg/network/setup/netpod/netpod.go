@@ -376,11 +376,16 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
+	bridgeBindingMTU := podStatusIface.MTU
+	if n.vmiSpecIfaces[vmiIfaceIndex].MTU != nil {
+		bridgeBindingMTU = *n.vmiSpecIfaces[vmiIfaceIndex].MTU
+	}
+
 	tapIface := nmstate.Interface{
 		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
-		MTU:        podStatusIface.MTU,
+		MTU:        bridgeBindingMTU,
 		Controller: bridgeIface.Name,
 		Tap: &nmstate.TapDevice{
 			Queues: n.networkQueues(vmiIfaceIndex),
@@ -394,7 +399,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Name:       podIfaceName,
 		TypeName:   nmstate.TypeDummy,
 		MacAddress: podStatusIface.MacAddress,
-		MTU:        podStatusIface.MTU,
+		MTU:        bridgeBindingMTU,
 		IPv4:       podStatusIface.IPv4,
 		IPv6:       podStatusIface.IPv6,
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
@@ -418,12 +423,17 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
 	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
+	masqueradeMTU := podIface.MTU
+	if n.vmiSpecIfaces[vmiIfaceIndex].MTU != nil {
+		masqueradeMTU = *n.vmiSpecIfaces[vmiIfaceIndex].MTU
+	}
+
 	bridgeIface := nmstate.Interface{
 		Name:       link.GenerateBridgeName(podIfaceName),
 		TypeName:   nmstate.TypeBridge,
 		State:      nmstate.IfaceStateUp,
 		MacAddress: link.StaticMasqueradeBridgeMAC,
-		MTU:        podIface.MTU,
+		MTU:        masqueradeMTU,
 		IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 		IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetwork.Name},
@@ -456,7 +466,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
-		MTU:        podIface.MTU,
+		MTU:        masqueradeMTU,
 		Controller: bridgeIface.Name,
 		Tap: &nmstate.TapDevice{
 			Queues: n.networkQueues(vmiIfaceIndex),
@@ -499,11 +509,16 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
+	managedTapMTU := podStatusIface.MTU
+	if n.vmiSpecIfaces[vmiIfaceIndex].MTU != nil {
+		managedTapMTU = *n.vmiSpecIfaces[vmiIfaceIndex].MTU
+	}
+
 	tapIface := nmstate.Interface{
 		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
-		MTU:        podStatusIface.MTU,
+		MTU:        managedTapMTU,
 		Controller: bridgeIface.Name,
 		Tap: &nmstate.TapDevice{
 			Queues: n.networkQueues(vmiIfaceIndex),
@@ -517,7 +532,7 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 		Name:       podIfaceName,
 		TypeName:   nmstate.TypeDummy,
 		MacAddress: podStatusIface.MacAddress,
-		MTU:        podStatusIface.MTU,
+		MTU:        managedTapMTU,
 		IPv4:       podStatusIface.IPv4,
 		IPv6:       podStatusIface.IPv6,
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},

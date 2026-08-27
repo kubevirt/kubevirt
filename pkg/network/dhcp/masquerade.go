@@ -45,7 +45,11 @@ func (d *MasqueradeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 
 	dhcpConfig.Name = podNicLink.Attrs().Name
 	dhcpConfig.Subdomain = d.subdomain
-	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
+	if d.vmiSpecIface.MTU != nil {
+		dhcpConfig.Mtu = uint16(*d.vmiSpecIface.MTU)
+	} else {
+		dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
+	}
 
 	ipv4Enabled, err := d.handler.HasIPv4GlobalUnicastAddress(d.podInterfaceName)
 	if err != nil {

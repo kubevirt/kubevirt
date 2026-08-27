@@ -755,6 +755,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 		"acpiIndex":   "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes\nin PCI addresses assigned to the device.\nThis value is required to be unique across all devices and be between 1 and (16*1024-1).\n+optional",
 		"state":       "State represents the requested operational state of the interface.\nThe supported values are:\n`absent`, expressing a request to remove the interface.\n`down`, expressing a request to set the link down.\n`up`, expressing a request to set the link up.\nEmpty value functions as `up`.\n+optional",
+		"mtu":         "MTU specifies the Maximum Transmission Unit size in bytes for the interface.\nWhen set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.\nValid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.\n+optional",
 	}
 }
 

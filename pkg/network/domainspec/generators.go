@@ -67,7 +67,9 @@ func (b *TapLibvirtSpecGenerator) Generate() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			ifaces[i].MTU = domainIface.MTU
+			if ifaces[i].MTU == nil {
+				ifaces[i].MTU = domainIface.MTU
+			}
 			ifaces[i].MAC = domainIface.MAC
 			ifaces[i].Target = domainIface.Target
 			break

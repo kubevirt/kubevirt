@@ -136,6 +136,13 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 	}
 }
 
+// WithMTU sets the interface MTU.
+func WithMTU(mtu int) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.MTU = &mtu
+	}
+}
+
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPorts(ports...))
