@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -50,6 +51,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -121,6 +123,7 @@ const (
 	serviceCreatedEvent                   = "ServiceCreated"
 	certParamsChangedEvent                = "CertificateParametersChanged"
 	exporterManifestConfigMapCreatedEvent = "DataManifestCreated"
+	exporterManifestConfigMapUpdatedEvent = "DataManifestUpdated"
 
 	kvm = 107
 
@@ -1292,6 +1295,25 @@ func (ctrl *VMExportController) createManifestAndAddToPod(vmExport *exportv1.Vir
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
+		}
+		cm, err = ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Get(context.Background(), manifestConfigMap.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		// Do not adopt a ConfigMap left by a previous VMExport.
+		if !metav1.IsControlledBy(cm, vmExport) {
+			return fmt.Errorf("exporter data manifest %s/%s is not controlled by the current VMExport", cm.Namespace, cm.Name)
+		}
+		if !equality.Semantic.DeepEqual(cm.Data, manifestConfigMap.Data) {
+			patchBytes, err := patch.New(patch.WithAdd("/data", manifestConfigMap.Data)).GeneratePayload()
+			if err != nil {
+				return err
+			}
+			cm, err = ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Patch(context.Background(), manifestConfigMap.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			if err != nil {
+				return err
+			}
+			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterManifestConfigMapUpdatedEvent, "Updated exporter data manifest %s/%s", cm.Namespace, cm.Name)
 		}
 	} else {
 		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, exporterManifestConfigMapCreatedEvent, "Created exporter data manifest %s/%s", cm.Namespace, cm.Name)
