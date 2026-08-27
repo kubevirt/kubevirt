@@ -6432,10 +6432,8 @@ func newVMIWithDRANetwork(name string) *v1.VirtualMachineInstance {
 	vmi := api.NewMinimalVMI(name)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 		{
-			Name: "dra-net",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				SRIOV: &v1.InterfaceSRIOV{},
-			},
+			Name:    "dra-net",
+			Binding: &v1.PluginBinding{Name: "netbinding"},
 		},
 	}
 	vmi.Spec.Networks = []v1.Network{

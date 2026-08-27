@@ -502,11 +502,11 @@ var _ = Describe("Status Update", func() {
 
 	It("Should keep existing DRA interface statuses when Multus network-status is missing", func() {
 		const (
-			draClaimName  = "sriov"
+			draClaimName  = "dra-claim"
 			redIfaceName  = "red"
-			redRequest    = "vf1"
+			redRequest    = "req1"
 			blueIfaceName = "blue"
-			blueRequest   = "vf2"
+			blueRequest   = "req2"
 		)
 
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
@@ -518,8 +518,8 @@ var _ = Describe("Status Update", func() {
 		vmi := libvmi.New(
 			libvmi.WithNamespace(testNamespace),
 			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-			libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithSRIOVBinding())),
-			libvmi.WithInterface(libvmi.NewInterface(blueIfaceName, libvmi.WithSRIOVBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithInterface(libvmi.NewInterface(blueIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, redRequest)),
 			libvmi.WithNetwork(libvmi.DRANetwork(blueIfaceName, draClaimName, blueRequest)),
