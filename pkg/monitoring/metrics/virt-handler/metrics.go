@@ -54,7 +54,7 @@ func SetupMetrics(
 	ReportDeprecatedMachineTypes(machines, nodeName)
 
 	domainstats.SetupDomainStatsCollector(maxRequestsInFlight, vmiInformer)
-	gpuinfo.Setup(nodeName)
+	gpuinfo.Setup(nodeName, vmiInformer)
 
 	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {
 		return err
