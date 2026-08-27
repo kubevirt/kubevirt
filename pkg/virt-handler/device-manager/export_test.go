@@ -33,3 +33,9 @@ func SetPCIBasePath(p string) func() {
 	pciBasePath = p
 	return func() { pciBasePath = old }
 }
+
+func SetVFIODevicesRoot(p string) func() {
+	old := vfioDevicesRoot
+	vfioDevicesRoot = p
+	return func() { vfioDevicesRoot = old }
+}
