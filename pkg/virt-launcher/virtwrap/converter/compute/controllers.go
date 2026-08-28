@@ -74,6 +74,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 
 	if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64Disabled())
+		domain.Spec.SysInfo = append(domain.Spec.SysInfo, newSeaBIOSFWCfgWithPCI64Disabled())
 	}
 
 	if requiresVirtioSerialController(vmi) {
@@ -159,6 +160,15 @@ func newPCIControllerWithHole64Disabled() api.Controller {
 		PCIHole64: &api.PCIHole64{
 			Value: 0,
 			Unit:  "KiB",
+		},
+	}
+}
+
+func newSeaBIOSFWCfgWithPCI64Disabled() api.SysInfo {
+	return api.SysInfo{
+		Type: "fwcfg",
+		Entries: []api.Entry{
+			{Name: "opt/org.seabios/pci64", Value: "no"},
 		},
 	}
 }

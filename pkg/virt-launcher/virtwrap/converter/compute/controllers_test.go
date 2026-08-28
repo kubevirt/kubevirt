@@ -20,6 +20,8 @@
 package compute_test
 
 import (
+	"encoding/xml"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
@@ -190,6 +192,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		vmi *v1.VirtualMachineInstance,
 		supportPCIHole64Disabling bool,
 		expectedControllers []api.Controller,
+		expectedSysInfo []api.SysInfo,
 	) {
 		var domain api.Domain
 
@@ -204,7 +207,9 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-		Expect(domain).To(Equal(newDomainWithControllers(expectedControllers)))
+		expected := newDomainWithControllers(expectedControllers)
+		expected.Spec.SysInfo = expectedSysInfo
+		Expect(domain).To(Equal(expected))
 	},
 		Entry("when arch does not support PCIHole64 disabling, annotation not set",
 			libvmi.New(),
@@ -213,7 +218,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch does not support PCIHole64 disabling, annotation set",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
 			!pciHole64DisablingSupported,
@@ -221,7 +227,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch supports PCIHole64 disabling, annotation not set",
 			libvmi.New(),
 			pciHole64DisablingSupported,
@@ -229,7 +236,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch supports PCIHole64 disabling, annotation set to false",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "false")),
 			pciHole64DisablingSupported,
@@ -237,7 +245,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch supports PCIHole64 disabling and annotation is true",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
 			pciHole64DisablingSupported,
@@ -246,8 +255,26 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 0, Unit: "KiB"}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			[]api.SysInfo{{Type: "fwcfg", Entries: []api.Entry{{Name: "opt/org.seabios/pci64", Value: "no"}}}}),
 	)
+
+	It("should serialize the SeaBIOS fwcfg entry as its own sysinfo element", func() {
+		var domain api.Domain
+
+		configurator := compute.NewControllersDomainConfigurator(
+			compute.ControllersWithSupportPCIHole64Disabling(pciHole64DisablingSupported),
+		)
+		vmi := libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true"))
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		buf, err := xml.Marshal(domain.Spec)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(string(buf)).To(MatchRegexp(
+			`(?s)<sysinfo type="fwcfg">.*?<entry name="opt/org\.seabios/pci64">no</entry>.*?</sysinfo>`,
+		))
+	})
 
 	DescribeTable("should set IOMMU on SCSI and virtio-serial controllers when launch security is active",
 		func(useLaunchSecuritySEV, useLaunchSecurityPV bool, vmi *v1.VirtualMachineInstance, autoThreads int, expectedDomain api.Domain) {
