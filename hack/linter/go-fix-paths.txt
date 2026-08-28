@@ -1,3 +1,4 @@
 pkg/network/admitter
 pkg/network/cache
 pkg/network/dhcp
+pkg/network/dns
