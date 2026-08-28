@@ -417,11 +417,13 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 
 // finalCleanup is the last thing we run on finished migrations.
 // If the function completes successfully:
-// - On failure, virt-launcher will be notified and the virt-handler-managed volumes will be unmounted
-// - All caches related to the VMI and domain will be dropped
-// - The VMI will be removed from our informer
-// - The migration proxy for the VMI will be stopped
-// - The key will not be re-enqueued
+//   - On failure, virt-launcher will be notified, the virt-handler-managed volumes
+//     will be unmounted, VMI will be removed from store and launcher client will be closed
+//   - On success, the launcher client and its ghost record are retained until the
+//     VM controller takes over and performs domain teardown
+//   - Migration-target bookkeeping is removed and the VMI is updated in the informer
+//   - The migration proxy for the VMI will be stopped
+//   - The key will not be re-enqueued
 func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance, oldSpec *v1.VirtualMachineInstanceSpec, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string, domain *api.Domain) error {
 	if domainPausedFailedPostCopy(domain) {
 		if vmi.Status.Phase == v1.Running {
@@ -441,7 +443,6 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	}
 
 	defer c.migrationProxy.StopTargetListener(migrationProxyKey(vmi))
-	defer c.launcherClients.CloseLauncherClient(vmi)
 	client, err := c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
 		return err
@@ -467,6 +468,7 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 		if err = c.domainStore.Delete(vmi); err != nil {
 			return err
 		}
+		c.launcherClients.CloseLauncherClient(vmi)
 	} else {
 		options := &cmdv1.VirtualMachineOptions{}
 		options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
