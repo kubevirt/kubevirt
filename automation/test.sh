@@ -106,6 +106,7 @@ case "$TARGET" in
     export KUBEVIRT_STORAGE="rook-ceph-default"
     export KUBEVIRT_DEPLOY_NFS_CSI=true
     export KUBEVIRT_WITH_ETC_CAPACITY="1G"
+    export FAIL_ON_VM_LOG_ERRORS=true
     ;;
   *sig-compute-realtime*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
