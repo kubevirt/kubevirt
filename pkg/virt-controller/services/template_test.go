@@ -723,7 +723,7 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with access credentials", func() {
-			It("should add volume with secret referenced by cloud-init user secret ref", func() {
+			It("should add a required volume with secret referenced by cloud-init user secret ref", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -767,6 +767,7 @@ var _ = Describe("Template", func() {
 				for _, volume := range pod.Spec.Volumes {
 					if volume.Name == "my-pkey-access-cred" {
 						volumeFound = true
+						Expect(volume.Secret.Optional).To(BeNil())
 					}
 				}
 				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
@@ -778,6 +779,44 @@ var _ = Describe("Template", func() {
 					}
 				}
 				Expect(volumeMountFound).To(BeTrue(), "could not find ssh key secret volume mount")
+			})
+			It("should make the access credential secret volume optional on a migration target pod", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						AccessCredentials: []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											SecretName: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderMigrationManifest(&vmi, nil, &k8sv1.Pod{})
+				Expect(err).ToNot(HaveOccurred())
+
+				volumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "my-pkey-access-cred" {
+						volumeFound = true
+						Expect(volume.Secret.Optional).To(HaveValue(BeTrue()))
+					}
+				}
+				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
 			})
 			It("should add volume with secret referenced by qemu agent access cred", func() {
 				config, kvStore, svc = configFactory(defaultArch)

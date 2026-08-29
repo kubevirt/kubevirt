@@ -254,7 +254,7 @@ func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 		backendStoragePVCName = backendStoragePVC.Name
 	}
 	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
-	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true, memoryOverhead)
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true, false, memoryOverhead)
 }
 
 func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
@@ -271,7 +271,7 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		backendStoragePVCName = backendStoragePVC.Name
 	}
 	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
-	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, false, memoryOverhead)
+	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, false, true, memoryOverhead)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (t *TemplateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		backendStoragePVCName = backendStoragePVC.Name
 	}
 	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
-	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false, memoryOverhead)
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false, false, memoryOverhead)
 }
 
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
@@ -328,7 +328,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 	return psc
 }
 
-func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, backendStoragePVCName string, tempPod bool, memoryOverhead resource.Quantity) (*k8sv1.Pod, error) {
+func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, backendStoragePVCName string, tempPod, migrationTarget bool, memoryOverhead resource.Quantity) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
@@ -444,7 +444,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName)
+	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName, migrationTarget)
 	if err != nil {
 		return nil, err
 	}
@@ -865,12 +865,12 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
+func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string, migrationTarget bool) (*VolumeRenderer, error) {
 	imageVolumeFeatureGateEnabled := t.clusterConfig.ImageVolumeEnabled()
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
-		withAccessCredentials(vmi.Spec.AccessCredentials),
+		withAccessCredentials(vmi.Spec.AccessCredentials, migrationTarget),
 		withBackendStorage(vmi, backendStoragePVCName),
 	}
 	if imageVolumeFeatureGateEnabled {
