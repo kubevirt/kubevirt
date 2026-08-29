@@ -67,7 +67,7 @@ func (n NMState) Apply(spec *Spec) error {
 				return fmt.Errorf("type collision on link %s: actual %s, requested %s", iface.Name, linkType, iface.TypeName)
 			}
 			if serr := n.setupInterface(iface, link); serr != nil {
-				return fmt.Errorf("failed to setup link [%s]: %v", iface.Name, serr)
+				return fmt.Errorf("failed to setup link [%s]: %w", iface.Name, serr)
 			}
 		}
 	}
@@ -260,9 +260,22 @@ func (n NMState) addIPAddresses(ips []IPAddress, link vishnetlink.Link) error {
 }
 
 func (n NMState) deleteIPAddresses(link vishnetlink.Link) error {
-	addresses, err := n.adapter.AddrList(link, vishnetlink.FAMILY_ALL)
+	const maxAddrListAttempts = 5
+
+	// Interrupted dumps can contain incomplete results, so only use addresses from a successful attempt.
+	var addresses []vishnetlink.Addr
+	var err error
+	for range maxAddrListAttempts {
+		addresses, err = n.adapter.AddrList(link, vishnetlink.FAMILY_ALL)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, vishnetlink.ErrDumpInterrupted) && !errors.Is(err, unix.EINTR) {
+			break
+		}
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list IP addresses on link %s: %w", link.Attrs().Name, err)
 	}
 	for _, addr := range addresses {
 		if err := n.adapter.AddrDel(link, &addr); err != nil {
