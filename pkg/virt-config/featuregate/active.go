@@ -318,7 +318,8 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha,
+		Dependencies: []string{PCINUMAAwareTopologyEnabled, IOMMUFDGate}})
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})

@@ -125,8 +125,12 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	response := validating_webhooks.NewAdmissionResponse(results)
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
-		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+		devConfig := newKV.Spec.Configuration.DeveloperConfiguration
+		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(devConfig.FeatureGates)...)
+		for _, warning := range featuregate.WarnMissingDependencies(devConfig) {
+			log.Log.Warning(warning)
+			response.Warnings = append(response.Warnings, warning)
+		}
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
