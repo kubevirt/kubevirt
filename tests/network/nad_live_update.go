@@ -60,6 +60,7 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 	var (
 		testNamespace string
 		virtClient    kubecli.KubevirtClient
+		staticVMI2    *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
@@ -100,6 +101,8 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		const (
 			staticVMI1Name = "static-vmi-1"
 			staticVMI1IP   = "10.1.1.10"
+			staticVMI2Name = "static-vmi-2"
+			staticVMI2IP   = "10.1.1.20"
 			subnetMask     = "/24"
 		)
 
@@ -125,6 +128,17 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err = kubevirt.Client().VirtualMachine(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
+
+		staticVMI2, err = newVMI(
+			staticVMI2Name,
+			targetNAD,
+			staticVMI2IP+subnetMask,
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		staticVMI2, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(staticVMI2)).
+			Create(context.Background(), staticVMI2, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(matcher.ThisVMI(staticVMI1)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -173,23 +187,6 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 				Not(BeEmpty()),
 				Not(Equal(sourceNodeName)),
 			))
-
-		var staticVMI2 *v1.VirtualMachineInstance
-		const (
-			staticVMI2Name = "static-vmi-2"
-			staticVMI2IP   = "10.1.1.20"
-			subnetMask     = "/24"
-		)
-		staticVMI2, err = newVMI(
-			staticVMI2Name,
-			targetNAD,
-			staticVMI2IP+subnetMask,
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		staticVMI2, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(staticVMI2)).
-			Create(context.Background(), staticVMI2, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(matcher.ThisVMI(staticVMI2)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
