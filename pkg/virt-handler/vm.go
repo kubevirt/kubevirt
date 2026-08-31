@@ -408,7 +408,10 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	if vmiExists && vmi.IsMigrationSource() {
+	// Skip a migration source only while the migration is still ongoing. A decentralized
+	// source keeps IsMigrationSource()==true even once terminal, so without the IsFinal()
+	// guard sync() never runs and the source ghost record leaks - and MigrationSourceController never deletes it
+	if vmiExists && vmi.IsMigrationSource() && !vmi.IsFinal() {
 		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is a migration source")
 		return nil
 	}

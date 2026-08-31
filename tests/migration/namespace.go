@@ -179,7 +179,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 	Context("container disk", func() {
 
-		It("[QUARANTINE]should live migrate a container disk vm, several times", decorators.Quarantine, func() {
+		It("should live migrate a container disk vm, several times", func() {
 			var targetVM *virtv1.VirtualMachine
 
 			sourceVMI := libvmifact.NewAlpine(

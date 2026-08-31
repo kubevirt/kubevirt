@@ -3533,6 +3533,127 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
+	Context("decentralized live migration source ghost-record cleanup", func() {
+		// A decentralized source stays IsMigrationSource()==true forever (TargetState is
+		// never cleared), so the source ghost record must be cleaned once the VMI is final -
+		// for BOTH terminal phases (Succeeded and Failed), since MigrationSourceController
+		// never deletes it. Otherwise a same-name/new-UID receiver fails to register with
+		// "differing UID".
+		DescribeTable("cleans up the source ghost record so a same-name receiver can start", func(finalPhase v1.VirtualMachineInstancePhase) {
+			const (
+				vmiName  = "testvmi"
+				vmiNs    = metav1.NamespaceDefault
+				ghostKey = vmiNs + "/" + vmiName
+			)
+			sourceUID := vmiTestUUID
+			receiverUID := uuid.NewUUID()
+			receiverSocket := cmdclient.SocketFilePathOnHost(string(receiverUID))
+
+			start := metav1.NewTime(time.Now().Add(-2 * time.Minute))
+			targetSyncAddr := "10.0.0.2:1234"
+			targetNodeAddr := "10.0.0.2"
+			migrationUID := types.UID("mig-uid-1234")
+
+			// TargetState's Sync/Node addresses keep IsMigrationSource() true forever; an
+			// EndTimestamp flips the migration from "in progress" to "completed".
+			decentralizedMigrationState := func(end *metav1.Time) *v1.VirtualMachineInstanceMigrationState {
+				return &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &start,
+					EndTimestamp:   end,
+					SourceNode:     host,
+					MigrationUID:   migrationUID,
+					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							Node:         host,
+							MigrationUID: migrationUID,
+						},
+					},
+					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							Node:         "targetnode",
+							MigrationUID: migrationUID,
+							SyncAddress:  &targetSyncAddr,
+						},
+						NodeAddress: &targetNodeAddr,
+					},
+				}
+			}
+
+			// Model the record the source virt-launcher added on start (GetLauncherClient).
+			By("Planting the SOURCE ghost record, as the source virt-launcher would have")
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmiNs, vmiName, sockFile, sourceUID)).To(Succeed())
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)).To(BeTrue(),
+				"sanity: the source ghost record must exist before we reconcile")
+
+			// --- STEP 1: source Running, migration in progress --------------------
+			// execute() early-returns on isMigrationInProgress, so the record is untouched.
+			By("Reconciling the running source while the migration is in progress")
+			vmi := libvmi.New(
+				libvmi.WithUID(sourceUID),
+				libvmi.WithNamespace(vmiNs),
+				libvmi.WithName(vmiName),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithNodeName(host),
+						libvmistatus.WithMigrationState(*decentralizedMigrationState(nil)),
+					),
+				),
+			)
+			Expect(vmi.IsMigrationSource()).To(BeTrue(), "sanity: VMI must look like a decentralized migration source")
+
+			domain := api.NewMinimalDomainWithUUID(vmiName, sourceUID)
+			domain.SetState(api.Running, api.ReasonUser)
+			addVMI(vmi, domain)
+
+			sanityExecute()
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)).To(BeTrue(),
+				"a migration in progress must not disturb the source ghost record")
+
+			// --- STEP 2: guest migrates away; source domain is UNDEFINED ----------
+			// The domain is gone before the final VMI is reconciled, so the pre-fix domain-based cleanup branch never fires.
+			By("Tearing down the source domain (UNDEFINED) after the guest migrated away")
+			Expect(controller.domainStore.Delete(domain)).To(Succeed())
+
+			By("Marking the source VMI final while it stays a decentralized source")
+			end := metav1.NewTime(time.Now().Add(-1 * time.Minute))
+			vmi.Status.Phase = finalPhase
+			vmi.Status.MigrationState = decentralizedMigrationState(&end)
+			Expect(vmi.IsFinal()).To(BeTrue(), "sanity: source VMI must be in a final phase")
+			Expect(vmi.IsMigrationSource()).To(BeTrue(), "sanity: a decentralized source stays IsMigrationSource forever")
+			Expect(controller.vmiStore.Update(vmi)).To(Succeed())
+			_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(vmiNs).Update(context.TODO(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			key, err := virtcontroller.KeyFunc(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			controller.queue.Add(key)
+
+			// Expect the cleanup calls
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
+			client.EXPECT().DeleteDomain(gomock.Any()).Return(nil).AnyTimes()
+
+			By("Reconciling the final source after its domain is gone (post-UNDEFINED)")
+			sanityExecuteNoDomain()
+
+			// --- STEP 3: the same-name / new-UID receiver tries to register -------
+			leaked := virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)
+			addErr := virtcache.GhostRecordGlobalStore.Add(vmiNs, vmiName, receiverSocket, receiverUID)
+
+			Expect(addErr).ToNot(HaveOccurred(),
+				"the same-name / new-UID receiver must be able to register its ghost record; "+
+					"pre-fix this fails with \"differing UID\" because the source record leaked at "+ghostKey)
+			Expect(leaked).To(BeFalse(),
+				"the source ghost record ("+ghostKey+") must be cleaned once the migration-source VMI is final; "+
+					"it survives today because execute() early-returns on vmi.IsMigrationSource() before sync()")
+
+			// The cleanup deletion emits this event (consumed in AfterEach).
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+		},
+			Entry("when the migration source succeeded", v1.Succeeded),
+			Entry("when the migration source failed", v1.Failed),
+		)
+	})
+
 	Context("updateBackupStatus", func() {
 		startTime := metav1.Now()
 		endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
