@@ -1201,6 +1201,13 @@
         "status": {}
       }
     ],
+    "resourceClaimTemplates": [
+      {
+        "name": "nameValue",
+        "resourceClaimTemplateName": "resourceClaimTemplateNameValue",
+        "persistWhenStopped": true
+      }
+    ],
     "updateVolumesStrategy": "updateVolumesStrategyValue"
   },
   "status": {

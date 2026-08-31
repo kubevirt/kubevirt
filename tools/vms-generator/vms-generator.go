@@ -55,7 +55,7 @@ func main() {
 
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices", "Sidecar", "GPUsWithDRA"},
+			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices", "Sidecar", "GPUsWithDRA", "PersistentDRAClaims"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			DeprecatedPermitSlirpInterface:    &permit,
@@ -104,6 +104,7 @@ func main() {
 		utils.VmCirrosInstancetypeComputeLargePreferncesVirtio:    utils.GetVmCirrosInstancetypeComputeLargePreferencesVirtio(),
 		utils.VmWindowsInstancetypeComputeLargePreferencesWindows: utils.GetVmWindowsInstancetypeComputeLargePreferencesWindows(),
 		utils.VmCirrosInstancetypeComputeLargePreferencesWindows:  utils.GetVmCirrosInstancetypeComputeLargePreferencesWindows(),
+		utils.VmDRAGPU:                                            utils.GetVMDRAGPU(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{

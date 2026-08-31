@@ -599,8 +599,56 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 					"resource.k8s.io",
 				},
 				Resources: []string{
+					// Read-only; consumed by the VMI DRA status controller.
 					"resourceslices",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
 					"resourceclaims",
+				},
+				Verbs: []string{
+					// list/watch/get feed the ResourceClaim informer.
+					"list",
+					"watch",
+					"get",
+					// create/delete manage VM-owned ResourceClaims for the
+					// PersistentDRAClaims feature (create on start, delete of
+					// non-persistent claims on stop).
+					"create",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
+					// The status subresource is the write path for reservedFor.
+					"resourceclaims/status",
+					// The binding synthetic subresource authorizes reservedFor/allocation changes.
+					"resourceclaims/binding",
+				},
+				Verbs: []string{
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
+					// Read-only; the ResourceClaimTemplate informer resolves
+					// templates referenced by resourceClaimTemplates entries.
+					"resourceclaimtemplates",
 				},
 				Verbs: []string{
 					"list",
