@@ -2311,6 +2311,49 @@ var _ = Describe("Migration watcher", func() {
 			Entry("host-model should be targeted only to nodes which support the model", true),
 			Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
+
+		It("should skip all CPU label injection and emit warning when RelaxCPUCompatibility is set", func() {
+			const nodeName = "testNode"
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Spec.RelaxCPUCompatibility = true
+
+			node := newNode(nodeName)
+			node.ObjectMeta.Labels = map[string]string{
+				v1.HostModelCPULabel + "fake":              "true",
+				v1.SupportedHostModelMigrationCPU + "fake": "true",
+				v1.HostModelRequiredFeaturesLabel + "fake": "true",
+				v1.CPUModelVendorLabel + "Intel":           "true",
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, "RelaxedCPUCompatibility")
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 1)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.MigrationJobLabel, string(migration.UID), v1.CreatedByLabel, string(vmi.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			for key := range pods.Items[0].Spec.NodeSelector {
+				Expect(key).ToNot(HavePrefix(v1.SupportedHostModelMigrationCPU),
+					"cpu-model-migration label should not be injected when RelaxCPUCompatibility is set")
+				Expect(key).ToNot(HavePrefix(v1.CPUFeatureLabel),
+					"cpu-feature label should not be injected when RelaxCPUCompatibility is set")
+				Expect(key).ToNot(HavePrefix(v1.CPUModelVendorLabel),
+					"cpu-vendor label should not be injected when RelaxCPUCompatibility is set")
+			}
+		})
 	})
 
 	Context("Migration policy", func() {

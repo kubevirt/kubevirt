@@ -367,11 +367,12 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"vmiName":           "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
-		"addedNodeSelector": "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
-		"sendTo":            "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",
-		"receive":           "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
-		"priority":          "Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.\n+optional",
+		"vmiName":               "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"addedNodeSelector":     "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
+		"sendTo":                "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",
+		"receive":               "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
+		"priority":              "Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.\n+optional",
+		"relaxCPUCompatibility": "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for the migration target pod. Use as a temporary escape hatch when nodeSelector mismatches block migration during upgrades. Migration success is not guaranteed when this flag is set.\n+optional",
 	}
 }
 

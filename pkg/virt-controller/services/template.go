@@ -335,6 +335,14 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, err
 	}
 
+	if migration.Spec.RelaxCPUCompatibility {
+		for key := range targetPod.Spec.NodeSelector {
+			if strings.HasPrefix(key, v1.CPUModelLabel) || strings.HasPrefix(key, v1.CPUFeatureLabel) {
+				delete(targetPod.Spec.NodeSelector, key)
+			}
+		}
+	}
+
 	return targetPod, err
 }
 

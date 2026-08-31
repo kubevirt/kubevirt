@@ -1805,6 +1805,12 @@ type VirtualMachineInstanceMigrationSpec struct {
 	// Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.
 	// +optional
 	Priority *MigrationPriority `json:"priority,omitempty"`
+
+	// RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for the
+	// migration target pod. Use as a temporary escape hatch when nodeSelector mismatches block
+	// migration during upgrades. Migration success is not guaranteed when this flag is set.
+	// +optional
+	RelaxCPUCompatibility bool `json:"relaxCPUCompatibility,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationSource struct {

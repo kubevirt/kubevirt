@@ -962,45 +962,50 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
 
-	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
-	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
-		var nodeSelectors map[string]string
+	if migration.Spec.RelaxCPUCompatibility {
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, "RelaxedCPUCompatibility",
+			"CPU compatibility checks are skipped; migration success is not guaranteed")
+	} else {
+		// If cpu model is "host model" allow migration only to nodes that supports this cpu model
+		if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
+			var nodeSelectors map[string]string
 
-		if migration.IsDecentralizedTarget() {
-			nodeSelectors, err = getNodeSelectorsFromVMIMigrationSourceState(vmi.Status.MigrationState.SourceState)
-		} else {
-			node, err := c.getNodeForVMI(vmi)
+			if migration.IsDecentralizedTarget() {
+				nodeSelectors, err = getNodeSelectorsFromVMIMigrationSourceState(vmi.Status.MigrationState.SourceState)
+			} else {
+				node, err := c.getNodeForVMI(vmi)
+				if err != nil {
+					return err
+				}
+				nodeSelectors, err = prepareNodeSelectorForHostCpuModel(node, templatePod, sourcePod.Spec.NodeSelector)
+			}
 			if err != nil {
 				return err
 			}
-			nodeSelectors, err = prepareNodeSelectorForHostCpuModel(node, templatePod, sourcePod.Spec.NodeSelector)
-		}
-		if err != nil {
-			return err
-		}
-		for k, v := range nodeSelectors {
-			templatePod.Spec.NodeSelector[k] = v
-		}
-	}
-
-	// Ensure migration happens only between nodes with the same CPU vendor
-	// This prevents migrations between AMD and Intel nodes which are not supported
-	vendorLabelKey := getCPUVendorLabelKey(templatePod.Spec.NodeSelector)
-	if vendorLabelKey == "" {
-		var sourceLabels map[string]string
-		if migration.IsDecentralizedTarget() {
-			sourceLabels = vmi.Status.MigrationState.SourceState.NodeSelectors
-		} else {
-			node, err := c.getNodeForVMI(vmi)
-			if err != nil {
-				return err
+			for k, v := range nodeSelectors {
+				templatePod.Spec.NodeSelector[k] = v
 			}
-			sourceLabels = node.Labels
 		}
 
-		vendorLabelKey = getCPUVendorLabelKey(sourceLabels)
-		if vendorLabelKey != "" {
-			templatePod.Spec.NodeSelector[vendorLabelKey] = "true"
+		// Ensure migration happens only between nodes with the same CPU vendor
+		// This prevents migrations between AMD and Intel nodes which are not supported
+		vendorLabelKey := getCPUVendorLabelKey(templatePod.Spec.NodeSelector)
+		if vendorLabelKey == "" {
+			var sourceLabels map[string]string
+			if migration.IsDecentralizedTarget() {
+				sourceLabels = vmi.Status.MigrationState.SourceState.NodeSelectors
+			} else {
+				node, err := c.getNodeForVMI(vmi)
+				if err != nil {
+					return err
+				}
+				sourceLabels = node.Labels
+			}
+
+			vendorLabelKey = getCPUVendorLabelKey(sourceLabels)
+			if vendorLabelKey != "" {
+				templatePod.Spec.NodeSelector[vendorLabelKey] = "true"
+			}
 		}
 	}
 
