@@ -2978,6 +2978,48 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-1"))
 			})
 
+			It("should contain launcher's secret in hotplug attachment pod spec", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI("testvmi")
+				ownerPod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+				pod, err := svc.RenderHotplugAttachmentPodTemplate(nil, ownerPod, vmi, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.ImagePullSecrets).To(Equal([]k8sv1.LocalObjectReference{{Name: "pull-secret-1"}}))
+			})
+
+			It("should contain launcher's secret in hotplug attachment trigger pod spec", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI("testvmi")
+				ownerPod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+				pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{Name: "test"}, ownerPod, vmi, "test", true, false)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.ImagePullSecrets).To(Equal([]k8sv1.LocalObjectReference{{Name: "pull-secret-1"}}))
+			})
+
+			It("should omit an empty launcher secret from hotplug pod specs", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				svc.imagePullSecret = ""
+				vmi := api.NewMinimalVMI("testvmi")
+				ownerPod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+				attachmentPod, err := svc.RenderHotplugAttachmentPodTemplate(nil, ownerPod, vmi, nil)
+				Expect(err).ToNot(HaveOccurred())
+				triggerPod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{Name: "test"}, ownerPod, vmi, "test", true, false)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(attachmentPod.Spec.ImagePullSecrets).To(BeEmpty())
+				Expect(triggerPod.Spec.ImagePullSecrets).To(BeEmpty())
+			})
 		})
 
 		Context("with ContainerDisk pull secrets", func() {

@@ -1058,6 +1058,14 @@ func sidecarContainerName(i int) string {
 	return fmt.Sprintf("hook-sidecar-%d", i)
 }
 
+func (t *TemplateService) launcherImagePullSecrets() []k8sv1.LocalObjectReference {
+	if t.imagePullSecret == "" {
+		return nil
+	}
+
+	return []k8sv1.LocalObjectReference{{Name: t.imagePullSecret}}
+}
+
 func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	runUser := int64(util.NonRootUID)
@@ -1143,6 +1151,7 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Tolerations:                   tolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
+			ImagePullSecrets:              t.launcherImagePullSecrets(),
 		},
 	}
 
@@ -1292,6 +1301,7 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				emptyDirVolume(hotplugDisks),
 			},
 			TerminationGracePeriodSeconds: &zero,
+			ImagePullSecrets:              t.launcherImagePullSecrets(),
 		},
 	}
 
