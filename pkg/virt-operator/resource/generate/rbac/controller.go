@@ -632,13 +632,17 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 					"resource.k8s.io",
 				},
 				Resources: []string{
-					// The status subresource is the write path for reservedFor.
+					// reservedFor is written via UpdateStatus (an HTTP PUT),
+					// so the status subresource needs update, not patch.
 					"resourceclaims/status",
-					// The binding synthetic subresource authorizes reservedFor/allocation changes.
+					// The apiserver runs an additional binding SAR (same verb as
+					// the request) whenever a status write changes
+					// reservedFor/allocation, so update on the binding synthetic
+					// subresource is required too.
 					"resourceclaims/binding",
 				},
 				Verbs: []string{
-					"patch",
+					"update",
 				},
 			},
 			{

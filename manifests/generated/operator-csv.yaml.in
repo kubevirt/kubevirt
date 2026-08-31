@@ -869,7 +869,7 @@ spec:
           - resourceclaims/status
           - resourceclaims/binding
           verbs:
-          - patch
+          - update
         - apiGroups:
           - resource.k8s.io
           resources:
