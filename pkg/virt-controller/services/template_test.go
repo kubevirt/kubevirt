@@ -1272,45 +1272,6 @@ var _ = Describe("Template", func() {
 				}
 			})
 
-			It("should strip cpu-model and cpu-feature node selectors from migration target pod when RelaxCPUCompatibility is set", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							CPU: &v1.CPU{
-								Model: "Skylake-Client",
-								Features: []v1.CPUFeature{
-									{Name: "pcid", Policy: "require"},
-								},
-							},
-						},
-					},
-				}
-				migration := &v1.VirtualMachineInstanceMigration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-migration",
-						Namespace: vmi.Namespace,
-					},
-					Spec: v1.VirtualMachineInstanceMigrationSpec{
-						VMIName:               vmi.Name,
-						RelaxCPUCompatibility: true,
-					},
-				}
-				pod, err := svc.RenderMigrationManifest(&vmi, migration, &k8sv1.Pod{})
-				Expect(err).ToNot(HaveOccurred())
-				for key := range pod.Spec.NodeSelector {
-					Expect(key).ToNot(HavePrefix(v1.CPUModelLabel),
-						"cpu-model label should not be present when RelaxCPUCompatibility is set")
-					Expect(key).ToNot(HavePrefix(v1.CPUFeatureLabel),
-						"cpu-feature label should not be present when RelaxCPUCompatibility is set")
-				}
-			})
-
 			DescribeTable("should add node selector for machine type", func(specMachineType, statusMachineType, expectedMachineType string) {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{

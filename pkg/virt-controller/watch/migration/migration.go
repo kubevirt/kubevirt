@@ -963,6 +963,11 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
 
 	if migration.Spec.RelaxCPUCompatibility {
+		for key := range templatePod.Spec.NodeSelector {
+			if strings.HasPrefix(key, virtv1.CPUModelLabel) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
+				delete(templatePod.Spec.NodeSelector, key)
+			}
+		}
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, "RelaxedCPUCompatibility",
 			"CPU compatibility checks are skipped; migration success is not guaranteed")
 	} else {
