@@ -1809,8 +1809,10 @@ type VirtualMachineInstanceMigrationSpec struct {
 	// RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for the
 	// migration target pod. Use as a temporary escape hatch when nodeSelector mismatches block
 	// migration during upgrades. Migration success is not guaranteed when this flag is set.
+	// Overrides the cluster-level MigrationConfiguration.RelaxCPUCompatibility when set.
+	// Defaults to false.
 	// +optional
-	RelaxCPUCompatibility bool `json:"relaxCPUCompatibility,omitempty"`
+	RelaxCPUCompatibility *bool `json:"relaxCPUCompatibility,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationSource struct {
@@ -3595,6 +3597,12 @@ type VMIMConfigurationOptions struct {
 	// ExperimentalMigrationOptions is an alpha API. It is intended for experimental
 	// purposes only and will be removed in the future.
 	ExperimentalMigrationOptions *ExperimentalMigrationOptions `json:"experimental,omitempty"`
+	// RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all
+	// migration target pods cluster-wide. Can be overridden per-migration via
+	// VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.
+	// Defaults to false.
+	// +optional
+	RelaxCPUCompatibility *bool `json:"relaxCPUCompatibility,omitempty"`
 }
 
 // MigrationConfiguration holds migration options.
@@ -3661,6 +3669,12 @@ type MigrationConfiguration struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all
+	// migration target pods cluster-wide. Can be overridden per-migration via
+	// VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.
+	// Defaults to false.
+	// +optional
+	RelaxCPUCompatibility *bool `json:"relaxCPUCompatibility,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

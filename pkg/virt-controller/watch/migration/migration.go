@@ -962,7 +962,12 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
 
-	if migration.Spec.RelaxCPUCompatibility {
+	// per-VMIM takes precedence; fall back to cluster-level global config
+	relaxCPU := c.clusterConfig.GetMigrationConfiguration().RelaxCPUCompatibility
+	if migration.Spec.RelaxCPUCompatibility != nil {
+		relaxCPU = migration.Spec.RelaxCPUCompatibility
+	}
+	if relaxCPU != nil && *relaxCPU {
 		for key := range templatePod.Spec.NodeSelector {
 			if strings.HasPrefix(key, virtv1.CPUModelLabel) || strings.HasPrefix(key, virtv1.CPUFeatureLabel) {
 				delete(templatePod.Spec.NodeSelector, key)

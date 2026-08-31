@@ -185,6 +185,7 @@ func ToVMIMConfigurationOptions(cfg *v1.MigrationConfiguration) *v1.VMIMConfigur
 		ParallelMigrationsPerCluster:      cfg.ParallelMigrationsPerCluster,
 		DisableTLS:                        cfg.DisableTLS,
 		Network:                           cfg.Network,
+		RelaxCPUCompatibility:             cfg.RelaxCPUCompatibility,
 	}
 	return opts.DeepCopy()
 }

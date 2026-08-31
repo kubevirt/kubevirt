@@ -16634,6 +16634,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "relaxCPUCompatibility": {
+      "description": "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all migration target pods cluster-wide. Can be overridden per-migration via VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.",
+      "type": "boolean"
+     },
      "unsafeMigrationOverride": {
       "description": "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
       "type": "boolean"
@@ -18123,6 +18127,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "relaxCPUCompatibility": {
+      "description": "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all migration target pods cluster-wide. Can be overridden per-migration via VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.",
+      "type": "boolean"
+     },
      "unsafeMigrationOverride": {
       "description": "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
       "type": "boolean"
@@ -19098,6 +19106,10 @@
      "receive": {
       "description": "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
       "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationTarget"
+     },
+     "relaxCPUCompatibility": {
+      "description": "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for the migration target pod. Use as a temporary escape hatch when nodeSelector mismatches block migration during upgrades. Migration success is not guaranteed when this flag is set. Overrides the cluster-level MigrationConfiguration.RelaxCPUCompatibility when set.",
+      "type": "boolean"
      },
      "sendTo": {
       "description": "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",

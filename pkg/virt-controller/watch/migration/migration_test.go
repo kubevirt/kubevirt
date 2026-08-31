@@ -2320,7 +2320,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
-			migration.Spec.RelaxCPUCompatibility = true
+			migration.Spec.RelaxCPUCompatibility = pointer.P(true)
 
 			node := newNode(nodeName)
 			node.ObjectMeta.Labels = map[string]string{

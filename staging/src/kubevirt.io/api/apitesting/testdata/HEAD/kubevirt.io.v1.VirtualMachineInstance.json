@@ -1036,7 +1036,8 @@
             "cooldownSeconds": -15
           },
           "compression": "compressionValue"
-        }
+        },
+        "relaxCPUCompatibility": true
       },
       "targetCPUSet": [
         -12

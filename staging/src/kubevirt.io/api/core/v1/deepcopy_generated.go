@@ -3605,6 +3605,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RelaxCPUCompatibility != nil {
+		in, out := &in.RelaxCPUCompatibility, &out.RelaxCPUCompatibility
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
@@ -5542,6 +5547,11 @@ func (in *VMIMConfigurationOptions) DeepCopyInto(out *VMIMConfigurationOptions) 
 		*out = new(ExperimentalMigrationOptions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RelaxCPUCompatibility != nil {
+		in, out := &in.RelaxCPUCompatibility, &out.RelaxCPUCompatibility
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
@@ -6202,6 +6212,11 @@ func (in *VirtualMachineInstanceMigrationSpec) DeepCopyInto(out *VirtualMachineI
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
 		*out = new(MigrationPriority)
+		**out = **in
+	}
+	if in.RelaxCPUCompatibility != nil {
+		in, out := &in.RelaxCPUCompatibility, &out.RelaxCPUCompatibility
+		*out = new(bool)
 		**out = **in
 	}
 	return
