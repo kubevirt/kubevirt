@@ -35,7 +35,7 @@ var pvcRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr: intstr.FromString(
 			"((kube_persistentvolumeclaim_info unless on(namespace,persistentvolumeclaim) " +
-				"(kube_pod_spec_volumes_persistentvolumeclaims or kubevirt_vm_disk_allocated_size_bytes)) * " +
+				"(kube_pod_spec_volumes_persistentvolumeclaims_info or kubevirt_vm_disk_allocated_size_bytes)) * " +
 				"on(namespace,persistentvolumeclaim) group_left() " +
 				"kube_persistentvolumeclaim_resource_requests_storage_bytes)",
 		),
