@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -739,24 +738,26 @@ func migrationProxyKey(vmi *v1.VirtualMachineInstance) string {
 }
 
 func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
-	var migrationTargetSockets []string
 	res, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+	mountRoot, err := res.MountRoot()
 	if err != nil {
 		return err
 	}
 	vmiUID := migrationProxyKey(vmi)
 
-	socketFile := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "libvirt/virtqemud-sock"), res.Pid())
-	baseDir := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
-	migrationTargetSockets = append(migrationTargetSockets, socketFile)
+	migrationTargetSockets := []string{
+		"/run/libvirt/virtqemud-sock",
+	}
 
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
 	for _, port := range migrationPortsRange {
 		key := migrationproxy.ConstructProxyKey(vmiUID, port)
-		destSocketFile := migrationproxy.SourceUnixFile(baseDir, key)
-		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)
+		migrationTargetSockets = append(migrationTargetSockets, migrationproxy.SourceUnixFile("/run/kubevirt", key))
 	}
-	err = c.migrationProxy.StartTargetListener(vmiUID, migrationTargetSockets)
+	err = c.migrationProxy.StartTargetListener(vmiUID, mountRoot, migrationTargetSockets)
 	if err != nil {
 		return err
 	}

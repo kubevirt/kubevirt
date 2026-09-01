@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -46,7 +47,7 @@ const (
 var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
 
 type ProxyManager interface {
-	StartTargetListener(key string, targetUnixFiles []string) error
+	StartTargetListener(key string, mountRoot *safepath.Path, targetUnixFiles []string) error
 	GetTargetListenerPorts(key string) map[string]int
 	StopTargetListener(key string)
 
@@ -76,6 +77,8 @@ type MigrationProxyListener interface {
 }
 
 type migrationProxy struct {
+	mountRoot      *safepath.Path
+	relativePath   string
 	unixSocketPath string
 	tcpBindAddress string
 	tcpBindPort    int
@@ -128,7 +131,7 @@ func SourceUnixFile(baseDir string, key string) string {
 	return filepath.Join(baseDir, "migrationproxy", key+"-source.sock")
 }
 
-func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles []string) error {
+func (m *migrationProxyManager) StartTargetListener(key string, mountRoot *safepath.Path, targetUnixFiles []string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -146,7 +149,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 			existingSocketFiles[file] = true
 		}
 		for _, curProxy := range curProxies {
-			if _, ok := existingSocketFiles[curProxy.targetAddress]; !ok {
+			if _, ok := existingSocketFiles[curProxy.relativePath]; !ok {
 				return false
 			}
 		}
@@ -174,8 +177,13 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 		serverTLSConfig = nil
 	}
 	for _, targetUnixFile := range targetUnixFiles {
-		// 0 means random port is used
-		proxy := NewTargetProxy(zeroAddress, 0, serverTLSConfig, targetUnixFile, key)
+		proxy := NewTargetProxy(
+			zeroAddress,
+			0, // random port is used
+			serverTLSConfig,
+			mountRoot,
+			targetUnixFile,
+			key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -235,7 +243,7 @@ func (m *migrationProxyManager) GetTargetListenerPorts(key string) map[string]in
 	if exists {
 		for _, curProxy := range curProxies {
 			port := strconv.Itoa(curProxy.tcpBindPort)
-			targetSrcPortMap[port] = getPortFromSocket(key, curProxy.targetAddress)
+			targetSrcPortMap[port] = getPortFromSocket(key, curProxy.relativePath)
 		}
 	}
 	return targetSrcPortMap
@@ -356,17 +364,24 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, migrationTLS
 }
 
 // Target proxy listens on a tcp socket and pipes to a virtqemud unix socket
-func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, virtqemudSocketPath string, vmiUID string) *migrationProxy {
+func NewTargetProxy(
+	tcpBindAddress string,
+	tcpBindPort int,
+	serverTLSConfig *tls.Config,
+	mountRoot *safepath.Path,
+	relativePath string,
+	vmiUID string) *migrationProxy {
 	return &migrationProxy{
 		tcpBindAddress:  tcpBindAddress,
 		tcpBindPort:     tcpBindPort,
-		targetAddress:   virtqemudSocketPath,
 		targetProtocol:  "unix",
+		mountRoot:       mountRoot,
+		relativePath:    relativePath,
 		stopChan:        make(chan struct{}),
 		fdChan:          make(chan net.Conn, 1),
 		listenErrChan:   make(chan error, 1),
 		serverTLSConfig: serverTLSConfig,
-		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(virtqemudSocketPath)),
+		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(relativePath)),
 	}
 
 }
@@ -440,9 +455,33 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 	var err error
 	if m.targetProtocol == "tcp" && m.migrationTLSConfig != nil {
 		conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.migrationTLSConfig)
-	} else {
+	} else if m.targetProtocol == "tcp" {
 		conn, err = net.Dial(m.targetProtocol, m.targetAddress)
+	} else if m.targetProtocol == "unix" {
+		if m.mountRoot == nil {
+			m.logger.Error("mount root is unavailable")
+			return
+		}
+
+		socketPath, resolveErr := safepath.JoinNoFollow(m.mountRoot, m.relativePath)
+		if resolveErr != nil {
+			m.logger.Reason(resolveErr).Error("unable to join relative path with mount root")
+			return
+		}
+
+		err = socketPath.ExecuteNoFollow(func(safePath string) error {
+			var dialErr error
+			conn, dialErr = net.Dial("unix", safePath)
+			if dialErr != nil {
+				return fmt.Errorf("failed to dial unix socket %s: %w", safePath, dialErr)
+			}
+			return nil
+		})
+	} else {
+		m.logger.Errorf("unsupported target protocol: %s", m.targetProtocol)
+		return
 	}
+
 	if err != nil {
 		m.logger.Reason(err).Error("unable to create outbound leg of proxy to host")
 		return
