@@ -82,6 +82,16 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               namespace: "ci"
+      # NoReady must not overlap with Down when there are no running pods
+      - eval_time: 10m
+        alertname: NoReadyVirtAPI
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: NoReadyVirtController
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: NoReadyVirtHandler
+        exp_alerts: [ ]
       # it must trigger when operators are not healthy
       - eval_time: 16m
         alertname: VirtAPIDown
@@ -131,6 +141,15 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
               namespace: "ci"
+      - eval_time: 16m
+        alertname: NoReadyVirtAPI
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: NoReadyVirtController
+        exp_alerts: [ ]
+      - eval_time: 16m
+        alertname: NoReadyVirtHandler
+        exp_alerts: [ ]
       # it must not trigger when operators are healthy
       - eval_time: 17m
         alertname: VirtAPIDown
@@ -394,6 +413,9 @@ tests:
               kubernetes_operator_component: "kubevirt"
               namespace: "ci"
       - eval_time: 10m
+        alertname: VirtAPIDown
+        exp_alerts: [ ]
+      - eval_time: 10m
         alertname: LowReadyVirtAPICount
         exp_alerts: [ ]
 
@@ -454,6 +476,9 @@ tests:
               kubernetes_operator_component: "kubevirt"
               namespace: "ci"
       - eval_time: 10m
+        alertname: VirtHandlerDown
+        exp_alerts: [ ]
+      - eval_time: 10m
         alertname: LowReadyVirtHandlerCount
         exp_alerts: [ ]
 
@@ -485,26 +510,34 @@ tests:
               kubernetes_operator_component: "kubevirt"
               namespace: "ci"
       - eval_time: 10m
+        alertname: VirtControllerDown
+        exp_alerts: [ ]
+      - eval_time: 10m
         alertname: LowReadyVirtControllersCount
         exp_alerts: [ ]
 
-  # All virt controllers are not ready (ImagePullBackOff)
+  # ImagePullBackOff: no running pods is Down, not NoReady
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-1"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
-      # no alert before 10 minutes
       - eval_time: 9m
         alertname: NoReadyVirtController
         exp_alerts: [ ]
+      - eval_time: 9m
+        alertname: VirtControllerDown
+        exp_alerts: [ ]
       - eval_time: 10m
         alertname: NoReadyVirtController
+        exp_alerts: [ ]
+      - eval_time: 10m
+        alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No ready virt-controller was detected for the last 10 min."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/NoReadyVirtController"
+              summary: "No running virt-controller was detected for the last 10 min."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"

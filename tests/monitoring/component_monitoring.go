@@ -157,12 +157,19 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
 		})
 
-		It("NoReadyVirtController should be triggered when virt-controller is down", func() {
-			By("Scaling down the controller")
-			scales.UpdateScale(virtController.deploymentName, int32(0))
+		It("NoReadyVirtController should be triggered when virt-controller is not ready", func() {
+			original := makeDeploymentNotReady(virtClient, virtController.deploymentName)
+			defer restoreImageAndWaitForAlert(
+				virtClient, virtController.noReadyAlert,
+				"Restoring the virt-controller deployment to the correct image",
+				restoreDeploymentFirstContainer(virtClient, original),
+			)
 
-			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_ready:sum", 0)
+			waitForRunningButNotReady(
+				virtClient,
+				"cluster:kubevirt_virt_controller_ready:sum",
+				"cluster:kubevirt_virt_controller_pods_running:count",
+			)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
@@ -179,12 +186,19 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtAPI.downAlert)
 		})
 
-		It("NoReadyVirtAPI should be triggered when virt-api is down", func() {
-			By("Scaling down the api")
-			scales.UpdateScale(virtAPI.deploymentName, int32(0))
+		It("NoReadyVirtAPI should be triggered when virt-api is not ready", func() {
+			original := makeDeploymentNotReady(virtClient, virtAPI.deploymentName)
+			defer restoreImageAndWaitForAlert(
+				virtClient, virtAPI.noReadyAlert,
+				"Restoring the virt-api deployment to the correct image",
+				restoreDeploymentFirstContainer(virtClient, original),
+			)
 
-			By("Waiting for the api ready metric to be zero")
-			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_api_ready:sum", 0)
+			waitForRunningButNotReady(
+				virtClient,
+				"cluster:kubevirt_virt_api_ready:sum",
+				"cluster:kubevirt_virt_api_pods_running:count",
+			)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtAPI.noReadyAlert)
@@ -232,18 +246,19 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				)
 			}()
 
-			badContainer := daemonSet.Spec.Template.Spec.Containers[0]
-			badContainer.Image = libregistry.GetUtilityImageFromRegistry("vm-killer")
-			badContainer.Command = []string{"tail", "-f", "/dev/null"}
-			badContainer.Args = []string{}
-			badContainer.ReadinessProbe = nil
-			badContainer.LivenessProbe = nil
-
+			badContainer := makeContainerNotReady(daemonSet.Spec.Template.Spec.Containers[0])
 			err = patchDaemonSetFirstContainer(virtClient, daemonSet.Name, badContainer)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for virt-handler ready metric to be zero")
-			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_handler_ready:sum", 0)
+			By("Waiting for virt-handler pods to be running but not ready")
+			Eventually(func(g Gomega) {
+				ready, errReady := libmonitoring.GetMetricValueWithLabels(virtClient, "cluster:kubevirt_virt_handler_ready:sum", nil)
+				running, errRunning := libmonitoring.GetMetricValueWithLabels(virtClient, "cluster:kubevirt_virt_handler_pods_running:count", nil)
+				g.Expect(errReady).ToNot(HaveOccurred())
+				g.Expect(errRunning).ToNot(HaveOccurred())
+				g.Expect(ready).To(BeNumerically("==", 0))
+				g.Expect(running).To(BeNumerically(">", 0))
+			}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtHandler.noReadyAlert)
@@ -570,6 +585,87 @@ func restoreImageAndWaitForAlert(
 	Expect(doRestore()).ToNot(HaveOccurred())
 	By("Waiting for the low ready alert to not be firing anymore")
 	libmonitoring.WaitUntilAlertDoesNotExist(virtClient, alertName)
+}
+
+func makeDeploymentNotReady(virtClient kubecli.KubevirtClient, deploymentName string) *appsv1.Deployment {
+	ns := flags.KubeVirtInstallNamespace
+	ctx := context.Background()
+
+	deployment, getErr := virtClient.AppsV1().Deployments(ns).Get(ctx, deploymentName, metav1.GetOptions{})
+	Expect(getErr).ToNot(HaveOccurred())
+
+	originalDeployment := deployment.DeepCopy()
+	Expect(patchDeploymentFirstContainer(
+		virtClient,
+		deployment.Name,
+		makeContainerNotReady(deployment.Spec.Template.Spec.Containers[0]),
+	)).To(Succeed())
+
+	return originalDeployment
+}
+
+func waitForRunningButNotReady(virtClient kubecli.KubevirtClient, readyMetric, runningMetric string) {
+	By("Waiting for pods to be running but not ready")
+	Eventually(func(g Gomega) {
+		ready, errReady := libmonitoring.GetMetricValueWithLabels(virtClient, readyMetric, nil)
+		running, errRunning := libmonitoring.GetMetricValueWithLabels(virtClient, runningMetric, nil)
+		g.Expect(errReady).ToNot(HaveOccurred())
+		g.Expect(errRunning).ToNot(HaveOccurred())
+		g.Expect(ready).To(BeNumerically("==", 0))
+		g.Expect(running).To(BeNumerically(">", 0))
+	}, 5*time.Minute, 2*time.Second).Should(Succeed())
+}
+
+func makeContainerNotReady(container corev1.Container) corev1.Container {
+	container.Image = libregistry.GetUtilityImageFromRegistry("vm-killer")
+	container.Command = []string{"tail", "-f", "/dev/null"}
+	container.Args = []string{}
+	container.ReadinessProbe = nil
+	container.LivenessProbe = nil
+	container.StartupProbe = nil
+	return container
+}
+
+func restoreDeploymentFirstContainer(virtClient kubecli.KubevirtClient, original *appsv1.Deployment) func() error {
+	return func() error {
+		return patchDeploymentFirstContainer(
+			virtClient,
+			original.Name,
+			original.Spec.Template.Spec.Containers[0],
+		)
+	}
+}
+
+func patchDeploymentFirstContainer(virtClient kubecli.KubevirtClient, deploymentName string, container corev1.Container) error {
+	ns := flags.KubeVirtInstallNamespace
+	ctx := context.Background()
+
+	deployment, err := virtClient.AppsV1().Deployments(ns).Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	deployment.Spec.Template.Spec.Containers[0] = container
+
+	return mergePatchDeployment(ctx, virtClient, ns, deployment)
+}
+
+func mergePatchDeployment(
+	ctx context.Context,
+	virtClient kubecli.KubevirtClient,
+	ns string,
+	deployment *appsv1.Deployment,
+) error {
+	patchBytes, err := json.Marshal(deployment)
+	if err != nil {
+		return err
+	}
+
+	_, err = virtClient.AppsV1().Deployments(ns).Patch(
+		ctx, deployment.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+
+	return err
 }
 
 func restoreDaemonSetImage(
