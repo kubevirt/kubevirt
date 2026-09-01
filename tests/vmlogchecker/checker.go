@@ -563,6 +563,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'block-job-cancel': Job '[^']+' in state 'concluded' cannot accept command verb 'cancel'"`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
+	{
+		ID:    107,
+		Regex: regexp.MustCompile(`"level":"error".*QEMU unexpectedly closed the monitor.*Failed to get .*write.* lock`),
+		SIGs:  SIGStorage,
+	},
 }
 
 // errorKeywordPatterns provides broad keyword-based error detection for the
