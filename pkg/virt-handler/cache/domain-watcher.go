@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -208,18 +209,9 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 	}
 
 	for key, timeStamp := range d.unresponsiveSockets {
-		found := false
-		for _, socket := range unresponsive {
-			if socket == key {
-				found = true
-				break
-			}
-		}
-		// reap old unresponsive sockets
-		// remove from unresponsive list if not found unresponsive this iteration
-		if !found {
+		if !slices.Contains(unresponsive, key) {
 			delete(d.unresponsiveSockets, key)
-			break
+			continue
 		}
 
 		diff := now - timeStamp
