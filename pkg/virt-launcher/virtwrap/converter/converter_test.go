@@ -2144,13 +2144,13 @@ var _ = Describe("Converter", func() {
 			} else {
 				Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
 			}
-	
+
 		},
 			Entry("and add the serial console if it is not set", nil, 1),
 			Entry("and add the serial console if it is set to true", pointer.P(true), 1),
 			Entry("and not add the serial console if it is set to false", pointer.P(false), 0),
 		)
-	
+
 		DescribeTable("should handle console device based on architecture", func(arch string, expectSerials int, expectConsoles int) {
 			vmi := libvmi.New(
 				libvmi.WithNamespace("mynamespace"),
