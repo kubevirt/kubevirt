@@ -58,7 +58,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 	Context("upon finishing", func() {
 		It("should set the node to not schedulable", func() {
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode")
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", "/var/lib/kubelet")
 			stopChan := make(chan struct{})
 			done := heartbeat.Run(30*time.Second, stopChan)
 			Eventually(func() map[string]string {
@@ -76,8 +76,13 @@ var _ = Describe("Heartbeat", func() {
 		})
 	})
 
+	It("should build the cpu manager state path from the configured kubelet root", func() {
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", "/var/lib/k0s/kubelet")
+		Expect(heartbeat.cpuManagerPaths[0]).To(Equal("/var/lib/k0s/kubelet/cpu_manager_state"))
+	})
+
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(featuregate.CPUManager), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(featuregate.CPUManager), "mynode", "/var/lib/kubelet")
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
@@ -113,7 +118,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, schedulable string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode", "/var/lib/kubelet")
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -132,7 +137,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without deviceplugin and", func(deviceController device_manager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode", "/var/lib/kubelet")
 		heartbeat.devicePluginWaitTimeout = 2 * time.Second
 		heartbeat.devicePluginPollIntervall = 10 * time.Millisecond
 		stopChan := make(chan struct{})

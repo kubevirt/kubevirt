@@ -202,6 +202,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			k8sfakeClient,
 			fakeNodeStore,
 			host,
+			util.KubeletRoot,
 			launcherClientManager,
 			vmiInformer,
 			vmiInformer.GetStore(),
