@@ -48,7 +48,6 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -231,11 +230,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return nil
 		}
 
-		vmiQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
-		)
-		controller, _ = NewController(vmiQueue,
+		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vmi"))
+		controller, _ = NewController(mockQueue,
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
@@ -261,9 +257,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			[]string{},
 			[]string{},
 		)
-		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
 
 		sanityExecute = func() {
 			controllertesting.SanityExecute(controller, []cache.Store{

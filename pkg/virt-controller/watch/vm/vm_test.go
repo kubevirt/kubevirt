@@ -138,11 +138,8 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			vmQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
-				workqueue.DefaultTypedControllerRateLimiter[string](),
-				workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
-			)
-			controller, _ = NewController(vmQueue,
+			mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vm"))
+			controller, _ = NewController(mockQueue,
 				vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
@@ -160,10 +157,6 @@ var _ = Describe("VirtualMachine", func() {
 				[]string{},
 				[]string{},
 			)
-
-			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-			controller.Queue = mockQueue
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
