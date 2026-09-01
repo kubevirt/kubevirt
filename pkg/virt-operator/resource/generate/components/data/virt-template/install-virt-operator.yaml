@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   name: virtualmachinetemplaterequests.template.kubevirt.io
 spec:
   group: template.kubevirt.io
@@ -380,7 +380,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   name: virtualmachinetemplates.template.kubevirt.io
 spec:
   group: template.kubevirt.io
@@ -773,7 +773,7 @@ automountServiceAccountToken: false
 kind: ServiceAccount
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -786,7 +786,7 @@ automountServiceAccountToken: false
 kind: ServiceAccount
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -798,7 +798,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -842,7 +842,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   name: virt-template-apiserver-role
 rules:
 - apiGroups:
@@ -863,7 +863,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   name: virt-template-manager-role
 rules:
 - apiGroups:
@@ -953,7 +953,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -977,7 +977,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -993,7 +993,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1025,7 +1025,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1056,7 +1056,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1083,7 +1083,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1115,7 +1115,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1146,7 +1146,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1166,7 +1166,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1193,7 +1193,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1213,7 +1213,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1233,7 +1233,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1252,7 +1252,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1271,7 +1271,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1290,7 +1290,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1309,7 +1309,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1331,7 +1331,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1354,7 +1354,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1376,7 +1376,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1394,7 +1394,8 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: apiserver
-        template.kubevirt.io/virt-template-version: v0.2.2
+        openshift.io/required-scc: restricted-v2
+        template.kubevirt.io/virt-template-version: v0.2.3
       labels:
         app.kubernetes.io/name: virt-template
         control-plane: apiserver
@@ -1424,7 +1425,7 @@ spec:
         - --tls-private-key-file=/tmp/k8s-api-server/api-cert/tls.key
         command:
         - /apiserver
-        image: quay.io/kubevirt/virt-template-apiserver:v0.2.2
+        image: quay.io/kubevirt/virt-template-apiserver:v0.2.3
         livenessProbe:
           httpGet:
             path: /livez
@@ -1467,6 +1468,7 @@ spec:
         - mountPath: /tmp/k8s-api-server/api-cert
           name: api-cert
           readOnly: true
+      priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -1482,7 +1484,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1500,7 +1502,8 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
-        template.kubevirt.io/virt-template-version: v0.2.2
+        openshift.io/required-scc: restricted-v2
+        template.kubevirt.io/virt-template-version: v0.2.3
       labels:
         app.kubernetes.io/name: virt-template
         control-plane: controller-manager
@@ -1531,7 +1534,7 @@ spec:
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
         command:
         - /manager
-        image: quay.io/kubevirt/virt-template-controller:v0.2.2
+        image: quay.io/kubevirt/virt-template-controller:v0.2.3
         livenessProbe:
           httpGet:
             path: /healthz
@@ -1580,6 +1583,7 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: webhook-certs
           readOnly: true
+      priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -1604,7 +1608,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1648,7 +1652,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1663,7 +1667,7 @@ apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1682,7 +1686,7 @@ apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1701,7 +1705,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1724,7 +1728,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1747,7 +1751,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: virt-template
@@ -1770,7 +1774,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.2
+    template.kubevirt.io/virt-template-version: v0.2.3
   name: virt-template-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
