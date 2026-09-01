@@ -45,6 +45,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
@@ -196,7 +197,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		fakeNodeStore := fakeNodeInformer.GetStore()
 		fakeBackupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
 		cbtHandler := NewCBTHandler(virtClient, fakeBackupTrackerInformer)
+		vmQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
+		)
 		controller, _ = NewVirtualMachineController(
+			vmQueue,
 			recorder,
 			virtClient,
 			k8sfakeClient,

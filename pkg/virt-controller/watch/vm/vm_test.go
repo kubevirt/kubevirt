@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -137,7 +138,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			controller, _ = NewController(vmiInformer,
+			vmQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[string](),
+				workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
+			)
+			controller, _ = NewController(vmQueue,
+				vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
@@ -7574,6 +7580,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			testController, _ = NewController(
+				workqueue.NewTypedRateLimitingQueueWithConfig(
+					workqueue.DefaultTypedControllerRateLimiter[string](),
+					workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
+				),
 				vmiInformer,
 				vmInformer,
 				dataVolumeInformer,

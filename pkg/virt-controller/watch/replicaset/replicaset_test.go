@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -68,7 +69,11 @@ var _ = Describe("Replicaset", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller, _ = NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+			rsQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[string](),
+				workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-replicaset"},
+			)
+			controller, _ = NewController(rsQueue, vmiInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
