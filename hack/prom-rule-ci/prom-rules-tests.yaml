@@ -1902,6 +1902,78 @@ tests:
       - eval_time: 3m
         alertname: GuestFilesystemAlmostOutOfSpace
         exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: Windows CDROM (CDFS) should be excluded
+  # QEMU Guest Agent reports ISO 9660 optical media as CDFS with 0 bytes free.
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="win-vm", namespace="test-ns", disk_name="cdrom", mount_point="D:\\", file_system_type="CDFS"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="win-vm", namespace="test-ns", disk_name="cdrom", mount_point="D:\\", file_system_type="CDFS"}'
+        values: "100 100 100 100 100 100 100 100 100 100"
+
+    alert_rule_test:
+      # at 3m: usage = 100% -> would normally alert, but CDFS optical media is excluded
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: Windows CDROM (UDF) should be excluded
+  # Windows GetVolumeInformation reports UDF in uppercase; the exclusion must be case-insensitive.
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="win-vm", namespace="test-ns", disk_name="cdrom", mount_point="D:\\", file_system_type="UDF"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="win-vm", namespace="test-ns", disk_name="cdrom", mount_point="D:\\", file_system_type="UDF"}'
+        values: "100 100 100 100 100 100 100 100 100 100"
+
+    alert_rule_test:
+      # at 3m: usage = 100% -> would normally alert, but UDF optical media is excluded
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: Linux iso9660 CDROM should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="linux-vm", namespace="test-ns", disk_name="sr0", mount_point="/mnt/cdrom", file_system_type="iso9660"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="linux-vm", namespace="test-ns", disk_name="sr0", mount_point="/mnt/cdrom", file_system_type="iso9660"}'
+        values: "100 100 100 100 100 100 100 100 100 100"
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Windows NTFS data disk at 100% must still alert
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="win-vm", namespace="test-ns", disk_name="sda2", mount_point="C:\\", file_system_type="NTFS"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="win-vm", namespace="test-ns", disk_name="sda2", mount_point="C:\\", file_system_type="NTFS"}'
+        values: "100 100 100 100 100 100 100 100 100 100"
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts:
+          - exp_annotations:
+              summary: "Guest filesystem is critically low on space"
+              description: "VirtualMachineInstance win-vm in namespace test-ns has filesystem sda2 (C:\\) usage above 95% (current: 100%)."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestFilesystemAlmostOutOfSpace"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "win-vm"
+              vm: "win-vm"
+              namespace: "test-ns"
+              disk_name: "sda2"
+              mount_point: "C:\\"
+              file_system_type: "NTFS"
+
   # VM memory pressure with swap activity
   - interval: 1m
     input_series:
