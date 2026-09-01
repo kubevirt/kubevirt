@@ -34,7 +34,7 @@ func (e ExecExitCode) Error() string {
 	return fmt.Sprint("exited with error code:", e.ExitCode)
 }
 
-// GuestExec sends the provided command and args to the guest agent for execution and returns an error on an unsucessful exit code
+// GuestExec sends the provided command and args to the guest agent for execution and returns an error on an unsuccessful exit code
 // The resulting stdout will be returned as a string
 func GuestExec(virConn cli.Connection, domName string, command string, args []string, timeoutSeconds int32) (string, error) {
 	stdOut := ""
