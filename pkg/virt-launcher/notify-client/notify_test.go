@@ -41,6 +41,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -452,6 +453,93 @@ var _ = Describe("Notify", func() {
 			backupMeta, ok := metadataCache.Backup.Load()
 			Expect(ok).To(BeTrue())
 			Expect(backupMeta.Completed).To(BeTrue())
+		})
+
+		It("should convert and persist completed migration stats", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation:   libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				DowntimeSet: true,
+				Downtime:    150,
+			}
+			metadataCache := metadata.NewCache()
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			completedMigration, exists := metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(completedMigration.Stats.DowntimeSet).To(BeTrue())
+			Expect(completedMigration.Stats.Downtime).To(Equal(uint64(150)))
+			Expect(string(completedMigration.Migration.UID)).To(Equal("migration-1"))
+		})
+
+		It("should not persist stats without a reported downtime", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+			}
+			metadataCache := metadata.NewCache()
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			_, exists := metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeFalse())
+		})
+
+		It("should not persist stats without migration metadata", func() {
+			metadataCache := metadata.NewCache()
+
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150}, metadataCache)
+
+			_, exists := metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeFalse())
+		})
+
+		It("should keep completed stats paired with the migration that produced them", func() {
+			metadataCache := metadata.NewCache()
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150}, metadataCache)
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-2"})
+			domain := api.NewMinimalDomain("test")
+
+			applyCompletedMigrationStats(domain, metadataCache)
+
+			Expect(domain.Status.CompletedMigrationStats).ToNot(BeNil())
+			Expect(domain.Status.CompletedMigrationStats.Downtime).To(Equal(uint64(150)))
+			Expect(domain.Spec.Metadata.KubeVirt.Migration).ToNot(BeNil())
+			Expect(string(domain.Spec.Metadata.KubeVirt.Migration.UID)).To(Equal("migration-1"))
+		})
+
+		It("should include cached completed migration stats in domain notify events", func() {
+			domain := api.NewMinimalDomain("test")
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+			metadataCache := metadata.NewCache()
+			migrationStart := metav1.NewTime(time.Unix(100, 0))
+			metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{
+				Stats:     api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150},
+				Migration: api.MigrationMetadata{UID: "migration-1", StartTimestamp: &migrationStart},
+			})
+
+			e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache, false)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+
+			domainEvent, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(domainEvent.Status.CompletedMigrationStats).ToNot(BeNil())
+			Expect(domainEvent.Status.CompletedMigrationStats.DowntimeSet).To(BeTrue())
+			Expect(domainEvent.Status.CompletedMigrationStats.Downtime).To(Equal(uint64(150)))
+			Expect(domainEvent.Spec.Metadata.KubeVirt.Migration).ToNot(BeNil())
+			Expect(string(domainEvent.Spec.Metadata.KubeVirt.Migration.UID)).To(Equal("migration-1"))
+			Expect(domainEvent.Spec.Metadata.KubeVirt.Migration.StartTimestamp).To(Equal(&migrationStart))
 		})
 	})
 
