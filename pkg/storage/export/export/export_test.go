@@ -761,7 +761,7 @@ var _ = Describe("Export controller", func() {
 			return true, service, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{})
+		service, err := controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test"))
@@ -782,7 +782,7 @@ var _ = Describe("Export controller", func() {
 				},
 			}),
 		).To(Succeed())
-		service, err = controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{})
+		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test2"))
@@ -884,7 +884,7 @@ var _ = Describe("Export controller", func() {
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
 			return true, service, nil
 		})
-		service, err = controller.getOrCreateExportService(testVMExport, source.ServicePorts())
+		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		pod, err := controller.createExporterPod(testVMExport, service, source)
 		Expect(err).ToNot(HaveOccurred())
@@ -1198,7 +1198,7 @@ var _ = Describe("Export controller", func() {
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
 			return true, service, nil
 		})
-		service, err = controller.getOrCreateExportService(testVMExport, snapSource.ServicePorts())
+		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		pod, err := controller.createExporterPod(testVMExport, service, snapSource)
 		Expect(err).ToNot(HaveOccurred())
@@ -1278,7 +1278,7 @@ var _ = Describe("Export controller", func() {
 			return true, service, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{})
+		service, err := controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test"))

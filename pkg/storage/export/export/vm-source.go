@@ -64,10 +64,6 @@ func (s *VMSource) ReadyCondition() exportv1.Condition {
 	return s.sourceVolumes.readyCondition
 }
 
-func (s *VMSource) ServicePorts() []corev1.ServicePort {
-	return []corev1.ServicePort{exportPort()}
-}
-
 func (s *VMSource) ConfigurePod(pod *corev1.Pod) {
 	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
 		Name:  "EXPORT_VM_DEF_URI",

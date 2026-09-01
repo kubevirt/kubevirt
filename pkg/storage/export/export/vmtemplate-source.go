@@ -78,10 +78,6 @@ func (s *VMTemplateSource) ReadyCondition() exportv1.Condition {
 	return s.sourceVolumes.readyCondition
 }
 
-func (s *VMTemplateSource) ServicePorts() []corev1.ServicePort {
-	return []corev1.ServicePort{exportPort()}
-}
-
 func (s *VMTemplateSource) ConfigurePod(pod *corev1.Pod) {
 	s.sourceVolumes.configurePodVolumes(pod)
 }
