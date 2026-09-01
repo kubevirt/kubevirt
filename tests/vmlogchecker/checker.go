@@ -99,11 +99,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		SIGs:  SIGCompute,
 	},
 	{
-		ID:    14,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Re-registered domain and agent callbacks for new connection","pos":"libvirt.go`),
-		SIGs:  SIGCompute | SIGPerformance,
-	},
-	{
 		ID:    15,
 		Regex: regexp.MustCompile(`"level":"error","msg":"failed to read libvirt logs","pos":"libvirt_helper.go.*"reason":"read \|0: file already closed"`),
 		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
@@ -247,11 +242,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		ID:    44,
 		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"reason":"virError\(Code=.*, Domain=.*, Message='internal error: process exited while connecting to monitor:.*Permission denied'\)"`),
 		SIGs:  SIGStorage,
-	},
-	{
-		ID:    45,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Break reap loop","pos":"virt-launcher-monitor.go`),
-		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
 	},
 	{
 		ID:    46,
@@ -432,11 +422,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		ID:    85,
 		Regex: regexp.MustCompile(`"level":"error","msg":"Defining the VirtualMachineInstance failed\.".*"pos":"libvirt_helper\.go.*"reason":"virError\(Code=.*, Domain=.*, Message='An error occurred, but the cause is unknown'\)"`),
 		SIGs:  SIGPerformance,
-	},
-	{
-		ID:    86,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to get total usable space, using disk capacity instead","pos":"manager\.go.*"reason":"[^"]+"`),
-		SIGs:  SIGStorage,
 	},
 	{
 		ID:    87,
