@@ -29,11 +29,25 @@ import (
 // excludedFilesystemTypesRegex contains filesystem types that should be ignored by space-usage alerts.
 // Rationale:
 // - Read-only image filesystems often appear 100% used and are not actionable for capacity (iso9660/CDFS, udf, squashfs, cramfs).
+// - Windows QEMU Guest Agent reports optical media as CDFS (ISO 9660) or UDF, with casing that varies
+// by guest; Linux reports iso9660/udf. Matching is case-insensitive so CDROMs (0 bytes free by definition)
+// do not fire GuestFilesystemAlmostOutOfSpace.
 // - Pseudo/kernel/ephemeral filesystems are not meaningful indicators of guest disk pressure
 // (e.g., tmpfs, proc, sysfs, cgroup*, overlay, fuse.*).
 // Keep this list aligned with common node_exporter exclusions to minimize noise in alerts.
-const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|" +
+const excludedFilesystemTypesRegex = "(?i)CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|" +
 	"tracefs|configfs|binfmt_misc|bpf|devpts|mqueue|nsfs|rpc_pipefs|ramfs|rootfs|overlay|cgroup.*|fuse\\\\..*|fusectl"
+
+// guestFilesystemUsagePercentExpr is used/capacity * 100 for guest filesystems that
+// represent real, writable capacity (excludes optical/pseudo filesystems and Windows
+// "System Reserved").
+var guestFilesystemUsagePercentExpr = fmt.Sprintf(
+	"(kubevirt_vmi_filesystem_used_bytes{%[1]s} / kubevirt_vmi_filesystem_capacity_bytes{%[1]s})*100",
+	fmt.Sprintf(
+		"namespace!='',file_system_type!~'%s',mount_point!='System Reserved'",
+		excludedFilesystemTypesRegex,
+	),
+)
 
 // withVMLabel wraps a PromQL expression with label_replace to add a "vm"
 // typed resource label derived from the "name" label. This enables the
@@ -180,12 +194,8 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestFilesystemAlmostOutOfSpace",
-		Expr: intstr.FromString(withVMLabel(fmt.Sprintf(
-			"(kubevirt_vmi_filesystem_used_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'} / "+
-				"kubevirt_vmi_filesystem_capacity_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95",
-			excludedFilesystemTypesRegex, excludedFilesystemTypesRegex,
-		))),
-		For: ptr.To(promv1.Duration("10m")),
+		Expr:  intstr.FromString(withVMLabel(guestFilesystemUsagePercentExpr + " >= 85 < 95")),
+		For:   ptr.To(promv1.Duration("10m")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Guest filesystem is running out of space",
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has " +
@@ -198,11 +208,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestFilesystemAlmostOutOfSpace",
-		Expr: intstr.FromString(withVMLabel(fmt.Sprintf(
-			"(kubevirt_vmi_filesystem_used_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'} / "+
-				"kubevirt_vmi_filesystem_capacity_bytes{namespace!='',file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95",
-			excludedFilesystemTypesRegex, excludedFilesystemTypesRegex,
-		))),
+		Expr:  intstr.FromString(withVMLabel(guestFilesystemUsagePercentExpr + " >= 95")),
 		Annotations: map[string]string{
 			summaryAnnotationKey: "Guest filesystem is critically low on space",
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has " +
