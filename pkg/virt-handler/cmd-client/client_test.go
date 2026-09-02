@@ -43,6 +43,49 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
+var _ = Describe("GetVMStats partial results", func() {
+	var (
+		mockCmdClient *cmdv1.MockCmdClient
+		client        LauncherClient
+	)
+
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
+		client = newV1Client(mockCmdClient, nil)
+	})
+
+	It("returns already-collected stats when an optional agent command failed", func() {
+		mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(&cmdv1.VMStatsResponse{
+			// Aggregate failure because guest-get-diskstats is unsupported by the guest agent.
+			Response: &cmdv1.Response{Success: false, Message: "agent data guest-get-diskstats: command not found"},
+			DomainStats: &cmdv1.DomainStatsResponse{
+				Response:    &cmdv1.Response{Success: true},
+				DomainStats: `{"Name":"test-domain"}`,
+			},
+			GuestGetDiskStats: &cmdv1.Response{Success: false, Message: "command not found"},
+		}, nil)
+
+		result, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+			DomainStats:       &cmdv1.DomainStatsRequest{},
+			GuestGetDiskStats: &cmdv1.AgentDiskStatsRequest{},
+		})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.DomainStats.Name).To(Equal("test-domain"))
+		Expect(result.GuestGetDiskStats).To(ContainSubstring("command not found"))
+	})
+
+	It("returns an error on transport failure", func() {
+		mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+			nil, status.Errorf(codes.Unavailable, "connection refused"),
+		)
+
+		_, err := client.GetVMStats(&cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}})
+		Expect(err).To(MatchError(ContainSubstring("Unavailable")))
+	})
+})
+
 var _ = Describe("Virt remote commands", func() {
 
 	var (
