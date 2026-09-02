@@ -148,8 +148,17 @@ func NewMigrationTargetController(
 	if err := os.MkdirAll(containerDiskState, 0o700); err != nil {
 		return nil, err
 	}
+	containerDiskStateTemp := filepath.Join(virtPrivateDir, "container-disk-mount-state-temp")
+	if err := os.MkdirAll(containerDiskState, 0o700); err != nil {
+		return nil, err
+	}
 
 	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
+	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
+		return nil, err
+	}
+
+	hotplugStateTemp := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state-temp")
 	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
 		return nil, err
 	}
@@ -157,8 +166,8 @@ func NewMigrationTargetController(
 	c := &MigrationTargetController{
 		BaseController:                   baseCtrl,
 		capabilities:                     capabilities,
-		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
+		containerDiskMounter:             containerdisk.NewMounter(podIsolationDetector, containerDiskState, containerDiskStateTemp, clusterConfig),
+		hotplugVolumeMounter:             hotplugvolume.NewVolumeMounter(hotplugState, hotplugStateTemp, kubeletPodsDir, host),
 		migrationIpAddress:               migrationIpAddress,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
