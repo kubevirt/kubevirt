@@ -27,7 +27,35 @@ const (
 	ENV_VAR_SHARED_FILESYSTEM_PATHS     = "SHARED_FILESYSTEM_PATHS"
 	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
 	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+
+	// VMStatePVCMountPath is where VMState PVC is mounted
+	VMStatePVCMountPath = VirtPrivateDir + "/vm-state"
+
+	// Canonical subdirectories/files inside the VirtualMachineState PVC.
+	VMStateDirTPM          = "tpm"
+	VMStateDirEFI          = "efi"
+	VMStateDirCBT          = "cbt"
+	VMStateDirMeta         = "meta"
+	VMStateDirSwtpmLocalca = "swtpm-localca"
+	VMStateEFIVarsFile     = "efi_vars.fd"
 )
+
+func HasDeclarativeVMState(vmi *v1.VirtualMachineInstance) bool {
+	state := vmi.Spec.VirtualMachineState
+	return state != nil && (state.VolumeClaimTemplate != nil || state.Source != nil)
+}
+
+func VMStateCanonicalTPMPath() string {
+	return filepath.Join(VMStatePVCMountPath, VMStateDirTPM)
+}
+
+func VMStateCanonicalSwtpmLocalcaPath() string {
+	return filepath.Join(VMStatePVCMountPath, VMStateDirSwtpmLocalca)
+}
+
+func VMStateCanonicalEFIVarsPath() string {
+	return filepath.Join(VMStatePVCMountPath, VMStateDirEFI, VMStateEFIVarsFile)
+}
 
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
@@ -56,4 +84,12 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	}
 
 	return nvramPath
+}
+
+func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
+	localCaPath := "/var/lib/swtpm-localca"
+	if vmitrait.IsNonRoot(vmi) {
+		localCaPath = filepath.Join(VirtPrivateDir, "var", "lib", "swtpm-localca")
+	}
+	return localCaPath
 }
