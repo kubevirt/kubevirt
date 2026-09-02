@@ -46,20 +46,6 @@ const (
 
 var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
 
-type ProxyManager interface {
-	StartTargetListener(key string, mountRoot *safepath.Path, targetUnixFiles []string) error
-	GetTargetListenerPorts(key string) map[string]int
-	StopTargetListener(key string)
-
-	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path) error
-	GetSourceListenerFiles(key string) []string
-	StopSourceListener(key string)
-
-	OpenListenerCount() int
-
-	InitiateGracefulShutdown()
-}
-
 type migrationProxyManager struct {
 	sourceProxies      map[string][]*migrationProxy
 	targetProxies      map[string][]*migrationProxy
@@ -69,11 +55,6 @@ type migrationProxyManager struct {
 
 	isShuttingDown bool
 	config         *virtconfig.ClusterConfig
-}
-
-type MigrationProxyListener interface {
-	Start() error
-	Stop()
 }
 
 type migrationProxy struct {
@@ -116,7 +97,7 @@ func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
 	return
 }
 
-func NewMigrationProxyManager(serverTLSConfig *tls.Config, migrationTLSConfig *tls.Config, config *virtconfig.ClusterConfig) ProxyManager {
+func NewMigrationProxyManager(serverTLSConfig *tls.Config, migrationTLSConfig *tls.Config, config *virtconfig.ClusterConfig) *migrationProxyManager {
 	return &migrationProxyManager{
 		sourceProxies:      make(map[string][]*migrationProxy),
 		targetProxies:      make(map[string][]*migrationProxy),
@@ -200,7 +181,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, mountRoot *safep
 	return nil
 }
 
-func (m *migrationProxyManager) GetSourceListenerFiles(key string) []string {
+func (m *migrationProxyManager) getSourceListenerFiles(key string) []string {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
