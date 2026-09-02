@@ -27,91 +27,31 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("direct IO checker", func() {
-	var directIOChecker DirectIOChecker
-	var tmpDir string
-	var existingFile string
-	var nonExistingFile string
-	var err error
+type configurableIOChecker struct {
+	supportDirectIO bool
+	err             error
+}
 
-	BeforeEach(func() {
-		directIOChecker = NewDirectIOChecker()
-		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
-		Expect(err).ToNot(HaveOccurred())
-		existingFile = filepath.Join(tmpDir, "disk.img")
-		Expect(os.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
-		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
-	})
+func (s *configurableIOChecker) CheckBlockDevice(_ string) (bool, error) {
+	return s.supportDirectIO, s.err
+}
 
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
-	})
+func (s *configurableIOChecker) CheckFile(_ string) (bool, error) {
+	return s.supportDirectIO, s.err
+}
 
-	It("should not fail when file/device exists", func() {
-		_, err = directIOChecker.CheckFile(existingFile)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = directIOChecker.CheckBlockDevice(existingFile)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("should not fail when file does not exist", func() {
-		_, err := directIOChecker.CheckFile(nonExistingFile)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = os.Stat(nonExistingFile)
-		Expect(err).To(MatchError(fs.ErrNotExist))
-	})
-
-	It("should fail when device does not exist", func() {
-		_, err := directIOChecker.CheckBlockDevice(nonExistingFile)
-		Expect(err).To(HaveOccurred())
-		_, err = os.Stat(nonExistingFile)
-		Expect(err).To(MatchError(fs.ErrNotExist))
-	})
-
-	It("should fail when the path does not exist", func() {
-		nonExistingPath := "/non/existing/path/disk.img"
-		_, err = directIOChecker.CheckFile(nonExistingPath)
-		Expect(err).To(MatchError(fs.ErrNotExist))
-		_, err = directIOChecker.CheckBlockDevice(nonExistingPath)
-		Expect(err).To(MatchError(fs.ErrNotExist))
-		_, err = os.Stat(nonExistingPath)
-		Expect(err).To(MatchError(fs.ErrNotExist))
-	})
-})
-
-var _ = Describe("Driver Cache and IO Settings", func() {
-	var ctrl *gomock.Controller
-	var mockDirectIOChecker *MockDirectIOChecker
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		mockDirectIOChecker = NewMockDirectIOChecker(ctrl)
-	})
-
-	expectCheckTrue := func() {
-		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
-		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
+var _ = Describe("SetDriverCacheMode", func() {
+	newConfigurator := func(supportDirectIO bool, err error) *Configurator {
+		return &Configurator{ioChecker: &configurableIOChecker{supportDirectIO: supportDirectIO, err: err}}
 	}
 
-	expectCheckFalse := func() {
-		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(false, nil)
-		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(false, nil)
-	}
-
-	expectCheckError := func() {
-		checkerError := fmt.Errorf("DirectIOChecker error")
-		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(false, checkerError)
-		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(false, checkerError)
-	}
-
-	DescribeTable("should correctly set driver cache mode", func(cache, expectedCache string, setExpectations func()) {
+	DescribeTable("should correctly set driver cache mode", func(cache, expectedCache string, supportDirectIO bool, checkerErr error) {
 		disk := &api.Disk{
 			Driver: &api.DiskDriver{
 				Cache: cache,
@@ -120,8 +60,8 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 				File: "file",
 			},
 		}
-		setExpectations()
-		err := SetDriverCacheMode(disk, mockDirectIOChecker)
+		configurator := newConfigurator(supportDirectIO, checkerErr)
+		err := configurator.SetDriverCacheMode(disk)
 		if expectedCache == "" {
 			Expect(err).To(HaveOccurred())
 		} else {
@@ -129,19 +69,20 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 			Expect(disk.Driver.Cache).To(Equal(expectedCache))
 		}
 	},
-		Entry("detect 'none' with direct io", "", string(v1.CacheNone), expectCheckTrue),
-		Entry("detect 'writethrough' without direct io", "", string(v1.CacheWriteThrough), expectCheckFalse),
-		Entry("fallback to 'writethrough' on error", "", string(v1.CacheWriteThrough), expectCheckError),
-		Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), expectCheckTrue),
-		Entry("return error without direct io", string(v1.CacheNone), "", expectCheckFalse),
-		Entry("return error on error", string(v1.CacheNone), "", expectCheckError),
-		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
-		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
-		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+		Entry("detect 'none' with direct io", "", string(v1.CacheNone), true, nil),
+		Entry("detect 'writethrough' without direct io", "", string(v1.CacheWriteThrough), false, nil),
+		Entry("fallback to 'writethrough' on error", "", string(v1.CacheWriteThrough), false, fmt.Errorf("DirectIOChecker error")),
+		Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), true, nil),
+		Entry("return error without direct io", string(v1.CacheNone), "", false, nil),
+		Entry("return error on error", string(v1.CacheNone), "", false, fmt.Errorf("DirectIOChecker error")),
+		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), true, nil),
+		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), false, nil),
+		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), false, fmt.Errorf("DirectIOChecker error")),
 	)
 
 	It("should fail to set appropriate driver cache mode for a nil disk", func() {
-		Expect(SetDriverCacheMode(nil, nil)).To(MatchError("unable to set a driver cache mode, disk is nil"))
+		configurator := newConfigurator(true, nil)
+		Expect(configurator.SetDriverCacheMode(nil)).To(MatchError("unable to set a driver cache mode, disk is nil"))
 	})
 
 	It("should check block device paths correctly", func() {
@@ -149,9 +90,8 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 			Source: api.DiskSource{Dev: "/dev/vda"},
 			Driver: &api.DiskDriver{},
 		}
-		mockDirectIOChecker.EXPECT().CheckBlockDevice("/dev/vda").Return(true, nil)
-
-		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
+		configurator := newConfigurator(true, nil)
+		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
 		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
 	})
 
@@ -165,13 +105,26 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 			},
 			Driver: &api.DiskDriver{},
 		}
-		mockDirectIOChecker.EXPECT().CheckBlockDevice("/dev/vda").Return(true, nil)
-
-		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
+		configurator := newConfigurator(true, nil)
+		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
 	})
-	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
-		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
-		Expect(disk.Driver.IO).To(Equal(expectedIO))
+})
+
+var _ = Describe("SetOptimalIOMode", func() {
+	var origIsPreAllocated func(string) bool
+
+	BeforeEach(func() {
+		origIsPreAllocated = IsPreAllocated
+	})
+
+	AfterEach(func() {
+		IsPreAllocated = origIsPreAllocated
+	})
+
+	DescribeTable("should set appropriate IO modes", func(d *api.Disk, expectedIO v1.DriverIO, preAllocated bool) {
+		IsPreAllocated = func(_ string) bool { return preAllocated }
+		SetOptimalIOMode(d)
+		Expect(d.Driver.IO).To(Equal(expectedIO))
 	},
 		Entry("user-specified IO",
 			&api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}},
@@ -246,4 +199,56 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 			v1.DriverIO(""), false,
 		),
 	)
+})
+
+var _ = Describe("directIOChecker", func() {
+	var checker *directIOChecker
+	var tmpDir string
+	var existingFile string
+	var nonExistingFile string
+	var err error
+
+	BeforeEach(func() {
+		checker = &directIOChecker{}
+		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
+		Expect(err).ToNot(HaveOccurred())
+		existingFile = filepath.Join(tmpDir, "disk.img")
+		Expect(os.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
+		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+	})
+
+	It("should not fail when file/device exists", func() {
+		_, err = checker.CheckFile(existingFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = checker.CheckBlockDevice(existingFile)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not fail when file does not exist", func() {
+		_, err := checker.CheckFile(nonExistingFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = os.Stat(nonExistingFile)
+		Expect(err).To(MatchError(fs.ErrNotExist))
+	})
+
+	It("should fail when device does not exist", func() {
+		_, err := checker.CheckBlockDevice(nonExistingFile)
+		Expect(err).To(HaveOccurred())
+		_, err = os.Stat(nonExistingFile)
+		Expect(err).To(MatchError(fs.ErrNotExist))
+	})
+
+	It("should fail when the path does not exist", func() {
+		nonExistingPath := "/non/existing/path/disk.img"
+		_, err = checker.CheckFile(nonExistingPath)
+		Expect(err).To(MatchError(fs.ErrNotExist))
+		_, err = checker.CheckBlockDevice(nonExistingPath)
+		Expect(err).To(MatchError(fs.ErrNotExist))
+		_, err = os.Stat(nonExistingPath)
+		Expect(err).To(MatchError(fs.ErrNotExist))
+	})
 })
