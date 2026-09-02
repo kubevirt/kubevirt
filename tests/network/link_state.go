@@ -51,7 +51,7 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		nadName                  = "bridge-nad"
 	)
 	const (
-		waitForGAConnectedTimout        = 6 * time.Minute
+		waitForGAConnectedTimeout       = 6 * time.Minute
 		waitForGAConnectedRetryInterval = 3 * time.Second
 	)
 	const waitForExpectedIfaceStatusesTimeout = 60 * time.Second
@@ -95,7 +95,7 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVM(vm)).
-			WithTimeout(waitForGAConnectedTimout).
+			WithTimeout(waitForGAConnectedTimeout).
 			WithPolling(waitForGAConnectedRetryInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -179,7 +179,7 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVM(vm)).
-			WithTimeout(waitForGAConnectedTimout).
+			WithTimeout(waitForGAConnectedTimeout).
 			WithPolling(waitForGAConnectedRetryInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
