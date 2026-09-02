@@ -62,6 +62,7 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 
@@ -1172,6 +1173,10 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses hyperv passthrough", v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable), isBlockMigration
 	}
 
+	if reason, ok := vmStateBlocksLiveMigration(vmi); ok {
+		return newNonMigratableCondition(reason, v1.VirtualMachineInstanceReasonVirtualMachineStateNotMigratable), isBlockMigration
+	}
+
 	if blockErr != nil {
 		return newNonMigratableCondition(blockErr.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
 	}
@@ -1213,6 +1218,21 @@ func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, conf
 	}
 
 	return "", false
+}
+
+// vmStateBlocksLiveMigration reports whether an RWO VirtualMachineState PVC has no template to migrate it with.
+func vmStateBlocksLiveMigration(vmi *v1.VirtualMachineInstance) (string, bool) {
+	if !backendstorage.HasDeclarativeVMState(&vmi.Spec) || vmi.Spec.VirtualMachineState.VolumeClaimTemplate != nil {
+		return "", false
+	}
+
+	volStatus := vmi.Status.VirtualMachineStateVolume
+	if volStatus != nil && volStatus.PersistentVolumeClaimInfo != nil &&
+		storagetypes.HasSharedAccessMode(volStatus.PersistentVolumeClaimInfo.AccessModes) {
+		return "", false
+	}
+
+	return "VirtualMachineState PVC is RWO and referenced through source only; add a volumeClaimTemplate to allow live migration", true
 }
 
 type multipleNonMigratableCondition struct {
@@ -1289,6 +1309,10 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 
 	if vmiFeatures := vmi.Spec.Domain.Features; vmiFeatures != nil && vmiFeatures.HypervPassthrough != nil && *vmiFeatures.HypervPassthrough.Enabled {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable, "VMI uses hyperv passthrough")
+	}
+
+	if reason, ok := vmStateBlocksLiveMigration(vmi); ok {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonVirtualMachineStateNotMigratable, reason)
 	}
 
 	return multiCond.generateStorageLiveMigrationCondition()

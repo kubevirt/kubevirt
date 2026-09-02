@@ -20,6 +20,7 @@
 package vmi
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -51,6 +52,15 @@ func (c *Controller) addPVC(obj any) {
 		c.pvcExpectations.CreationObserved(vmiKey)
 		c.Queue.Add(vmiKey)
 		return // The PVC is a backend-storage PVC, won't be listed by `c.listVMIsMatchingDV()`
+	}
+	// Declarative VMState PVCs carry an OwnerReference to the VM (or standalone VMI) instead.
+	if _, exists := pvc.Labels[backendstorage.VMStateOwnerLabel]; exists {
+		if controllerRef := v1.GetControllerOf(pvc); controllerRef != nil {
+			vmiKey := controller.NamespacedKey(pvc.Namespace, controllerRef.Name)
+			c.pvcExpectations.CreationObserved(vmiKey)
+			c.Queue.Add(vmiKey)
+			return
+		}
 	}
 	vmis, err := c.listVMIsMatchingDV(pvc.Namespace, pvc.Name)
 	if err != nil {
@@ -124,6 +134,11 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 		return "", nil
 	}
 	pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
+
+	if backendstorage.HasDeclarativeVMState(&vmi.Spec) {
+		return c.handleDeclarativeBackendStorage(vmi, key, pvc)
+	}
+
 	if pvc == nil {
 		c.pvcExpectations.ExpectCreations(key, 1)
 		if pvc, err = c.backendStorage.CreatePVCForVMI(vmi); err != nil {
@@ -132,6 +147,58 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 		}
 	}
 	return pvc.Name, nil
+}
+
+// handleDeclarativeBackendStorage resolves, creates, or adopts the VMState PVC for a declarative VMI.
+func (c *Controller) handleDeclarativeBackendStorage(vmi *virtv1.VirtualMachineInstance, key string, pvc *k8sv1.PersistentVolumeClaim) (string, common.SyncError) {
+	creating := pvc == nil && vmi.Spec.VirtualMachineState.Source == nil
+	if creating {
+		c.pvcExpectations.ExpectCreations(key, 1)
+	}
+	pvc, err := c.backendStorage.CreatePVCForVMI(vmi)
+	if err != nil {
+		if creating {
+			c.pvcExpectations.CreationObserved(key)
+		}
+		if errors.Is(err, backendstorage.ErrVMStatePVCNotFound) {
+			return "", common.NewSyncError(err, controller.VirtualMachineStatePVCNotFoundReason)
+		}
+		return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
+	}
+	if syncErr := c.acquireVMStateLock(vmi, pvc); syncErr != nil {
+		return "", syncErr
+	}
+	return pvc.Name, nil
+}
+
+// acquireVMStateLock is an advisory lock blocking a second VM from starting against state a running one still holds.
+func (c *Controller) acquireVMStateLock(vmi *virtv1.VirtualMachineInstance, pvc *k8sv1.PersistentVolumeClaim) common.SyncError {
+	holder := pvc.Labels[backendstorage.VMStateInUseByLabel]
+	if holder == string(vmi.UID) {
+		return nil
+	}
+	if holder != "" && c.isVMStateHolderRunning(vmi.Namespace, holder) {
+		return common.NewSyncError(
+			fmt.Errorf("VirtualMachineState PVC %s is already in use by another running VirtualMachine", pvc.Name),
+			controller.VirtualMachineStateInUseReason,
+		)
+	}
+	if err := c.backendStorage.AcquireVMStateLock(pvc, string(vmi.UID)); err != nil {
+		return common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
+	}
+	return nil
+}
+
+// isVMStateHolderRunning reports whether a VMI with the given UID is still running in the namespace.
+func (c *Controller) isVMStateHolderRunning(namespace, holderUID string) bool {
+	for _, obj := range c.vmiIndexer.List() {
+		other := obj.(*virtv1.VirtualMachineInstance)
+		if other.Namespace != namespace || string(other.UID) != holderUID {
+			continue
+		}
+		return !other.IsFinal() && other.DeletionTimestamp == nil
+	}
+	return false
 }
 
 func (c *Controller) processHotplugVolumeStatus(
@@ -338,6 +405,15 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return strings.Compare(newStatus[i].Name, newStatus[j].Name) == -1
 	})
 	vmi.Status.VolumeStatus = newStatus
+
+	// Surface the backend-storage volume in its own status field, for both paths.
+	vmi.Status.VirtualMachineStateVolume = nil
+	for i := range newStatus {
+		if backendstorage.IsBackendStorageVolume(newStatus[i]) {
+			vmi.Status.VirtualMachineStateVolume = newStatus[i].DeepCopy()
+			break
+		}
+	}
 	return nil
 }
 
