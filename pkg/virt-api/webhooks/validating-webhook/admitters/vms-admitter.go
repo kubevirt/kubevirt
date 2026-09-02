@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -152,6 +153,16 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	if ar.Request.Operation == admissionv1.Update {
+		oldVM := v1.VirtualMachine{}
+		if err = json.Unmarshal(ar.Request.OldObject.Raw, &oldVM); err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+		if causes = validateVirtualMachineStateImmutability(k8sfield.NewPath("spec", "template", "spec"), &oldVM, &vm); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+	}
+
 	causes, err = storageadmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -181,6 +192,65 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		Allowed:  true,
 		Warnings: warnings,
 	}
+}
+
+func virtualMachineStateFromVM(vm *v1.VirtualMachine) *v1.VirtualMachineStateSpec {
+	if vm.Spec.Template == nil {
+		return nil
+	}
+	return vm.Spec.Template.Spec.VirtualMachineState
+}
+
+// validateVirtualMachineStateImmutability enforces that virtualMachineState is immutable after
+// VM creation, except that the volumeClaimTemplate's storage capacity and storageClassName may
+// change, and a source-adopted VM may add a volumeClaimTemplate to become live-migratable.
+func validateVirtualMachineStateImmutability(field *k8sfield.Path, oldVM, newVM *v1.VirtualMachine) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	oldState := virtualMachineStateFromVM(oldVM)
+	newState := virtualMachineStateFromVM(newVM)
+
+	if oldState == nil && newState == nil {
+		return causes
+	}
+
+	immutableErr := func() []metav1.StatusCause {
+		return append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "virtualMachineState is immutable after creation, except for volumeClaimTemplate's storage capacity and storageClassName, and adding a volumeClaimTemplate to a source-adopted VM",
+			Field:   field.Child("virtualMachineState").String(),
+		})
+	}
+
+	if (oldState == nil) != (newState == nil) {
+		return immutableErr()
+	}
+
+	oldCopy := oldState.DeepCopy()
+	newCopy := newState.DeepCopy()
+
+	// A source-adopted VM may add a volumeClaimTemplate to become live-migratable, so drop a
+	// newly-added template before comparing. Removing a template or mutating source stays forbidden.
+	if oldCopy.VolumeClaimTemplate == nil && newCopy.VolumeClaimTemplate != nil {
+		newCopy.VolumeClaimTemplate = nil
+	}
+
+	neutralizeMutableTemplateFields(oldCopy)
+	neutralizeMutableTemplateFields(newCopy)
+
+	if !equality.Semantic.DeepEqual(oldCopy, newCopy) {
+		return immutableErr()
+	}
+
+	return causes
+}
+
+func neutralizeMutableTemplateFields(state *v1.VirtualMachineStateSpec) {
+	if state == nil || state.VolumeClaimTemplate == nil {
+		return
+	}
+	state.VolumeClaimTemplate.Spec.StorageClassName = nil
+	delete(state.VolumeClaimTemplate.Spec.Resources.Requests, k8sv1.ResourceStorage)
 }
 
 func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {

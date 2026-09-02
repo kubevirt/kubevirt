@@ -241,6 +241,61 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
 	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
 	causes = append(causes, validateServiceAccountName(field, spec)...)
+	causes = append(causes, validateVirtualMachineState(field, spec, config)...)
+
+	return causes
+}
+
+func validateVirtualMachineState(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if spec.VirtualMachineState == nil {
+		return causes
+	}
+
+	vmsField := field.Child("virtualMachineState")
+
+	if !config.DeclarativeVMStateEnabled() {
+		return append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.DeclarativeVMState),
+			Field:   vmsField.String(),
+		})
+	}
+
+	vmState := spec.VirtualMachineState
+	if vmState.VolumeClaimTemplate == nil && vmState.Source == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "at least one of volumeClaimTemplate or source must be set",
+			Field:   vmsField.String(),
+		})
+	}
+
+	if vmState.Source != nil && vmState.Source.Name == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "source.name must not be empty",
+			Field:   vmsField.Child("source", "name").String(),
+		})
+	}
+
+	if template := vmState.VolumeClaimTemplate; template != nil {
+		templateField := vmsField.Child("volumeClaimTemplate")
+		if template.Name != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "volumeClaimTemplate.metadata.name must not be set, the controller owns the PVC name; pre-create the PVC and use source to reference a fixed name",
+				Field:   templateField.Child("metadata", "name").String(),
+			})
+		}
+		if mode := template.Spec.VolumeMode; mode != nil && *mode != k8sv1.PersistentVolumeFilesystem {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("volumeClaimTemplate.spec.volumeMode must be %q", k8sv1.PersistentVolumeFilesystem),
+				Field:   templateField.Child("spec", "volumeMode").String(),
+			})
+		}
+	}
 
 	return causes
 }
