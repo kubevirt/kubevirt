@@ -119,12 +119,19 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, validateSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	}
 
-	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
+	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
+	specCauses := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
+	if isKubeVirtServiceAccount {
+		// A VMI created by KubeVirt's own controllers always derives from an already-admitted VM
+		// spec, so a declarative virtualMachineState it already carries must keep working even if
+		// the gate is disabled afterwards.
+		specCauses = filterOutDeclarativeVMStateGateCause(specCauses, k8sfield.NewPath("spec"))
+	}
+	causes = append(causes, specCauses...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
-	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, isKubeVirtServiceAccount)...)
 	causes = append(causes, validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), &vmi.Spec, vmi.Annotations, admitter.ClusterConfig)...)
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
@@ -288,6 +295,78 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
 	causes = append(causes, validateServiceAccountName(field, spec)...)
 	causes = append(causes, validateEmulationPolicy(field, spec, config)...)
+	causes = append(causes, validateVirtualMachineState(field, spec, config)...)
+
+	return causes
+}
+
+func declarativeVMStateGateCause(field *k8sfield.Path) metav1.StatusCause {
+	return metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.DeclarativeVMState),
+		Field:   field.Child("virtualMachineState").String(),
+	}
+}
+
+// filterOutDeclarativeVMStateGateCause drops the DeclarativeVMState gate-disabled cause, so a VM/VMI
+// that already had virtualMachineState set keeps working even after the gate is later disabled.
+func filterOutDeclarativeVMStateGateCause(causes []metav1.StatusCause, field *k8sfield.Path) []metav1.StatusCause {
+	gateCause := declarativeVMStateGateCause(field)
+	filtered := causes[:0]
+	for _, c := range causes {
+		if c != gateCause {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+func validateVirtualMachineState(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if spec.VirtualMachineState == nil {
+		return causes
+	}
+
+	vmsField := field.Child("virtualMachineState")
+
+	if !config.DeclarativeVMStateEnabled() {
+		return append(causes, declarativeVMStateGateCause(field))
+	}
+
+	vmState := spec.VirtualMachineState
+	if vmState.VolumeClaimTemplate == nil && vmState.Source == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "at least one of volumeClaimTemplate or source must be set",
+			Field:   vmsField.String(),
+		})
+	}
+
+	if vmState.Source != nil && vmState.Source.Name == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "source.name must not be empty",
+			Field:   vmsField.Child("source", "name").String(),
+		})
+	}
+
+	if template := vmState.VolumeClaimTemplate; template != nil {
+		templateField := vmsField.Child("volumeClaimTemplate")
+		if template.Name != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "volumeClaimTemplate.metadata.name must not be set, the controller generates the PVC name; if you need a fixed name, pre-create the PVC and reference it through source instead",
+				Field:   templateField.Child("metadata", "name").String(),
+			})
+		}
+		if mode := template.Spec.VolumeMode; mode != nil && *mode != k8sv1.PersistentVolumeFilesystem {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("volumeClaimTemplate.spec.volumeMode must be %q", k8sv1.PersistentVolumeFilesystem),
+				Field:   templateField.Child("spec", "volumeMode").String(),
+			})
+		}
+	}
 
 	return causes
 }
