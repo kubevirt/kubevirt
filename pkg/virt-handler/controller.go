@@ -47,7 +47,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
@@ -109,7 +108,6 @@ type BaseController struct {
 	clusterConfig               *virtconfig.ClusterConfig
 	podIsolationDetector        isolation.PodIsolationDetector
 	launcherClients             launcherclients.LauncherClientsManager
-	migrationProxy              migrationproxy.ProxyManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
 	recorder                    record.EventRecorder
@@ -131,7 +129,6 @@ func NewBaseController(
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
 	launcherClients launcherclients.LauncherClientsManager,
-	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
 	hypervisorNodeInfo hypervisor.HypervisorNodeInformation,
@@ -150,7 +147,6 @@ func NewBaseController(
 		clusterConfig:               clusterConfig,
 		podIsolationDetector:        podIsolationDetector,
 		launcherClients:             launcherClients,
-		migrationProxy:              migrationProxy,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
 		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },

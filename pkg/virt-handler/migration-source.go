@@ -110,7 +110,6 @@ func NewMigrationSourceController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		nil,
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
