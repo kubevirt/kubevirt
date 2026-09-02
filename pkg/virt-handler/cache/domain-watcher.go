@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -93,23 +94,35 @@ func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, res
 	for {
 		select {
 		case <-resyncTicker.C:
-			d.handleResync()
+			d.handleResync(ctx)
 		case <-expiredWatchdogTicker.C:
-			d.handleStaleSocketConnections(watchdogTimeout)
+			d.handleStaleSocketConnections(ctx, watchdogTimeout)
 		case err := <-srvErr:
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
 				d.panicOnConsecutiveFailures(err, startedAt)
-				d.result <- watch.Event{
+				d.send(ctx, watch.Event{
 					Type: watch.Error,
 					Object: &metav1.Status{
 						Status:  metav1.StatusFailure,
 						Message: fmt.Sprintf("domain notify server error: %v", err),
 					},
-				}
+				})
 			}
 			return
 		}
+	}
+}
+
+// send delivers event on d.result, but gives up once ctx is done. Without
+// this, a worker shutting down after the informer has already stopped
+// reading ResultChan() would block on this send forever, hanging Stop().
+func (d *domainWatcher) send(ctx context.Context, event watch.Event) bool {
+	select {
+	case d.result <- event:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 
@@ -139,7 +152,7 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 		"Domain notify server exited unexpectedly: %v", err)
 }
 
-func (d *domainWatcher) handleResync() {
+func (d *domainWatcher) handleResync(ctx context.Context) {
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
@@ -169,11 +182,13 @@ func (d *domainWatcher) handleResync() {
 			continue
 		}
 
-		d.result <- watch.Event{Type: watch.Modified, Object: domain}
+		if !d.send(ctx, watch.Event{Type: watch.Modified, Object: domain}) {
+			return
+		}
 	}
 }
 
-func (d *domainWatcher) handleStaleSocketConnections(watchdogTimeout int) error {
+func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeout int) error {
 	var unresponsive []string
 
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
@@ -203,18 +218,9 @@ func (d *domainWatcher) handleStaleSocketConnections(watchdogTimeout int) error 
 	}
 
 	for key, timeStamp := range d.unresponsiveSockets {
-		found := false
-		for _, socket := range unresponsive {
-			if socket == key {
-				found = true
-				break
-			}
-		}
-		// reap old unresponsive sockets
-		// remove from unresponsive list if not found unresponsive this iteration
-		if !found {
+		if !slices.Contains(unresponsive, key) {
 			delete(d.unresponsiveSockets, key)
-			break
+			continue
 		}
 
 		diff := now - timeStamp
@@ -234,7 +240,9 @@ func (d *domainWatcher) handleStaleSocketConnections(watchdogTimeout int) error 
 				now := metav1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				d.result <- watch.Event{Type: watch.Modified, Object: domain}
+				if !d.send(ctx, watch.Event{Type: watch.Modified, Object: domain}) {
+					return ctx.Err()
+				}
 
 				err := cmdclient.MarkSocketUnresponsive(key)
 				if err != nil {
