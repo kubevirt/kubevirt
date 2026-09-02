@@ -45,12 +45,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -61,8 +61,14 @@ type passtRepairSourceHandler interface {
 	HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
 }
 
+type proxyManager interface {
+	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir *safepath.Path) error
+	StopSourceListener(key string)
+}
+
 type MigrationSourceController struct {
 	*BaseController
+	migrationProxy     proxyManager
 	pluginExecutor     plugins.NodeHookExecutor
 	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	passtRepairHandler passtRepairSourceHandler
@@ -77,7 +83,7 @@ func NewMigrationSourceController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
+	migrationProxy proxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
 	passtRepairHandler passtRepairSourceHandler,
@@ -104,7 +110,7 @@ func NewMigrationSourceController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		migrationProxy,
+		nil,
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
@@ -120,6 +126,7 @@ func NewMigrationSourceController(
 		pluginExecutor:     pluginExecutor,
 		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		passtRepairHandler: passtRepairHandler,
+		migrationProxy:     migrationProxy,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
