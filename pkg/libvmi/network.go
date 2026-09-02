@@ -108,6 +108,13 @@ func WithPorts(ports ...kvirtv1.Port) InterfaceOption {
 	}
 }
 
+// WithACPIIndex sets the ACPI index.
+func WithACPIIndex(acpiIdx int) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.ACPIIndex = acpiIdx
+	}
+}
+
 // WithPciAddress sets the guest PCI address.
 func WithPciAddress(pciAddress string) InterfaceOption {
 	return func(iface *kvirtv1.Interface) {

@@ -81,7 +81,9 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 			),
 			Entry("invalid custom PCI address",
 				libvmi.New(
-					libvmi.WithInterface(newPasstInterface(withIfacePCI("invalid-pci-address"))),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPciAddress("invalid-pci-address"),
+					)),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmistatus.WithStatus(
 						libvmistatus.New(
@@ -112,14 +114,14 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 				Expect(domain.Spec.Devices.Interfaces[0]).To(Equal(expectedDomainIface))
 			},
 			Entry("passt binding",
-				newPasstInterface(),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding()),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardAll(),
 				),
 			),
 			Entry("PCI address",
-				newPasstInterface(withIfacePCI("0000:02:02.0")),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPciAddress("0000:02:02.0")),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardAll(),
@@ -127,15 +129,15 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 				),
 			),
 			Entry("MAC address",
-				newPasstInterface(withIfaceMAC("02:02:02:02:02:02")),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithMac("02:02:02:02:02:02")),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardAll(),
 					withMAC("02:02:02:02:02:02"),
 				),
 			),
-			Entry("ACPI address",
-				newPasstInterface(withIfaceACPI(2)),
+			Entry("ACPI Index",
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithACPIIndex(2)),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardAll(),
@@ -143,39 +145,39 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 				),
 			),
 			Entry("non virtio model",
-				newPasstInterface(withIfaceModel("e1000")),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithModel("e1000")),
 				newPasstDomainInterface("default", "e1000",
 					withPasstBackend(),
 					withPasstPortForwardAll(),
 				),
 			),
 			Entry("tcp ports (should forward tcp ports only)",
-				newPasstInterface(withIfacePorts([]v1.Port{
-					{Protocol: "TCP", Port: 1},
-					{Protocol: "TCP", Port: 4},
-				})),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPorts(
+					v1.Port{Protocol: "TCP", Port: 1},
+					v1.Port{Protocol: "TCP", Port: 4},
+				)),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardTCP([]uint{1, 4}),
 				),
 			),
 			Entry("udp ports (should forward udp ports only)",
-				newPasstInterface(withIfacePorts([]v1.Port{
-					{Protocol: "UDP", Port: 2},
-					{Protocol: "UDP", Port: 3},
-				})),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPorts(
+					v1.Port{Protocol: "UDP", Port: 2},
+					v1.Port{Protocol: "UDP", Port: 3},
+				)),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardUDP([]uint{2, 3}),
 				),
 			),
 			Entry("both tcp and udp ports",
-				newPasstInterface(withIfacePorts([]v1.Port{
-					{Port: 1},
-					{Protocol: "UDP", Port: 2},
-					{Protocol: "UDP", Port: 3},
-					{Protocol: "TCP", Port: 4},
-				})),
+				libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPorts(
+					v1.Port{Port: 1},
+					v1.Port{Protocol: "UDP", Port: 2},
+					v1.Port{Protocol: "UDP", Port: 3},
+					v1.Port{Protocol: "TCP", Port: 4},
+				)),
 				newPasstDomainInterface("default", virtioModel,
 					withPasstBackend(),
 					withPasstPortForwardTCP([]uint{1, 4}),
@@ -433,47 +435,5 @@ func withACPI(index int) passtOption {
 func withSourceDevice(sourceDevice string) passtOption {
 	return func(iface *api.Interface) {
 		iface.Source.Device = sourceDevice
-	}
-}
-
-type ifaceOption func(iface *v1.Interface)
-
-func newPasstInterface(options ...ifaceOption) v1.Interface {
-	newIface := libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())
-
-	for _, f := range options {
-		f(&newIface)
-	}
-	return newIface
-}
-
-func withIfaceMAC(macAddress string) ifaceOption {
-	return func(iface *v1.Interface) {
-		iface.MacAddress = macAddress
-	}
-}
-
-func withIfacePCI(pciAddress string) ifaceOption {
-	return func(iface *v1.Interface) {
-		iface.PciAddress = pciAddress
-	}
-}
-
-func withIfaceACPI(apciIdx int) ifaceOption {
-	return func(iface *v1.Interface) {
-		iface.ACPIIndex = apciIdx
-	}
-}
-
-func withIfaceModel(model string) ifaceOption {
-	return func(iface *v1.Interface) {
-		iface.Model = model
-	}
-}
-
-func withIfacePorts(ports []v1.Port) ifaceOption {
-	return func(iface *v1.Interface) {
-		iface.Ports = []v1.Port{}
-		iface.Ports = append(iface.Ports, ports...)
 	}
 }
