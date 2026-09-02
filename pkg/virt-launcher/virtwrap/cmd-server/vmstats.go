@@ -40,6 +40,7 @@ var agentDataFields = []agentDataField{
 	{"guest-get-load", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetLoad != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetLoad = resp }},
 	{"guest-get-cpustats", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetCpuStats != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetCpuStats = resp }},
 	{"guest-get-diskstats", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDiskStats != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDiskStats = resp }},
+	{"guest-get-fsinfo", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetFsInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetFsInfo = resp }},
 	{"guest-get-time", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetTime != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetTime = resp }},
 	{"guest-get-vcpus", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetVcpus != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetVcpus = resp }},
 	{"guest-get-memory-block-info", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetMemoryBlockInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetMemoryBlockInfo = resp }},
