@@ -677,4 +677,71 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			})
 		})
 	})
+
+	Context("common-instancetypes version label", func() {
+		const commonVersion = "v1.7.0"
+
+		It("CreateControllerRevision propagates common-instancetypes-version label from object", func() {
+			instancetypeWithLabel := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-cluster-instancetype",
+					UID:        resourceUID,
+					Generation: resourceGeneration,
+					Labels: map[string]string{
+						apiinstancetype.ControllerRevisionObjectCommonInstancetypesVersionLabel: commonVersion,
+					},
+				},
+			}
+
+			cr, err := revision.CreateControllerRevision(vm, instancetypeWithLabel)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cr.Labels).To(HaveKeyWithValue(apiinstancetype.ControllerRevisionObjectCommonInstancetypesVersionLabel, commonVersion))
+		})
+
+		It("CreateControllerRevision does not add common-instancetypes-version label when absent", func() {
+			instancetypeWithoutLabel := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-cluster-instancetype",
+					UID:        resourceUID,
+					Generation: resourceGeneration,
+				},
+			}
+
+			cr, err := revision.CreateControllerRevision(vm, instancetypeWithoutLabel)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cr.Labels).ToNot(HaveKey(apiinstancetype.ControllerRevisionObjectCommonInstancetypesVersionLabel))
+		})
+
+		It("store propagates common-instancetypes-version label from VirtualMachinePreference to created ControllerRevision", func() {
+			preferenceWithLabel := &instancetypev1beta1.VirtualMachinePreference{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-preference",
+					Namespace:  vm.Namespace,
+					UID:        resourceUID,
+					Generation: resourceGeneration,
+					Labels: map[string]string{
+						apiinstancetype.ControllerRevisionObjectCommonInstancetypesVersionLabel: commonVersion,
+					},
+				},
+			}
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preferenceWithLabel, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = preferenceInformerStore.Add(preferenceWithLabel)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Preference = &virtv1.PreferenceMatcher{
+				Name: preferenceWithLabel.Name,
+				Kind: apiinstancetype.SingularPreferenceResourceName,
+			}
+
+			Expect(storeHandler.Store(vm)).To(Succeed())
+
+			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(createdCR.Labels).To(HaveKeyWithValue(apiinstancetype.ControllerRevisionObjectCommonInstancetypesVersionLabel, commonVersion))
+		})
+	})
 })
