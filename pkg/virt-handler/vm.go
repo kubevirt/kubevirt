@@ -176,7 +176,6 @@ func NewVirtualMachineController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		nil,
 		"/proc/%d/root/var/run",
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
