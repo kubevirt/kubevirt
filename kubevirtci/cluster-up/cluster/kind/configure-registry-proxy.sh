@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # source: https://github.com/rpardini/docker-registry-proxy#kind-cluster
 #
 # This script execute docker-registry-proxy cluster nodes
@@ -16,8 +18,6 @@
 #   ./configure-registry-proxy.sh
 #
 
-#! /bin/bash
-
 set -ex
 
 SCRIPT_PATH=$(dirname "$(realpath "$0")")
@@ -35,7 +35,7 @@ for node in $($KIND_BIN get nodes --name "$CLUSTER_NAME"); do
    $CRI_BIN exec "$node" sh -c "\
       curl $SETUP_URL | \
       sed s/docker\.service/containerd\.service/g | \
-      sed '/Environment/ s/$/ \"NO_PROXY=127.0.0.0\/8,10.0.0.0\/8,172.16.0.0\/12,192.168.0.0\/16\"/' | \
+      sed '/Environment=/ s|$| \"NO_PROXY=localhost,registry,127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\"/' | \
       bash" &
    pids="$pids $!"
 done
