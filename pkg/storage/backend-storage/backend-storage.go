@@ -53,10 +53,7 @@ const (
 	PVCSize    = "10Mi"
 	VolumeName = PVCPrefix + "-this-vm"
 
-	// TODO(declarative-vmstate): the owner-mapping and in-use lock label design below is
-	// provisional. See VEP #312.
-
-	// VMStateOwnerLabel maps a VirtualMachineState PVC to its owning VM (or standalone VMI) by UID,
+	// VMStateOwnerLabel maps a VirtualMachineState PVC to its owning VM by UID,
 	// so the controller can re-find it after a crash or a migration renames it.
 	VMStateOwnerLabel = "kubevirt.io/vmStateOwner"
 	// VMStateInUseByLabel records the UID of the VMI currently using the PVC, so two VMs don't write
@@ -64,18 +61,12 @@ const (
 	VMStateInUseByLabel = "kubevirt.io/vmStateInUseBy"
 )
 
-// ErrVMStatePVCNotFound is returned when a PVC referenced through
-// virtualMachineState.source cannot be found.
 var ErrVMStatePVCNotFound = fmt.Errorf("virtualMachineState source PVC not found")
 
-// HasDeclarativeVMState reports whether the VMI opts into the declarative
-// virtualMachineState API.
 func HasDeclarativeVMState(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.VirtualMachineState != nil
 }
 
-// ownerUIDForVMI returns the UID that maps a VirtualMachineState PVC to its owner: the
-// controlling VM when the VMI originated from one, otherwise the VMI itself.
 func ownerUIDForVMI(vmi *corev1.VirtualMachineInstance) string {
 	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
 		return string(controllerRef.UID)
@@ -363,11 +354,18 @@ func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 }
 
 func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Domain.Firmware != nil &&
-		vmiSpec.Domain.Firmware.Bootloader != nil &&
-		vmiSpec.Domain.Firmware.Bootloader.EFI != nil &&
-		vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent != nil &&
-		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+	if vmiSpec.Domain.Firmware == nil ||
+		vmiSpec.Domain.Firmware.Bootloader == nil ||
+		vmiSpec.Domain.Firmware.Bootloader.EFI == nil {
+		return false
+	}
+	persistent := vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+	// With the declarative virtualMachineState API, a state PVC implies EFI state is kept, so it's
+	// persistent unless explicitly opted out with persistent: false. See VEP #312.
+	if HasDeclarativeVMState(vmiSpec) {
+		return persistent == nil || *persistent
+	}
+	return persistent != nil && *persistent
 }
 
 func IsBackendStorageNeeded(obj interface{}) bool {

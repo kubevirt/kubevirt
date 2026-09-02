@@ -85,6 +85,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1066,7 +1067,98 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if err := l.prepareVMStateLayout(vmi, domain); err != nil {
+		return domain, fmt.Errorf("preparing the VirtualMachineState layout failed: %v", err)
+	}
+
 	return domain, err
+}
+
+// prepareVMStateLayout sets up the canonical VirtualMachineState PVC layout and the ephemeral
+// symlinks libvirt needs, before the domain is defined. See VEP #312.
+func (l *LibvirtDomainManager) prepareVMStateLayout(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if !kutil.HasDeclarativeVMState(vmi) {
+		return nil
+	}
+
+	logger := log.Log.Object(vmi)
+
+	for _, dir := range []string{
+		kutil.VMStateDirTPM,
+		kutil.VMStateDirSwtpmLocalca,
+		kutil.VMStateDirEFI,
+		kutil.VMStateDirCBT,
+		kutil.VMStateDirMeta,
+	} {
+		if err := os.MkdirAll(filepath.Join(kutil.VMStatePVCMountPath, dir), 0755); err != nil {
+			return fmt.Errorf("failed to create VMState directory %q: %v", dir, err)
+		}
+	}
+
+	if !tpm.HasPersistentDevice(&vmi.Spec) {
+		// Only a persistent TPM (and its local-CA) needs ephemeral symlinks.
+		return nil
+	}
+
+	// Libvirt derives the swtpm state directory from the domain UUID (<swtpm-root>/<uuid>/tpm2) and
+	// does not expose it in domain XML. Pin the domain UUID to the VMI firmware UUID so the symlink
+	// here matches the directory libvirt will look up.
+	if domain.Spec.UUID == "" && vmi.Spec.Domain.Firmware != nil {
+		domain.Spec.UUID = string(vmi.Spec.Domain.Firmware.UUID)
+	}
+	if domain.Spec.UUID == "" {
+		return fmt.Errorf("cannot set up TPM state symlink: domain UUID is empty")
+	}
+
+	// PathForSwtpm(vmi)/<uuid> -> <mount>/tpm
+	swtpmRoot := kutil.PathForSwtpm(vmi)
+	if err := os.MkdirAll(swtpmRoot, 0755); err != nil {
+		return fmt.Errorf("failed to create swtpm root %q: %v", swtpmRoot, err)
+	}
+	if err := ensureVMStateSymlink(kutil.VMStateCanonicalTPMPath(), filepath.Join(swtpmRoot, domain.Spec.UUID)); err != nil {
+		return fmt.Errorf("failed to create swtpm state symlink: %v", err)
+	}
+
+	// PathForSwtpmLocalca(vmi) -> <mount>/swtpm-localca
+	// TODO(declarative-vmstate): VEP #312 leaves the swtpm-localca reach mechanism unspecified; we
+	// mirror the implicit path with a symlink.
+	localca := kutil.PathForSwtpmLocalca(vmi)
+	if err := os.MkdirAll(filepath.Dir(localca), 0755); err != nil {
+		return fmt.Errorf("failed to create swtpm local-CA parent dir: %v", err)
+	}
+	if err := ensureVMStateSymlink(kutil.VMStateCanonicalSwtpmLocalcaPath(), localca); err != nil {
+		return fmt.Errorf("failed to create swtpm local-CA symlink: %v", err)
+	}
+
+	logger.V(4).Infof("prepared declarative VirtualMachineState layout (domain uuid %s)", domain.Spec.UUID)
+	return nil
+}
+
+// ensureVMStateSymlink idempotently creates a symlink at link -> target. It replaces a pre-existing
+// empty directory but refuses a non-empty one, which would drop existing state.
+func ensureVMStateSymlink(target, link string) error {
+	if fi, err := os.Lstat(link); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			// Already a symlink (idempotent re-run within the same pod).
+			return nil
+		}
+		if fi.IsDir() {
+			entries, err := os.ReadDir(link)
+			if err != nil {
+				return err
+			}
+			if len(entries) != 0 {
+				return fmt.Errorf("refusing to replace non-empty directory %q with a symlink", link)
+			}
+			if err := os.Remove(link); err != nil {
+				return err
+			}
+		}
+	}
+	if err := os.Symlink(target, link); err != nil && !os.IsExist(err) {
+		return err
+	}
+	return nil
 }
 
 func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
