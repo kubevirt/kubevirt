@@ -22,51 +22,59 @@ package netbinding
 import (
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
-	var pluginSidecars hooks.HookSidecarList
-
-	netbindingPluginSidecars, err := netBindingPluginSidecar(vmi, config)
-	if err != nil {
-		return nil, err
+	var registeredBindings map[string]v1.InterfaceBindingPlugin
+	if config.NetworkConfiguration != nil && config.NetworkConfiguration.Binding != nil {
+		registeredBindings = config.NetworkConfiguration.Binding
 	}
-	pluginSidecars = append(pluginSidecars, netbindingPluginSidecars...)
 
-	return pluginSidecars, nil
-}
+	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
+	sidecars := map[string]*hooks.HookSidecar{}
 
-func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
-	var pluginSidecars hooks.HookSidecarList
-	bindingByName := map[string]v1.InterfaceBindingPlugin{}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Binding != nil {
-			var exist bool
-			var pluginInfo v1.InterfaceBindingPlugin
-			if config.NetworkConfiguration != nil && config.NetworkConfiguration.Binding != nil {
-				pluginInfo, exist = config.NetworkConfiguration.Binding[iface.Binding.Name]
-				bindingByName[iface.Binding.Name] = pluginInfo
-			}
-
-			if !exist {
-				return nil, fmt.Errorf("couldn't find configuration for network binding: %s", iface.Binding.Name)
-			}
+		if iface.Binding == nil {
+			continue
 		}
-	}
 
-	for bindingName, pluginInfo := range bindingByName {
-		if pluginInfo.SidecarImage != "" {
-			pluginSidecars = append(pluginSidecars, hooks.HookSidecar{
+		pluginInfo, exist := registeredBindings[iface.Binding.Name]
+		if !exist {
+			return nil, fmt.Errorf("couldn't find configuration for network binding: %s", iface.Binding.Name)
+		}
+
+		if pluginInfo.SidecarImage == "" {
+			continue
+		}
+
+		if _, seen := sidecars[iface.Binding.Name]; !seen {
+			sidecars[iface.Binding.Name] = &hooks.HookSidecar{
 				Image:                    pluginInfo.SidecarImage,
 				ImagePullPolicy:          config.ImagePullPolicy,
 				DownwardAPI:              pluginInfo.DownwardAPI,
-				NetworkBindingPluginName: bindingName,
-			})
+				NetworkBindingPluginName: iface.Binding.Name,
+			}
+		}
+
+		if net, ok := networkByName[iface.Name]; ok && vmispec.IsDRANetwork(net) {
+			sidecars[iface.Binding.Name].ResourceClaims = append(sidecars[iface.Binding.Name].ResourceClaims,
+				k8sv1.ResourceClaim{
+					Name:    net.ResourceClaim.ClaimName,
+					Request: net.ResourceClaim.RequestName,
+				})
 		}
 	}
 
-	return pluginSidecars, nil
+	result := make(hooks.HookSidecarList, 0, len(sidecars))
+	for _, sc := range sidecars {
+		result = append(result, *sc)
+	}
+
+	return result, nil
 }

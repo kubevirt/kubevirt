@@ -56,6 +56,7 @@ type HookSidecar struct {
 	PVC                      *PVC                             `json:"pvc,omitempty"`
 	DownwardAPI              v1.NetworkBindingDownwardAPIType `json:"-"`
 	NetworkBindingPluginName string                           `json:"-"`
+	ResourceClaims           []k8sv1.ResourceClaim            `json:"-"`
 }
 
 func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {
