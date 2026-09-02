@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -88,6 +89,13 @@ type MigrationTargetController struct {
 	passtRepairHandler        passtRepairTargetHandler
 	pluginExecutor            plugins.NodeHookExecutor
 	vmiExpectations           *controller.UIDTrackingControllerExpectations
+	migrationProxy            targetProxyManager
+}
+
+type targetProxyManager interface {
+	StartTargetListener(key string, mountRoot *safepath.Path, targetUnixFiles []string) error
+	GetTargetListenerPorts(key string) map[string]int
+	StopTargetListener(key string)
 }
 
 func NewMigrationTargetController(
@@ -100,7 +108,7 @@ func NewMigrationTargetController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
+	migrationProxy targetProxyManager,
 	virtLauncherFSRunDirPattern string,
 	capabilities *libvirtxml.Caps,
 	netConf netconf,
@@ -131,7 +139,7 @@ func NewMigrationTargetController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		migrationProxy,
+		nil,
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
@@ -153,6 +161,7 @@ func NewMigrationTargetController(
 		passtRepairHandler:        passtRepairHandler,
 		pluginExecutor:            pluginExecutor,
 		vmiExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationProxy:            migrationProxy,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
