@@ -1417,18 +1417,6 @@ func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPIT
 	return nil, fmt.Errorf("Firmware's volume for %s was not found", source)
 }
 
-func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.IOThreadsPolicy != nil {
-		return true
-	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
-			return true
-		}
-	}
-	return false
-}
-
 func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
 	dedicatedThreads := 0
 
@@ -1483,7 +1471,7 @@ func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 }
 
 func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint) {
-	if !hasIOThreads(vmi) {
+	if !vcpu.HasIOThreads(vmi) {
 		return
 	}
 	currentAutoThread := defaultIOThread
@@ -1740,6 +1728,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
+
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 		emptyCDRom := false
@@ -1889,6 +1878,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.OS.Type.Machine = machine.Type
 	}
 
+	setIOThreads(vmi, domain, vcpus)
+
 	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
@@ -1935,7 +1926,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads(vmi))
+			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet)
 			if err != nil {
 				return err
 			}
@@ -2102,8 +2093,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
-
-	setIOThreads(vmi, domain, vcpus)
 
 	return nil
 }
