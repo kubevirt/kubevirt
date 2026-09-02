@@ -84,7 +84,6 @@ import (
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
@@ -100,6 +99,11 @@ type downwardMetricsManager interface {
 	Run(stopCh chan struct{})
 	StartServer(vmi *v1.VirtualMachineInstance, pid int) error
 	StopServer(vmi *v1.VirtualMachineInstance)
+}
+
+type proxyCleaner interface {
+	StopTargetListener(key string)
+	StopSourceListener(key string)
 }
 
 type VirtualMachineController struct {
@@ -122,6 +126,7 @@ type VirtualMachineController struct {
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
+	migrationProxy           proxyCleaner
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
@@ -141,7 +146,7 @@ func NewVirtualMachineController(
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
+	migrationProxy proxyCleaner,
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *libvirtxml.Caps,
 	hostCpuModel string,
@@ -173,7 +178,7 @@ func NewVirtualMachineController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		migrationProxy,
+		nil,
 		"/proc/%d/root/var/run",
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
@@ -201,6 +206,7 @@ func NewVirtualMachineController(
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 		cbtHandler:               cbtHandler,
 		pluginExecutor:           pluginExecutor,
+		migrationProxy:           migrationProxy,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
