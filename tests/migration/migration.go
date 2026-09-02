@@ -760,7 +760,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Eventually(matcher.ThisMigration(migration)).WithPolling(5 * time.Second).WithTimeout(2 * time.Minute).Should(matcher.BeInPhase(v1.MigrationFailed))
 			})
 		})
-		Context(" with auto converge enabled", Serial, decorators.WgS390x, func() {
+		Context(" with auto converge enabled", Serial, decorators.ModifiesKubeVirtCR, decorators.WgS390x, func() {
 			BeforeEach(func() {
 
 				// set autoconverge flag
@@ -1114,7 +1114,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			return dv
 		}
 
-		Context(" migration to nonroot", Serial, func() {
+		Context(" migration to nonroot", Serial, decorators.ModifiesKubeVirtCR, func() {
 			var dv *cdiv1.DataVolume
 			size := "256Mi"
 			var clusterIsRoot bool
@@ -1198,7 +1198,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, console.LoginToAlpine),
 			)
 		})
-		Context(" migration to root", Serial, func() {
+		Context(" migration to root", Serial, decorators.ModifiesKubeVirtCR, func() {
 			var dv *cdiv1.DataVolume
 			var clusterIsRoot bool
 			size := "256Mi"
@@ -1286,7 +1286,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 		})
 		Context("migration security", func() {
-			Context(" with TLS disabled", Serial, func() {
+			Context(" with TLS disabled", Serial, decorators.ModifiesKubeVirtCR, func() {
 				It("[test_id:6976] should be successfully migrated", decorators.WgS390x, func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
@@ -1466,7 +1466,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 		})
 
-		Context(" migration monitor", Serial, func() {
+		Context(" migration monitor", Serial, decorators.ModifiesKubeVirtCR, func() {
 			var createdPods []string
 			AfterEach(func() {
 				for _, podName := range createdPods {
@@ -2073,7 +2073,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		})
 
-		Context(" with migration policies", Serial, func() {
+		Context(" with migration policies", Serial, decorators.ModifiesKubeVirtCR, func() {
 			confirmMigrationPolicyName := func(vmi *v1.VirtualMachineInstance, expectedName *string) {
 				By("Verifying the VMI's configuration source")
 				if expectedName == nil {
@@ -2130,7 +2130,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		})
 
-		Context("with downtime tuning", Serial, func() {
+		Context("with downtime tuning", Serial, decorators.ModifiesKubeVirtCR, func() {
 			BeforeEach(func() {
 				kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
 			})
@@ -2289,7 +2289,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 		})
 
-		Context(" with freePageReporting", Serial, decorators.WgS390x, func() {
+		Context(" with freePageReporting", Serial, decorators.ModifiesKubeVirtCR, decorators.WgS390x, func() {
 
 			BeforeEach(func() {
 				kv := libkubevirt.GetCurrentKv(virtClient)
@@ -2708,7 +2708,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 	})
 
-	Context("with a dedicated migration network", Serial, func() {
+	Context("with a dedicated migration network", Serial, decorators.ModifiesKubeVirtCR, func() {
 		var nadName string
 
 		BeforeEach(func() {

@@ -163,7 +163,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 		},
 			Entry("a migration policy", applyWithMigrationPolicy),
-			Entry("the Kubevirt CR", Serial, applyWithKubevirtCR),
+			Entry("the Kubevirt CR", Serial, decorators.ModifiesKubeVirtCR, applyWithKubevirtCR),
 		)
 
 		Context("with a guest-agent-ping liveness probe", func() {
@@ -208,7 +208,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			})
 		})
 
-		Context("and fail", Serial, func() {
+		Context("and fail", Serial, decorators.ModifiesKubeVirtCR, func() {
 			var killerPod string
 
 			runVirtHandlerKillerPod := func(nodeName string) {

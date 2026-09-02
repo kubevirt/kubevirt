@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
-var _ = Describe(SIGSerial("tls configuration", func() {
+var _ = Describe(SIGSerial("tls configuration", decorators.ModifiesKubeVirtCR, func() {
 	// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
 	cipher := &tls.CipherSuite{
 		ID:   tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,

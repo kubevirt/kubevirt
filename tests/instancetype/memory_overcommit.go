@@ -33,7 +33,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		virtClient = kubevirt.Client()
 	})
 
-	It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", Serial, func() {
+	It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", Serial, decorators.ModifiesKubeVirtCR, func() {
 		kv := libkubevirt.GetCurrentKv(virtClient)
 
 		config := kv.Spec.Configuration

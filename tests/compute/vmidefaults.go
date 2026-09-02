@@ -118,7 +118,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			}
 		})
 
-		DescribeTable("Should override period in domain if present in virt-config ", Serial, func(period uint32) {
+		DescribeTable("Should override period in domain if present in virt-config ", Serial, decorators.ModifiesKubeVirtCR, func(period uint32) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period

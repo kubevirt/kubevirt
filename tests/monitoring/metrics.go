@@ -261,7 +261,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		})
 	})
 
-	Context("Configuration metrics", Serial, func() {
+	Context("Configuration metrics", Serial, decorators.ModifiesKubeVirtCR, func() {
 		It("kubevirt_configuration_emulation_enabled is 1 when useEmulation=true", func() {
 			updateUseEmulationAndWaitForMetric(virtClient, true)
 		})

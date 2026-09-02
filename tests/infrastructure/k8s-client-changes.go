@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
+var _ = Describe(SIGSerial("changes to the kubernetes client", decorators.ModifiesKubeVirtCR, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		err        error

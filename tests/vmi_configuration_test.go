@@ -324,7 +324,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		},
 			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled", false),
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
-			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
+			Entry("should enable EFI secure boot with firmware auto-selection", Serial, decorators.ModifiesKubeVirtCR, true, "SecureBoot enabled", true),
 		)
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
@@ -726,7 +726,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("using defaultRuntimeClass configuration", Serial, func() {
+		Context("using defaultRuntimeClass configuration", Serial, decorators.ModifiesKubeVirtCR, func() {
 			var runtimeClassName string
 
 			BeforeEach(func() {
@@ -775,7 +775,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 
-		Context("with guest-to-request memory ", Serial, decorators.WgS390x, func() {
+		Context("with guest-to-request memory ", Serial, decorators.ModifiesKubeVirtCR, decorators.WgS390x, func() {
 			setHeadroom := func(ratioStr string) {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -839,7 +839,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, Serial, func() {
+	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, Serial, decorators.ModifiesKubeVirtCR, func() {
 		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
 		testEmulatedMachinesS390x := []string{"s390-ccw-virtio*"}
 

@@ -599,7 +599,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when virt-handler is not responsive", Serial, func() {
+		Context("when virt-handler is not responsive", Serial, decorators.ModifiesKubeVirtCR, func() {
 
 			var vmi *v1.VirtualMachineInstance
 			var nodeName string
@@ -716,7 +716,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
+		Context("with default cpu model", Serial, decorators.ModifiesKubeVirtCR, decorators.WgS390x, decorators.CPUModel, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
 			var defaultCPUModel string

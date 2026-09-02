@@ -217,7 +217,7 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 
 		})
 
-		When("Control plane pods temporarily lose connection to Kubernetes API", func() {
+		When("Control plane pods temporarily lose connection to Kubernetes API", decorators.ModifiesKubeVirtCR, func() {
 			// virt-handler is the only component that has the tools to add blackhole routes for testing healthz. Ideally we would test all component healthz endpoints.
 			componentName := "virt-handler"
 

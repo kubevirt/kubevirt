@@ -59,7 +59,7 @@ const (
 	inPlace        hotplugMethod = "inPlace"
 )
 
-var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
+var _ = Describe(SIG("bridge nic-hotplug", Serial, decorators.ModifiesKubeVirtCR, func() {
 	BeforeEach(func() {
 		virtClient := kubevirt.Client()
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
@@ -262,7 +262,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 	})
 }))
 
-var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
+var _ = Describe(SIG("bridge nic-hotunplug", Serial, decorators.ModifiesKubeVirtCR, func() {
 	BeforeEach(func() {
 		virtClient := kubevirt.Client()
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{

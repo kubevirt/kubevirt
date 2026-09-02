@@ -207,7 +207,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
-			Context(" with node tainted during node drain", Serial, func() {
+			Context(" with node tainted during node drain", Serial, decorators.ModifiesKubeVirtCR, func() {
 
 				var (
 					nodeAffinity     *k8sv1.NodeAffinity
@@ -520,7 +520,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 		})
 	})
 
-	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, decorators.WgS390x, func() {
+	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, decorators.ModifiesKubeVirtCR, decorators.WgS390x, func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {

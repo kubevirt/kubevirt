@@ -530,7 +530,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, decorat
 		})
 	})
 
-	Context("VM Snapshots", func() {
+	Context("VM Snapshots", decorators.ModifiesKubeVirtCR, func() {
 		var snap *snapshotv1.VirtualMachineSnapshot
 
 		BeforeEach(func() {
@@ -609,7 +609,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, decorat
 		})
 	})
 
-	Context("VM Restores", func() {
+	Context("VM Restores", decorators.ModifiesKubeVirtCR, func() {
 		var restore *snapshotv1.VirtualMachineRestore
 
 		BeforeEach(func() {
