@@ -302,6 +302,16 @@ const (
 	// SCSIMultiIOThread enables iothread virtqueue mapping for virtio-scsi devices
 	// by leveraging IOThreadsPolicy to allocate thread pools to the SCSI Controller Driver.
 	SCSIMultiIOThread = "SCSIMultiIOThread"
+
+	// Owner: sig-storage / @alromeros
+	// Alpha: v1.10.0
+	//
+	// DeclarativeVMState enables the declarative virtualMachineState API field,
+	// which references or templates the PVC that backs the VirtualMachineState
+	// (persistent UEFI, TPM and CBT state). The gate controls API admission only:
+	// VMs already created with the field keep using the declarative path even if
+	// the gate is later disabled.
+	DeclarativeVMState = "DeclarativeVMState"
 )
 
 func init() {
@@ -351,4 +361,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: TLSGroupPreferences, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 }
