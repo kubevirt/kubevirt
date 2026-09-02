@@ -1082,11 +1082,23 @@ func exportServiceNeedsRecreate(service *corev1.Service) bool {
 }
 
 func (ctrl *VMExportController) deleteIncompatibleExportService(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) error {
+	// Recreate the exporter pod on the next reconcile so createManifestAndAddToPod
+	// rewrites internal_host with ExportServerPort. Existing pods keep a stale
+	// ConfigMap mount from the pre-upgrade Service (ClusterIP and/or port 443).
+	// Always attempt this, including when the Service is already terminating;
+	// otherwise manageExporterPod would reuse the old pod and skip the rewrite.
+	podName := ctrl.getExportPodName(vmExport)
+	log.Log.V(3).Infof("Deleting exporter pod %s/%s for incompatible service replace", vmExport.Namespace, podName)
+	err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
 	if service.DeletionTimestamp != nil {
 		return nil
 	}
 	log.Log.V(3).Infof("Deleting incompatible exporter service %s/%s", service.Namespace, service.Name)
-	err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
+	err = ctrl.Client.CoreV1().Services(vmExport.Namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
