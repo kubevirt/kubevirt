@@ -636,6 +636,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.VirtualMachineSpec{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref),
 		corev1.VirtualMachineStartFailure{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_VirtualMachineStartFailure(ref),
 		corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName():                                      schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref),
+		corev1.VirtualMachineStateSource{}.OpenAPIModelName():                                             schema_kubevirtio_api_core_v1_VirtualMachineStateSource(ref),
+		corev1.VirtualMachineStateSpec{}.OpenAPIModelName():                                               schema_kubevirtio_api_core_v1_VirtualMachineStateSpec(ref),
 		corev1.VirtualMachineStatus{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref),
 		corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName():                                           schema_kubevirtio_api_core_v1_VirtualMachineVolumeRequest(ref),
 		corev1.Volume{}.OpenAPIModelName():                                                                schema_kubevirtio_api_core_v1_Volume(ref),
@@ -29816,12 +29818,18 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 					},
+					"virtualMachineState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineState references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). When set, it takes precedence over the implicit VirtualMachineState PVC creation that happens when persistent TPM/EFI or CBT is enabled, and any enabled TPM or EFI feature is treated as persistent.",
+							Ref:         ref(corev1.VirtualMachineStateSpec{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},
 		},
 		Dependencies: []string{
-			v1.Affinity{}.OpenAPIModelName(), v1.PodDNSConfig{}.OpenAPIModelName(), v1.Toleration{}.OpenAPIModelName(), v1.TopologySpreadConstraint{}.OpenAPIModelName(), corev1.AccessCredential{}.OpenAPIModelName(), corev1.DomainSpec{}.OpenAPIModelName(), corev1.Network{}.OpenAPIModelName(), corev1.Probe{}.OpenAPIModelName(), corev1.UtilityVolume{}.OpenAPIModelName(), corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName(), corev1.Volume{}.OpenAPIModelName()},
+			v1.Affinity{}.OpenAPIModelName(), v1.PodDNSConfig{}.OpenAPIModelName(), v1.Toleration{}.OpenAPIModelName(), v1.TopologySpreadConstraint{}.OpenAPIModelName(), corev1.AccessCredential{}.OpenAPIModelName(), corev1.DomainSpec{}.OpenAPIModelName(), corev1.Network{}.OpenAPIModelName(), corev1.Probe{}.OpenAPIModelName(), corev1.UtilityVolume{}.OpenAPIModelName(), corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName(), corev1.VirtualMachineStateSpec{}.OpenAPIModelName(), corev1.Volume{}.OpenAPIModelName()},
 	}
 }
 
@@ -30072,6 +30080,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Description: "ChangedBlockTracking represents the status of the changedBlockTracking",
 							Ref:         ref(corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName()),
+						},
+					},
+					"virtualMachineStateVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+							Ref:         ref(corev1.VolumeStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -30394,6 +30408,55 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref common.R
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineStateSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineStateSource references an existing PVC to adopt as the starting VirtualMachineState.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the source PVC.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineStateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineStateSpec references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). At least one of VolumeClaimTemplate or Source must be set.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeClaimTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeClaimTemplate is the template the controller uses to create PVCs it owns. It is used for the initial PVC when Source is unset, and for every new PVC the controller creates later for operations like live migration. The controller owns the PVC name via GenerateName, so volumeClaimTemplate.metadata.name must not be set. The referenced volume mode must be Filesystem.",
+							Ref:         ref(v1.PersistentVolumeClaimTemplate{}.OpenAPIModelName()),
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is an existing PVC to adopt as the starting VirtualMachineState. The controller does not take ownership of a PVC referenced this way.",
+							Ref:         ref(corev1.VirtualMachineStateSource{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.PersistentVolumeClaimTemplate{}.OpenAPIModelName(), corev1.VirtualMachineStateSource{}.OpenAPIModelName()},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30554,11 +30617,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref(corev1.InstancetypeStatusRef{}.OpenAPIModelName()),
 						},
 					},
+					"virtualMachineStateVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+							Ref:         ref(corev1.VolumeStatus{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.InstancetypeStatusRef{}.OpenAPIModelName(), corev1.VirtualMachineCondition{}.OpenAPIModelName(), corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName(), corev1.VirtualMachineStartFailure{}.OpenAPIModelName(), corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName(), corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName(), corev1.VolumeSnapshotStatus{}.OpenAPIModelName(), corev1.VolumeUpdateState{}.OpenAPIModelName()},
+			corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.InstancetypeStatusRef{}.OpenAPIModelName(), corev1.VirtualMachineCondition{}.OpenAPIModelName(), corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName(), corev1.VirtualMachineStartFailure{}.OpenAPIModelName(), corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName(), corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName(), corev1.VolumeSnapshotStatus{}.OpenAPIModelName(), corev1.VolumeStatus{}.OpenAPIModelName(), corev1.VolumeUpdateState{}.OpenAPIModelName()},
 	}
 }
 
