@@ -231,4 +231,5 @@ type VMStats struct {
 	GuestNetworkGetRoute      string
 	GuestNetworkGetInterfaces string
 	GuestGetMemoryBlocks      string
+	GuestGetDevices           string
 }

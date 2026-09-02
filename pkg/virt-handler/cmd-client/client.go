@@ -547,6 +547,7 @@ func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.V
 	result.GuestNetworkGetRoute = vmstatsResponse.GetGuestNetworkGetRoute().GetMessage()
 	result.GuestNetworkGetInterfaces = vmstatsResponse.GetGuestNetworkGetInterfaces().GetMessage()
 	result.GuestGetMemoryBlocks = vmstatsResponse.GetGuestGetMemoryBlocks().GetMessage()
+	result.GuestGetDevices = vmstatsResponse.GetGuestGetDevices().GetMessage()
 
 	return result, err
 }
