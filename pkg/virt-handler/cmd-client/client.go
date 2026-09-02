@@ -524,7 +524,7 @@ func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.V
 		}
 	}
 
-	if vmstatsResponse.GetDirtyRateStats() != nil {
+	if vmstatsResponse.GetDirtyRateStats().GetResponse().GetSuccess() {
 		result.DirtyRateMbps = ptr.To(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
 	}
 
