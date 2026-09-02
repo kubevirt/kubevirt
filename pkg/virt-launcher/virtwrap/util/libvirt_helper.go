@@ -22,6 +22,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/translate"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -152,6 +153,12 @@ func ApplySidecarHooks(vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpe
 		return "", err
 	}
 	domainSpecObj.DeepCopyInto(wantedSpec)
+
+	// Go's encoding/xml cannot unmarshal namespace-prefixed struct tags
+	// (e.g. xml:"qemu:commandline"), so QEMUCmd is silently lost during
+	// the round-trip above. Re-extract it from the hook-returned XML
+	// using namespace-aware token parsing.
+	translate.TransferQEMUCommandline(domainSpec, wantedSpec)
 
 	return domainSpec, nil
 }
