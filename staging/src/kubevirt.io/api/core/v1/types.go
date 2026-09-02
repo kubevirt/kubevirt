@@ -201,6 +201,38 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
+	// VirtualMachineState references or templates the PVC that backs the
+	// VirtualMachineState (persistent UEFI, TPM and CBT state).
+	// When set, it takes precedence over the implicit VirtualMachineState PVC
+	// creation that happens when persistent TPM/EFI or CBT is enabled, and any
+	// enabled TPM or EFI feature is treated as persistent.
+	// +optional
+	VirtualMachineState *VirtualMachineStateSpec `json:"virtualMachineState,omitempty"`
+}
+
+// VirtualMachineStateSpec references or templates the PVC that backs the
+// VirtualMachineState (persistent UEFI, TPM and CBT state).
+// At least one of VolumeClaimTemplate or Source must be set.
+type VirtualMachineStateSpec struct {
+	// VolumeClaimTemplate is the template the controller uses to create PVCs it
+	// owns. It is used for the initial PVC when Source is unset, and for every
+	// new PVC the controller creates later for operations like live migration.
+	// The controller owns the PVC name via GenerateName, so
+	// volumeClaimTemplate.metadata.name must not be set. The referenced volume
+	// mode must be Filesystem.
+	// +optional
+	VolumeClaimTemplate *k8sv1.PersistentVolumeClaimTemplate `json:"volumeClaimTemplate,omitempty"`
+	// Source is an existing PVC to adopt as the starting VirtualMachineState.
+	// The controller does not take ownership of a PVC referenced this way.
+	// +optional
+	Source *VirtualMachineStateSource `json:"source,omitempty"`
+}
+
+// VirtualMachineStateSource references an existing PVC to adopt as the starting
+// VirtualMachineState.
+type VirtualMachineStateSource struct {
+	// Name of the source PVC.
+	Name string `json:"name"`
 }
 
 type VirtualMachineInstanceResourceClaim struct {
@@ -364,6 +396,14 @@ type VirtualMachineInstanceStatus struct {
 	// +nullable
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
+
+	// VirtualMachineStateVolume tracks the live VirtualMachineState PVC
+	// (persistent UEFI, TPM and CBT state). It is the source of truth for the
+	// PVC name, which may differ from the referenced source after a migration.
+	// It is populated for both the declarative and the implicit paths.
+	// +nullable
+	// +optional
+	VirtualMachineStateVolume *VolumeStatus `json:"virtualMachineStateVolume,omitempty" optional:"true"`
 }
 
 // StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration
@@ -767,6 +807,11 @@ const (
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Reason means that VMI is not decentralized live migratable, the reason is specified in the condition message
 	VirtualMachineInstanceReasonDecentralizedNotMigratable = "DecentralizedNotLiveMigratable"
+	// Reason means that VMI is not live migratable because its VirtualMachineState PVC is
+	// RWO and referenced through source only, with no volumeClaimTemplate to create a
+	// destination PVC from.
+	// TODO(VEP #312): Implement RWO live migration in a follow up PR.
+	VirtualMachineInstanceReasonVirtualMachineStateNotMigratable = "VirtualMachineStateNotLiveMigratable"
 	// Reason means that not all of the VMI's DVs are ready
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and ready
@@ -2189,6 +2234,14 @@ type VirtualMachineStatus struct {
 	//+nullable
 	//+optional
 	PreferenceRef *InstancetypeStatusRef `json:"preferenceRef,omitempty"`
+
+	// VirtualMachineStateVolume tracks the live VirtualMachineState PVC
+	// (persistent UEFI, TPM and CBT state). It is the source of truth for the
+	// PVC name, which may differ from the referenced source after a migration.
+	// It is populated for both the declarative and the implicit paths.
+	// +nullable
+	// +optional
+	VirtualMachineStateVolume *VolumeStatus `json:"virtualMachineStateVolume,omitempty" optional:"true"`
 }
 
 type ControllerRevisionRef struct {
