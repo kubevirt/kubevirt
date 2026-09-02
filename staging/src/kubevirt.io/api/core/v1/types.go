@@ -2150,6 +2150,9 @@ const (
 	// VirtualMachineStatusWaitingForReceiver indicates that this virtual machine is a receiver VM and
 	// migration should start next.
 	VirtualMachineStatusWaitingForReceiver VirtualMachinePrintableStatus = "WaitingForReceiver"
+	// VirtualMachineStatusVMStateInUse indicates that the VirtualMachineState PVC referenced by the
+	// virtual machine is already in use by another running virtual machine.
+	VirtualMachineStatusVMStateInUse VirtualMachinePrintableStatus = "ErrorVMStateInUse"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
