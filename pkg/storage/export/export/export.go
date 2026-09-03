@@ -106,6 +106,10 @@ const (
 	// annCertParams stores "current" cert rotation params in pod in order to detect changes
 	annCertParams = "kubevirt.io/export.certParameters"
 
+	// exportExternalCertificationQueueKey is the singleton work item for syncing
+	// the KubeVirt ExportCustomExternalCA condition.
+	exportExternalCertificationQueueKey = "export-external-certification"
+
 	caDefaultPath = "/etc/virt-controller/exportca"
 	caCertFile    = caDefaultPath + "/tls.crt"
 	caKeyFile     = caDefaultPath + "/tls.key"
@@ -332,6 +336,7 @@ type VMExportController struct {
 	VMInformer                  cache.SharedIndexInformer
 	VMIInformer                 cache.SharedIndexInformer
 	RouteConfigMapInformer      cache.SharedInformer
+	ExternalCAConfigMapInformer cache.SharedInformer
 	RouteCache                  cache.Store
 	IngressCache                cache.Store
 	SecretInformer              cache.SharedIndexInformer
@@ -471,11 +476,35 @@ func (ctrl *VMExportController) Init() error {
 	}
 	_, err = ctrl.KubeVirtInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: ctrl.handleKubeVirt,
+			AddFunc:    ctrl.handleKubeVirt,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleKubeVirtUpdate(oldObj, newObj) },
+			DeleteFunc: ctrl.handleKubeVirt,
 		},
 	)
 	if err != nil {
 		return err
+	}
+	_, err = ctrl.RouteConfigMapInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleExportCAConfigMap,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleExportCAConfigMap(newObj) },
+			DeleteFunc: ctrl.handleExportCAConfigMap,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if ctrl.ExternalCAConfigMapInformer != nil {
+		_, err = ctrl.ExternalCAConfigMapInformer.AddEventHandler(
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    ctrl.handleExportCAConfigMap,
+				UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleExportCAConfigMap(newObj) },
+				DeleteFunc: ctrl.handleExportCAConfigMap,
+			},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	if ctrl.VMTemplateInformer != nil {
 		_, err = ctrl.VMTemplateInformer.AddEventHandler(
@@ -550,6 +579,9 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.VMBackupInformer.HasSynced,
 		ctrl.VMBackupTrackerInformer.HasSynced,
 	}
+	if ctrl.ExternalCAConfigMapInformer != nil {
+		cacheSyncs = append(cacheSyncs, ctrl.ExternalCAConfigMapInformer.HasSynced)
+	}
 	if ctrl.VMTemplateInformer != nil {
 		cacheSyncs = append(cacheSyncs, ctrl.VMTemplateInformer.HasSynced)
 	}
@@ -573,6 +605,10 @@ func (ctrl *VMExportController) vmExportWorker() {
 
 func (ctrl *VMExportController) processVMExportWorkItem() bool {
 	return watchutil.ProcessWorkItem(ctrl.vmExportQueue, func(key string) (time.Duration, error) {
+		if key == exportExternalCertificationQueueKey {
+			return 0, ctrl.reconcileExportExternalCertification()
+		}
+
 		log.Log.V(3).Infof("vmExport worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(key)
@@ -627,22 +663,49 @@ func (ctrl *VMExportController) handleService(obj interface{}) {
 	}
 }
 
-func (ctrl *VMExportController) handleKubeVirt(oldObj, newObj interface{}) {
+func (ctrl *VMExportController) handleKubeVirt(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+	if _, ok := obj.(*virtv1.KubeVirt); !ok {
+		return
+	}
+	// Always requeue condition sync so operator status overwrites are repaired.
+	ctrl.enqueueExportExternalCertification()
+}
+
+func (ctrl *VMExportController) handleKubeVirtUpdate(oldObj, newObj interface{}) {
 	okv, ok := oldObj.(*virtv1.KubeVirt)
 	if !ok {
 		return
 	}
-
 	nkv, ok := newObj.(*virtv1.KubeVirt)
 	if !ok {
 		return
 	}
 
-	if equality.Semantic.DeepEqual(okv.Spec.CertificateRotationStrategy, nkv.Spec.CertificateRotationStrategy) {
+	// Always requeue condition sync so operator status overwrites are repaired.
+	ctrl.enqueueExportExternalCertification()
+
+	certStrategyEqual := equality.Semantic.DeepEqual(okv.Spec.CertificateRotationStrategy, nkv.Spec.CertificateRotationStrategy)
+	exportConfigEqual := equality.Semantic.DeepEqual(okv.Spec.Configuration.ExportConfiguration, nkv.Spec.Configuration.ExportConfiguration)
+	if certStrategyEqual && exportConfigEqual {
 		return
 	}
 
-	// queue everything
+	ctrl.enqueueAllVMExports()
+}
+
+func (ctrl *VMExportController) handleExportCAConfigMap(_ interface{}) {
+	ctrl.enqueueExportExternalCertification()
+	ctrl.enqueueAllVMExports()
+}
+
+func (ctrl *VMExportController) enqueueExportExternalCertification() {
+	ctrl.vmExportQueue.Add(exportExternalCertificationQueueKey)
+}
+
+func (ctrl *VMExportController) enqueueAllVMExports() {
 	keys := ctrl.VMExportInformer.GetStore().ListKeys()
 	for _, key := range keys {
 		ctrl.vmExportQueue.Add(key)

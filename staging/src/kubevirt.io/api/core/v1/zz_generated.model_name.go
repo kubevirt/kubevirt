@@ -369,6 +369,11 @@ func (in ExperimentalMigrationOptions) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ExportConfiguration) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.ExportConfiguration"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in FeatureAPIC) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.FeatureAPIC"
 }
