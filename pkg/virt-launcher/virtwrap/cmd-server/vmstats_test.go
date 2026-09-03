@@ -170,6 +170,33 @@ var _ = Describe("GetVMStats", func() {
 			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.GuestAgentVersion).To(BeNil())
 		})
+
+		It("should return device data when guest-get-devices is requested", func() {
+			const devicesData = `{"return":[{"driver-name":"vioscsi"}]}`
+			domainManager.EXPECT().GetGuestAgentVersion().Return("5.2")
+			domainManager.EXPECT().GetAgentData("guest-get-devices").Return(devicesData, nil)
+
+			request := &cmdv1.VMStatsRequest{GuestGetDevices: &cmdv1.AgentDevicesRequest{}}
+			response, err := server.GetVMStats(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Response.Success).To(BeTrue())
+			Expect(response.GuestGetDevices.Success).To(BeTrue())
+			Expect(response.GuestGetDevices.Message).To(Equal(devicesData))
+		})
+
+		It("should report success with empty data when a command is unsupported by the guest agent", func() {
+			domainManager.EXPECT().GetGuestAgentVersion().Return("5.2")
+			domainManager.EXPECT().GetAgentData("guest-get-devices").Return("", nil)
+
+			request := &cmdv1.VMStatsRequest{GuestGetDevices: &cmdv1.AgentDevicesRequest{}}
+			response, err := server.GetVMStats(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Response.Success).To(BeTrue())
+			Expect(response.GuestGetDevices.Success).To(BeTrue())
+			Expect(response.GuestGetDevices.Message).To(BeEmpty())
+		})
 	})
 
 	Context("combined request", func() {

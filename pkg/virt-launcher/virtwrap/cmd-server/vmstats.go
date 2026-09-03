@@ -51,6 +51,7 @@ var agentDataFields = []agentDataField{
 	{"guest-network-get-route", func(r *cmdv1.VMStatsRequest) bool { return r.GuestNetworkGetRoute != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestNetworkGetRoute = resp }},
 	{"guest-network-get-interfaces", func(r *cmdv1.VMStatsRequest) bool { return r.GuestNetworkGetInterfaces != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestNetworkGetInterfaces = resp }},
 	{"guest-get-memory-blocks", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetMemoryBlocks != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetMemoryBlocks = resp }},
+	{"guest-get-devices", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDevices != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDevices = resp }},
 }
 
 func AgentDataCommandKeys() []string {

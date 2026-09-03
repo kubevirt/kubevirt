@@ -158,6 +158,7 @@ var agentDataCommandTTLs = map[string]time.Duration{
 
 	// 30min
 	"guest-get-memory-blocks": thirtyMinutes,
+	"guest-get-devices":       thirtyMinutes,
 }
 
 type contextStore struct {
@@ -430,7 +431,16 @@ func newLibvirtDomainManager(
 		manager.agentDataCaches = make(map[string]*virtcache.TimeDefinedCache[string], len(agentDataCommandTTLs))
 		for cmd, ttl := range agentDataCommandTTLs {
 			reCalcFunc := func() (string, error) {
-				return connection.QemuAgentCommand(`{"execute":"`+string(cmd)+`"}`, domainName)
+				data, err := connection.QemuAgentCommand(`{"execute":"`+string(cmd)+`"}`, domainName)
+				if err != nil && isAgentCommandNotSupported(err) {
+					// The guest agent does not implement this command (for
+					// example guest-get-devices on non-Windows guests). Treat it
+					// as an empty successful result so the cache records a
+					// timestamp and does not re-issue the command until the TTL
+					// elapses.
+					return "", nil
+				}
+				return data, err
 			}
 			cache, err := virtcache.NewTimeDefinedCache(ttl, true, reCalcFunc)
 			if err != nil {
@@ -3028,6 +3038,17 @@ func AgentDataCommandTTLKeys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func isAgentCommandNotSupported(err error) bool {
+	var libvirtErr libvirt.Error
+	if !errors.As(err, &libvirtErr) {
+		return false
+	}
+
+	return libvirtErr.Code == libvirt.ERR_ARGUMENT_UNSUPPORTED ||
+		libvirtErr.Code == libvirt.ERR_OPERATION_UNSUPPORTED ||
+		libvirtErr.Code == libvirt.ERR_NO_SUPPORT
 }
 
 func selectEFIEnvironment(hostEFI *efi.EFIEnvironment, ovmfPath string, allowCrossArchEmulation bool, guestArch string) *efi.EFIEnvironment {

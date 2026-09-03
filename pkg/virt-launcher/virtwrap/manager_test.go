@@ -3574,6 +3574,68 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	Context("on GetAgentData", func() {
+		const devicesCmd = `{"execute":"guest-get-devices"}`
+
+		newVMStatsCollectorManager := func() DomainManager {
+			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, testDomainName, true, false, false, nil)
+			Expect(err).ToNot(HaveOccurred())
+			return manager
+		}
+
+		It("should return the agent data when the command succeeds", func() {
+			const devicesData = `{"return":[{"driver-name":"vioscsi"}]}`
+			manager := newVMStatsCollectorManager()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return(devicesData, nil).Times(1)
+
+			data, err := manager.GetAgentData("guest-get-devices")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(Equal(devicesData))
+		})
+
+		It("should cache an empty successful result when the guest agent does not support the command", func() {
+			manager := newVMStatsCollectorManager()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}).Times(1)
+
+			data, err := manager.GetAgentData("guest-get-devices")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(BeEmpty())
+
+			// The empty result is cached, so the unsupported command is not re-issued within the TTL.
+			data, err = manager.GetAgentData("guest-get-devices")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(BeEmpty())
+		})
+
+		It("should surface unexpected libvirt errors", func() {
+			manager := newVMStatsCollectorManager()
+			connErr := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", connErr)
+
+			_, err := manager.GetAgentData("guest-get-devices")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return an error for an unknown command", func() {
+			manager := newVMStatsCollectorManager()
+			_, err := manager.GetAgentData("guest-get-unknown")
+			Expect(err).To(MatchError(ContainSubstring("cache not found")))
+		})
+	})
+
+	DescribeTable("isAgentCommandNotSupported",
+		func(err error, expected bool) {
+			Expect(isAgentCommandNotSupported(err)).To(Equal(expected))
+		},
+		Entry("nil error", nil, false),
+		Entry("unsupported argument", libvirt.Error{Code: libvirt.ERR_ARGUMENT_UNSUPPORTED}, true),
+		Entry("unsupported operation", libvirt.Error{Code: libvirt.ERR_OPERATION_UNSUPPORTED}, true),
+		Entry("no support", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}, true),
+		Entry("wrapped no support", fmt.Errorf("agent command failed: %w", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}), true),
+		Entry("unrelated libvirt error", libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}, false),
+		Entry("non-libvirt error", fmt.Errorf("boom"), false),
+	)
+
 	Context("syncGuestAgentProbePaused", func() {
 		DescribeTable("should parse annotation value correctly",
 			func(annotations map[string]string, expected bool) {
