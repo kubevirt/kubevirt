@@ -133,13 +133,17 @@ type execReader struct {
 	stderr io.ReadCloser
 }
 
+type readinessGate func() (string, bool)
+
 type exportServer struct {
 	ExportServerConfig
-	handler http.Handler
+	handler        http.Handler
+	readinessGates []readinessGate
 
-	nbdClient  nbdv1.NBDClient
-	nbdMu      sync.RWMutex
-	ociBuilder *oci.Builder
+	nbdClient         nbdv1.NBDClient
+	tunnelEstablished bool
+	nbdMu             sync.RWMutex
+	ociBuilder        *oci.Builder
 }
 
 func (er *execReader) Read(p []byte) (int, error) {
@@ -184,9 +188,25 @@ func (s *exportServer) initHandler() {
 	}
 	if s.ociBuilder != nil && s.Paths.OCIURI != "" {
 		mux.Handle(s.Paths.OCIURI, tokenChecker(s.TokenGetter, s.OCIHandler(s.ociBuilder)))
+		s.readinessGates = append(s.readinessGates, func() (string, bool) {
+			if !s.ociBuilder.Ready() {
+				return "OCI digest computation in progress", false
+			}
+			return "", true
+		})
+	}
+	if len(s.Paths.Backups) > 0 {
+		s.readinessGates = append(s.readinessGates, func() (string, bool) {
+			s.nbdMu.RLock()
+			established := s.tunnelEstablished
+			s.nbdMu.RUnlock()
+			if !established {
+				return "Backup tunnel not yet established", false
+			}
+			return "", true
+		})
 	}
 
-	// Readiness probe
 	mux.HandleFunc(export.ReadinessPath, s.readyHandler)
 
 	s.handler = mux
@@ -915,9 +935,11 @@ func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
 }
 
 func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
-	if s.ociBuilder != nil && !s.ociBuilder.Ready() {
-		http.Error(w, "OCI digest computation in progress", http.StatusServiceUnavailable)
-		return
+	for _, gate := range s.readinessGates {
+		if reason, ready := gate(); !ready {
+			http.Error(w, reason, http.StatusServiceUnavailable)
+			return
+		}
 	}
 	io.WriteString(w, "OK")
 }
@@ -979,6 +1001,7 @@ func (s *exportServer) handleTunnel(w http.ResponseWriter, r *http.Request) {
 	w.(http.Flusher).Flush()
 
 	s.nbdClient = nbdv1.NewNBDClient(clientConn)
+	s.tunnelEstablished = true
 	s.nbdMu.Unlock()
 
 	log.Log.Infof("Exclusive backup tunnel established for %s", s.BackupUID)

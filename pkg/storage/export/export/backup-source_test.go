@@ -409,6 +409,25 @@ var _ = Describe("Backup source", func() {
 		),
 	)
 
+	It("Should publish not ready addresses on the export service", func() {
+		testVMExport := createBackupVMExport()
+		source := NewVMBackupSource(nil, "", "")
+
+		var service *k8sv1.Service
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			service, ok = create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			return true, service, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, source)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(service).ToNot(BeNil())
+		Expect(service.Spec.PublishNotReadyAddresses).To(BeTrue())
+	})
+
 	It("Should return error if VirtualMachineBackup is not found", func() {
 		testVMExport := createBackupVMExport()
 

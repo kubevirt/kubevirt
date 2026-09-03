@@ -102,10 +102,6 @@ func (s *VMBackupSource) ReadyCondition() exportv1.Condition {
 	return exportv1.Condition{}
 }
 
-func (s *VMBackupSource) ServicePorts() []corev1.ServicePort {
-	return []corev1.ServicePort{exportPort()}
-}
-
 func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 	for index, volume := range s.vmBackup.Status.IncludedVolumes {
 		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{

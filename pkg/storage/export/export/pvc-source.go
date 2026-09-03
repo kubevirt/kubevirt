@@ -62,10 +62,6 @@ func (s *PVCSource) ReadyCondition() exportv1.Condition {
 	return s.sourceVolumes.readyCondition
 }
 
-func (s *PVCSource) ServicePorts() []corev1.ServicePort {
-	return []corev1.ServicePort{exportPort()}
-}
-
 func (s *PVCSource) ConfigurePod(pod *corev1.Pod) {
 	s.sourceVolumes.configurePodVolumes(pod)
 }
