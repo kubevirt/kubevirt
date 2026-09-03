@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -92,7 +91,7 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{Name: draNetName, Binding: &v1.PluginBinding{Name: "netbinding"}},
 		}
-		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: new("claim1")}}
 		spec.Networks = []v1.Network{
 			{
 				Name: draNetName,
@@ -115,7 +114,7 @@ var _ = Describe("Validate network source", func() {
 			spec.Domain.Devices.Interfaces = []v1.Interface{
 				{Name: "default", Binding: &v1.PluginBinding{Name: "netbinding"}},
 			}
-			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: new("claim1")}}
 			spec.Networks = []v1.Network{
 				{
 					Name: "default",
