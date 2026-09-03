@@ -48,7 +48,7 @@ var _ collector.MetricsScraper = &VMStatsScraper{}
 type VMStatsScraper struct {
 	ch        chan *vmStatsChannelResult
 	newClient func(string) (cmdclient.LauncherClient, error)
-	request   *cmdv1.VMStatsRequest
+	requests  map[string]*cmdv1.VMStatsRequest
 }
 
 type vmStatsChannelResult struct {
@@ -57,17 +57,23 @@ type vmStatsChannelResult struct {
 	errMsg string
 }
 
-func NewVMStatsScraper(channelLength int, newClient func(string) (cmdclient.LauncherClient, error), request *cmdv1.VMStatsRequest) *VMStatsScraper {
+func NewVMStatsScraper(channelLength int, newClient func(string) (cmdclient.LauncherClient, error), requests map[string]*cmdv1.VMStatsRequest) *VMStatsScraper {
 	return &VMStatsScraper{
 		ch:        make(chan *vmStatsChannelResult, channelLength),
 		newClient: newClient,
-		request:   request,
+		requests:  requests,
 	}
 }
 
 func (s *VMStatsScraper) Scrape(socketFile string, vmi *v1.VirtualMachineInstance) {
 	ts := time.Now()
 	key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
+
+	req, ok := s.requests[key]
+	if !ok {
+		s.ch <- &vmStatsChannelResult{key: key, errMsg: "no stats request configured for VMI"}
+		return
+	}
 
 	cli, err := s.newClient(socketFile)
 	if err != nil {
@@ -77,7 +83,7 @@ func (s *VMStatsScraper) Scrape(socketFile string, vmi *v1.VirtualMachineInstanc
 	}
 	defer cli.Close()
 
-	vmStats, err := cli.GetVMStats(s.request)
+	vmStats, err := cli.GetVMStats(req)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to get VM stats")
 		s.ch <- &vmStatsChannelResult{key: key, errMsg: err.Error()}
@@ -133,24 +139,45 @@ func (h *VMStatsHandler) GetVMStats(request *restful.Request, response *restful.
 		return
 	}
 
-	statsRequest := buildVMStatsRequestFromQuery(request)
-	if *statsRequest == (cmdv1.VMStatsRequest{}) {
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("at least one stats category must be requested via query parameters"))
+	requests, err := parseVMStatsRequests(request)
+	if err != nil {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to parse request body: %v", err))
 		return
 	}
-
-	items := h.vmiStore.List()
-	vmis := make([]*v1.VirtualMachineInstance, 0, len(items))
-	for _, obj := range items {
-		if vmi, ok := obj.(*v1.VirtualMachineInstance); ok {
-			vmis = append(vmis, vmi)
+	if len(requests) == 0 {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("at least one VMI must be requested"))
+		return
+	}
+	for key, req := range requests {
+		if req == nil || *req == (cmdv1.VMStatsRequest{}) {
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("at least one stats category must be requested for %q", key))
+			return
 		}
 	}
 
-	scraper := NewVMStatsScraper(len(vmis), cmdclient.NewClient, statsRequest)
+	onNode := make(map[string]*v1.VirtualMachineInstance)
+	for _, obj := range h.vmiStore.List() {
+		if vmi, ok := obj.(*v1.VirtualMachineInstance); ok {
+			onNode[fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)] = vmi
+		}
+	}
+
+	results := make(map[string]*VMStatsResult)
+	vmis := make([]*v1.VirtualMachineInstance, 0, len(requests))
+	for key := range requests {
+		if vmi, ok := onNode[key]; ok {
+			vmis = append(vmis, vmi)
+		} else {
+			results[key] = &VMStatsResult{Error: "VMI not found on node"}
+		}
+	}
+
+	scraper := NewVMStatsScraper(len(vmis), cmdclient.NewClient, requests)
 	h.collector.Collect(vmis, scraper, collector.CollectionTimeout)
 
-	results := scraper.GetValues()
+	for key, result := range scraper.GetValues() {
+		results[key] = result
+	}
 
 	for _, vmi := range vmis {
 		key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
@@ -162,58 +189,12 @@ func (h *VMStatsHandler) GetVMStats(request *restful.Request, response *restful.
 	response.WriteEntity(results)
 }
 
-func buildVMStatsRequestFromQuery(request *restful.Request) *cmdv1.VMStatsRequest {
-	query := request.Request.URL.Query()
-	req := &cmdv1.VMStatsRequest{}
-
-	if query.Get("domainStats") == "true" {
-		req.DomainStats = &cmdv1.DomainStatsRequest{}
+func parseVMStatsRequests(request *restful.Request) (map[string]*cmdv1.VMStatsRequest, error) {
+	body := struct {
+		VMIs map[string]*cmdv1.VMStatsRequest `json:"vmis"`
+	}{}
+	if err := request.ReadEntity(&body); err != nil {
+		return nil, err
 	}
-	if query.Get("dirtyRate") == "true" {
-		req.DirtyRate = &cmdv1.DirtyRateRequest{}
-	}
-	if query.Get("guestGetLoad") == "true" {
-		req.GuestGetLoad = &cmdv1.AgentLoadRequest{}
-	}
-	if query.Get("guestGetCpuStats") == "true" {
-		req.GuestGetCpuStats = &cmdv1.AgentCpuStatsRequest{}
-	}
-	if query.Get("guestGetDiskStats") == "true" {
-		req.GuestGetDiskStats = &cmdv1.AgentDiskStatsRequest{}
-	}
-	if query.Get("guestGetTime") == "true" {
-		req.GuestGetTime = &cmdv1.AgentTimeRequest{}
-	}
-	if query.Get("guestGetVcpus") == "true" {
-		req.GuestGetVcpus = &cmdv1.AgentVcpusRequest{}
-	}
-	if query.Get("guestGetMemoryBlockInfo") == "true" {
-		req.GuestGetMemoryBlockInfo = &cmdv1.AgentMemoryBlockInfoRequest{}
-	}
-	if query.Get("guestGetUsers") == "true" {
-		req.GuestGetUsers = &cmdv1.AgentUsersRequest{}
-	}
-	if query.Get("guestGetOsInfo") == "true" {
-		req.GuestGetOsInfo = &cmdv1.AgentOsInfoRequest{}
-	}
-	if query.Get("guestGetDisks") == "true" {
-		req.GuestGetDisks = &cmdv1.AgentDisksRequest{}
-	}
-	if query.Get("guestGetHostName") == "true" {
-		req.GuestGetHostName = &cmdv1.AgentHostNameRequest{}
-	}
-	if query.Get("guestGetTimezone") == "true" {
-		req.GuestGetTimezone = &cmdv1.AgentTimezoneRequest{}
-	}
-	if query.Get("guestNetworkGetRoute") == "true" {
-		req.GuestNetworkGetRoute = &cmdv1.AgentNetworkRouteRequest{}
-	}
-	if query.Get("guestNetworkGetInterfaces") == "true" {
-		req.GuestNetworkGetInterfaces = &cmdv1.AgentNetworkInterfacesRequest{}
-	}
-	if query.Get("guestGetMemoryBlocks") == "true" {
-		req.GuestGetMemoryBlocks = &cmdv1.AgentMemoryBlocksRequest{}
-	}
-
-	return req
+	return body.VMIs, nil
 }

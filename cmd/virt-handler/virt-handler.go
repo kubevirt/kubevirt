@@ -705,7 +705,7 @@ func (app *virtHandlerApp) runVMStatsServer(vmStatsHandler *rest.VMStatsHandler)
 	mux := restful.NewContainer()
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/v1/vmstats").
+	webService.Route(webService.POST("/v1/vmstats").
 		To(vmStatsHandler.GetVMStats).
 		Produces(restful.MIME_JSON).
 		Consumes(restful.MIME_JSON).
