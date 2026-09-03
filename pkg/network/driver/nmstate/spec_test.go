@@ -79,27 +79,27 @@ var _ = Describe("NMState Spec interfaces", func() {
 				IPv4:       ipv4,
 				IPv6:       ipv6,
 				LinuxStack: nmstate.LinuxIfaceStack{
-					IP4RouteLocalNet: pointer.P(false),
-					PortLearning:     pointer.P(false),
+					IP4RouteLocalNet: new(false),
+					PortLearning:     new(false),
 				},
 			},
 		}))
 	},
-		Entry("no IP", nmstate.IP{Enabled: pointer.P(false)}, nmstate.IP{Enabled: pointer.P(false)}),
+		Entry("no IP", nmstate.IP{Enabled: new(false)}, nmstate.IP{Enabled: new(false)}),
 		Entry("IPv4 (only)",
 			nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 				Address: []nmstate.IPAddress{{
 					IP:        ip4Addr0,
 					PrefixLen: ip4Prefix0,
 				}},
 			},
-			nmstate.IP{Enabled: pointer.P(false)},
+			nmstate.IP{Enabled: new(false)},
 		),
 		Entry("IPv6 (only)",
-			nmstate.IP{Enabled: pointer.P(false)},
+			nmstate.IP{Enabled: new(false)},
 			nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 				Address: []nmstate.IPAddress{{
 					IP:        ip6Addr0,
 					PrefixLen: ip6Prefix0,
@@ -108,14 +108,14 @@ var _ = Describe("NMState Spec interfaces", func() {
 		),
 		Entry("IPv4 & IPv6",
 			nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 				Address: []nmstate.IPAddress{{
 					IP:        ip4Addr0,
 					PrefixLen: ip4Prefix0,
 				}},
 			},
 			nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: new(true),
 				Address: []nmstate.IPAddress{{
 					IP:        ip6Addr0,
 					PrefixLen: ip6Prefix0,
@@ -134,14 +134,14 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip4Addr0,
 							PrefixLen: ip4Prefix0,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip6Addr0,
 							PrefixLen: ip6Prefix0,
@@ -189,18 +189,18 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip4Addr0,
 							PrefixLen: ip4Prefix0,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip6Addr0,
 							PrefixLen: ip6Prefix0,
@@ -215,11 +215,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 			}))
 		})
@@ -228,8 +228,8 @@ var _ = Describe("NMState Spec interfaces", func() {
 			err := nmState.Apply(&nmstate.Spec{Interfaces: []nmstate.Interface{
 				{
 					Name: dummyName,
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 			}})
 			Expect(err).NotTo(HaveOccurred())
@@ -245,11 +245,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 			}))
 		})
@@ -265,14 +265,14 @@ var _ = Describe("NMState Spec interfaces", func() {
 				{
 					Name: dummyName,
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip4Addr1,
 							PrefixLen: ip4Prefix1,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip6Addr1,
 							PrefixLen: ip6Prefix1,
@@ -293,18 +293,18 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
 					IPv4: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip4Addr1,
 							PrefixLen: ip4Prefix1,
 						}},
 					},
 					IPv6: nmstate.IP{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 						Address: []nmstate.IPAddress{{
 							IP:        ip6Addr1,
 							PrefixLen: ip6Prefix1,
@@ -320,8 +320,8 @@ var _ = Describe("NMState Spec interfaces", func() {
 				{
 					Name:  newDummyName,
 					Index: 1,
-					IPv4:  nmstate.IP{Enabled: pointer.P(false)},
-					IPv6:  nmstate.IP{Enabled: pointer.P(false)},
+					IPv4:  nmstate.IP{Enabled: new(false)},
+					IPv6:  nmstate.IP{Enabled: new(false)},
 				},
 			}})
 			Expect(err).NotTo(HaveOccurred())
@@ -337,11 +337,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 			}))
 		})
@@ -358,8 +358,8 @@ var _ = Describe("NMState Spec interfaces", func() {
 				{
 					Name:       dummyName,
 					Controller: bridgeName,
-					IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-					IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+					IPv4:       nmstate.IP{Enabled: new(false)},
+					IPv6:       nmstate.IP{Enabled: new(false)},
 				},
 			}})
 			Expect(err).NotTo(HaveOccurred())
@@ -376,11 +376,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 				{
 					Name:       bridgeName,
@@ -390,11 +390,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(false),
+						PortLearning:     new(false),
 					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 			}))
 		})
@@ -403,11 +403,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 			Expect(nmState.Apply(&nmstate.Spec{Interfaces: []nmstate.Interface{
 				{
 					Name: dummyName,
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(true),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(true),
+						PortLearning:     new(false),
 					},
 				},
 			}})).To(Succeed())
@@ -423,11 +423,11 @@ var _ = Describe("NMState Spec interfaces", func() {
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(true),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: new(true),
+						PortLearning:     new(false),
 					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
+					IPv4: nmstate.IP{Enabled: new(false)},
+					IPv6: nmstate.IP{Enabled: new(false)},
 				},
 			}))
 		})
@@ -455,26 +455,26 @@ var _ = Describe("NMState Spec Linux Stack", func() {
 			nmstate.LinuxStack{
 				IPv4: nmstate.LinuxStackIP4{
 					ArpIgnore:             pointer.P(procsys.ARPReplyMode1),
-					Forwarding:            pointer.P(false),
+					Forwarding:            new(false),
 					PingGroupRange:        []int{0, 0},
-					UnprivilegedPortStart: pointer.P(0),
+					UnprivilegedPortStart: new(0),
 				},
-				IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(false)},
+				IPv6: nmstate.LinuxStackIP6{Forwarding: new(false)},
 			},
 		),
 		Entry("IPv4 & IPv6 forwarding enabled",
 			nmstate.LinuxStack{
-				IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
-				IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+				IPv4: nmstate.LinuxStackIP4{Forwarding: new(true)},
+				IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 			},
 			nmstate.LinuxStack{
 				IPv4: nmstate.LinuxStackIP4{
 					ArpIgnore:             pointer.P(procsys.ARPReplyMode0),
-					Forwarding:            pointer.P(true),
+					Forwarding:            new(true),
 					PingGroupRange:        []int{0, 0},
-					UnprivilegedPortStart: pointer.P(0),
+					UnprivilegedPortStart: new(0),
 				},
-				IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+				IPv6: nmstate.LinuxStackIP6{Forwarding: new(true)},
 			},
 		),
 		Entry("ping group range",
@@ -484,25 +484,25 @@ var _ = Describe("NMState Spec Linux Stack", func() {
 			nmstate.LinuxStack{
 				IPv4: nmstate.LinuxStackIP4{
 					ArpIgnore:             pointer.P(procsys.ARPReplyMode0),
-					Forwarding:            pointer.P(false),
+					Forwarding:            new(false),
 					PingGroupRange:        []int{123, 321},
-					UnprivilegedPortStart: pointer.P(0),
+					UnprivilegedPortStart: new(0),
 				},
-				IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(false)},
+				IPv6: nmstate.LinuxStackIP6{Forwarding: new(false)},
 			},
 		),
 		Entry("unprivileged port start",
 			nmstate.LinuxStack{
-				IPv4: nmstate.LinuxStackIP4{UnprivilegedPortStart: pointer.P(1000)},
+				IPv4: nmstate.LinuxStackIP4{UnprivilegedPortStart: new(1000)},
 			},
 			nmstate.LinuxStack{
 				IPv4: nmstate.LinuxStackIP4{
 					ArpIgnore:             pointer.P(procsys.ARPReplyMode0),
-					Forwarding:            pointer.P(false),
+					Forwarding:            new(false),
 					PingGroupRange:        []int{0, 0},
-					UnprivilegedPortStart: pointer.P(1000),
+					UnprivilegedPortStart: new(1000),
 				},
-				IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(false)},
+				IPv6: nmstate.LinuxStackIP6{Forwarding: new(false)},
 			},
 		),
 	)
