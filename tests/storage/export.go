@@ -440,6 +440,7 @@ var _ = Describe(SIG("Export", func() {
 	}
 
 	urlGeneratorProxy := func(expectedFormat exportv1.ExportVolumeFormat, pvcName, template, token string, export *exportv1.VirtualMachineExport) (string, string) {
+		By("test")
 		downloadUrl := ""
 		fileName := ""
 		for _, volume := range export.Status.Links.Internal.Volumes {
@@ -2375,6 +2376,7 @@ var _ = Describe(SIG("Export", func() {
 
 			kvconfig.EnableFeatureGate(featuregate.OCIExport)
 			kvconfig.EnableFeatureGate(featuregate.Template)
+			By("test")
 		})
 
 		createStoppedVM := func() *v1.VirtualMachine {
