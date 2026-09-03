@@ -299,8 +299,8 @@ func convertSearchDomainsToBytes(searchDomainStrings []string) ([]byte, error) {
 	var searchDomainBytes []byte
 	for _, domain := range searchDomainStrings {
 		if isValidSearchDomain(domain) {
-			labels := strings.Split(domain, ".")
-			for _, label := range labels {
+			labels := strings.SplitSeq(domain, ".")
+			for label := range labels {
 				searchDomainBytes = append(searchDomainBytes, byte(len(label)))
 				searchDomainBytes = append(searchDomainBytes, []byte(label)...)
 			}
