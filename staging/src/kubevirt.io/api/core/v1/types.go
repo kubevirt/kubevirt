@@ -672,12 +672,22 @@ func (v *VirtualMachineInstance) IsTargetPreparing(migration *VirtualMachineInst
 	}
 }
 
+// IsDecentralizedMigration reports whether this VMI is participating in a
+// decentralized live migration. SyncAddress on SourceState/TargetState is only
+// populated for decentralized migrations; local migrations never set it.
+//
+// Historically this used SyncAddress XOR (exactly one side set), which only
+// matches the pre-sync handshake. Once both sides have published a SyncAddress,
+// XOR becomes false and callers incorrectly treat a still-decentralized VMI as
+// local (for example skipping the source Succeeded transition after handoff).
+// Presence of either SyncAddress is the durable signal for the full lifetime
+// until SourceState/TargetState are cleared on the target after success.
 func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
 	return v.Status.MigrationState != nil &&
 		v.Status.MigrationState.TargetState != nil &&
 		v.Status.MigrationState.SourceState != nil &&
-		((v.Status.MigrationState.SourceState.SyncAddress == nil && v.Status.MigrationState.TargetState.SyncAddress != nil) ||
-			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
+		(v.Status.MigrationState.SourceState.SyncAddress != nil ||
+			v.Status.MigrationState.TargetState.SyncAddress != nil)
 }
 
 type VirtualMachineInstanceConditionType string
@@ -1445,6 +1455,9 @@ const (
 
 	// MigrationInterfaceName is an arbitrary name used in virt-handler to connect it to a dedicated migration network
 	MigrationInterfaceName string = "migration0"
+
+	// CrossClusterMigrationInterfaceName is the name of the interface used for cross-cluster migration
+	CrossClusterMigrationInterfaceName string = "crosscluster0"
 
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
@@ -2631,6 +2644,12 @@ type KubeVirtSpec struct {
 	// +optional
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
+	// SynchronizationPlacement allows customization of node placement for synchronization controllers.
+	// This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to
+	// the cross-cluster migration network). By default, sync controllers use control-plane placement.
+	// +optional
+	SynchronizationPlacement *ComponentConfig `json:"synchronizationPlacement,omitempty"`
+
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
 
@@ -3648,14 +3667,45 @@ type MigrationConfiguration struct {
 	// Defaults to false.
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
-	// through the pod network.
+	// through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is
+	// also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP).
+	// If set with Proxy, synchronization controllers require the migration0 interface at startup
+	// and will fail to start if it is missing.
 	Network *string `json:"network,omitempty"`
 	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
 	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// CrossClusterNetwork is the name of the CNI network used for synchronization-controller
+	// peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers
+	// attach to this network as crosscluster0 and bind the sync gRPC port only there.
+	// When omitted with Proxy, peer traffic uses the pod network. Must not be set when
+	// decentralizedLiveMigrationDatapath is Direct (or unset).
+	CrossClusterNetwork *string `json:"crossClusterNetwork,omitempty"`
+	// DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for
+	// decentralized live migrations (cross-namespace or cross-cluster).
+	// Direct (default when unset): no synchronization-controller migration-data proxy.
+	// Proxy: sync controllers proxy migration traffic on a single gRPC port.
+	// Requires the CrossClusterMigrationProxy feature gate while Alpha.
+	// +optional
+	// +kubebuilder:validation:Enum=Direct;Proxy
+	DecentralizedLiveMigrationDatapath *DecentralizedLiveMigrationDatapath `json:"decentralizedLiveMigrationDatapath,omitempty"`
 }
+
+// DecentralizedLiveMigrationDatapath selects how migration data is transferred for
+// decentralized live migrations.
+// +kubebuilder:validation:Enum=Direct;Proxy
+type DecentralizedLiveMigrationDatapath string
+
+const (
+	// DecentralizedLiveMigrationDatapathDirect transfers migration data without the
+	// synchronization-controller proxy (default when the field is unset).
+	DecentralizedLiveMigrationDatapathDirect DecentralizedLiveMigrationDatapath = "Direct"
+	// DecentralizedLiveMigrationDatapathProxy proxies migration data through
+	// synchronization controllers.
+	DecentralizedLiveMigrationDatapathProxy DecentralizedLiveMigrationDatapath = "Proxy"
+)
 
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {

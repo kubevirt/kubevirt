@@ -72,7 +72,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer listener.Close()
 
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, "123")
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
 				defer sourceProxy.Stop()
 
 				err = sourceProxy.Start()
@@ -115,7 +115,7 @@ var _ = Describe("MigrationProxy", func() {
 				defer virtqemudListener.Close()
 
 				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, virtqemudSock, "123")
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, "123")
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
 				defer targetProxy.Stop()
 				defer sourceProxy.Stop()
 
@@ -162,7 +162,7 @@ var _ = Describe("MigrationProxy", func() {
 				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: migrationConfig,
 				})
-				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 				manager.StartTargetListener("mykey", []string{virtqemudSock, directSock})
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
 				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, tmpDir)
@@ -231,7 +231,7 @@ var _ = Describe("MigrationProxy", func() {
 				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: migrationConfig,
 				})
-				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 				err = manager.StartTargetListener(key1, []string{virtqemudSock, directSock})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts(key1)

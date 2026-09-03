@@ -176,7 +176,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 
-		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
@@ -740,6 +740,86 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updatedVMI.Status.Interfaces[0].InterfaceName).To(Equal(testIfaceName))
+	})
+
+	Context("decentralized migration completion", func() {
+		It("marks the source VMI Succeeded when both SyncAddresses are set after domain migration", func() {
+			syncAddress := "10.0.0.1:9185"
+			now := metav1.Now()
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   "othernode",
+				SourceNode:   host,
+				Completed:    true,
+				EndTimestamp: &now,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:         host,
+						SyncAddress:  &syncAddress,
+						MigrationUID: "source-migration-uid",
+					},
+				},
+				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:         "othernode",
+						SyncAddress:  &syncAddress,
+						MigrationUID: "target-migration-uid",
+					},
+					DomainDetected:       true,
+					DomainReadyTimestamp: &now,
+				},
+			}
+
+			Expect(vmi.IsDecentralizedMigration()).To(BeTrue(),
+				"fully synced decentralized migrations must still be recognized when both SyncAddresses are set")
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+
+			Expect(controller.updateStatus(vmi, domain)).To(Succeed())
+			Expect(vmi.Status.Phase).To(Equal(v1.Succeeded))
+		})
+	})
+})
+
+var _ = Describe("IsDecentralizedMigration", func() {
+	DescribeTable("detects decentralized migrations for the full sync lifetime",
+		func(sourceSync, targetSync *string, expected bool) {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress: sourceSync,
+					},
+				},
+				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress: targetSync,
+					},
+				},
+			}
+			Expect(vmi.IsDecentralizedMigration()).To(Equal(expected))
+		},
+		Entry("source-only SyncAddress (pre-sync source)", pointer.P("10.0.0.1:9185"), nil, true),
+		Entry("target-only SyncAddress (pre-sync target)", nil, pointer.P("10.0.0.2:9185"), true),
+		Entry("both SyncAddresses set (post-sync)", pointer.P("10.0.0.1:9185"), pointer.P("10.0.0.1:9185"), true),
+		Entry("neither SyncAddress set", nil, nil, false),
+	)
+
+	It("is false when SourceState or TargetState is missing", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P("10.0.0.1:9185"),
+				},
+			},
+		}
+		Expect(vmi.IsDecentralizedMigration()).To(BeFalse())
 	})
 })
 
