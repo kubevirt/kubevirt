@@ -21,6 +21,7 @@ go_library(
         "snapshot.go",
         "storage.go",
         "utility-volumes.go",
+        "vmstate.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/storage",
     visibility = ["//visibility:public"],
