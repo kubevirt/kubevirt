@@ -599,6 +599,5 @@ func runCMDServer(wg *sync.WaitGroup, socketPath string,
 }
 
 func runInformer(wg *sync.WaitGroup, stopChan chan struct{}, informer cache.SharedInformer) {
-	wg.Add(1)
-	go func() { informer.Run(stopChan); wg.Done() }()
+	wg.Go(func() { informer.Run(stopChan) })
 }

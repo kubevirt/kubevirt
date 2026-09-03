@@ -456,11 +456,11 @@ var _ = Describe("Node-labeller ", func() {
 
 		obsolete := nlController.clusterConfig.GetConfig().ObsoleteCPUModels
 		for key := range node.Labels {
-			if strings.HasPrefix(key, v1.CPUModelLabel) {
-				obsolete[strings.TrimPrefix(key, v1.CPUModelLabel)] = true
+			if after, ok := strings.CutPrefix(key, v1.CPUModelLabel); ok {
+				obsolete[after] = true
 			}
-			if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) {
-				obsolete[strings.TrimPrefix(key, v1.SupportedHostModelMigrationCPU)] = true
+			if after, ok := strings.CutPrefix(key, v1.SupportedHostModelMigrationCPU); ok {
+				obsolete[after] = true
 			}
 		}
 		nlController.queue.Add(nodeName)

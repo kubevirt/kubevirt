@@ -38,7 +38,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/utils/ptr"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
@@ -529,7 +528,7 @@ func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.V
 	}
 
 	if vmstatsResponse.GetDirtyRateStats() != nil {
-		result.DirtyRateMbps = ptr.To(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
+		result.DirtyRateMbps = new(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
 	}
 
 	result.GuestAgentVersion = vmstatsResponse.GetGuestAgentVersion().GetMessage()

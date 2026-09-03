@@ -187,7 +187,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		healthChecks: true,
 	}
 
-	for i := 0; i < maxDevices; i++ {
+	for i := range maxDevices {
 		deviceId := dpi.socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
