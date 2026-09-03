@@ -618,6 +618,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
 			xml := vmiToDomainXML(vmi, c)
 			Expect(xml).To(ContainSubstring(`<panic model="hyperv"></panic>`))
+			Expect(xml).To(ContainSubstring(`<on_crash>preserve-running</on_crash>`))
 		})
 
 		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
