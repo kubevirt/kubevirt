@@ -498,6 +498,7 @@ func (app *virtHandlerApp) Run() {
 		app.k8sClient,
 		nodeInformer.GetStore(),
 		app.HostOverride,
+		app.KubeletRoot,
 		launcherClientsManager,
 		vmiSourceInformer,
 		vmiInformer.GetStore(),
