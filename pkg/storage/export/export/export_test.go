@@ -1617,7 +1617,7 @@ var _ = Describe("Export controller", func() {
 		})
 		extra, err := controller.extraVMData(vm)
 		Expect(err).ToNot(HaveOccurred())
-		err = controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
+		err = controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status).ToNot(BeNil())
 	})
@@ -1653,7 +1653,7 @@ var _ = Describe("Export controller", func() {
 		extra, err := controller.extraVMData(vm)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
 		testutils.ExpectEvent(recorder, exporterManifestConfigMapCreatedEvent)
 
 		Expect(cmInformer.GetStore().Update(&k8sv1.ConfigMap{
@@ -1694,11 +1694,11 @@ var _ = Describe("Export controller", func() {
 			return false, nil, nil
 		})
 
-		Expect(controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
 		Expect(patchCalls).To(Equal(1))
 		testutils.ExpectEvent(recorder, exporterManifestConfigMapUpdatedEvent)
 
-		Expect(controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
 		Expect(patchCalls).To(Equal(1))
 		Expect(recorder.Events).To(BeEmpty())
 	})
@@ -1743,7 +1743,7 @@ var _ = Describe("Export controller", func() {
 			return false, nil, nil
 		})
 
-		Expect(controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, pod, service, extra)).To(MatchError(ContainSubstring("is not controlled by the current VMExport")))
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, pod, service, extra)).To(MatchError(ContainSubstring("is not controlled by the current VMExport")))
 		Expect(patchCalls).To(BeZero())
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(BeEmpty())
 		Expect(pod.Spec.Volumes).To(BeEmpty())
@@ -1789,7 +1789,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, patchErr
 		})
 
-		Expect(controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, pod, service, extra)).To(MatchError(patchErr))
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, pod, service, extra)).To(MatchError(patchErr))
 		Expect(pod.Spec.Containers[0].VolumeMounts).To(BeEmpty())
 		Expect(pod.Spec.Volumes).To(BeEmpty())
 		Expect(recorder.Events).To(BeEmpty())
@@ -1855,7 +1855,7 @@ var _ = Describe("Export controller", func() {
 			return true, cm, nil
 		})
 
-		err = controller.createManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
+		err = controller.reconcileManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
