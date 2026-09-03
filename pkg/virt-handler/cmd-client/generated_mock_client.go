@@ -85,6 +85,20 @@ func (mr *MockLauncherClientMockRecorder) DeleteDomain(vmi any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDomain", reflect.TypeOf((*MockLauncherClient)(nil).DeleteDomain), vmi)
 }
 
+// EnableVMStats mocks base method.
+func (m *MockLauncherClient) EnableVMStats(request *v10.VMStatsRequest) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableVMStats", request)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableVMStats indicates an expected call of EnableVMStats.
+func (mr *MockLauncherClientMockRecorder) EnableVMStats(request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableVMStats", reflect.TypeOf((*MockLauncherClient)(nil).EnableVMStats), request)
+}
+
 // Exec mocks base method.
 func (m *MockLauncherClient) Exec(arg0, arg1 string, arg2 []string, arg3 int32) (int, string, error) {
 	m.ctrl.T.Helper()
