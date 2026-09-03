@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", decorators.WgArm64, func() {
+var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", decorators.WgArm64, decorators.WgS390x, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
