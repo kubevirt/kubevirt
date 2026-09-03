@@ -71,7 +71,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -2365,10 +2364,7 @@ var _ = Describe(SIG("Export", func() {
 			reasonDigestsComputed = "DigestsComputed"
 		)
 
-		var (
-			fgDisabled bool
-			sc         string
-		)
+		var sc string
 
 		BeforeAll(func() {
 			var exists bool
@@ -2377,16 +2373,8 @@ var _ = Describe(SIG("Export", func() {
 				Fail("Fail test when RWO Block storage is not present")
 			}
 
-			fgDisabled = !checks.HasFeature(featuregate.OCIExport)
-			if fgDisabled {
-				kvconfig.EnableFeatureGate(featuregate.OCIExport)
-			}
-		})
-
-		AfterAll(func() {
-			if fgDisabled {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
-			}
+			kvconfig.EnableFeatureGate(featuregate.OCIExport)
+			kvconfig.EnableFeatureGate(featuregate.Template)
 		})
 
 		createStoppedVM := func() *v1.VirtualMachine {
@@ -2472,25 +2460,7 @@ var _ = Describe(SIG("Export", func() {
 			verifyOCITarDownload(export, token, vm.Namespace)
 		})
 
-		It("should not include OCI manifest link when feature gate is disabled", func() {
-			if checks.HasFeature(featuregate.OCIExport) {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
-				defer kvconfig.EnableFeatureGate(featuregate.OCIExport)
-			}
-
-			vm := createStoppedVM()
-			export, _ := createReadyVMExport(vm)
-
-			ociUrl := getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.OCI)
-			Expect(ociUrl).To(BeEmpty(), "OCI manifest URL should not be present when feature gate is disabled")
-		})
-
 		It("should export VirtualMachineTemplate as OCI artifact", func() {
-			if !checks.HasFeature(featuregate.Template) {
-				kvconfig.EnableFeatureGate(featuregate.Template)
-				defer kvconfig.DisableFeatureGate(featuregate.Template)
-			}
-
 			By("Creating a stopped VM with DataVolume")
 			vm := createStoppedVM()
 
