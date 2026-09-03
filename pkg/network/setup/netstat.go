@@ -64,7 +64,7 @@ func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
 }
 
 func (c *NetStat) Teardown(vmi *v1.VirtualMachineInstance) {
-	c.podInterfaceVolatileCache.Range(func(key, value interface{}) bool {
+	c.podInterfaceVolatileCache.Range(func(key, value any) bool {
 		if strings.HasPrefix(key.(string), string(vmi.UID)) {
 			c.podInterfaceVolatileCache.Delete(key)
 		}
@@ -251,7 +251,7 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 
 func (c *NetStat) removeAbsentIfacesFromVolatileCache(vmi *v1.VirtualMachineInstance) {
 	interfaceByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
-	c.podInterfaceVolatileCache.Range(func(key, value interface{}) bool {
+	c.podInterfaceVolatileCache.Range(func(key, value any) bool {
 		if strings.HasPrefix(key.(string), string(vmi.UID)) {
 			if iface, ok := interfaceByName[ifaceNameFromKey(key.(string), vmi.UID)]; ok && iface.State == v1.InterfaceStateAbsent {
 				c.podInterfaceVolatileCache.Delete(key)
