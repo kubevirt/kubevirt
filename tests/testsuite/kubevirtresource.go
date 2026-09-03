@@ -117,6 +117,7 @@ func AdjustKubeVirtResource() {
 		featuregate.DownwardMetricsFeatureGate,
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.ObjectGraph,
+		featuregate.DeclarativeVMState,
 		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.DecentralizedLiveMigration,
 		featuregate.UtilityVolumesGate,
