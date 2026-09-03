@@ -23,6 +23,7 @@ import (
 	"container/ring"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,9 +81,7 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 
 	// create a map of types that should not be removed
 	typesToKeepMap := make(map[string]struct{})
-	for key, val := range externallyProvidedTypesMap {
-		typesToKeepMap[key] = val
-	}
+	maps.Copy(typesToKeepMap, externallyProvidedTypesMap)
 
 	// construct a map of desired types for lookup
 	desiredTypesMap := make(map[string]struct{})
@@ -179,7 +178,7 @@ func (m *MDEVTypesManager) initMDEVTypesRing() *ring.Ring {
 }
 
 func (m *MDEVTypesManager) getNextAvailableParentToConfigure(parents []string) (string, []string) {
-	for idx := 0; idx < len(parents); idx++ {
+	for idx := range parents {
 		parent := parents[idx]
 		if _, exist := m.unconfiguredParentsMap[parent]; exist {
 			return parent, parents[idx+1:]
@@ -233,7 +232,7 @@ func createMdevTypes(mdevType string, parentID string) error {
 		return err
 	}
 	// create mdevs for all available instances
-	for i := 0; i < instances; i++ {
+	for range instances {
 		err := handler.CreateMDEVType(mdevType, parentID)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create mdevs of type %s", mdevType)

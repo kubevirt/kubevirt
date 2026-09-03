@@ -348,10 +348,7 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	// Set sleep_millisecs to sleepMsBaseline on a 16GB system that's out of memory.
 	// This basically scales sleep down the more memory there is to look at, capped at a minimum of 10ms.
 	// This is copied from oVirt but might have to be adjuested in the future.
-	ksm.sleep = sleepMsBaseline * (16 * 1024 * 1024) / (memStat.total - memStat.available)
-	if ksm.sleep < sleepMsBaseline/10 {
-		ksm.sleep = sleepMsBaseline / 10
-	}
+	ksm.sleep = max(sleepMsBaseline*(16*1024*1024)/(memStat.total-memStat.available), sleepMsBaseline/10)
 
 	if float32(memStat.available) > float32(memStat.total)*freePercent {
 		// No memory pressure. Reduce or stop KSM activity
