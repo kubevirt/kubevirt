@@ -244,11 +244,14 @@ type DomainSpec struct {
 	IOThreads      *IOThreads      `xml:"iothreads,omitempty"`
 	LaunchSecurity *LaunchSecurity `xml:"launchSecurity,omitempty"`
 	OnReboot       string          `xml:"on_reboot,omitempty"`
+	OnCrash        string          `xml:"on_crash,omitempty"`
 	IOMMUFD        *IOMMUFD        `xml:"iommufd,omitempty"`
 }
 
 const DomainOnRebootDestroy = "destroy"
 const DomainOnRebootRestart = "restart"
+
+const DomainOnCrashPreserveRunning = "preserve-running"
 
 type CPUTune struct {
 	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`

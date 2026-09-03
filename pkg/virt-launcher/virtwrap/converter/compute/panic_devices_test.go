@@ -26,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -40,13 +41,34 @@ var _ = Describe("Panic Device Domain Configurator", func() {
 	})
 
 	It("Should configure multiple panic devices when multiple are specified in VMI", func() {
-		hypervModel := v1.Hyperv
-		isaModel := v1.Isa
-		pvpanicModel := v1.Pvpanic
 		vmi := libvmi.New(
-			libvmi.WithPanicDevice(hypervModel),
-			libvmi.WithPanicDevice(isaModel),
-			libvmi.WithPanicDevice(pvpanicModel),
+			libvmi.WithPanicDevice(v1.Hyperv),
+			libvmi.WithPanicDevice(v1.Isa),
+			libvmi.WithPanicDevice(v1.Pvpanic),
+		)
+		var domain api.Domain
+
+		Expect(compute.PanicDevicesDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				OnCrash: api.DomainOnCrashPreserveRunning,
+				Devices: api.Devices{
+					PanicDevices: []api.PanicDevice{
+						{Model: pointer.P(v1.Hyperv)},
+						{Model: pointer.P(v1.Isa)},
+						{Model: pointer.P(v1.Pvpanic)},
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("Should not set OnCrash when no hyperv panic device is specified in VMI", func() {
+		vmi := libvmi.New(
+			libvmi.WithPanicDevice(v1.Isa),
+			libvmi.WithPanicDevice(v1.Pvpanic),
 		)
 		var domain api.Domain
 
@@ -56,9 +78,8 @@ var _ = Describe("Panic Device Domain Configurator", func() {
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
 					PanicDevices: []api.PanicDevice{
-						{Model: &hypervModel},
-						{Model: &isaModel},
-						{Model: &pvpanicModel},
+						{Model: pointer.P(v1.Isa)},
+						{Model: pointer.P(v1.Pvpanic)},
 					},
 				},
 			},
