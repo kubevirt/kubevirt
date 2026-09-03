@@ -220,6 +220,7 @@ type VMStats struct {
 	GuestGetLoad              string
 	GuestGetCpuStats          string
 	GuestGetDiskStats         string
+	GuestGetFsInfo            string
 	GuestGetTime              string
 	GuestGetVcpus             string
 	GuestGetMemoryBlockInfo   string

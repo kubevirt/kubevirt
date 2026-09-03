@@ -149,6 +149,7 @@ var agentDataCommandTTLs = map[string]time.Duration{
 	"guest-get-users":             oneMinute,
 
 	// 5min
+	"guest-get-fsinfo":             fiveMinutes,
 	"guest-get-osinfo":             fiveMinutes,
 	"guest-get-disks":              fiveMinutes,
 	"guest-get-host-name":          fiveMinutes,
