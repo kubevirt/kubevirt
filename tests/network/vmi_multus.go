@@ -529,13 +529,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						bridgeSubnetMask     = "/24"
 					)
 
-					initialMacAddress, err := libnet.GenerateRandomMac()
-					Expect(err).NotTo(HaveOccurred())
-					initialMacAddressStr := initialMacAddress.String()
+					initialMacAddressStr := libnet.GenerateRandomMac().String()
 
-					spoofedMacAddress, err := libnet.GenerateRandomMac()
-					Expect(err).NotTo(HaveOccurred())
-					spoofedMacAddressStr := spoofedMacAddress.String()
+					spoofedMacAddressStr := libnet.GenerateRandomMac().String()
 
 					By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
 					linuxBridgeInterfaceWithCustomMac := libvmi.NewInterface(
