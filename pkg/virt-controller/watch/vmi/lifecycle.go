@@ -975,6 +975,14 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 	return nil
 }
 
+// isContainerImageErrorReason reports whether a container waiting reason indicates an image
+// reference or pull failure for a containerDisk volume.
+func isContainerImageErrorReason(reason string) bool {
+	return reason == controller.ErrImagePullReason ||
+		reason == controller.ImagePullBackOffReason ||
+		reason == controller.InvalidImageNameReason
+}
+
 // checkForContainerImageError checks if an error has occurred while handling the image of any of the pod's containers
 // (including init containers), and returns a syncErr with the details of the error, or nil otherwise.
 func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
@@ -984,7 +992,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 			continue
 		}
 		reason := containerStatus.State.Waiting.Reason
-		if reason == controller.ErrImagePullReason || reason == controller.ImagePullBackOffReason {
+		if isContainerImageErrorReason(reason) {
 			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
 		}
 	}

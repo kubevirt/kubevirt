@@ -2137,8 +2137,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		},
 			Entry("ErrImagePull in init container", true, kvcontroller.ErrImagePullReason),
 			Entry("ImagePullBackOff in init container", true, kvcontroller.ImagePullBackOffReason),
+			Entry("InvalidImageName in init container", true, kvcontroller.InvalidImageNameReason),
 			Entry("ErrImagePull in compute container", false, kvcontroller.ErrImagePullReason),
 			Entry("ImagePullBackOff in compute container", false, kvcontroller.ImagePullBackOffReason),
+			Entry("InvalidImageName in compute container", false, kvcontroller.InvalidImageNameReason),
 		)
 
 		DescribeTable("should override Synchronized=False condition reason when it's already set", func(prevReason, newReason string) {

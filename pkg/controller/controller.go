@@ -110,6 +110,8 @@ const (
 	// ImagePullBackOffReason is set when an error has occurred while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
+	// InvalidImageNameReason is set when a containerDisk image name is invalid.
+	InvalidImageNameReason = "InvalidImageName"
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
 	// is suitable for migration (since CPU model / required features are not supported)
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
