@@ -27,6 +27,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/cache"
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,11 +35,14 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 type netDial struct {
-	request *restful.Request
+	request            *restful.Request
+	launcherPodIndexer cache.Indexer
 }
 
 type handlerDial struct {
@@ -73,7 +77,7 @@ func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serro
 func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
 	logger := log.Log.Object(vmi)
 
-	targetIP, err := getTargetInterfaceIP(vmi)
+	targetIP, err := n.resolveTargetIP(vmi)
 	if err != nil {
 		logger.Reason(err).Error("Can't establish TCP tunnel.")
 		return nil, k8serrors.NewBadRequest(err.Error())
@@ -128,6 +132,31 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 		return nil, fmt.Errorf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s or %s", vmi.Status.Phase, v1.Running, v1.Scheduled)
 	}
 	return kubecli.NewVirtHandlerClient(app.virtClient, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
+}
+
+// The pod network is the only network virt-api and virt-launcher are
+// guaranteed to share, so the launcher pod IP is preferred over the
+// interface status IP, which reflects the guest's view of its addresses.
+func (n netDial) resolveTargetIP(vmi *v1.VirtualMachineInstance) (string, error) {
+	if podIP := n.launcherPodIP(vmi); podIP != "" {
+		return podIP, nil
+	}
+	return getTargetInterfaceIP(vmi)
+}
+
+func (n netDial) launcherPodIP(vmi *v1.VirtualMachineInstance) string {
+	if n.launcherPodIndexer == nil || netvmispec.LookupPodNetwork(vmi.Spec.Networks) == nil {
+		return ""
+	}
+	pod, err := controller.CurrentVMIPod(vmi, n.launcherPodIndexer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to look up the virt-launcher pod; falling back to the VMI interface IP")
+		return ""
+	}
+	if pod == nil {
+		return ""
+	}
+	return pod.Status.PodIP
 }
 
 // get the first available interface IP
