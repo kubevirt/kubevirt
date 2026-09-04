@@ -1046,7 +1046,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated)
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated) //nolint:staticcheck
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1068,10 +1068,20 @@ func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func isPVCPreallocated(volumeName string, vmi *v1.VirtualMachineInstance) bool {
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == volumeName && vs.PersistentVolumeClaimInfo != nil {
+			return vs.PersistentVolumeClaimInfo.Preallocated
+		}
+	}
+	return false
+}
+
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
-		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+		volumeName := disk.Alias.GetName()
+		if !isPVCBacked(volumeName, vmi) {
 			continue
 		}
 		if shouldExpandOffline(disk) {
@@ -1081,7 +1091,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 				logger.Errorf("Failed to get possible guest size from disk")
 				continue
 			}
-			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize)
+			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize, isPVCPreallocated(volumeName, vmi))
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -1089,20 +1099,33 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 	}
 }
 
-func expandDiskImageOffline(imagePath string, size int64) error {
-	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
+func qemuImgResizeArgs(imagePath string, size int64, preallocated bool) ([]string, error) {
 	var preallocateFlag string
-	if converter.IsPreAllocated(imagePath) {
+	if preallocated {
 		preallocateFlag = "--preallocation=falloc"
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
 	size = kutil.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
 	if size == 0 {
-		return fmt.Errorf("%s must be at least 1MiB", imagePath)
+		return nil, fmt.Errorf("%s must be at least 1MiB", imagePath)
 	}
-	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
-	out, err := cmd.CombinedOutput()
+	return []string{"resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10)}, nil
+}
+
+// runQemuImgResize is a variable so tests can substitute it and observe the
+// args qemu-img would be invoked with, without running the real binary.
+var runQemuImgResize = func(args []string) ([]byte, error) {
+	return exec.Command("/usr/bin/qemu-img", args...).CombinedOutput()
+}
+
+func expandDiskImageOffline(imagePath string, size int64, preallocated bool) error {
+	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
+	args, err := qemuImgResizeArgs(imagePath, size, preallocated)
+	if err != nil {
+		return err
+	}
+	out, err := runQemuImgResize(args)
 	if err != nil {
 		return fmt.Errorf("expanding image failed with error: %v, output: %s", err, out)
 	}
@@ -1573,7 +1596,7 @@ func (l *LibvirtDomainManager) syncDisks(
 		if err != nil {
 			return err
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
+		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated) //nolint:staticcheck
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
