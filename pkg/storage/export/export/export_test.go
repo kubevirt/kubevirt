@@ -19,6 +19,7 @@
 package export
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -28,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1615,9 +1617,182 @@ var _ = Describe("Export controller", func() {
 		})
 		extra, err := controller.extraVMData(vm)
 		Expect(err).ToNot(HaveOccurred())
-		err = controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
+		err = controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status).ToNot(BeNil())
+	})
+
+	It("should patch an existing datamanifest after the internal CA rotates", func() {
+		testVMExport := createVMVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{},
+				},
+			},
+		}
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		newPod := func() *k8sv1.Pod {
+			return &k8sv1.Pod{
+				Spec: k8sv1.PodSpec{
+					Containers: []k8sv1.Container{{}},
+				},
+			}
+		}
+		vmBytes, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
+		extra, err := controller.extraVMData(vm)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
+		testutils.ExpectEvent(recorder, exporterManifestConfigMapCreatedEvent)
+
+		Expect(cmInformer.GetStore().Update(&k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: controller.KubevirtNamespace,
+				Name:      components.KubeVirtExportCASecretName,
+			},
+			Data: map[string]string{
+				"ca-bundle": "rotated ca cert",
+			},
+		})).To(Succeed())
+
+		originalManifest, err := k8sClient.CoreV1().ConfigMaps(testNamespace).Get(context.Background(), controller.getVmManifestConfigMapName(testVMExport), metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		originalManifestBytes, err := json.Marshal(originalManifest)
+		Expect(err).ToNot(HaveOccurred())
+
+		patchCalls := 0
+		k8sClient.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patchAction, ok := action.(testing.PatchActionImpl)
+			Expect(ok).To(BeTrue())
+
+			manifestPatch, err := jsonpatch.DecodePatch(patchAction.Patch)
+			Expect(err).ToNot(HaveOccurred())
+
+			patchedManifestBytes, err := manifestPatch.Apply(originalManifestBytes)
+			Expect(err).ToNot(HaveOccurred())
+
+			patchedManifest := &k8sv1.ConfigMap{}
+			Expect(json.Unmarshal(patchedManifestBytes, patchedManifest)).To(Succeed())
+
+			embeddedCA := &k8sv1.ConfigMap{}
+			Expect(json.Unmarshal([]byte(patchedManifest.Data[internalCaConfigMapKey]), embeddedCA)).To(Succeed())
+			Expect(embeddedCA.Data["ca.pem"]).To(Equal("rotated ca cert"))
+
+			patchCalls++
+			return false, nil, nil
+		})
+
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
+		Expect(patchCalls).To(Equal(1))
+		testutils.ExpectEvent(recorder, exporterManifestConfigMapUpdatedEvent)
+
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, newPod(), service, extra)).To(Succeed())
+		Expect(patchCalls).To(Equal(1))
+		Expect(recorder.Events).To(BeEmpty())
+	})
+
+	It("should not patch a datamanifest owned by a previous VMExport", func() {
+		testVMExport := createVMVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{},
+				},
+			},
+		}
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		pod := &k8sv1.Pod{
+			Spec: k8sv1.PodSpec{
+				Containers: []k8sv1.Container{{}},
+			},
+		}
+		vmBytes, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
+		extra, err := controller.extraVMData(vm)
+		Expect(err).ToNot(HaveOccurred())
+		manifest, err := controller.createManifestConfigMap(testVMExport, vmManifest, vmBytes, service, extra)
+		Expect(err).ToNot(HaveOccurred())
+		manifest.OwnerReferences[0].UID = uuid.NewUUID()
+		_, err = k8sClient.CoreV1().ConfigMaps(testNamespace).Create(context.Background(), manifest, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		patchCalls := 0
+		k8sClient.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patchCalls++
+			return false, nil, nil
+		})
+
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, pod, service, extra)).To(MatchError(ContainSubstring("is not controlled by the current VMExport")))
+		Expect(patchCalls).To(BeZero())
+		Expect(pod.Spec.Containers[0].VolumeMounts).To(BeEmpty())
+		Expect(pod.Spec.Volumes).To(BeEmpty())
+		Expect(recorder.Events).To(BeEmpty())
+	})
+
+	It("should return an error when patching an existing datamanifest fails", func() {
+		testVMExport := createVMVMExport()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{},
+				},
+			},
+		}
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		pod := &k8sv1.Pod{
+			Spec: k8sv1.PodSpec{
+				Containers: []k8sv1.Container{{}},
+			},
+		}
+		vmBytes, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
+		extra, err := controller.extraVMData(vm)
+		Expect(err).ToNot(HaveOccurred())
+		manifest, err := controller.createManifestConfigMap(testVMExport, vmManifest, vmBytes, service, extra)
+		Expect(err).ToNot(HaveOccurred())
+		manifest.Data[internalHostKey] = "stale host"
+		_, err = k8sClient.CoreV1().ConfigMaps(testNamespace).Create(context.Background(), manifest, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		patchErr := fmt.Errorf("patch failed")
+		k8sClient.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, nil, patchErr
+		})
+
+		Expect(controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, pod, service, extra)).To(MatchError(patchErr))
+		Expect(pod.Spec.Containers[0].VolumeMounts).To(BeEmpty())
+		Expect(pod.Spec.Volumes).To(BeEmpty())
+		Expect(recorder.Events).To(BeEmpty())
 	})
 
 	It("should create template manifest and add it to the pod spec", func() {
@@ -1680,7 +1855,7 @@ var _ = Describe("Export controller", func() {
 			return true, cm, nil
 		})
 
-		err = controller.createManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
+		err = controller.reconcileManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
