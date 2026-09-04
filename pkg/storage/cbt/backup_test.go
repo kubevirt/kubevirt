@@ -1280,6 +1280,78 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to send Start backup command"))
 		})
+
+		It("should update backup status while the target PVC attach is pending (regression: status must not freeze)", func() {
+			// Regression test for CNV-85377 / CNV-89684: when attachBackupTargetPVC
+			// succeeds it returns nil without ever touching backup.Status. Since
+			// execute() only writes status (and requeues) when backup.Status
+			// changed, a successful attach leaves the VMB permanently stuck on
+			// whatever condition it had before, with nothing left to trigger a
+			// requeue if the VMI's VolumeStatus never flips to Mounted.
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{}
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+			vmi := createVMI() // target PVC not yet attached
+			controller.vmiStore.Add(vmi)
+			pvc := createPVC(pvcName)
+			controller.pvcStore.Add(pvc)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmi, nil)
+
+			err := controller.startBackup(backup, vmi, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backup.Status.Conditions).ToNot(BeEmpty(),
+				"startBackup must record a status condition while the target PVC attach is in flight, "+
+					"otherwise the controller has no status delta to requeue on and the VMB can freeze forever")
+			Expect(mockBackupQueue.GetAddAfterEnqueueCount()).To(Equal(1),
+				"startBackup must schedule a bounded self-requeue while attach is pending, "+
+					"otherwise forward progress depends entirely on the VMI status watch firing")
+		})
+
+		It("should not leave a brand-new backup's conditions permanently null when the attach is pending from the very first reconcile", func() {
+			// Second, independent reproduction (nightly, KubeVirt v1.20.0): a
+			// VirtualMachineBackup was observed with status.conditions == null
+			// across 244 polls over a full 20-minute window, confirmed via a
+			// cache-bypassing direct API read -- i.e. no condition was EVER
+			// written, not even an initial Progressing one. This models that
+			// exact shape: a brand-new backup (Status starts nil, as it does
+			// right after creation) whose target PVC is already unattached and
+			// stays unattached, reconciled repeatedly via the real sync()
+			// entrypoint (not startBackup directly) -- matching a real
+			// controller loop where checkPrerequisites() passes clean on cycle
+			// 1 (VM/VMI/PVC all already ready) and every subsequent reconcile
+			// falls into the same attach-pending path.
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Finalizers = []string{vmBackupFinalizer}
+			// Status intentionally left nil -- syncBackup() initializes an
+			// empty (not missing) Status the same way the real sync() does.
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+			vmi := createVMI() // target PVC not yet attached, and stays that way
+			controller.vmiStore.Add(vmi)
+			pvc := createPVC(pvcName)
+			controller.pvcStore.Add(pvc)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmi, nil).AnyTimes()
+
+			for cycle := 1; cycle <= 3; cycle++ {
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(backupCopy.Status.Conditions).ToNot(BeEmpty(),
+					fmt.Sprintf("cycle %d: a brand-new backup whose target PVC attach is pending from the very "+
+						"first reconcile must not leave status.conditions permanently null -- that leaves no "+
+						"externally visible signal and nothing for the controller to requeue on", cycle))
+				backup = backupCopy // feed the just-written status forward, as the informer would
+			}
+		})
 	})
 
 	Context("updateSourceBackupInProgress", func() {
