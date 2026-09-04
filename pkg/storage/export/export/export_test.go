@@ -822,7 +822,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
 		Expect(service).To(BeNil())
 		Expect(deleted).To(BeTrue())
@@ -842,7 +842,7 @@ var _ = Describe("Export controller", func() {
 			return true, svc, nil
 		})
 
-		service, err = controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err = controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(created).To(BeTrue())
 		Expect(service).ToNot(BeNil())
@@ -917,7 +917,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
 		Expect(service).To(BeNil())
 		Expect(podDeleted).To(BeTrue())
@@ -970,7 +970,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
 		Expect(service).To(BeNil())
 		Expect(serviceDeleted).To(BeTrue())
@@ -1007,7 +1007,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).To(Equal(existing))
 	})
@@ -1041,7 +1041,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
 		Expect(service).To(BeNil())
 		Expect(serviceDeleted).To(BeTrue())
@@ -1053,7 +1053,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, errors.NewAlreadyExists(schema.GroupResource{Resource: "services"}, controller.getExportServiceName(testVMExport))
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, []k8sv1.ServicePort{exportPort()})
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
 		Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 		Expect(service).To(BeNil())
 	})
@@ -2165,6 +2165,9 @@ var _ = Describe("Export controller", func() {
 				Name:            cmName,
 				Namespace:       testNamespace,
 				ResourceVersion: "1",
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(testVMExport, exportGVK),
+				},
 			},
 			Data: map[string]string{
 				internalHostKey: fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), testNamespace),
@@ -2172,15 +2175,12 @@ var _ = Describe("Export controller", func() {
 		}
 		Expect(k8sClient.Tracker().Add(stale)).To(Succeed())
 
-		updated := false
-		k8sClient.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.UpdateAction)
+		patched := false
+		k8sClient.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patchAction, ok := action.(testing.PatchAction)
 			Expect(ok).To(BeTrue())
-			cm, ok := update.GetObject().(*k8sv1.ConfigMap)
-			Expect(ok).To(BeTrue())
-			Expect(cm.GetName()).To(Equal(cmName))
-			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc:%d", controller.getExportServiceName(testVMExport), testNamespace, ExportServerPort)))
-			updated = true
+			Expect(patchAction.GetName()).To(Equal(cmName))
+			patched = true
 			return false, nil, nil
 		})
 
@@ -2188,9 +2188,9 @@ var _ = Describe("Export controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		extra, err := controller.extraVMData(vm)
 		Expect(err).ToNot(HaveOccurred())
-		err = controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
+		err = controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(updated).To(BeTrue())
+		Expect(patched).To(BeTrue())
 	})
 
 	createVM := func() *virtv1.VirtualMachine {
