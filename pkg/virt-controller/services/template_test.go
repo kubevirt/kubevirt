@@ -4256,15 +4256,11 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod).ToNot(BeNil())
 
-				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-					Name: containerdisk.LauncherVolume,
-					VolumeSource: k8sv1.VolumeSource{
-						Image: &k8sv1.ImageVolumeSource{
-							Reference:  "kubevirt/virt-launcher",
-							PullPolicy: config.GetImagePullPolicy(),
-						},
-					},
-				}), "should create launcher binary volume when ImageVolume is used")
+				Expect(pod.Spec.InitContainers).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Name":    Equal("image-volume-binary"),
+					"Command": Equal([]string{"/usr/bin/cp"}),
+					"Args":    Equal([]string{"--preserve=all", "/usr/bin/container-disk", "/init/usr/bin/container-disk"}),
+				})))
 
 				// Find noop init containers
 				var initContainerNames []string
@@ -4273,14 +4269,11 @@ var _ = Describe("Template", func() {
 						continue
 					}
 					initContainerNames = append(initContainerNames, container.Name)
-					// Verify the noop command is used
-					Expect(container.Command).To(ContainElement("/container-disk-binary/usr/bin/container-disk"))
+					Expect(container.Command).To(ContainElement("/usr/bin/container-disk"))
 					Expect(container.Args).To(ContainElement("--no-op"))
-					// Verify volume mount for launcher binary
 					Expect(container.VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-						Name:      containerdisk.LauncherVolume,
-						MountPath: "/container-disk-binary",
-						ReadOnly:  true,
+						Name:      "virt-bin-share-dir",
+						MountPath: "/usr/bin",
 					}))
 				}
 				// Verify expected init containers are created
