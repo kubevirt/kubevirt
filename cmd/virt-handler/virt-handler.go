@@ -309,7 +309,7 @@ func (app *virtHandlerApp) Run() {
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
+	app.clusterConfig.SetConfigModifiedCallback(app.installKubevirtSeccompProfile)
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -661,20 +661,12 @@ func (app *virtHandlerApp) shouldChangeRateLimiter() {
 	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
 }
 
-// Update virt-handler rate limiter
-func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
-	enabled := app.clusterConfig.KubevirtSeccompProfileEnabled()
-	if !enabled {
-		log.DefaultLogger().Info("Kubevirt Seccomp profile is not enabled")
-		return
-	}
-
+func (app *virtHandlerApp) installKubevirtSeccompProfile() {
 	if err := seccomp.InstallPolicy(app.KubeletRoot); err != nil {
 		log.DefaultLogger().Errorf("Failed to install Kubevirt Seccomp profile, %v", err)
 		return
 	}
 	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", app.KubeletRoot)
-
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
