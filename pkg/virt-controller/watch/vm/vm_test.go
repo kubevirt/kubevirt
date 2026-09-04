@@ -4674,7 +4674,7 @@ var _ = Describe("VirtualMachine", func() {
 				),
 			)
 
-			DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
+			DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string, expectedStatus v1.VirtualMachinePrintableStatus) {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.Status.Phase = v1.Scheduling
 				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -4694,10 +4694,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
+				Expect(vm.Status.PrintableStatus).To(Equal(expectedStatus))
 			},
-				Entry("Reason: ErrImagePull", virtcontroller.ErrImagePullReason),
-				Entry("Reason: ImagePullBackOff", virtcontroller.ImagePullBackOffReason),
+				Entry("Reason: ErrImagePull", virtcontroller.ErrImagePullReason, v1.VirtualMachineStatusErrImagePull),
+				Entry("Reason: ImagePullBackOff", virtcontroller.ImagePullBackOffReason, v1.VirtualMachineStatusImagePullBackOff),
+				Entry("Reason: InvalidImageName", virtcontroller.InvalidImageNameReason, v1.VirtualMachineStatusErrImagePull),
 			)
 		})
 
