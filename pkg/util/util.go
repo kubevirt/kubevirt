@@ -27,11 +27,9 @@ const (
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
-	ContainerBinary                           = "/container-disk-binary"
 
-	NonRootUID        = 107
-	NonRootUserString = "qemu"
-	RootUser          = 0
+	NonRootUID = 107
+	RootUser   = 0
 
 	// extensive log verbosity threshold after which libvirt debug logs will be enabled
 	EXT_LOG_VERBOSITY_THRESHOLD         = 5
