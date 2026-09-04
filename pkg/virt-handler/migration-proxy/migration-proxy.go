@@ -85,7 +85,6 @@ type MigrationProxyListener interface {
 type migrationProxy struct {
 	mountRoot      *safepath.Path
 	relativePath   string
-	unixSocketPath string
 	tcpBindAddress string
 	tcpBindPort    int
 	targetAddress  string
@@ -579,13 +578,13 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 
 func (m *migrationProxy) Start() error {
 
-	if m.unixSocketPath != "" {
-		err := m.createUnixListener()
+	if m.tcpBindAddress != "" {
+		err := m.createTcpListener()
 		if err != nil {
 			return err
 		}
 	} else {
-		err := m.createTcpListener()
+		err := m.createUnixListener()
 		if err != nil {
 			return err
 		}
