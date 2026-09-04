@@ -25,61 +25,50 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/vsock"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdomain"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
-	var virtClient kubecli.KubevirtClient
-	var err error
-
-	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.VSOCKGate)
-		virtClient = kubevirt.Client()
-	})
+var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, func() {
+	const guestAgentPort = 1234
 
 	Context("VM creation", func() {
 		DescribeTable("should expose a VSOCK device", func(useVirtioTransitional bool) {
 			By("Creating a VMI with VSOCK enabled")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithAutoattachVSOCK(true),
+			)
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
-			By("creating valid libvirt domain")
-
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
 			By("Logging in as root")
-			err = console.LoginToFedora(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Ensuring a vsock device is present")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -96,154 +85,97 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		)
 	})
 
-	Context("Live migration", func() {
-		affinity := func(nodeName string) *k8sv1.Affinity {
-			return &k8sv1.Affinity{
-				NodeAffinity: &k8sv1.NodeAffinity{
-					PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
-						{
-							Preference: k8sv1.NodeSelectorTerm{
-								MatchExpressions: []k8sv1.NodeSelectorRequirement{
-									{
-										Key:      k8sv1.LabelHostname,
-										Operator: k8sv1.NodeSelectorOpIn,
-										Values:   []string{nodeName},
-									},
-								},
-							},
-							Weight: 1,
-						},
-					},
-				},
-			}
-		}
+	It("should retain the CID for migration target", decorators.RequiresTwoSchedulableNodes, func() {
+		By("Creating a VMI with VSOCK enabled")
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachVSOCK(true))
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
+		Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+		cid := *vmi.Status.VSOCKCID
 
-		It("should retain the CID for migration target", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Creating a VMI with VSOCK enabled")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
-			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+		By("Migrating the VMI")
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
+		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 
-			By("creating valid libvirt domain")
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
-			By("Creating a new VMI with VSOCK enabled on the same node")
-			node := vmi.Status.NodeName
-			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi2.Spec.Affinity = affinity(node)
-			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, flags.StartupTimeoutSecondsSmall())
-			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
-
-			By("creating valid libvirt domain")
-			domSpec2, err := libdomain.GetRunningVMIDomainSpec(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
-			By("Migrating the 2nd VMI")
-			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
-			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-			domSpec2, err = libdomain.GetRunningVMIDomainSpec(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
-		})
+		By("Ensuring the CID survived the migration")
+		vmi, err := matcher.ThisVMI(vmi)()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmi.Status.VSOCKCID).To(HaveValue(Equal(cid)))
 	})
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
-		if flags.KubeVirtExampleGuestAgentPath == "" {
-			Fail(`"example-guest-agent-path" argument is not specified`)
-		}
-
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithAutoattachVSOCK(true),
 		)
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Logging in as root")
-		err = console.LoginToFedora(vmi)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		By("copying the guest agent binary")
 		copyExampleGuestAgent(vmi)
 
 		By("starting the guest agent binary")
-		Expect(startExampleGuestAgent(vmi, useTLS, 1234)).To(Succeed())
-		time.Sleep(2 * time.Second)
+		Expect(startExampleGuestAgent(vmi, useTLS, guestAgentPort)).To(Succeed())
 
-		By("Connect to the guest via API")
-		cliConn, svrConn := net.Pipe()
-		defer func() {
-			_ = cliConn.Close()
-			_ = svrConn.Close()
-		}()
-		stopChan := make(chan error)
-		go func() {
-			defer GinkgoRecover()
-			vsock, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(1234), UseTLS: pointer.P(useTLS)})
-			if err != nil {
-				stopChan <- err
-				return
-			}
-			stopChan <- vsock.Stream(kvcorev1.StreamOptions{
-				In:  svrConn,
-				Out: svrConn,
-			})
-		}()
-
-		Expect(cliConn.SetDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
-
-		By("Writing to the Guest")
-		message := "Hello World?"
-		_, err = cliConn.Write([]byte(message))
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Reading from the Guest")
-		buf := make([]byte, 1024, 1024)
-		n, err := cliConn.Read(buf)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(buf[0:n])).To(Equal(message))
-
-		select {
-		case err := <-stopChan:
-			Expect(err).NotTo(HaveOccurred())
-		default:
-		}
+		expectVSOCKEchoViaAPI(vmi, guestAgentPort, useTLS)
 	},
-		// TODO: The TLS handshake will fail when using local namespace,
-		//   because the certificate server is listening in global namespace.
-		//   This will be fixed in a future commit. See "Change 4" in the VEP:
-		//   https://github.com/kubevirt/enhancements/blob/main/veps/sig-compute/222-vsock-netns-vep/vsock-netns-vep.md#change-4-on-demand-vsock-ca-service
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
 	)
 
-	It("should return err if the port is invalid", func() {
-		virtClient := kubevirt.Client()
-
+	DescribeTable("connecting to the guest from another Pod on the node", func(localNamespace bool) {
 		By("Creating a VMI with VSOCK enabled")
-		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachVSOCK(true))
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
+		Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+
+		By("Logging in as root")
+		Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+		By("copying the guest agent binary")
+		copyExampleGuestAgent(vmi)
+
+		By("starting the guest agent binary")
+		Expect(startExampleGuestAgent(vmi, false, guestAgentPort)).To(Succeed())
+
+		By("Ensuring the guest is reachable through the API, which enters the Pod network namespace")
+		expectVSOCKEchoViaAPI(vmi, guestAgentPort, false)
+
+		probe := newPeerPodVSOCKProbe(vmi.Status.NodeName)
+		if !localNamespace {
+			Expect(probe(*vmi.Status.VSOCKCID, guestAgentPort)).To(BeTrue(),
+				"VSOCK CID %d must be reachable from another Pod on the node", *vmi.Status.VSOCKCID)
+
+			return
+		}
+
+		for _, cid := range []uint32{vsock.LocalCID, *vmi.Status.VSOCKCID} {
+			Expect(probe(cid, guestAgentPort)).To(BeFalse(),
+				"VSOCK CID %d must not be reachable from another Pod on the node", cid)
+		}
+	},
+		Entry("should fail when VSOCK is confined to the Pod network namespace",
+			decorators.RequiresVSOCKLocalNamespace, true),
+		Entry("should succeed when VSOCK is shared with the whole node",
+			decorators.RequiresVSOCKGlobalNamespace, false),
+	)
+
+	It("should return err if the port is invalid", func() {
+		By("Creating a VMI with VSOCK enabled")
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachVSOCK(true))
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Connect to the guest on invalid port")
-		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(0)})
+		_, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
+			vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(0)})
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return err if no app listerns on the port", func() {
-		virtClient := kubevirt.Client()
-
 		By("Creating a VMI with VSOCK enabled")
-		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachVSOCK(true))
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Connect to the guest on the unused port")
@@ -252,14 +184,76 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			_ = cliConn.Close()
 			_ = svrConn.Close()
 		}()
-		vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
+		vsockStream, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
+			vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(vsock.Stream(kvcorev1.StreamOptions{
+		Expect(vsockStream.Stream(kvcorev1.StreamOptions{
 			In:  svrConn,
 			Out: svrConn,
 		})).NotTo(Succeed())
 	})
 })
+
+func newPeerPodVSOCKProbe(nodeName string) func(cid, port uint32) bool {
+	const connectScript = `command -v ncat >/dev/null || { echo "ncat is missing" >&2; exit 1; }
+if ncat -z --vsock -w 5 "$1" "$2" 2>/dev/null; then echo true; else echo false; fi
+`
+
+	pod := libpod.RenderPrivilegedPod("vsock-peer-probe", []string{"sleep"}, []string{"infinity"})
+	pod.Spec.NodeName = nodeName
+
+	pod, err := libpod.Run(pod, pod.Namespace)
+	Expect(err).ToNot(HaveOccurred())
+
+	return func(cid, port uint32) bool {
+		out, execErr := exec.ExecuteCommandOnPod(pod, pod.Spec.Containers[0].Name,
+			[]string{"/bin/bash", "-c", connectScript, "probe", fmt.Sprint(cid), fmt.Sprint(port)})
+		ExpectWithOffset(1, execErr).ToNot(HaveOccurred())
+
+		reachable, parseErr := strconv.ParseBool(strings.TrimSpace(out))
+		ExpectWithOffset(1, parseErr).ToNot(HaveOccurred())
+
+		return reachable
+	}
+}
+
+func expectVSOCKEchoViaAPI(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) {
+	GinkgoHelper()
+
+	By("Connect to the guest via API")
+	vsockStream, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
+		vmi.Name, &v1.VSOCKOptions{TargetPort: port, UseTLS: pointer.P(useTLS)})
+	Expect(err).NotTo(HaveOccurred())
+
+	cliConn, svrConn := net.Pipe()
+	defer func() {
+		_ = cliConn.Close()
+		_ = svrConn.Close()
+	}()
+
+	streamErr := make(chan error, 1)
+	go func() {
+		streamErr <- vsockStream.Stream(kvcorev1.StreamOptions{
+			In:  svrConn,
+			Out: svrConn,
+		})
+	}()
+
+	Expect(cliConn.SetDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
+
+	By("Writing to the Guest")
+	const message = "Hello World?"
+	_, err = cliConn.Write([]byte(message))
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Reading from the Guest")
+	buf := make([]byte, 1024)
+	n, err := cliConn.Read(buf)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(string(buf[:n])).To(Equal(message))
+
+	Expect(streamErr).ToNot(Receive(), "the stream must still be open")
+}
 
 func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	const (
@@ -267,6 +261,9 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 		guestAgentPath = "/usr/bin/example-guest-agent"
 	)
 
+	if flags.KubeVirtExampleGuestAgentPath == "" {
+		Fail(`"example-guest-agent-path" argument is not specified`, 1)
+	}
 	err := console.RunCommand(vmi, fmt.Sprintf("nc -vl %d > %s < /dev/null &", port, guestAgentPath), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -308,7 +305,7 @@ func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port ui
 		serverArgs = strings.Join([]string{serverArgs, "--use-tls"}, " ")
 	}
 
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "chmod +x /usr/bin/example-guest-agent\n"},
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
@@ -318,4 +315,13 @@ func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port ui
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.ShellSuccess},
 	}, 60)
+	if err != nil {
+		return err
+	}
+
+	// The shell returns as soon as the agent is backgrounded, give it a moment
+	// to bind the VSOCK port before anyone connects to it.
+	time.Sleep(2 * time.Second)
+
+	return nil
 }

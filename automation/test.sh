@@ -687,6 +687,13 @@ if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
 fi
 
+# VSOCK namespace confinement needs nodes with net.vsock.child_ns_mode set to local.
+if [[ "${KUBEVIRT_VSOCK_CHILD_NS_MODE:-}" == "local" ]]; then
+  add_to_label_filter '(!RequiresVSOCKGlobalNamespace)' '&&'
+else
+  add_to_label_filter '(!RequiresVSOCKLocalNamespace)' '&&'
+fi
+
 # OpenShift-specific tests require features not available in KubeVirtCI
 # (SecurityContextConstraints, Routes). Filter them out when not on OpenShift.
 if ! kubectl get clusterversion version &>/dev/null; then
