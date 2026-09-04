@@ -25,7 +25,6 @@ go_library(
         "//pkg/dra:go_default_library",
         "//pkg/emptydisk:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",

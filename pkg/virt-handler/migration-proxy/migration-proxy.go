@@ -34,7 +34,6 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -415,11 +414,6 @@ func (m *migrationProxy) createTcpListener() error {
 func (m *migrationProxy) createUnixListener() error {
 
 	os.RemoveAll(m.unixSocketPath)
-	err := util.MkdirAllWithNosec(filepath.Dir(m.unixSocketPath))
-	if err != nil {
-		m.logger.Reason(err).Error("unable to create directory for unix socket")
-		return err
-	}
 
 	listener, err := net.Listen("unix", m.unixSocketPath)
 	if err != nil {
