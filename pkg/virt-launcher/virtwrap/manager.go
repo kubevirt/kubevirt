@@ -109,6 +109,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage/diskdriver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
@@ -207,6 +208,10 @@ type DomainManager interface {
 	GetAgentData(dataKey string) (string, error)
 }
 
+type driverCacheConfigurator interface {
+	SetDriverCacheMode(disk *api.Disk) error
+}
+
 type LibvirtDomainManager struct {
 	virConn cli.Connection
 
@@ -229,7 +234,7 @@ type LibvirtDomainManager struct {
 	efiEnvironment         *efi.EFIEnvironment
 	ovmfPath               string
 	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
-	directIOChecker        converter.DirectIOChecker
+	driverConfigurator     driverCacheConfigurator
 	disksInfo              map[string]*osdisk.DiskInfo
 	guestDiskSizes         map[string]int64
 	domainInfoStats        *stats.DomainJobInfo
@@ -310,14 +315,13 @@ func NewLibvirtDomainManager(
 	allowCrossArchEmulation bool,
 	eventSender accesscredentials.EventSender,
 ) (DomainManager, error) {
-	directIOChecker := converter.NewDirectIOChecker()
 	return newLibvirtDomainManager(connection,
 		virtShareDir,
 		ephemeralDiskDir,
 		agentStore,
 		ovmfPath,
 		ephemeralDiskCreator,
-		directIOChecker,
+		diskdriver.New(),
 		metadataCache,
 		stopChan,
 		diskMemoryLimitBytes,
@@ -339,7 +343,7 @@ func newLibvirtDomainManager(
 	agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
-	directIOChecker converter.DirectIOChecker,
+	driverConfigurator driverCacheConfigurator,
 	metadataCache *metadata.Cache,
 	stopChan chan struct{},
 	diskMemoryLimitBytes int64,
@@ -378,7 +382,7 @@ func newLibvirtDomainManager(
 		efiEnvironment:       efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		ovmfPath:             ovmfPath,
 		ephemeralDiskCreator: ephemeralDiskCreator,
-		directIOChecker:      directIOChecker,
+		driverConfigurator:   driverConfigurator,
 		disksInfo:            map[string]*osdisk.DiskInfo{},
 		guestDiskSizes:       map[string]int64{},
 		domainInfoStats:      &stats.DomainJobInfo{},
@@ -1042,11 +1046,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
+		err := l.driverConfigurator.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated)
+		diskdriver.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1092,7 +1096,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 func expandDiskImageOffline(imagePath string, size int64) error {
 	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
 	var preallocateFlag string
-	if converter.IsPreAllocated(imagePath) {
+	if diskdriver.IsPreAllocated(imagePath) {
 		preallocateFlag = "--preallocation=falloc"
 	} else {
 		preallocateFlag = "--preallocation=off"
@@ -1569,11 +1573,11 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
 		// set drivers cache mode
-		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
+		err = l.driverConfigurator.SetDriverCacheMode(&attachDisk)
 		if err != nil {
 			return err
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
+		diskdriver.SetOptimalIOMode(&attachDisk)
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {

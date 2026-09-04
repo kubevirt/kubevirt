@@ -585,3 +585,41 @@ func (mr *MockDomainManagerMockRecorder) UpdateVCPUs(vmi, options any) *gomock.C
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVCPUs", reflect.TypeOf((*MockDomainManager)(nil).UpdateVCPUs), vmi, options)
 }
+
+// MockdriverCacheConfigurator is a mock of driverCacheConfigurator interface.
+type MockdriverCacheConfigurator struct {
+	ctrl     *gomock.Controller
+	recorder *MockdriverCacheConfiguratorMockRecorder
+	isgomock struct{}
+}
+
+// MockdriverCacheConfiguratorMockRecorder is the mock recorder for MockdriverCacheConfigurator.
+type MockdriverCacheConfiguratorMockRecorder struct {
+	mock *MockdriverCacheConfigurator
+}
+
+// NewMockdriverCacheConfigurator creates a new mock instance.
+func NewMockdriverCacheConfigurator(ctrl *gomock.Controller) *MockdriverCacheConfigurator {
+	mock := &MockdriverCacheConfigurator{ctrl: ctrl}
+	mock.recorder = &MockdriverCacheConfiguratorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockdriverCacheConfigurator) EXPECT() *MockdriverCacheConfiguratorMockRecorder {
+	return m.recorder
+}
+
+// SetDriverCacheMode mocks base method.
+func (m *MockdriverCacheConfigurator) SetDriverCacheMode(disk *api.Disk) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDriverCacheMode", disk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDriverCacheMode indicates an expected call of SetDriverCacheMode.
+func (mr *MockdriverCacheConfiguratorMockRecorder) SetDriverCacheMode(disk any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDriverCacheMode", reflect.TypeOf((*MockdriverCacheConfigurator)(nil).SetDriverCacheMode), disk)
+}
