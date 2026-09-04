@@ -1376,16 +1376,18 @@ func newTestSetupWithVolatileCache() testSetup {
 func newTestSetup() testSetup {
 	var cacheCreator tempCacheCreator
 	const uid = "123"
+	const fakePID = 456
 	vmi := &v1.VirtualMachineInstance{}
 	vmi.UID = uid
 	dutils.MockDefaultOwnershipManager()
+	netsetup.StoreLauncherPID(uid, fakePID)
 
 	return testSetup{
 		Vmi:           vmi,
 		Domain:        &api.Domain{},
 		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
 		cacheCreator:  &cacheCreator,
-		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
+		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, fakePID),
 	}
 }
 
@@ -1453,6 +1455,7 @@ func (t *testSetup) addFSCacheInterface(name string, podIPs ...string) error {
 }
 
 func (t *testSetup) Cleanup() error {
+	netsetup.DeleteLauncherPID(string(t.Vmi.UID))
 	return t.cacheCreator.New("").Delete()
 }
 

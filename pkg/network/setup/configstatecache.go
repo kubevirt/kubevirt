@@ -33,49 +33,56 @@ const defaultState = cache.PodIfaceNetworkPreparationPending
 
 type ConfigStateCache struct {
 	vmiUID                string
+	launcherPid           int
 	cacheCreator          cacheCreator
 	volatilePodIfaceState map[string]cache.PodIfaceState
 }
 
-func NewConfigStateCache(vmiUID string, cacheCreator cacheCreator) ConfigStateCache {
-	return NewConfigStateCacheWithPodIfaceStateData(vmiUID, cacheCreator, map[string]cache.PodIfaceState{})
+func NewConfigStateCache(vmiUID string, launcherPid int, cacheCreator cacheCreator) ConfigStateCache {
+	return ConfigStateCache{
+		vmiUID:                vmiUID,
+		launcherPid:           launcherPid,
+		cacheCreator:          cacheCreator,
+		volatilePodIfaceState: map[string]cache.PodIfaceState{},
+	}
 }
 
-func NewConfigStateCacheWithPodIfaceStateData(vmiUID string, cacheCreator cacheCreator, volatilePodIfaceState map[string]cache.PodIfaceState) ConfigStateCache {
-	return ConfigStateCache{vmiUID, cacheCreator, volatilePodIfaceState}
+func NewConfigStateCacheWithPodIfaceStateData(vmiUID string, launcherPid int, cacheCreator cacheCreator, volatilePodIfaceState map[string]cache.PodIfaceState) ConfigStateCache {
+	return ConfigStateCache{
+		vmiUID:                vmiUID,
+		launcherPid:           launcherPid,
+		cacheCreator:          cacheCreator,
+		volatilePodIfaceState: volatilePodIfaceState,
+	}
 }
 
 func (c *ConfigStateCache) Read(key string) (cache.PodIfaceState, error) {
-	if volatilePodIfaceState, ok := c.volatilePodIfaceState[key]; ok {
-		return volatilePodIfaceState, nil
+	if v, ok := c.volatilePodIfaceState[key]; ok {
+		return v, nil
 	}
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
-	var state cache.PodIfaceState
+	data, err := c.readPodIface(key)
 	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return defaultState, fmt.Errorf("failed to read pod interface network state from cache: %v", err)
-		}
-		state = defaultState
-	} else {
-		state = podIfaceCacheData.State
+		return defaultState, fmt.Errorf("failed to read pod interface network state from cache: %v", err)
+	}
+	state := defaultState
+	if data != nil {
+		state = data.State
 	}
 	c.volatilePodIfaceState[key] = state
 	return state, nil
 }
 
 func (c *ConfigStateCache) Write(key string, state cache.PodIfaceState) error {
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+	podIfaceCacheData, err := c.readPodIface(key)
 	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			log.Log.Reason(err).Errorf("failed to read pod interface network (%s) state from cache", key)
-			return err
-		}
+		log.Log.Reason(err).Errorf("failed to read pod interface network (%s) state from cache", key)
+		return err
+	}
+	if podIfaceCacheData == nil {
 		podIfaceCacheData = &cache.PodIfaceCacheData{}
 	}
-
 	podIfaceCacheData.State = state
-	err = cache.WritePodInterfaceCache(c.cacheCreator, c.vmiUID, key, podIfaceCacheData)
-	if err != nil {
+	if err := c.writePodIface(key, podIfaceCacheData); err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod interface network (%s) state to cache", key)
 		return err
 	}
@@ -85,17 +92,48 @@ func (c *ConfigStateCache) Write(key string, state cache.PodIfaceState) error {
 
 func (c *ConfigStateCache) Delete(key string) error {
 	delete(c.volatilePodIfaceState, key)
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+	podIfaceCacheData, err := c.readPodIface(key)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
 		return err
+	}
+	if podIfaceCacheData == nil {
+		return nil
 	}
 	podIfaceCacheData.State = cache.PodIfaceNetworkPreparationPending
-	err = cache.WritePodInterfaceCache(c.cacheCreator, c.vmiUID, key, podIfaceCacheData)
+	return c.writePodIface(key, podIfaceCacheData)
+}
+
+// readPodIface reads PodIfaceCacheData from disk. Returns (nil, nil) when absent.
+// Tries the launcher procfs path first, then the pre-upgrade virt-handler-local path.
+func (c *ConfigStateCache) readPodIface(key string) (*cache.PodIfaceCacheData, error) {
+	entry, err := cache.NewPodInterfaceCache(c.cacheCreator, c.launcherPid).IfaceEntry(key)
+	if err == nil {
+		data, err := entry.Read()
+		if err == nil {
+			return data, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+	}
+	// Upgrade fallback: check pre-upgrade virt-handler-local path (read-only).
+	return c.readPreUpgradeState(key)
+}
+
+func (c *ConfigStateCache) writePodIface(key string, data *cache.PodIfaceCacheData) error {
+	entry, err := cache.NewPodInterfaceCache(c.cacheCreator, c.launcherPid).IfaceEntry(key)
 	if err != nil {
 		return err
 	}
-	return nil
+	return entry.Write(data)
+}
+
+// readPreUpgradeState reads from the pre-upgrade virt-handler-local cache path.
+// Remove once all virt-launchers have been upgraded and restarted at least once.
+func (c *ConfigStateCache) readPreUpgradeState(key string) (*cache.PodIfaceCacheData, error) {
+	data, err := cache.ReadLegacyPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	return data, err
 }
