@@ -482,7 +482,7 @@ func main() {
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
-	if err := putil.MkdirAllWithNosec(filepath.Join(*virtShareDir, "migrationproxy")); err != nil {
+	if err := virtlauncher.InitializeMigrationProxyDirectory(*virtShareDir); err != nil {
 		panic(err)
 	}
 	options := cmdserver.NewServerOptions(*allowEmulation).WithVMStatsCollector(*vmStatsCollectorEnabled).WithNotifier(notifier).WithVMI(vmi)

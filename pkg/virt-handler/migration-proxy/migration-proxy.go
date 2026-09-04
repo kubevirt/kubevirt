@@ -21,6 +21,7 @@ package migrationproxy
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -34,6 +35,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -41,6 +43,11 @@ import (
 const (
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
+
+	// Pod-relative path for virt-handler safepath operations (JoinNoFollow).
+	// QEMU and virt-launcher use util.VirtShareDir (/var/run/kubevirt); both refer
+	// to the same location when /var/run symlinks to ../run in the container.
+	VirtLauncherKubevirtRunDir = "/run/kubevirt"
 )
 
 var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
@@ -50,7 +57,7 @@ type ProxyManager interface {
 	GetTargetListenerPorts(key string) map[string]int
 	StopTargetListener(key string)
 
-	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error
+	StartSourceListener(key string, mountRoot *safepath.Path, targetAddress string, destSrcPortMap map[string]int) error
 	GetSourceListenerFiles(key string) []string
 	StopSourceListener(key string)
 
@@ -126,8 +133,12 @@ func NewMigrationProxyManager(serverTLSConfig *tls.Config, migrationTLSConfig *t
 	}
 }
 
+func MigrationSocketsDir(virtShareDir string) string {
+	return filepath.Join(virtShareDir, "migrationproxy")
+}
+
 func SourceUnixFile(baseDir string, key string) string {
-	return filepath.Join(baseDir, "migrationproxy", key+"-source.sock")
+	return filepath.Join(MigrationSocketsDir(baseDir), key+"-source.sock")
 }
 
 func (m *migrationProxyManager) StartTargetListener(key string, mountRoot *safepath.Path, targetUnixFiles []string) error {
@@ -208,7 +219,7 @@ func (m *migrationProxyManager) GetSourceListenerFiles(key string) []string {
 	socketsList := []string{}
 	if exists {
 		for _, curProxy := range curProxies {
-			socketsList = append(socketsList, curProxy.unixSocketPath)
+			socketsList = append(socketsList, curProxy.relativePath)
 		}
 	}
 	return socketsList
@@ -262,7 +273,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	}
 }
 
-func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error {
+func (m *migrationProxyManager) StartSourceListener(key string, mountRoot *safepath.Path, targetAddress string, destSrcPortMap map[string]int) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -309,11 +320,9 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 	for destPort, srcPort := range destSrcPortMap {
 		proxyKey := ConstructProxyKey(key, srcPort)
 		targetFullAddr := net.JoinHostPort(targetAddress, destPort)
-		filePath := SourceUnixFile(baseDir, proxyKey)
+		relativePath := SourceUnixFile(VirtLauncherKubevirtRunDir, proxyKey)
 
-		os.RemoveAll(filePath)
-
-		proxy := NewSourceProxy(filePath, targetFullAddr, migrationTLSConfig, key)
+		proxy := NewSourceProxy(mountRoot, relativePath, targetFullAddr, migrationTLSConfig, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -340,25 +349,46 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 		for _, curProxy := range curProxies {
 			curProxy.logger.Infof("Manager stopping proxy on source node")
 			curProxy.Stop()
-			os.RemoveAll(curProxy.unixSocketPath)
+			removeSourceUnixSocket(curProxy)
 		}
 		delete(m.sourceProxies, key)
+	}
+}
+
+// When mountRoot is nil, relativePath is treated as an absolute host path. This is
+// only used by virt-launcher, which runs inside the pod mount namespace.
+func removeSourceUnixSocket(proxy *migrationProxy) {
+	if proxy.mountRoot == nil {
+		os.RemoveAll(proxy.relativePath)
+		return
+	}
+
+	socketPath, err := safepath.JoinNoFollow(proxy.mountRoot, proxy.relativePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("unable to resolve source unix socket %q for cleanup", proxy.relativePath)
+		return
+	}
+	if err := safepath.UnlinkAtNoFollow(socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Log.Reason(err).Errorf("unable to remove source unix socket %q", proxy.relativePath)
 	}
 }
 
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (virtqemud unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
-func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, migrationTLSConfig *tls.Config, vmiUID string) *migrationProxy {
+// When mountRoot is nil, relativePath is treated as an absolute host path. This is
+// only used by virt-launcher, which runs inside the pod mount namespace.
+func NewSourceProxy(mountRoot *safepath.Path, relativePath string, tcpTargetAddress string, migrationTLSConfig *tls.Config, vmiUID string) *migrationProxy {
 	return &migrationProxy{
-		unixSocketPath:     unixSocketPath,
+		mountRoot:          mountRoot,
+		relativePath:       relativePath,
 		targetAddress:      tcpTargetAddress,
 		targetProtocol:     "tcp",
 		stopChan:           make(chan struct{}),
 		fdChan:             make(chan net.Conn, 1),
 		listenErrChan:      make(chan error, 1),
 		migrationTLSConfig: migrationTLSConfig,
-		logger:             log.Log.With("uid", vmiUID).With("listening", filepath.Base(unixSocketPath)).With("outbound", tcpTargetAddress),
+		logger:             log.Log.With("uid", vmiUID).With("listening", filepath.Base(relativePath)).With("outbound", tcpTargetAddress),
 	}
 }
 
@@ -412,22 +442,61 @@ func (m *migrationProxy) createTcpListener() error {
 }
 
 func (m *migrationProxy) createUnixListener() error {
+	if m.mountRoot == nil {
+		return m.createUnixListenerUnsafe()
+	}
 
-	os.RemoveAll(m.unixSocketPath)
+	socketDirPath := filepath.Dir(m.relativePath)
+	socketName := filepath.Base(m.relativePath)
 
-	listener, err := net.Listen("unix", m.unixSocketPath)
+	socketDir, err := safepath.JoinNoFollow(m.mountRoot, socketDirPath)
+	if err != nil {
+		m.logger.Reason(err).Error("unable to resolve directory for unix socket")
+		return err
+	}
+
+	listener, err := safepath.ListenUnixNoFollow(socketDir, socketName)
 	if err != nil {
 		m.logger.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
 	}
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(m.unixSocketPath); err != nil {
+
+	socketPath, err := safepath.JoinNoFollow(socketDir, socketName)
+	if err != nil {
+		listener.Close()
+		m.logger.Reason(err).Error("unable to resolve unix socket path")
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
+		listener.Close()
 		log.Log.Reason(err).Error("failed to change ownership on migration unix socket")
 		return err
 	}
 
 	m.listener = listener
 	return nil
+}
 
+func (m *migrationProxy) createUnixListenerUnsafe() error {
+	os.RemoveAll(m.relativePath)
+	err := util.MkdirAllWithNosec(filepath.Dir(m.relativePath))
+	if err != nil {
+		m.logger.Reason(err).Error("unable to create directory for unix socket")
+		return err
+	}
+
+	listener, err := net.Listen("unix", m.relativePath)
+	if err != nil {
+		m.logger.Reason(err).Error("failed to create unix socket for proxy service")
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(m.relativePath); err != nil {
+		log.Log.Reason(err).Error("failed to change ownership on migration unix socket")
+		return err
+	}
+
+	m.listener = listener
+	return nil
 }
 
 func (m *migrationProxy) Stop() {
