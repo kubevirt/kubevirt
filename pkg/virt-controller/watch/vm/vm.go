@@ -2666,10 +2666,17 @@ func (c *Controller) isVirtualMachineStatusUnschedulable(vm *virtv1.VirtualMachi
 		k8score.PodReasonUnschedulable)
 }
 
+// isErrImagePullPrintableStatusReason reports whether a VMI Synchronized condition reason
+// should surface the VM ErrImagePull printable status.
+func isErrImagePullPrintableStatusReason(reason string) bool {
+	return reason == controller.ErrImagePullReason || reason == controller.InvalidImageNameReason
+}
+
 // isVirtualMachineStatusErrImagePull determines whether the VM status field should be set to "ErrImagePull"
 func (c *Controller) isVirtualMachineStatusErrImagePull(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
-	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == controller.ErrImagePullReason
+	return syncCond != nil && syncCond.Status == k8score.ConditionFalse &&
+		isErrImagePullPrintableStatusReason(syncCond.Reason)
 }
 
 // isVirtualMachineStatusImagePullBackOff determines whether the VM status field should be set to "ImagePullBackOff"
