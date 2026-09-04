@@ -118,7 +118,7 @@ var _ = Describe("SEV Subresources", func() {
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstanceMigration(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstanceMigrations(metav1.NamespaceDefault)).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(mockVirtClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {
