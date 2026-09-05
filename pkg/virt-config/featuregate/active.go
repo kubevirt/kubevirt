@@ -277,7 +277,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
