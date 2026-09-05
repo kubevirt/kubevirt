@@ -2189,8 +2189,16 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT)
+		if l.metadataCache != nil {
+			l.metadataCache.PendingPlatformTermination.Set(api.PendingPlatformTerminationIntent{
+				Timestamp: metav1.Now(),
+			})
+		}
+		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
 		if err != nil {
+			if l.metadataCache != nil {
+				l.metadataCache.PendingPlatformTermination.Set(api.PendingPlatformTerminationIntent{})
+			}
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
 			return err
 		}

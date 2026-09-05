@@ -20,10 +20,13 @@
 package virthandler
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Guest OS panic metrics", func() {
@@ -75,3 +78,114 @@ var _ = Describe("Guest OS panic metrics", func() {
 		Expect(*dto2.Counter.Value).To(Equal(1.0))
 	})
 })
+
+var _ = Describe("Guest OS termination metrics", func() {
+	const (
+		namespace = "test-namespace"
+		name      = "test-vmi"
+	)
+
+	BeforeEach(func() {
+		guestOSTerminationTotal.Reset()
+	})
+
+	DescribeTable("should report supported guest OS termination reasons",
+		func(reason api.TerminationReason) {
+			IncGuestOSTermination(namespace, name, reason)
+
+			Expect(getGuestOSTerminationCounterValue(namespace, name, reason)).To(Equal(float64(1)))
+		},
+		Entry(string(api.TerminationReasonGuestShutdown), api.TerminationReasonGuestShutdown),
+		Entry(string(api.TerminationReasonPlatformRequestedShutdown), api.TerminationReasonPlatformRequestedShutdown),
+		Entry(string(api.TerminationReasonHostShutdown), api.TerminationReasonHostShutdown),
+		Entry(string(api.TerminationReasonHostStoppedFailed), api.TerminationReasonHostStoppedFailed),
+		Entry(string(api.TerminationReasonGuestCrashed), api.TerminationReasonGuestCrashed),
+	)
+
+	It("should partition guest OS termination counters by VMI", func() {
+		reason := api.TerminationReasonGuestShutdown
+
+		IncGuestOSTermination(namespace, "vmi-a", reason)
+		IncGuestOSTermination(namespace, "vmi-b", reason)
+		IncGuestOSTermination(namespace, "vmi-b", reason)
+
+		Expect(getGuestOSTerminationCounterValue(namespace, "vmi-a", reason)).To(Equal(float64(1)))
+		Expect(getGuestOSTerminationCounterValue(namespace, "vmi-b", reason)).To(Equal(float64(2)))
+	})
+
+	It("should ignore unsupported guest OS termination reasons", func() {
+		IncGuestOSTermination(namespace, name, "")
+		IncGuestOSTermination(namespace, name, "UnexpectedReason")
+
+		Expect(collectedGuestOSTerminationMetrics()).To(BeEmpty())
+	})
+
+	It("should delete all guest OS termination metrics for a VMI", func() {
+		for _, reason := range api.SupportedTerminationReasons() {
+			IncGuestOSTermination(namespace, "deleted-vmi", reason)
+			IncGuestOSTermination(namespace, "kept-vmi", reason)
+		}
+
+		DeleteGuestOSTerminationMetrics(namespace, "deleted-vmi")
+
+		for _, reason := range api.SupportedTerminationReasons() {
+			Expect(hasGuestOSTerminationMetric(namespace, "deleted-vmi", reason)).To(BeFalse())
+			Expect(hasGuestOSTerminationMetric(namespace, "kept-vmi", reason)).To(BeTrue())
+		}
+	})
+})
+
+func getGuestOSTerminationCounterValue(namespace, name string, reason api.TerminationReason) float64 {
+	metric, err := guestOSTerminationTotal.GetMetricWithLabelValues(namespace, name, string(reason))
+	Expect(err).ToNot(HaveOccurred())
+
+	dto := &io_prometheus_client.Metric{}
+	Expect(metric.Write(dto)).To(Succeed())
+
+	return dto.Counter.GetValue()
+}
+
+func collectedGuestOSTerminationMetrics() []prometheus.Metric {
+	metrics := make(chan prometheus.Metric)
+	go func() {
+		guestOSTerminationTotal.Collect(metrics)
+		close(metrics)
+	}()
+
+	var result []prometheus.Metric
+	for metric := range metrics {
+		result = append(result, metric)
+	}
+	return result
+}
+
+func hasGuestOSTerminationMetric(namespace, name string, reason api.TerminationReason) bool {
+	for _, metric := range collectedGuestOSTerminationMetricDTOs() {
+		if guestMetricLabelValue(metric, "namespace") == namespace &&
+			guestMetricLabelValue(metric, "name") == name &&
+			guestMetricLabelValue(metric, "reason") == string(reason) {
+			return true
+		}
+	}
+	return false
+}
+
+func collectedGuestOSTerminationMetricDTOs() []*io_prometheus_client.Metric {
+	metrics := collectedGuestOSTerminationMetrics()
+	result := make([]*io_prometheus_client.Metric, 0, len(metrics))
+	for _, metric := range metrics {
+		dto := &io_prometheus_client.Metric{}
+		Expect(metric.Write(dto)).To(Succeed())
+		result = append(result, dto)
+	}
+	return result
+}
+
+func guestMetricLabelValue(metric *io_prometheus_client.Metric, name string) string {
+	for _, label := range metric.GetLabel() {
+		if label.GetName() == name {
+			return label.GetValue()
+		}
+	}
+	return ""
+}
