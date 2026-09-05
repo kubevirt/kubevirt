@@ -533,6 +533,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			waitForVMStateTransition(vm, expectedStates, 660*time.Second)
 		})
 
+		It("should report an error status when containerDisks image name is invalid", Serial, decorators.Conformance, decorators.WgS390x, func() {
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "http://quay.io/containerdisks/fedora:latest"),
+				libvmi.WithMemoryRequest("128Mi"),
+			)
+
+			vm := createRunningVM(virtClient, vmi)
+
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
+
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(
+				HaveConditionFalseWithReason(v1.VirtualMachineInstanceSynchronized, controller.InvalidImageNameReason),
+			)
+		})
+
 		It("[test_id:7679]should report an error status when data volume error occurs", decorators.WgS390x, func() {
 			By("Verifying that required StorageClass is configured")
 			storageClassName := libstorage.Config.StorageRWOFileSystem
