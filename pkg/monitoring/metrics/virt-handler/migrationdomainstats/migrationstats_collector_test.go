@@ -31,9 +31,17 @@ import (
 )
 
 var _ = Describe("migration metrics", func() {
+	It("should register the last downtime gauge", func() {
+		Expect(MigrationStatsCollector.Metrics).To(ContainElement(migrateVmiLastDowntime))
+	})
+
 	Context("on Collect", func() {
 		vmiStats := &result{
-			vmi: "test-vmi-1",
+			vmi:         "test-vmi-1",
+			namespace:   "test-namespace",
+			node:        "source-node",
+			downtimeSet: true,
+			downtime:    150,
 			domainJobInfo: stats.DomainJobInfo{
 				DataTotalSet:     true,
 				DataTotal:        3,
@@ -57,13 +65,44 @@ var _ = Describe("migration metrics", func() {
 			Entry("kubevirt_vmi_migration_data_processed_bytes", migrateVMIDataProcessed, 2.0),
 			Entry("kubevirt_vmi_migration_dirty_memory_rate_bytes", migrateVmiDirtyMemoryRate, 3.0),
 			Entry("kubevirt_vmi_migration_memory_transfer_rate_bytes", migrateVmiMemoryTransferRate, 4.0),
+			Entry("kubevirt_vmi_migration_last_downtime_seconds", migrateVmiLastDowntime, 0.15),
 		)
 
-		It("result should be empty if stat not populated or set is false", func() {
-			vmiStats.domainJobInfo = stats.DomainJobInfo{
-				DataRemainingSet: false,
+		It("should publish a zero downtime when it was reported", func() {
+			zeroDowntime := &result{vmi: "test-vmi-1", downtimeSet: true}
+
+			crs := parse(zeroDowntime)
+
+			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(migrateVmiLastDowntime, 0)))
+		})
+
+		It("should not publish downtime when it was not reported", func() {
+			crs := parse(&result{vmi: "test-vmi-1"})
+
+			for _, cr := range crs {
+				Expect(cr.Metric).ToNot(BeIdenticalTo(migrateVmiLastDowntime))
 			}
+		})
+
+		It("should label the last downtime with the source node", func() {
 			crs := parse(vmiStats)
+			for _, cr := range crs {
+				if cr.Metric == migrateVmiLastDowntime {
+					Expect(cr.ConstLabels).To(HaveKeyWithValue("node", "source-node"))
+					return
+				}
+			}
+			Fail("last downtime result was not emitted")
+		})
+
+		It("result should be empty if stat not populated or set is false", func() {
+			emptyStats := &result{
+				vmi: "test-vmi-1",
+				domainJobInfo: stats.DomainJobInfo{
+					DataRemainingSet: false,
+				},
+			}
+			crs := parse(emptyStats)
 			Expect(crs).To(BeEmpty())
 		})
 	})
