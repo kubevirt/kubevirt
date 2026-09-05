@@ -326,6 +326,12 @@ func WithDiskShareable() DiskOption {
 	}
 }
 
+func WithDiskCache(cache v1.DriverCache) DiskOption {
+	return func(d *v1.Disk) {
+		d.Cache = cache
+	}
+}
+
 func WithDiskBootOrder(order uint) DiskOption {
 	return func(d *v1.Disk) {
 		d.BootOrder = &order
