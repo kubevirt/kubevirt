@@ -1,0 +1,42 @@
+# Example prometheus-adapter custom metric rules for virt-exportproxy HPA.
+#
+# Merge the `rules` entries into your prometheus-adapter configuration when you
+# want virt-exportproxy-hpa to scale on active transfers instead of resource
+# CPU/memory. Metric names, HPA targets, and the gated-max floor must stay aligned with:
+#   pkg/virt-operator/resource/generate/components/hpa.go
+#   pkg/exportproxy/admission/limits.go
+#     (HPATargetAverageTransfers, HPATargetMaxTransfers, HPAMaxMetricAverageFloor)
+# SoftTransferLimit (admission cap) is above HPATargetMaxTransfers so the pod-max
+# metric can exceed the HPA target by more than the default 10% tolerance.
+#
+# Verify after applying:
+#   kubectl get apiservice v1beta1.custom.metrics.k8s.io
+#   kubectl get --raw \
+#     "/apis/custom.metrics.k8s.io/v1beta1/namespaces/<ns>/pods/*/kubevirt_exportproxy_active_transfers"
+#   kubectl get --raw \
+#     "/apis/custom.metrics.k8s.io/v1beta1/namespaces/<ns>/metrics/kubevirt_exportproxy_active_transfers_pod_max"
+#
+# This is an example fragment, not a complete prometheus-adapter ConfigMap.
+rules:
+  - seriesQuery: 'kubevirt_exportproxy_active_transfers{namespace!="",pod!=""}'
+    resources:
+      overrides:
+        namespace:
+          resource: namespace
+        pod:
+          resource: pod
+    name:
+      matches: "^kubevirt_exportproxy_active_transfers"
+      as: "kubevirt_exportproxy_active_transfers"
+    metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)'
+  - seriesQuery: 'kubevirt_exportproxy_active_transfers{namespace!="",pod!=""}'
+    resources:
+      overrides:
+        namespace:
+          resource: namespace
+    name:
+      matches: "^kubevirt_exportproxy_active_transfers"
+      as: "kubevirt_exportproxy_active_transfers_pod_max"
+    # Gate the per-namespace max with the fleet average floor
+    # (admission.HPAMaxMetricAverageFloor, currently 91).
+    metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>) * (avg(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>) > bool 91)'

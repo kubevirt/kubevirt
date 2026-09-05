@@ -1720,6 +1720,24 @@ spec:
           - create
           - patch
         - apiGroups:
+          - autoscaling
+          resources:
+          - horizontalpodautoscalers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+        - apiGroups:
+          - custom.metrics.k8s.io
+          resources:
+          - '*'
+          verbs:
+          - get
+          - list
+        - apiGroups:
           - ""
           resources:
           - configmaps
