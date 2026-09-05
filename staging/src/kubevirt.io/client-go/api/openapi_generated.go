@@ -26711,6 +26711,26 @@ func schema_kubevirtio_api_core_v1_TLSConfiguration(ref common.ReferenceCallback
 							},
 						},
 					},
+					"groups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Groups defines the ordered list of TLS supported groups (key exchange curves) offered during TLS handshakes, using IANA names from the TLS Supported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). The order is significant: it is applied verbatim as the curve preference order during negotiation. When empty, Go's default curve preferences apply. Unrecognised groups are ignored. Requires the TLSGroupPreferences feature gate to be enabled.\n\nThis is an open string list rather than a hard enum, in line with the KubeVirt API design guidelines (kubevirt/kubevirt#18612, §3.2), so that newly-standardised groups do not break rolling upgrades.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

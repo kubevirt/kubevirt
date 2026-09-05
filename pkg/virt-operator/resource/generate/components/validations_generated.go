@@ -1769,6 +1769,23 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                   type: array
                   x-kubernetes-list-type: set
+                groups:
+                  description: |-
+                    Groups defines the ordered list of TLS supported groups (key exchange
+                    curves) offered during TLS handshakes, using IANA names from the TLS
+                    Supported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). The
+                    order is significant: it is applied verbatim as the curve preference
+                    order during negotiation. When empty, Go's default curve preferences
+                    apply. Unrecognised groups are ignored. Requires the TLSGroupPreferences
+                    feature gate to be enabled.
+
+                    This is an open string list rather than a hard enum, in line with the
+                    KubeVirt API design guidelines (kubevirt/kubevirt#18612, §3.2), so that
+                    newly-standardised groups do not break rolling upgrades.
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 minTLSVersion:
                   description: |-
                     MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
@@ -1785,6 +1802,13 @@ var CRDsValidation map[string]string = map[string]string{
                   - VersionTLS13
                   type: string
               type: object
+              x-kubernetes-validations:
+              - message: at least one classical group (e.g. X25519, secp256r1, secp384r1
+                  or secp521r1) is required in groups when minTLSVersion is below
+                  VersionTLS13
+                rule: '!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion)
+                  && self.minTLSVersion == ''VersionTLS13'') || self.groups.exists(g,
+                  !(g in [''X25519MLKEM768'',''SecP256r1MLKEM768'',''SecP384r1MLKEM1024'']))'
             virtTemplateDeployment:
               description: VirtTemplateDeployment controls the deployment of virt-template
                 components

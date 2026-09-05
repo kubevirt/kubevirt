@@ -17830,6 +17830,15 @@
       },
       "x-kubernetes-list-type": "set"
      },
+     "groups": {
+      "description": "Groups defines the ordered list of TLS supported groups (key exchange curves) offered during TLS handshakes, using IANA names from the TLS Supported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). The order is significant: it is applied verbatim as the curve preference order during negotiation. When empty, Go's default curve preferences apply. Unrecognised groups are ignored. Requires the TLSGroupPreferences feature gate to be enabled.\n\nThis is an open string list rather than a hard enum, in line with the KubeVirt API design guidelines (kubevirt/kubevirt#18612, §3.2), so that newly-standardised groups do not break rolling upgrades.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "minTLSVersion": {
       "description": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections. Protocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE",
       "type": "string"
