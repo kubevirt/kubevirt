@@ -47,6 +47,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -756,6 +757,10 @@ var _ = Describe("Export controller", func() {
 			service.Status.Conditions[0].Type = "test"
 			Expect(service.GetName()).To(Equal("virt-export-test"))
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			Expect(service.Spec.ClusterIP).To(Equal(k8sv1.ClusterIPNone))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].Port).To(Equal(int32(ExportServerPort)))
+			Expect(service.Spec.Ports[0].TargetPort.IntVal).To(Equal(int32(ExportServerPort)))
 			Expect(service.Labels).To(And(
 				HaveKeyWithValue(virtv1.AppLabel, "virt-exporter"),
 				HaveKeyWithValue(labelKey, labelValue)))
@@ -774,7 +779,10 @@ var _ = Describe("Export controller", func() {
 					Name:      controller.getExportServiceName(testVMExport),
 					Namespace: testVMExport.Namespace,
 				},
-				Spec: k8sv1.ServiceSpec{},
+				Spec: k8sv1.ServiceSpec{
+					ClusterIP: k8sv1.ClusterIPNone,
+					Ports:     []k8sv1.ServicePort{exportPort()},
+				},
 				Status: k8sv1.ServiceStatus{
 					Conditions: []metav1.Condition{
 						{
@@ -788,6 +796,266 @@ var _ = Describe("Export controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test2"))
+	})
+
+	DescribeTable("should delete an incompatible export Service and recreate it after the cache drops it", func(existingSpec k8sv1.ServiceSpec) {
+		testVMExport := createPVCVMExport()
+		existing := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+			Spec: existingSpec,
+		}
+		Expect(serviceInformer.GetStore().Add(existing)).To(Succeed())
+
+		deleted := false
+		k8sClient.Fake.PrependReactor("delete", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			deleteAction, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(deleteAction.GetName()).To(Equal(existing.Name))
+			deleted = true
+			return true, nil, nil
+		})
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("must not create a replacement Service while the incompatible Service is still in the cache")
+			return true, nil, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
+		Expect(service).To(BeNil())
+		Expect(deleted).To(BeTrue())
+
+		Expect(serviceInformer.GetStore().Delete(existing)).To(Succeed())
+		created := false
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			svc, ok := create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			Expect(svc.Spec.ClusterIP).To(Equal(k8sv1.ClusterIPNone))
+			Expect(svc.Spec.Ports).To(HaveLen(1))
+			Expect(svc.Spec.Ports[0].Port).To(Equal(int32(ExportServerPort)))
+			Expect(svc.Spec.Ports[0].TargetPort.IntVal).To(Equal(int32(ExportServerPort)))
+			created = true
+			return true, svc, nil
+		})
+
+		service, err = controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(created).To(BeTrue())
+		Expect(service).ToNot(BeNil())
+		Expect(service.Spec.ClusterIP).To(Equal(k8sv1.ClusterIPNone))
+		Expect(service.Spec.Ports[0].Port).To(Equal(int32(ExportServerPort)))
+		Expect(service.Spec.Ports[0].TargetPort.IntVal).To(Equal(int32(ExportServerPort)))
+	},
+		Entry("ClusterIP service on port 443", k8sv1.ServiceSpec{
+			ClusterIP: "10.96.0.10",
+			Ports: []k8sv1.ServicePort{{
+				Name:       "export",
+				Protocol:   "TCP",
+				Port:       443,
+				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: ExportServerPort},
+			}},
+		}),
+		Entry("headless service still on port 443", k8sv1.ServiceSpec{
+			ClusterIP: k8sv1.ClusterIPNone,
+			Ports: []k8sv1.ServicePort{{
+				Name:       "export",
+				Protocol:   "TCP",
+				Port:       443,
+				TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: ExportServerPort},
+			}},
+		}),
+		Entry("ClusterIP service already on ExportServerPort", k8sv1.ServiceSpec{
+			ClusterIP: "10.96.0.10",
+			Ports:     []k8sv1.ServicePort{exportPort()},
+		}),
+	)
+
+	It("should wait without deleting when an incompatible export Service is already terminating", func() {
+		testVMExport := createPVCVMExport()
+		now := metav1.Now()
+		existing := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              controller.getExportServiceName(testVMExport),
+				Namespace:         testVMExport.Namespace,
+				DeletionTimestamp: &now,
+			},
+			Spec: k8sv1.ServiceSpec{
+				ClusterIP: "10.96.0.10",
+				Ports: []k8sv1.ServicePort{{
+					Name: "export",
+					Port: 443,
+				}},
+			},
+		}
+		Expect(serviceInformer.GetStore().Add(existing)).To(Succeed())
+		exporterPod := &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportPodName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		Expect(podInformer.GetStore().Add(exporterPod)).To(Succeed())
+
+		podDeleted := false
+		k8sClient.Fake.PrependReactor("delete", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("must not delete a Service that is already terminating")
+			return true, nil, nil
+		})
+		k8sClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			deleteAction, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(deleteAction.GetName()).To(Equal(exporterPod.Name))
+			podDeleted = true
+			return true, nil, nil
+		})
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("must not create a replacement Service while the old Service is terminating")
+			return true, nil, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
+		Expect(service).To(BeNil())
+		Expect(podDeleted).To(BeTrue())
+	})
+
+	It("should delete the exporter pod when replacing an incompatible export Service", func() {
+		testVMExport := createPVCVMExport()
+		existing := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+			Spec: k8sv1.ServiceSpec{
+				ClusterIP: "10.96.0.10",
+				Ports: []k8sv1.ServicePort{{
+					Name:       "export",
+					Protocol:   "TCP",
+					Port:       443,
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: ExportServerPort},
+				}},
+			},
+		}
+		Expect(serviceInformer.GetStore().Add(existing)).To(Succeed())
+		exporterPod := &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportPodName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		Expect(podInformer.GetStore().Add(exporterPod)).To(Succeed())
+
+		serviceDeleted := false
+		podDeleted := false
+		k8sClient.Fake.PrependReactor("delete", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			deleteAction, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(deleteAction.GetName()).To(Equal(existing.Name))
+			serviceDeleted = true
+			return true, nil, nil
+		})
+		k8sClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			deleteAction, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(deleteAction.GetName()).To(Equal(exporterPod.Name))
+			podDeleted = true
+			return true, nil, nil
+		})
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("must not create a replacement Service while the incompatible Service is still in the cache")
+			return true, nil, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
+		Expect(service).To(BeNil())
+		Expect(serviceDeleted).To(BeTrue())
+		Expect(podDeleted).To(BeTrue())
+	})
+
+	It("should not delete a compatible headless export Service or its exporter pod", func() {
+		testVMExport := createPVCVMExport()
+		existing := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+			Spec: k8sv1.ServiceSpec{
+				ClusterIP: k8sv1.ClusterIPNone,
+				Ports:     []k8sv1.ServicePort{exportPort()},
+			},
+		}
+		Expect(serviceInformer.GetStore().Add(existing)).To(Succeed())
+		exporterPod := &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportPodName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		Expect(podInformer.GetStore().Add(exporterPod)).To(Succeed())
+
+		k8sClient.Fake.PrependReactor("delete", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("must not delete a compatible headless export Service")
+			return true, nil, nil
+		})
+		k8sClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("must not delete the exporter pod for a compatible export Service")
+			return true, nil, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(service).To(Equal(existing))
+	})
+
+	It("should ignore NotFound when deleting the exporter pod for an incompatible Service", func() {
+		testVMExport := createPVCVMExport()
+		existing := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+			Spec: k8sv1.ServiceSpec{
+				ClusterIP: "10.96.0.10",
+				Ports: []k8sv1.ServicePort{{
+					Name: "export",
+					Port: 443,
+				}},
+			},
+		}
+		Expect(serviceInformer.GetStore().Add(existing)).To(Succeed())
+
+		serviceDeleted := false
+		k8sClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			deleteAction, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(deleteAction.GetName()).To(Equal(controller.getExportPodName(testVMExport)))
+			return true, nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, deleteAction.GetName())
+		})
+		k8sClient.Fake.PrependReactor("delete", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			serviceDeleted = true
+			return true, nil, nil
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(err).To(MatchError(fmt.Sprintf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)))
+		Expect(service).To(BeNil())
+		Expect(serviceDeleted).To(BeTrue())
+	})
+
+	It("should return AlreadyExists when recreating races with a terminating export Service", func() {
+		testVMExport := createPVCVMExport()
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{Resource: "services"}, controller.getExportServiceName(testVMExport))
+		})
+
+		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		Expect(errors.IsAlreadyExists(err)).To(BeTrue())
+		Expect(service).To(BeNil())
 	})
 
 	populateVmExportVM := func() *exportv1.VirtualMachineExport {
@@ -1611,7 +1879,7 @@ var _ = Describe("Export controller", func() {
 			Expect(cm.GetName()).To(Equal(cmName))
 			Expect(cm.GetNamespace()).To(Equal(testNamespace))
 			Expect(cm.Data).ToNot(BeEmpty())
-			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc:%d", controller.getExportServiceName(testVMExport), service.Namespace, ExportServerPort)))
 			Expect(cm.Data[vmManifest]).To(Equal(string(vmBytes)))
 			return true, cm, nil
 		})
@@ -1849,7 +2117,7 @@ var _ = Describe("Export controller", func() {
 			Expect(cm.GetName()).To(Equal(cmName))
 			Expect(cm.GetNamespace()).To(Equal(testNamespace))
 			Expect(cm.Data).ToNot(BeEmpty())
-			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc:%d", controller.getExportServiceName(testVMExport), service.Namespace, ExportServerPort)))
 			Expect(cm.Data[vmTemplateManifest]).To(Equal(string(tplBytes)))
 			Expect(cm.Data).ToNot(HaveKey(vmManifest))
 			return true, cm, nil
@@ -1857,6 +2125,72 @@ var _ = Describe("Export controller", func() {
 
 		err = controller.reconcileManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should update existing datamanifest when internal_host is missing the export port", func() {
+		populateIngressSecret()
+		testVMExport := createVMVMExportExternal()
+		vm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{
+						Volumes: []virtv1.Volume{},
+					},
+				},
+			},
+		}
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		testPod := &k8sv1.Pod{
+			Spec: k8sv1.PodSpec{
+				Containers: []k8sv1.Container{
+					{
+						VolumeMounts: []k8sv1.VolumeMount{},
+					},
+				},
+				Volumes: []k8sv1.Volume{},
+			},
+		}
+		cmName := controller.getVmManifestConfigMapName(testVMExport)
+		stale := &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            cmName,
+				Namespace:       testNamespace,
+				ResourceVersion: "1",
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(testVMExport, exportGVK),
+				},
+			},
+			Data: map[string]string{
+				internalHostKey: fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), testNamespace),
+			},
+		}
+		Expect(k8sClient.Tracker().Add(stale)).To(Succeed())
+
+		patched := false
+		k8sClient.Fake.PrependReactor("patch", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patchAction, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+			Expect(patchAction.GetName()).To(Equal(cmName))
+			patched = true
+			return false, nil, nil
+		})
+
+		vmBytes, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).ToNot(HaveOccurred())
+		extra, err := controller.extraVMData(vm)
+		Expect(err).ToNot(HaveOccurred())
+		err = controller.reconcileManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(patched).To(BeTrue())
 	})
 
 	createVM := func() *virtv1.VirtualMachine {
@@ -2039,7 +2373,14 @@ func verifyLinksInternal(vmExport *exportv1.VirtualMachineExport, expectedVolume
 	for _, volume := range vmExport.Status.Links.Internal.Volumes {
 		Expect(volume.Formats).To(HaveLen(2))
 		Expect(expectedVolumeFormats).To(ContainElements(volume.Formats))
+		for _, format := range volume.Formats {
+			Expect(format.Url).To(ContainSubstring(fmt.Sprintf(":%d", ExportServerPort)))
+		}
 	}
+}
+
+func internalExportBaseURL(exportName, namespace string) string {
+	return fmt.Sprintf("https://%s-%s.%s.svc:%d", exportPrefix, exportName, namespace, ExportServerPort)
 }
 
 func verifyLinksExternal(vmExport *exportv1.VirtualMachineExport, link1Format exportv1.ExportVolumeFormat, link1Url string, link2Format exportv1.ExportVolumeFormat, link2Url string) {
@@ -2061,11 +2402,11 @@ func verifyKubevirtInternal(vmExport *exportv1.VirtualMachineExport, exportName,
 	for _, volumeName := range volumeNames {
 		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.KubeVirtRaw,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+			Url:    fmt.Sprintf("%s/volumes/%s/disk.img", internalExportBaseURL(exportName, namespace), volumeName),
 		})
 		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.KubeVirtGz,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+			Url:    fmt.Sprintf("%s/volumes/%s/disk.img.gz", internalExportBaseURL(exportName, namespace), volumeName),
 		})
 	}
 	verifyLinksInternal(vmExport, exportVolumeFormats...)
@@ -2083,10 +2424,10 @@ func verifyArchiveInternal(vmExport *exportv1.VirtualMachineExport, exportName, 
 	verifyLinksInternal(vmExport,
 		exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.Dir,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/dir", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+			Url:    fmt.Sprintf("%s/volumes/%s/dir", internalExportBaseURL(exportName, namespace), volumeName),
 		}, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.ArchiveGz,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.tar.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+			Url:    fmt.Sprintf("%s/volumes/%s/disk.tar.gz", internalExportBaseURL(exportName, namespace), volumeName),
 		})
 }
 

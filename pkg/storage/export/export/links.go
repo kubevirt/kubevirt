@@ -59,7 +59,10 @@ func (ctrl *VMExportController) getInteralLinks(exporterPod *corev1.Pod, service
 	if err != nil {
 		return nil, err
 	}
-	host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
+	// Headless services do not translate ports, so internal URLs must include
+	// ExportServerPort. TLS serverName remains host-only (no port) in the
+	// export proxy / CBT pull-mode clients that dial these URLs.
+	host := fmt.Sprintf("%s.%s.svc:%d", service.Name, service.Namespace, ExportServerPort)
 	return ctrl.getLinks(exporterPod, export, host, internal, internalCert, source)
 }
 

@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -122,8 +123,9 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 	if err != nil {
 		return err
 	}
-	exportAddr := fmt.Sprintf("%s.%s.svc", vmExport.Status.ServiceName, vmExport.Namespace)
-	serverName := fmt.Sprintf("%s.cluster.local", exportAddr)
+	exportHost := fmt.Sprintf("%s.%s.svc", vmExport.Status.ServiceName, vmExport.Namespace)
+	exportAddr := fmt.Sprintf("%s:%d", exportHost, storagetypes.ExportServerPort)
+	serverName := fmt.Sprintf("%s.cluster.local", exportHost)
 	backupOptions := &backupv1.BackupOptions{
 		BackupName:       backup.Name,
 		Cmd:              backupv1.Export,
