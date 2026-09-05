@@ -122,6 +122,9 @@ perftest: build-functests
 kwok-perftest: build-functests
 	hack/kwok-perftests.sh
 
+kube-burner-perftest: bazel-build
+	hack/perfscale-kube-burner-test.sh
+
 realtime-perftest: build-functests
 	hack/realtime-perftests.sh
 
@@ -297,6 +300,7 @@ vmlog-checker:
 	build-functests \
 	fossa \
 	realtime-perftest \
+	kube-burner-perftest \
 	format \
 	fmt \
 	lint \
