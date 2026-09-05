@@ -662,4 +662,27 @@ var _ = Describe("PVC source", func() {
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 		testutils.ExpectEvent(recorder, exporterPodFailedOrCompletedEvent)
 	})
+
+	It("should not include OCI manifest link when OCIExport feature gate is disabled", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			Expect(vmExport.Status.Links.Internal).ToNot(BeNil())
+			for _, manifest := range vmExport.Status.Links.Internal.Manifests {
+				Expect(manifest.Type).ToNot(Equal(exportv1.OCI),
+					"OCI manifest link should not be present when feature gate is disabled")
+			}
+			return true, vmExport, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+	})
 })
