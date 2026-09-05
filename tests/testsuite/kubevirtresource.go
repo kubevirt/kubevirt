@@ -115,12 +115,9 @@ func AdjustKubeVirtResource() {
 		featuregate.HostDiskGate,
 		featuregate.VirtIOFSStorageVolumeGate,
 		featuregate.DownwardMetricsFeatureGate,
-		featuregate.WorkloadEncryptionSEV,
 		featuregate.ObjectGraph,
-		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.DecentralizedLiveMigration,
 		featuregate.UtilityVolumesGate,
-		featuregate.RebootPolicy,
 		featuregate.ContainerPathVolumesGate,
 	} {
 		if !unsupportedGates[gate] {
