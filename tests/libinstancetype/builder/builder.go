@@ -131,6 +131,15 @@ func WithPreferredCPUTopology(topology instancetypev1beta1.PreferredCPUTopology)
 	}
 }
 
+func WithPreferredInterfaceModel(model string) PreferenceSpecOption {
+	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+		if spec.Devices == nil {
+			spec.Devices = &instancetypev1beta1.DevicePreferences{}
+		}
+		spec.Devices.PreferredInterfaceModel = model
+	}
+}
+
 func WithPreferredDiskBus(bus v1.DiskBus) PreferenceSpecOption {
 	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
 		if spec.Devices == nil {
