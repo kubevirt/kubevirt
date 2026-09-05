@@ -152,6 +152,10 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	if causes = validateResourceClaimTemplateNameLengths(k8sfield.NewPath("spec"), vmCopy.Name, vmCopy.Spec.ResourceClaimTemplates); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	causes, err = storageadmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -224,7 +228,89 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, storageadmitters.ValidateDataVolumeTemplate(field, spec)...)
 	causes = append(causes, validateRunStrategy(field, spec, config)...)
 	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
+	causes = append(causes, validateResourceClaimTemplates(field, spec, config)...)
 
+	return causes
+}
+
+func validateResourceClaimTemplates(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if len(spec.ResourceClaimTemplates) == 0 {
+		return nil
+	}
+
+	if !config.PersistentDRAClaimsEnabled() {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "ResourceClaimTemplates requires the PersistentDRAClaims feature gate to be enabled",
+			Field:   field.Child("resourceClaimTemplates").String(),
+		}}
+	}
+
+	if spec.Template == nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "spec.template is required when resourceClaimTemplates are specified",
+			Field:   field.Child("template").String(),
+		}}
+	}
+
+	templateClaims := make(map[string]struct{})
+	for _, rc := range spec.Template.Spec.ResourceClaims {
+		templateClaims[rc.Name] = struct{}{}
+	}
+
+	nameSet := make(map[string]bool)
+	for i, entry := range spec.ResourceClaimTemplates {
+		entryField := field.Child("resourceClaimTemplates").Index(i)
+		if entry.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "ResourceClaimTemplateEntry name is required",
+				Field:   entryField.Child("name").String(),
+			})
+		} else {
+			if nameSet[entry.Name] {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueDuplicate,
+					Message: fmt.Sprintf("Duplicate ResourceClaimTemplateEntry name: %s", entry.Name),
+					Field:   entryField.Child("name").String(),
+				})
+			}
+			nameSet[entry.Name] = true
+		}
+		if entry.ResourceClaimTemplateName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "ResourceClaimTemplateEntry resourceClaimTemplateName is required",
+				Field:   entryField.Child("resourceClaimTemplateName").String(),
+			})
+		}
+		if entry.Name != "" {
+			if _, ok := templateClaims[entry.Name]; !ok {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("ResourceClaimTemplateEntry %q has no matching entry in spec.template.spec.resourceClaims", entry.Name),
+					Field:   entryField.Child("name").String(),
+				})
+			}
+		}
+	}
+
+	return causes
+}
+
+func validateResourceClaimTemplateNameLengths(field *k8sfield.Path, vmName string, entries []v1.ResourceClaimTemplateEntry) (causes []metav1.StatusCause) {
+	const maxNameLength = 63
+	for i, entry := range entries {
+		derivedName := fmt.Sprintf("%s-%s", vmName, entry.Name)
+		if len(derivedName) > maxNameLength {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("derived ResourceClaim name %q exceeds %d characters", derivedName, maxNameLength),
+				Field:   field.Child("resourceClaimTemplates").Index(i).Child("name").String(),
+			})
+		}
+	}
 	return causes
 }
 

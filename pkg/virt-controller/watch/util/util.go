@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -115,4 +116,24 @@ func CreateDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTempla
 	}
 
 	return newDataVolume, nil
+}
+
+func ResourceClaimNameForVM(vmName, entryName string) string {
+	return fmt.Sprintf("%s-%s", vmName, entryName)
+}
+
+func CreateResourceClaimManifest(entry virtv1.ResourceClaimTemplateEntry, claimTemplate *resourcev1.ResourceClaimTemplate, vm *virtv1.VirtualMachine) *resourcev1.ResourceClaim {
+	return &resourcev1.ResourceClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      ResourceClaimNameForVM(vm.Name, entry.Name),
+			Namespace: vm.Namespace,
+			Labels: map[string]string{
+				virtv1.CreatedByLabel: string(vm.UID),
+			},
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+			},
+		},
+		Spec: *claimTemplate.Spec.Spec.DeepCopy(),
+	}
 }
