@@ -3685,8 +3685,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints.labelSelector.matchExpressions[0].values"))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.topologySpreadConstraints.labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.topologySpreadConstraints[0].labelSelector.matchExpressions[0].values"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.topologySpreadConstraints[0].labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
 		})
 	})
 
