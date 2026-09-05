@@ -27,7 +27,11 @@ bazel-build:
 bazel-build-functests:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build-functests.sh"
 
+ifeq ($(KUBEVIRT_NO_BAZEL),true)
+build-functests: go-build-functests
+else
 build-functests: bazel-build-functests
+endif
 
 bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-fmt.sh"
@@ -43,6 +47,12 @@ bazel-push-images:
 	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
 
 push: bazel-push-images
+
+container-build-images:
+	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} KUBEVIRT_CRI=${KUBEVIRT_CRI} BUILDER_IMAGE=${BUILDER_IMAGE} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch-container.sh
+
+container-push-images:
+	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PREFIX=${IMAGE_PREFIX} KUBEVIRT_CRI=${KUBEVIRT_CRI} ./hack/multi-arch-push-container.sh
 
 bazel-test:
 	hack/dockerized "hack/bazel-fmt.sh && CI=${CI} ARTIFACTS=${ARTIFACTS} WHAT=${WHAT}  hack/bazel-test.sh"
@@ -70,10 +80,10 @@ client-python:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/gen-client-python/generate.sh"
 
 go-build:
-	KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_VERSION=${KUBEVIRT_VERSION} && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
+	KUBEVIRT_NO_BAZEL=true hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} KUBEVIRT_VERSION=${KUBEVIRT_VERSION} && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
 go-build-functests:
-	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
+	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && BUILD_ARCH=${BUILD_ARCH} KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
 
 gosec:
 	hack/dockerized "GOSEC=${GOSEC} ARTIFACTS=${ARTIFACTS} ./hack/gosec.sh"
@@ -160,6 +170,12 @@ rpm-deps-all:
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
+
+rpm-base-build:
+	hack/rpm-base-images/build-base-images.sh
+
+rpm-base-push:
+	hack/rpm-base-images/push-base-images.sh
 
 verify-rpm-deps:
 	SYNC_VENDOR=true hack/dockerized " ./hack/verify-rpm-deps.sh"
@@ -276,6 +292,10 @@ vmlog-checker:
 	bazel-build-images \
 	bazel-push-images \
 	bazel-test \
+	container-build-images \
+	container-push-images \
+	rpm-base-build \
+	rpm-base-push \
 	functest-image-build \
 	functest-image-push \
 	test \

@@ -43,6 +43,7 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
         exit 0
     fi
     RPM_CHANGES=$(echo "$CI_GIT_ALL_CHANGES" | grep -E '^(rpm/|WORKSPACE)' || :)
+    export RPM_CHANGES
  fi
 
 if [ -z $TARGET ]; then
@@ -57,6 +58,10 @@ add_feature_gate() {
     export FEATURE_GATES="$FEATURE_GATES,$1"
   fi
 }
+
+# TODO: Remove this once Prow job configs set KUBEVIRT_NO_BAZEL externally.
+# Hardcoded here temporarily to enable container build testing in CI.
+export KUBEVIRT_NO_BAZEL=true
 
 export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
@@ -321,6 +326,24 @@ determine_cri_bin() {
     fi
 }
 
+build_images() {
+    # build all images with the basic repeat logic
+    # probably because load on the node, possible situation when the bazel
+    # fails to download artifacts, to avoid job fails because of it,
+    # we repeat the build images action
+    local tries=3
+    for i in $(seq 1 $tries); do
+        if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
+            make container-build-images && return
+        else
+            make bazel-build-images && return
+        fi
+        rc=$?
+    done
+
+    return $rc
+}
+
 collect_debug_logs() {
     local containers
 
@@ -340,12 +363,17 @@ build_images() {
     # we repeat the build images action
     local tries=3
     for i in $(seq 1 $tries); do
-        make bazel-build-images && return
+        if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
+            make container-build-images && return
+        else
+            make bazel-build-images && return
+        fi
         rc=$?
     done
 
     return $rc
 }
+
 
 check_for_panics() {
     set +x
@@ -410,7 +438,13 @@ echo "=================="
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+# Pre-build images only for Bazel flow. Bazel's remote cache downloads are
+# flaky, so we retry here before cluster-up. For the container flow this is
+# unnecessary: podman builds are deterministic and don't depend on a remote
+# cache, and images are built+pushed together during cluster-sync.
+if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
+    build_images
+fi
 
 trap '{ collect_debug_logs; }' ERR
 make cluster-up
@@ -734,7 +768,6 @@ if [[ $TARGET =~ sig-storage ]]; then
   }'
   kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m
 fi
-
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginkgo_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
