@@ -230,7 +230,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return nil
 		}
 
-		controller, _ = NewController(
+		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vmi"))
+		controller, _ = NewController(mockQueue,
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
@@ -256,9 +257,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			[]string{},
 			[]string{},
 		)
-		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
 
 		sanityExecute = func() {
 			controllertesting.SanityExecute(controller, []cache.Store{

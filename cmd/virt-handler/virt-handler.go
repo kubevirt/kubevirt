@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
@@ -493,6 +494,10 @@ func (app *virtHandlerApp) Run() {
 	cbtHandler := virthandler.NewCBTHandler(app.virtClient, backupTrackerInformer)
 
 	vmController, err := virthandler.NewVirtualMachineController(
+		workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
+		),
 		recorder,
 		app.virtClient,
 		app.k8sClient,

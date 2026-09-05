@@ -129,6 +129,7 @@ var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervi
 }
 
 func NewVirtualMachineController(
+	queue workqueue.TypedRateLimitingInterface[string],
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
 	k8sClient kubernetes.Interface,
@@ -155,10 +156,6 @@ func NewVirtualMachineController(
 	hvMounter hotplugvolume.VolumeMounter,
 ) (*VirtualMachineController, error) {
 
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
-		workqueue.DefaultTypedControllerRateLimiter[string](),
-		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
-	)
 	logger := log.Log.With("controller", "vm")
 
 	hypervisorName := clusterConfig.GetHypervisor().Name
