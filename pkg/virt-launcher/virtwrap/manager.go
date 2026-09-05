@@ -240,7 +240,7 @@ type LibvirtDomainManager struct {
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 	agentDataCaches           map[string]*virtcache.TimeDefinedCache[string]
 
-	// Device aliasas are updated only through hotplug events and SyncVMI
+	// Device aliases are updated only through hotplug events and SyncVMI
 	devAliasMap  map[string]string
 	devAliasLock sync.RWMutex
 
@@ -555,7 +555,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) {
 							latestErr = fmt.Errorf("%s, %s", unresponsive, err)
 							log.Log.Object(vmi).Reason(err).V(9).Info(unresponsive)
 						case libvirt.ERR_OPERATION_UNSUPPORTED:
-							// no need to retry as this opertaion is not supported
+							// no need to retry as this operation is not supported
 							log.Log.Object(vmi).Reason(err).Warning("failed to set time: not supported")
 							return
 						case libvirt.ERR_ARGUMENT_UNSUPPORTED:

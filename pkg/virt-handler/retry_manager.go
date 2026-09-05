@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-// FailRetryManager is the manger to handle asynchronous retry used by virt-handler.
+// FailRetryManager is the manager to handle asynchronous retry used by virt-handler.
 // When a failure event happens, virt-handler will try to fix it. The result of the
 // fix is reflected by whether we receive the failure signal again afterwards.
 // If we did, we want to schedule the retry in an exponential backoff manner.
