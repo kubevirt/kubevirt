@@ -124,10 +124,11 @@ type VirtualMachineBackupTrackerStatus struct {
 	LatestCheckpoint *BackupCheckpoint `json:"latestCheckpoint,omitempty"`
 
 	// +optional
-	// CheckpointRedefinitionRequired is set to true by virt-handler when the VM
-	// restarts and has a checkpoint that needs to be redefined in libvirt.
-	// virt-controller will process this flag, attempt redefinition, and clear it.
-	CheckpointRedefinitionRequired *bool `json:"checkpointRedefinitionRequired,omitempty"`
+	// LastTrackedPodUID is the UID of the virt-launcher pod associated with
+	// the VMI being tracked for which checkpoints were last defined in libvirt.
+	// After a VM restart, the new pod UID will differ, signaling that checkpoint
+	// redefinition is needed before backups can resume.
+	LastTrackedPodUID *types.UID `json:"lastTrackedPodUID,omitempty"`
 }
 
 // VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources
