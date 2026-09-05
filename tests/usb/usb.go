@@ -14,10 +14,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -37,15 +35,9 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 		var virtClient kubecli.KubevirtClient
 		var config v1.KubeVirtConfiguration
 		var vmi *v1.VirtualMachineInstance
-		var fgWasOff bool
 
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
-
-			fgWasOff = !checks.HasFeature(featuregate.HostDevicesGate)
-			if fgWasOff {
-				kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
-			}
 
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
@@ -71,9 +63,6 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 
 			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout*time.Second)).To(Succeed())
 
-			if fgWasOff {
-				kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
-			}
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
