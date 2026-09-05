@@ -342,7 +342,7 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 	const ptyFirstMajor int64 = 136
 	const ptyMajors int64 = 16
 
-	for i := int64(0); i < ptyMajors; i++ {
+	for i := range ptyMajors {
 		defaultRules = append(defaultRules,
 			&devices.Rule{
 				Type:        devices.CharDevice,

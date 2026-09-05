@@ -70,12 +70,12 @@ func (c Cache) Entry(path string) (Cache, error) {
 	}, nil
 }
 
-func (c Cache) Read(data interface{}) (interface{}, error) {
+func (c Cache) Read(data any) (any, error) {
 	err := readFromCachedFile(c.fs, data, c.path)
 	return data, err
 }
 
-func (c Cache) Write(data interface{}) error {
+func (c Cache) Write(data any) error {
 	return writeToCachedFile(c.fs, data, c.path)
 }
 
@@ -87,7 +87,7 @@ type cacheCreator interface {
 	New(filePath string) *Cache
 }
 
-func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
+func writeToCachedFile(fs cacheFS, obj any, fileName string) error {
 	if err := fs.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 	return dutils.DefaultOwnershipManager.UnsafeSetFileOwnership(fileName)
 }
 
-func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
+func readFromCachedFile(fs cacheFS, obj any, fileName string) error {
 	buf, err := fs.ReadFile(fileName)
 	if err != nil {
 		return err

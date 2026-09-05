@@ -25,7 +25,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -241,7 +240,7 @@ func newDRASpec() *v1.VirtualMachineInstanceSpec {
 			},
 		},
 		ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-			{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
+			{Name: "claim1", ResourceClaimName: new("claim1")},
 		},
 	}
 }
