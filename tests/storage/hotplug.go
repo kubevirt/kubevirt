@@ -125,9 +125,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		} else {
 			opts.Disk.DiskDevice.Disk = &v1.DiskTarget{Bus: bus}
 		}
-		if cache == v1.CacheNone ||
-			cache == v1.CacheWriteThrough ||
-			cache == v1.CacheWriteBack {
+		if cache == v1.CacheNone || cache == v1.CacheWriteThrough || cache == v1.CacheWriteBack || cache == v1.CacheUnsafe || cache == v1.CacheDirectSync {
 			opts.Disk.Cache = cache
 		}
 		return opts

@@ -1184,6 +1184,63 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
+		It("should accept shareable disk with directsync cache", func() {
+			vmi := libvmi.New(
+				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskShareable(), libvmi.WithDiskCache(v1.CacheDirectSync)),
+			)
+			configurator := storage.NewDiskConfigurator(
+				storage.DiskWithArchitecture(amd64),
+				storage.DiskWithVirtioModel(virtioModel),
+				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
+			)
+			var domain api.Domain
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := newDomainWithDisks(newDisk("mypvc",
+				diskWithDevice("disk"),
+				diskWithType("file"),
+				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
+				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "directsync", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithModel(virtioModel),
+				diskWithShareable(),
+			))
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should reject shareable disk with writeback cache", func() {
+			vmi := libvmi.New(
+				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskShareable(), libvmi.WithDiskCache(v1.CacheWriteBack)),
+			)
+			configurator := storage.NewDiskConfigurator(
+				storage.DiskWithArchitecture(amd64),
+				storage.DiskWithVirtioModel(virtioModel),
+				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
+			)
+			var domain api.Domain
+
+			err := configurator.Configure(vmi, &domain)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("a sharable disk requires cache mode none or directsync"))
+		})
+
+		It("should reject shareable disk with unsafe cache", func() {
+			vmi := libvmi.New(
+				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskShareable(), libvmi.WithDiskCache(v1.CacheUnsafe)),
+			)
+			configurator := storage.NewDiskConfigurator(
+				storage.DiskWithArchitecture(amd64),
+				storage.DiskWithVirtioModel(virtioModel),
+				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
+			)
+			var domain api.Domain
+
+			err := configurator.Configure(vmi, &domain)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("a sharable disk requires cache mode none or directsync"))
+		})
+
 		It("should set IOMMU driver when SEV is active on virtio disk", func() {
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim"),

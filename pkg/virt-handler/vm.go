@@ -1136,6 +1136,15 @@ func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInst
 }
 
 func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.Cache == v1.CacheUnsafe {
+			return newNonMigratableCondition(
+				fmt.Sprintf("disk %q uses cache mode %q which does not guarantee data consistency during live migration", disk.Name, disk.Cache),
+				v1.VirtualMachineInstanceReasonCacheUnsafeNotMigratable,
+			), false
+		}
+	}
+
 	isBlockMigration, blockErr := c.checkVolumesForMigration(vmi)
 
 	err := c.checkNetworkInterfacesForMigration(vmi)
