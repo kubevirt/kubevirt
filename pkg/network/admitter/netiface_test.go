@@ -526,4 +526,94 @@ var _ = Describe("Validating VMI network spec", func() {
 			),
 		)
 	})
+
+	When("interface MTU is specified", func() {
+		It("should reject MTU when InterfaceMTUOverride feature gate is disabled", func() {
+			mtu := 1500
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				MTU:                    &mtu,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{interfaceMTUOverrideEnabled: false})
+			causes := validator.Validate()
+
+			Expect(causes).To(ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "mtu is specified on interface but the InterfaceMTUOverride feature gate is not enabled",
+				Field:   "fake.domain.devices.interfaces[0].mtu",
+			}))
+		})
+
+		It("should accept valid MTU when feature gate is enabled", func() {
+			mtu := 1500
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				MTU:                    &mtu,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{interfaceMTUOverrideEnabled: true})
+			Expect(validator.Validate()).To(BeEmpty())
+		})
+
+		It("should accept no MTU (nil) regardless of feature gate", func() {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{interfaceMTUOverrideEnabled: false})
+			Expect(validator.Validate()).To(BeEmpty())
+		})
+
+		DescribeTable("should reject invalid MTU values", func(mtuVal int) {
+			mtu := mtuVal
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				MTU:                    &mtu,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{interfaceMTUOverrideEnabled: true})
+			causes := validator.Validate()
+
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].mtu"))
+		},
+			Entry("MTU below minimum (575)", 575),
+			Entry("MTU of zero", 0),
+			Entry("MTU above maximum (65536)", 65536),
+			Entry("negative MTU", -1),
+		)
+
+		DescribeTable("should accept valid MTU values", func(mtuVal int) {
+			mtu := mtuVal
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				MTU:                    &mtu,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{interfaceMTUOverrideEnabled: true})
+			Expect(validator.Validate()).To(BeEmpty())
+		},
+			Entry("minimum valid MTU (576)", 576),
+			Entry("standard MTU (1500)", 1500),
+			Entry("jumbo frame MTU (9000)", 9000),
+			Entry("maximum valid MTU (65535)", 65535),
+		)
+	})
 })

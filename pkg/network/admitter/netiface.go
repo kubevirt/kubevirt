@@ -119,6 +119,7 @@ func validateInterfacesFields(
 		causes = append(causes, validatePortConfiguration(field, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validatePortRangesConfiguration(field, idx, iface, networksByName[iface.Name], checker)...)
 		causes = append(causes, validateDHCPOptions(field, idx, iface)...)
+		causes = append(causes, validateMTU(field, idx, iface, checker)...)
 	}
 
 	return causes
@@ -405,6 +406,32 @@ func validateForwardPortRangesOverlaps(field *k8sfield.Path, idx int, protocol s
 	}
 
 	return causes
+}
+
+func validateMTU(field *k8sfield.Path, idx int, iface v1.Interface, checker clusterConfigChecker) []metav1.StatusCause {
+	if iface.MTU == nil {
+		return nil
+	}
+	if !checker.InterfaceMTUOverrideGateEnabled() {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "mtu is specified on interface but the InterfaceMTUOverride feature gate is not enabled",
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("mtu").String(),
+		}}
+	}
+	mtu := *iface.MTU
+	if mtu < 576 || mtu > 65535 {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(
+				"interface %s has invalid MTU value %d, must be between 576 and 65535",
+				field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				mtu,
+			),
+			Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("mtu").String(),
+		}}
+	}
+	return nil
 }
 
 func validateDHCPOptions(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {

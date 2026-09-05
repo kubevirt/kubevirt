@@ -313,6 +313,7 @@ spec:
         macvtap: {}
         masquerade: {}
         model: modelValue
+        mtu: -3
         name: nameValue
         passt: {}
         passtBinding: {}
