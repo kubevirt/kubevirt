@@ -409,8 +409,8 @@ func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachm
 }
 
 func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volume) bool {
-	// -2 for empty dir and token
-	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
+	// -1 for empty dir
+	if len(attachmentPod.Spec.Volumes)-1 != len(volumes) {
 		return false
 	}
 	podVolumeMap := make(map[string]k8sv1.Volume)
