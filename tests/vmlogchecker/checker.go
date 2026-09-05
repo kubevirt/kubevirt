@@ -518,6 +518,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		Regex: regexp.MustCompile(`"level":"error","msg":"(pre start setup for VirtualMachineInstance failed\.|Failed to sync vmi)".*"reason":"preparing ephemeral container disk images failed: no supported file disk found for volume found in: /var/run/kubevirt/container-disks/disk_\d+\.img"`),
 		SIGs:  SIGCompute,
 	},
+	{
+		ID:    107,
+		Regex: regexp.MustCompile(`"level":"error".*QEMU unexpectedly closed the monitor.*Failed to get .*write.* lock`),
+		SIGs:  SIGStorage,
+	},
 }
 
 // errorKeywordPatterns provides broad keyword-based error detection for the
