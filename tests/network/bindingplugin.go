@@ -128,11 +128,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 		It("can run a virtual machine with one macvtap interface", func() {
 			var vmi *v1.VirtualMachineInstance
-			var chosenMAC string
-
-			chosenMACHW, err := libnet.GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			chosenMAC = chosenMACHW.String()
+			chosenMAC := libnet.GenerateRandomMac().String()
 
 			ifaceName := "macvtapIface"
 			vmi = libvmifact.NewAlpineWithTestTooling(
@@ -144,7 +140,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
 			namespace := testsuite.GetTestNamespace(nil)
-			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+			vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Create(
 				context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
