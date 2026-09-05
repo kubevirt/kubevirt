@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/config:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/downwardmetrics/vhostmd:go_default_library",
         "//pkg/downwardmetrics/vhostmd/api:go_default_library",
