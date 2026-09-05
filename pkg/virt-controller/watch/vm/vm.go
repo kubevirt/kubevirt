@@ -905,6 +905,20 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
 		log.Log.Object(vm).V(4).Infof("not handling replacement update volumes strategy")
 	case vm.Spec.UpdateVolumesStrategy != nil && *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+		// Idempotency: if VMI has migratedVolumes the VM doesn't have yet,
+		// propagate them to the VM status (recovery from partial failure).
+		vmHasMigratedVolumes := vm.Status.VolumeUpdateState != nil &&
+			vm.Status.VolumeUpdateState.VolumeMigrationState != nil &&
+			equality.Semantic.DeepEqual(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes, vmi.Status.MigratedVolumes)
+		if len(vmi.Status.MigratedVolumes) > 0 && !vmHasMigratedVolumes {
+			if vm.Status.VolumeUpdateState == nil {
+				vm.Status.VolumeUpdateState = &virtv1.VolumeUpdateState{}
+			}
+			vm.Status.VolumeUpdateState.VolumeMigrationState = &virtv1.VolumeMigrationState{
+				MigratedVolumes: vmi.Status.MigratedVolumes,
+			}
+		}
+
 		if !volumemig.PersistentVolumesUpdated(&vm.Spec.Template.Spec, &vmi.Spec) {
 			log.Log.Object(vm).V(4).Infof("No persistent volumes updated")
 			return nil
