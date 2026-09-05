@@ -29,6 +29,16 @@ func (in BackupCheckpoint) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BackupLink) OpenAPIModelName() string {
+	return "io.kubevirt.api.backup.v1alpha1.BackupLink"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BackupLinks) OpenAPIModelName() string {
+	return "io.kubevirt.api.backup.v1alpha1.BackupLinks"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in BackupOptions) OpenAPIModelName() string {
 	return "io.kubevirt.api.backup.v1alpha1.BackupOptions"
 }
@@ -36,6 +46,11 @@ func (in BackupOptions) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in BackupVolumeInfo) OpenAPIModelName() string {
 	return "io.kubevirt.api.backup.v1alpha1.BackupVolumeInfo"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BackupVolumeLink) OpenAPIModelName() string {
+	return "io.kubevirt.api.backup.v1alpha1.BackupVolumeLink"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
