@@ -47,9 +47,10 @@ virtual disk.
 ## API
 
 The general API to use PersistentVolume claims as virtual disk backends was
-introduced with [direct PV proposal](direct-pv-disks.md).
+introduced with the direct PV proposal, which was later removed as the
+feature is not supported.
 
-The change suggested by this proposal, does not require any API change.
+The change suggested by this proposal does not require any API change.
 
 To use a PV as a virtual disk backend, a user needs to create a claim for the
 required PV, this claim is then used as a disk source for a virtual disk.
