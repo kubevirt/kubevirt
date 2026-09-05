@@ -70,7 +70,7 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 
 			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)
 			Expect(conflicts).To(HaveLen(1))
-			Expect(conflicts[0].String()).To(Equal("annotations.annotation-1"))
+			Expect(conflicts[0].String()).To(Equal("spec.template.spec.annotations.annotation-1"))
 		})
 	})
 })

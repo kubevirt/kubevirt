@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
+	preferenceValidation "kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 )
 
 func applyCPU(
@@ -68,6 +69,10 @@ func applyCPU(
 		vmiSpec.Domain.CPU.MaxSockets = *instancetypeSpec.CPU.MaxSockets
 	}
 
+	if spreadConflict := preferenceValidation.CheckSpreadCPUTopology(instancetypeSpec, preferenceSpec); spreadConflict != nil {
+		return conflict.Conflicts{spreadConflict}
+	}
+
 	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
 
 	return nil
@@ -79,6 +84,8 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachineP
 	vmiSpec.Domain.CPU.Sockets = 1
 	vmiSpec.Domain.CPU.Threads = 1
 
+	// 1 vCPU always produces {1,1,1} regardless of topology, bypassing the
+	// spread/topology switch below. CheckSpreadCPUTopology exempts this case too.
 	if vCPUs == 1 {
 		return
 	}
