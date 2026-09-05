@@ -40,6 +40,21 @@ func (m *MockNetworkHandler) EXPECT() *MockNetworkHandlerMockRecorder {
 	return m.recorder
 }
 
+// AddrList mocks base method.
+func (m *MockNetworkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddrList", link, family)
+	ret0, _ := ret[0].([]netlink.Addr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddrList indicates an expected call of AddrList.
+func (mr *MockNetworkHandlerMockRecorder) AddrList(link, family any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddrList", reflect.TypeOf((*MockNetworkHandler)(nil).AddrList), link, family)
+}
+
 // HasIPv4GlobalUnicastAddress mocks base method.
 func (m *MockNetworkHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
 	m.ctrl.T.Helper()
