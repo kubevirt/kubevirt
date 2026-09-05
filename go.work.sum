@@ -1136,6 +1136,7 @@ k8s.io/kms v0.34.2/go.mod h1:s1CFkLG7w9eaTYvctOxosx88fl4spqmixnNpys0JAtM=
 k8s.io/kms v0.36.2 h1:o0l8zMRecm38k5NyRnO/3+2YA/MR6TMGcc3KQZA76hI=
 k8s.io/kube-aggregator v0.34.2 h1:Nn0Vksj67WHBL2x7bJ6vuxL44RbMTK6uRtXX+3vMVJk=
 k8s.io/kube-aggregator v0.34.2/go.mod h1:/tp4cc/1p2AvICsS4mjjSJakdrbhcGbRmj0mdHTdR2Q=
+k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b/go.mod h1:UZ2yyWbFTpuhSbFhv24aGNOdoRdJZgsIObGBUaYVsts=
 k8s.io/kubectl v0.34.2 h1:+fWGrVlDONMUmmQLDaGkQ9i91oszjjRAa94cr37hzqA=
 k8s.io/kubectl v0.34.2/go.mod h1:X2KTOdtZZNrTWmUD4oHApJ836pevSl+zvC5sI6oO2YQ=
 k8s.io/kubernetes v1.11.8-beta.0.0.20190124204751-3a10094374f2 h1:CzIOMOEjH+sQw35LY1Gl0jwthkyOojzaq2HIeYZYOrM=
