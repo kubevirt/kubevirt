@@ -429,6 +429,26 @@ var _ = Describe("Backup Controller", func() {
 		Expect(statusUpdated).To(BeTrue())
 	})
 
+	It("should remove the finalizer when a deleted backup's backupTracker no longer exists", func() {
+		backup := createBackupWithTracker(backupName, vmName, pvcName)
+		backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
+		backup.Finalizers = []string{vmBackupFinalizer}
+		addBackup(backup)
+		// Don't add backupTracker
+
+		patched := false
+		kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patched = true
+			updatedBackup := backup.DeepCopy()
+			updatedBackup.Finalizers = nil
+			return true, updatedBackup, nil
+		})
+
+		err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backupName}.String())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(patched).To(BeTrue())
+	})
+
 	It("should wait when backupTracker needs checkpoint redefinition", func() {
 		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
 		backupTracker.Status.CheckpointRedefinitionRequired = pointer.P(true)
