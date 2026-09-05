@@ -284,7 +284,20 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	return copyDisks
 }
 
+func applyDisableMultifdEnvOverride(options *cmdclient.MigrationOptions) {
+	if options.StallDetectorOptions == nil {
+		// stall detector is disabled
+		return
+	}
+	if !migrationutils.ShouldDisableMultifd() {
+		return
+	}
+	options.ParallelMigrationThreads = nil
+}
+
 func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+	applyDisableMultifdEnvOverride(options)
+
 	if vmi.Status.ChangedBlockTracking != nil && vmi.Status.ChangedBlockTracking.BackupStatus != nil {
 		return fmt.Errorf("cannot migrate VMI until backup %s is completed", vmi.Status.ChangedBlockTracking.BackupStatus.BackupName)
 	}
@@ -413,6 +426,8 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 	if stallDetectorEnabled {
 		monitor.iterationCh = make(chan int, 16)
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
+		updatedStallDetectorOptions := migrationutils.ApplyEnvOverrides(*options.StallDetectorOptions)
+		options.StallDetectorOptions = &updatedStallDetectorOptions
 		monitor.stallDetector = &stallDetector{
 			stallDetectorOptions:    *options.StallDetectorOptions,
 			maxDowntimeMs:           options.MaxDowntimeMs,
