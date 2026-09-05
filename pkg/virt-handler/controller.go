@@ -69,6 +69,8 @@ const (
 	VolumeMountedToPodReason = "VolumeMountedToPod"
 	//VolumeUnplugged is the reason set when the volume is completely unplugged from the VMI
 	VolumeUnplugged = "VolumeUnplugged"
+	//HotplugFailedReason is the reason set when a hotplug volume attachment fails at the hypervisor level
+	HotplugFailedReason = "HotplugFailed"
 	//VMIDefined is the reason set when a VMI is defined
 	VMIDefined = "VirtualMachineInstance defined."
 	//VMIStarted is the reason set when a VMI is started

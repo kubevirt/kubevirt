@@ -480,7 +480,11 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 			continue
 		}
 		if newStatus.Phase != oldStatus.Phase {
-			c.recorder.Event(vmi, k8sv1.EventTypeNormal, newStatus.Reason, newStatus.Message)
+			eventType := k8sv1.EventTypeNormal
+			if newStatus.Phase == v1.HotplugVolumeFailed {
+				eventType = k8sv1.EventTypeWarning
+			}
+			c.recorder.Event(vmi, eventType, newStatus.Reason, newStatus.Message)
 		}
 		delete(newStatusMapCopy, newStatus.Name)
 	}
@@ -490,7 +494,7 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 	}
 }
 
-func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]struct{}) (v1.VolumeStatus, bool) {
+func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]struct{}, syncErr error) (v1.VolumeStatus, bool) {
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
@@ -499,18 +503,20 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 			c.logger.Object(vmi).Errorf("error occurred while checking if volume is mounted: %v", err)
 		}
 		if mounted {
-			if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
+			if syncErr != nil && volumeStatus.Phase == v1.HotplugVolumeMounted {
+				log.DefaultLogger().Infof("Hotplug attachment of volume %s failed: %v", volumeStatus.Name, syncErr)
+				volumeStatus.Phase = v1.HotplugVolumeFailed
+				volumeStatus.Message = syncErr.Error()
+				volumeStatus.Reason = HotplugFailedReason
+			} else if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
 				log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
-				// mounted, and still in spec, and in phase we can change, update status to mounted.
 				volumeStatus.Phase = v1.HotplugVolumeMounted
 				volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
 				volumeStatus.Reason = VolumeMountedToPodReason
 			}
 		} else {
-			// Not mounted, check if the volume is in the spec, if not update status
 			if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToUnmounted(volumeStatus.Phase) {
 				log.DefaultLogger().Infof("Marking volume %s as unmounted from pod, it can now be detached", volumeStatus.Name)
-				// Not mounted.
 				volumeStatus.Phase = v1.HotplugVolumeUnMounted
 				volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
 				volumeStatus.Reason = VolumeUnMountedFromPodReason
@@ -525,7 +531,7 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	return volumeStatus, needsRefresh
 }
 
-func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncErr error) bool {
 	// The return value is only used by unit tests
 	hasHotplug := false
 
@@ -559,7 +565,7 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 		if volumeStatus.HotplugVolume != nil {
 			hasHotplug = true
-			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap, syncErr)
 			needsRefresh = needsRefresh || tmpNeedsRefresh
 		}
 		if volumeStatus.MemoryDumpVolume != nil {
@@ -956,14 +962,14 @@ func (c *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstan
 	return nil
 }
 
-func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncErr error) error {
 	c.updateIsoSizeStatus(vmi)
 	err := c.updateSELinuxContext(vmi)
 	if err != nil {
 		c.logger.Reason(err).Errorf("couldn't find the SELinux context for %s", vmi.Name)
 	}
 	c.updateGuestInfoFromDomain(vmi, domain)
-	c.updateVolumeStatusesFromDomain(vmi, domain)
+	c.updateVolumeStatusesFromDomain(vmi, domain, syncErr)
 	c.updateFSFreezeStatus(vmi, domain)
 	c.updateBackupStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
@@ -999,7 +1005,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	}
 
 	// Update VMI status fields based on what is reported on the domain
-	err = c.updateVMIStatusFromDomain(vmi, domain)
+	err = c.updateVMIStatusFromDomain(vmi, domain, syncError)
 	if err != nil {
 		return err
 	}
