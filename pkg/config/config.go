@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
@@ -102,6 +103,9 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	}
 	for _, file := range files {
 		fileName := file.Name()
+		if strings.HasPrefix(fileName, "..") {
+			continue
+		}
 		filesPath = append(filesPath, fileName+"="+filepath.Join(dirPath, fileName))
 	}
 	return filesPath, nil
