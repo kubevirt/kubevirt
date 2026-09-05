@@ -34,6 +34,7 @@ var _ = Describe("config state cache", func() {
 	const (
 		uid     = "123"
 		testNet = "testnet"
+		fakePID = 42
 	)
 	var (
 		configStateCache      network.ConfigStateCache
@@ -44,7 +45,7 @@ var _ = Describe("config state cache", func() {
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
 		volatilePodIfaceState = map[string]cache.PodIfaceState{}
-		configStateCache = network.NewConfigStateCacheWithPodIfaceStateData(uid, &baseCacheCreator, volatilePodIfaceState)
+		configStateCache = network.NewConfigStateCacheWithPodIfaceStateData(uid, fakePID, &baseCacheCreator, volatilePodIfaceState)
 	})
 	AfterEach(func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
@@ -57,14 +58,14 @@ var _ = Describe("config state cache", func() {
 		})
 		It("state stored only in the file cache", func() {
 			podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationStarted}
-			Expect(cache.WritePodInterfaceCache(&baseCacheCreator, uid, testNet, podIfaceCacheData)).To(Succeed())
+			Expect(cache.WritePodInterfaceCache(&baseCacheCreator, fakePID, testNet, podIfaceCacheData)).To(Succeed())
 
 			Expect(configStateCache.Read(testNet)).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 			Expect(volatilePodIfaceState[testNet]).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 		})
 		It("state stored only in file cache while the memory cache is not empty", func() {
 			podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationStarted}
-			Expect(cache.WritePodInterfaceCache(&baseCacheCreator, uid, testNet, podIfaceCacheData)).To(Succeed())
+			Expect(cache.WritePodInterfaceCache(&baseCacheCreator, fakePID, testNet, podIfaceCacheData)).To(Succeed())
 
 			volatilePodIfaceState["not"+testNet] = cache.PodIfaceNetworkPreparationStarted
 
@@ -80,7 +81,7 @@ var _ = Describe("config state cache", func() {
 		})
 		It("state stored in both the file cache and the memory, prefer memory", func() {
 			podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationStarted}
-			Expect(cache.WritePodInterfaceCache(&baseCacheCreator, uid, testNet, podIfaceCacheData)).To(Succeed())
+			Expect(cache.WritePodInterfaceCache(&baseCacheCreator, fakePID, testNet, podIfaceCacheData)).To(Succeed())
 			volatilePodIfaceState[testNet] = cache.PodIfaceNetworkPreparationFinished
 
 			Expect(configStateCache.Read(testNet)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
@@ -92,26 +93,24 @@ var _ = Describe("config state cache", func() {
 			err := configStateCache.Write(testNet, cache.PodIfaceNetworkPreparationStarted)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(volatilePodIfaceState[testNet]).To(Equal(cache.PodIfaceNetworkPreparationStarted))
-			podIfaceCacheData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
+			podIfaceCacheData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, fakePID, testNet)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podIfaceCacheData.State).To(Equal(cache.PodIfaceNetworkPreparationStarted))
-
 		})
 		It("to a non empty cache", func() {
 			err := configStateCache.Write(testNet, cache.PodIfaceNetworkPreparationStarted)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(volatilePodIfaceState[testNet]).To(Equal(cache.PodIfaceNetworkPreparationStarted))
-			podIfaceCacheData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
+			podIfaceCacheData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, fakePID, testNet)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podIfaceCacheData.State).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 
 			err = configStateCache.Write(testNet, cache.PodIfaceNetworkPreparationFinished)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(volatilePodIfaceState[testNet]).To(Equal(cache.PodIfaceNetworkPreparationFinished))
-			podIfaceCacheData, err = cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
+			podIfaceCacheData, err = cache.ReadPodInterfaceCache(&baseCacheCreator, fakePID, testNet)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podIfaceCacheData.State).To(Equal(cache.PodIfaceNetworkPreparationFinished))
-
 		})
 	})
 
