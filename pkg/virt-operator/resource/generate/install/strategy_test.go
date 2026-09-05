@@ -373,6 +373,28 @@ var _ = Describe("Install Strategy", func() {
 		})
 	})
 
+	Context("install strategy configmap labels", func() {
+		It("should include product relationship labels when set", func() {
+			const (
+				testVersion   = "test-version"
+				testProduct   = "test-product"
+				testComponent = "test-component"
+			)
+			productConfig := &util.KubeVirtDeploymentConfig{
+				AdditionalProperties: map[string]string{
+					util.ProductVersionKey:   testVersion,
+					util.ProductNameKey:      testProduct,
+					util.ProductComponentKey: testComponent,
+				},
+			}
+			configMap, err := NewInstallStrategyConfigMap(productConfig, "monitoring", namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configMap.Labels).To(HaveKeyWithValue(v1.AppVersionLabel, testVersion))
+			Expect(configMap.Labels).To(HaveKeyWithValue(v1.AppPartOfLabel, testProduct))
+			Expect(configMap.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, testComponent))
+		})
+	})
+
 	Describe("Config json with default value", func() {
 		It("should be parsed", func() {
 			envVarManager := &util.EnvVarManagerMock{}
