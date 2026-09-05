@@ -26,6 +26,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 )
 
 type revisionFinder struct {
@@ -46,6 +47,9 @@ func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevi
 			Name:      vm.Spec.Instancetype.RevisionName,
 		})
 	}
+	if vm.Spec.Instancetype == nil {
+		return nil, nil
+	}
 	ref := vm.Status.InstancetypeRef
 	if ref != nil && ref.ControllerRevisionRef != nil && ref.ControllerRevisionRef.Name != "" {
 		cr, err := f.controllerRevisionFinder.Find(types.NamespacedName{
@@ -56,8 +60,15 @@ func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevi
 			return nil, err
 		}
 		// Only return the found CR if it is for the referenced instance type
-		if label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]; ok && label == vm.Spec.Instancetype.Name {
-			return cr, nil
+		if label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]; ok {
+			if label == vm.Spec.Instancetype.Name {
+				return cr, nil
+			}
+			log.Log.Object(vm).Warningf("ControllerRevision %s has label %s=%s but expected %s, falling back to live API lookup",
+				ref.ControllerRevisionRef.Name, instancetypeapi.ControllerRevisionObjectNameLabel, label, vm.Spec.Instancetype.Name)
+		} else {
+			log.Log.Object(vm).Warningf("ControllerRevision %s is missing label %s, falling back to live API lookup",
+				ref.ControllerRevisionRef.Name, instancetypeapi.ControllerRevisionObjectNameLabel)
 		}
 	}
 	return nil, nil
