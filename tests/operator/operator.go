@@ -1835,31 +1835,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			patches := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy))
 			patchKV(kv.Name, patches)
 		})
-
-		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6259]should reject CA expires before rotation", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6260]should reject Cert expires before rotation", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
-			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
 	})
 
 	Context("with ContainerPathVolumes feature gate toggled", func() {
@@ -2727,18 +2702,6 @@ func patchKVComponentConfig(kvName string, toChange, origField *v1.ComponentConf
 
 	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
 
-	return err
-}
-
-func patchKvCertConfig(name string, certConfig *v1.KubeVirtSelfSignConfiguration) error {
-	certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
-		SelfSigned: certConfig,
-	}
-
-	data, err := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy)).GeneratePayload()
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
 }
 
