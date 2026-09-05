@@ -69,7 +69,7 @@ func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAtta
 }
 
 // cleanupAttachmentPods deletes all old attachment pods when the following is true
-// 1. There is a currentPod that is running. (not nil and phase.Status == Running)
+// 1. There is a replacement currentPod object that is not down.
 // 2. There are no readyVolumes (numReadyVolumes == 0)
 // 3. The newest oldPod is not running and not marked for deletion.
 // If any of those are true, it will not delete the newest oldPod, since that one is the latest
@@ -92,12 +92,12 @@ func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8s
 		}
 	}
 
-	currentPodIsNotRunning := currentPod == nil || currentPod.Status.Phase != k8sv1.PodRunning
+	currentPodMissing := currentPod == nil || controller.PodIsDown(currentPod)
 	for _, attachmentPod := range oldPods {
 		if !foundRunning &&
 			attachmentPod.Status.Phase == k8sv1.PodRunning && attachmentPod.DeletionTimestamp == nil &&
 			numReadyVolumes > 0 &&
-			currentPodIsNotRunning &&
+			currentPodMissing &&
 			podContainsVolumesToPreserve(attachmentPod, statusMap, specHotplugVolumes) {
 			foundRunning = true
 			continue
@@ -137,7 +137,7 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 
 // podContainsVolumesToPreserve returns true if the pod contains at least one
 // hotplug volume that justifies keeping the pod alive as a fallback:
-// - A volume still in the VMI spec (the VMI needs it until the new pod is Running)
+// - A volume still in the VMI spec (the VMI needs it until a replacement pod exists and is not down)
 // - A volume being detached but whose phase still blocks pod deletion
 // An old pod whose hotplug volumes are all in Detaching/UnMounted phase provides
 // no fallback value and should not block PVC cleanup on other VMIs.
