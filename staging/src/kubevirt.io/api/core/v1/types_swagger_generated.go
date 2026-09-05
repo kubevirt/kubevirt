@@ -367,11 +367,12 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"vmiName":           "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
-		"addedNodeSelector": "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
-		"sendTo":            "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",
-		"receive":           "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
-		"priority":          "Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.\n+optional",
+		"vmiName":               "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"addedNodeSelector":     "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
+		"sendTo":                "If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source",
+		"receive":               "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
+		"priority":              "Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.\n+optional",
+		"relaxCPUCompatibility": "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for the\nmigration target pod. Use as a temporary escape hatch when nodeSelector mismatches block\nmigration during upgrades. Migration success is not guaranteed when this flag is set.\nOverrides the cluster-level MigrationConfiguration.RelaxCPUCompatibility when set.\n+optional",
 	}
 }
 
@@ -1076,6 +1077,7 @@ func (VMIMConfigurationOptions) SwaggerDoc() map[string]string {
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
 		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
 		"experimental":                      "ExperimentalMigrationOptions is an alpha API. It is intended for experimental\npurposes only and will be removed in the future.",
+		"relaxCPUCompatibility":             "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all\nmigration target pods cluster-wide. Can be overridden per-migration via\nVirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.\n+optional",
 	}
 }
 
@@ -1097,6 +1099,7 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"disableTLS":                        "DisableTLS disables both TLS encryption and mutual TLS authentication\non the migration proxy when set to true. This removes all cryptographic\nprotection from the migration data stream.\nWhen disabled, implement network-level access controls to restrict\nmigration traffic to trusted sources only.\nDefaults to false.",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
 		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+		"relaxCPUCompatibility":             "RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all\nmigration target pods cluster-wide. Can be overridden per-migration via\nVirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.\n+optional",
 	}
 }
 

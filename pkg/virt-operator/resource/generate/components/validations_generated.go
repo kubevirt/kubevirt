@@ -1460,6 +1460,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                relaxCPUCompatibility:
+                  description: |-
+                    RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all
+                    migration target pods cluster-wide. Can be overridden per-migration via
+                    VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
@@ -15768,6 +15774,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                relaxCPUCompatibility:
+                  description: |-
+                    RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all
+                    migration target pods cluster-wide. Can be overridden per-migration via
+                    VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
@@ -16222,6 +16234,13 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - migrationID
           type: object
+        relaxCPUCompatibility:
+          description: |-
+            RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for the
+            migration target pod. Use as a temporary escape hatch when nodeSelector mismatches block
+            migration during upgrades. Migration success is not guaranteed when this flag is set.
+            Overrides the cluster-level MigrationConfiguration.RelaxCPUCompatibility when set.
+          type: boolean
         sendTo:
           description: If sendTo is specified, this VirtualMachineInstanceMigration
             will be considered the source
@@ -16513,6 +16532,12 @@ var CRDsValidation map[string]string = map[string]string{
                     then considered stuck and therefore cancelled. Defaults to 150
                   format: int64
                   type: integer
+                relaxCPUCompatibility:
+                  description: |-
+                    RelaxCPUCompatibility disables CPU model, feature, and vendor nodeSelector injection for all
+                    migration target pods cluster-wide. Can be overridden per-migration via
+                    VirtualMachineInstanceMigrationSpec.RelaxCPUCompatibility.
+                  type: boolean
                 unsafeMigrationOverride:
                   description: |-
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check

@@ -747,6 +747,7 @@ status:
       parallelMigrationsPerCluster: 4294967268
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
+      relaxCPUCompatibility: true
       unsafeMigrationOverride: true
       utilityVolumesTimeout: -21
     migrationNetworkType: migrationNetworkTypeValue
