@@ -182,6 +182,7 @@ var _ = Describe("Application", func() {
 			nil,
 			nil,
 			instancetypecontroller.NewControllerStub(),
+			nil,
 			[]string{},
 			[]string{},
 		)

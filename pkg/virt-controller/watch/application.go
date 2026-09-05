@@ -82,6 +82,7 @@ import (
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
+	diskcontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/disk"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -842,6 +843,12 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clientSet,
 			vca.clusterConfig,
 			recorder,
+		),
+		diskcontroller.New(
+			vca.preferenceInformer.GetStore(),
+			vca.clusterPreferenceInformer.GetStore(),
+			vca.controllerRevisionInformer.GetStore(),
+			vca.clientSet,
 		),
 		vca.additionalLauncherAnnotationsSync,
 		vca.additionalLauncherLabelsSync,

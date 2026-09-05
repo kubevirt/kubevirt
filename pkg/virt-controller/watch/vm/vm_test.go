@@ -151,6 +151,7 @@ var _ = Describe("VirtualMachine", func() {
 				nil,
 				nil,
 				instancetypecontroller.NewControllerStub(),
+				nil,
 				[]string{},
 				[]string{},
 			)
@@ -7585,6 +7586,7 @@ var _ = Describe("VirtualMachine", func() {
 				record.NewFakeRecorder(100),
 				virtClient,
 				config,
+				nil,
 				nil,
 				nil,
 				nil,

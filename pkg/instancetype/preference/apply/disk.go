@@ -26,7 +26,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-func applyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.Devices == nil || len(vmiSpec.Domain.Devices.Disks) == 0 {
+		return
+	}
 	for diskIndex := range vmiSpec.Domain.Devices.Disks {
 		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
 		// If we don't have a target device defined default to a DiskTarget so we can apply preferences
