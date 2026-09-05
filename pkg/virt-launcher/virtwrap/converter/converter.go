@@ -258,7 +258,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			c.SRIOVDevices,
 		),
 		compute.NewWatchdogDomainConfigurator(architecture),
-		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
+		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog, architecture),
 		compute.PanicDevicesDomainConfigurator{},
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
