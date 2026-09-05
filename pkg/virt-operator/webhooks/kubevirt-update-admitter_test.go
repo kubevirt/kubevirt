@@ -572,6 +572,33 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				[]string{"Gate1", "Gate2", "Gate3"},
 				"Gate1", "Gate2", "Gate3"),
 		)
+
+		const (
+			dependencyGate = "test-dependency-gate"
+			dependentGate  = "test-dependent-gate"
+		)
+
+		DescribeTable("should warn about an unmet feature gate dependency", func(enabledGates []string, expectWarning bool) {
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: dependencyGate, State: featuregate.Alpha})
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+				Name: dependentGate, State: featuregate.Alpha, Dependencies: []string{dependencyGate},
+			})
+			DeferCleanup(featuregate.UnregisterFeatureGate, dependencyGate)
+			DeferCleanup(featuregate.UnregisterFeatureGate, dependentGate)
+
+			response := admitUpdate(&v1.DeveloperConfiguration{FeatureGates: enabledGates})
+
+			Expect(response.Allowed).To(BeTrue())
+			warning := fmt.Sprintf(featuregate.DependencyWarningPattern, dependentGate, dependencyGate)
+			if expectWarning {
+				Expect(response.Warnings).To(ContainElement(warning))
+			} else {
+				Expect(response.Warnings).ToNot(ContainElement(warning))
+			}
+		},
+			Entry("when the dependency is not enabled", []string{dependentGate}, true),
+			Entry("not when the dependency is enabled", []string{dependentGate, dependencyGate}, false),
+		)
 	})
 })
 

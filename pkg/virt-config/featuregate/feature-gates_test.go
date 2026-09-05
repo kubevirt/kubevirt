@@ -134,4 +134,21 @@ var _ = Describe("Feature Gate", func() {
 		Expect(featuregate.FeatureGateInfo(fg1.Name)).To(Equal(&fg1clone))
 		Expect(featuregate.FeatureGateInfo(fg2.Name)).To(Equal(&fg2))
 	})
+
+	It("registered FGs should not be more mature than their dependencies", func() {
+		maturity := map[featuregate.State]int{featuregate.Alpha: 1, featuregate.Beta: 2, featuregate.GA: 3}
+
+		for _, fg := range featuregate.GetRegisteredFeatureGates() {
+			for _, depName := range fg.Dependencies {
+				dep := featuregate.FeatureGateInfo(depName)
+				Expect(dep).ToNot(BeNil(), "%s depends on unregistered feature gate %s", fg.Name, depName)
+				Expect(maturity).To(HaveKey(fg.State),
+					"%s is %s and should not declare dependencies", fg.Name, fg.State)
+				Expect(maturity).To(HaveKey(dep.State),
+					"%s depends on %s, which is %s", fg.Name, dep.Name, dep.State)
+				Expect(maturity[fg.State]).To(BeNumerically("<=", maturity[dep.State]),
+					"%s (%s) is more mature than its dependency %s (%s)", fg.Name, fg.State, dep.Name, dep.State)
+			}
+		}
+	})
 })
