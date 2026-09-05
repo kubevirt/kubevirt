@@ -67,6 +67,14 @@ func InitializePrivateDirectories(baseDir string) error {
 	return nil
 }
 
+func InitializeMigrationProxyDirectory(virtShareDir string) error {
+	dir := filepath.Join(virtShareDir, "migrationproxy")
+	if err := util.MkdirAllWithNosec(dir); err != nil {
+		return err
+	}
+	return diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(dir)
+}
+
 func InitializeConsoleLogFile(baseDir string) error {
 	logPath := filepath.Join(baseDir, "virt-serial0-log")
 

@@ -40,12 +40,10 @@ import (
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -232,19 +230,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
-	if canSourceMigrateOverUnixURI(vmi) {
-		// Prepare the directory for migration sockets
-		migrationSocketsPath := filepath.Join(l.virtShareDir, "migrationproxy")
-		err = util.MkdirAllWithNosec(migrationSocketsPath)
-		if err != nil {
-			logger.Reason(err).Error("failed to create the migration sockets directory")
-			return err
-		}
-		if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(migrationSocketsPath); err != nil {
-			logger.Reason(err).Error("failed to change ownership on migration sockets directory")
-			return err
-		}
-	} else {
+	if !canSourceMigrateOverUnixURI(vmi) {
 		logger.V(3).Info("Setting up TCP proxies to support incoming legacy VMI migration")
 		loopbackAddress := ip.GetLoopbackAddress()
 
@@ -255,7 +241,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
 			logger.V(2).Infof("Creating socketpath for unix migration/tcp %s", unixSocketPath)
-			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, string(vmi.UID))
+			migrationProxy := migrationproxy.NewSourceProxy(nil, unixSocketPath, curDirectAddress, nil, string(vmi.UID))
 
 			err := migrationProxy.Start()
 			if err != nil {
