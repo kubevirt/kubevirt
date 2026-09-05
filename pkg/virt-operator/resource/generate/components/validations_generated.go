@@ -33797,6 +33797,8 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
           type: object
+        freezeFailures:
+          type: integer
         readyToUse:
           type: boolean
         volumeSnapshotStatus:
