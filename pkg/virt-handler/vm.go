@@ -372,7 +372,7 @@ func (c *VirtualMachineController) execute(key string) error {
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 			return nil
 		} else if expired {
-			c.logger.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
+			c.logger.Object(oldVMI).Infof("Cleaning up stale domain for vmi %s/%s (uid %s) so new vmi (uid %s) can be processed", oldVMI.Namespace, oldVMI.Name, oldVMI.UID, vmi.UID)
 			err = c.processVmCleanup(oldVMI)
 			if err != nil {
 				return err
@@ -380,6 +380,12 @@ func (c *VirtualMachineController) execute(key string) error {
 			// Make sure we re-enqueue the key to ensure this new VMI is processed
 			// after the stale domain is removed
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
+		} else {
+			c.logger.Object(oldVMI).Infof("Cleaning up stale domain for vmi %s/%s (uid %s) so new vmi (uid %s) can be processed", oldVMI.Namespace, oldVMI.Name, oldVMI.UID, vmi.UID)
+			err = c.processVmCleanup(oldVMI)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
