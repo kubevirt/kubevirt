@@ -103,6 +103,15 @@ const (
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesPluginsEnabled = "PluginsEnabled"
 
+	// lookup key in AdditionalProperties, set when the GenericAPIServer based
+	// virt-api implementation is opted into via the KubeVirt CR annotation.
+	AdditionalPropertiesGenericAPIServerEnabled = "GenericAPIServerEnabled"
+
+	// GenericAPIServerAnnotation, when set to "true" on the KubeVirt CR, makes
+	// virt-operator deploy virt-api using the GenericAPIServer implementation
+	// instead of the default legacy go-restful server.
+	GenericAPIServerAnnotation = "kubevirt.io/use-generic-apiserver"
+
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
 	DefaultSynchronizationPort              int32 = 9185
@@ -208,6 +217,10 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PluginsGate) {
 		additionalProperties[AdditionalPropertiesPluginsEnabled] = ""
+	}
+
+	if kv.Annotations[GenericAPIServerAnnotation] == "true" {
+		additionalProperties[AdditionalPropertiesGenericAPIServerEnabled] = ""
 	}
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.OptOutRoleAggregation) {
@@ -581,6 +594,13 @@ func (c *KubeVirtDeploymentConfig) OptOutRoleAggregationEnabled() bool {
 
 func (c *KubeVirtDeploymentConfig) PluginsEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesPluginsEnabled]
+	return enabled
+}
+
+// GenericAPIServerEnabled reports whether virt-api should be deployed using the
+// GenericAPIServer implementation instead of the default legacy server.
+func (c *KubeVirtDeploymentConfig) GenericAPIServerEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesGenericAPIServerEnabled]
 	return enabled
 }
 

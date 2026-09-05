@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "adapt.go",
+        "serverreflection.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/reflection",
+    importpath = "google.golang.org/grpc/reflection",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/reflection/grpc_reflection_v1:go_default_library",
+        "//vendor/google.golang.org/grpc/reflection/grpc_reflection_v1alpha:go_default_library",
+        "//vendor/google.golang.org/grpc/reflection/internal:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protodesc:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoregistry:go_default_library",
+    ],
+)

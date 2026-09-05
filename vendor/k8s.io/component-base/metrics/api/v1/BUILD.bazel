@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "doc.go",
+        "types.go",
+        "zz_generated.deepcopy.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/component-base/metrics/api/v1",
+    importpath = "k8s.io/component-base/metrics/api/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/blang/semver/v4:go_default_library",
+        "//vendor/go.yaml.in/yaml/v2:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+    ],
+)

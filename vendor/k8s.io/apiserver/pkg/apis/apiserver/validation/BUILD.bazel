@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "validation.go",
+        "validation_encryption.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/apis/apiserver/validation",
+    importpath = "k8s.io/apiserver/pkg/apis/apiserver/validation",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/cel-go/cel:go_default_library",
+        "//vendor/github.com/google/cel-go/common/operators:go_default_library",
+        "//vendor/google.golang.org/genproto/googleapis/api/expr/v1alpha1:go_default_library",
+        "//vendor/k8s.io/api/authorization/v1:go_default_library",
+        "//vendor/k8s.io/api/authorization/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/apis/apiserver:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/authentication/cel:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/authorization/cel:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/cel:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/features:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/util/feature:go_default_library",
+        "//vendor/k8s.io/client-go/util/cert:go_default_library",
+    ],
+)

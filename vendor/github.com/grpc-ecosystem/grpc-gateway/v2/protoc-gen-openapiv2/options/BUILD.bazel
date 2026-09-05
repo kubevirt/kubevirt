@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "annotations.pb.go",
+        "openapiv2.pb.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options",
+    importpath = "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/descriptorpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/structpb:go_default_library",
+    ],
+)

@@ -14,39 +14,26 @@
    }
   },
   "paths": {
-   "/": {
+   "/apis/": {
     "get": {
-     "description": "Get KubeVirt API root paths",
-     "produces": [
-      "application/json"
+     "description": "get available API versions",
+     "consumes": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
      ],
-     "operationId": "getRootPaths",
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.RootPaths"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
-      }
-     }
-    }
-   },
-   "/apis": {
-    "get": {
-     "description": "Get a KubeVirt API GroupList",
      "produces": [
-      "application/json"
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
      ],
-     "operationId": "getAPIGroupList",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "apis"
+     ],
+     "operationId": "getAPIVersions",
      "responses": {
       "200": {
        "description": "OK",
@@ -56,12 +43,6 @@
       },
       "401": {
        "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
       }
      }
     }
@@ -8368,13 +8349,26 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io": {
+   "/apis/subresources.kubevirt.io/": {
     "get": {
-     "description": "Get a KubeVirt API Group",
-     "produces": [
-      "application/json"
+     "description": "get information of a group",
+     "consumes": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
      ],
-     "operationId": "v1GetSubAPIGroup",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo"
+     ],
+     "operationId": "getSubresourcesKubevirtIoAPIGroup",
      "responses": {
       "200": {
        "description": "OK",
@@ -8384,23 +8378,30 @@
       },
       "401": {
        "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
       }
      }
     }
    },
    "/apis/subresources.kubevirt.io/v1/": {
     "get": {
-     "description": "Get a KubeVirt API resources",
-     "produces": [
-      "application/json"
+     "description": "get available resources",
+     "consumes": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
      ],
-     "operationId": "v1getAPISubResources",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "getSubresourcesKubevirtIoV1APIResources",
      "responses": {
       "200": {
        "description": "OK",
@@ -8410,22 +8411,26 @@
       },
       "401": {
        "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
       }
      }
     }
    },
    "/apis/subresources.kubevirt.io/v1/dump-cluster-profiler": {
     "get": {
+     "description": "Collects the profiler results of every KubeVirt component.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1dump-cluster-profiler",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1Dumpclusterprofiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -8435,10 +8440,20 @@
    },
    "/apis/subresources.kubevirt.io/v1/guestfs": {
     "get": {
+     "description": "Returns the guestfs image tag and registry used by virtctl guestfs.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1Guestfs",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1Guestfs",
      "responses": {
       "200": {
        "description": "OK",
@@ -8460,14 +8475,20 @@
    },
    "/apis/subresources.kubevirt.io/v1/healthz": {
     "get": {
-     "description": "Health endpoint",
+     "description": "Health endpoint reporting whether virt-api can reach the cluster.",
      "consumes": [
       "application/json"
      ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1CheckHealth",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1Healthz",
      "responses": {
       "200": {
        "description": "OK",
@@ -8479,7 +8500,7 @@
        "description": "Unauthorized"
       },
       "500": {
-       "description": "Unhealthy",
+       "description": "Internal Server Error",
        "schema": {
         "type": "string"
        }
@@ -8496,7 +8517,13 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "v1ExpandSpec",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "replaceSubresourcesKubevirtIoV1Expandvmspec",
      "responses": {
       "200": {
        "description": "OK",
@@ -8533,17 +8560,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1vmi-addvolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.AddVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceAddvolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -8560,19 +8586,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -8582,7 +8614,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Backup",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceBackup",
      "parameters": [
       {
        "name": "body",
@@ -8615,53 +8656,92 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
-     "operationId": "v1Console",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceConsole",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate/cancel": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate": {
     "put": {
      "description": "Cancel evacuation Virtual Machine Instance",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1vmi-evacuatecancel",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceEvacuate",
      "parameters": [
       {
        "name": "body",
@@ -8700,19 +8780,104 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate/{path}": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceEvacuateWithPath",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "name of the VirtualMachineInstance",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
@@ -8720,12 +8885,18 @@
     "get": {
      "description": "Get list of active filesystems on guest machine via guest agent",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1Filesystemlist",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceFilesystemlist",
      "responses": {
       "200": {
        "description": "OK",
@@ -8736,19 +8907,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -8758,7 +8935,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Freeze",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceFreeze",
      "parameters": [
       {
        "name": "body",
@@ -8785,19 +8971,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -8805,12 +8997,18 @@
     "get": {
      "description": "Get guest agent os information",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1Guestosinfo",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceGuestosinfo",
      "responses": {
       "200": {
        "description": "OK",
@@ -8821,19 +9019,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -8841,12 +9045,18 @@
     "get": {
      "description": "Get graph of objects related to a Virtual Machine Instance",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1vmi-objectgraph",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceObjectgraph",
      "parameters": [
       {
        "name": "body",
@@ -8867,19 +9077,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -8889,7 +9105,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Pause",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstancePause",
      "parameters": [
       {
        "name": "body",
@@ -8922,76 +9147,124 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/portforward": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port.",
-     "operationId": "v1vmi-PortForward",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstancePortforward",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/port-PwRC4wVc"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}/{protocol}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{path}": {
     "get": {
-     "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port.",
-     "operationId": "v1vmi-PortForwardWithProtocol",
+     "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstancePortforwardWithPath",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      },
      {
-      "$ref": "#/parameters/port-PwRC4wVc"
-     },
-     {
-      "$ref": "#/parameters/protocol-B-mX08es"
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
@@ -9001,7 +9274,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1RedefineCheckpoint",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceRedefineCheckpoint",
      "parameters": [
       {
        "name": "body",
@@ -9034,19 +9316,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9056,17 +9344,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1vmi-removevolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.RemoveVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceRemovevolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -9083,26 +9370,44 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/reset": {
     "put": {
      "description": "Reset a VirtualMachineInstance object.",
-     "operationId": "v1Reset",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceReset",
      "responses": {
       "200": {
        "description": "OK",
@@ -9119,160 +9424,77 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev": {
     "get": {
-     "description": "Fetch SEV certificate chain from the node where Virtual Machine is scheduled",
-     "consumes": [
-      "application/json"
-     ],
-     "produces": [
-      "application/json"
-     ],
-     "operationId": "v1SEVFetchCertChain",
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "$ref": "#/definitions/v1.SEVPlatformInfo"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret": {
-    "put": {
-     "description": "Inject SEV launch secret into a Virtual Machine",
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1SEVInjectLaunchSecret",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.SEVSecretOptions"
-       }
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "400": {
-       "description": "Bad Request",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/querylaunchmeasurement": {
-    "get": {
-     "description": "Query SEV launch measurement from a Virtual Machine",
-     "consumes": [
-      "application/json"
-     ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1SEVQueryLaunchMeasurement",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceSev",
      "responses": {
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.SEVMeasurementInfo"
+        "type": "string"
        }
       },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/setupsession": {
     "put": {
-     "description": "Setup SEV session parameters for a Virtual Machine",
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1SEVSetupSession",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.SEVSessionOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceSev",
      "responses": {
       "200": {
        "description": "OK",
@@ -9280,8 +9502,50 @@
         "type": "string"
        }
       },
-      "400": {
-       "description": "Bad Request",
+      "401": {
+       "description": "Unauthorized"
+      }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "name of the VirtualMachineInstance",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/{path}": {
+    "get": {
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceSevWithPath",
+     "responses": {
+      "200": {
+       "description": "OK",
        "schema": {
         "type": "string"
        }
@@ -9289,26 +9553,80 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
+     }
+    },
+    "put": {
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceSevWithPath",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
-     "operationId": "v1SoftReboot",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceSoftreboot",
      "responses": {
       "200": {
        "description": "OK",
@@ -9325,26 +9643,44 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze": {
     "put": {
      "description": "Unfreeze a VirtualMachineInstance object.",
-     "operationId": "v1Unfreeze",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceUnfreeze",
      "responses": {
       "200": {
        "description": "OK",
@@ -9361,19 +9697,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9383,7 +9725,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Unpause",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineInstanceUnpause",
      "parameters": [
       {
        "name": "body",
@@ -9416,43 +9767,73 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir": {
     "get": {
      "description": "Open a websocket connection to connect to USB device on the specified VirtualMachineInstance.",
-     "operationId": "v1usbredir",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceUsbredir",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9460,12 +9841,18 @@
     "get": {
      "description": "Get list of active users via guest agent",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1Userlist",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceUserlist",
      "responses": {
       "200": {
        "description": "OK",
@@ -9476,103 +9863,172 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
     "get": {
      "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
-     "operationId": "v1VNC",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceVnc",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/preserveSession-FJbSIuEU"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/{path}": {
     "get": {
-     "description": "Get a PNG VNC screenshot of the specified VirtualMachineInstance.",
-     "operationId": "v1VNCScreenshot",
+     "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceVncWithPath",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
-      "$ref": "#/parameters/moveCursor-oVtU6G0Z"
-     },
-     {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vsock": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port via VSOCK.",
-     "operationId": "v1VSOCK",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineInstanceVsock",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/port-i4kLh44i"
-     },
-     {
-      "$ref": "#/parameters/tls-HU0O_z1S"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9582,17 +10038,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1vm-addvolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.AddVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineAddvolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -9609,29 +10064,44 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/evacuate/cancel": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/evacuate": {
     "put": {
      "description": "Cancel evacuation Virtual Machine",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1vm-evacuatecancel",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineEvacuate",
      "parameters": [
       {
        "name": "body",
@@ -9670,32 +10140,63 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
-    "get": {
-     "description": "Get VirtualMachine object with expanded instancetype and preference.",
-     "produces": [
-      "application/json"
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/evacuate/{path}": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine",
+     "consumes": [
+      "*/*"
      ],
-     "operationId": "v1vm-ExpandSpec",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineEvacuateWithPath",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
        "schema": {
         "type": "string"
        }
@@ -9715,19 +10216,93 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
+    "get": {
+     "description": "Get VirtualMachine object with expanded instancetype and preference.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1NamespacedVirtualMachineExpandSpec",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "x-kubernetes-action": "get",
+     "x-kubernetes-group-version-kind": {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "name of the VirtualMachine",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/pretty-tJGM1-ng"
      }
     ]
    },
@@ -9737,17 +10312,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1MemoryDump",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineMemorydump",
      "responses": {
       "200": {
        "description": "OK",
@@ -9764,19 +10338,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9786,7 +10366,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Migrate",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineMigrate",
      "parameters": [
       {
        "name": "body",
@@ -9819,19 +10408,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9839,12 +10434,18 @@
     "get": {
      "description": "Get graph of objects related to a Virtual Machine",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1vm-objectgraph",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachineObjectgraph",
      "parameters": [
       {
        "name": "body",
@@ -9865,83 +10466,143 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
-     "operationId": "v1vm-PortForward",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachinePortforward",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/port-PwRC4wVc"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}/{protocol}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{path}": {
     "get": {
-     "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port.",
-     "operationId": "v1vm-PortForwardWithProtocol",
+     "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1GetNamespacedVirtualMachinePortforwardWithPath",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      },
      {
-      "$ref": "#/parameters/port-PwRC4wVc"
-     },
-     {
-      "$ref": "#/parameters/protocol-B-mX08es"
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/removememorydump": {
     "put": {
      "description": "Remove memory dump association.",
-     "operationId": "v1RemoveMemoryDump",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineRemovememorydump",
      "responses": {
       "200": {
        "description": "OK",
@@ -9958,19 +10619,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -9980,17 +10647,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1vm-removevolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.RemoveVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineRemovevolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -10007,19 +10673,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10029,11 +10701,21 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Restart",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineRestart",
      "parameters": [
       {
        "name": "body",
        "in": "body",
+       "required": true,
        "schema": {
         "$ref": "#/definitions/v1.RestartOptions"
        }
@@ -10061,19 +10743,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10083,7 +10771,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Start",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineStart",
      "parameters": [
       {
        "name": "body",
@@ -10116,19 +10813,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10138,11 +10841,21 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1Stop",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1PutNamespacedVirtualMachineStop",
      "parameters": [
       {
        "name": "body",
        "in": "body",
+       "required": true,
        "schema": {
         "$ref": "#/definitions/v1.StopOptions"
        }
@@ -10170,28 +10883,44 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1/start-cluster-profiler": {
     "get": {
+     "description": "Starts the CPU profiler on every KubeVirt component.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1start-cluster-profiler",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1Startclusterprofiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -10201,10 +10930,20 @@
    },
    "/apis/subresources.kubevirt.io/v1/stop-cluster-profiler": {
     "get": {
+     "description": "Stops the CPU profiler on every KubeVirt component.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1stop-cluster-profiler",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1Stopclusterprofiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -10214,10 +10953,20 @@
    },
    "/apis/subresources.kubevirt.io/v1/version": {
     "get": {
+     "description": "Returns the version of the KubeVirt API server.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1Version",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1Version",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -10227,11 +10976,24 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha3/": {
     "get": {
-     "description": "Get a KubeVirt API resources",
-     "produces": [
-      "application/json"
+     "description": "get available resources",
+     "consumes": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
      ],
-     "operationId": "v1alpha3getAPISubResources",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "getSubresourcesKubevirtIoV1alpha3APIResources",
      "responses": {
       "200": {
        "description": "OK",
@@ -10241,22 +11003,26 @@
       },
       "401": {
        "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
       }
      }
     }
    },
    "/apis/subresources.kubevirt.io/v1alpha3/dump-cluster-profiler": {
     "get": {
+     "description": "Collects the profiler results of every KubeVirt component.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3dump-cluster-profiler",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3Dumpclusterprofiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -10266,10 +11032,20 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha3/guestfs": {
     "get": {
+     "description": "Returns the guestfs image tag and registry used by virtctl guestfs.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3Guestfs",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3Guestfs",
      "responses": {
       "200": {
        "description": "OK",
@@ -10291,14 +11067,20 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha3/healthz": {
     "get": {
-     "description": "Health endpoint",
+     "description": "Health endpoint reporting whether virt-api can reach the cluster.",
      "consumes": [
       "application/json"
      ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3CheckHealth",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3Healthz",
      "responses": {
       "200": {
        "description": "OK",
@@ -10310,7 +11092,7 @@
        "description": "Unauthorized"
       },
       "500": {
-       "description": "Unhealthy",
+       "description": "Internal Server Error",
        "schema": {
         "type": "string"
        }
@@ -10327,7 +11109,13 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3ExpandSpec",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "replaceSubresourcesKubevirtIoV1alpha3Expandvmspec",
      "responses": {
       "200": {
        "description": "OK",
@@ -10364,17 +11152,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3vmi-addvolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.AddVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceAddvolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -10391,19 +11178,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10413,7 +11206,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Backup",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceBackup",
      "parameters": [
       {
        "name": "body",
@@ -10446,53 +11248,92 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
-     "operationId": "v1alpha3Console",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceConsole",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate/cancel": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate": {
     "put": {
      "description": "Cancel evacuation Virtual Machine Instance",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3vmi-evacuatecancel",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceEvacuate",
      "parameters": [
       {
        "name": "body",
@@ -10531,19 +11372,104 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate/{path}": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceEvacuateWithPath",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "name of the VirtualMachineInstance",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
@@ -10551,12 +11477,18 @@
     "get": {
      "description": "Get list of active filesystems on guest machine via guest agent",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1alpha3Filesystemlist",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceFilesystemlist",
      "responses": {
       "200": {
        "description": "OK",
@@ -10567,19 +11499,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10589,7 +11527,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Freeze",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceFreeze",
      "parameters": [
       {
        "name": "body",
@@ -10616,19 +11563,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10636,12 +11589,18 @@
     "get": {
      "description": "Get guest agent os information",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1alpha3Guestosinfo",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceGuestosinfo",
      "responses": {
       "200": {
        "description": "OK",
@@ -10652,19 +11611,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10672,12 +11637,18 @@
     "get": {
      "description": "Get graph of objects related to a Virtual Machine Instance",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1alpha3vmi-objectgraph",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceObjectgraph",
      "parameters": [
       {
        "name": "body",
@@ -10698,19 +11669,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10720,7 +11697,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Pause",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstancePause",
      "parameters": [
       {
        "name": "body",
@@ -10753,76 +11739,124 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/portforward": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port.",
-     "operationId": "v1alpha3vmi-PortForward",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstancePortforward",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/port-PwRC4wVc"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}/{protocol}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{path}": {
     "get": {
-     "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port.",
-     "operationId": "v1alpha3vmi-PortForwardWithProtocol",
+     "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstancePortforwardWithPath",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      },
      {
-      "$ref": "#/parameters/port-PwRC4wVc"
-     },
-     {
-      "$ref": "#/parameters/protocol-B-mX08es"
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
@@ -10832,7 +11866,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3RedefineCheckpoint",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceRedefineCheckpoint",
      "parameters": [
       {
        "name": "body",
@@ -10865,19 +11908,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -10887,17 +11936,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3vmi-removevolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.RemoveVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceRemovevolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -10914,26 +11962,44 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/reset": {
     "put": {
      "description": "Reset a VirtualMachineInstance object.",
-     "operationId": "v1alpha3Reset",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceReset",
      "responses": {
       "200": {
        "description": "OK",
@@ -10950,160 +12016,77 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev": {
     "get": {
-     "description": "Fetch SEV certificate chain from the node where Virtual Machine is scheduled",
-     "consumes": [
-      "application/json"
-     ],
-     "produces": [
-      "application/json"
-     ],
-     "operationId": "v1alpha3SEVFetchCertChain",
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "$ref": "#/definitions/v1.SEVPlatformInfo"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret": {
-    "put": {
-     "description": "Inject SEV launch secret into a Virtual Machine",
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3SEVInjectLaunchSecret",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.SEVSecretOptions"
-       }
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "400": {
-       "description": "Bad Request",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/querylaunchmeasurement": {
-    "get": {
-     "description": "Query SEV launch measurement from a Virtual Machine",
-     "consumes": [
-      "application/json"
-     ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1alpha3SEVQueryLaunchMeasurement",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceSev",
      "responses": {
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1.SEVMeasurementInfo"
+        "type": "string"
        }
       },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/setupsession": {
     "put": {
-     "description": "Setup SEV session parameters for a Virtual Machine",
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3SEVSetupSession",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.SEVSessionOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceSev",
      "responses": {
       "200": {
        "description": "OK",
@@ -11111,8 +12094,50 @@
         "type": "string"
        }
       },
-      "400": {
-       "description": "Bad Request",
+      "401": {
+       "description": "Unauthorized"
+      }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "name of the VirtualMachineInstance",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/{path}": {
+    "get": {
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceSevWithPath",
+     "responses": {
+      "200": {
+       "description": "OK",
        "schema": {
         "type": "string"
        }
@@ -11120,26 +12145,80 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
+     }
+    },
+    "put": {
+     "description": "Handle SEV (AMD Secure Encrypted Virtualization) requests for a Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceSevWithPath",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
-     "operationId": "v1alpha3SoftReboot",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceSoftreboot",
      "responses": {
       "200": {
        "description": "OK",
@@ -11156,26 +12235,44 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze": {
     "put": {
      "description": "Unfreeze a VirtualMachineInstance object.",
-     "operationId": "v1alpha3Unfreeze",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceUnfreeze",
      "responses": {
       "200": {
        "description": "OK",
@@ -11192,19 +12289,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11214,7 +12317,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Unpause",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineInstanceUnpause",
      "parameters": [
       {
        "name": "body",
@@ -11247,43 +12359,73 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir": {
     "get": {
      "description": "Open a websocket connection to connect to USB device on the specified VirtualMachineInstance.",
-     "operationId": "v1alpha3usbredir",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceUsbredir",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11291,12 +12433,18 @@
     "get": {
      "description": "Get list of active users via guest agent",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1alpha3Userlist",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceUserlist",
      "responses": {
       "200": {
        "description": "OK",
@@ -11307,103 +12455,172 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
     "get": {
      "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
-     "operationId": "v1alpha3VNC",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceVnc",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/preserveSession-FJbSIuEU"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/{path}": {
     "get": {
-     "description": "Get a PNG VNC screenshot of the specified VirtualMachineInstance.",
-     "operationId": "v1alpha3VNCScreenshot",
+     "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceVncWithPath",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
-      "$ref": "#/parameters/moveCursor-oVtU6G0Z"
-     },
-     {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vsock": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port via VSOCK.",
-     "operationId": "v1alpha3VSOCK",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineInstanceVsock",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachineInstance"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachineInstance",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/port-i4kLh44i"
-     },
-     {
-      "$ref": "#/parameters/tls-HU0O_z1S"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11413,17 +12630,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3vm-addvolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.AddVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineAddvolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -11440,29 +12656,44 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/evacuate/cancel": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/evacuate": {
     "put": {
      "description": "Cancel evacuation Virtual Machine",
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3vm-evacuatecancel",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineEvacuate",
      "parameters": [
       {
        "name": "body",
@@ -11501,32 +12732,63 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
-    "get": {
-     "description": "Get VirtualMachine object with expanded instancetype and preference.",
-     "produces": [
-      "application/json"
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/evacuate/{path}": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine",
+     "consumes": [
+      "*/*"
      ],
-     "operationId": "v1alpha3vm-ExpandSpec",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineEvacuateWithPath",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
        "schema": {
         "type": "string"
        }
@@ -11546,19 +12808,93 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/path-z6Ciiujn"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
+    "get": {
+     "description": "Get VirtualMachine object with expanded instancetype and preference.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/vnd.kubernetes.protobuf"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3NamespacedVirtualMachineExpandSpec",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachine"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     },
+     "x-kubernetes-action": "get",
+     "x-kubernetes-group-version-kind": {
+      "group": "kubevirt.io",
+      "version": "v1",
+      "kind": "VirtualMachine"
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "name of the VirtualMachine",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-vgWSWtn3"
+     },
+     {
+      "$ref": "#/parameters/pretty-tJGM1-ng"
      }
     ]
    },
@@ -11568,17 +12904,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3MemoryDump",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineMemorydump",
      "responses": {
       "200": {
        "description": "OK",
@@ -11595,19 +12930,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11617,7 +12958,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Migrate",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineMigrate",
      "parameters": [
       {
        "name": "body",
@@ -11650,19 +13000,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11670,12 +13026,18 @@
     "get": {
      "description": "Get graph of objects related to a Virtual Machine",
      "consumes": [
-      "application/json"
+      "*/*"
      ],
      "produces": [
-      "application/json"
+      "*/*"
      ],
-     "operationId": "v1alpha3vm-objectgraph",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachineObjectgraph",
      "parameters": [
       {
        "name": "body",
@@ -11696,83 +13058,143 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/portforward": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
-     "operationId": "v1alpha3vm-PortForward",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachinePortforward",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     },
-     {
-      "$ref": "#/parameters/port-PwRC4wVc"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}/{protocol}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/portforward/{path}": {
     "get": {
-     "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port.",
-     "operationId": "v1alpha3vm-PortForwardWithProtocol",
+     "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3GetNamespacedVirtualMachinePortforwardWithPath",
      "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      },
      {
-      "$ref": "#/parameters/port-PwRC4wVc"
-     },
-     {
-      "$ref": "#/parameters/protocol-B-mX08es"
+      "$ref": "#/parameters/path-z6Ciiujn"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/removememorydump": {
     "put": {
      "description": "Remove memory dump association.",
-     "operationId": "v1alpha3RemoveMemoryDump",
+     "consumes": [
+      "*/*"
+     ],
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineRemovememorydump",
      "responses": {
       "200": {
        "description": "OK",
@@ -11789,19 +13211,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11811,17 +13239,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3vm-removevolume",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1.RemoveVolumeOptions"
-       }
-      }
+     "produces": [
+      "*/*"
      ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineRemovevolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -11838,19 +13265,25 @@
       "401": {
        "description": "Unauthorized"
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11860,11 +13293,21 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Restart",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineRestart",
      "parameters": [
       {
        "name": "body",
        "in": "body",
+       "required": true,
        "schema": {
         "$ref": "#/definitions/v1.RestartOptions"
        }
@@ -11892,19 +13335,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11914,7 +13363,16 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Start",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineStart",
      "parameters": [
       {
        "name": "body",
@@ -11947,19 +13405,25 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
@@ -11969,11 +13433,21 @@
      "consumes": [
       "*/*"
      ],
-     "operationId": "v1alpha3Stop",
+     "produces": [
+      "*/*"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "connectSubresourcesKubevirtIoV1alpha3PutNamespacedVirtualMachineStop",
      "parameters": [
       {
        "name": "body",
        "in": "body",
+       "required": true,
        "schema": {
         "$ref": "#/definitions/v1.StopOptions"
        }
@@ -12001,28 +13475,44 @@
         "type": "string"
        }
       }
+     },
+     "x-kubernetes-action": "connect",
+     "x-kubernetes-group-version-kind": {
+      "group": "subresources.kubevirt.io",
+      "version": "v1alpha3",
+      "kind": "VirtualMachine"
      }
     },
     "parameters": [
      {
       "uniqueItems": true,
       "type": "string",
-      "description": "Name of the resource",
+      "description": "name of the VirtualMachine",
       "name": "name",
       "in": "path",
       "required": true
      },
      {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
+      "$ref": "#/parameters/namespace-vgWSWtn3"
      }
     ]
    },
    "/apis/subresources.kubevirt.io/v1alpha3/start-cluster-profiler": {
     "get": {
+     "description": "Starts the CPU profiler on every KubeVirt component.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3start-cluster-profiler",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3Startclusterprofiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12032,10 +13522,20 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha3/stop-cluster-profiler": {
     "get": {
+     "description": "Stops the CPU profiler on every KubeVirt component.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3stop-cluster-profiler",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3Stopclusterprofiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12045,10 +13545,20 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha3/version": {
     "get": {
+     "description": "Returns the version of the KubeVirt API server.",
+     "consumes": [
+      "application/json"
+     ],
      "produces": [
       "application/json"
      ],
-     "operationId": "v1alpha3Version",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "subresourcesKubevirtIo_v1alpha3"
+     ],
+     "operationId": "readSubresourcesKubevirtIoV1alpha3Version",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12058,8 +13568,17 @@
    },
    "/dump-profiler": {
     "get": {
-     "description": "dump profiler results endpoint",
-     "operationId": "HandleDumpProfiler",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
+     "produces": [
+      "application/json"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "dumpProfiler"
+     ],
+     "operationId": "readDumpProfiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12069,8 +13588,17 @@
    },
    "/healthz": {
     "get": {
-     "description": "Health endpoint",
-     "operationId": "func17",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
+     "produces": [
+      "application/json"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "healthz"
+     ],
+     "operationId": "readHealthz",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12080,13 +13608,17 @@
    },
    "/openapi/v2": {
     "get": {
-     "consumes": [
-      "application/json"
-     ],
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
      "produces": [
       "application/json"
      ],
-     "operationId": "func6",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "openapi"
+     ],
+     "operationId": "readOpenapiV2",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12096,11 +13628,17 @@
    },
    "/openapi/v3": {
     "get": {
-     "description": "Get OpenAPI v3 discovery",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
      "produces": [
       "application/json"
      ],
-     "operationId": "getOpenAPIV3Discovery",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "openapi"
+     ],
+     "operationId": "readOpenapiV3",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12110,60 +13648,57 @@
    },
    "/openapi/v3/apis/subresources.kubevirt.io/v1": {
     "get": {
-     "description": "Get OpenAPI v3 specification for subresources.kubevirt.io/v1",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
      "produces": [
       "application/json"
      ],
-     "operationId": "getOpenAPIV3Spec_subresources.kubevirt.io_v1",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "openapi"
+     ],
+     "operationId": "readOpenapiV3ApisSubresourcesKubevirtIoV1",
      "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
       "401": {
        "description": "Unauthorized"
-      },
-      "500": {
-       "description": "Internal Server Error",
-       "schema": {
-        "type": "string"
-       }
       }
      }
     }
    },
    "/openapi/v3/apis/subresources.kubevirt.io/v1alpha3": {
     "get": {
-     "description": "Get OpenAPI v3 specification for subresources.kubevirt.io/v1alpha3",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
      "produces": [
       "application/json"
      ],
-     "operationId": "getOpenAPIV3Spec_subresources.kubevirt.io_v1alpha3",
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "openapi"
+     ],
+     "operationId": "readOpenapiV3ApisSubresourcesKubevirtIoV1alpha3",
      "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
       "401": {
        "description": "Unauthorized"
-      },
-      "500": {
-       "description": "Internal Server Error",
-       "schema": {
-        "type": "string"
-       }
       }
      }
     }
    },
    "/start-profiler": {
     "get": {
-     "description": "start profiler endpoint",
-     "operationId": "HandleStartProfiler",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
+     "produces": [
+      "application/json"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "startProfiler"
+     ],
+     "operationId": "readStartProfiler",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12173,9 +13708,47 @@
    },
    "/stop-profiler": {
     "get": {
-     "description": "stop profiler endpoint",
-     "operationId": "HandleStopProfiler",
+     "description": "Endpoint served by virt-api outside of the aggregated API surface.",
+     "produces": [
+      "application/json"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "stopProfiler"
+     ],
+     "operationId": "readStopProfiler",
      "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/version/": {
+    "get": {
+     "description": "get the version information for this server",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "schemes": [
+      "https"
+     ],
+     "tags": [
+      "version"
+     ],
+     "operationId": "getCodeVersion",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/io.k8s.apimachinery.pkg.version.Info"
+       }
+      },
       "401": {
        "description": "Unauthorized"
       }
@@ -12987,7 +14560,6 @@
       "description": "groups is a list of APIGroup.",
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.APIGroup"
       },
       "x-kubernetes-list-type": "atomic"
@@ -13497,24 +15069,6 @@
      }
     }
    },
-   "io.k8s.apimachinery.pkg.apis.meta.v1.RootPaths": {
-    "description": "RootPaths lists the paths available at root. For example: \"/healthz\", \"/apis\".",
-    "type": "object",
-    "required": [
-     "paths"
-    ],
-    "properties": {
-     "paths": {
-      "description": "paths are the paths available at root.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
    "io.k8s.apimachinery.pkg.apis.meta.v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
     "type": "object",
@@ -13674,6 +15228,75 @@
     "description": "IntOrString is a type that can hold an int32 or a string.  When used in JSON or YAML marshalling and unmarshalling, it produces or consumes the inner type.  This allows you to have, for example, a JSON field that can accept a name or number.",
     "type": "string",
     "format": "int-or-string"
+   },
+   "io.k8s.apimachinery.pkg.version.Info": {
+    "description": "Info contains versioning information for an API server, as exposed on /version.",
+    "type": "object",
+    "required": [
+     "major",
+     "minor",
+     "gitVersion",
+     "gitCommit",
+     "gitTreeState",
+     "buildDate",
+     "goVersion",
+     "compiler",
+     "platform"
+    ],
+    "properties": {
+     "buildDate": {
+      "description": "BuildDate is the date the binary was built.",
+      "type": "string"
+     },
+     "compiler": {
+      "description": "Compiler is the Go compiler used to build the binary.",
+      "type": "string"
+     },
+     "emulationMajor": {
+      "description": "EmulationMajor is the major version of the emulation version.",
+      "type": "string"
+     },
+     "emulationMinor": {
+      "description": "EmulationMinor is the minor version of the emulation version.",
+      "type": "string"
+     },
+     "gitCommit": {
+      "description": "GitCommit is the git commit of the binary.",
+      "type": "string"
+     },
+     "gitTreeState": {
+      "description": "GitTreeState is the state of the git tree the binary was built from.",
+      "type": "string"
+     },
+     "gitVersion": {
+      "description": "GitVersion is the git version of the binary.",
+      "type": "string"
+     },
+     "goVersion": {
+      "description": "GoVersion is the Go version of the binary.",
+      "type": "string"
+     },
+     "major": {
+      "description": "Major is the major version of the binary version.",
+      "type": "string"
+     },
+     "minCompatibilityMajor": {
+      "description": "MinCompatibilityMajor is the major version of the minimum compatibility version.",
+      "type": "string"
+     },
+     "minCompatibilityMinor": {
+      "description": "MinCompatibilityMinor is the minor version of the minimum compatibility version.",
+      "type": "string"
+     },
+     "minor": {
+      "description": "Minor is the minor version of the binary version.",
+      "type": "string"
+     },
+     "platform": {
+      "description": "Platform is the platform the binary was built for.",
+      "type": "string"
+     }
+    }
    },
    "v1.ACPI": {
     "type": "object",
@@ -15335,8 +16958,7 @@
       "type": "boolean"
      },
      "name": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      }
     }
    },
@@ -16800,7 +18422,6 @@
      "children": {
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.ObjectGraphNode"
       },
       "x-kubernetes-list-type": "atomic"
@@ -16812,12 +18433,10 @@
      "labels": {
       "type": "object",
       "additionalProperties": {
-       "type": "string",
-       "default": ""
+       "type": "string"
       }
      },
      "objectReference": {
-      "default": {},
       "$ref": "#/definitions/io.k8s.api.core.v1.TypedObjectReference"
      },
      "optional": {
@@ -17387,70 +19006,6 @@
    "v1.SEVAttestation": {
     "type": "object"
    },
-   "v1.SEVMeasurementInfo": {
-    "description": "SEVMeasurementInfo contains information about the guest launch measurement.",
-    "type": "object",
-    "properties": {
-     "apiMajor": {
-      "description": "API major version of the SEV host.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "apiMinor": {
-      "description": "API minor version of the SEV host.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "buildID": {
-      "description": "Build ID of the SEV host.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "loaderSHA": {
-      "description": "SHA256 of the loader binary",
-      "type": "string"
-     },
-     "measurement": {
-      "description": "Base64 encoded launch measurement of the SEV guest.",
-      "type": "string"
-     },
-     "policy": {
-      "description": "Policy of the SEV guest.",
-      "type": "integer",
-      "format": "int32"
-     }
-    }
-   },
-   "v1.SEVPlatformInfo": {
-    "description": "SEVPlatformInfo contains information about the AMD SEV features for the node.",
-    "type": "object",
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "certChain": {
-      "description": "Base64 encoded SEV certificate chain.",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "pdh": {
-      "description": "Base64 encoded platform Diffie-Hellman key.",
-      "type": "string"
-     }
-    }
-   },
    "v1.SEVPolicy": {
     "type": "object",
     "properties": {
@@ -17462,34 +19017,6 @@
    },
    "v1.SEVSNP": {
     "type": "object"
-   },
-   "v1.SEVSecretOptions": {
-    "description": "SEVSecretOptions is used to provide a secret for a running guest.",
-    "type": "object",
-    "properties": {
-     "header": {
-      "description": "Base64 encoded header needed to decrypt the secret.",
-      "type": "string"
-     },
-     "secret": {
-      "description": "Base64 encoded encrypted launch secret.",
-      "type": "string"
-     }
-    }
-   },
-   "v1.SEVSessionOptions": {
-    "description": "SEVSessionOptions is used to provide SEV session parameters.",
-    "type": "object",
-    "properties": {
-     "dhCert": {
-      "description": "Base64 encoded guest owner's Diffie-Hellman key.",
-      "type": "string"
-     },
-     "session": {
-      "description": "Base64 encoded session blob.",
-      "type": "string"
-     }
-    }
    },
    "v1.SMBiosConfiguration": {
     "type": "object",
@@ -18647,31 +20174,25 @@
      "disk": {
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemDisk"
       }
      },
      "diskName": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      },
      "fileSystemType": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      },
      "mountPoint": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      },
      "totalBytes": {
       "type": "integer",
-      "format": "int32",
-      "default": 0
+      "format": "int32"
      },
      "usedBytes": {
       "type": "integer",
-      "format": "int32",
-      "default": 0
+      "format": "int32"
      }
     }
    },
@@ -18683,8 +20204,7 @@
     ],
     "properties": {
      "busType": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      },
      "serial": {
       "type": "string"
@@ -18701,7 +20221,6 @@
      "disks": {
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystem"
       }
      }
@@ -18721,7 +20240,6 @@
      "items": {
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystem"
       }
      },
@@ -18730,7 +20248,6 @@
       "type": "string"
      },
      "metadata": {
-      "default": {},
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
@@ -18749,7 +20266,6 @@
      },
      "fsInfo": {
       "description": "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
-      "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
      },
      "guestAgentVersion": {
@@ -18766,14 +20282,12 @@
      },
      "os": {
       "description": "OS contains the guest operating system information",
-      "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
      },
      "supportedCommands": {
       "description": "Return command list the guest agent supports",
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.GuestAgentCommandInfo"
       },
       "x-kubernetes-list-type": "atomic"
@@ -18786,7 +20300,6 @@
       "description": "UserList is a list of active guest OS users",
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUser"
       }
      }
@@ -18845,8 +20358,7 @@
       "format": "double"
      },
      "userName": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      }
     }
    },
@@ -18864,7 +20376,6 @@
      "items": {
       "type": "array",
       "items": {
-       "default": {},
        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUser"
       }
      },
@@ -18873,7 +20384,6 @@
       "type": "string"
      },
      "metadata": {
-      "default": {},
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
      }
     }
@@ -23078,17 +24588,18 @@
     "name": "limit",
     "in": "query"
    },
-   "moveCursor-oVtU6G0Z": {
-    "uniqueItems": true,
-    "type": "boolean",
-    "description": "Move the cursor on the VNC display to wake up the screen",
-    "name": "moveCursor",
-    "in": "query"
-   },
    "namespace-nfszEHZ0": {
     "uniqueItems": true,
     "type": "string",
     "description": "Object name and auth scope, such as for teams and projects",
+    "name": "namespace",
+    "in": "path",
+    "required": true
+   },
+   "namespace-vgWSWtn3": {
+    "uniqueItems": true,
+    "type": "string",
+    "description": "object name and auth scope, such as for teams and projects",
     "name": "namespace",
     "in": "path",
     "required": true
@@ -23100,27 +24611,19 @@
     "name": "orphanDependents",
     "in": "query"
    },
-   "port-PwRC4wVc": {
+   "path-z6Ciiujn": {
     "uniqueItems": true,
     "type": "string",
-    "description": "The target port for portforward on the VirtualMachineInstance.",
-    "name": "port",
+    "description": "path to the resource",
+    "name": "path",
     "in": "path",
     "required": true
    },
-   "port-i4kLh44i": {
+   "pretty-tJGM1-ng": {
     "uniqueItems": true,
-    "type": "integer",
-    "description": "The port which the VSOCK application listens to.",
-    "name": "port",
-    "in": "query",
-    "required": true
-   },
-   "preserveSession-FJbSIuEU": {
-    "uniqueItems": true,
-    "type": "boolean",
-    "description": "Connect only if ongoing session is not disturbed.",
-    "name": "preserveSession",
+    "type": "string",
+    "description": "If 'true', then the output is pretty printed. Defaults to 'false' unless the user-agent indicates a browser or command-line HTTP tool (curl and wget).",
+    "name": "pretty",
     "in": "query"
    },
    "propagationPolicy-6jk3prlO": {
@@ -23129,14 +24632,6 @@
     "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
     "name": "propagationPolicy",
     "in": "query"
-   },
-   "protocol-B-mX08es": {
-    "uniqueItems": true,
-    "type": "string",
-    "description": "The protocol for portforward on the VirtualMachineInstance.",
-    "name": "protocol",
-    "in": "path",
-    "required": true
    },
    "resourceVersion-NVjERKp4": {
     "uniqueItems": true,
@@ -23150,13 +24645,6 @@
     "type": "integer",
     "description": "TimeoutSeconds for the list/watch call.",
     "name": "timeoutSeconds",
-    "in": "query"
-   },
-   "tls-HU0O_z1S": {
-    "uniqueItems": true,
-    "type": "boolean",
-    "description": "Weather to request a TLS encrypted session from the VSOCK application.",
-    "name": "tls",
     "in": "query"
    },
    "watch-XNNPZGbK": {

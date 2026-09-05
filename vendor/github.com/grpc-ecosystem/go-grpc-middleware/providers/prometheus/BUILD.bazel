@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client_metrics.go",
+        "client_options.go",
+        "constants.go",
+        "doc.go",
+        "options.go",
+        "reporter.go",
+        "server_metrics.go",
+        "server_options.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
+    importpath = "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/reflection:go_default_library",
+        "//vendor/google.golang.org/grpc/status:go_default_library",
+    ],
+)

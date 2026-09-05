@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "flagreader.go",
+        "flagz.go",
+        "registry.go",
+        "textserializer.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/server/flagz",
+    importpath = "k8s.io/apiserver/pkg/server/flagz",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer/cbor:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/endpoints/handlers/negotiation:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/endpoints/handlers/responsewriters:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/endpoints/metrics:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/endpoints/request:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/endpoints/responsewriter:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/features:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/server/flagz/api/v1alpha1:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/server/flagz/api/v1beta1:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/server/flagz/negotiate:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/util/feature:go_default_library",
+        "//vendor/k8s.io/component-base/cli/flag:go_default_library",
+    ],
+)

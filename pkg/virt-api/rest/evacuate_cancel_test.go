@@ -131,7 +131,9 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	createVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
@@ -196,18 +198,15 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 
-		It("Should fail because opts is empty(invalid)", func() {
+		It("Should fail because opts is invalid", func() {
 			vmi := newVMI(true, workerNode)
 			vm := createVM(newVM(vmi))
 			vmi.SetOwnerReferences([]metav1.OwnerReference{{UID: vm.UID}})
 			vmi = createVMI(vmi)
 
-			opt := &v1.EvacuateCancelOptions{}
-
-			//empty opts is invalid
-			request.Request.Body = newEvacuateCancelBody(opt)
+			request.Request.Body = newInvalidBody()
 			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 	})
 
