@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
@@ -173,10 +174,6 @@ func main() {
 			}
 
 			marshalledResourcesHash := cmd.Flag("resources").Value.String()
-			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
-			if err != nil {
-				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
-			}
 			isV2, err := strconv.ParseBool(cmd.Flag("isV2").Value.String())
 			if err != nil {
 				return fmt.Errorf("cannot convert isV2 into bool. err: %v", err)
@@ -192,7 +189,7 @@ func main() {
 				return err
 			}
 
-			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless, isV2); err != nil {
+			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isV2); err != nil {
 				return err
 			}
 
@@ -203,8 +200,91 @@ func main() {
 	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
 		"For v1 key is cgroup subsystem and value is its path, for v2 the only key is an empty string and the value is cgroup dir path.")
 	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/cgroups/config_linux.go), encoded to base64 format")
-	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
-	cgroupsCmd.Flags().Bool("isV2", false, "true to run rootless")
+	cgroupsCmd.Flags().Bool("isV2", false, "true for cgroups v2")
+
+	updateDeviceCmd := &cobra.Command{
+		Use:   "update-device",
+		Short: "Allow or deny a device in the eBPF device map",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cgroupPath := cmd.Flag("cgroup-path").Value.String()
+			if cgroupPath == "" {
+				return fmt.Errorf("--cgroup-path is required")
+			}
+
+			devTypeStr := cmd.Flag("device-type").Value.String()
+			devType, err := deviceTypeToU32(devTypeStr)
+			if err != nil {
+				return err
+			}
+
+			major, err := strconv.ParseUint(cmd.Flag("major").Value.String(), 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid --major: %w", err)
+			}
+			minor, err := strconv.ParseUint(cmd.Flag("minor").Value.String(), 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid --minor: %w", err)
+			}
+
+			allow, _ := strconv.ParseBool(cmd.Flag("allow").Value.String())
+			permsStr := cmd.Flag("permissions").Value.String()
+			perms := permissionsToU32(permsStr)
+
+			pinPath := deviceMapPinPath(cgroupPath)
+			return updateDeviceMap(pinPath, devType, uint32(major), uint32(minor), perms, allow)
+		},
+	}
+	updateDeviceCmd.Flags().String("cgroup-path", "", "the cgroup directory path whose device map to update")
+	updateDeviceCmd.Flags().String("device-type", "b", "device type: 'b' (block) or 'c' (char)")
+	updateDeviceCmd.Flags().Uint32("major", 0, "device major number")
+	updateDeviceCmd.Flags().Uint32("minor", 0, "device minor number")
+	updateDeviceCmd.Flags().Bool("allow", true, "true to allow, false to deny (remove from map)")
+	updateDeviceCmd.Flags().String("permissions", "", "device permissions (combination of r, w, m)")
+
+	listDevicesCmd := &cobra.Command{
+		Use:   "list-devices",
+		Short: "List all devices in the eBPF device map for a cgroup",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cgroupPath := cmd.Flag("cgroup-path").Value.String()
+			if cgroupPath == "" {
+				return fmt.Errorf("--cgroup-path is required")
+			}
+
+			pinPath := deviceMapPinPath(cgroupPath)
+			entries, err := listDeviceMap(pinPath)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.Marshal(entries)
+			if err != nil {
+				return fmt.Errorf("cannot marshal device list: %w", err)
+			}
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	listDevicesCmd.Flags().String("cgroup-path", "", "the cgroup directory path whose device map to list")
+
+	spliceDeviceMapCmd := &cobra.Command{
+		Use:   "splice-device-map",
+		Short: "Splice an eBPF device map lookup into the cgroup's device filter program",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pathsRaw := cmd.Flag("cgroup-paths").Value.String()
+			if pathsRaw == "" {
+				return fmt.Errorf("--cgroup-paths is required")
+			}
+			cgroupPaths := strings.Split(pathsRaw, ",")
+
+			pinPath, err := spliceDeviceMapLookup(cgroupPaths)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "device map pinned at %s\n", pinPath)
+			return nil
+		},
+	}
+	spliceDeviceMapCmd.Flags().String("cgroup-paths", "", "comma-separated cgroup directory paths to splice")
 
 	rootCmd.AddCommand(
 		execCmd,
@@ -215,6 +295,9 @@ func main() {
 		createMDEVCmd,
 		removeMDEVCmd,
 		cgroupsCmd,
+		spliceDeviceMapCmd,
+		updateDeviceCmd,
+		listDevicesCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {

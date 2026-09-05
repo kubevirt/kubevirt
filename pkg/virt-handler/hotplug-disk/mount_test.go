@@ -48,9 +48,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"github.com/opencontainers/cgroups"
-	devices "github.com/opencontainers/cgroups/devices/config"
-
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
@@ -81,58 +78,23 @@ var (
 
 var _ = Describe("HotplugVolume", func() {
 	var (
-		ctrl               *gomock.Controller
-		expectedCgroupRule *devices.Rule
-		cgroupManagerMock  *cgroup.MockManager
-		ownershipManager   *diskutils.MockOwnershipManagerInterface
+		ctrl              *gomock.Controller
+		cgroupManagerMock *cgroup.MockManager
+		ownershipManager  *diskutils.MockOwnershipManagerInterface
 	)
 
-	expectCgroupRule := func(t devices.Type, major, minor int64, allow bool) {
-		expectedCgroupRule = &devices.Rule{
-			Type:  t,
-			Major: major,
-			Minor: minor,
-			Allow: allow,
-		}
+	expectAllow := func(major, minor int64) {
+		cgroupManagerMock.EXPECT().AllowDevice("b", major, minor, "rwm").Return(nil)
 	}
 
-	areRulesEqual := func(rule1, rule2 *devices.Rule) bool {
-		Expect(rule1).ToNot(BeNil())
-		Expect(rule2).ToNot(BeNil())
-
-		return rule1.Type == rule2.Type &&
-			rule1.Major == rule2.Major &&
-			rule1.Minor == rule2.Minor &&
-			rule1.Allow == rule2.Allow
-	}
-
-	cgroupMockSet := func(r *cgroups.Resources) {
-		if expectedCgroupRule == nil {
-			return
-		}
-
-		foundExpectedRule := false
-		for _, deviceRule := range r.Devices {
-			if areRulesEqual(deviceRule, expectedCgroupRule) {
-				foundExpectedRule = true
-				break
-			}
-		}
-
-		Expect(foundExpectedRule).To(BeTrue(), "expected rule needs to be applied as a cgroup rule")
-	}
-
-	setExpectedCgroupRuns := func(runsExpected int) {
-		cgroupManagerMock.EXPECT().Set(gomock.Any()).Do(cgroupMockSet).Times(runsExpected)
+	expectRemove := func(major, minor int64) {
+		cgroupManagerMock.EXPECT().RemoveDevice("b", major, minor).Return(nil)
 	}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 
-		// cgroups mock setup
 		cgroupManagerMock = cgroup.NewMockManager(ctrl)
-		cgroupManagerMock.EXPECT().GetCgroupVersion().AnyTimes()
-		expectedCgroupRule = nil
 		ownershipManager = diskutils.NewMockOwnershipManagerInterface(ctrl)
 
 		nodeIsolationResult = func() isolation.IsolationResult {
@@ -500,14 +462,12 @@ var _ = Describe("HotplugVolume", func() {
 				return true, nil
 			}
 
-			By("Mounting and validating expected rule is set")
-			setExpectedCgroupRuns(2)
-			expectCgroupRule(devices.BlockDevice, 482, 64, true)
+			By("Mounting — device already exists so AllowDevice is skipped")
 			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Unmounting, we verify the reverse process happens")
-			expectCgroupRule(devices.BlockDevice, 482, 64, false)
+			expectRemove(482, 64)
 			err = m.unmountBlockHotplugVolumes(deviceFile, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -639,12 +599,11 @@ var _ = Describe("HotplugVolume", func() {
 		)
 
 		It("should write properly to allow/deny files if able", func() {
-			setExpectedCgroupRuns(2)
-			expectCgroupRule(devices.BlockDevice, 482, 64, true)
+			expectAllow(482, 64)
 			err = m.allowBlockMajorMinor(123456, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectCgroupRule(devices.BlockDevice, 482, 64, false)
+			expectRemove(482, 64)
 			err = m.removeBlockMajorMinor(123456, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -657,9 +616,8 @@ var _ = Describe("HotplugVolume", func() {
 			deviceFileName, err := newFile(tempDir, "devicefile")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Mounting and validating expected rule is set")
-			setExpectedCgroupRuns(1)
-			expectCgroupRule(devices.BlockDevice, 482, 64, false)
+			By("Unmounting and validating expected rule is set")
+			expectRemove(482, 64)
 			err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -715,6 +673,90 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			err := m.createBlockDeviceFile(tmpDirSafe, "testfile", 123456, testPerm)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should call AllowDevice when block device is first created", func() {
+			blockSourcePodUID := types.UID("fghij")
+			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+
+			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
+				return fakeStat(true, 0666, 123456), nil
+			}
+			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
+				return true, nil
+			}
+			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
+				f, err := os.Create(filepath.Join(unsafepath.UnsafeAbsolute(basePath.Raw()), deviceName))
+				if err != nil {
+					return err
+				}
+				return f.Close()
+			}
+
+			allowCalled := false
+			cgroupManagerMock.EXPECT().AllowDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(deviceType string, major, minor int64, permissions string) error {
+					allowCalled = true
+					return nil
+				},
+			)
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any())
+
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(allowCalled).To(BeTrue(), "AllowDevice should be called on first mount")
+		})
+
+		It("should skip AllowDevice when block device already exists", func() {
+			blockSourcePodUID := types.UID("fghij")
+			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+
+			// Pre-create the target device file to simulate a previous mount
+			_, err = newFile(targetPodPath, "testvolume")
+			Expect(err).ToNot(HaveOccurred())
+
+			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
+				return true, nil
+			}
+
+			cgroupManagerMock.EXPECT().AllowDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any())
+
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should remove device file if AllowDevice fails", func() {
+			blockSourcePodUID := types.UID("fghij")
+			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+
+			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
+				return fakeStat(true, 0666, 123456), nil
+			}
+			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
+				f, err := os.Create(filepath.Join(unsafepath.UnsafeAbsolute(basePath.Raw()), deviceName))
+				if err != nil {
+					return err
+				}
+				return f.Close()
+			}
+
+			cgroupManagerMock.EXPECT().AllowDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("allow failed"))
+
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("allow failed"))
+
+			// Verify the device file was removed so next sync retries
+			targetDevicePath := filepath.Join(targetPodPath, "testvolume")
+			_, err = os.Stat(targetDevicePath)
+			Expect(err).To(HaveOccurred(), "device file should be removed after AllowDevice failure")
 		})
 
 	})
@@ -1072,7 +1114,8 @@ var _ = Describe("HotplugVolume", func() {
 		}
 
 		It("mount and umount should work for filesystem volumes", func() {
-			setExpectedCgroupRuns(2)
+			expectAllow(482, 64)
+			expectRemove(482, 64)
 
 			sourcePodUID := types.UID("klmno")
 			volumeStatuses := make([]v1.VolumeStatus, 0)
@@ -1261,7 +1304,8 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("unmountAll should cleanup regardless of vmi volumestatuses", func() {
-			setExpectedCgroupRuns(2)
+			expectAllow(482, 64)
+			expectRemove(482, 64)
 
 			sourcePodUID := types.UID("klmno")
 			volumeStatuses := make([]v1.VolumeStatus, 0)
