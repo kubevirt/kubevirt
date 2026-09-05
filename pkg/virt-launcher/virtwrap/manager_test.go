@@ -86,6 +86,19 @@ const (
 var (
 	clusterConfig *virtconfig.ClusterConfig
 
+	// domain XML samples used by the graceful shutdown tests: domainHasACPI
+	// decides the shutdown signal based on the ACPI feature in the live XML.
+	domainXMLWithACPI    = `<domain type="kvm"><features><acpi/></features></domain>`
+	domainXMLACPIEnabled = `<domain type="kvm"><features><acpi enabled="yes"/></features></domain>`
+	// Typical arm64 virt machine configuration: ACPI coexists with other
+	// features (e.g. GIC); sibling elements must not affect ACPI detection.
+	domainXMLWithACPIAndGIC  = `<domain type="kvm"><features><acpi/><gic version='3'/></features></domain>`
+	domainXMLWithoutACPI     = `<domain type="kvm"><features></features></domain>`
+	domainXMLACPIDisabled    = `<domain type="kvm"><features><acpi enabled="no"/></features></domain>`
+	domainXMLWithoutFeatures = `<domain type="kvm"></domain>`
+	// 属性顺序、空格和多余属性变化不应影响 enabled 属性的解析
+	domainXMLACPIDisabledSpaced = `<domain type="kvm"><features><acpi foo="bar" enabled = "no" /></features></domain>`
+
 	//go:embed testdata/migration_domain.xml
 	embedMigrationDomain string
 
@@ -1883,6 +1896,147 @@ var _ = Describe("Manager", func() {
 		It("Should signal graceful shutdown after marked for shutdown", func() {
 			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// domainHasACPI inspects the live XML: with ACPI enabled the domain
+			// must be shut down via the explicit ACPI power button signal
+			// (pre-v1.5.0 behavior), avoiding the guest-agent shutdown path
+			// that can time out on guests without qemu-guest-agent.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLWithACPI, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the ACPI power button when ACPI is explicitly enabled", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// `<acpi enabled='yes'/>` explicitly enables ACPI and must use the
+			// ACPI power button signal like the default-enabled case.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLACPIEnabled, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the ACPI power button when ACPI coexists with other features", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// Sibling feature elements (e.g. <gic/> on arm64) must not affect
+			// the ACPI detection.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLWithACPIAndGIC, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the default flag when the domain has no ACPI", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// Domains without ACPI (e.g. s390x) keep DOMAIN_SHUTDOWN_DEFAULT to
+			// preserve the graceful shutdown fix from v1.5.0 (commit d555b25e26).
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLWithoutACPI, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the default flag when ACPI is explicitly disabled", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// `<acpi enabled='no'/>` explicitly disables ACPI and must not be
+			// treated as ACPI enabled by domainHasACPI.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLACPIDisabled, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the default flag when ACPI is disabled with varying attribute formatting", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// Attribute order, whitespace and extra attributes must not affect
+			// the enabled attribute parsing.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLACPIDisabledSpaced, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the default flag when the domain has no features element", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// A domain without any <features> element unmarshals to a nil
+			// Features pointer, which must be treated as ACPI disabled.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return(domainXMLWithoutFeatures, nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the default flag when reading the domain XML fails", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// If the live XML cannot be fetched, assume ACPI is disabled and
+			// fall back to the default shutdown flag.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return("", fmt.Errorf("failed to get domain XML"))
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			vmi := newVMI(testNamespace, testVmName)
+			manager.SignalShutdownVMI(vmi)
+
+			gracePeriod, _ := metadataCache.GracePeriod.Load()
+			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+		})
+
+		It("Should signal graceful shutdown with the default flag when the domain XML cannot be parsed", func() {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			// Malformed XML must not fail the graceful shutdown; fall back to
+			// the default shutdown flag.
+			mockLibvirt.DomainEXPECT().GetXMLDesc(0).Return("<invalid", nil)
 			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
 
 			manager, _ := newLibvirtDomainManagerDefault()

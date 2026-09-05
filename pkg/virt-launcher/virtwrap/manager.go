@@ -2189,7 +2189,24 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT)
+		// Since v1.5.0 (commit d555b25e26, "Fix graceful shutdown on IBM Z"),
+		// DOMAIN_SHUTDOWN_DEFAULT is used for graceful shutdown. With this flag,
+		// libvirt prefers shutting down via the QEMU guest agent when an agent
+		// channel is present. If the guest does not run qemu-guest-agent, the
+		// agent shutdown attempt blocks for the agent command timeout (60s),
+		// which exceeds the default terminationGracePeriodSeconds (30s) of the
+		// VMI. As a result virt-handler forcibly destroys the domain before the
+		// ACPI fallback inside libvirt can take effect, leaving the VMI in the
+		// Failed phase and triggering an automatic restart with
+		// runStrategy=RerunOnFailure.
+		// Restore the pre-v1.5.0 behavior: use an explicit ACPI power button
+		// when the domain actually enables ACPI, and keep DOMAIN_SHUTDOWN_DEFAULT
+		// for domains without ACPI (e.g. s390x) to preserve the original fix.
+		shutdownFlag := libvirt.DOMAIN_SHUTDOWN_DEFAULT
+		if domainHasACPI(dom) {
+			shutdownFlag = libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN
+		}
+		err = dom.ShutdownFlags(shutdownFlag)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
 			return err
@@ -2206,6 +2223,45 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	return nil
+}
+
+// acpiFeaturesXML mirrors only the <features><acpi> subtree of the domain XML.
+// api.Features does not carry the enabled attribute, so we read it directly
+// from the XML to correctly handle <acpi enabled='no'/>.
+type acpiFeaturesXML struct {
+	Features *featuresXML `xml:"features"`
+}
+
+type featuresXML struct {
+	ACPI *acpiXML `xml:"acpi"`
+}
+
+type acpiXML struct {
+	// libvirt boolean attribute: "yes"/"no"
+	Enabled string `xml:"enabled,attr"`
+}
+
+// domainHasACPI reports whether the domain actually enables the ACPI feature
+// by inspecting the live libvirt XML. It intentionally does not rely on the VMI
+// spec alone: when the VMI does not explicitly set domain features, QEMU
+// (x86_64/aarch64) still enables ACPI by default, so checking only the VMI spec
+// would miss that and wrongly fall back to the guest-agent shutdown path.
+func domainHasACPI(dom cli.VirDomain) bool {
+	xmlDesc, err := dom.GetXMLDesc(0)
+	if err != nil {
+		log.Log.Reason(err).Warning("Failed to get domain XML to detect ACPI feature, assuming ACPI disabled")
+		return false
+	}
+	var domainSpec acpiFeaturesXML
+	if err := xml.Unmarshal([]byte(xmlDesc), &domainSpec); err != nil {
+		log.Log.Reason(err).Warning("Failed to parse domain XML to detect ACPI feature, assuming ACPI disabled")
+		return false
+	}
+	if domainSpec.Features == nil || domainSpec.Features.ACPI == nil {
+		return false
+	}
+	// An explicitly disabled <acpi enabled='no'/> means ACPI is off.
+	return !strings.EqualFold(domainSpec.Features.ACPI.Enabled, "no")
 }
 
 func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
