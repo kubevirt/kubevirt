@@ -602,7 +602,7 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	case "amd64":
 		causes = append(causes, webhooks.ValidateLaunchSecurityAmd64(field, spec, config)...)
 	case "s390x":
-		// No s390x specific settings for IBM Secure Execution
+		causes = append(causes, webhooks.ValidateLaunchSecurityS390x(field, spec, config)...)
 	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
