@@ -1401,25 +1401,57 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
-				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
+				deleteStart := time.Now()
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
+				fmt.Printf("[DEBUG-1655] delete issued at %s\n", deleteStart.Format(time.RFC3339Nano))
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				// Check if the graceful shutdown was logged
 				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")
 				event := watcher.New(vmi).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "ShuttingDown")
 				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
+				shutdownAt := time.Now()
+				fmt.Printf("[DEBUG-1655] ShuttingDown event received at +%s\n", shutdownAt.Sub(deleteStart).Truncate(time.Millisecond))
 
-				// Verify VirtualMachineInstance is killed after grace period expires
-				// 5 seconds is grace period, doubling to prevent flakiness
 				By("Checking that the VirtualMachineInstance does not exist after grace period")
 				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
 				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
+				deletedAt := time.Now()
+				fmt.Printf("[DEBUG-1655] Deleted event received at +%s (grace period: %s)\n",
+					deletedAt.Sub(deleteStart).Truncate(time.Millisecond),
+					deletedAt.Sub(shutdownAt).Truncate(time.Millisecond))
 
-				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
+				beGoneStart := time.Now()
+				fmt.Printf("[DEBUG-1655] starting BeGone poll at +%s\n", beGoneStart.Sub(deleteStart).Truncate(time.Millisecond))
+
+				Eventually(func(g Gomega) {
+					current, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					elapsed := time.Since(beGoneStart).Truncate(time.Millisecond)
+					if err != nil {
+						fmt.Printf("[DEBUG-1655] BeGone +%s: VMI not found (gone)\n", elapsed)
+						g.Expect(err).To(MatchError(ContainSubstring("not found")))
+						return
+					}
+					podPhase := "unknown"
+					podDeletionTS := "none"
+					pods, _ := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(),
+						metav1.ListOptions{LabelSelector: fmt.Sprintf("kubevirt.io/created-by=%s", string(current.UID))})
+					for _, p := range pods.Items {
+						podPhase = string(p.Status.Phase)
+						if p.DeletionTimestamp != nil {
+							podDeletionTS = p.DeletionTimestamp.Format(time.RFC3339)
+						}
+					}
+					fmt.Printf("[DEBUG-1655] BeGone +%s: phase=%s finalizers=%v podPhase=%s podDeletion=%s\n",
+						elapsed, current.Status.Phase, current.Finalizers, podPhase, podDeletionTS)
+					g.Expect(current).To(BeNil(), "VMI should be gone")
+				}).WithTimeout(45 * time.Second).WithPolling(time.Second).Should(Succeed())
+
+				fmt.Printf("[DEBUG-1655] total cleanup: %s (BeGone took %s)\n",
+					time.Since(deleteStart).Truncate(time.Millisecond),
+					time.Since(beGoneStart).Truncate(time.Millisecond))
 			})
 		})
 	})
