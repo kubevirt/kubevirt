@@ -495,7 +495,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				config := getCurrentKvConfig(virtClient)
 				currentBackendStorageClass = config.VMStateStorageClass
 				sc, exist := libstorage.GetRWOFileSystemStorageClass()
-				Expect(exist).To(BeTrue())
+				Expect(exist).To(BeTrue(), "an RWO filesystem storage class must be present to test backend-storage")
 				By(fmt.Sprintf("Changing the backend storage class from %s to %s", currentBackendStorageClass, sc))
 				config.VMStateStorageClass = sc
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
@@ -632,7 +632,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 					}
 				}
 				return false
-			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue(), "source migration should reach the Running phase before it completes")
 
 			By("cancelling a migration")
 			Expect(virtClient.VirtualMachineInstanceMigration(migrationToDelete.Namespace).Delete(context.Background(), migrationToDelete.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -687,7 +687,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 					}
 				}
 				return false
-			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue(), "source migration should reach the Running phase before it completes")
 
 			By("force stopping the source pod")
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(sourceVMI, sourceVMI.Namespace)
