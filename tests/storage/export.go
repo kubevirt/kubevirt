@@ -1057,11 +1057,11 @@ var _ = Describe(SIG("Export", func() {
 			err = virtClient.CoreV1().Pods(newExportPod.Namespace).Delete(context.Background(), newExportPod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}()
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			p, err := virtClient.CoreV1().Pods(exporterPod.Namespace).Get(context.TODO(), newExportPod.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return p.Status.Phase == k8sv1.PodSucceeded
-		}, 90*time.Second, 1*time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(p.Status.Phase).To(Equal(k8sv1.PodSucceeded))
+		}, 90*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	It("Should handle populating an export without a previously defined tokenSecretRef", func() {
@@ -1254,7 +1254,7 @@ var _ = Describe(SIG("Export", func() {
 					matchesCNOrAltName = true
 				}
 			}
-			Expect(matchesCNOrAltName).To(BeTrue())
+			Expect(matchesCNOrAltName).To(BeTrue(), "expected export certificate to match ingress domain %s", domainName)
 			Expect(vmExport.Status.Links.External.Volumes[0].Formats[0].Url).To(ContainSubstring(ingress.Spec.Rules[0].Host))
 		})
 	})
@@ -1290,7 +1290,7 @@ var _ = Describe(SIG("Export", func() {
 					matchesCNOrAltName = true
 				}
 			}
-			Expect(matchesCNOrAltName).To(BeTrue())
+			Expect(matchesCNOrAltName).To(BeTrue(), "expected export certificate to match route domain %s", domainName)
 			Expect(vmExport.Status.Links.External.Volumes[0].Formats[0].Url).To(ContainSubstring(host))
 
 		})
@@ -1367,11 +1367,12 @@ var _ = Describe(SIG("Export", func() {
 	}
 
 	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) {
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			snapshot, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
-		}, 180*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(snapshot.Status).ToNot(BeNil())
+			g.Expect(snapshot.Status.ReadyToUse).To(HaveValue(BeTrue()))
+		}, 180*time.Second, time.Second).Should(Succeed())
 	}
 
 	createAndVerifyVMSnapshot := func(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
@@ -1518,11 +1519,12 @@ var _ = Describe(SIG("Export", func() {
 		restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return restore.Status != nil && restore.Status.Complete != nil && *restore.Status.Complete
-		}, 180*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(restore.Status).ToNot(BeNil())
+			g.Expect(restore.Status.Complete).To(HaveValue(BeTrue()))
+		}, 180*time.Second, time.Second).Should(Succeed())
 
 		By("Getting the restored PVC name from the VM spec")
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
