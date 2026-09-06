@@ -615,7 +615,7 @@ var _ = Describe("Template", func() {
 
 				hasPodNameEnvVar := false
 				for _, ev := range pod.Spec.Containers[0].Env {
-					if ev.Name == ENV_VAR_POD_NAME && ev.ValueFrom.FieldRef.FieldPath == "metadata.name" {
+					if ev.Name == envVarPodName && ev.ValueFrom.FieldRef.FieldPath == "metadata.name" {
 						hasPodNameEnvVar = true
 						break
 					}

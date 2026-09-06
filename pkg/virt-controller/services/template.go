@@ -110,7 +110,7 @@ const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
 
-const ENV_VAR_POD_NAME = "POD_NAME"
+const envVarPodName = "POD_NAME"
 const envVarVirtiofsDebugLogs = "VIRTIOFSD_DEBUG_LOGS"
 
 const ephemeralStorageOverheadSize = "50M"
@@ -521,7 +521,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	compute.Env = append(compute.Env, k8sv1.EnvVar{
-		Name: ENV_VAR_POD_NAME,
+		Name: envVarPodName,
 		ValueFrom: &k8sv1.EnvVarSource{
 			FieldRef: &k8sv1.ObjectFieldSelector{
 				FieldPath: "metadata.name",
