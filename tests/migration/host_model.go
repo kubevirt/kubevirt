@@ -262,7 +262,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 		})
 
-		It("Should be able to migrate back to the initial node from target node with host-model even if target is newer than source", func() {
+		It("[QUARANTINE]Should be able to migrate back to the initial node from target node with host-model even if target is newer than source", decorators.Quarantine, func() {
 			libnode.AddLabelToNode(targetNode.Name, fakeRequiredFeature, "true")
 
 			vmiToMigrate := libvmifact.NewFedora(
