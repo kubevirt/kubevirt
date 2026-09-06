@@ -3949,20 +3949,10 @@ rpm(
 )
 
 rpm(
-    name = "glibc-langpack-dz-0__2.34-277.el9.aarch64",
-    sha256 = "d501b283338dc299628523e2c93ffb3ccd9b06a1e8ebf2caf2fdc4d925c9e579",
+    name = "glibc-langpack-el-0__2.34-277.el9.x86_64",
+    sha256 = "dcc64040f1fadf4c44d5872a01233a9d97c7528950913efa8bb9a6761633c381",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-dz-2.34-277.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/d501b283338dc299628523e2c93ffb3ccd9b06a1e8ebf2caf2fdc4d925c9e579",
-    ],
-)
-
-rpm(
-    name = "glibc-langpack-en-0__2.34-277.el9.x86_64",
-    sha256 = "bd03fe55c02d1af1427a1dea0af49ae49bb435ce6ad0db8e9116bcbb7cf36cbf",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-en-2.34-277.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/bd03fe55c02d1af1427a1dea0af49ae49bb435ce6ad0db8e9116bcbb7cf36cbf",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-el-2.34-277.el9.x86_64.rpm",
     ],
 )
 
@@ -3994,11 +3984,18 @@ rpm(
 )
 
 rpm(
-    name = "glibc-langpack-ha-0__2.34-277.el9.s390x",
-    sha256 = "e79d4e2c18848626cfba2f668f171535b5c77d749c3e0b976ebb911a7c93ccd5",
+    name = "glibc-langpack-fi-0__2.34-277.el9.s390x",
+    sha256 = "1251fc4e17f207cb27238b2d34a469b9be14a28c001b130978a267f74226e2e6",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-ha-2.34-277.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/e79d4e2c18848626cfba2f668f171535b5c77d749c3e0b976ebb911a7c93ccd5",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-fi-2.34-277.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "glibc-langpack-gl-0__2.34-277.el9.aarch64",
+    sha256 = "57b1f53d746a61bb7b4fd330b6b1ad7422dbb9895bb3e86c16eb9031e9c66432",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-gl-2.34-277.el9.aarch64.rpm",
     ],
 )
 
