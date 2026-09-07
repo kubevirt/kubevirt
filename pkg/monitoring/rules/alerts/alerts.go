@@ -34,6 +34,8 @@ const (
 	defaultRunbookURLTemplate      = "https://kubevirt.io/monitoring/runbooks/%s"
 	runbookURLTemplateEnv          = "RUNBOOK_URL_TEMPLATE"
 
+	summaryAnnotationKey         = "summary"
+	descriptionAnnotationKey     = "description"
 	severityAlertLabelKey        = "severity"
 	operatorHealthImpactLabelKey = "operator_health_impact"
 
@@ -89,4 +91,14 @@ func getErrorRatio(ns string, podName string, errorCodeRegex string, durationInM
 func getRestCallsFailedWarning(failingCallsPercentage int, component, duration string) string {
 	const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 	return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
+}
+
+func componentDownDescription(component, extra string) string {
+	return "{{ if $labels.pod }}" +
+		"Pod {{ $labels.pod }}" + extra +
+		" is unhealthy (reason: {{ $labels.reason }})." +
+		"{{ else }}" +
+		"No running " + component + " pods detected " +
+		"and no container waiting reasons reported." +
+		"{{ end }}"
 }
