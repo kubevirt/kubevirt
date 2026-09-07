@@ -56,14 +56,13 @@ var _ = Describe("alert expressions", func() {
 		func(namespace, component string, expect []string) {
 			expectContains(componentDownFallbackExpr(namespace, component), expect)
 		},
-		Entry("controller fallback uses raw metrics and unless clause", "kubevirt", "controller", []string{
+		Entry("controller fallback uses pods_running recording rule and unless clause", "kubevirt", "controller", []string{
+			"cluster:kubevirt_virt_controller_pods_running:count",
 			"kube_pod_status_phase{pod=~'virt-controller-.*'",
-			"phase='Running'",
-			"namespace='kubevirt'",
-			"or vector(0)",
 			"unless on()",
 			"kube_pod_container_status_waiting_reason{pod=~'virt-controller-.*'",
 			"container='virt-controller'",
+			"namespace='kubevirt'",
 		}),
 	)
 
@@ -97,11 +96,14 @@ var _ = Describe("alert expressions", func() {
 		})
 	})
 
-	It("builds noReadyAlertExpr with unless clause", func() {
-		expectContains(noReadyAlertExpr("ci", "operator"), []string{
-			"kubevirt_virt_operator_ready_status{namespace='ci'}",
-			"kube_pod_status_ready{pod=~'virt-operator-.*'",
-			"unless on(namespace)",
+	It("builds noReadyAlertExpr from recording rules", func() {
+		expectContains(noReadyAlertExpr("operator"), []string{
+			"cluster:kubevirt_virt_operator_ready:sum == 0",
+		})
+		Expect(noReadyAlertExpr("operator")).ToNot(ContainSubstring("pods_running"))
+		expectContains(noReadyAlertExpr("controller"), []string{
+			"cluster:kubevirt_virt_controller_ready:sum == 0",
+			"cluster:kubevirt_virt_controller_pods_running:count > 0",
 		})
 	})
 })

@@ -43,17 +43,14 @@ func lowReadyWithNodeAlertExpr(namespace, component string) string {
 	)
 }
 
-func noReadyAlertExpr(namespace, component string) string {
+func noReadyAlertExpr(component string) string {
+	ready := fmt.Sprintf("cluster:kubevirt_virt_%s_ready:sum == 0", component)
+	if component == "operator" {
+		return ready
+	}
 	return fmt.Sprintf(
-		"count by (namespace) (kubevirt_virt_%s_ready_status{namespace='%s'}) > 0 "+
-			"unless on(namespace) "+
-			"count by (namespace) ("+
-			"kube_pod_status_ready{pod=~'virt-%s-.*', namespace='%s', condition='true'} "+
-			"* on(pod, namespace) "+
-			"kubevirt_virt_%s_ready_status{namespace='%s'} "+
-			"== 1"+
-			") > 0",
-		component, namespace, component, namespace, component, namespace,
+		"%s and cluster:kubevirt_virt_%s_pods_running:count > 0",
+		ready, component,
 	)
 }
 
@@ -97,15 +94,22 @@ func componentDownWithReasonExpr(namespace, component string) string {
 // componentDownFallbackExpr returns an instant-vector expression that
 // fires when no virt-* pods are running AND the withReason branch
 // produced nothing (i.e. no waiting_reason metrics exist — pods are
-// entirely absent or haven't registered container status yet). Uses raw
-// metrics instead of recording rules to stay consistent with the
-// withReason branch.
+// entirely absent, Failed/Unknown, or haven't registered container
+// status yet).
+//
+// Reuses cluster:kubevirt_virt_*_pods_running:count, which falls back
+// from kube-state-metrics to up, then to workload replica count, and
+// does not treat a monitoring gap as 0. The extra count(phase)*0 term
+// covers pods that kube-state-metrics still reports (Failed, Pending)
+// but that are not Running, which the recording rule does not treat
+// as 0.
 func componentDownFallbackExpr(namespace, component string) string {
 	return fmt.Sprintf(
-		"(count(kube_pod_status_phase{pod=~'virt-%s-.*', namespace='%s', phase='Running'} == 1) or vector(0)) == 0 "+
+		"(cluster:kubevirt_virt_%s_pods_running:count or "+
+			"((count(kube_pod_status_phase{pod=~'virt-%s-.*', namespace='%s'}) > 0) * 0)) == 0 "+
 			"unless on() "+
 			"(count(kube_pod_container_status_waiting_reason{pod=~'virt-%s-.*', container='virt-%s', namespace='%s'} > 0) > 0)",
-		component, namespace, component, component, namespace,
+		component, component, namespace, component, component, namespace,
 	)
 }
 

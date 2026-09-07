@@ -43,7 +43,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtController",
-			Expr:  intstr.FromString(noReadyAlertExpr(namespace, "controller")),
+			Expr:  intstr.FromString(noReadyAlertExpr("controller")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-controller was detected for the last 10 min.",
