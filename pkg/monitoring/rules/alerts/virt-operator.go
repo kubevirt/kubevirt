@@ -30,12 +30,14 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtOperatorDown",
-			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
+			Expr:  intstr.FromString(componentDownExpr(namespace, "operator")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "All virt-operator servers are down.",
+				summaryAnnotationKey:     "No healthy virt-operator pods were detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-operator", ""),
 			},
 			Labels: map[string]string{
+				namespaceAlertLabelKey:       namespace,
 				severityAlertLabelKey:        "critical",
 				operatorHealthImpactLabelKey: "critical",
 			},

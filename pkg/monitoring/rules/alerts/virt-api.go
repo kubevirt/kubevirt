@@ -30,12 +30,14 @@ func virtApiAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtAPIDown",
-			Expr:  intstr.FromString("kubevirt_virt_api_up == 0"),
+			Expr:  intstr.FromString(componentDownExpr(namespace, "api")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "All virt-api servers are down.",
+				summaryAnnotationKey:     "No healthy virt-api pods were detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-api", ""),
 			},
 			Labels: map[string]string{
+				namespaceAlertLabelKey:       namespace,
 				severityAlertLabelKey:        "critical",
 				operatorHealthImpactLabelKey: "critical",
 			},
