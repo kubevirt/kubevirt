@@ -110,7 +110,8 @@ const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
 
-const ENV_VAR_POD_NAME = "POD_NAME"
+const envVarPodName = "POD_NAME"
+const envVarVirtiofsDebugLogs = "VIRTIOFSD_DEBUG_LOGS"
 
 const ephemeralStorageOverheadSize = "50M"
 
@@ -516,11 +517,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
 	}
 	if labelValue, ok := vmi.Labels[virtiofsDebugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > util.EXT_LOG_VERBOSITY_THRESHOLD {
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: envVarVirtiofsDebugLogs, Value: "1"})
 	}
 
 	compute.Env = append(compute.Env, k8sv1.EnvVar{
-		Name: ENV_VAR_POD_NAME,
+		Name: envVarPodName,
 		ValueFrom: &k8sv1.EnvVarSource{
 			FieldRef: &k8sv1.ObjectFieldSelector{
 				FieldPath: "metadata.name",

@@ -438,7 +438,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			}, k8sv1.VolumeMount{
 				Name:      volumeName,
 				ReadOnly:  false,
-				MountPath: util.PathForSwtpmLocalca(vmi),
+				MountPath: pathForSwtpmLocalca(vmi),
 				SubPath:   "swtpm-localca",
 			})
 		}
@@ -868,4 +868,12 @@ func shouldAddLauncherBinaryVolume(vmi *v1.VirtualMachineInstance, imageIDs map[
 	}
 	kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
 	return util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
+}
+
+func pathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
+	localCaPath := "/var/lib/swtpm-localca"
+	if vmitrait.IsNonRoot(vmi) {
+		localCaPath = filepath.Join(util.VirtPrivateDir, "var", "lib", "swtpm-localca")
+	}
+	return localCaPath
 }
