@@ -3068,8 +3068,8 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 	}
 
 	// Neutralize cpu.model if the VMI already has the same value.
-	// This happens when the defaulter writes host-model onto the VMI and that
-	// value is later persisted on the VM template.
+	// This happens when the defaulter writes a CPU model (often host-model)
+	// onto the VMI and that value is later persisted on the VM template.
 	if vmi != nil && vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" &&
 		currentVM.Spec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU.Model != "" &&
 		vmi.Spec.Domain.CPU.Model == currentVM.Spec.Template.Spec.Domain.CPU.Model {
@@ -3086,7 +3086,7 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 
 	// If no restart is needed, remove any existing RestartRequired condition.
 	// This handles cases where a previous condition was set but is no longer valid,
-	// such as when the firmware UUID synchronizer persisted a UUID that matches the VMI's UUID.
+	// such as firmware UUID persistence or KubeVirt-defaulted maxGuest/cpu.model.
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
