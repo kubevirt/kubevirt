@@ -3055,6 +3055,30 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
 	}
 
+	// Neutralize memory.maxGuest if the VMI already has the same value.
+	// This happens when the defaulter writes maxGuest onto the VMI and that
+	// value is later persisted on the VM template.
+	if vmi != nil && vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil &&
+		currentVM.Spec.Template.Spec.Domain.Memory != nil && currentVM.Spec.Template.Spec.Domain.Memory.MaxGuest != nil &&
+		vmi.Spec.Domain.Memory.MaxGuest.Equal(*currentVM.Spec.Template.Spec.Domain.Memory.MaxGuest) {
+		if lastSeenVM.Spec.Template.Spec.Domain.Memory == nil {
+			lastSeenVM.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{}
+		}
+		lastSeenVM.Spec.Template.Spec.Domain.Memory.MaxGuest = currentVM.Spec.Template.Spec.Domain.Memory.MaxGuest
+	}
+
+	// Neutralize cpu.model if the VMI already has the same value.
+	// This happens when the defaulter writes host-model onto the VMI and that
+	// value is later persisted on the VM template.
+	if vmi != nil && vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" &&
+		currentVM.Spec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU.Model != "" &&
+		vmi.Spec.Domain.CPU.Model == currentVM.Spec.Template.Spec.Domain.CPU.Model {
+		if lastSeenVM.Spec.Template.Spec.Domain.CPU == nil {
+			lastSeenVM.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
+		}
+		lastSeenVM.Spec.Template.Spec.Domain.CPU.Model = currentVM.Spec.Template.Spec.Domain.CPU.Model
+	}
+
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
