@@ -58,7 +58,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	})
 
 	Context("Prometheus metrics", Ordered, func() {
-		var excludedMetrics = map[string]bool{
+		excludedMetrics := map[string]bool{
 			// virt-api
 			// can later be added in pre-existing feature tests
 			"kubevirt_portforward_active_tunnels":                true,
@@ -120,13 +120,24 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err := libmonitoring.RegisterAllMetrics()
 			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
-			for _, metric := range operatormetrics.ListMetrics() {
-				if excludedMetrics[metric.GetOpts().Name] {
-					continue
-				}
+			expectedMetrics := operatormetrics.ListMetrics()
+			// Filesystem readiness does not guarantee all libvirt stats have been scraped.
+			Eventually(func(g Gomega) {
+				metrics = fetchPrometheusKubevirtMetrics(virtClient)
+				var missingMetrics []string
+				for _, metric := range expectedMetrics {
+					if excludedMetrics[metric.GetOpts().Name] {
+						continue
+					}
 
-				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)))
-			}
+					found, err := ContainElement(gomegaContainsMetricMatcher(metric, nil)).Match(metrics.Data.Result)
+					g.Expect(err).ToNot(HaveOccurred())
+					if !found {
+						missingMetrics = append(missingMetrics, metric.GetOpts().Name)
+					}
+				}
+				g.Expect(missingMetrics).To(BeEmpty(), "Missing expected virt component metrics")
+			}, 3*time.Minute, 10*time.Second).Should(Succeed())
 		})
 
 		It("should contain VNIC metrics", func() {
@@ -250,7 +261,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	})
 
 	Context("Configuration metrics", Serial, func() {
-
 		It("kubevirt_configuration_emulation_enabled is 1 when useEmulation=true", func() {
 			updateUseEmulationAndWaitForMetric(virtClient, true)
 		})
