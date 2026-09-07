@@ -33,7 +33,7 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString(daemonSetDownExpr(namespace, "handler")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey:     "No running virt-handler pods were detected for the last 10 min.",
+				summaryAnnotationKey:     "No healthy virt-handler pods were detected for the last 10 min.",
 				descriptionAnnotationKey: componentDownDescription("virt-handler", " on node {{ $labels.node }}"),
 			},
 			Labels: map[string]string{
