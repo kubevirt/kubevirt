@@ -282,7 +282,8 @@ func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRender
 		}
 
 		if memory != nil && memory.Value() > 0 {
-			if overcommit == 100 {
+			hugepages := vmiSpecMemory != nil && vmiSpecMemory.Hugepages != nil
+			if overcommit == 100 || hugepages {
 				renderer.vmRequests[k8sv1.ResourceMemory] = *memory
 			} else {
 				value := (memory.Value() * int64(100)) / int64(overcommit)
