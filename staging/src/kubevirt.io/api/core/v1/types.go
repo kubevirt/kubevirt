@@ -1300,6 +1300,10 @@ const (
 	VirtualMachineLabel               = AppLabel + "/vm"
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
+	// MergeableMemory controls whether guest memory pages may be merged with other
+	// processes via Kernel Same-page Merging (KSM). Set to "false" to opt out.
+	MergeableMemory string = "kubevirt.io/mergeable-memory"
+
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 	// RestoreRunStrategy is how to restore the run strategy of the VMI
 	RestoreRunStrategy = "kubevirt.io/restore-run-strategy"
