@@ -91,6 +91,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
+			vmi.Annotations = map[string]string{v1.MergeableMemory: "false"}
 			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -100,6 +101,9 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			By("Getting domain of vmi")
 			domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domain.MemoryBacking).ToNot(BeNil())
+			Expect(domain.MemoryBacking.NoSharePages).ToNot(BeNil())
 
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be default memballoon device")
 

@@ -110,5 +110,53 @@ var _ = Describe("MemoryBackingConfigurator", func() {
 				Access: &api.MemoryBackingAccess{Mode: "shared"},
 			},
 		),
+		Entry("mergeable memory disabled",
+			libvmi.New(libvmi.WithAnnotation(v1.MergeableMemory, "false")),
+			memfdSupported,
+			&api.MemoryBacking{
+				NoSharePages: &api.NoSharePages{},
+			},
+		),
+		Entry("mergeable memory true",
+			libvmi.New(libvmi.WithAnnotation(v1.MergeableMemory, "true")),
+			memfdSupported,
+			nil,
+		),
+		Entry("mergeable memory disabled with hugepages",
+			libvmi.New(
+				libvmi.WithHugepages("2Mi"),
+				libvmi.WithAnnotation(v1.MergeableMemory, "false"),
+			),
+			memfdSupported,
+			&api.MemoryBacking{
+				HugePages:    &api.HugePages{},
+				Source:       &api.MemoryBackingSource{Type: "memfd"},
+				NoSharePages: &api.NoSharePages{},
+			},
+		),
+		Entry("mergeable memory disabled with virtiofs",
+			libvmi.New(
+				libvmi.WithFilesystemPVC("test-pvc"),
+				libvmi.WithAnnotation(v1.MergeableMemory, "false"),
+			),
+			memfdSupported,
+			&api.MemoryBacking{
+				Access:       &api.MemoryBackingAccess{Mode: "shared"},
+				Source:       &api.MemoryBackingSource{Type: "memfd"},
+				NoSharePages: &api.NoSharePages{},
+			},
+		),
+		Entry("mergeable memory disabled with hugepages and memfd annotation false",
+			libvmi.New(
+				libvmi.WithHugepages("2Mi"),
+				libvmi.WithAnnotation(v1.MemfdMemoryBackend, "false"),
+				libvmi.WithAnnotation(v1.MergeableMemory, "false"),
+			),
+			memfdSupported,
+			&api.MemoryBacking{
+				HugePages:    &api.HugePages{},
+				NoSharePages: &api.NoSharePages{},
+			},
+		),
 	)
 })
