@@ -80,6 +80,16 @@ func Register(registry *operatorrules.Registry, namespace string) error {
 	return registry.RegisterAlerts(allAlerts...)
 }
 
+func componentDownDescription(component, extra string) string {
+	return "{{ if $labels.pod }}" +
+		"Pod {{ $labels.pod }}" + extra +
+		" is unhealthy (reason: {{ $labels.reason }})." +
+		"{{ else }}" +
+		"No running " + component + " pods detected " +
+		"and no container waiting reasons reported." +
+		"{{ end }}"
+}
+
 func getRunbookURLTemplate() string {
 	runbookURLTemplate, exists := os.LookupEnv(runbookURLTemplateEnv)
 	if !exists {
@@ -92,4 +102,3 @@ func getRunbookURLTemplate() string {
 
 	return runbookURLTemplate
 }
-
