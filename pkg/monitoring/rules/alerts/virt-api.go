@@ -33,7 +33,7 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString(componentDownExpr(namespace, "api")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey:     "No running virt-api pods were detected for the last 10 min.",
+				summaryAnnotationKey:     "No healthy virt-api pods were detected for the last 10 min.",
 				descriptionAnnotationKey: componentDownDescription("virt-api", ""),
 			},
 			Labels: map[string]string{

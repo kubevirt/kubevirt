@@ -70,7 +70,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString(componentDownExpr(namespace, "controller")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey:     "No running virt-controller was detected for the last 10 min.",
+				summaryAnnotationKey:     "No healthy virt-controller was detected for the last 10 min.",
 				descriptionAnnotationKey: componentDownDescription("virt-controller", ""),
 			},
 			Labels: map[string]string{

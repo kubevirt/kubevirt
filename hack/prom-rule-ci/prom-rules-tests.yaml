@@ -53,7 +53,7 @@ tests:
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-api pods were detected for the last 10 min."
+              summary: "No healthy virt-api pods were detected for the last 10 min."
               description: "No running virt-api pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
@@ -66,7 +66,7 @@ tests:
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No healthy virt-controller was detected for the last 10 min."
               description: "No running virt-controller pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
@@ -79,7 +79,7 @@ tests:
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-operator pods were detected for the last 10 min."
+              summary: "No healthy virt-operator pods were detected for the last 10 min."
               description: "No running virt-operator pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
@@ -92,7 +92,7 @@ tests:
         alertname: VirtHandlerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-handler pods were detected for the last 10 min."
+              summary: "No healthy virt-handler pods were detected for the last 10 min."
               description: "No running virt-handler pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerDown"
             exp_labels:
@@ -150,7 +150,7 @@ tests:
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-api pods were detected for the last 10 min."
+              summary: "No healthy virt-api pods were detected for the last 10 min."
               description: "Pod virt-api-1 is unhealthy (reason: ImagePullBackOff)."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
@@ -165,7 +165,7 @@ tests:
         alertname: VirtHandlerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-handler pods were detected for the last 10 min."
+              summary: "No healthy virt-handler pods were detected for the last 10 min."
               description: "Pod virt-handler-1 on node node01 is unhealthy (reason: ImagePullBackOff)."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerDown"
             exp_labels:
@@ -195,7 +195,7 @@ tests:
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No healthy virt-controller was detected for the last 10 min."
               description: "Pod virt-controller-1 is unhealthy (reason: CrashLoopBackOff)."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
@@ -259,7 +259,7 @@ tests:
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-operator pods were detected for the last 10 min."
+              summary: "No healthy virt-operator pods were detected for the last 10 min."
               description: "Pod virt-operator-1 is unhealthy (reason: ErrImagePull)."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
@@ -285,7 +285,7 @@ tests:
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-api pods were detected for the last 10 min."
+              summary: "No healthy virt-api pods were detected for the last 10 min."
               description: "Pod virt-api-1 is unhealthy (reason: CrashLoopBackOff)."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
@@ -309,7 +309,7 @@ tests:
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No healthy virt-controller was detected for the last 10 min."
               description: "No running virt-controller pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
@@ -337,7 +337,7 @@ tests:
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-api pods were detected for the last 10 min."
+              summary: "No healthy virt-api pods were detected for the last 10 min."
               description: "Pod virt-api-1 is unhealthy (reason: ImagePullBackOff)."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
@@ -794,7 +794,7 @@ tests:
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No healthy virt-controller was detected for the last 10 min."
               description: "No running virt-controller pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
@@ -818,7 +818,7 @@ tests:
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-operator pods were detected for the last 10 min."
+              summary: "No healthy virt-operator pods were detected for the last 10 min."
               description: "No running virt-operator pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
@@ -854,7 +854,7 @@ tests:
         alertname: VirtHandlerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-handler pods were detected for the last 10 min."
+              summary: "No healthy virt-handler pods were detected for the last 10 min."
               description: "No running virt-handler pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtHandlerDown"
             exp_labels:
@@ -1071,7 +1071,7 @@ tests:
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-operator pods were detected for the last 10 min."
+              summary: "No healthy virt-operator pods were detected for the last 10 min."
               description: "No running virt-operator pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
