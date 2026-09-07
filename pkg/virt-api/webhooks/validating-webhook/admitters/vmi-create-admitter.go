@@ -132,9 +132,12 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	warnings := warnDeprecatedAPIs(&vmi.Spec, admitter.ClusterConfig)
+	warnings = append(warnings, warnDisabledACPIAmd64(&vmi.Spec, admitter.ClusterConfig)...)
+
 	return &admissionv1.AdmissionResponse{
 		Allowed:  true,
-		Warnings: warnDeprecatedAPIs(&vmi.Spec, admitter.ClusterConfig),
+		Warnings: warnings,
 	}
 }
 
@@ -149,6 +152,48 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 		}
 	}
 	return warnings
+}
+
+// warnDisabledACPIAmd64 warns when ACPI is explicitly disabled on amd64.
+// On BIOS boot guests QEMU injects the ACPI tables through fw_cfg, and since
+// SeaBIOS 1.17 the firmware no longer generates them internally. Disabling ACPI
+// therefore leaves BIOS guests without ACPI tables, so they are expected to fail
+// to boot or to shut down gracefully. UEFI boot is not affected as the ACPI
+// tables are provided in a different way (and SeaBIOS is not used).
+func warnDisabledACPIAmd64(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []string {
+	// The architecture is normally defaulted by the mutating webhook, but fall
+	// back to the cluster default to stay defensive if it is still unset here.
+	arch := spec.Architecture
+	if arch == "" {
+		arch = config.GetDefaultArchitecture()
+	}
+	if arch != "amd64" {
+		return nil
+	}
+
+	features := spec.Domain.Features
+	if features == nil || features.ACPI.Enabled == nil || *features.ACPI.Enabled {
+		return nil
+	}
+
+	// UEFI boot is not affected: the ACPI tables are provided in a different way
+	// and SeaBIOS is not used. Only warn for BIOS boot guests.
+	if isBootloaderEFI(spec) {
+		return nil
+	}
+
+	return []string{
+		"Explicitly disabling ACPI (spec.domain.features.acpi.enabled=false) on amd64 is not recommended: " +
+			"BIOS boot guests rely on QEMU injecting the ACPI tables and are expected to fail to boot " +
+			"or to shut down gracefully without them (UEFI boot is not affected).",
+	}
+}
+
+// isBootloaderEFI reports whether the guest is configured to boot with UEFI.
+func isBootloaderEFI(spec *v1.VirtualMachineInstanceSpec) bool {
+	return spec.Domain.Firmware != nil &&
+		spec.Domain.Firmware.Bootloader != nil &&
+		spec.Domain.Firmware.Bootloader.EFI != nil
 }
 
 func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
