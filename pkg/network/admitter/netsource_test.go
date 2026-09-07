@@ -22,6 +22,7 @@ package admitter_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -37,8 +38,8 @@ var _ = Describe("Validate network source", func() {
 		const net2Name = "default2"
 		vmi := v1.VirtualMachineInstance{}
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-			{Name: net1Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-			{Name: net2Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			libvmi.InterfaceDeviceWithBridgeBinding(net1Name),
+			libvmi.InterfaceDeviceWithBridgeBinding(net2Name),
 		}
 		vmi.Spec.Networks = []v1.Network{
 			{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
@@ -53,7 +54,9 @@ var _ = Describe("Validate network source", func() {
 
 	It("should reject when multiple types defined for a CNI network", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
+		}
 		spec.Networks = []v1.Network{
 			{
 				Name: "default",
@@ -77,7 +80,7 @@ var _ = Describe("Validate network source", func() {
 			NetworkSource: v1.NetworkSource{},
 			Name:          "testnet1",
 		}
-		iface1 := v1.Interface{Name: net1.Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}
+		iface1 := libvmi.InterfaceDeviceWithBridgeBinding(net1.Name)
 		spec.Networks = []v1.Network{net1}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
@@ -90,19 +93,12 @@ var _ = Describe("Validate network source", func() {
 		const draNetName = "dra-net"
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{Name: draNetName, Binding: &v1.PluginBinding{Name: "netbinding"}},
+			libvmi.NewInterface(draNetName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"})),
 		}
 		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+
 		spec.Networks = []v1.Network{
-			{
-				Name: draNetName,
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "request1",
-					},
-				},
-			},
+			*libvmi.DRANetwork(draNetName, "claim1", "request1"),
 		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
@@ -113,7 +109,9 @@ var _ = Describe("Validate network source", func() {
 		func(networkSource v1.NetworkSource) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "default", Binding: &v1.PluginBinding{Name: "netbinding"}},
+				libvmi.NewInterface(
+					"default",
+					libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"})),
 			}
 			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 			spec.Networks = []v1.Network{
@@ -139,11 +137,12 @@ var _ = Describe("Validate network source", func() {
 
 	It("should reject multus network source without networkName", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		spec.Networks = []v1.Network{{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
-		}}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
+		}
+		spec.Networks = []v1.Network{
+			*libvmi.MultusNetwork("default", ""),
+		}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
@@ -154,8 +153,8 @@ var _ = Describe("Validate network source", func() {
 	It("should reject multiple multus networks with a multus default", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			*v1.DefaultBridgeNetworkInterface(),
-			*v1.DefaultBridgeNetworkInterface(),
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
 		}
 		const net1Name = "multus1"
 		const net2Name = "multus2"
@@ -188,22 +187,12 @@ var _ = Describe("Validate network source", func() {
 		const defaultMultusNetName = "defaultmultus"
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			*v1.DefaultBridgeNetworkInterface(),
-			{
-				Name: defaultMultusNetName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
-			},
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
+			libvmi.InterfaceDeviceWithBridgeBinding(defaultMultusNetName),
 		}
 
 		spec.Networks = []v1.Network{
-			{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Pod: &v1.PodNetwork{},
-				},
-			},
+			*v1.DefaultPodNetwork(),
 			{
 				Name: defaultMultusNetName,
 				NetworkSource: v1.NetworkSource{
@@ -224,7 +213,7 @@ var _ = Describe("Validate network source", func() {
 	It("should allow single multus network with a multus default", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			*v1.DefaultBridgeNetworkInterface(),
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
 		}
 		spec.Domain.Devices.Interfaces[0].Name = "multus1"
 		spec.Networks = []v1.Network{
@@ -243,14 +232,11 @@ var _ = Describe("Validate network source", func() {
 
 	It("should accept networks with a multus network source and bridge interface", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
+		}
 		spec.Networks = []v1.Network{
-			{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "default"},
-				},
-			},
+			*libvmi.MultusNetwork("default", "default"),
 		}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
@@ -261,45 +247,15 @@ var _ = Describe("Validate network source", func() {
 	It("should allow primary network and multiple secondary networks", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
-			},
-			{
-				Name: "multus1",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
-			},
-			{
-				Name: "multus2",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
-			},
+			libvmi.InterfaceDeviceWithBridgeBinding("default"),
+			libvmi.InterfaceDeviceWithBridgeBinding("multus1"),
+			libvmi.InterfaceDeviceWithBridgeBinding("multus2"),
 		}
 
 		spec.Networks = []v1.Network{
-			{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Pod: &v1.PodNetwork{},
-				},
-			},
-			{
-				Name: "multus1",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1"},
-				},
-			},
-			{
-				Name: "multus2",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net2"},
-				},
-			},
+			*v1.DefaultPodNetwork(),
+			*libvmi.MultusNetwork("multus1", "multus-net1"),
+			*libvmi.MultusNetwork("multus2", "multus-net2"),
 		}
 
 		validator := admitter.NewValidator(

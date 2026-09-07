@@ -28,20 +28,17 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
 var _ = Describe("Validating passtBinding core binding", func() {
 	It("should reject networks with a multus network source and passtBinding interface", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}},
-		}}
-		spec.Networks = []v1.Network{{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
-		}}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.NewInterface("default", libvmi.WithPasstBinding()),
+		}
+		spec.Networks = []v1.Network{*libvmi.MultusNetwork("default", "test")}
 
 		clusterConfig := stubClusterConfigChecker{passtBindingFeatureGateEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
@@ -56,10 +53,9 @@ var _ = Describe("Validating passtBinding core binding", func() {
 
 	It("should reject networks with a passtBinding interface and passtBinding feature gate disabled", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}},
-		}}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.NewInterface("default", libvmi.WithPasstBinding()),
+		}
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
@@ -74,10 +70,9 @@ var _ = Describe("Validating passtBinding core binding", func() {
 
 	It("should accept networks with a pod network source and passtBinding interface", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}},
-		}}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.NewInterface("default", libvmi.WithPasstBinding()),
+		}
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 		clusterConfig := stubClusterConfigChecker{passtBindingFeatureGateEnabled: true}

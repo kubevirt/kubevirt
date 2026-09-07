@@ -22,6 +22,7 @@ package admitter_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -94,34 +95,12 @@ var _ = Describe("Validate network DRA", func() {
 	It("should reject duplicate claimName/requestName across DRA networks", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name:    "dra-net-1",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
-			{
-				Name:    "dra-net-2",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
+			libvmi.NewInterface("dra-net-1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"})),
+			libvmi.NewInterface("dra-net-2", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"})),
 		}
 		spec.Networks = []v1.Network{
-			{
-				Name: "dra-net-1",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
-				},
-			},
-			{
-				Name: "dra-net-2",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
-				},
-			},
+			*libvmi.DRANetwork("dra-net-1", "claim1", "vf"),
+			*libvmi.DRANetwork("dra-net-2", "claim1", "vf"),
 		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
@@ -136,20 +115,11 @@ var _ = Describe("Validate network DRA", func() {
 	It("should reject mixing Multus and DRA networks", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name:    "multus-net",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
-			{
-				Name:    "dra-net",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
+			libvmi.NewInterface("multus-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"})),
+			libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"})),
 		}
 		spec.Networks = []v1.Network{
-			{
-				Name:          "multus-net",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "nad1"}},
-			},
+			*libvmi.MultusNetwork("multus-net", "nad1"),
 			spec.Networks[0],
 		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
@@ -180,18 +150,8 @@ var _ = Describe("Validate network DRA", func() {
 	It("should accept DRA network with plugin interface binding", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{},
-				},
-			},
-			{
-				Name: "dra-net",
-				Binding: &v1.PluginBinding{
-					Name: "vhostuser",
-				},
-			},
+			libvmi.NewInterface("default", libvmi.WithMasqueradeBinding()),
+			libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "vhostuser"})),
 		}
 		spec.Networks = append(spec.Networks, v1.Network{
 			Name:          "default",
