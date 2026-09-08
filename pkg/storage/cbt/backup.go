@@ -910,7 +910,6 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	newCheckpoint := backupv1.BackupCheckpoint{
 		Name:         *backupStatus.CheckpointName,
 		CreationTime: backupStatus.StartTimestamp,
-		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -941,10 +940,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		return fmt.Errorf("failed to patch BackupTracker status: %w", err)
 	}
 
-	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
-		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d",
-		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
+	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s created at %s",
+		namespace, tracker.Name, newCheckpoint.Name, newCheckpoint.CreationTime)
 
 	return nil
 }

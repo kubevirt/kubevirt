@@ -36,11 +36,6 @@ func (in *BackupCheckpoint) DeepCopyInto(out *BackupCheckpoint) {
 		in, out := &in.CreationTime, &out.CreationTime
 		*out = (*in).DeepCopy()
 	}
-	if in.Volumes != nil {
-		in, out := &in.Volumes, &out.Volumes
-		*out = make([]BackupVolumeInfo, len(*in))
-		copy(*out, *in)
-	}
 	return
 }
 

@@ -20475,15 +20475,6 @@
      },
      "name": {
       "type": "string"
-     },
-     "volumes": {
-      "description": "Volumes lists volumes included in the backup",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
-      },
-      "x-kubernetes-list-type": "atomic"
      }
     }
    },

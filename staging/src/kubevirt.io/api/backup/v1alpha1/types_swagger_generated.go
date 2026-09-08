@@ -12,9 +12,7 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 }
 
 func (BackupCheckpoint) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"volumes": "Volumes lists volumes included in the backup\n+optional\n+listType=atomic",
-	}
+	return map[string]string{}
 }
 
 func (BackupOptions) SwaggerDoc() map[string]string {

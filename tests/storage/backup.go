@@ -425,7 +425,6 @@ var _ = Describe(SIG("Backup", func() {
 		firstCheckpoint := tracker.Status.LatestCheckpoint
 		Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
 		Expect(firstCheckpoint.Name).To(Equal(*fullBackup.Status.CheckpointName), "First checkpoint should match backup checkpoint")
-		Expect(firstCheckpoint.Volumes).ToNot(BeEmpty(), "Checkpoint should have disk info for redefinition")
 
 		By(fmt.Sprintf("Writing %dMB of data to VM disk before shutdown", testDataSizeMB))
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -636,14 +635,16 @@ var _ = Describe(SIG("Backup", func() {
 		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
-		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes (boot + hotplug)")
+		Expect(fullBackup.Status.IncludedVolumes).To(ConsistOf(
+			HaveField("VolumeName", bootDiskName),
+			HaveField("VolumeName", hotplugVolumeName),
+		), "Backup should include exactly the boot disk and the hotplug volume")
 
-		By("Verifying BackupTracker has checkpoint with 2 volumes")
+		By("Verifying BackupTracker has a checkpoint")
 		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		firstCheckpoint := tracker.Status.LatestCheckpoint
 		Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
-		Expect(firstCheckpoint.Volumes).To(HaveLen(2), "Checkpoint should have 2 volumes")
 
 		By("Getting disk targets from VMI volume status")
 		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -668,14 +669,6 @@ var _ = Describe(SIG("Backup", func() {
 		}
 		Expect(bootDiskTarget).ToNot(BeEmpty(), "Boot disk target should be found in VMI status")
 		Expect(hotplugDiskTarget).ToNot(BeEmpty(), "Hotplug disk target should be found in VMI status")
-
-		By("Verifying tracker checkpoint has matching volume names")
-		trackerVolumeNames := make(map[string]bool)
-		for _, vol := range firstCheckpoint.Volumes {
-			trackerVolumeNames[vol.VolumeName] = true
-		}
-		Expect(trackerVolumeNames).To(HaveKey(bootDiskName), "Tracker checkpoint should have boot disk volume")
-		Expect(trackerVolumeNames).To(HaveKey(hotplugVolumeName), "Tracker checkpoint should have hotplug disk volume")
 
 		By("Listing checkpoints before VM stop")
 		checkpointsBeforeStop := listDomainCheckpoints(vmi)
@@ -708,9 +701,6 @@ var _ = Describe(SIG("Backup", func() {
 			"Checkpoint should not change after VM restart")
 		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(firstCheckpoint.Name),
 			"Checkpoint name should be the same after restart")
-		Expect(tracker.Status.LatestCheckpoint.Volumes).To(Equal(firstCheckpoint.Volumes),
-			"Checkpoint volumes should be the same after restart even if one of them is not redefined")
-
 		By("Verifying checkpoint was redefined in libvirt with remaining disk")
 		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -1318,7 +1308,6 @@ var _ = Describe("Backup with migration", func() {
 			firstCheckpoint := tracker.Status.LatestCheckpoint
 			Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
 			Expect(firstCheckpoint.Name).To(Equal(*fullBackup.Status.CheckpointName), "First checkpoint should match backup checkpoint")
-			Expect(firstCheckpoint.Volumes).ToNot(BeEmpty(), "Checkpoint should have disk info for redefinition")
 
 			By("Verifying checkpoint exists in libvirt before migration")
 			checkpointsBefore := listDomainCheckpoints(vmi)

@@ -1616,7 +1616,7 @@ var _ = Describe("Backup Controller", func() {
 		Expect(backupCopy.Status.CheckpointName).To(BeNil())
 	})
 
-	DescribeTable("should update backupTracker with checkpoint and volumes info when backup completes",
+	DescribeTable("should update backupTracker with the new checkpoint when backup completes",
 		func(existingCheckpoint string, expectedOp string) {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, existingCheckpoint)
 			controller.backupTrackerInformer.GetStore().Add(backupTracker)
@@ -1656,7 +1656,7 @@ var _ = Describe("Backup Controller", func() {
 				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
-			// Expect patch to update backupTracker with checkpoint and volumes info
+			// Expect patch to update backupTracker with the new checkpoint
 			trackerPatched := false
 			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patchAction := action.(testing.PatchAction)
@@ -1668,20 +1668,12 @@ var _ = Describe("Backup Controller", func() {
 				Expect(string(patchBytes)).To(ContainSubstring(expectedOp))
 				Expect(string(patchBytes)).To(ContainSubstring("latestCheckpoint"))
 				Expect(string(patchBytes)).To(ContainSubstring(checkpointName))
-				Expect(string(patchBytes)).To(ContainSubstring("volumes"))
-				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
-				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
-				Expect(string(patchBytes)).To(ContainSubstring("datadisk"))
 
 				updatedTracker := backupTracker.DeepCopy()
 				updatedTracker.Status = &backupv1.VirtualMachineBackupTrackerStatus{
 					LatestCheckpoint: &backupv1.BackupCheckpoint{
 						Name:         checkpointName,
 						CreationTime: &metav1.Time{Time: metav1.Now().Time},
-						Volumes: []backupv1.BackupVolumeInfo{
-							{VolumeName: "rootdisk"},
-							{VolumeName: "datadisk"},
-						},
 					},
 				}
 				return true, updatedTracker, nil
