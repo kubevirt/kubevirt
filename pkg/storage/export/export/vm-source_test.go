@@ -32,8 +32,10 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -60,6 +62,9 @@ import (
 
 const (
 	testVmName = "test-vm"
+
+	podFailureMsg          = "pod creation denied"
+	statusUpdateFailureMsg = "status update denied"
 )
 
 var _ = Describe("PVC source", func() {
@@ -701,6 +706,83 @@ var _ = Describe("PVC source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 		Expect(updated).ToNot(BeNil())
 		Expect(updated.Status.Phase).To(Equal(exportv1.Ready))
+	})
+
+	It("Should report the status when the exporter pod cannot be managed", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithPVCs())
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, nil, errors.NewForbidden(schema.GroupResource{Resource: "pods"}, "", fmt.Errorf("%s", podFailureMsg))
+		})
+		updated := false
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
+			Expect(vmExport.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", exportv1.ConditionReady),
+				HaveField("Status", k8sv1.ConditionFalse),
+				HaveField("Reason", exporterPodErrorReason),
+				HaveField("Message", ContainSubstring(podFailureMsg)),
+			)))
+			updated = true
+			return true, vmExport, nil
+		})
+		_, err := controller.updateVMExport(testVMExport)
+		Expect(err).To(HaveOccurred())
+		Expect(updated).To(BeTrue(), "status must be persisted even when the exporter pod cannot be managed")
+	})
+
+	It("Should report the status when an existing exporter pod cannot be managed", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithPVCs())
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		// The pod already exists, so this fails past the creation of one.
+		controller.PodInformer.GetStore().Add(createExporterPod(controller.getExportPodName(testVMExport), k8sv1.PodPending))
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("no exporter pod must be created when one already exists")
+			return true, nil, nil
+		})
+		updated := false
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			Expect(vmExport.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", exportv1.ConditionReady),
+				HaveField("Status", k8sv1.ConditionFalse),
+				HaveField("Reason", exporterPodErrorReason),
+			)))
+			updated = true
+			return true, vmExport, nil
+		})
+		_, err := controller.updateVMExport(testVMExport)
+		Expect(err).To(HaveOccurred())
+		Expect(updated).To(BeTrue())
+	})
+
+	It("Should surface both errors when the status update fails too", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithPVCs())
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, nil, errors.NewForbidden(schema.GroupResource{Resource: "pods"}, "", fmt.Errorf("%s", podFailureMsg))
+		})
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, nil, errors.NewInternalError(fmt.Errorf("%s", statusUpdateFailureMsg))
+		})
+		_, err := controller.updateVMExport(testVMExport)
+		Expect(err).To(SatisfyAll(
+			MatchError(ContainSubstring(podFailureMsg)),
+			MatchError(ContainSubstring(statusUpdateFailureMsg)),
+		))
 	})
 
 	It("Should be in skipped phase when VM does not exist", func() {
