@@ -83,6 +83,54 @@ var _ = Describe("block metrics", func() {
 			Entry("kubevirt_vmi_storage_flush_times_seconds_total", storageFlushTimesSeconds, nanosecondsToSeconds(8)),
 		)
 
+		It("should convert libvirt latency histogram bins to Prometheus buckets", func() {
+			histogram := &stats.DomainStatsBlockLatencyHistogram{
+				Bins: []stats.DomainStatsBlockLatencyHistogramBin{
+					{
+						StartSet: true,
+						Start:    0,
+						ValueSet: true,
+						Value:    5,
+					},
+					{
+						StartSet: true,
+						Start:    1_000_000,
+						ValueSet: true,
+						Value:    7,
+					},
+					{
+						StartSet: true,
+						Start:    10_000_000,
+						ValueSet: true,
+						Value:    2,
+					},
+				},
+			}
+
+			results := emitLatencyHistogramBuckets(
+				vmiReport,
+				histogram,
+				storageIOLatencySeconds,
+				"read",
+				map[string]string{"drive": "vda"},
+			)
+
+			Expect(results).To(HaveLen(3))
+
+			Expect(results[0].Value).To(Equal(float64(5)))
+			Expect(results[0].ConstLabels).To(HaveKeyWithValue("le", "0.001"))
+			Expect(results[0].ConstLabels).To(HaveKeyWithValue("operation", "read"))
+			Expect(results[0].ConstLabels).To(HaveKeyWithValue("drive", "vda"))
+
+			Expect(results[1].Value).To(Equal(float64(12)))
+			Expect(results[1].ConstLabels).To(HaveKeyWithValue("le", "0.01"))
+			Expect(results[1].ConstLabels).To(HaveKeyWithValue("operation", "read"))
+
+			Expect(results[2].Value).To(Equal(float64(14)))
+			Expect(results[2].ConstLabels).To(HaveKeyWithValue("le", "+Inf"))
+			Expect(results[2].ConstLabels).To(HaveKeyWithValue("operation", "read"))
+		})
+
 		It("result should be empty if stat not populated or set is false", func() {
 			vmiStats.DomainStats.Block[0].NameSet = false
 			crs := blockMetrics{}.Collect(vmiReport)

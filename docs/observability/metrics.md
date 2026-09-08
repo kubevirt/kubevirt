@@ -85,15 +85,13 @@
 | kubevirt_vmi_phase_transition_time_from_deletion_seconds | Metric | Histogram | Histogram of VM phase transitions duration from deletion time in seconds. |
 | kubevirt_vmi_phase_transition_time_seconds | Metric | Histogram | Histogram of VM phase transitions duration between different phases in seconds. |
 | kubevirt_vmi_status_addresses | Metric | Gauge | The addresses of a VirtualMachineInstance. This metric provides the address of an available network interface associated with the VMI in the 'address' label, and about the type of address, such as internal IP, in the 'type' label. |
-| kubevirt_vmi_storage_flush_latency_seconds_bucket | Metric | Gauge | Cumulative flush latency histogram bucket for block devices. |
 | kubevirt_vmi_storage_flush_requests_total | Metric | Counter | Total storage flush requests. |
 | kubevirt_vmi_storage_flush_times_seconds_total | Metric | Counter | Total time spent on cache flushing. |
+| kubevirt_vmi_storage_io_latency_seconds_bucket | Metric | Counter | Cumulative I/O latency histogram bucket for block devices. |
 | kubevirt_vmi_storage_iops_read_total | Metric | Counter | Total number of I/O read operations. |
 | kubevirt_vmi_storage_iops_write_total | Metric | Counter | Total number of I/O write operations. |
-| kubevirt_vmi_storage_read_latency_seconds_bucket | Metric | Gauge | Cumulative read latency histogram bucket for block devices. |
 | kubevirt_vmi_storage_read_times_seconds_total | Metric | Counter | Total time spent on read operations. |
 | kubevirt_vmi_storage_read_traffic_bytes_total | Metric | Counter | Total number of bytes read from storage. |
-| kubevirt_vmi_storage_write_latency_seconds_bucket | Metric | Gauge | Cumulative write latency histogram bucket for block devices. |
 | kubevirt_vmi_storage_write_times_seconds_total | Metric | Counter | Total time spent on write operations. |
 | kubevirt_vmi_storage_write_traffic_bytes_total | Metric | Counter | Total number of written bytes. |
 | kubevirt_vmi_sync_total | Metric | Counter | Total number of times a VirtualMachineInstance has been synced. |

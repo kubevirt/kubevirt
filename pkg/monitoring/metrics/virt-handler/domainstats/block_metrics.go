@@ -84,25 +84,11 @@ var (
 			Help: "Total time spent on cache flushing.",
 		},
 	)
-
-	storageReadLatencySeconds = operatormetrics.NewGauge(
+	storageIOLatencySeconds = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_storage_read_latency_seconds_bucket",
-			Help: "Cumulative read latency histogram bucket for block devices.",
-		},
-	)
-	storageWriteLatencySeconds = operatormetrics.NewGauge(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_storage_write_latency_seconds_bucket",
-			Help: "Cumulative write latency histogram bucket for block devices.",
-		},
-	)
-	storageFlushLatencySeconds = operatormetrics.NewGauge(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_storage_flush_latency_seconds_bucket",
-			Help: "Cumulative flush latency histogram bucket for block devices.",
-		},
-	)
+			Name: "kubevirt_vmi_storage_io_latency_seconds_bucket",
+			Help: "Cumulative I/O latency histogram bucket for block devices.",
+		})
 )
 
 type blockMetrics struct{}
@@ -117,9 +103,7 @@ func (blockMetrics) Describe() []operatormetrics.Metric {
 		storageWriteTimesSeconds,
 		storageFlushRequests,
 		storageFlushTimesSeconds,
-		storageReadLatencySeconds,
-		storageWriteLatencySeconds,
-		storageFlushLatencySeconds,
+		storageIOLatencySeconds,
 	}
 }
 
@@ -175,15 +159,15 @@ func (blockMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatorm
 
 		crs = append(crs, emitLatencyHistogramBuckets(
 			vmiReport, block.LatencyHistograms.Read,
-			storageReadLatencySeconds, blkLabels)...)
+			storageIOLatencySeconds, "read", blkLabels)...)
 
 		crs = append(crs, emitLatencyHistogramBuckets(
 			vmiReport, block.LatencyHistograms.Write,
-			storageWriteLatencySeconds, blkLabels)...)
+			storageIOLatencySeconds, "write", blkLabels)...)
 
 		crs = append(crs, emitLatencyHistogramBuckets(
 			vmiReport, block.LatencyHistograms.Flush,
-			storageFlushLatencySeconds, blkLabels)...)
+			storageIOLatencySeconds, "flush", blkLabels)...)
 
 	}
 
@@ -194,7 +178,9 @@ func emitLatencyHistogramBuckets(
 	vmiReport *VirtualMachineInstanceReport,
 	histogram *stats.DomainStatsBlockLatencyHistogram,
 	metric operatormetrics.Metric,
+	operation string,
 	baseLabels map[string]string,
+
 ) []operatormetrics.CollectorResult {
 	if histogram == nil || len(histogram.Bins) == 0 {
 		return nil
@@ -232,10 +218,11 @@ func emitLatencyHistogramBuckets(
 
 		upperBoundSeconds := float64(bins[i+1].Start) / 1e9
 
-		labels := make(map[string]string, len(baseLabels)+1)
+		labels := make(map[string]string, len(baseLabels)+2)
 		for key, value := range baseLabels {
 			labels[key] = value
 		}
+		labels["operation"] = operation
 		labels["le"] = strconv.FormatFloat(
 			upperBoundSeconds,
 			'g',
@@ -256,10 +243,11 @@ func emitLatencyHistogramBuckets(
 	// Prometheus's +Inf bucket.
 	cumulative += bins[len(bins)-1].Value
 
-	infLabels := make(map[string]string, len(baseLabels)+1)
+	infLabels := make(map[string]string, len(baseLabels)+2)
 	for key, value := range baseLabels {
 		infLabels[key] = value
 	}
+	infLabels["operation"] = operation
 	infLabels["le"] = "+Inf"
 
 	results = append(
