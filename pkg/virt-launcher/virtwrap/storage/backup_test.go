@@ -32,6 +32,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
@@ -40,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 var _ = Describe("Backup", func() {
@@ -194,12 +196,22 @@ var _ = Describe("Backup", func() {
 				<devices>
 					<disk type='file' device='disk'>
 						<driver name='qemu' type='qcow2'/>
-						<source file='/path/to/disk.qcow2'/>
+						<source file='/path/to/disk.qcow2'>
+							<dataStore>
+								<source file='/path/to/disk-backing.qcow2'/>
+							</dataStore>
+						</source>
 						<target dev='vda' bus='virtio'/>
 						<alias name='ua-disk0'/>
 					</disk>
 				</devices>
 			</domain>`
+
+			originalQueryBitmaps := queryBitmaps
+			DeferCleanup(func() { queryBitmaps = originalQueryBitmaps })
+			queryBitmaps = mockQueryBitmaps(map[string]string{
+				"/path/to/disk.qcow2": "previous-checkpoint",
+			})
 
 			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
@@ -386,7 +398,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nil)
 
 			Expect(domainBackup).ToNot(BeNil())
 			Expect(domainBackup.Mode).To(Equal(string(backupv1.PushMode)))
@@ -421,7 +433,7 @@ var _ = Describe("Backup", func() {
 					Alias: api.NewUserDefinedAlias("disk0"),
 				},
 			}
-			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir, nil)
 
 			Expect(domainCheckpoint).ToNot(BeNil())
 			Expect(domainBackup).ToNot(BeNil())
@@ -450,7 +462,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nil)
 
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
 			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("no"))
@@ -469,27 +481,92 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nil)
 
 			Expect(domainBackup.Incremental).ToNot(BeNil())
 			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
+			Expect(domainBackup.BackupDisks.Disks[0].BackupMode).To(BeEmpty())
+			Expect(volumesInfo).To(ConsistOf(
+				v1.VirtualMachineInstanceBackupVolumeInfo{VolumeName: "disk0", Type: string(backupv1.Incremental)},
+			))
 		})
 
-		It("should not set incremental field when Incremental is empty string", func() {
-			backupOptions.Incremental = pointer.P("")
+		It("should mark only the disks that lost their bitmap", func() {
+			backupOptions.Incremental = pointer.P("previous-checkpoint")
 
 			disks := []api.Disk{
 				{
 					Target: api.DiskTarget{Device: "vda"},
 					Source: api.DiskSource{DataStore: &api.DataStore{}},
-					Alias:  api.NewUserDefinedAlias("disk0"),
+					Alias:  api.NewUserDefinedAlias("rootdisk"),
+				},
+				{
+					Target: api.DiskTarget{Device: "vdb"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("datadisk"),
 				},
 			}
 
-			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, sets.New("vdb"))
+
+			Expect(domainBackup.Incremental).ToNot(BeNil())
+			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
+			Expect(domainBackup.BackupDisks.Disks[0].BackupMode).To(BeEmpty())
+			Expect(domainBackup.BackupDisks.Disks[1].BackupMode).To(Equal("full"))
+
+			Expect(volumesInfo).To(ConsistOf(
+				v1.VirtualMachineInstanceBackupVolumeInfo{VolumeName: "rootdisk", Type: string(backupv1.Incremental)},
+				v1.VirtualMachineInstanceBackupVolumeInfo{VolumeName: "datadisk", Type: string(backupv1.Full)},
+			))
+		})
+
+		It("should omit the incremental base when no disk kept its bitmap", func() {
+			backupOptions.Incremental = pointer.P("previous-checkpoint")
+
+			disks := []api.Disk{
+				{
+					Target: api.DiskTarget{Device: "vda"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("rootdisk"),
+				},
+			}
+
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, sets.New("vda"))
 
 			Expect(domainBackup.Incremental).To(BeNil())
+			Expect(domainBackup.BackupDisks.Disks[0].BackupMode).To(Equal("full"))
+			Expect(volumesInfo).To(ConsistOf(
+				v1.VirtualMachineInstanceBackupVolumeInfo{VolumeName: "rootdisk", Type: string(backupv1.Full)},
+			))
 		})
+
+		It("should report every volume as full for a non-incremental backup", func() {
+			disks := []api.Disk{
+				{
+					Target: api.DiskTarget{Device: "vda"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("rootdisk"),
+				},
+			}
+
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nil)
+
+			Expect(domainBackup.Incremental).To(BeNil())
+			Expect(domainBackup.BackupDisks.Disks[0].BackupMode).To(BeEmpty())
+			Expect(volumesInfo).To(ConsistOf(
+				v1.VirtualMachineInstanceBackupVolumeInfo{VolumeName: "rootdisk", Type: string(backupv1.Full)},
+			))
+		})
+
+		DescribeTable("should decide whether a backup is incremental from its base checkpoint",
+			func(checkpoint *string, expected bool) {
+				backupOptions.Incremental = checkpoint
+				Expect(isIncrementalBackup(backupOptions)).To(Equal(expected))
+			},
+			Entry("no base checkpoint", nil, false),
+			Entry("base checkpoint with no name", pointer.P(""), false),
+			Entry("base checkpoint named", pointer.P("previous-checkpoint"), true),
+		)
 
 		It("should return volumes info for multiple disks with DataStore", func() {
 			disks := []api.Disk{
@@ -512,7 +589,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nil)
 
 			Expect(volumesInfo).To(HaveLen(2))
 			Expect(volumesInfo[0].VolumeName).To(Equal("rootdisk"))
@@ -943,7 +1020,10 @@ var _ = Describe("Backup", func() {
 				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": checkpointName,
 			})
 
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+			domainDisks, err := util.GetAllDomainDisks(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, domainDisks, checkpointName)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Disks).To(HaveLen(1))
@@ -971,10 +1051,42 @@ var _ = Describe("Backup", func() {
 				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": "other-checkpoint",
 			})
 
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+			domainDisks, err := util.GetAllDomainDisks(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, domainDisks, checkpointName)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Disks).To(BeEmpty())
+			Expect(disksWithoutBitmap.UnsortedList()).To(ConsistOf("vda"))
+		})
+
+		It("should report a disk with no overlay file as missing its bitmap", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source>
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			queryBitmaps = mockQueryBitmaps(map[string]string{})
+
+			domainDisks, err := util.GetAllDomainDisks(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, domainDisks, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(BeEmpty())
+			// The disk cannot be examined, so it must not be taken for one that
+			// still holds the bitmap: the caller backs it up in full.
 			Expect(disksWithoutBitmap.UnsortedList()).To(ConsistOf("vda"))
 		})
 
@@ -1001,7 +1113,10 @@ var _ = Describe("Backup", func() {
 				}, nil
 			}
 
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+			domainDisks, err := util.GetAllDomainDisks(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, domainDisks, checkpointName)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Disks).To(BeEmpty())
@@ -1036,7 +1151,10 @@ var _ = Describe("Backup", func() {
 				"/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2": checkpointName,
 			})
 
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+			domainDisks, err := util.GetAllDomainDisks(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, domainDisks, checkpointName)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Disks).To(HaveLen(2))
