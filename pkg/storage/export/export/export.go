@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -91,6 +92,7 @@ const (
 	noVolumeVMReason          = "VMNoVolumes"
 	noVolumeSnapshotReason    = "VMSnapshotNoVolumes"
 	notAllPVCsCreatedReason   = "NotAllPVCsCreated"
+	duplicatePVCReason        = "DuplicatePVC"
 	VMSnapshotNotFoundReason  = "VMSnapshotNotFound"
 	ociDigestsComputedReason  = "DigestsComputed"
 	ociDigestsPendingReason   = "DigestsPending"
@@ -208,8 +210,38 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
+// duplicatePVCNames returns the names of PVCs referenced by more than one volume.
+func (sv *sourceVolumes) duplicatePVCNames() []string {
+	seen, duplicates := sets.New[string](), sets.New[string]()
+	for _, volume := range sv.volumes {
+		if volume.pvc == nil {
+			continue
+		}
+		if seen.Has(volume.pvc.Name) {
+			duplicates.Insert(volume.pvc.Name)
+		}
+		seen.Insert(volume.pvc.Name)
+	}
+	return sets.List(duplicates)
+}
+
+func (sv *sourceVolumes) hasDuplicatePVCs() bool {
+	return len(sv.duplicatePVCNames()) > 0
+}
+
+// hasContent reports whether there is anything to export. A PVC can only be
+// mounted once into the exporter pod, so duplicates leave nothing exportable.
 func (sv *sourceVolumes) hasContent() bool {
-	return len(sv.volumes) > 0
+	return len(sv.volumes) > 0 && !sv.hasDuplicatePVCs()
+}
+
+func (sv *sourceVolumes) ReadyCondition() exportv1.Condition {
+	if duplicates := sv.duplicatePVCNames(); len(duplicates) > 0 {
+		return newReadyCondition(corev1.ConditionFalse, duplicatePVCReason,
+			fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s",
+				strings.Join(duplicates, ", ")))
+	}
+	return sv.readyCondition
 }
 
 func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
