@@ -706,6 +706,7 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
 		{Name: "Type", Type: "string", JSONPath: ".status.type"},
 		{Name: "CheckpointName", Type: "string", JSONPath: ".status.checkpointName"},
+		{Name: "StartTime", Type: "date", JSONPath: ".status.startTimestamp"},
 	})
 	if err != nil {
 		return nil, err

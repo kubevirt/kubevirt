@@ -20799,6 +20799,10 @@
       },
       "x-kubernetes-list-type": "atomic"
      },
+     "startTimestamp": {
+      "description": "StartTimestamp is the timestamp when the backup started",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
      "type": {
       "description": "Type indicates if the backup was full or incremental",
       "type": "string"

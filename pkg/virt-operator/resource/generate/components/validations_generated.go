@@ -9820,6 +9820,10 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        startTimestamp:
+          description: StartTimestamp is the timestamp when the backup started
+          format: date-time
+          type: string
         type:
           description: Type indicates if the backup was full or incremental
           type: string

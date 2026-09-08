@@ -496,7 +496,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 		return nil
 	}
 
-	if backup.Status.Type != "" {
+	if backup.Status.StartTimestamp != nil {
 		if !vmiExists {
 			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI was deleted during backup")
 			return nil
@@ -668,6 +668,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	setProgressing(backup)
+	backup.Status.StartTimestamp = new(metav1.Now())
 	backup.Status.Type = backupType
 	return nil
 }

@@ -81,6 +81,7 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
 		"type":            "+optional\nType indicates if the backup was full or incremental",
+		"startTimestamp":  "+optional\nStartTimestamp is the timestamp when the backup started",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
 		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
