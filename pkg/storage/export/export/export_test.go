@@ -1222,6 +1222,40 @@ var _ = Describe("Export controller", func() {
 		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
 	)
 
+	DescribeTable("sourceVolumes should report PVCs referenced by more than one volume", func(pvcNames []string, expectedDuplicates []string) {
+		sv := &sourceVolumes{
+			readyCondition: newReadyCondition(k8sv1.ConditionTrue, podReadyReason, ""),
+		}
+		for _, name := range pvcNames {
+			sv.volumes = append(sv.volumes, sourceVolume{
+				pvc: &k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: name}},
+			})
+		}
+
+		Expect(sv.duplicatePVCNames()).To(Equal(expectedDuplicates))
+		Expect(sv.hasContent()).To(Equal(len(pvcNames) > 0 && len(expectedDuplicates) == 0))
+
+		condition := sv.ReadyCondition()
+		Expect(condition.Type).To(Equal(exportv1.ConditionReady))
+		if len(expectedDuplicates) == 0 {
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition.Reason).ToNot(Equal(duplicatePVCReason))
+			return
+		}
+		Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+		Expect(condition.Reason).To(Equal(duplicatePVCReason))
+		for _, name := range expectedDuplicates {
+			Expect(condition.Message).To(ContainSubstring(name))
+		}
+	},
+		Entry("no volumes", nil, nil),
+		Entry("distinct PVCs", []string{"pvc1", "pvc2"}, nil),
+		Entry("names differing only by dots", []string{"my.disk", "my-disk"}, nil),
+		Entry("one PVC twice", []string{"shared", "shared"}, []string{"shared"}),
+		Entry("one PVC three times reported once", []string{"shared", "shared", "shared"}, []string{"shared"}),
+		Entry("two duplicates sorted", []string{"b", "a", "b", "a"}, []string{"a", "b"}),
+	)
+
 	DescribeTable("GetVolumeInfo should correctly resolve volume paths for various PVC names", func(pvcName string) {
 		targetName := getExportPodVolumeNameFromStr(pvcName)
 		sp := &ServerPaths{

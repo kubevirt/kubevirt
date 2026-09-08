@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -91,6 +92,7 @@ const (
 	noVolumeVMReason          = "VMNoVolumes"
 	noVolumeSnapshotReason    = "VMSnapshotNoVolumes"
 	notAllPVCsCreatedReason   = "NotAllPVCsCreated"
+	duplicatePVCReason        = "DuplicatePVC"
 	VMSnapshotNotFoundReason  = "VMSnapshotNotFound"
 	ociDigestsComputedReason  = "DigestsComputed"
 	ociDigestsPendingReason   = "DigestsPending"
@@ -208,8 +210,36 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
+// duplicatePVCNames returns the names of PVCs referenced by more than one volume.
+func (sv *sourceVolumes) duplicatePVCNames() []string {
+	seen := make(map[string]int, len(sv.volumes))
+	var duplicates []string
+	for _, volume := range sv.volumes {
+		if volume.pvc == nil {
+			continue
+		}
+		seen[volume.pvc.Name]++
+		if seen[volume.pvc.Name] == 2 {
+			duplicates = append(duplicates, volume.pvc.Name)
+		}
+	}
+	slices.Sort(duplicates)
+	return duplicates
+}
+
+// hasContent reports whether there is anything to export. A PVC can only be
+// mounted once into the exporter pod, so duplicates leave nothing exportable.
 func (sv *sourceVolumes) hasContent() bool {
-	return len(sv.volumes) > 0
+	return len(sv.volumes) > 0 && len(sv.duplicatePVCNames()) == 0
+}
+
+func (sv *sourceVolumes) ReadyCondition() exportv1.Condition {
+	if duplicates := sv.duplicatePVCNames(); len(duplicates) > 0 {
+		return newReadyCondition(corev1.ConditionFalse, duplicatePVCReason,
+			fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s",
+				strings.Join(duplicates, ", ")))
+	}
+	return sv.readyCondition
 }
 
 func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {

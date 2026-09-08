@@ -75,7 +75,7 @@ func (s *VMTemplateSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMTemplateSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMTemplateSource) ConfigurePod(pod *corev1.Pod) {
@@ -85,13 +85,15 @@ func (s *VMTemplateSource) ConfigurePod(pod *corev1.Pod) {
 func (s *VMTemplateSource) ConfigureExportLink(_ *exportv1.VirtualMachineExportLink, _ *ServerPaths, _ *exportv1.VirtualMachineExport, _ *corev1.Pod, _, _ string) {
 }
 
-func (s *VMTemplateSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, _ *corev1.Pod, _ *corev1.Service) (time.Duration, error) {
-	if !s.HasContent() {
+func (s *VMTemplateSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, _ *corev1.Service) (time.Duration, error) {
+	// Only report skipped while no pod is running, a ready export keeps its links.
+	if pod == nil && !s.HasContent() {
 		vmExport.Status.Phase = exportv1.Skipped
 	}
 
 	if !s.sourceVolumes.isPopulated &&
-		s.ReadyCondition().Reason != vmTemplateNotFoundReason {
+		s.ReadyCondition().Reason != vmTemplateNotFoundReason &&
+		s.ReadyCondition().Reason != duplicatePVCReason {
 		return requeueTime, nil
 	}
 
