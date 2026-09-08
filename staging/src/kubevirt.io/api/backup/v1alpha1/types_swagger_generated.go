@@ -8,6 +8,7 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 		"volumeName":   "VolumeName is the volume name from VMI spec",
 		"dataEndpoint": "DataEndpoint is the URL of the endpoint for read for pull mode",
 		"mapEndpoint":  "MapEndpoint is the URL of the endpoint for map for pull mode",
+		"type":         "Type is how the volume was backed up, either Full or Incremental\n+optional\n+kubebuilder:validation:Enum=Full;Incremental",
 	}
 }
 

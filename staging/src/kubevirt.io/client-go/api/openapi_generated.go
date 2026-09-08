@@ -17678,6 +17678,13 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 							Format:      "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"volumeName"},
 			},
@@ -27559,6 +27566,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupVolumeInfo(ref co
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeName is the volume name from VMI spec",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
