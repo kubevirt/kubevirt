@@ -3953,6 +3953,7 @@ rpm(
     sha256 = "50af4f4442453988df99b3c39db6fa026f45f90ee46c660248e2608411618c36",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-langpack-es-2.39-137.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/50af4f4442453988df99b3c39db6fa026f45f90ee46c660248e2608411618c36",
     ],
 )
 
@@ -3961,6 +3962,7 @@ rpm(
     sha256 = "19e0522d3a9eefcad26ede25b2355600b4b6a4b04c8f2b132cbbd9237c58c8eb",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-langpack-fa-2.39-137.el10.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/19e0522d3a9eefcad26ede25b2355600b4b6a4b04c8f2b132cbbd9237c58c8eb",
     ],
 )
 
@@ -3978,6 +3980,7 @@ rpm(
     sha256 = "70860df283900e51c6d6ca2bbf65e303c26c929832dabd409cf7f05c363da07d",
     urls = [
         "http://mirror.stream.centos.org/10-stream/BaseOS/x86_64/os/Packages/glibc-langpack-fi-2.39-137.el10.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/70860df283900e51c6d6ca2bbf65e303c26c929832dabd409cf7f05c363da07d",
     ],
 )
 
