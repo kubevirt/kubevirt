@@ -99,9 +99,15 @@ func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 			}
 		}
 
+		// Older exporter pods do not carry the PVC name in their environment.
+		volumeName := vi.PVCName
+		if volumeName == "" {
+			volumeName = filepath.Base(vi.Path)
+		}
+
 		disks = append(disks, oci.DiskInfo{
 			FilePath:   p,
-			VolumeName: filepath.Base(vi.Path),
+			VolumeName: volumeName,
 		})
 	}
 	return disks, nil
