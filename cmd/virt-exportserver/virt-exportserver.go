@@ -55,7 +55,6 @@ func main() {
 	}
 	if len(config.Paths.Backups) > 0 {
 		config.NBDSocket = getNBDSocket()
-		config.BackupType = getBackupType()
 		config.BackupCheckpoint = getBackupCheckpoint()
 	}
 	server, err := exportServer.NewExportServer(config)
@@ -109,14 +108,6 @@ func getNBDSocket() string {
 		panic("backup export but no NBD socket provided")
 	}
 	return socket
-}
-
-func getBackupType() string {
-	backupType := os.Getenv("BACKUP_TYPE")
-	if backupType == "" {
-		panic("backup export but no backup type provided")
-	}
-	return backupType
 }
 
 func getBackupCheckpoint() string {
