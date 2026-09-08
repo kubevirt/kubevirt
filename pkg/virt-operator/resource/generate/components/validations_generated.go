@@ -10197,6 +10197,13 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VirtualMachineInstanceBackupVolumeInfo contains information
                       about a volume included in a backup
                     properties:
+                      type:
+                        description: Type is how the volume was backed up, either
+                          Full or Incremental.
+                        enum:
+                        - Full
+                        - Incremental
+                        type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
@@ -10986,6 +10993,13 @@ var CRDsValidation map[string]string = map[string]string{
             description: BackupVolumeInfo contains information about a volume included
               in a backup
             properties:
+              type:
+                description: Type is how the volume was backed up, either Full or
+                  Incremental
+                enum:
+                - Full
+                - Incremental
+                type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
                 type: string
@@ -16451,6 +16465,13 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VirtualMachineInstanceBackupVolumeInfo contains information
                       about a volume included in a backup
                     properties:
+                      type:
+                        description: Type is how the volume was backed up, either
+                          Full or Incremental.
+                        enum:
+                        - Full
+                        - Incremental
+                        type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
@@ -34257,6 +34278,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   contains information about a volume included in
                                   a backup
                                 properties:
+                                  type:
+                                    description: Type is how the volume was backed
+                                      up, either Full or Incremental.
+                                    enum:
+                                    - Full
+                                    - Incremental
+                                    type: string
                                   volumeName:
                                     description: VolumeName is the volume name from
                                       VMI spec

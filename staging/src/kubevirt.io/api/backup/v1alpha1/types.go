@@ -45,6 +45,10 @@ const (
 type BackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
+	// Type is how the volume was backed up, either Full or Incremental
+	// +optional
+	// +kubebuilder:validation:Enum=Full;Incremental
+	Type BackupType `json:"type,omitempty"`
 }
 
 // BackupLinks contains internal and external links for accessing backup data in pull mode

@@ -18622,6 +18622,10 @@
      "volumeName"
     ],
     "properties": {
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental.",
+      "type": "string"
+     },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
       "type": "string",
@@ -20587,6 +20591,10 @@
      "volumeName"
     ],
     "properties": {
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental",
+      "type": "string"
+     },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
       "type": "string",

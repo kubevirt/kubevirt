@@ -6,6 +6,7 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "BackupVolumeInfo contains information about a volume included in a backup",
 		"volumeName": "VolumeName is the volume name from VMI spec",
+		"type":       "Type is how the volume was backed up, either Full or Incremental\n+optional\n+kubebuilder:validation:Enum=Full;Incremental",
 	}
 }
 
