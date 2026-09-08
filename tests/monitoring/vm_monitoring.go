@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -92,10 +91,10 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
 			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
-				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
-
-				GinkgoLogr.Info("Checking bucket", "labels", labels)
-				libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", labels, 0, ">=", 0)
+				GinkgoLogr.Info("Checking bucket", "le", bucket)
+				libmonitoring.WaitForHistogramBucketValueToBe(
+					virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", bucket, 0, ">=", 0,
+				)
 			}
 		})
 

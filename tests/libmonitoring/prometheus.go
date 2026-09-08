@@ -130,6 +130,45 @@ func WaitForMetricValueWithLabelsToBe(
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically(comparator, expectedValue))
 }
 
+func WaitForHistogramBucketValueToBe(
+	client kubecli.KubevirtClient,
+	metric string,
+	bucket float64,
+	offset int,
+	comparator string,
+	expectedValue float64,
+) {
+	EventuallyWithOffset(offset, func() float64 {
+		i, err := GetHistogramBucketValue(client, metric, bucket)
+		if err != nil {
+			return -1
+		}
+		return i
+	}, 3*time.Minute, 1*time.Second).Should(
+		BeNumerically(comparator, expectedValue),
+		"Histogram %s has no bucket with upper bound %v holding a value %s %f",
+		metric, bucket, comparator, expectedValue,
+	)
+}
+
+func GetHistogramBucketValue(cli kubecli.KubevirtClient, query string, bucket float64) (float64, error) {
+	result, err := fetchMetric(cli, query)
+	if err != nil {
+		return -1, err
+	}
+
+	for i := range result.Data.Result {
+		upperBound, parseErr := strconv.ParseFloat(result.Data.Result[i].Metric["le"], 64)
+		if parseErr != nil || upperBound != bucket {
+			continue
+		}
+
+		return parseMetricValue(result.Data.Result[i].Value[1])
+	}
+
+	return -1, fmt.Errorf("bucket with upper bound %v not populated yet", bucket)
+}
+
 func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
@@ -137,15 +176,16 @@ func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels m
 	}
 
 	returnObj := findMetricWithLabels(result, labels)
-	var output string
-
 	if returnObj == nil {
 		return -1, fmt.Errorf("metric value not populated yet")
 	}
 
-	if s, ok := returnObj.(string); ok {
-		output = s
-	} else {
+	return parseMetricValue(returnObj)
+}
+
+func parseMetricValue(value interface{}) (float64, error) {
+	output, ok := value.(string)
+	if !ok {
 		return -1, fmt.Errorf("metric value is not string")
 	}
 
