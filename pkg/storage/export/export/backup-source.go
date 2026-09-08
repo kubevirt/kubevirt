@@ -125,13 +125,12 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 		}, corev1.EnvVar{
 			Name:  fmt.Sprintf("BACKUP%d_MAP_URI", index),
 			Value: backupMapURI(volume.VolumeName),
+		}, corev1.EnvVar{
+			Name:  fmt.Sprintf("BACKUP%d_TYPE", index),
+			Value: string(volume.Type),
 		})
 	}
 	if s.vmBackup.Status != nil {
-		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
-			Name:  "BACKUP_TYPE",
-			Value: string(s.vmBackup.Status.Type),
-		})
 		if s.vmBackup.Status.CheckpointName != nil {
 			pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
 				Name:  "BACKUP_CHECKPOINT",
