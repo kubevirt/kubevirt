@@ -652,7 +652,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				verifyPortRangesForwarding(clientVMI, serverVMI, k8sv1.IPv4Protocol, allowedPorts, deniedPort)
 			},
 				Entry("with a single TCP range", nil, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}}, []int{8081}, 9090),
-				Entry("with two non-overlapping TCP ranges", nil, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}, {Protocol: "TCP", Start: 9090, End: 9092}}, []int{8081}, 9091),
+				Entry("with two non-overlapping TCP ranges", nil, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}, {Protocol: "TCP", Start: 9090, End: 9092}}, []int{8081, 9091}, 9093),
 				Entry("with a single port combined with a TCP range", []v1.Port{{Name: "http", Protocol: "TCP", Port: 7070}}, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}}, []int{7070, 8081}, 9090),
 			)
 
