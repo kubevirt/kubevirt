@@ -1124,8 +1124,14 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 
 func (LogVerbosity) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "LogVerbosity sets log verbosity level of  various components",
-		"nodeVerbosity": "NodeVerbosity represents a map of nodes with a specific verbosity level",
+		"":                              "LogVerbosity sets log verbosity level of various components",
+		"virtAPI":                       "VirtAPI specifies the log verbosity level for the virt-api deployment.\nA higher value increases the amount of logged information.\nChanges take effect on the fly without triggering a pod restart.\nDefault: 2. Levels up to 9 produce progressively more detailed logs.\n+optional",
+		"virtController":                "VirtController specifies the log verbosity level for the virt-controller deployment.\nA higher value increases the amount of logged information.\nChanges take effect on the fly without triggering a pod restart.\nDefault: 2. Levels up to 9 produce progressively more detailed logs.\n+optional",
+		"virtHandler":                   "VirtHandler specifies the log verbosity level for the virt-handler DaemonSet.\nA higher value increases the amount of logged information.\nChanges take effect on the fly without triggering a pod restart.\nDefault: 2. Levels up to 9 produce progressively more detailed logs.\n+optional",
+		"virtLauncher":                  "VirtLauncher specifies the log verbosity level for virt-launcher pods managing VMI workloads.\nA higher value increases the amount of logged information.\nChanges apply to newly created virt-launcher pods. Existing pods retain their original verbosity.\nDefault: 2. Levels up to 9 produce progressively more detailed logs.\n+optional",
+		"virtOperator":                  "VirtOperator specifies the log verbosity level for the virt-operator deployment.\nA higher value increases the amount of logged information.\nChanges take effect on the fly without triggering a pod restart.\nDefault: 2. Levels up to 9 produce progressively more detailed logs.\n+optional",
+		"virtSynchronizationController": "VirtSynchronizationController specifies the log verbosity level for the virt-synchronization-controller component.\nA higher value increases the amount of logged information.\nChanges take effect on the fly without triggering a pod restart.\nDefault: 2. Levels up to 9 produce progressively more detailed logs.\n+optional",
+		"nodeVerbosity":                 "NodeVerbosity represents a map of node names to specific log verbosity levels.\nAllows overriding verbosity on specific nodes without altering cluster-wide settings.\nChanges take effect on the fly without triggering a pod restart.\n+optional",
 	}
 }
 
