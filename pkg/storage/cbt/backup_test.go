@@ -399,7 +399,7 @@ var _ = Describe("Backup Controller", func() {
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-			Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+			Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 		})
 	})
 
@@ -1534,7 +1534,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should initiate full backup when backupTracker exists but has no LatestCheckpoint", func() {
@@ -1571,7 +1571,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should initiate incremental backup when backupTracker has LatestCheckpoint", func() {
@@ -1610,7 +1610,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Incremental))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should initiate full backup with ForceFullBackup even with LatestCheckpoint", func() {
@@ -1648,7 +1648,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should return error when cleanup not complete for finished backup", func() {

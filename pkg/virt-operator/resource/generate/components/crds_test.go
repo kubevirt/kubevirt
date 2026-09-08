@@ -146,7 +146,7 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd),
 		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd, "Phase", "SourceVirtualMachine", "TargetVirtualMachine"),
 		Entry("for MigrationPolicy", NewMigrationPolicyCrd),
-		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd, "SourceKind", "SourceName", "Type", "CheckpointName", "StartTime"),
+		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd, "SourceKind", "SourceName", "CheckpointName", "StartTime"),
 		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd, "SourceKind", "SourceName", "LatestCheckpoint", "CheckpointTime"),
 	)
 
@@ -346,12 +346,11 @@ var _ = Describe("CRDs", func() {
 					},
 				},
 				Status: &backupv1alpha1.VirtualMachineBackupStatus{
-					Type:           backupv1alpha1.Full,
 					CheckpointName: pointer.P("test-checkpoint"),
 					StartTimestamp: &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 				},
 			},
-			"VirtualMachineBackupTracker", "test-tracker", "Full", "test-checkpoint", "2026-01-01T00:00:00Z",
+			"VirtualMachineBackupTracker", "test-tracker", "test-checkpoint", "2026-01-01T00:00:00Z",
 		),
 		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd,
 			backupv1alpha1.VirtualMachineBackupTracker{
