@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirt"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -477,8 +478,8 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 		return false, err
 	}
 
-	if len(disksWithoutBitmap) > 0 {
-		logger.V(3).Infof("Disks without checkpoint bitmap: %v", disksWithoutBitmap)
+	if disksWithoutBitmap.Len() > 0 {
+		logger.V(3).Infof("Disks without checkpoint bitmap: %v", sets.List(disksWithoutBitmap))
 	}
 
 	if len(checkpointDisks.Disks) == 0 {
@@ -519,7 +520,7 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 
 // findDisksWithCheckpointBitmap iterates over all domain disks and returns those
 // that have the specified checkpoint bitmap in their qcow2 file.
-func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*api.CheckpointDisks, []string, error) {
+func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*api.CheckpointDisks, sets.Set[string], error) {
 	disks, err := util.GetAllDomainDisks(dom)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get domain disks: %v", err)
@@ -531,7 +532,7 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 	}
 
 	checkpointDisks := &api.CheckpointDisks{}
-	var disksWithoutBitmap []string
+	disksWithoutBitmap := sets.New[string]()
 
 	for _, disk := range disks {
 		if disk.Target.Device == "" || !DiskHasDataStore(&disk) {
@@ -548,7 +549,7 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 				Checkpoint: "bitmap",
 			})
 		} else {
-			disksWithoutBitmap = append(disksWithoutBitmap, disk.Target.Device)
+			disksWithoutBitmap.Insert(disk.Target.Device)
 		}
 	}
 
