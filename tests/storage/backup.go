@@ -731,6 +731,110 @@ var _ = Describe(SIG("Backup", func() {
 			"Second checkpoint should have a different name")
 	})
 
+	It("Pull mode incremental backup serves a disk that lost its bitmap", func() {
+		const (
+			testDataSizeMB    = 50
+			bootDiskName      = "disk0"
+			hotplugVolumeName = "hotplug-volume"
+			hotplugDiskSize   = "256Mi"
+		)
+
+		bootDv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(cd.AlpineVolumeSize)),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Hotplugging a second volume")
+		hotplugDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(hotplugDiskSize)),
+		)
+		hotplugDv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(hotplugDv.Namespace).Create(context.Background(), hotplugDv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDv.Name)
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDv.Name, true)
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating Secret with custom token for pull mode backup")
+		tokenValue := "backup-token-" + rand.String(5)
+		tokenSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-secret-" + rand.String(5),
+				Namespace: vm.Namespace,
+			},
+			StringData: map[string]string{
+				"token": tokenValue,
+			},
+		}
+		_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		totalSize := resource.MustParse(cd.AlpineVolumeSize)
+		hotplugSize := resource.MustParse(hotplugDiskSize)
+		totalSize.Add(hotplugSize)
+		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(totalSize.String()), libstorage.WithStorageProfile())
+
+		By("Creating Full Pull Mode Backup covering both disks")
+		fullBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
+		fullBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		fullBackup.Spec.TokenSecretRef = tokenSecret.Name
+		fullBackup, err = virtClient.VirtualMachineBackup(fullBackup.Namespace).Create(context.Background(), fullBackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		fullBackup = waitBackupExportReady(virtClient, fullBackup.Namespace, fullBackup.Name)
+
+		By("Deleting the Full Backup to finalize the libvirt job and persist the checkpoint")
+		deleteVMBackup(virtClient, vm.Namespace, fullBackup.Name)
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should have a checkpoint after the full backup")
+
+		By(fmt.Sprintf("Writing %dMB to the boot disk so it has a delta to report", testDataSizeMB))
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Replugging the second volume so its overlay, and the checkpoint bitmap on it, are recreated")
+		vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName)
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDv.Name, false)
+		vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDv.Name)
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDv.Name, true)
+
+		By("Creating Incremental Pull Mode Backup")
+		incBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
+		incBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		incBackup.Spec.TokenSecretRef = tokenSecret.Name
+		incBackup, err = virtClient.VirtualMachineBackup(incBackup.Namespace).Create(context.Background(), incBackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		incBackup = waitBackupExportReady(virtClient, incBackup.Namespace, incBackup.Name)
+
+		By("Verifying only the replugged disk fell back to full")
+		Expect(incBackup.Status.IncludedVolumes).To(ConsistOf(
+			And(HaveField("VolumeName", bootDiskName), HaveField("Type", backupv1.Incremental)),
+			And(HaveField("VolumeName", hotplugVolumeName), HaveField("Type", backupv1.Full)),
+		))
+
+		By("Verifying both disks serve their map endpoint")
+		verifyPullEndpointsWithDataCheck(virtClient, incBackup, backupv1.Incremental, tokenValue, bootDiskName, 0, 512, "")
+		verifyPullEndpointsWithDataCheck(virtClient, incBackup, backupv1.Full, tokenValue, hotplugVolumeName, 0, 512, "")
+	})
+
 	It("Should handle backup failure due to insufficient target PVC size", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
@@ -922,7 +1026,7 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		fullBackup = waitBackupExportReady(virtClient, fullBackup.Namespace, fullBackup.Name)
-		verifyPullEndpoints(virtClient, fullBackup, fullBackup.Status.Type, tokenValue)
+		verifyPullEndpoints(virtClient, fullBackup, backupv1.Full, tokenValue)
 		verifyExportPodAffinity(virtClient, fullBackup, vm)
 
 		By("Deleting the Full Backup to finalize the libvirt job and persist the checkpoint")
@@ -949,7 +1053,7 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		incBackup = waitBackupExportReady(virtClient, incBackup.Namespace, incBackup.Name)
-		verifyPullEndpoints(virtClient, incBackup, incBackup.Status.Type, tokenValue)
+		verifyPullEndpoints(virtClient, incBackup, backupv1.Incremental, tokenValue)
 		verifyExportPodAffinity(virtClient, incBackup, vm)
 	})
 
@@ -1204,7 +1308,7 @@ var _ = Describe(SIG("Backup", func() {
 		waitBackupExportReady(virtClient, backup.Namespace, backup.Name)
 
 		By("Verifying endpoints are accessible again after recreation")
-		verifyPullEndpoints(virtClient, backup, backup.Status.Type, tokenValue)
+		verifyPullEndpoints(virtClient, backup, backupv1.Full, tokenValue)
 	})
 }))
 
@@ -1740,7 +1844,6 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 		caBundleKey = "ca-bundle"
 	)
 
-	Expect(vmbackup.Status.Type).To(Equal(expectedBackupType))
 	Expect(vmbackup.Status.IncludedVolumes).ToNot(BeEmpty(), "Should have at least one included volume")
 
 	var volumeInfo *backupv1.BackupVolumeInfo
@@ -1756,6 +1859,9 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 		Expect(vmbackup.Status.IncludedVolumes).To(HaveLen(1), "Expected exactly 1 volume when no targetVolumeName is provided")
 		volumeInfo = &vmbackup.Status.IncludedVolumes[0]
 	}
+
+	Expect(volumeInfo.Type).To(Equal(expectedBackupType),
+		"Volume %s should have been backed up as %s", volumeInfo.VolumeName, expectedBackupType)
 
 	Expect(volumeInfo.DataEndpoint).ToNot(BeEmpty(), "Data endpoint should be populated")
 	Expect(volumeInfo.MapEndpoint).ToNot(BeEmpty(), "Map endpoint should be populated")
@@ -1821,6 +1927,9 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	if expectedBackupType == backupv1.Incremental {
 		Expect(mapResp.Extents).To(ContainElement(HaveField("Description", Equal("dirty"))),
 			"Incremental backup map should contain at least one 'dirty' extent")
+	} else {
+		Expect(mapResp.Extents).ToNot(ContainElement(HaveField("Description", Equal("dirty"))),
+			"Full backup map should report no dirty extents, since no bitmap is requested for it")
 	}
 
 	By("Curling the Data endpoint using the length and offset query parameters")
