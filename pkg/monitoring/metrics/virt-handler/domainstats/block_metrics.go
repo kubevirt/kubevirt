@@ -20,7 +20,7 @@
 package domainstats
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"kubevirt.io/client-go/log"
@@ -199,30 +199,77 @@ func emitLatencyHistogramBuckets(
 	if histogram == nil || len(histogram.Bins) == 0 {
 		return nil
 	}
-	var crs []operatormetrics.CollectorResult
-	var cumulative uint64
-	for _, bin := range histogram.Bins {
-		if !bin.ValueSet {
-			continue
+
+	bins := histogram.Bins
+
+	// Validate the histogram before emitting anything.
+	//
+	// Libvirt reports each bin using its lower boundary ("start"):
+	//
+	//   start=0       value=5   => [0, 1ms)
+	//   start=1ms     value=7   => [1ms, 10ms)
+	//   start=10ms    value=2   => [10ms, +Inf)
+	//
+	// Prometheus histogram buckets instead use the upper boundary ("le").
+	// Therefore, the upper boundary of bin i is the start of bin i+1.
+	for i, bin := range bins {
+		if !bin.StartSet || !bin.ValueSet {
+			return nil
 		}
-		cumulative += bin.Value
-		// Convert nanoseconds → seconds for the "le" label
-		le := fmt.Sprintf("%g", float64(bin.Start)/1e9)
-		labels := make(map[string]string, len(baseLabels)+1)
-		for k, v := range baseLabels {
-			labels[k] = v
+
+		if i > 0 && bin.Start <= bins[i-1].Start {
+			return nil
 		}
-		labels["le"] = le
-		crs = append(crs, vmiReport.newCollectorResultWithLabels(
-			metric, float64(cumulative), labels))
 	}
-	// +Inf bucket (total count)
+
+	results := make([]operatormetrics.CollectorResult, 0, len(bins))
+	var cumulative uint64
+
+	// Every bin except the last one gets a finite Prometheus upper
+	// boundary derived from the start of the following libvirt bin.
+	for i := 0; i < len(bins)-1; i++ {
+		cumulative += bins[i].Value
+
+		upperBoundSeconds := float64(bins[i+1].Start) / 1e9
+
+		labels := make(map[string]string, len(baseLabels)+1)
+		for key, value := range baseLabels {
+			labels[key] = value
+		}
+		labels["le"] = strconv.FormatFloat(
+			upperBoundSeconds,
+			'g',
+			-1,
+			64,
+		)
+
+		results = append(
+			results,
+			vmiReport.newCollectorResultWithLabels(
+				metric,
+				float64(cumulative),
+				labels,
+			),
+		)
+	}
+	// The last libvirt bin has no finite upper boundary, so it maps to
+	// Prometheus's +Inf bucket.
+	cumulative += bins[len(bins)-1].Value
+
 	infLabels := make(map[string]string, len(baseLabels)+1)
-	for k, v := range baseLabels {
-		infLabels[k] = v
+	for key, value := range baseLabels {
+		infLabels[key] = value
 	}
 	infLabels["le"] = "+Inf"
-	crs = append(crs, vmiReport.newCollectorResultWithLabels(
-		metric, float64(cumulative), infLabels))
-	return crs
+
+	results = append(
+		results,
+		vmiReport.newCollectorResultWithLabels(
+			metric,
+			float64(cumulative),
+			infLabels,
+		),
+	)
+
+	return results
 }

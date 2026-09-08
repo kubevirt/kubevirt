@@ -213,25 +213,10 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		}
 	}
 	disk.Driver = &api.DiskDriver{
-		Name:  "qemu",
-		Cache: string(diskDevice.Cache),
-		IO:    diskDevice.IO,
-		Statistics: &api.DiskDriverStatistics{
-			LatencyHistograms: []api.DiskDriverLatencyHistogram{
-				{
-					Bins: []api.DiskDriverLatencyHistBin{
-						{Start: 0},
-						{Start: 1_000_000},
-						{Start: 10_000_000},
-						{Start: 50_000_000},
-						{Start: 100_000_000},
-						{Start: 500_000_000},
-						{Start: 2_000_000_000},
-						{Start: 4_000_000_000},
-					},
-				},
-			},
-		},
+		Name:       "qemu",
+		Cache:      string(diskDevice.Cache),
+		IO:         diskDevice.IO,
+		Statistics: getDefaultDiskDriverStatistics(),
 	}
 
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
@@ -256,6 +241,38 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 	}
 
 	return nil
+}
+
+func getDefaultDiskDriverStatistics() *api.DiskDriverStatistics {
+	return &api.DiskDriverStatistics{
+		LatencyHistograms: []api.DiskDriverLatencyHistogram{
+			{
+				Type: "read",
+				Bins: getDefaultLatencyHistogramBins(),
+			},
+			{
+				Type: "write",
+				Bins: getDefaultLatencyHistogramBins(),
+			},
+			{
+				Type: "flush",
+				Bins: getDefaultLatencyHistogramBins(),
+			},
+		}}
+}
+
+func getDefaultLatencyHistogramBins() []api.DiskDriverLatencyHistBin {
+	return []api.DiskDriverLatencyHistBin{
+		{Start: 0},
+		{Start: 1_000_000},
+		{Start: 10_000_000},
+		{Start: 50_000_000},
+		{Start: 100_000_000},
+		{Start: 500_000_000},
+		{Start: 1_000_000_000},
+		{Start: 2_000_000_000},
+		{Start: 5_000_000_000},
+	}
 }
 
 func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string) error {

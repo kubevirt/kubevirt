@@ -907,7 +907,7 @@ type DiskDriverLatencyHistogram struct {
 	Bins []DiskDriverLatencyHistBin `xml:"bin"`
 }
 type DiskDriverLatencyHistBin struct {
-	Start uint32 `xml:"start,attr"`
+	Start uint64 `xml:"start,attr"`
 }
 
 type DiskIOThreads struct {
