@@ -1105,7 +1105,7 @@ var _ = Describe("Export controller", func() {
 		vmExportCopy := vmExport.DeepCopy()
 		svc := &k8sv1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: testNamespace}}
 
-		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source)
+		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vmExportCopy.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -1145,7 +1145,7 @@ var _ = Describe("Export controller", func() {
 			Status: k8sv1.PodStatus{Phase: k8sv1.PodRunning, ContainerStatuses: []k8sv1.ContainerStatus{{Ready: true}}},
 		}
 
-		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source)
+		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		for _, cond := range vmExportCopy.Status.Conditions {
