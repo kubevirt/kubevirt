@@ -6,6 +6,7 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "BackupVolumeInfo contains information about a volume included in a backup",
 		"volumeName": "VolumeName is the volume name from VMI spec",
+		"type":       "Type is how the volume was backed up, either Full or Incremental\n+optional\n+kubebuilder:validation:XValidation:rule=\"self in ['Full', 'Incremental']\",message=\"type must be Full or Incremental\"",
 	}
 }
 
@@ -105,7 +106,7 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"type":            "+optional\nType indicates if the backup was full or incremental",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
-		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
+		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup\n+kubebuilder:validation:MaxItems=256",
 		"links":           "+optional\nLinks exposes internal (in-cluster) and external (Ingress/Route) endpoints\nfor pull-mode backups, each with a CA certificate and per-volume URLs.\nContains per-volume data and map endpoint URLs for each network path.",
 	}
 }

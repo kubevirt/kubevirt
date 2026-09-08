@@ -527,7 +527,7 @@ func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
 		"failed":         "Failed indicates that the backup failed",
 		"backupMsg":      "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
 		"checkpointName": "CheckpointName is the name of the checkpoint created for the backup\n+optional",
-		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic",
+		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic\n+kubebuilder:validation:MaxItems:=256",
 		"quiesceStatus":  "QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.\n+optional",
 	}
 }
@@ -536,6 +536,7 @@ func (VirtualMachineInstanceBackupVolumeInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "VirtualMachineInstanceBackupVolumeInfo contains information about a volume included in a backup\n+k8s:openapi-gen=true",
 		"volumeName": "VolumeName is the volume name from VMI spec",
+		"type":       "Type is how the volume was backed up, either Full or Incremental.\n+optional\n+kubebuilder:validation:XValidation:rule=\"self in ['Full', 'Incremental']\",message=\"type must be Full or Incremental\"",
 	}
 }
 

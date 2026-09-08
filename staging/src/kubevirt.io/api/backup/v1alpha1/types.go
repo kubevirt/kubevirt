@@ -45,6 +45,10 @@ const (
 type BackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
+	// Type is how the volume was backed up, either Full or Incremental
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self in ['Full', 'Incremental']",message="type must be Full or Incremental"
+	Type BackupType `json:"type,omitempty"`
 }
 
 // BackupLinks contains internal and external links for accessing backup data in pull mode
@@ -255,6 +259,7 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
+	// +kubebuilder:validation:MaxItems=256
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
 	// +optional
 	// Links exposes internal (in-cluster) and external (Ingress/Route) endpoints
