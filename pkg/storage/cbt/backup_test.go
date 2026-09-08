@@ -792,7 +792,7 @@ var _ = Describe("Backup Controller", func() {
 	It("should cleanup when VMI backup status is missing", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Type: backupv1.Full,
+			StartTimestamp: new(metav1.Now()),
 			Conditions: []metav1.Condition{
 				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 			},
@@ -1090,7 +1090,7 @@ var _ = Describe("Backup Controller", func() {
 		It("should fail backup if VMI is deleted while backup is progressing", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Type: backupv1.Full,
+				StartTimestamp: new(metav1.Now()),
 				Conditions: []metav1.Condition{
 					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
@@ -2263,7 +2263,7 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should delete the export when the VMI is deleted during the backup", func() {
-			backup.Status.Type = backupv1.Full
+			backup.Status.StartTimestamp = new(metav1.Now())
 			Expect(controller.vmiStore.Delete(vmi)).To(Succeed())
 			controller.vmExportStore.Add(vmExport)
 

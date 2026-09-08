@@ -505,7 +505,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 		return nil
 	}
 
-	if backup.Status.Type != "" {
+	if backup.Status.StartTimestamp != nil {
 		if !vmiExists {
 			if isPullMode(backup) {
 				if err := ctrl.cleanupBackupExport(backup); err != nil {
@@ -692,6 +692,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	setProgressing(backup)
+	backup.Status.StartTimestamp = new(metav1.Now())
 	backup.Status.Type = backupType
 	return nil
 }
