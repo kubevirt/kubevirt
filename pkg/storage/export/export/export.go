@@ -1040,11 +1040,13 @@ func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
 	return getExportPodVolumeNameFromStr(pvc.Name)
 }
 
-// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name to match the volume name used in the Pod.
+// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name into the
+// volume name used in the exporter pod.
 //
-// CRITICAL: This logic must stay strictly in sync with the volume naming logic used in 'createExportPod'.
-// If the logic in createExportPod changes (e.g. prefix or hashing algorithm), this function MUST be updated
-// to match, otherwise the export server will fail to locate the mounted volumes.
+// CRITICAL: GetVolumeInfo falls back to this to resolve the volumes of exporter
+// pods created before the PVC name was passed in their environment, so it has
+// to keep deriving the name those pods were created with. Changing the pod
+// volume naming means adding a new function, not changing this one.
 func getExportPodVolumeNameFromStr(claimName string) string {
 	pvcName := strings.ReplaceAll(claimName, ".", "-")
 	// Using the formatted PVC name if it's under the max length.
@@ -1482,6 +1484,9 @@ func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev
 	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
 		Value: mountPoint,
+	}, corev1.EnvVar{
+		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PVC_NAME", index),
+		Value: pvc.Name,
 	})
 	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{

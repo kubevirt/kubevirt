@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -1256,30 +1255,48 @@ var _ = Describe("Export controller", func() {
 		Entry("two duplicates sorted", []string{"b", "a", "b", "a"}, []string{"a", "b"}),
 	)
 
-	DescribeTable("GetVolumeInfo should correctly resolve volume paths for various PVC names", func(pvcName string) {
-		targetName := getExportPodVolumeNameFromStr(pvcName)
+	DescribeTable("GetVolumeInfo should resolve volumes by PVC name", func(pvcNames ...string) {
+		sp := &ServerPaths{}
+		for i, pvcName := range pvcNames {
+			sp.Volumes = append(sp.Volumes, VolumeInfo{
+				Path:    fmt.Sprintf("/var/run/kubevirt-export/volume%d", i),
+				PVCName: pvcName,
+			})
+		}
+
+		for i, pvcName := range pvcNames {
+			result := sp.GetVolumeInfo(pvcName)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Path).To(Equal(fmt.Sprintf("/var/run/kubevirt-export/volume%d", i)))
+		}
+		Expect(sp.GetVolumeInfo("does-not-exist")).To(BeNil())
+	},
+		Entry("Short name", "pvc-name"),
+		Entry("Name with dots", "pvc.with.dots"),
+		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
+		// Both sanitize to the same mount directory, resolving by PVC name
+		// keeps them apart.
+		Entry("Names differing only by dots", "my.disk", "my-disk"),
+	)
+
+	DescribeTable("GetVolumeInfo should fall back to the mount directory without a PVC name", func(pvcName, mountName string) {
 		sp := &ServerPaths{
 			Volumes: []VolumeInfo{
 				{
-					Path: "/var/run/kubevirt-export/" + targetName,
+					Path: "/var/run/kubevirt-export/" + mountName,
 				},
 			},
 		}
 
 		result := sp.GetVolumeInfo(pvcName)
 		Expect(result).ToNot(BeNil())
-
-		_, foundName := filepath.Split(filepath.Clean(result.Path))
-		Expect(foundName).To(Equal(targetName))
-
-		if len(pvcName) > validation.DNS1035LabelMaxLength {
-			Expect(len(foundName)).To(BeNumerically("<", 63))
-			Expect(foundName).To(HavePrefix(exportPrefix))
-		}
+		Expect(result.Path).To(Equal("/var/run/kubevirt-export/" + mountName))
 	},
-		Entry("Short name", "pvc-name"),
-		Entry("Name with dots", "pvc.with.dots"),
-		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
+		Entry("Short name", "pvc-name", "pvc-name"),
+		Entry("Name with dots", "pvc.with.dots", "pvc-with-dots"),
+		Entry("Long name exceeding limit",
+			strings.Repeat("a", validation.DNS1035LabelMaxLength+1),
+			"virt-export-419f8d5e"),
 	)
 
 	It("CreateServerPaths should parse OCI URI", func() {
@@ -1290,6 +1307,27 @@ var _ = Describe("Export controller", func() {
 		}
 		paths := CreateServerPaths(env)
 		Expect(paths.OCIURI).To(Equal(uri))
+	})
+
+	It("CreateServerPaths should parse the PVC name of a volume", func() {
+		paths := CreateServerPaths(map[string]string{
+			"VOLUME0_EXPORT_PATH":     "/export-volumes/my-disk",
+			"VOLUME0_EXPORT_PVC_NAME": "my.disk",
+		})
+		Expect(paths.Volumes).To(HaveLen(1))
+		Expect(paths.Volumes[0].PVCName).To(Equal("my.disk"))
+	})
+
+	It("The exporter pod should be passed the PVC name of every volume", func() {
+		pvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "my.disk", Namespace: testNamespace},
+		}
+		container := &k8sv1.Container{}
+		addVolumeEnvironmentVariables(container, pvc, 0, "/export-volumes/my-disk", true)
+		Expect(container.Env).To(ContainElement(k8sv1.EnvVar{
+			Name:  "VOLUME0_EXPORT_PVC_NAME",
+			Value: "my.disk",
+		}))
 	})
 
 	DescribeTable("service name should be sanitized", func(exportName, expectedServiceName string) {
