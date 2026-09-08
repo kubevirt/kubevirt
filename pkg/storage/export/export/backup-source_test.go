@@ -237,7 +237,7 @@ var _ = Describe("Backup source", func() {
 				},
 			},
 			Status: &backupv1.VirtualMachineBackupStatus{
-				Type:            backupv1.Full,
+				StartTimestamp:  new(metav1.Now()),
 				Conditions:      conditions,
 				IncludedVolumes: includedVolumes,
 				CheckpointName:  checkpointName,
@@ -438,7 +438,7 @@ var _ = Describe("Backup source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
-	It("Should return error if VirtualMachineBackup status is empty", func() {
+	It("Should return error if the VirtualMachineBackup has not started", func() {
 		testVMExport := createBackupVMExport()
 
 		vmBackup := &backupv1.VirtualMachineBackup{
@@ -452,7 +452,7 @@ var _ = Describe("Backup source", func() {
 		retry, err := controller.updateVMExport(testVMExport)
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("backup status empty"))
+		Expect(err.Error()).To(ContainSubstring("backup has not started"))
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 

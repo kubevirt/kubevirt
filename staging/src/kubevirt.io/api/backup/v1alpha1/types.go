@@ -219,9 +219,6 @@ const (
 // VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource
 type VirtualMachineBackupStatus struct {
 	// +optional
-	// Type indicates if the backup was full or incremental
-	Type BackupType `json:"type,omitempty"`
-	// +optional
 	// StartTimestamp is the timestamp when the backup started
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// +listType=map

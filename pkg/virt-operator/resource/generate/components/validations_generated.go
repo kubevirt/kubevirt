@@ -9824,9 +9824,6 @@ var CRDsValidation map[string]string = map[string]string{
           description: StartTimestamp is the timestamp when the backup started
           format: date-time
           type: string
-        type:
-          description: Type indicates if the backup was full or incremental
-          type: string
       type: object
   required:
   - spec

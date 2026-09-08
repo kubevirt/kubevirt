@@ -17864,13 +17864,6 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 				Description: "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Type indicates if the backup was full or incremental",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
 							Description: "StartTimestamp is the timestamp when the backup started",
