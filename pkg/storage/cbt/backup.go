@@ -1095,7 +1095,10 @@ func (ctrl *VMBackupController) setQuiescedCondition(backup *backupv1.VirtualMac
 func toBackupVolumeInfo(vols []v1.VirtualMachineInstanceBackupVolumeInfo) []backupv1.BackupVolumeInfo {
 	out := make([]backupv1.BackupVolumeInfo, len(vols))
 	for i, v := range vols {
-		out[i] = backupv1.BackupVolumeInfo{VolumeName: v.VolumeName}
+		out[i] = backupv1.BackupVolumeInfo{
+			VolumeName: v.VolumeName,
+			Type:       backupv1.BackupType(v.Type),
+		}
 	}
 	return out
 }

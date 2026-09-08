@@ -777,8 +777,8 @@ var _ = Describe("Backup Controller", func() {
 
 			// VMI with backup in progress but volumes already populated by virt-launcher
 			volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
-				{VolumeName: "rootdisk"},
-				{VolumeName: "datadisk"},
+				{VolumeName: "rootdisk", Type: string(backupv1.Incremental)},
+				{VolumeName: "datadisk", Type: string(backupv1.Full)},
 			}
 			vmi := createInitializedVMI()
 			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
@@ -790,9 +790,10 @@ var _ = Describe("Backup Controller", func() {
 
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
-			Expect(backupCopy.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
-			Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
+			Expect(backupCopy.Status.IncludedVolumes).To(ConsistOf(
+				backupv1.BackupVolumeInfo{VolumeName: "rootdisk", Type: backupv1.Incremental},
+				backupv1.BackupVolumeInfo{VolumeName: "datadisk", Type: backupv1.Full},
+			))
 		})
 
 		It("should not update includedVolumes when already set in backup status", func() {
