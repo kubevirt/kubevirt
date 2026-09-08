@@ -11164,20 +11164,6 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             name:
               type: string
-            volumes:
-              description: Volumes lists volumes included in the backup
-              items:
-                description: BackupVolumeInfo contains information about a volume
-                  included in a backup
-                properties:
-                  volumeName:
-                    description: VolumeName is the volume name from VMI spec
-                    type: string
-                required:
-                - volumeName
-                type: object
-              type: array
-              x-kubernetes-list-type: atomic
           type: object
       type: object
   required:
