@@ -67,6 +67,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
@@ -2501,6 +2502,19 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 	cbt.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
+
+	// The backend-storage PVC is created for persistent vTPM/EFI or CBT. Excluding CBT
+	// (whose PVC is intentionally larger than 10Mi), a bumped size means the storageclass
+	// rejected the 10Mi request for the vTPM/EFI PVC.
+	if vmi != nil && !cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		if pvc := backendstorage.PVCForVMI(c.pvcStore, vmi); pvc != nil && pvc.Status.Phase == k8score.ClaimBound {
+			if actual := pvc.Status.Capacity[k8score.ResourceStorage]; actual.Cmp(resource.MustParse(backendstorage.PVCSize)) > 0 {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, common.OversizedPersisentStorageReason,
+					"Backend storage PVC %s was provisioned with %s, larger than the %s required for persistent TPM/EFI state",
+					pvc.Name, actual.String(), backendstorage.PVCSize)
+			}
+		}
+	}
 
 	// only update if necessary
 	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
