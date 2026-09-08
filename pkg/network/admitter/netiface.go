@@ -289,22 +289,10 @@ func validatePortRangesConfiguration(
 
 	var causes []metav1.StatusCause
 	if network.Pod != nil && iface.PortRanges != nil {
-		causes = append(causes, validatePortRangeMutualExclusivity(field, idx, iface)...)
 		causes = append(causes, validatePortRangeMasqueradeOnly(field, idx, iface)...)
 		causes = append(causes, validateForwardPortRanges(field, idx, iface.PortRanges)...)
 	}
 	return causes
-}
-
-func validatePortRangeMutualExclusivity(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if iface.Ports != nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Cannot define both ports and portRanges on interface",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		}}
-	}
-	return nil
 }
 
 func validatePortRangeMasqueradeOnly(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
