@@ -289,6 +289,39 @@ var _ = Describe("VMTemplate source", func() {
 				},
 			}))).To(Succeed())
 		}, volumesNotPopulatedReason, requeueTime),
+		// The raw-name skip only catches volumes named after a DVT, so both
+		// collection paths add the same claim.
+		Entry("when a DVT source PVC is also referenced by a volume", func() {
+			Expect(vmTemplateInformer.GetStore().Add(newTemplate(&virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: dvtName},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{Name: sourcePVCName},
+								},
+							},
+						},
+					},
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Volumes: []virtv1.Volume{{
+								Name: "volume1",
+								VolumeSource: virtv1.VolumeSource{
+									PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+										PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+											ClaimName: sourcePVCName,
+										},
+									},
+								},
+							}},
+						},
+					},
+				},
+			}))).To(Succeed())
+			Expect(pvcInformer.GetStore().Add(createPVC(sourcePVCName, "kubevirt"))).To(Succeed())
+		}, duplicatePVCReason, time.Duration(0)),
 	)
 
 	It("Should create VMTemplate export with DVT source PVC", func() {
