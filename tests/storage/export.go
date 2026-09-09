@@ -2291,6 +2291,49 @@ var _ = Describe(SIG("Export", func() {
 		}
 	})
 
+	It("should export a VM with claims differing only in dots", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when Filesystem storage is not present")
+		}
+		ns := testsuite.GetTestNamespace(nil)
+
+		// Both claims sanitize to the same exporter pod volume name.
+		claimNames := []string{"my.disk", "my-disk"}
+		var diskOpts []libvmi.Option
+		for i, claimName := range claimNames {
+			dv := createDataVolume(libdv.NewDataVolume(
+				libdv.WithName(claimName),
+				libdv.WithNamespace(ns),
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
+			))
+			Eventually(ThisPVCWith(ns, dv.Name), 160).Should(Exist())
+			diskOpts = append(diskOpts, libvmi.WithPersistentVolumeClaim(fmt.Sprintf("dotdisk%d", i), claimName))
+		}
+
+		vm := createVM(libvmi.NewVirtualMachine(libvmifact.NewAlpine(diskOpts...)))
+
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			vm = libvmops.StartVirtualMachine(vm)
+			libvmops.StopVirtualMachine(vm)
+		}
+		for _, claimName := range claimNames {
+			libstorage.EventuallyDVWith(ns, claimName, 240, HaveSucceeded())
+		}
+
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		export = waitForExportPhase(export, exportv1.Ready)
+
+		By("Both claims are exported as their own volume")
+		Expect(export.Status.Links.Internal.Volumes).To(ConsistOf(
+			HaveField("Name", claimNames[0]),
+			HaveField("Name", claimNames[1]),
+		))
+	})
+
 	It("should mark the status phase skipped when two VM volumes reference the same PVC", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {

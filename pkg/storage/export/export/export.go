@@ -248,7 +248,7 @@ func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
 	for i, volume := range sv.volumes {
 		var mountPoint string
 		pvc := volume.pvc
-		volumeName := getExportPodVolumeName(pvc)
+		volumeName := getExportPodVolumeName(pvc, i)
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
@@ -1036,8 +1036,14 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
-func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
-	return getExportPodVolumeNameFromStr(pvc.Name)
+// getExportPodVolumeName builds the name a PVC is mounted under in the exporter
+// pod. Uniqueness comes from the index added as prefix.
+func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim, index int) string {
+	name := fmt.Sprintf("vol%d-%s", index, strings.ReplaceAll(pvc.Name, ".", "-"))
+	if len(name) > validation.DNS1035LabelMaxLength {
+		name = name[:validation.DNS1035LabelMaxLength]
+	}
+	return strings.TrimRight(name, "-")
 }
 
 // getExportPodVolumeNameFromStr sanitizes and hashes the PVC name into the
