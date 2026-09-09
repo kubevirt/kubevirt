@@ -163,11 +163,19 @@ var _ = Describe("buildVMStatsRequestFromQuery", func() {
 		Expect(req.GuestNetworkGetInterfaces).To(BeNil())
 		Expect(req.GuestGetMemoryBlocks).To(BeNil())
 		Expect(req.GuestGetFsInfo).To(BeNil())
+		Expect(req.GuestGetDevices).To(BeNil())
 	})
 
 	It("should enable guestGetFsInfo", func() {
 		req := buildRequest("?guestGetFsInfo=true")
 		Expect(req.GuestGetFsInfo).ToNot(BeNil())
+		Expect(req.DomainStats).To(BeNil())
+		Expect(req.GuestGetLoad).To(BeNil())
+	})
+
+	It("should enable guestGetDevices", func() {
+		req := buildRequest("?guestGetDevices=true")
+		Expect(req.GuestGetDevices).ToNot(BeNil())
 		Expect(req.DomainStats).To(BeNil())
 		Expect(req.GuestGetLoad).To(BeNil())
 	})
