@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["operator.go"],
+    srcs = [
+        "operator.go",
+        "operator_readonly.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/operator",
     visibility = ["//visibility:public"],
     deps = [
