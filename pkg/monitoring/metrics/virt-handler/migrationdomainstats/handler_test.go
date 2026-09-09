@@ -268,7 +268,9 @@ var _ = Describe("Handler", func() {
 			Expect(h.completedMigrationStats).To(BeEmpty())
 		})
 
-		DescribeTable("should retain only the latest successful migration result", func(failed bool, expectedResults int, expectedMigrationUID string, expectedDowntime uint64) {
+		DescribeTable("should retain only the latest successful migration result", func(
+			failed bool, expectedResults int, expectedMigrationUID string, expectedDowntime uint64,
+		) {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:   "migration-1",
 				StartTimestamp: &metav1.Time{Time: time.Unix(100, 0)},
