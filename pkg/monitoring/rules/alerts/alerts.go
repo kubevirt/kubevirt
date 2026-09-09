@@ -39,6 +39,7 @@ const (
 	descriptionAnnotationKey     = "description"
 	partOfAlertLabelKey          = "kubernetes_operator_part_of"
 	componentAlertLabelKey       = "kubernetes_operator_component"
+	namespaceAlertLabelKey       = "namespace"
 	kubevirtLabelValue           = "kubevirt"
 
 	eightyPercent = 80
