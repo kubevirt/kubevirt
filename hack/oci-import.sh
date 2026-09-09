@@ -238,16 +238,22 @@ idx=0
 for DISK_NAME in "${!PVC_MAP[@]}"; do
     PVC_NAME="${PVC_MAP[$DISK_NAME]}"
     jq_rewrite+=" | (${VOLUMES_PATH} |
-        select(.persistentVolumeClaim.claimName != null) |
-        select((.persistentVolumeClaim.claimName | gsub(\"\\\\.\"; \"-\")) == \$d${idx}) |
+        select(.name == \$d${idx}) |
+        select(.persistentVolumeClaim != null) |
         .persistentVolumeClaim.claimName) = \$p${idx}"
-    if [[ "$IS_TEMPLATE" == true ]]; then
-        jq_rewrite+=" | (${DVTS_PATH} |
-            select(.spec.source.pvc.name != null) |
-            select((.spec.source.pvc.name | gsub(\"\\\\.\"; \"-\")) == \$d${idx}) |
-            .spec.source.pvc.name) = \$p${idx}"
-    fi
     jq_args+=(--arg "d${idx}" "$DISK_NAME" --arg "p${idx}" "$PVC_NAME")
+
+    if [[ "$IS_TEMPLATE" == true ]]; then
+        # A DataVolumeTemplate is exported as its clone source.
+        DVT_NAME=$(jq -r --arg d "$DISK_NAME" \
+            "${VOLUMES_PATH} | select(.name == \$d) | .dataVolume.name // empty" "$CONFIG_BLOB")
+        if [[ -n "$DVT_NAME" ]]; then
+            jq_rewrite+=" | (${DVTS_PATH} |
+                select(.metadata.name == \$t${idx}) |
+                .spec.source.pvc.name) = \$p${idx}"
+            jq_args+=(--arg "t${idx}" "$DVT_NAME")
+        fi
+    fi
     idx=$((idx + 1))
 done
 

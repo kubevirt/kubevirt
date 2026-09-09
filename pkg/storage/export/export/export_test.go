@@ -929,7 +929,7 @@ var _ = Describe("Export controller", func() {
 		populateInitialVMExportStatus(testVMExport)
 
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(testPVC),
+			volumes:     []sourceVolume{controller.newSourceVolume(testPVC, "")},
 			isPopulated: true,
 		}
 		source := createSource(sv)
@@ -1243,7 +1243,7 @@ var _ = Describe("Export controller", func() {
 		}
 		populateInitialVMExportStatus(testVMExport)
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(testPVC),
+			volumes:     []sourceVolume{controller.newSourceVolume(testPVC, "")},
 			isPopulated: true,
 		}
 		snapSource := NewVMSnapshotSource(sv, "test-vm-name")
@@ -1415,12 +1415,24 @@ var _ = Describe("Export controller", func() {
 		Expect(paths.Volumes[0].PVCName).To(Equal("my.disk"))
 	})
 
+	It("The exporter pod should be passed the volume name of every volume", func() {
+		pvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "fedora-vm-rootdisk", Namespace: testNamespace},
+		}
+		container := &k8sv1.Container{}
+		addVolumeEnvironmentVariables(container, sourceVolume{pvc: pvc, volumeName: "rootdisk"}, 0, "/export-volumes/vol0-fedora-vm-rootdisk")
+		Expect(container.Env).To(ContainElement(k8sv1.EnvVar{
+			Name:  "VOLUME0_EXPORT_VOLUME_NAME",
+			Value: "rootdisk",
+		}))
+	})
+
 	It("The exporter pod should be passed the PVC name of every volume", func() {
 		pvc := &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{Name: "my.disk", Namespace: testNamespace},
 		}
 		container := &k8sv1.Container{}
-		addVolumeEnvironmentVariables(container, pvc, 0, "/export-volumes/my-disk", true)
+		addVolumeEnvironmentVariables(container, sourceVolume{pvc: pvc, volumeName: "rootdisk"}, 0, "/export-volumes/my-disk")
 		Expect(container.Env).To(ContainElement(k8sv1.EnvVar{
 			Name:  "VOLUME0_EXPORT_PVC_NAME",
 			Value: "my.disk",
@@ -1548,7 +1560,7 @@ var _ = Describe("Export controller", func() {
 		}
 		Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(pvc),
+			volumes:     []sourceVolume{controller.newSourceVolume(pvc, "")},
 			isPopulated: true,
 		}
 		pvcSource := NewPVCSource(sv)
@@ -1607,7 +1619,7 @@ var _ = Describe("Export controller", func() {
 			return true, secret, nil
 		})
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(pvc),
+			volumes:     []sourceVolume{controller.newSourceVolume(pvc, "")},
 			isPopulated: true,
 		}
 		pvcSource := NewPVCSource(sv)
