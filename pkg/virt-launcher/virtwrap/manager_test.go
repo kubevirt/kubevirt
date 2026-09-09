@@ -39,9 +39,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
+	k8scorev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -3572,6 +3574,56 @@ var _ = Describe("Manager", func() {
 				Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
 			})
 		})
+
+		Context("annotation pause with migration probe suppression", func() {
+			var agentErr libvirt.Error
+
+			BeforeEach(func() {
+				agentErr = libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+			})
+
+			AfterEach(func() {
+				metadataCache.Migration.Set(api.MigrationMetadata{})
+			})
+
+			DescribeTable("should combine annotation pause and migration suppression",
+				func(probesPaused bool, migrationInProgress bool, expectSuccess bool) {
+					manager, _ := newLibvirtDomainManagerDefault()
+					ldm := manager.(*LibvirtDomainManager)
+					ldm.guestAgentProbePaused.Store(probesPaused)
+
+					if migrationInProgress {
+						now := metav1.Now()
+						metadataCache.Migration.Store(api.MigrationMetadata{
+							UID:            "test-migration-uid",
+							StartTimestamp: &now,
+							Mode:           v1.MigrationPreCopy,
+						})
+					}
+
+					if probesPaused {
+						Expect(manager.GuestPing(testDomainName)).To(Succeed())
+						return
+					}
+
+					mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+					if !migrationInProgress {
+						mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+						mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+					}
+
+					if expectSuccess {
+						Expect(manager.GuestPing(testDomainName)).To(Succeed())
+					} else {
+						Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+					}
+				},
+				Entry("annotation pause skips probe during migration", true, true, true),
+				Entry("annotation pause skips probe without migration", true, false, true),
+				Entry("migration suppresses agent errors without annotation pause", false, true, true),
+				Entry("probe fails when neither pause nor migration applies", false, false, false),
+			)
+		})
 	})
 
 	Context("syncGuestAgentProbePaused", func() {
@@ -3596,6 +3648,45 @@ var _ = Describe("Manager", func() {
 			Entry("annotation non-bool value", map[string]string{v1.PauseGuestAgentProbesAnnotation: "foo"}, false),
 			Entry("nil annotations map", nil, false),
 		)
+
+		It("should not alter exec or TCP probe handlers in the VMI spec", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{v1.PauseGuestAgentProbesAnnotation: "true"},
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					LivenessProbe: &v1.Probe{
+						Handler: v1.Handler{Exec: &k8scorev1.ExecAction{Command: []string{"true"}}},
+					},
+					ReadinessProbe: &v1.Probe{
+						Handler: v1.Handler{TCPSocket: &k8scorev1.TCPSocketAction{Port: intstr.FromInt(9090)}},
+					},
+				},
+			}
+
+			ldm.syncGuestAgentProbePaused(vmi)
+
+			Expect(vmi.Spec.LivenessProbe.Handler.Exec).NotTo(BeNil())
+			Expect(vmi.Spec.ReadinessProbe.Handler.TCPSocket).NotTo(BeNil())
+			Expect(ldm.guestAgentProbePaused.Load()).To(BeTrue())
+		})
+
+		It("should keep the pause decision stable across repeated sync invocations", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{v1.PauseGuestAgentProbesAnnotation: "true"},
+				},
+			}
+
+			for i := 0; i < 5; i++ {
+				ldm.syncGuestAgentProbePaused(vmi)
+				Expect(ldm.guestAgentProbePaused.Load()).To(BeTrue())
+			}
+		})
 	})
 
 	Context("FirmwareAutoSelection feature gate integration", func() {
