@@ -53,6 +53,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -783,6 +784,43 @@ var _ = Describe("PVC source", func() {
 			MatchError(ContainSubstring(podFailureMsg)),
 			MatchError(ContainSubstring(statusUpdateFailureMsg)),
 		))
+	})
+
+	It("Should collect the volume name of every PVC of a VM", func() {
+		vm := createVMWithPVCs()
+		vm.Spec.Template.Spec.Volumes[0].Name = "rootdisk"
+		controller.VMInformer.GetStore().Add(vm)
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+
+		volumesToExport, _, err := controller.getSourceVolumesFromVM(vm)
+		Expect(err).ToNot(HaveOccurred())
+		var volumeNames []string
+		for _, volume := range volumesToExport {
+			volumeNames = append(volumeNames, volume.volumeName)
+		}
+		Expect(volumeNames).To(ConsistOf("rootdisk", "volume2"))
+	})
+
+	It("Should collect the backend storage volume under its generated name", func() {
+		vm := createVMWithBackendPVC()
+		controller.VMInformer.GetStore().Add(vm)
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		backendPVC := createBackendPVC(vm.Name)
+		controller.PVCInformer.GetStore().Add(backendPVC)
+		k8sClient.Fake.PrependReactor("list", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, &k8sv1.PersistentVolumeClaimList{Items: []k8sv1.PersistentVolumeClaim{*backendPVC}}, nil
+		})
+
+		volumesToExport, _, err := controller.getSourceVolumesFromVM(vm)
+		Expect(err).ToNot(HaveOccurred())
+		var volumeNames []string
+		for _, volume := range volumesToExport {
+			volumeNames = append(volumeNames, volume.volumeName)
+		}
+		// The backend storage volume has no counterpart in the VM spec, it is
+		// exported under the name generated for it.
+		Expect(volumeNames).To(ConsistOf("volume1", storageutils.BackendPVCVolumeName(vm.Name)))
 	})
 
 	It("Should be in skipped phase when VM does not exist", func() {

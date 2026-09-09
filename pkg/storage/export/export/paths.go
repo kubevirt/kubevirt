@@ -32,6 +32,7 @@ import (
 type VolumeInfo struct {
 	Path       string
 	PVCName    string
+	VolumeName string
 	ArchiveURI string
 	DirURI     string
 	RawURI     string
@@ -98,6 +99,7 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 		vi := VolumeInfo{
 			Path:       env[k],
 			PVCName:    env[envPrefix+"_EXPORT_PVC_NAME"],
+			VolumeName: env[envPrefix+"_EXPORT_VOLUME_NAME"],
 			ArchiveURI: env[envPrefix+"_EXPORT_ARCHIVE_URI"],
 			DirURI:     env[envPrefix+"_EXPORT_DIR_URI"],
 			RawURI:     env[envPrefix+"_EXPORT_RAW_URI"],

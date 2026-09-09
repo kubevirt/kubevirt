@@ -234,15 +234,15 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 		return sourceVolumes, nil
 	}
 
-	pvcs, allPopulated, err := ctrl.getPVCsFromVM(vm)
+	volumesToExport, allPopulated, err := ctrl.getSourceVolumesFromVM(vm)
 	if err != nil {
 		return nil, err
 	}
-	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
+	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(volumesToExport), allPopulated)
 
 	sourceVolumes.isPopulated = allPopulated
 
-	if len(pvcs) == 0 {
+	if len(volumesToExport) == 0 {
 		sourceVolumes.isPopulated = true
 		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, noVolumeVMReason,
 			fmt.Sprintf("Virtual Machine %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name))
@@ -261,13 +261,13 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 		}
 	}
 
-	sourceVolumes.volumes = ctrl.pvcsToSourceVolumes(pvcs...)
+	sourceVolumes.volumes = volumesToExport
 
 	return sourceVolumes, nil
 }
 
-func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*corev1.PersistentVolumeClaim, bool, error) {
-	var pvcs []*corev1.PersistentVolumeClaim
+func (ctrl *VMExportController) getSourceVolumesFromVM(vm *virtv1.VirtualMachine) ([]sourceVolume, bool, error) {
+	var volumesToExport []sourceVolume
 	allPopulated := true
 
 	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
@@ -293,7 +293,7 @@ func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*cor
 			if err != nil {
 				return nil, false, err
 			}
-			pvcs = append(pvcs, pvc)
+			volumesToExport = append(volumesToExport, ctrl.newSourceVolume(pvc, volume.Name))
 			if !populated {
 				allPopulated = false
 			}
@@ -306,7 +306,7 @@ func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*cor
 			allPopulated = false
 		}
 	}
-	return pvcs, allPopulated, nil
+	return volumesToExport, allPopulated, nil
 }
 
 func (ctrl *VMExportController) isSourceVM(source *exportv1.VirtualMachineExportSpec) bool {

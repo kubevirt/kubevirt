@@ -324,6 +324,42 @@ var _ = Describe("VMTemplate source", func() {
 		}, duplicatePVCReason, time.Duration(0)),
 	)
 
+	Context("getPVCsFromVMTemplate volume names", func() {
+		It("should name the DVT clone source after the volume referencing the DVT", func() {
+			tpl := newTemplate(&virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: dvtName},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{Name: sourcePVCName},
+								},
+							},
+						},
+					},
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Volumes: []virtv1.Volume{{
+								Name: "rootdisk",
+								VolumeSource: virtv1.VolumeSource{
+									DataVolume: &virtv1.DataVolumeSource{Name: dvtName},
+								},
+							}},
+						},
+					},
+				},
+			})
+			Expect(pvcInformer.GetStore().Add(createPVC(sourcePVCName, "kubevirt"))).To(Succeed())
+
+			volumesToExport, _, err := controller.getSourceVolumesFromVMTemplate(tpl)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(volumesToExport).To(HaveLen(1))
+			Expect(volumesToExport[0].pvc.Name).To(Equal(sourcePVCName))
+			Expect(volumesToExport[0].volumeName).To(Equal("rootdisk"))
+		})
+	})
+
 	It("Should create VMTemplate export with DVT source PVC", func() {
 		testVMExport := newVMExport()
 		_, err := vmExportClient.ExportV1().VirtualMachineExports(testNamespace).Create(
@@ -925,7 +961,7 @@ var _ = Describe("VMTemplate source helpers", func() {
 		})
 	})
 
-	Context("extractVolumePVCNames", func() {
+	Context("extractTemplateVolumes", func() {
 		It("should extract PVC claim names", func() {
 			obj := marshalVM(&virtv1.VirtualMachine{
 				Spec: virtv1.VirtualMachineSpec{
@@ -947,8 +983,8 @@ var _ = Describe("VMTemplate source helpers", func() {
 					},
 				},
 			})
-			names := extractVolumePVCNames(obj, nil)
-			Expect(names).To(HaveKeyWithValue("my-pvc", "my-pvc"))
+			Expect(extractTemplateVolumes(obj, nil)).To(ConsistOf(
+				templateVolume{VolumeName: "vol1", RawName: "my-pvc", ResolvedName: "my-pvc"}))
 		})
 
 		It("should extract DataVolume names as PVC names", func() {
@@ -968,8 +1004,8 @@ var _ = Describe("VMTemplate source helpers", func() {
 					},
 				},
 			})
-			names := extractVolumePVCNames(obj, nil)
-			Expect(names).To(HaveKeyWithValue("my-dv", "my-dv"))
+			Expect(extractTemplateVolumes(obj, nil)).To(ConsistOf(
+				templateVolume{VolumeName: "vol1", RawName: "my-dv", ResolvedName: "my-dv"}))
 		})
 
 		It("should skip volumes without PVC or DataVolume", func() {
@@ -989,8 +1025,7 @@ var _ = Describe("VMTemplate source helpers", func() {
 					},
 				},
 			})
-			names := extractVolumePVCNames(obj, nil)
-			Expect(names).To(BeEmpty())
+			Expect(extractTemplateVolumes(obj, nil)).To(BeEmpty())
 		})
 	})
 })

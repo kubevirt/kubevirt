@@ -89,8 +89,13 @@ func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 			p = path.Join(p, "disk.img")
 		}
 
-		// Older exporter pods do not carry the PVC name in their environment.
-		volumeName := vi.PVCName
+		// Fall back to the PVC name for sources without a VM, and to the mount
+		// directory for exporter pods created before either name was passed in
+		// the environment.
+		volumeName := vi.VolumeName
+		if volumeName == "" {
+			volumeName = vi.PVCName
+		}
 		if volumeName == "" {
 			volumeName = path.Base(vi.Path)
 		}

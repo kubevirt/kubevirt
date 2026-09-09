@@ -175,15 +175,15 @@ func (ctrl *VMExportController) getPVCFromSourceVMTemplate(vmExport *exportv1.Vi
 		return nil, sourceVolumes, nil
 	}
 
-	pvcs, allPopulated, err := ctrl.getPVCsFromVMTemplate(tpl)
+	volumesToExport, allPopulated, err := ctrl.getSourceVolumesFromVMTemplate(tpl)
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Log.V(3).Infof("Number of volumes found for VMTemplate %s/%s: %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
+	log.Log.V(3).Infof("Number of volumes found for VMTemplate %s/%s: %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(volumesToExport), allPopulated)
 
 	sourceVolumes.isPopulated = allPopulated
 
-	if len(pvcs) == 0 && allPopulated {
+	if len(volumesToExport) == 0 && allPopulated {
 		sourceVolumes.isPopulated = true
 		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, noVolumeVMReason,
 			fmt.Sprintf("VirtualMachineTemplate %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name))
@@ -192,20 +192,20 @@ func (ctrl *VMExportController) getPVCFromSourceVMTemplate(vmExport *exportv1.Vi
 			fmt.Sprintf("Not all volumes in VirtualMachineTemplate %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name))
 	}
 
-	sourceVolumes.volumes = ctrl.pvcsToSourceVolumes(pvcs...)
+	sourceVolumes.volumes = volumesToExport
 
 	return tpl, sourceVolumes, nil
 }
 
-func (ctrl *VMExportController) getPVCsFromVMTemplate(tpl *v1beta1.VirtualMachineTemplate) ([]*corev1.PersistentVolumeClaim, bool, error) {
+func (ctrl *VMExportController) getSourceVolumesFromVMTemplate(tpl *v1beta1.VirtualMachineTemplate) ([]sourceVolume, bool, error) {
 	if tpl.Spec.VirtualMachine == nil || tpl.Spec.VirtualMachine.Raw == nil {
 		return nil, true, nil
 	}
 
-	var pvcs []*corev1.PersistentVolumeClaim
+	var volumesToExport []sourceVolume
 	allPopulated := true
 
-	addPVC := func(name string) error {
+	addPVC := func(name, volumeName string) error {
 		pvc, exists, err := ctrl.getPvc(tpl.Namespace, name)
 		if err != nil {
 			return err
@@ -218,7 +218,7 @@ func (ctrl *VMExportController) getPVCsFromVMTemplate(tpl *v1beta1.VirtualMachin
 		if err != nil {
 			return err
 		}
-		pvcs = append(pvcs, pvc)
+		volumesToExport = append(volumesToExport, ctrl.newSourceVolume(pvc, volumeName))
 		if !populated {
 			allPopulated = false
 		}
@@ -230,24 +230,31 @@ func (ctrl *VMExportController) getPVCsFromVMTemplate(tpl *v1beta1.VirtualMachin
 		return nil, false, fmt.Errorf("failed to parse embedded VM: %w", err)
 	}
 
+	// A DataVolumeTemplate is referenced by the volume named after it, that
+	// volume's name is the one belonging to the exported clone source.
+	templateVolumes := extractTemplateVolumes(obj, tpl.Spec.Parameters)
+	volumeNames := make(map[string]string, len(templateVolumes))
+	for _, volume := range templateVolumes {
+		volumeNames[volume.RawName] = volume.VolumeName
+	}
+
 	dvtPVCNames, dvtNames := extractLocalDVTPVCNames(obj, tpl.Spec.Parameters, tpl.Namespace)
-	for _, pvcName := range dvtPVCNames {
-		if err := addPVC(pvcName); err != nil {
+	for i, pvcName := range dvtPVCNames {
+		if err := addPVC(pvcName, volumeNames[dvtNames[i]]); err != nil {
 			return nil, false, err
 		}
 	}
 
-	volPVCNames := extractVolumePVCNames(obj, tpl.Spec.Parameters)
-	for rawName, resolvedName := range volPVCNames {
-		if slices.Contains(dvtNames, rawName) {
+	for _, volume := range templateVolumes {
+		if slices.Contains(dvtNames, volume.RawName) {
 			continue
 		}
-		if err := addPVC(resolvedName); err != nil {
+		if err := addPVC(volume.ResolvedName, volume.VolumeName); err != nil {
 			return nil, false, err
 		}
 	}
 
-	return pvcs, allPopulated, nil
+	return volumesToExport, allPopulated, nil
 }
 
 func (ctrl *VMExportController) isSourceVMTemplate(source *exportv1.VirtualMachineExportSpec) bool {
@@ -272,6 +279,13 @@ func extractLocalDVTPVCNames(obj map[string]any, params []v1beta1.Parameter, nam
 		dvtNames = append(dvtNames, dvt.DVTName)
 	}
 	return pvcNames, dvtNames
+}
+
+// templateVolume describes a volume of the embedded VM referencing a PVC.
+type templateVolume struct {
+	VolumeName   string
+	RawName      string
+	ResolvedName string
 }
 
 // localDVTPVC describes a DataVolumeTemplate with a local PVC source.
@@ -321,17 +335,17 @@ func findLocalDVTPVCs(obj map[string]any, params []v1beta1.Parameter, namespace 
 	return results
 }
 
-// extractVolumePVCNames returns a map from raw volume PVC name to resolved
-// PVC name for volumes that reference a PersistentVolumeClaim or DataVolume.
-// The raw name is useful for dedup against DVT names (which may contain
-// parameter placeholders). Volumes with unresolvable placeholders are skipped.
-func extractVolumePVCNames(obj map[string]any, params []v1beta1.Parameter) map[string]string {
+// extractTemplateVolumes returns the volumes referencing a PersistentVolumeClaim
+// or DataVolume, in the order they appear. The raw name is useful for dedup
+// against DVT names (which may contain parameter placeholders). Volumes with
+// unresolvable placeholders are skipped.
+func extractTemplateVolumes(obj map[string]any, params []v1beta1.Parameter) []templateVolume {
 	volumes, found, _ := unstructured.NestedSlice(obj, "spec", "template", "spec", "volumes")
 	if !found {
 		return nil
 	}
 
-	names := make(map[string]string)
+	var results []templateVolume
 	for _, vol := range volumes {
 		volMap, ok := vol.(map[string]any)
 		if !ok {
@@ -348,10 +362,15 @@ func extractVolumePVCNames(obj map[string]any, params []v1beta1.Parameter) map[s
 		if !ok {
 			continue
 		}
-		names[name] = resolved
+		volumeName, _, _ := unstructured.NestedString(volMap, "name")
+		results = append(results, templateVolume{
+			VolumeName:   volumeName,
+			RawName:      name,
+			ResolvedName: resolved,
+		})
 	}
 
-	return names
+	return results
 }
 
 // rewriteEmbeddedVM rewrites the embedded VM's DataVolumeTemplates and

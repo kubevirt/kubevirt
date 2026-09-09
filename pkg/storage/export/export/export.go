@@ -205,7 +205,19 @@ type sourceVolumes struct {
 
 type sourceVolume struct {
 	pvc                 *corev1.PersistentVolumeClaim
+	volumeName          string
 	kubevirtContentType bool
+}
+
+// newSourceVolume builds a volume to export from a PVC and the name of the
+// volume referencing it in the source. The volume name is empty for sources
+// that have no VM.
+func (ctrl *VMExportController) newSourceVolume(pvc *corev1.PersistentVolumeClaim, volumeName string) sourceVolume {
+	return sourceVolume{
+		pvc:                 pvc,
+		volumeName:          volumeName,
+		kubevirtContentType: ctrl.isKubevirtContentType(pvc),
+	}
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
@@ -271,7 +283,7 @@ func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
 				},
 			},
 		})
-		addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint, volume.kubevirtContentType)
+		addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], volume, i, mountPoint)
 	}
 }
 
@@ -1486,38 +1498,41 @@ func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachin
 	return nil, nil
 }
 
-func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string, isKubevirt bool) {
+func addVolumeEnvironmentVariables(exportContainer *corev1.Container, volume sourceVolume, index int, mountPoint string) {
 	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
 		Value: mountPoint,
 	}, corev1.EnvVar{
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PVC_NAME", index),
-		Value: pvc.Name,
+		Value: volume.pvc.Name,
+	}, corev1.EnvVar{
+		Name:  fmt.Sprintf("VOLUME%d_EXPORT_VOLUME_NAME", index),
+		Value: volume.volumeName,
 	})
-	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
+	if types.IsPVCBlock(volume.pvc.Spec.VolumeMode) {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-			Value: rawURI(pvc),
+			Value: rawURI(volume.pvc),
 		}, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-			Value: rawGzipURI(pvc),
+			Value: rawGzipURI(volume.pvc),
 		})
 	} else {
-		if isKubevirt {
+		if volume.kubevirtContentType {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-				Value: rawURI(pvc),
+				Value: rawURI(volume.pvc),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-				Value: rawGzipURI(pvc),
+				Value: rawGzipURI(volume.pvc),
 			})
 		} else {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_ARCHIVE_URI", index),
-				Value: archiveURI(pvc),
+				Value: archiveURI(volume.pvc),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_DIR_URI", index),
-				Value: dirURI(pvc),
+				Value: dirURI(volume.pvc),
 			})
 		}
 	}
@@ -1891,20 +1906,6 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 			},
 		},
 	}, nil
-}
-
-func (ctrl *VMExportController) pvcsToSourceVolumes(pvcs ...*corev1.PersistentVolumeClaim) []sourceVolume {
-	if len(pvcs) == 0 {
-		return nil
-	}
-	volumes := make([]sourceVolume, 0, len(pvcs))
-	for _, pvc := range pvcs {
-		volumes = append(volumes, sourceVolume{
-			pvc:                 pvc,
-			kubevirtContentType: ctrl.isKubevirtContentType(pvc),
-		})
-	}
-	return volumes
 }
 
 func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {

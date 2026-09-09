@@ -308,7 +308,18 @@ var _ = Describe("OCI export", func() {
 			Expect(os.WriteFile(filepath.Join(dir, "disk.img"), []byte("data"), 0o600)).To(Succeed())
 		})
 
-		It("should name the disk after the PVC", func() {
+		It("should name the disk after the volume of the VM", func() {
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "fedora-vm-rootdisk", VolumeName: "rootdisk"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: "rootdisk",
+			}))
+		})
+
+		It("should fall back to the PVC name without a volume name", func() {
 			disks, err := collectDiskInfo(&export.ServerPaths{
 				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "my.disk"}},
 			})
@@ -319,7 +330,7 @@ var _ = Describe("OCI export", func() {
 			}))
 		})
 
-		It("should fall back to the mount directory without a PVC name", func() {
+		It("should fall back to the mount directory without either name", func() {
 			disks, err := collectDiskInfo(&export.ServerPaths{
 				Volumes: []export.VolumeInfo{{Path: dir}},
 			})
