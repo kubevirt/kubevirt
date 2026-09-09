@@ -78,7 +78,7 @@ var (
 
 	migrateVmiLastDowntime = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_migration_last_downtime_seconds",
+			Name: "kubevirt_vmi_migration_last_downtime_duration_seconds",
 			Help: "Time, in seconds, the guest was paused during the cut-over of its last successful live migration, reported by the source node.",
 		},
 	)
