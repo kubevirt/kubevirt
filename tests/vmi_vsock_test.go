@@ -238,7 +238,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should return err if no app listerns on the port", func() {
+	It("should return err if no app listeners on the port", func() {
 		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")
