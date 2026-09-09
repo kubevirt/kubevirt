@@ -3572,6 +3572,51 @@ var _ = Describe("Manager", func() {
 				Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
 			})
 		})
+
+		Context("annotation pause with migration probe suppression", func() {
+			AfterEach(func() {
+				metadataCache.Migration.Set(api.MigrationMetadata{})
+			})
+
+			DescribeTable("should combine annotation pause and migration suppression",
+				func(probesPaused bool, migrationInProgress bool, expectSuccess bool) {
+					agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+					manager, _ := newLibvirtDomainManagerDefault()
+					ldm := manager.(*LibvirtDomainManager)
+					ldm.guestAgentProbePaused.Store(probesPaused)
+
+					if migrationInProgress {
+						now := metav1.Now()
+						metadataCache.Migration.Store(api.MigrationMetadata{
+							UID:            "test-migration-uid",
+							StartTimestamp: &now,
+							Mode:           v1.MigrationPreCopy,
+						})
+					}
+
+					if probesPaused {
+						Expect(manager.GuestPing(testDomainName)).To(Succeed())
+						return
+					}
+
+					mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+					if !migrationInProgress {
+						mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+						mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+					}
+
+					if expectSuccess {
+						Expect(manager.GuestPing(testDomainName)).To(Succeed())
+					} else {
+						Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+					}
+				},
+				Entry("annotation pause skips probe during migration", true, true, true),
+				Entry("annotation pause skips probe without migration", true, false, true),
+				Entry("migration suppresses agent errors without annotation pause", false, true, true),
+				Entry("probe fails when neither pause nor migration applies", false, false, false),
+			)
+		})
 	})
 
 	Context("syncGuestAgentProbePaused", func() {
