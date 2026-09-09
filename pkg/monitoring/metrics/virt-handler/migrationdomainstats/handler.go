@@ -121,7 +121,8 @@ func (h *handler) Collect() []result {
 		}
 
 		vmi, ok := obj.(*v1.VirtualMachineInstance)
-		if !ok || string(vmi.UID) != completedStats.vmiUID || hasNewerSuccessfulMigration(vmi, completedStats.migrationUID, completedStats.migrationStartTimestamp) {
+		if !ok || string(vmi.UID) != completedStats.vmiUID ||
+			hasNewerSuccessfulMigration(vmi, completedStats.migrationUID, completedStats.migrationStartTimestamp) {
 			delete(h.completedMigrationStats, key)
 			continue
 		}
@@ -170,7 +171,10 @@ func (h *handler) handleDomainCompletedMigrationStats(obj interface{}) {
 		return
 	}
 	if domainUID != vmi.UID {
-		log.Log.V(logVerbosityInfo).Infof("dropping stale completed migration stats for VMI %s: domain UID %q does not match VMI UID %q", key, domainUID, vmi.UID)
+		log.Log.V(logVerbosityInfo).Infof(
+			"dropping stale completed migration stats for VMI %s: domain UID %q does not match VMI UID %q",
+			key, domainUID, vmi.UID,
+		)
 		return
 	}
 
