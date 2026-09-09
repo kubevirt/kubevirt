@@ -31,6 +31,7 @@ var _ = Describe("NVIDIA Grace PCI IDs", func() {
 		Entry("Grace GPU", "10DE", "2342", true),
 		Entry("Grace GPU with sysfs prefixes", "0x10de", "0x2348", true),
 		Entry("Grace GPU with mixed case", "10de", "2941", true),
+		Entry("Vera Rubin GPU", "10DE", "3041", true),
 		Entry("Grace GPU with surrounding spaces", " 10de ", " 2342 ", true),
 		Entry("empty vendor", "", "2342", false),
 		Entry("empty device", "10DE", "", false),

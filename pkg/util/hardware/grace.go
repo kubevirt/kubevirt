@@ -26,12 +26,14 @@ const (
 	nvidiaGraceGPUDeviceID2342 = "2342"
 	nvidiaGraceGPUDeviceID2348 = "2348"
 	nvidiaGraceGPUDeviceID2941 = "2941"
+	nvidiaVeraGPUDeviceID3041  = "3041"
 )
 
 var nvidiaGraceGPUDeviceIDs = map[string]struct{}{
 	nvidiaGraceGPUDeviceID2342: {},
 	nvidiaGraceGPUDeviceID2348: {},
 	nvidiaGraceGPUDeviceID2941: {},
+	nvidiaVeraGPUDeviceID3041:  {},
 }
 
 type PCIVendorSelector struct {
