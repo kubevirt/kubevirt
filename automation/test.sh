@@ -95,17 +95,6 @@ case "$TARGET" in
       export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
     fi
     ;;
-  *emulated-igb*)
-    export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
-    export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
-    export KUBEVIRT_WITH_SRIOV=true
-    export KUBEVIRT_NUM_NUMA_NODES=2
-    export KUBEVIRT_NUM_NODES=3
-    export KUBEVIRT_DEPLOY_CDI=false
-    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
-    export KUBEVIRT_E2E_PARALLEL=false
-    export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
-    ;;
   *sig-storage*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
     export KUBEVIRT_STORAGE="rook-ceph-default"
@@ -614,8 +603,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     else
       label_filter='(sig-operator)'
     fi
-  elif [[ $TARGET =~ emulated-igb ]]; then
-    label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
   else
