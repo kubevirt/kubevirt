@@ -141,7 +141,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
 
-		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
+		os.MkdirAll(filepath.Join(vmiShareDir, "run", "kubevirt"), 0755)
 
 		cmdclient.SetPodsBaseDir(podsDir)
 

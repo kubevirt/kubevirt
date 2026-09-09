@@ -1987,6 +1987,9 @@ var _ = Describe("Manager", func() {
 				TargetPod:    "fakepod",
 			}
 
+			By("PrepareMigrationTarget safepath requires an absolute, existing directory")
+			testVirtShareDir = GinkgoT().TempDir()
+
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})

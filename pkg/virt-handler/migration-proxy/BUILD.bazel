@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/safepath:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

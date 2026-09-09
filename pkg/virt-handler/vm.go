@@ -2615,9 +2615,10 @@ func (c *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 	if err != nil {
 		return err
 	}
-	// the migration-proxy is no longer shared via host mount, so we
-	// pass in the virt-launcher's baseDir to reach the unix sockets.
-	baseDir := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
+	mountRoot, err := res.MountRoot()
+	if err != nil {
+		return err
+	}
 	c.migrationProxy.StopTargetListener(string(vmi.UID))
 	if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 		msg := "No migration proxy has been created for this vmi"
@@ -2627,7 +2628,7 @@ func (c *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMac
 		string(vmi.UID),
 		vmi.Status.MigrationState.TargetNodeAddress,
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
-		baseDir,
+		mountRoot,
 	)
 	if err != nil {
 		return err
