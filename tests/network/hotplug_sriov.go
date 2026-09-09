@@ -159,10 +159,7 @@ func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourc
 }
 
 func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
-	mac, err := libnet.GenerateRandomMac()
-	if err != nil {
-		return err
-	}
+	mac := libnet.GenerateRandomMac()
 	newNetwork := *libvmi.MultusNetwork(name, netAttachDefName)
 	newIface := libvmi.NewInterface(name, libvmi.WithSRIOVBinding(), libvmi.WithMac(mac.String()))
 	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
