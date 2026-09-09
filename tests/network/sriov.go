@@ -109,7 +109,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
-				libvmi.WithCPUCount(4, 0, 0),
+				libvmi.WithCPUCount(2, 0, 0),
 				libvmi.WithDedicatedCPUPlacement(),
 				libvmi.WithInterface(libvmi.NewInterface(
 					v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
@@ -838,10 +838,7 @@ func createSRIOVVmi(networkName, cidr string, opts ...libvmi.Option) (*v1.Virtua
 	//
 	// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
 	// ability of VMIs to send and receive ICMP packets on their ports.
-	mac, err := libnet.GenerateRandomMac()
-	if err != nil {
-		return nil, err
-	}
+	mac := libnet.GenerateRandomMac()
 
 	// manually configure IP/link on sriov interfaces because there is
 	// no DHCP server to serve the address to the guest
@@ -853,7 +850,7 @@ func createSRIOVVmi(networkName, cidr string, opts ...libvmi.Option) (*v1.Virtua
 	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
 
 	virtCli := kubevirt.Client()
-	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	vmi, err := virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi, nil
 }

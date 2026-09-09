@@ -143,7 +143,7 @@ func newBindingPluginAnnotationData(
 	return &networkv1.NetworkSelectionElement{
 		Namespace: nadNamespacedName.Namespace,
 		Name:      nadNamespacedName.Name,
-		CNIArgs: &map[string]interface{}{
+		CNIArgs: &map[string]any{
 			cniArgNetworkName: networkName,
 		},
 	}, nil

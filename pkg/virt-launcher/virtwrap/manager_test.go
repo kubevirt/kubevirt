@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,6 +52,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
@@ -3574,6 +3577,68 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	Context("on GetAgentData", func() {
+		const devicesCmd = `{"execute":"guest-get-devices"}`
+
+		newVMStatsCollectorManager := func() DomainManager {
+			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, testDomainName, true, false, false, nil)
+			Expect(err).ToNot(HaveOccurred())
+			return manager
+		}
+
+		It("should return the agent data when the command succeeds", func() {
+			const devicesData = `{"return":[{"driver-name":"vioscsi"}]}`
+			manager := newVMStatsCollectorManager()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return(devicesData, nil).Times(1)
+
+			data, err := manager.GetAgentData("guest-get-devices")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(Equal(devicesData))
+		})
+
+		It("should cache an empty successful result when the guest agent does not support the command", func() {
+			manager := newVMStatsCollectorManager()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}).Times(1)
+
+			data, err := manager.GetAgentData("guest-get-devices")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(BeEmpty())
+
+			// The empty result is cached, so the unsupported command is not re-issued within the TTL.
+			data, err = manager.GetAgentData("guest-get-devices")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(BeEmpty())
+		})
+
+		It("should surface unexpected libvirt errors", func() {
+			manager := newVMStatsCollectorManager()
+			connErr := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", connErr)
+
+			_, err := manager.GetAgentData("guest-get-devices")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return an error for an unknown command", func() {
+			manager := newVMStatsCollectorManager()
+			_, err := manager.GetAgentData("guest-get-unknown")
+			Expect(err).To(MatchError(ContainSubstring("cache not found")))
+		})
+	})
+
+	DescribeTable("isAgentCommandNotSupported",
+		func(err error, expected bool) {
+			Expect(isAgentCommandNotSupported(err)).To(Equal(expected))
+		},
+		Entry("nil error", nil, false),
+		Entry("unsupported argument", libvirt.Error{Code: libvirt.ERR_ARGUMENT_UNSUPPORTED}, true),
+		Entry("unsupported operation", libvirt.Error{Code: libvirt.ERR_OPERATION_UNSUPPORTED}, true),
+		Entry("no support", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}, true),
+		Entry("wrapped no support", fmt.Errorf("agent command failed: %w", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}), true),
+		Entry("unrelated libvirt error", libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}, false),
+		Entry("non-libvirt error", fmt.Errorf("boom"), false),
+	)
+
 	Context("syncGuestAgentProbePaused", func() {
 		DescribeTable("should parse annotation value correctly",
 			func(annotations map[string]string, expected bool) {
@@ -4335,6 +4400,61 @@ var _ = Describe("Manager helper functions", func() {
 				},
 			}
 			Expect(isPVCBacked("nonexistent", vmi)).To(BeFalse())
+		})
+	})
+
+	Context("expandDiskImageOffline preallocation flag", func() {
+		const (
+			volumeName = "pvc-disk"
+			imagePath  = "/data/disk.img"
+			newSize    = 2 * 1024 * 1024
+		)
+
+		var (
+			origRunQemuImgResize func([]string) ([]byte, error)
+			capturedArgs         []string
+		)
+
+		BeforeEach(func() {
+			origRunQemuImgResize = runQemuImgResize
+			capturedArgs = nil
+			runQemuImgResize = func(args []string) ([]byte, error) {
+				capturedArgs = args
+				return nil, nil
+			}
+		})
+
+		AfterEach(func() {
+			runQemuImgResize = origRunQemuImgResize
+		})
+
+		expandedPVCVMI := func(preallocated bool) *v1.VirtualMachineInstance {
+			return libvmi.New(
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+						Name: volumeName,
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							Preallocated: preallocated,
+						},
+					}),
+				)),
+			)
+		}
+
+		It("should request --preallocation=falloc when the PVC is preallocated", func() {
+			vmi := expandedPVCVMI(true)
+
+			Expect(expandDiskImageOffline(imagePath, newSize, isPVCPreallocated(volumeName, vmi))).To(Succeed())
+
+			Expect(capturedArgs).To(ConsistOf("resize", "--preallocation=falloc", imagePath, strconv.FormatInt(newSize, 10)))
+		})
+
+		It("should request --preallocation=off when the PVC is not preallocated", func() {
+			vmi := expandedPVCVMI(false)
+
+			Expect(expandDiskImageOffline(imagePath, newSize, isPVCPreallocated(volumeName, vmi))).To(Succeed())
+
+			Expect(capturedArgs).To(ConsistOf("resize", "--preallocation=off", imagePath, strconv.FormatInt(newSize, 10)))
 		})
 	})
 

@@ -242,6 +242,7 @@ lint:
 	hack/dockerized "hack/golangci-lint.sh"
 	hack/dockerized "monitoringlinter ./pkg/..."
 	hack/dockerized "hack/license-header-check.sh"
+	hack/dockerized "hack/go-fix.sh --diff"
 
 lint-metrics:
 	hack/dockerized "./hack/prom-metric-linter/metrics_collector.sh > metrics.json"
@@ -250,6 +251,9 @@ lint-metrics:
 
 gofumpt:
 	./hack/dockerized "hack/gofumpt.sh"
+
+gofix:
+	./hack/dockerized "hack/go-fix.sh"
 
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh

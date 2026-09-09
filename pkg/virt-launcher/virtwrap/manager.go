@@ -156,6 +156,7 @@ var agentDataCommandTTLs = map[string]time.Duration{
 	"guest-get-timezone":           fiveMinutes,
 	"guest-network-get-route":      fiveMinutes,
 	"guest-network-get-interfaces": fiveMinutes,
+	"guest-get-devices":            fiveMinutes,
 
 	// 30min
 	"guest-get-memory-blocks": thirtyMinutes,
@@ -431,7 +432,16 @@ func newLibvirtDomainManager(
 		manager.agentDataCaches = make(map[string]*virtcache.TimeDefinedCache[string], len(agentDataCommandTTLs))
 		for cmd, ttl := range agentDataCommandTTLs {
 			reCalcFunc := func() (string, error) {
-				return connection.QemuAgentCommand(`{"execute":"`+string(cmd)+`"}`, domainName)
+				data, err := connection.QemuAgentCommand(`{"execute":"`+cmd+`"}`, domainName)
+				if err != nil && isAgentCommandNotSupported(err) {
+					// The guest agent does not implement this command (for
+					// example guest-get-devices on non-Windows guests). Treat it
+					// as an empty successful result so the cache records a
+					// timestamp and does not re-issue the command until the TTL
+					// elapses.
+					return "", nil
+				}
+				return data, err
 			}
 			cache, err := virtcache.NewTimeDefinedCache(ttl, true, reCalcFunc)
 			if err != nil {
@@ -1046,7 +1056,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated)
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated) //nolint:staticcheck
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1068,10 +1078,20 @@ func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func isPVCPreallocated(volumeName string, vmi *v1.VirtualMachineInstance) bool {
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == volumeName && vs.PersistentVolumeClaimInfo != nil {
+			return vs.PersistentVolumeClaimInfo.Preallocated
+		}
+	}
+	return false
+}
+
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
-		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+		volumeName := disk.Alias.GetName()
+		if !isPVCBacked(volumeName, vmi) {
 			continue
 		}
 		if shouldExpandOffline(disk) {
@@ -1081,7 +1101,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 				logger.Errorf("Failed to get possible guest size from disk")
 				continue
 			}
-			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize)
+			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize, isPVCPreallocated(volumeName, vmi))
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -1089,20 +1109,33 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 	}
 }
 
-func expandDiskImageOffline(imagePath string, size int64) error {
-	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
+func qemuImgResizeArgs(imagePath string, size int64, preallocated bool) ([]string, error) {
 	var preallocateFlag string
-	if converter.IsPreAllocated(imagePath) {
+	if preallocated {
 		preallocateFlag = "--preallocation=falloc"
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
 	size = kutil.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
 	if size == 0 {
-		return fmt.Errorf("%s must be at least 1MiB", imagePath)
+		return nil, fmt.Errorf("%s must be at least 1MiB", imagePath)
 	}
-	cmd := exec.Command("/usr/bin/qemu-img", "resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10))
-	out, err := cmd.CombinedOutput()
+	return []string{"resize", preallocateFlag, imagePath, strconv.FormatInt(size, 10)}, nil
+}
+
+// runQemuImgResize is a variable so tests can substitute it and observe the
+// args qemu-img would be invoked with, without running the real binary.
+var runQemuImgResize = func(args []string) ([]byte, error) {
+	return exec.Command("/usr/bin/qemu-img", args...).CombinedOutput()
+}
+
+func expandDiskImageOffline(imagePath string, size int64, preallocated bool) error {
+	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
+	args, err := qemuImgResizeArgs(imagePath, size, preallocated)
+	if err != nil {
+		return err
+	}
+	out, err := runQemuImgResize(args)
 	if err != nil {
 		return fmt.Errorf("expanding image failed with error: %v, output: %s", err, out)
 	}
@@ -1573,7 +1606,7 @@ func (l *LibvirtDomainManager) syncDisks(
 		if err != nil {
 			return err
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
+		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated) //nolint:staticcheck
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
@@ -3029,6 +3062,17 @@ func AgentDataCommandTTLKeys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func isAgentCommandNotSupported(err error) bool {
+	var libvirtErr libvirt.Error
+	if !errors.As(err, &libvirtErr) {
+		return false
+	}
+
+	return libvirtErr.Code == libvirt.ERR_ARGUMENT_UNSUPPORTED ||
+		libvirtErr.Code == libvirt.ERR_OPERATION_UNSUPPORTED ||
+		libvirtErr.Code == libvirt.ERR_NO_SUPPORT
 }
 
 func selectEFIEnvironment(hostEFI *efi.EFIEnvironment, ovmfPath string, allowCrossArchEmulation bool, guestArch string) *efi.EFIEnvironment {

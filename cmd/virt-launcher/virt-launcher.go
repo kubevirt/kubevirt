@@ -48,7 +48,6 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
-	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -122,7 +121,8 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	libvirtUri := "qemu:///system"
 	user := ""
 	if runWithNonRoot {
-		user = putil.NonRootUserString
+		const nonRootUserString = "qemu"
+		user = nonRootUserString
 		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock"
 	}
 
