@@ -1,9 +1,7 @@
 package util
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"path/filepath"
 	"strings"
 
@@ -145,22 +143,6 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
 	expectedPvcSize.Add(*vmiMemoryReq)
 	return expectedPvcSize
-}
-
-// GenerateVMExportToken creates a cryptographically secure token for VM export
-func GenerateVMExportToken() (string, error) {
-	const alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	const tokenLen = 20
-	ret := make([]byte, tokenLen)
-	for i := range ret {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphanums))))
-		if err != nil {
-			return "", err
-		}
-		ret[i] = alphanums[num.Int64()]
-	}
-
-	return string(ret), nil
 }
 
 // GenerateKubeVirtGroupVersionKind ensures a provided object registered with KubeVirts generated schema
