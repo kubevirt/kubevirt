@@ -90,7 +90,7 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
-    if [[ "${KUBEVIRT_PROVIDER}" == "${SRIOV_TEST_LANE}" ]]; then
+    if [[ "${KUBEVIRT_PROVIDER}" == "${SRIOV_TEST_LANE}" && $JOB_NAME =~ ^(pull|periodic)-kubevirt-e2e-${SRIOV_TEST_LANE}-sig-network$ ]]; then
       export KUBEVIRT_WITH_SRIOV=true
       export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
     fi
@@ -554,7 +554,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter="(sig-network && (${NETWORK_SMOKE_LABELS}))"
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
-    if [[ "${KUBEVIRT_PROVIDER}" != "${SRIOV_TEST_LANE}" ]]; then
+    if [[ ! $JOB_NAME =~ ^(pull|periodic)-kubevirt-e2e-${SRIOV_TEST_LANE}-sig-network$ ]]; then
       add_to_label_filter "(!SRIOV)" "&&"
     fi
     if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
