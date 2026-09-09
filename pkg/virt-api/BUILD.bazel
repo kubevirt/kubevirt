@@ -1,8 +1,11 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["api.go"],
+    srcs = [
+        "api.go",
+        "api_legacy.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-api",
     visibility = ["//visibility:public"],
     deps = [
@@ -21,6 +24,13 @@ go_library(
         "//pkg/util/openapi:go_default_library",
         "//pkg/util/ratelimiter:go_default_library",
         "//pkg/util/tls:go_default_library",
+        "//pkg/virt-api/apiserver:go_default_library",
+        "//pkg/virt-api/apiserver/cluster/clusterprofiler:go_default_library",
+        "//pkg/virt-api/apiserver/cluster/expand:go_default_library",
+        "//pkg/virt-api/apiserver/cluster/guestfs:go_default_library",
+        "//pkg/virt-api/apiserver/cluster/version:go_default_library",
+        "//pkg/virt-api/apiserver/storage/virtualmachine:go_default_library",
+        "//pkg/virt-api/apiserver/storage/virtualmachineinstance:go_default_library",
         "//pkg/virt-api/definitions:go_default_library",
         "//pkg/virt-api/rest:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
@@ -47,32 +57,5 @@ go_library(
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
         "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/validation/spec:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "api_test.go",
-        "virt-api_suite_test.go",
-    ],
-    embed = [":go_default_library"],
-    race = "on",
-    deps = [
-        "//pkg/util:go_default_library",
-        "//pkg/virt-api/rest:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/onsi/gomega/ghttp:go_default_library",
-        "//vendor/go.uber.org/mock/gomock:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1:go_default_library",
-        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
-        "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
-        "//vendor/k8s.io/kube-openapi/pkg/handler3:go_default_library",
-        "//vendor/k8s.io/kube-openapi/pkg/spec3:go_default_library",
     ],
 )

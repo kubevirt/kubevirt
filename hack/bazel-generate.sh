@@ -11,6 +11,7 @@ rm -f vendor/libguestfs.org/libnbd/BUILD.bazel
 # preventing gazelle from generating BUILD files for this directory
 rm -f vendor/cel.dev/expr/BUILD.bazel
 rm -f vendor/cel.dev/expr/WORKSPACE vendor/cel.dev/expr/WORKSPACE.bzlmod vendor/cel.dev/expr/MODULE.bazel
+find vendor/github.com/grpc-ecosystem/grpc-gateway -name BUILD.bazel -delete
 
 # generate BUILD files
 bazel run \

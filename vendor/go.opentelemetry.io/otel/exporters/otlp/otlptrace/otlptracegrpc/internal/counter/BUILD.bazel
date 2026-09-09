@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["counter.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/counter",
+    importpath = "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/counter",
+    visibility = ["//vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc:__subpackages__"],
+)

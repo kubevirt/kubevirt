@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "interface.go",
+        "matcher.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions",
+    importpath = "k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/cel-go/cel:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/metrics:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/admission/plugin/cel:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/apis/cel:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/authorization/authorizer:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+    ],
+)

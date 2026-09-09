@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["parser.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/sharding",
+    importpath = "k8s.io/apiserver/pkg/sharding",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/cel-go/common:go_default_library",
+        "//vendor/github.com/google/cel-go/common/ast:go_default_library",
+        "//vendor/github.com/google/cel-go/common/operators:go_default_library",
+        "//vendor/github.com/google/cel-go/parser:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/sharding:go_default_library",
+    ],
+)

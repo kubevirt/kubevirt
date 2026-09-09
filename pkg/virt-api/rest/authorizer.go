@@ -219,15 +219,7 @@ func addNamespacedResourceAttributes(pathSplit []string, requestMethod string, r
 	namespace := pathSplit[5]
 	resource := pathSplit[6]
 	resourceName := pathSplit[7]
-
-	// portforward requires special handling since it encodes the protocol and port into the URI.
-	// Protocol and port should not be subject to RBAC.
-	var subresource string
-	if pathSplit[8] == "portforward" {
-		subresource = pathSplit[8]
-	} else {
-		subresource = strings.Join(pathSplit[8:], "/")
-	}
+	subresource := pathSplit[8]
 
 	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
 		return fmt.Errorf("unknown resource type %s", resource)

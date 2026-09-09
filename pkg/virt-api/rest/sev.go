@@ -144,7 +144,7 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 	}
 
 	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patch))
-	if _, err := app.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to patch vmi")
 		writeError(errors.NewInternalError(err), response)
 		return

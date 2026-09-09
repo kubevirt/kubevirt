@@ -344,7 +344,7 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 		VirtAPIName,
 	}
 	container.Args = []string{
-		portName,
+		"--secure-port",
 		"8443",
 		"--console-server-port",
 		"8186",
@@ -364,19 +364,56 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 			ContainerPort: 8443,
 		},
 	}
-	container.ReadinessProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Scheme: corev1.URISchemeHTTPS,
-				Port: intstr.IntOrString{
-					Type:   intstr.Int,
-					IntVal: 8443,
+
+	if config.GenericAPIServerEnabled() {
+		// The GenericAPIServer based virt-api serves the standard k8s
+		// /livez and /readyz probe endpoints.
+		container.Args = append(container.Args, "--use-generic-apiserver")
+		container.LivenessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Scheme: corev1.URISchemeHTTPS,
+					Port: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8443,
+					},
+					Path: "/livez",
 				},
-				Path: path.Join("/apis/subresources.kubevirt.io", virtv1.SubresourceGroupVersions[0].Version, "healthz"),
 			},
-		},
-		InitialDelaySeconds: 15,
-		PeriodSeconds:       10,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+		}
+		container.ReadinessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Scheme: corev1.URISchemeHTTPS,
+					Port: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8443,
+					},
+					Path: "/readyz",
+				},
+			},
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+		}
+	} else {
+		// The legacy go-restful based virt-api exposes its health endpoint
+		// under the subresource API group.
+		container.ReadinessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Scheme: corev1.URISchemeHTTPS,
+					Port: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8443,
+					},
+					Path: path.Join("/apis/subresources.kubevirt.io", virtv1.SubresourceGroupVersions[0].Version, "healthz"),
+				},
+			},
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+		}
 	}
 
 	container.Resources = corev1.ResourceRequirements{

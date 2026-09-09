@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["guestfs.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-api/apiserver/cluster/guestfs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-config:go_default_library",
+        "//pkg/virt-operator/util:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)

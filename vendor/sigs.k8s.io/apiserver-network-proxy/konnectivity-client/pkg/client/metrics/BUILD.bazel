@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metrics.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics",
+    importpath = "sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/common/metrics:go_default_library",
+        "//vendor/sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client:go_default_library",
+    ],
+)

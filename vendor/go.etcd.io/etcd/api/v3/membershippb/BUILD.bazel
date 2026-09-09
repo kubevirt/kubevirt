@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["membership.pb.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/go.etcd.io/etcd/api/v3/membershippb",
+    importpath = "go.etcd.io/etcd/api/v3/membershippb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/gogo/protobuf/gogoproto:go_default_library",
+        "//vendor/github.com/golang/protobuf/proto:go_default_library",
+        "//vendor/go.etcd.io/etcd/api/v3/versionpb:go_default_library",
+    ],
+)
