@@ -152,17 +152,10 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == vmi.Name {
-						migration = mig.DeepCopy()
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue())
+			Eventually(func() *v1.VirtualMachineInstanceMigration {
+				migration = findMigrationByVMIName(virtClient, vm.Namespace, vmi.Name)
+				return migration
+			}, 30*time.Second, time.Second).ShouldNot(BeNil())
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the virt-launcher pod now has 400m CPU")
@@ -324,16 +317,9 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == vmi.Name {
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue())
+			Eventually(func() *v1.VirtualMachineInstanceMigration {
+				return findMigrationByVMIName(virtClient, vm.Namespace, vmi.Name)
+			}, 30*time.Second, time.Second).ShouldNot(BeNil())
 
 			// Add annotation to cancel the workload update
 			By("Patching the workload migration abortion annotation")
@@ -350,20 +336,24 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 
 			// Wait until the migration is cancelled by the workload
 			// updater
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					if mig.Spec.VMIName == vmi.Name {
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeFalse())
+			Eventually(func() *v1.VirtualMachineInstanceMigration {
+				return findMigrationByVMIName(virtClient, vm.Namespace, vmi.Name)
+			}, 30*time.Second, time.Second).Should(BeNil())
 
 		})
 	})
 })
+
+func findMigrationByVMIName(virtClient kubecli.KubevirtClient, namespace, vmiName string) *v1.VirtualMachineInstanceMigration {
+	migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	for _, mig := range migrations.Items {
+		if mig.Spec.VMIName == vmiName {
+			return &mig
+		}
+	}
+	return nil
+}
 
 // The VMI is assumed to be already logged-in.
 func getGuestVirtualCpus(vmi *v1.VirtualMachineInstance) (int, error) {
