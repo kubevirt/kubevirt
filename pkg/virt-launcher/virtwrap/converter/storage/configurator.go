@@ -271,7 +271,6 @@ func getDefaultLatencyHistogramBins() []api.DiskDriverLatencyHistBin {
 		{Start: 500_000_000},
 		{Start: 1_000_000_000},
 		{Start: 2_000_000_000},
-		{Start: 5_000_000_000},
 	}
 }
 
