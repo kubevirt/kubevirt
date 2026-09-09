@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -475,9 +474,10 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 	if err != nil {
 		return err
 	}
-	// the migration-proxy is no longer shared via host mount, so we
-	// pass in the virt-launcher's baseDir to reach the unix sockets.
-	baseDir := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
+	mountRoot, err := res.MountRoot()
+	if err != nil {
+		return err
+	}
 	if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 		return errWaitingForTargetPorts
 	}
@@ -486,7 +486,7 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 		string(vmi.UID),
 		vmi.Status.MigrationState.TargetNodeAddress,
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
-		baseDir,
+		mountRoot,
 	)
 	if err != nil {
 		return err
