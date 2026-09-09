@@ -918,9 +918,9 @@ func lookupDeviceVCPUAffinityOnPod(pod *k8sv1.Pod, pciAddress string, domSpec *a
 	return alignedVCPUs
 }
 
-func withLinkState() func(map[string]interface{}) {
+func withLinkState() func(map[string]any) {
 	if flags.EmulatedSRIOV {
-		return func(_ map[string]interface{}) {}
+		return func(_ map[string]any) {}
 	}
 	return libnet.WithLinkState()
 }

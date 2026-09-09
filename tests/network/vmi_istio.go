@@ -505,14 +505,14 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 
 func generateStrictPeerAuthentication() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", securityIstioIO, istioApiVersion),
 			"kind":       "PeerAuthentication",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "strict-pa",
 			},
-			"spec": map[string]interface{}{
-				"mtls": map[string]interface{}{
+			"spec": map[string]any{
+				"mtls": map[string]any{
 					"mode": "STRICT",
 				},
 			},
@@ -522,14 +522,14 @@ func generateStrictPeerAuthentication() *unstructured.Unstructured {
 
 func generateRegistryOnlySidecar() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "Sidecar",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "registry-only-sidecar",
 			},
-			"spec": map[string]interface{}{
-				"outboundTrafficPolicy": map[string]interface{}{
+			"spec": map[string]any{
+				"outboundTrafficPolicy": map[string]any{
 					"mode": "REGISTRY_ONLY",
 				},
 			},
@@ -539,32 +539,32 @@ func generateRegistryOnlySidecar() *unstructured.Unstructured {
 
 func generateVirtualService() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "VirtualService",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "vmi-server-vs",
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"gateways": []string{
 					vmiServerGateway,
 				},
 				"hosts": []string{
 					fmt.Sprintf("%s.example.com", vmiServerHostName),
 				},
-				"http": []interface{}{
-					map[string]interface{}{
-						"match": []map[string]interface{}{
+				"http": []any{
+					map[string]any{
+						"match": []map[string]any{
 							{
-								"uri": map[string]interface{}{
+								"uri": map[string]any{
 									"prefix": "/",
 								},
 							},
 						},
-						"route": []map[string]interface{}{
+						"route": []map[string]any{
 							{
-								"destination": map[string]interface{}{
-									"port": map[string]interface{}{
+								"destination": map[string]any{
+									"port": map[string]any{
 										"number": vmiServerTestPort,
 									},
 									"host":   vmiServerHostName,
@@ -581,18 +581,18 @@ func generateVirtualService() *unstructured.Unstructured {
 
 func generateDestinationRule() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "DestinationRule",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "vmi-server-dr",
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"host": vmiServerHostName,
-				"subsets": []map[string]interface{}{
+				"subsets": []map[string]any{
 					{
 						"name": "v1",
-						"labels": map[string]interface{}{
+						"labels": map[string]any{
 							"version": "v1",
 						},
 					},
@@ -604,19 +604,19 @@ func generateDestinationRule() *unstructured.Unstructured {
 
 func generateGateway() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "Gateway",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": vmiServerGateway,
 			},
-			"spec": map[string]interface{}{
-				"selector": map[string]interface{}{
+			"spec": map[string]any{
+				"selector": map[string]any{
 					"istio": "ingressgateway",
 				},
-				"servers": []map[string]interface{}{
+				"servers": []map[string]any{
 					{
-						"port": map[string]interface{}{
+						"port": map[string]any{
 							"number":   80,
 							"name":     "http",
 							"protocol": "HTTP",
