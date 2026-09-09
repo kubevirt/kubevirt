@@ -21,6 +21,7 @@ package migrationproxy
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -34,7 +35,6 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -51,7 +51,7 @@ type ProxyManager interface {
 	GetTargetListenerPorts(key string) map[string]int
 	StopTargetListener(key string)
 
-	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error
+	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path) error
 	GetSourceListenerFiles(key string) []string
 	StopSourceListener(key string)
 
@@ -262,7 +262,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	}
 }
 
-func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error {
+func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -309,11 +309,9 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 	for destPort, srcPort := range destSrcPortMap {
 		proxyKey := ConstructProxyKey(key, srcPort)
 		targetFullAddr := net.JoinHostPort(targetAddress, destPort)
-		filePath := SourceUnixFile(baseDir, proxyKey)
+		unixSocketPath := filepath.Join("/run/kubevirt/migrationproxy", proxyKey+"-source.sock")
 
-		os.RemoveAll(filePath)
-
-		proxy := NewSourceProxy(filePath, targetFullAddr, migrationTLSConfig, key)
+		proxy := NewSourceProxy(mountRoot, unixSocketPath, targetFullAddr, migrationTLSConfig, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -340,7 +338,14 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 		for _, curProxy := range curProxies {
 			curProxy.logger.Infof("Manager stopping proxy on source node")
 			curProxy.Stop()
-			os.RemoveAll(curProxy.unixSocketPath)
+			socketPath, err := safepath.JoinNoFollow(curProxy.mountRoot, curProxy.unixSocketPath)
+			if err != nil {
+				curProxy.logger.Reason(err).Error("unable to resolve socket path for cleanup")
+				continue
+			}
+			if err := safepath.UnlinkAtNoFollow(socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				curProxy.logger.Reason(err).Error("unable to remove socket path")
+			}
 		}
 		delete(m.sourceProxies, key)
 	}
@@ -349,8 +354,14 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (virtqemud unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
-func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, migrationTLSConfig *tls.Config, vmiUID string) *migrationProxy {
+func NewSourceProxy(
+	mountRoot *safepath.Path,
+	unixSocketPath string,
+	tcpTargetAddress string,
+	migrationTLSConfig *tls.Config,
+	vmiUID string) *migrationProxy {
 	return &migrationProxy{
+		mountRoot:          mountRoot,
 		unixSocketPath:     unixSocketPath,
 		targetAddress:      tcpTargetAddress,
 		targetProtocol:     "tcp",
@@ -412,27 +423,61 @@ func (m *migrationProxy) createTcpListener() error {
 }
 
 func (m *migrationProxy) createUnixListener() error {
+	if m.mountRoot == nil {
+		m.logger.Error("mount root is unavailable")
+		return fmt.Errorf("mount root is unavailable")
+	}
 
-	os.RemoveAll(m.unixSocketPath)
-	err := util.MkdirAllWithNosec(filepath.Dir(m.unixSocketPath))
+	relativeDir := filepath.Dir(m.unixSocketPath)
+	socketFilename := filepath.Base(m.unixSocketPath)
+	const migrationProxyDirName = "migrationproxy"
+
+	parentRelativeDir := filepath.Dir(relativeDir)
+	parentPath, err := safepath.JoinNoFollow(m.mountRoot, parentRelativeDir)
 	if err != nil {
-		m.logger.Reason(err).Error("unable to create directory for unix socket")
+		m.logger.Reason(err).Error("unable to resolve parent socket directory")
 		return err
 	}
 
-	listener, err := net.Listen("unix", m.unixSocketPath)
+	_, err = safepath.JoinNoFollow(parentPath, migrationProxyDirName)
+	if errors.Is(err, os.ErrNotExist) {
+		err := safepath.MkdirAtNoFollow(parentPath, migrationProxyDirName, 0755)
+		if err != nil && !errors.Is(err, os.ErrExist) {
+			m.logger.Reason(err).Error("unable to create migrationproxy directory")
+			return err
+		}
+	} else if err != nil {
+		m.logger.Reason(err).Error("unable to resolve migrationproxy directory")
+		return err
+	}
+
+	dirPath, err := safepath.JoinNoFollow(m.mountRoot, relativeDir)
+	if err != nil {
+		m.logger.Reason(err).Error("unable to resolve socket directory")
+		return err
+	}
+
+	listener, err := safepath.ListenUnixNoFollow(dirPath, socketFilename)
 	if err != nil {
 		m.logger.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
 	}
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(m.unixSocketPath); err != nil {
-		log.Log.Reason(err).Error("failed to change ownership on migration unix socket")
+
+	socketPath, err := safepath.JoinNoFollow(dirPath, socketFilename)
+	if err != nil {
+		listener.Close()
+		m.logger.Reason(err).Error("unable to resolve socket path for ownership")
 		return err
+	}
+
+	if ownerErr := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); ownerErr != nil {
+		listener.Close()
+		m.logger.Reason(ownerErr).Error("failed to change ownership on migration unix socket")
+		return ownerErr
 	}
 
 	m.listener = listener
 	return nil
-
 }
 
 func (m *migrationProxy) Stop() {

@@ -2739,6 +2739,9 @@ var _ = Describe("Manager", func() {
 				TargetPod:    "fakepod",
 			}
 
+			By("PrepareMigrationTarget safepath requires an absolute, existing directory")
+			testVirtShareDir = GinkgoT().TempDir()
+
 			manager, _ := newLibvirtDomainManagerDefault()
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})

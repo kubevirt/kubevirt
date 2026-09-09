@@ -21,6 +21,7 @@ package migrationproxy
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -68,14 +69,17 @@ var _ = Describe("MigrationProxy", func() {
 	Describe("migration proxy", func() {
 		Context("verify proxy connections work", func() {
 			It("by verifying source proxy works", func() {
-				sourceSock := filepath.Join(tmpDir, "source-sock")
+				const sourceRelativePath = "/source-sock"
 
 				listener, err := tls.Listen("tcp", "127.0.0.1:12345", tlsConfig)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				defer listener.Close()
 
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, "123")
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				sourceProxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", tlsConfig, "123")
 				defer sourceProxy.Stop()
 
 				err = sourceProxy.Start()
@@ -94,6 +98,7 @@ var _ = Describe("MigrationProxy", func() {
 					}
 				}()
 
+				sourceSock := filepath.Join(tmpDir, "source-sock")
 				conn, err := net.Dial("unix", sourceSock)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -109,7 +114,10 @@ var _ = Describe("MigrationProxy", func() {
 			})
 
 			It("by creating both ends and sending a message", func() {
-				const virtqemudRelativePath = "/virtqemud-sock"
+				const (
+					virtqemudRelativePath = "/virtqemud-sock"
+					sourceRelativePath    = "/source-sock"
+				)
 
 				sourceSock := filepath.Join(tmpDir, "source-sock")
 				virtqemudSock := filepath.Join(tmpDir, "virtqemud-sock")
@@ -128,7 +136,7 @@ var _ = Describe("MigrationProxy", func() {
 					mountRoot,
 					virtqemudRelativePath,
 					"123")
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, "123")
+				sourceProxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", tlsConfig, "123")
 				defer targetProxy.Stop()
 				defer sourceProxy.Stop()
 
@@ -176,6 +184,8 @@ var _ = Describe("MigrationProxy", func() {
 				directListener, err := net.Listen("unix", directSock)
 				Expect(err).ShouldNot(HaveOccurred())
 
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "run/kubevirt"), 0755)).To(Succeed())
+
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -189,7 +199,7 @@ var _ = Describe("MigrationProxy", func() {
 					[]string{virtqemudRelativePath, directRelativePath})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
-				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, tmpDir)
+				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, mountRoot)
 
 				defer manager.StopTargetListener("myKey")
 				defer manager.StopSourceListener("myKey")
@@ -224,7 +234,8 @@ var _ = Describe("MigrationProxy", func() {
 				go msgReader(virtqemudListener, libvirtChan)
 				go msgReader(directListener, directChan)
 
-				for _, sockFile := range manager.GetSourceListenerFiles("mykey") {
+				for _, unixSocketPath := range manager.GetSourceListenerFiles("mykey") {
+					sockFile := filepath.Join(tmpDir, unixSocketPath)
 					if strings.Contains(sockFile, directMigrationPort) {
 						msgWriter(sockFile, directChan, "some direct message")
 					} else {
@@ -256,6 +267,8 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				defer directListener.Close()
 
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "run/kubevirt"), 0755)).To(Succeed())
+
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -269,7 +282,7 @@ var _ = Describe("MigrationProxy", func() {
 					[]string{virtqemudRelativePath, directRelativePath})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts(key1)
-				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, tmpDir)
+				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, mountRoot)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				defer manager.StopTargetListener(key1)
@@ -287,7 +300,7 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
-				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, tmpDir)
+				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, mountRoot)
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
@@ -462,6 +475,173 @@ var _ = Describe("MigrationProxy", func() {
 
 				Eventually(done, 5*time.Second).Should(BeClosed())
 				Expect(clientConn.Close()).To(Succeed())
+			})
+		})
+
+		Context("createUnixListener source safepath", func() {
+			It("creates a unix listener through safepath resolution", func() {
+				const sourceRelativePath = "/migrationproxy/source.sock"
+
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				defer proxy.Stop()
+
+				err = proxy.Start()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				socketPath := filepath.Join(tmpDir, sourceRelativePath)
+				conn, err := net.Dial("unix", socketPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(conn.Close()).To(Succeed())
+			})
+
+			It("creates a unix listener when the parent directory already exists", func() {
+				const sourceRelativePath = "/run/kubevirt/migrationproxy/source.sock"
+
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "run/kubevirt"), 0755)).To(Succeed())
+
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				defer proxy.Stop()
+
+				err = proxy.Start()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				socketPath := filepath.Join(tmpDir, sourceRelativePath)
+				conn, err := net.Dial("unix", socketPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(conn.Close()).To(Succeed())
+
+				dirPath := filepath.Join(tmpDir, "run/kubevirt/migrationproxy")
+				stat, err := os.Stat(dirPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(stat.IsDir()).To(BeTrue())
+			})
+
+			It("fails when mount root is unavailable", func() {
+				const sourceRelativePath = "/source.sock"
+
+				proxy := NewSourceProxy(nil, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				defer proxy.Stop()
+
+				err := proxy.Start()
+				Expect(err).Should(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("mount root is unavailable"))
+			})
+
+			It("fails when directory component is a symlink to external path", func() {
+				const sourceRelativePath = "/symlinked-dir/source.sock"
+
+				externalDir, err := os.MkdirTemp("", "migrationproxy-external")
+				Expect(err).ShouldNot(HaveOccurred())
+				defer os.RemoveAll(externalDir)
+
+				linkPath := filepath.Join(tmpDir, "symlinked-dir")
+				Expect(os.Symlink(externalDir, linkPath)).To(Succeed())
+
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				defer proxy.Stop()
+
+				err = proxy.Start()
+				Expect(err).Should(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("the pathname is symlink"))
+			})
+
+			It("fails when directory component is a symlink within mount root", func() {
+				const sourceRelativePath = "/safe-dir/symlink-subdir/source.sock"
+
+				realDir := filepath.Join(tmpDir, "safe-dir")
+				targetDir := filepath.Join(tmpDir, "target-dir")
+				Expect(os.MkdirAll(realDir, 0755)).To(Succeed())
+				Expect(os.MkdirAll(targetDir, 0755)).To(Succeed())
+
+				symlinkPath := filepath.Join(realDir, "symlink-subdir")
+				Expect(os.Symlink(targetDir, symlinkPath)).To(Succeed())
+
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				defer proxy.Stop()
+
+				err = proxy.Start()
+				Expect(err).Should(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("the pathname is symlink"))
+			})
+
+			It("can accept connections after creating listener", func() {
+				const sourceRelativePath = "/migrationproxy/source-accept.sock"
+
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				tcpListener, err := net.Listen("tcp", "127.0.0.1:0")
+				Expect(err).ShouldNot(HaveOccurred())
+				defer tcpListener.Close()
+
+				tcpPort := tcpListener.Addr().(*net.TCPAddr).Port
+				targetAddr := fmt.Sprintf("127.0.0.1:%d", tcpPort)
+
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, targetAddr, nil, "123")
+				defer proxy.Stop()
+
+				err = proxy.Start()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				socketPath := filepath.Join(tmpDir, sourceRelativePath)
+				unixConn, err := net.Dial("unix", socketPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				defer unixConn.Close()
+
+				tcpConn, err := tcpListener.Accept()
+				Expect(err).ShouldNot(HaveOccurred())
+				defer tcpConn.Close()
+
+				message := "test message through proxy"
+				messageBytes := []byte(message)
+				sentLen, err := unixConn.Write(messageBytes)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(sentLen).To(Equal(len(messageBytes)))
+
+				buf := make([]byte, 1024)
+				n, err := tcpConn.Read(buf)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(string(buf[:n])).To(Equal(message))
+			})
+
+			It("removes existing socket file before creating new listener", func() {
+				const sourceRelativePath = "/migrationproxy/reuse.sock"
+
+				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				proxy1 := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				err = proxy1.Start()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				socketPath := filepath.Join(tmpDir, sourceRelativePath)
+
+				_, err = os.Stat(socketPath)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				proxy1.Stop()
+
+				proxy2 := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12346", nil, "456")
+				defer proxy2.Stop()
+
+				err = proxy2.Start()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				conn, err := net.Dial("unix", socketPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(conn.Close()).To(Succeed())
 			})
 		})
 	})
