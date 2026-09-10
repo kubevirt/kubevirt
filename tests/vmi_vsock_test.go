@@ -53,6 +53,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
+const guestAgentPort = 1234
+
 var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
@@ -171,47 +173,11 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		copyExampleGuestAgent(vmi)
 
 		By("starting the guest agent binary")
-		Expect(startExampleGuestAgent(vmi, useTLS, 1234)).To(Succeed())
+		Expect(startExampleGuestAgent(vmi, useTLS, guestAgentPort)).To(Succeed())
 		time.Sleep(2 * time.Second)
 
-		By("Connect to the guest via API")
-		cliConn, svrConn := net.Pipe()
-		defer func() {
-			_ = cliConn.Close()
-			_ = svrConn.Close()
-		}()
-		stopChan := make(chan error)
-		go func() {
-			defer GinkgoRecover()
-			vsock, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(1234), UseTLS: pointer.P(useTLS)})
-			if err != nil {
-				stopChan <- err
-				return
-			}
-			stopChan <- vsock.Stream(kvcorev1.StreamOptions{
-				In:  svrConn,
-				Out: svrConn,
-			})
-		}()
-
-		Expect(cliConn.SetDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
-
-		By("Writing to the Guest")
-		message := "Hello World?"
-		_, err = cliConn.Write([]byte(message))
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Reading from the Guest")
-		buf := make([]byte, 1024, 1024)
-		n, err := cliConn.Read(buf)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(buf[0:n])).To(Equal(message))
-
-		select {
-		case err := <-stopChan:
-			Expect(err).NotTo(HaveOccurred())
-		default:
-		}
+		By("Echoing a message off the guest via the API")
+		Expect(vsockEchoViaAPI(vmi, guestAgentPort, useTLS)).To(Succeed())
 	},
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
@@ -252,6 +218,54 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		})).NotTo(Succeed())
 	})
 })
+
+func vsockEchoViaAPI(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) error {
+	vsockStream, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
+		vmi.Name, &v1.VSOCKOptions{TargetPort: port, UseTLS: pointer.P(useTLS)})
+	if err != nil {
+		return err
+	}
+
+	cliConn, svrConn := net.Pipe()
+	defer func() {
+		_ = cliConn.Close()
+		_ = svrConn.Close()
+	}()
+
+	streamErr := make(chan error, 1)
+	go func() {
+		streamErr <- vsockStream.Stream(kvcorev1.StreamOptions{
+			In:  svrConn,
+			Out: svrConn,
+		})
+	}()
+
+	if err = cliConn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return err
+	}
+
+	const message = "Hello World?"
+	if _, err = cliConn.Write([]byte(message)); err != nil {
+		return fmt.Errorf("failed to write to the guest: %w", err)
+	}
+
+	buf := make([]byte, 1024)
+	n, err := cliConn.Read(buf)
+	if err != nil {
+		return fmt.Errorf("failed to read from the guest: %w", err)
+	}
+	if got := string(buf[:n]); got != message {
+		return fmt.Errorf("the guest echoed %q, expected %q", got, message)
+	}
+
+	select {
+	case err = <-streamErr:
+		return fmt.Errorf("the stream must still be open, but it ended with: %w", err)
+	default:
+	}
+
+	return nil
+}
 
 func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	const (
