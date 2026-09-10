@@ -90,30 +90,6 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	return true
 }
 
-func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
-	diskAndFilesystemNames := make(map[string]struct{})
-
-	for _, disk := range spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
-	}
-
-	for _, fs := range spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
-	}
-
-	for _, volume := range spec.Volumes {
-		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
-			spec.Domain.Devices.Disks = append(
-				spec.Domain.Devices.Disks,
-				v1.Disk{
-					Name: volume.Name,
-				},
-			)
-		}
-	}
-}
-
-
 // GenerateKubeVirtGroupVersionKind ensures a provided object registered with KubeVirts generated schema
 // has GVK set correctly. This is required as client-go continues to return objects without
 // TypeMeta set as set out in the following issue: https://github.com/kubernetes/client-go/issues/413
