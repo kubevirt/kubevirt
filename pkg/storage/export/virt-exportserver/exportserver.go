@@ -37,7 +37,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	gzip "github.com/klauspost/pgzip"
@@ -694,6 +693,27 @@ func exportSourceURL(host, uri string) string {
 	return "https://" + path.Join(host, uri)
 }
 
+// exportedVolume returns the exported volume of a claim the VM references. The
+// claim is not the exported one for VMSnapshot sources, which export restored
+// claims, so the volume is found by the name of the VM volume referencing it.
+func exportedVolume(vm *virtv1.VirtualMachine, vi []export.VolumeInfo, claimName string) *export.VolumeInfo {
+	if vm.Spec.Template == nil {
+		return nil
+	}
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if (volume.DataVolume == nil || volume.DataVolume.Name != claimName) &&
+			(volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName != claimName) {
+			continue
+		}
+		for i := range vi {
+			if vi[i].VolumeName == volume.Name {
+				return &vi[i]
+			}
+		}
+	}
+	return nil
+}
+
 func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
@@ -745,8 +765,14 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
 			APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		}
-		for i, dvTemplate := range expandedVm.Spec.DataVolumeTemplates {
-			dvTemplate.Spec.Source.HTTP.URL = exportSourceURL(basePath, vi[i].RawGzURI)
+		for i := range expandedVm.Spec.DataVolumeTemplates {
+			dvTemplate := &expandedVm.Spec.DataVolumeTemplates[i]
+			// Only templates of an exported volume were rewritten to an HTTP source.
+			volume := exportedVolume(expandedVm, vi, dvTemplate.Name)
+			if volume == nil {
+				continue
+			}
+			dvTemplate.Spec.Source.HTTP.URL = exportSourceURL(basePath, volume.RawGzURI)
 			dvTemplate.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dvTemplate.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
 		}
@@ -762,10 +788,8 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 				Kind:       "DataVolume",
 				APIVersion: "cdi.kubevirt.io/v1beta1",
 			}
-			for _, info := range vi {
-				if strings.Contains(info.RawGzURI, dv.Name) {
-					dv.Spec.Source.HTTP.URL = exportSourceURL(basePath, info.RawGzURI)
-				}
+			if volume := exportedVolume(expandedVm, vi, dv.Name); volume != nil {
+				dv.Spec.Source.HTTP.URL = exportSourceURL(basePath, volume.RawGzURI)
 			}
 			dv.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dv.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
