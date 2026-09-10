@@ -147,8 +147,9 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 				"/bin/sh",
 				"-c",
 			},
-			Image: launcherImage,
-			Name:  "virt-launcher",
+			Image:           launcherImage,
+			ImagePullPolicy: config.GetImagePullPolicy(),
+			Name:            "virt-launcher",
 			Args: []string{
 				"node-labeller.sh",
 			},
@@ -188,7 +189,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		pod.Containers = append(pod.Containers, corev1.Container{
 			Name:            "virt-launcher-image-holder",
 			Image:           launcherImage,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: config.GetImagePullPolicy(),
 			Command:         []string{"/bin/sh", "-c"},
 			Args:            []string{"sleep infinity"},
 			Resources: corev1.ResourceRequirements{
