@@ -83,6 +83,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -1116,7 +1117,7 @@ func qemuImgResizeArgs(imagePath string, size int64, preallocated bool) ([]strin
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
-	size = kutil.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
+	size = disksize.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
 	if size == 0 {
 		return nil, fmt.Errorf("%s must be at least 1MiB", imagePath)
 	}
@@ -1183,7 +1184,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 	preferredSize = min(usableSize, preferredSize)
 
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
-	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
+	size = disksize.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
 	}
