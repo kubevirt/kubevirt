@@ -156,10 +156,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 	})
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
-		if flags.KubeVirtExampleGuestAgentPath == "" {
-			Fail(`"example-guest-agent-path" argument is not specified`)
-		}
-
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -263,6 +259,9 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 		guestAgentPath = "/usr/bin/example-guest-agent"
 	)
 
+	if flags.KubeVirtExampleGuestAgentPath == "" {
+		Fail(`"example-guest-agent-path" argument is not specified`, 1)
+	}
 	err := console.RunCommand(vmi, fmt.Sprintf("nc -l %d > %s < /dev/null 2>/dev/null &", port, guestAgentPath), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
