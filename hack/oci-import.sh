@@ -201,7 +201,7 @@ while IFS= read -r layer; do
     echo "Decompressing disk '$DISK_NAME'..."
     zstd -d "$LAYER_BLOB" -o "$RAW_FILE" --no-progress
 
-    PVC_NAME="${DISK_NAME}-${RESOURCE_NAME}"
+    PVC_NAME="${RESOURCE_NAME}-${DISK_NAME}"
     PVC_MAP["$DISK_NAME"]="$PVC_NAME"
 
     UPLOAD_ARGS=(
