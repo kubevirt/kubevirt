@@ -33,7 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/storage/vmispecdefaults"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -201,7 +201,7 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	if err := vmispec.SetDefaultNetworkInterface(clusterConfig, spec); err != nil {
 		return err
 	}
-	util.SetDefaultVolumeDisk(spec)
+	vmispecdefaults.SetDefaultVolumeDisk(spec)
 	return nil
 }
 
