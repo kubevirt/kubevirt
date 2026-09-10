@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -114,14 +113,6 @@ func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quantity {
-	const memoryDumpOverhead = 100 * 1024 * 1024
-	domain := vmi.Spec.Domain
-	vmiMemoryReq := domain.Resources.Requests.Memory()
-	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
-	expectedPvcSize.Add(*vmiMemoryReq)
-	return expectedPvcSize
-}
 
 // GenerateKubeVirtGroupVersionKind ensures a provided object registered with KubeVirts generated schema
 // has GVK set correctly. This is required as client-go continues to return objects without
