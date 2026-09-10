@@ -14,9 +14,6 @@ TARGETS=(
     "libvirt-devel_x86_64"
     "libvirt-devel_aarch64"
     "libvirt-devel_s390x"
-    "libvirt-libs_x86_64"
-    "libvirt-libs_aarch64"
-    "libvirt-libs_s390x"
     "sandboxroot_x86_64"
     "sandboxroot_aarch64"
     "sandboxroot_s390x"
@@ -44,16 +41,34 @@ TARGETS=(
     "libnbd-devel_s390x"
 )
 
+LIBVIRT_PATHS=(
+    "usr/lib64"
+    "usr/include/libvirt"
+)
+
+LIBNBD_PATHS=(
+    "usr/lib64"
+    "usr/include"
+)
+
+ARCHITECTURES=(
+    "x86_64"
+    "aarch64"
+    "s390x"
+)
+
 BUILD_FILE="${KUBEVIRT_DIR}/rpm/BUILD.bazel"
 
 # Remove existing aliases section if present
 if grep -q "^# CentOS Stream version-selecting aliases" "${BUILD_FILE}"; then
-    # Find the line number and remove everything from that point
-    LINE_NUM=$(grep -n "^# CentOS Stream version-selecting aliases" "${BUILD_FILE}" | head -1 | cut -d: -f1)
-    if [ -n "${LINE_NUM}" ]; then
-        head -n $((LINE_NUM - 1)) "${BUILD_FILE}" >"${BUILD_FILE}.tmp"
-        mv "${BUILD_FILE}.tmp" "${BUILD_FILE}"
-    fi
+    awk '
+    BEGIN { skipping = 0 }
+    /^# CentOS Stream version-selecting aliases/ { skipping = 1; next }
+    /^# End of CentOS Stream version-selecting aliases/ { skipping = 0; next }
+    skipping && /^(# CentOS Stream .* targets|rpmtree\(|tar2files\(|bazeldnf\()/ { skipping = 0 }
+    !skipping { print }
+    ' "${BUILD_FILE}" >"${BUILD_FILE}.tmp"
+    mv "${BUILD_FILE}.tmp" "${BUILD_FILE}"
 fi
 
 # Append alias definitions
@@ -76,4 +91,47 @@ centos_stream_alias(
 EOF
 done
 
-echo "Generated ${#TARGETS[@]} centos_stream_alias targets in ${BUILD_FILE}"
+# Path-based aliases for libvirt-libs tar2files outputs
+# These are used by the main BUILD.bazel cc_library
+cat >>"${BUILD_FILE}" <<'HEADER'
+# Path-based aliases for libvirt-libs tar2files outputs
+HEADER
+
+for arch in "${ARCHITECTURES[@]}"; do
+    for path in "${LIBVIRT_PATHS[@]}"; do
+        cat >>"${BUILD_FILE}" <<EOF
+centos_stream_alias(
+    name = "libvirt-libs_${arch}/${path}",
+    cs9_target = ":libvirt-libs_${arch}_cs9/${path}",
+    cs10_target = ":libvirt-libs_${arch}_cs10/${path}",
+    visibility = ["//visibility:public"],
+)
+
+EOF
+    done
+done
+
+# Path-based aliases for libnbd-libs tar2files outputs
+cat >>"${BUILD_FILE}" <<'HEADER'
+# Path-based aliases for libnbd-libs tar2files outputs
+HEADER
+
+for arch in "${ARCHITECTURES[@]}"; do
+    for path in "${LIBNBD_PATHS[@]}"; do
+        cat >>"${BUILD_FILE}" <<EOF
+centos_stream_alias(
+    name = "libnbd-libs_${arch}/${path}",
+    cs9_target = ":libnbd-libs_${arch}_cs9/${path}",
+    cs10_target = ":libnbd-libs_${arch}_cs10/${path}",
+    visibility = ["//visibility:public"],
+)
+
+EOF
+    done
+done
+
+cat >>"${BUILD_FILE}" <<'FOOTER'
+# End of CentOS Stream version-selecting aliases
+FOOTER
+
+echo "Generated centos_stream_alias targets in ${BUILD_FILE}"

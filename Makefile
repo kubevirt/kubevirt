@@ -143,8 +143,11 @@ deps-update:
 deps-sync:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/bazel-generate.sh"
 
-rpm-deps:
+_rpm-deps:
 	SYNC_VENDOR=true hack/dockerized "KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION} CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} LIBNBD_VERSION=${LIBNBD_VERSION} KUBEVIRT_CROSS_ARCH_EMULATION=${KUBEVIRT_CROSS_ARCH_EMULATION} ./hack/rpm-deps.sh"
+
+rpm-deps:
+	$(MAKE) _rpm-deps
 	$(MAKE) generate
 
 rpm-deps-cs9:
@@ -154,9 +157,10 @@ rpm-deps-cs10:
 	$(MAKE) rpm-deps KUBEVIRT_CENTOS_STREAM_VERSION=10
 
 rpm-deps-all:
-	$(MAKE) rpm-deps-cs9
-	$(MAKE) rpm-deps-cs10
+	$(MAKE) _rpm-deps KUBEVIRT_CENTOS_STREAM_VERSION=9
+	$(MAKE) _rpm-deps KUBEVIRT_CENTOS_STREAM_VERSION=10
 	hack/rpm-deps-aliases.sh
+	$(MAKE) generate
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
@@ -306,6 +310,7 @@ vmlog-checker:
 	lint \
 	lint-metrics \
 	update-generated-api-testdata \
+	_rpm-deps \
 	rpm-deps \
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
