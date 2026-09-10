@@ -31,30 +31,6 @@ func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
 }
 
-func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
-	diskAndFilesystemNames := make(map[string]struct{})
-
-	for _, disk := range spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
-	}
-
-	for _, fs := range spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
-	}
-
-	for _, volume := range spec.Volumes {
-		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
-			spec.Domain.Devices.Disks = append(
-				spec.Domain.Devices.Disks,
-				v1.Disk{
-					Name: volume.Name,
-				},
-			)
-		}
-	}
-}
-
-
 func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
 	swtpmPath := "/var/lib/libvirt/swtpm"
 	if vmitrait.IsNonRoot(vmi) {

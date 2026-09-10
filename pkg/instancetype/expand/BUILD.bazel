@@ -10,7 +10,7 @@ go_library(
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/network/vmispec:go_default_library",
-        "//pkg/util:go_default_library",
+        "//pkg/storage/vmispecdefaults:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
