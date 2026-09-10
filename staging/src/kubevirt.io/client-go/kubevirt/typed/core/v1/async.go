@@ -119,6 +119,11 @@ func AsyncSubresourceHelperContext(ctx context.Context, config *rest.Config, res
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, fmt.Errorf("Can't connect to websocket: %w", ctxErr)
 		}
+		// The socket deadline can fire before the context's cancellation timer
+		// updates ctx.Err(). Honor the caller's deadline in either case.
+		if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+			return nil, fmt.Errorf("Can't connect to websocket: %w", context.DeadlineExceeded)
+		}
 		return nil, err
 	case ws := <-aws.Connection:
 		return &wsStreamer{
