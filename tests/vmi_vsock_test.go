@@ -31,10 +31,8 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -45,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -55,12 +54,10 @@ import (
 const guestAgentPort = 1234
 
 var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
-	var virtClient kubecli.KubevirtClient
 	var err error
 
 	BeforeEach(func() {
 		config.EnableFeatureGate(featuregate.VSOCKGate)
-		virtClient = kubevirt.Client()
 	})
 
 	Context("VM creation", func() {
@@ -91,47 +88,22 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		)
 	})
 
-	Context("Live migration", func() {
-		affinity := func(nodeName string) *k8sv1.Affinity {
-			return &k8sv1.Affinity{
-				NodeAffinity: &k8sv1.NodeAffinity{
-					PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
-						{
-							Preference: k8sv1.NodeSelectorTerm{
-								MatchExpressions: []k8sv1.NodeSelectorRequirement{
-									{
-										Key:      k8sv1.LabelHostname,
-										Operator: k8sv1.NodeSelectorOpIn,
-										Values:   []string{nodeName},
-									},
-								},
-							},
-							Weight: 1,
-						},
-					},
-				},
-			}
-		}
+	It("should retain the CID for migration target", decorators.RequiresTwoSchedulableNodes, func() {
+		By("Creating a VMI with VSOCK enabled")
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
+		Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+		cid := *vmi.Status.VSOCKCID
 
-		It("should retain the CID for migration target", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Creating a VMI with VSOCK enabled")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
-			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+		By("Migrating the VMI")
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
+		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 
-			By("Creating a new VMI with VSOCK enabled on the same node")
-			node := vmi.Status.NodeName
-			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi2.Spec.Affinity = affinity(node)
-			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, flags.StartupTimeoutSecondsSmall())
-			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
-
-			By("Migrating the 2nd VMI")
-			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
-			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-		})
+		By("Ensuring the CID survived the migration")
+		vmi, err := matcher.ThisVMI(vmi)()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmi.Status.VSOCKCID).To(HaveValue(Equal(cid)))
 	})
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
