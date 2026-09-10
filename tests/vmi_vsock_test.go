@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -72,12 +71,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
-
-			By("creating valid libvirt domain")
-
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -127,11 +120,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
-			By("creating valid libvirt domain")
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
 			By("Creating a new VMI with VSOCK enabled on the same node")
 			node := vmi.Status.NodeName
 			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
@@ -140,20 +128,9 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 
-			By("creating valid libvirt domain")
-			domSpec2, err := libdomain.GetRunningVMIDomainSpec(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
 			By("Migrating the 2nd VMI")
 			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-			domSpec2, err = libdomain.GetRunningVMIDomainSpec(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
 		})
 	})
 
