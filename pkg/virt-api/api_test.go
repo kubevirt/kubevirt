@@ -40,9 +40,9 @@ import (
 	handler3 "k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
 
-	"kubevirt.io/kubevirt/pkg/util"
-
 	"kubevirt.io/client-go/kubecli"
+
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
@@ -118,7 +118,7 @@ var _ = Describe("Virt-api", func() {
 		It("should auto detect correct request headers from cert configmap", func() {
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
-			configMap.Data[util.RequestHeaderClientCAFileKey] = "morefakedata"
+			configMap.Data[kvtls.RequestHeaderClientCAFileKey] = "morefakedata"
 			configMap.Data["requestheader-username-headers"] = "[\"fakeheader1\"]"
 			configMap.Data["requestheader-group-headers"] = "[\"fakeheader2\"]"
 			configMap.Data["requestheader-extra-headers-prefix"] = "[\"fakeheader3-\"]"

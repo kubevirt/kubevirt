@@ -32,8 +32,12 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+)
+
+const (
+	ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
+	RequestHeaderClientCAFileKey              = "requestheader-client-ca-file"
 )
 
 type ClientCAManager interface {
@@ -109,8 +113,8 @@ func NewKubernetesClientCAManager(configMapCache cache.Store) *kubeManager {
 			store:        configMapCache,
 			lock:         &sync.Mutex{},
 			namespace:    metav1.NamespaceSystem,
-			name:         util.ExtensionAPIServerAuthenticationConfigMap,
-			secretKey:    util.RequestHeaderClientCAFileKey,
+			name:         ExtensionAPIServerAuthenticationConfigMap,
+			secretKey:    RequestHeaderClientCAFileKey,
 			lastRevision: "-1",
 		},
 	}
