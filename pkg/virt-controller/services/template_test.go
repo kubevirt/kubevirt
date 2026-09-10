@@ -4827,6 +4827,80 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
 		})
 
+		DescribeTable("should mount filesystem hotplug volumes based on volume phase",
+			func(phase v1.VolumePhase, isUtility bool, expectVolumeMount bool) {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				if isUtility {
+					vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+						{
+							Name: "testVolume",
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvcDevice",
+							},
+						},
+					}
+				}
+				vmi.Status.VolumeStatus = []v1.VolumeStatus{
+					{
+						Name:          "testVolume",
+						Phase:         phase,
+						HotplugVolume: &v1.HotplugVolumeStatus{},
+					},
+				}
+				ownerPod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+
+				volumeName := "testVolume"
+				pvcName := "pvcDevice"
+				namespace := "testns"
+				mode := k8sv1.PersistentVolumeFilesystem
+				pvc := k8sv1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				claimMap := map[string]*k8sv1.PersistentVolumeClaim{volumeName: &pvc}
+				volumes := []*v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				prop := k8sv1.MountPropagationHostToContainer
+				expectedMounts := []k8sv1.VolumeMount{
+					{
+						Name:             "hotplug-disks",
+						MountPath:        "/path",
+						MountPropagation: &prop,
+					},
+				}
+				if expectVolumeMount {
+					expectedMounts = append(expectedMounts, k8sv1.VolumeMount{
+						Name:      volumeName,
+						MountPath: "/" + volumeName,
+					})
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(Equal(expectedMounts))
+			},
+			Entry("utility volume at HotplugVolumeMounted", v1.HotplugVolumeMounted, true, true),
+			Entry("regular hotplug volume at HotplugVolumeMounted", v1.HotplugVolumeMounted, false, false),
+			Entry("regular hotplug volume at VolumeReady", v1.VolumeReady, false, false),
+		)
+
 		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the FS PersistentVolumeClaim", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
