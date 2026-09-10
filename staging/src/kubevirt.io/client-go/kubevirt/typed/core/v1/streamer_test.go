@@ -21,6 +21,7 @@ package v1
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -111,6 +112,60 @@ var _ = Describe("wsStreamer", func() {
 		Expect(func() { _ = conn.Close() }).ToNot(Panic())
 	})
 })
+
+var _ = Describe("AsyncSubresourceHelperContext", func() {
+	It("should fail when the context is already cancelled", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: "http://127.0.0.1"}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).To(MatchError(context.Canceled))
+	})
+
+	It("should fail a stalled handshake when the context deadline expires", func() {
+		server := newHangingUpgradeServer()
+		defer server.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+
+		start := time.Now()
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+	})
+
+	It("should still open a stream when the context has not expired", func() {
+		server := newEchoWebsocketServer()
+		defer server.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		stream, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stream.AsConn().Close()).To(Succeed())
+	})
+})
+
+// newHangingUpgradeServer accepts the TCP connection and never writes a
+// websocket 101, reproducing a stalled handshake.
+func newHangingUpgradeServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer GinkgoRecover()
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		buf := make([]byte, 1)
+		_, _ = conn.Read(buf)
+	}))
+}
 
 // newEchoWebsocketServer upgrades every request to a websocket and holds
 // it open until the client hangs up.
