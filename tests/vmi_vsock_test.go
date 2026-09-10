@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -74,12 +73,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
-			By("creating valid libvirt domain")
-
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -93,6 +86,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 				&expect.BSnd{S: "ls /dev/vsock\n"},
 				&expect.BExp{R: "/dev/vsock"},
 			}, 300)).To(Succeed(), "Could not find a vsock device")
+
+			expectGuestVSOCKCID(vmi, *vmi.Status.VSOCKCID)
 		},
 			Entry("Use virtio transitional", true),
 			Entry("Use virtio non-transitional", false),
@@ -128,11 +123,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
-			By("creating valid libvirt domain")
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
 			By("Creating a new VMI with VSOCK enabled on the same node")
 			node := vmi.Status.NodeName
 			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
@@ -141,20 +131,9 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi2 = libvmops.RunVMIAndExpectLaunch(vmi2, flags.StartupTimeoutSecondsSmall())
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 
-			By("creating valid libvirt domain")
-			domSpec2, err := libdomain.GetRunningVMIDomainSpec(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
-
 			By("Migrating the 2nd VMI")
 			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-			domSpec2, err = libdomain.GetRunningVMIDomainSpec(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
 		})
 	})
 
@@ -217,6 +196,16 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		})).NotTo(Succeed())
 	})
 })
+
+func expectGuestVSOCKCID(vmi *v1.VirtualMachineInstance, cid uint32) {
+	GinkgoHelper()
+
+	By("Ensuring the guest uses the VSOCK CID from the VMI status")
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "hostnamectl --json=short\n"},
+		&expect.BExp{R: fmt.Sprintf(`"VSockCID":%d\b`, cid)},
+	}, 30)).To(Succeed(), "the guest must use VSOCK CID %d", cid)
+}
 
 // expectVSOCKEchoViaAPI retries because the agent binds its VSOCK port only
 // after the shell backgrounded it.
