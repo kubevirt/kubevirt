@@ -43,7 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type CgroupVersion string
@@ -199,7 +199,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, mountRoot *safepa
 			vmiDeviceRules = append(vmiDeviceRules, rule)
 		}
 	}
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmitrait.IsAutoAttachVSOCK(vmi) {
 		rule, err := newAllowedDeviceRule(mountRoot, "/dev/vhost-vsock", getDeviceRwmPermissions())
 		if err != nil {
 			return nil, err
