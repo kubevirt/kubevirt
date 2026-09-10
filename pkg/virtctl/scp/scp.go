@@ -95,8 +95,9 @@ func (o *scp) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	globalFlags := ssh.GlobalFlagsFromCmd(cmd)
 	clientArgs := o.BuildSCPTarget(local, remote, toRemote)
-	return ssh.LocalClientCmd("scp", remote.Kind, remote.Namespace, remote.Name, o.options, clientArgs).Run()
+	return ssh.LocalClientCmd("scp", remote.Kind, remote.Namespace, remote.Name, o.options, globalFlags, clientArgs).Run()
 }
 
 func (o *scp) BuildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRemote bool) []string {
