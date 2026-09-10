@@ -263,7 +263,7 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 		guestAgentPath = "/usr/bin/example-guest-agent"
 	)
 
-	err := console.RunCommand(vmi, fmt.Sprintf("nc -vl %d > %s < /dev/null &", port, guestAgentPath), 60*time.Second)
+	err := console.RunCommand(vmi, fmt.Sprintf("nc -l %d > %s < /dev/null 2>/dev/null &", port, guestAgentPath), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	file, err := os.Open(flags.KubeVirtExampleGuestAgentPath)
