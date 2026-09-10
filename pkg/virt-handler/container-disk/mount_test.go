@@ -62,7 +62,7 @@ var _ = Describe("ContainerDisk", func() {
 
 		m = &mounter{
 			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
-			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir),
+			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir, GinkgoT().TempDir()),
 			suppressWarningTimeout: 1 * time.Minute,
 			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
 			clusterConfig:          config,

@@ -193,10 +193,10 @@ func (r *vmiMountTargetRecord) appendPath(path string) bool {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(mountStateDir string, kubeletPodsDir string, host string) VolumeMounter {
+func NewVolumeMounter(mountStateDir, mountStateDirTemp string, kubeletPodsDir string, host string) VolumeMounter {
 	return &volumeMounter{
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-		checkpointManager:  checkpoint.NewSimpleCheckpointManager(mountStateDir),
+		checkpointManager:  checkpoint.NewSimpleCheckpointManager(mountStateDir, mountStateDirTemp),
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 		kubeletPodsDir:     kubeletPodsDir,

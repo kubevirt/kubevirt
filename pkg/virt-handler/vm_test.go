@@ -134,7 +134,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiShareDir := GinkgoT().TempDir()
 		ghostCacheDir := GinkgoT().TempDir()
 
-		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
+		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
