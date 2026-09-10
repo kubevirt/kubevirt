@@ -635,7 +635,7 @@ chpasswd: { expire: False }`
 		Expect(err).ToNot(HaveOccurred())
 		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-		runSSHCommand(vm.Name, user, keyFile)
+		runSSHCommand(vm.Name, user, keyFile, false)
 	})
 
 	It("[test_id:11653]Complex example with access credentials", func() {
@@ -698,7 +698,7 @@ chpasswd: { expire: False }`
 			g.Expect(vmi).To(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
 		}, 60*time.Second, 1*time.Second).Should(Succeed())
 
-		runSSHCommand(vm.Name, user, keyFile)
+		runSSHCommand(vm.Name, user, keyFile, false)
 	})
 
 	It("[test_id:11654]Failure of implicit inference does not fail the VM creation", func() {
