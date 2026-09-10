@@ -297,6 +297,23 @@ func getTLSConfiguration(kubevirt *v1.KubeVirt) *v1.TLSConfiguration {
 	return tlsConfiguration
 }
 
+func resolveTLSConfiguration(kubevirt *v1.KubeVirt) (minVersion uint16, cipherSuites []uint16) {
+	tlsConfig := getTLSConfiguration(kubevirt)
+	return TLSVersion(tlsConfig.MinTLSVersion), CipherSuiteIds(tlsConfig.Ciphers)
+}
+
+// ApplyTLSConfigurationFromKubeVirtStore applies the resolved TLS configuration from the
+// KubeVirt CR to the provided tls.Config.
+func ApplyTLSConfigurationFromKubeVirtStore(config *tls.Config, kubeVirtStore cache.Store) {
+	minVersion, cipherSuites := resolveTLSConfiguration(getKubevirt(kubeVirtStore))
+	config.MinVersion = minVersion
+	if len(cipherSuites) > 0 {
+		config.CipherSuites = cipherSuites
+	} else {
+		config.CipherSuites = nil
+	}
+}
+
 func CipherSuiteIds(names []string) []uint16 {
 	var idByName = CipherSuiteNameMap()
 	var ids []uint16
