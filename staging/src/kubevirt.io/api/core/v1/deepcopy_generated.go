@@ -2509,7 +2509,7 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 	}
 	if in.MTU != nil {
 		in, out := &in.MTU, &out.MTU
-		*out = new(int)
+		*out = new(uint32)
 		**out = **in
 	}
 	return

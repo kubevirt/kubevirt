@@ -137,7 +137,7 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 }
 
 // WithMTU sets the interface MTU.
-func WithMTU(mtu int) InterfaceOption {
+func WithMTU(mtu uint32) InterfaceOption {
 	return func(iface *kvirtv1.Interface) {
 		iface.MTU = &mtu
 	}

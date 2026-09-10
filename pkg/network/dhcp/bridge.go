@@ -63,11 +63,7 @@ func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if d.vmiSpecIface.MTU != nil {
-		dhcpConfig.Mtu = uint16(*d.vmiSpecIface.MTU)
-	} else {
-		dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
-	}
+	dhcpConfig.Mtu = uint16(podNicLink.Attrs().MTU)
 	dhcpConfig.Subdomain = d.subdomain
 
 	return dhcpConfig, nil

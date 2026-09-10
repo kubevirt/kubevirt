@@ -529,7 +529,7 @@ var _ = Describe("Validating VMI network spec", func() {
 
 	When("interface MTU is specified", func() {
 		It("should reject MTU when InterfaceMTUOverride feature gate is disabled", func() {
-			mtu := 1500
+			var mtu uint32 = 1500
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name:                   "default",
@@ -549,7 +549,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		})
 
 		It("should accept valid MTU when feature gate is enabled", func() {
-			mtu := 1500
+			var mtu uint32 = 1500
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name:                   "default",
@@ -574,7 +574,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			Expect(validator.Validate()).To(BeEmpty())
 		})
 
-		DescribeTable("should reject invalid MTU values", func(mtuVal int) {
+		DescribeTable("should reject invalid MTU values", func(mtuVal uint32) {
 			mtu := mtuVal
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
@@ -591,13 +591,12 @@ var _ = Describe("Validating VMI network spec", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].mtu"))
 		},
-			Entry("MTU below minimum (575)", 575),
-			Entry("MTU of zero", 0),
-			Entry("MTU above maximum (65536)", 65536),
-			Entry("negative MTU", -1),
+			Entry("MTU below minimum (575)", uint32(575)),
+			Entry("MTU of zero", uint32(0)),
+			Entry("MTU above maximum (65536)", uint32(65536)),
 		)
 
-		DescribeTable("should accept valid MTU values", func(mtuVal int) {
+		DescribeTable("should accept valid MTU values", func(mtuVal uint32) {
 			mtu := mtuVal
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
@@ -610,10 +609,10 @@ var _ = Describe("Validating VMI network spec", func() {
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{interfaceMTUOverrideEnabled: true})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
-			Entry("minimum valid MTU (576)", 576),
-			Entry("standard MTU (1500)", 1500),
-			Entry("jumbo frame MTU (9000)", 9000),
-			Entry("maximum valid MTU (65535)", 65535),
+			Entry("minimum valid MTU (576)", uint32(576)),
+			Entry("standard MTU (1500)", uint32(1500)),
+			Entry("jumbo frame MTU (9000)", uint32(9000)),
+			Entry("maximum valid MTU (65535)", uint32(65535)),
 		)
 	})
 })

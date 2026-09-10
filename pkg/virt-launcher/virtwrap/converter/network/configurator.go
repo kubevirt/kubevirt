@@ -118,7 +118,7 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 	}
 
 	if iface.MTU != nil {
-		builderOptions = append(builderOptions, withMTU(strconv.Itoa(*iface.MTU)))
+		builderOptions = append(builderOptions, withMTU(strconv.FormatUint(uint64(*iface.MTU), 10)))
 	}
 
 	switch {
