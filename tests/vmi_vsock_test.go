@@ -58,6 +58,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 	var err error
 
 	BeforeEach(func() {
+		Expect(flags.KubeVirtExampleGuestAgentPath).ToNot(BeEmpty(), `"example-guest-agent-path" argument is not specified`)
 		config.EnableFeatureGate(featuregate.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})
@@ -156,10 +157,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 	})
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
-		if flags.KubeVirtExampleGuestAgentPath == "" {
-			Fail(`"example-guest-agent-path" argument is not specified`)
-		}
-
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
