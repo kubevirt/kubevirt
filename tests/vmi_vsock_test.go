@@ -51,10 +51,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-const guestAgentPort = 1234
-
 var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
-	var err error
+	const guestAgentPort = 1234
 
 	BeforeEach(func() {
 		config.EnableFeatureGate(featuregate.VSOCKGate)
@@ -70,8 +68,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
 			By("Logging in as root")
-			err = console.LoginToFedora(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Ensuring a vsock device is present")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -115,8 +112,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Logging in as root")
-		err = console.LoginToFedora(vmi)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		By("copying the guest agent binary")
 		copyExampleGuestAgent(vmi)
@@ -131,21 +127,18 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 	)
 
 	It("should return err if the port is invalid", func() {
-		virtClient := kubevirt.Client()
-
 		By("Creating a VMI with VSOCK enabled")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		By("Connect to the guest on invalid port")
-		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(0)})
+		_, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
+			vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(0)})
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return err if no app listeners on the port", func() {
-		virtClient := kubevirt.Client()
-
 		By("Creating a VMI with VSOCK enabled")
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
@@ -157,9 +150,10 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			_ = cliConn.Close()
 			_ = svrConn.Close()
 		}()
-		vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
+		vsockStream, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
+			vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(vsock.Stream(kvcorev1.StreamOptions{
+		Expect(vsockStream.Stream(kvcorev1.StreamOptions{
 			In:  svrConn,
 			Out: svrConn,
 		})).NotTo(Succeed())
