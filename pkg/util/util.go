@@ -32,53 +32,8 @@ const (
 	EXT_LOG_VERBOSITY_THRESHOLD = 5
 )
 
-// Check if a VMI spec requests VirtIO-FS
-func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.Filesystems != nil {
-		for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-			if fs.Virtiofs != nil {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// Check if a VMI spec requests memory overhead
-func RequiresMemoryOverheadReservation(v *v1.VirtualMachineInstance) bool {
-	return v.Spec.Domain.Memory != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
-}
-
-// Check if a VMI spec requests locking VM's memory (e.g. for DMA)
-func RequiresLockingMemory(v *v1.VirtualMachineInstance) bool {
-	return v.Spec.Domain.Memory != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
-		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired
-}
-
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
-}
-
-func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
-}
-
-// Checks if kernel boot is defined in a valid way
-func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
-	if vmi == nil {
-		return false
-	}
-
-	vmiFirmware := vmi.Spec.Domain.Firmware
-	if (vmiFirmware == nil) || (vmiFirmware.KernelBoot == nil) || (vmiFirmware.KernelBoot.Container == nil) {
-		return false
-	}
-
-	return true
 }
 
 func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {

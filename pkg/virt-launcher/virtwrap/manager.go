@@ -111,6 +111,7 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
@@ -2874,7 +2875,7 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	if kutil.HasKernelBootContainerImage(vmi) {
+	if vmitrait.HasKernelBootContainerImage(vmi) {
 		kb := vmi.Spec.Domain.Firmware.KernelBoot
 
 		err := os.MkdirAll(containerdisk.GetKernelBootArtifactPathFromLauncherView(""), 0755)

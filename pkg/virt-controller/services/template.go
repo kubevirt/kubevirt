@@ -400,7 +400,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodKillAfter := gracePeriodSeconds + gracePeriodPaddingSeconds
 
 	imagePullSecrets := imgPullSecrets(vmi.Spec.Volumes...)
-	if util.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
+	if vmitrait.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
 		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret,
 		})
@@ -613,7 +613,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		initContainers = append(initContainers, *sconsolelogContainer)
 	}
 
-	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
+	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || vmitrait.HasKernelBootContainerImage(vmi)) {
 		initContainers = append(
 			initContainers,
 			t.newInitContainerRenderer(vmi,
@@ -653,7 +653,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 		// Generate init container for kernel boot if needed
 		kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
-		if util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
+		if vmitrait.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
 			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
 			initContainer := containerdisk.CreateImageVolumeInitContainer(
 				vmi,
@@ -979,7 +979,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
-	if util.IsVMIVirtiofsEnabled(vmi) {
+	if vmitrait.IsVMIVirtiofsEnabled(vmi) {
 		volumeOpts = append(volumeOpts, withVirioFS())
 	}
 

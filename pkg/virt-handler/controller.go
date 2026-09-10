@@ -333,7 +333,7 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf("failed to set up file ownership for /dev/%s: %v", hypervisorDevice, err)
 	}
 
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmitrait.IsAutoAttachVSOCK(vmi) {
 		if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
 		}
