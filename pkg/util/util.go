@@ -9,7 +9,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
-	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -80,27 +79,6 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	}
 
 	return true
-}
-
-// AlignImageSizeTo1MiB rounds down the size to the nearest multiple of 1MiB
-// A warning or an error may get logged
-// The caller is responsible for ensuring the rounded-down size is not 0
-func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
-	remainder := size % (1024 * 1024)
-	if remainder == 0 {
-		return size
-	} else {
-		newSize := size - remainder
-		if logger != nil {
-			if newSize == 0 {
-				logger.Errorf("disks must be at least 1MiB, %d bytes is too small", size)
-			} else {
-				logger.V(4).Infof("disk size is not 1MiB-aligned. Adjusting from %d down to %d.", size, newSize)
-			}
-		}
-		return newSize
-	}
-
 }
 
 func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
