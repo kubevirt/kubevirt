@@ -174,10 +174,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 
 		By("starting the guest agent binary")
 		Expect(startExampleGuestAgent(vmi, useTLS, guestAgentPort)).To(Succeed())
-		time.Sleep(2 * time.Second)
 
-		By("Echoing a message off the guest via the API")
-		Expect(vsockEchoViaAPI(vmi, guestAgentPort, useTLS)).To(Succeed())
+		expectVSOCKEchoViaAPI(vmi, guestAgentPort, useTLS)
 	},
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
@@ -218,6 +216,17 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		})).NotTo(Succeed())
 	})
 })
+
+// expectVSOCKEchoViaAPI retries because the agent binds its VSOCK port only
+// after the shell backgrounded it.
+func expectVSOCKEchoViaAPI(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) {
+	GinkgoHelper()
+
+	By("Echoing a message off the guest via the API")
+	Eventually(func() error {
+		return vsockEchoViaAPI(vmi, port, useTLS)
+	}, 60*time.Second, time.Second).Should(Succeed())
+}
 
 func vsockEchoViaAPI(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) error {
 	vsockStream, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VSOCK(
