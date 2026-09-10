@@ -10,7 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/util:go_default_library",
+        "//pkg/util/envvar:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

@@ -26,7 +26,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 )
 
 type AddressPool struct {
@@ -45,7 +45,7 @@ func NewAddressPool(resourcePrefix string, resources []string) *AddressPool {
 
 func (p *AddressPool) load(resourcePrefix string, resources []string) {
 	for _, resource := range resources {
-		addressEnvVarName := util.ResourceNameToEnvVar(resourcePrefix, resource)
+		addressEnvVarName := envvar.ResourceNameToEnvVar(resourcePrefix, resource)
 		addressString, isSet := os.LookupEnv(addressEnvVarName)
 		if !isSet {
 			log.Log.Warningf("%s not set for resource %s", addressEnvVarName, resource)

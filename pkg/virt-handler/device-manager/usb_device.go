@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
@@ -377,7 +378,7 @@ func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *plugina
 				}
 
 				// We might have more than one USB device per resource name
-				key := util.ResourceNameToEnvVar(v1.USBResourcePrefix, plugin.resourceName)
+				key := envvar.ResourceNameToEnvVar(v1.USBResourcePrefix, plugin.resourceName)
 				value := fmt.Sprintf("%d:%d", dev.Bus, dev.DeviceNumber)
 				if previous, exist := env[key]; exist {
 					env[key] = fmt.Sprintf("%s,%s", previous, value)

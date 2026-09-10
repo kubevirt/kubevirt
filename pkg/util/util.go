@@ -3,7 +3,6 @@ package util
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,11 +28,9 @@ const (
 	NonRootUID = 107
 	RootUser   = 0
 
-	// extensive log verbosity threshold after which libvirt debug logs will be enabled
-	EXT_LOG_VERBOSITY_THRESHOLD         = 5
-	ENV_VAR_SHARED_FILESYSTEM_PATHS     = "SHARED_FILESYSTEM_PATHS"
-	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
-	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+	// EXT_LOG_VERBOSITY_THRESHOLD is the log verbosity level above which
+	// extended libvirt debug logging is enabled in virt-launcher.
+	EXT_LOG_VERBOSITY_THRESHOLD = 5
 )
 
 // Check if a VMI spec requests VirtIO-FS
@@ -69,13 +66,6 @@ func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
-}
-
-func ResourceNameToEnvVar(prefix string, resourceName string) string {
-	varName := strings.ToUpper(resourceName)
-	varName = strings.Replace(varName, "/", "_", -1)
-	varName = strings.Replace(varName, ".", "_", -1)
-	return fmt.Sprintf("%s_%s", prefix, varName)
 }
 
 // Checks if kernel boot is defined in a valid way

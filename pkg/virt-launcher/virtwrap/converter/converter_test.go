@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -1459,10 +1459,10 @@ var _ = Describe("Converter", func() {
 			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
 
 				if toDefineVerbosityEnvVariable {
-					Expect(os.Setenv(util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))).
+					Expect(os.Setenv(envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))).
 						To(Succeed())
 					defer func() {
-						Expect(os.Unsetenv(util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)).To(Succeed())
+						Expect(os.Unsetenv(envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)).To(Succeed())
 					}()
 				}
 
