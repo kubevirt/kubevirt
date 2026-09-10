@@ -40,10 +40,14 @@ type SerialConsoleOptions struct {
 
 type VirtualMachineInstanceExpansion interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
+	SerialConsoleContext(ctx context.Context, name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)
+	USBRedirContext(ctx context.Context, vmiName string) (StreamInterface, error)
 	VNC(name string, preserveSession bool) (StreamInterface, error)
+	VNCContext(ctx context.Context, name string, preserveSession bool) (StreamInterface, error)
 	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
+	PortForwardContext(ctx context.Context, name string, port int, protocol string) (StreamInterface, error)
 	Backup(ctx context.Context, name string, backupOptions *backupv1.BackupOptions) error
 	RedefineCheckpoint(ctx context.Context, name string, checkpoint *backupv1.BackupCheckpoint) error
 	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
@@ -59,6 +63,7 @@ type VirtualMachineInstanceExpansion interface {
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
+	VSOCKContext(ctx context.Context, name string, options *v1.VSOCKOptions) (StreamInterface, error)
 	SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
@@ -67,18 +72,30 @@ type VirtualMachineInstanceExpansion interface {
 }
 
 func (c *virtualMachineInstances) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
+	return c.SerialConsoleContext(context.Background(), name, options)
+}
+
+func (c *virtualMachineInstances) SerialConsoleContext(ctx context.Context, name string, options *SerialConsoleOptions) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("SerialConsole is not implemented yet in generated client")
 }
 
 func (c *virtualMachineInstances) USBRedir(vmiName string) (StreamInterface, error) {
+	return c.USBRedirContext(context.Background(), vmiName)
+}
+
+func (c *virtualMachineInstances) USBRedirContext(ctx context.Context, vmiName string) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("USBRedir is not implemented yet in generated client")
 }
 
 func (c *virtualMachineInstances) VNC(name string, preserveSession bool) (StreamInterface, error) {
+	return c.VNCContext(context.Background(), name, preserveSession)
+}
+
+func (c *virtualMachineInstances) VNCContext(ctx context.Context, name string, preserveSession bool) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("VNC is not implemented yet in generated client")
@@ -107,6 +124,10 @@ func (c *virtualMachineInstances) Screenshot(ctx context.Context, name string, o
 }
 
 func (c *virtualMachineInstances) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+	return c.PortForwardContext(context.Background(), name, port, protocol)
+}
+
+func (c *virtualMachineInstances) PortForwardContext(ctx context.Context, name string, port int, protocol string) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("PortForward is not implemented yet in generated client")
@@ -372,6 +393,10 @@ func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string,
 }
 
 func (c *virtualMachineInstances) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error) {
+	return c.VSOCKContext(context.Background(), name, options)
+}
+
+func (c *virtualMachineInstances) VSOCKContext(ctx context.Context, name string, options *v1.VSOCKOptions) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("VSOCK is not implemented yet in generated client")

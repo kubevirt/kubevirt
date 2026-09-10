@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -60,17 +61,29 @@ type vmis struct {
 }
 
 func (v *vmis) USBRedir(name string) (kvcorev1.StreamInterface, error) {
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
+	return v.USBRedirContext(context.Background(), name)
+}
+
+func (v *vmis) USBRedirContext(ctx context.Context, name string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
 }
 
 func (v *vmis) VNC(name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
+	return v.VNCContext(context.Background(), name, preserveSession)
+}
+
+func (v *vmis) VNCContext(ctx context.Context, name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
 	queryParams := url.Values{}
 	queryParams.Add("preserveSession", strconv.FormatBool(preserveSession))
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", queryParams)
+	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "vnc", queryParams)
 }
 
 func (v *vmis) PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
+	return v.PortForwardContext(context.Background(), name, port, protocol)
+}
+
+func (v *vmis) PortForwardContext(ctx context.Context, name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }
 
 func buildPortForwardResourcePath(port int, protocol string) string {
@@ -86,52 +99,43 @@ func buildPortForwardResourcePath(port int, protocol string) string {
 	return resource.String()
 }
 
-type connectionStruct struct {
-	con kvcorev1.StreamInterface
-	err error
+func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
+	return v.SerialConsoleContext(context.Background(), name, options)
 }
 
-func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
-
+func (v *vmis) SerialConsoleContext(ctx context.Context, name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
 	if options != nil && options.ConnectionTimeout != 0 {
-		timeoutChan := time.Tick(options.ConnectionTimeout)
-		connectionChan := make(chan connectionStruct)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, options.ConnectionTimeout)
+		defer cancel()
 
-		go func() {
-			for {
-
-				select {
-				case <-timeoutChan:
-					connectionChan <- connectionStruct{
-						con: nil,
-						err: fmt.Errorf("Timeout trying to connect to the virtual machine instance"),
-					}
-					return
-				default:
-				}
-
-				con, err := kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
-				if err != nil {
-					asyncSubresourceError, ok := err.(*kvcorev1.AsyncSubresourceError)
-					// return if response status code does not equal to 400
-					if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
-						connectionChan <- connectionStruct{con: nil, err: err}
-						return
-					}
-
-					time.Sleep(1 * time.Second)
-					continue
-				}
-
-				connectionChan <- connectionStruct{con: con, err: nil}
-				return
+		for {
+			con, err := kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
+			if err == nil {
+				return con, nil
 			}
-		}()
-		conStruct := <-connectionChan
-		return conStruct.con, conStruct.err
-	} else {
-		return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
+			asyncSubresourceError, ok := err.(*kvcorev1.AsyncSubresourceError)
+			// return if response status code does not equal to 400
+			if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
+				if errors.Is(err, context.DeadlineExceeded) {
+					return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+				}
+				return nil, err
+			}
+
+			timer := time.NewTimer(time.Second)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+				}
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
+		}
 	}
+	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
 }
 
 func (v *vmis) Get(ctx context.Context, name string, options metav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
@@ -169,6 +173,10 @@ func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data 
 }
 
 func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error) {
+	return v.VSOCKContext(context.Background(), name, options)
+}
+
+func (v *vmis) VSOCKContext(ctx context.Context, name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error) {
 	if options == nil || options.TargetPort == 0 {
 		return nil, fmt.Errorf("target port is required but not provided")
 	}
@@ -179,5 +187,5 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInte
 		useTLS = *options.UseTLS
 	}
 	queryParams.Add("tls", strconv.FormatBool(useTLS))
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
+	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -19,6 +21,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/subresources"
 )
+
+const websocketHandshakeTimeout = 45 * time.Second
 
 type StreamOptions struct {
 	In  io.Reader
@@ -42,13 +46,27 @@ func (a *AsyncSubresourceError) GetStatusCode() int {
 	return a.StatusCode
 }
 
+// AsyncSubresourceHelper opens a subresource websocket stream.
 // params are strings with "key=value" format
 func AsyncSubresourceHelper(config *rest.Config, resource, namespace, name string, subresource string, queryParams url.Values) (StreamInterface, error) {
+	return AsyncSubresourceHelperContext(context.Background(), config, resource, namespace, name, subresource, queryParams)
+}
+
+// AsyncSubresourceHelperContext opens a subresource websocket stream.
+// ctx bounds the handshake; canceling it unblocks the caller and closes an
+// in-flight upgrade.
+// params are strings with "key=value" format
+func AsyncSubresourceHelperContext(ctx context.Context, config *rest.Config, resource, namespace, name string, subresource string, queryParams url.Values) (StreamInterface, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("Can't connect to websocket: %w", err)
+	}
 
 	done := make(chan struct{})
 
 	aws := &AsyncWSRoundTripper{
-		Connection: make(chan *websocket.Conn),
+		// Buffer so a handshake that finishes after the caller has stopped
+		// waiting can still be received and closed by releaseHandshake.
+		Connection: make(chan *websocket.Conn, 1),
 		Done:       done,
 	}
 	// Create a round tripper with all necessary kubernetes security details
@@ -62,6 +80,8 @@ func AsyncSubresourceHelper(config *rest.Config, resource, namespace, name strin
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request for remote execution: %v", err)
 	}
+	// Propagate ctx so DialContext can cancel a stalled handshake
+	req = req.WithContext(ctx)
 
 	errChan := make(chan error, 1)
 
@@ -96,12 +116,30 @@ func AsyncSubresourceHelper(config *rest.Config, resource, namespace, name strin
 
 	select {
 	case err = <-errChan:
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, fmt.Errorf("Can't connect to websocket: %w", ctxErr)
+		}
 		return nil, err
 	case ws := <-aws.Connection:
 		return &wsStreamer{
 			conn: ws,
 			done: done,
 		}, nil
+	case <-ctx.Done():
+		// Don't wait on the result channels if the caller has given up
+		go releaseHandshake(aws, errChan, done)
+		return nil, fmt.Errorf("Can't connect to websocket: %w", ctx.Err())
+	}
+}
+
+// releaseHandshake closes a websocket that completed after the caller stopped
+// waiting, so the round-trip goroutine is not left parked in WebsocketCallback.
+func releaseHandshake(aws *AsyncWSRoundTripper, errChan <-chan error, done chan struct{}) {
+	select {
+	case ws := <-aws.Connection:
+		_ = ws.Close()
+		close(done)
+	case <-errChan:
 	}
 }
 
@@ -113,7 +151,7 @@ type WebsocketRoundTripper struct {
 }
 
 func (d *WebsocketRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	conn, resp, err := d.Dialer.Dial(r.URL.String(), r.Header)
+	conn, resp, err := d.Dialer.DialContext(r.Context(), r.URL.String(), r.Header)
 	if err == nil {
 		defer conn.Close()
 	}
@@ -148,17 +186,19 @@ func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (ht
 		return nil, err
 	}
 
-	// Configure the websocket dialer
+	// Configure the websocket dialer. HandshakeTimeout is set explicitly
+	// because a new Dialer does not inherit DefaultDialer's 45s timeout.
 	proxy := http.ProxyFromEnvironment
 	if config.Proxy != nil {
 		proxy = config.Proxy
 	}
 	dialer := &websocket.Dialer{
-		Proxy:           proxy,
-		TLSClientConfig: tlsConfig,
-		WriteBufferSize: WebsocketMessageBufferSize,
-		ReadBufferSize:  WebsocketMessageBufferSize,
-		Subprotocols:    []string{subresources.PlainStreamProtocolName},
+		Proxy:            proxy,
+		TLSClientConfig:  tlsConfig,
+		WriteBufferSize:  WebsocketMessageBufferSize,
+		ReadBufferSize:   WebsocketMessageBufferSize,
+		Subprotocols:     []string{subresources.PlainStreamProtocolName},
+		HandshakeTimeout: websocketHandshakeTimeout,
 	}
 
 	// Create a roundtripper which will pass in the final underlying websocket connection to a callback

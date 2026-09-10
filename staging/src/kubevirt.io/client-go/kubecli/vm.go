@@ -99,5 +99,9 @@ func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine, opts k8sm
 }
 
 func (v *vm) PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
+	return v.PortForwardContext(context.Background(), name, port, protocol)
+}
+
+func (v *vm) PortForwardContext(ctx context.Context, name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }
