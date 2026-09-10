@@ -62,6 +62,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -772,7 +773,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers).To(HaveLen(1))
 				debugLogsValue := ""
 				for _, ev := range pod.Spec.Containers[0].Env {
-					if ev.Name == util.ENV_VAR_LIBVIRT_DEBUG_LOGS {
+					if ev.Name == envvar.ENV_VAR_LIBVIRT_DEBUG_LOGS {
 						debugLogsValue = ev.Value
 						break
 					}
@@ -804,7 +805,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers).To(HaveLen(1))
 				debugLogsValue := ""
 				for _, ev := range pod.Spec.Containers[0].Env {
-					if ev.Name == util.ENV_VAR_LIBVIRT_DEBUG_LOGS {
+					if ev.Name == envvar.ENV_VAR_LIBVIRT_DEBUG_LOGS {
 						debugLogsValue = ev.Value
 						break
 					}
@@ -5425,11 +5426,11 @@ var _ = Describe("Template", func() {
 
 				computeContainer := pod.Spec.Containers[0]
 				if expectedValue != "" {
-					Expect(computeContainer.Env).To(ContainElement(k8sv1.EnvVar{Name: util.ENV_VAR_SHARED_FILESYSTEM_PATHS, Value: expectedValue}))
+					Expect(computeContainer.Env).To(ContainElement(k8sv1.EnvVar{Name: envvar.ENV_VAR_SHARED_FILESYSTEM_PATHS, Value: expectedValue}))
 				} else {
 					Expect(computeContainer.Env).ToNot(
 						ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Name": Equal(util.ENV_VAR_SHARED_FILESYSTEM_PATHS),
+							"Name": Equal(envvar.ENV_VAR_SHARED_FILESYSTEM_PATHS),
 						})), "contains shared fs env var when it should not exist",
 					)
 				}

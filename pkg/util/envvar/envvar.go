@@ -17,22 +17,24 @@
  *
  */
 
-package device
+package envvar
 
 import (
-	"os"
-
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/util/envvar"
+	"fmt"
+	"strings"
 )
 
-func USBDevicesFound(vmiHostDevices []v1.HostDevice) bool {
-	for _, device := range vmiHostDevices {
-		env := envvar.ResourceNameToEnvVar(v1.USBResourcePrefix, device.DeviceName)
-		if _, ok := os.LookupEnv(env); ok {
-			return true
-		}
-	}
-	return false
+const (
+	ENV_VAR_SHARED_FILESYSTEM_PATHS     = "SHARED_FILESYSTEM_PATHS"
+	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
+	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+)
+
+// ResourceNameToEnvVar converts a Kubernetes resource name (e.g. "nvidia.com/gpu")
+// into the env var name used by device plugins (e.g. "PCIDEVICE_NVIDIA_COM_GPU").
+func ResourceNameToEnvVar(prefix string, resourceName string) string {
+	varName := strings.ToUpper(resourceName)
+	varName = strings.Replace(varName, "/", "_", -1)
+	varName = strings.Replace(varName, ".", "_", -1)
+	return fmt.Sprintf("%s_%s", prefix, varName)
 }

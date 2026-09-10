@@ -12,6 +12,7 @@ go_library(
     deps = [
         "//pkg/hooks:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/envvar:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -43,6 +44,7 @@ go_test(
         "//pkg/hooks:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/envvar:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",

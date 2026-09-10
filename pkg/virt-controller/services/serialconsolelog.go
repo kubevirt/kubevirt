@@ -10,6 +10,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -45,7 +46,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			RestartPolicy: pointer.P(k8sv1.ContainerRestartPolicyAlways),
 		}
 
-		guestConsoleLog.Env = append(guestConsoleLog.Env, k8sv1.EnvVar{Name: util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: fmt.Sprint(virtLauncherLogVerbosity)})
+		guestConsoleLog.Env = append(guestConsoleLog.Env, k8sv1.EnvVar{Name: envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: fmt.Sprint(virtLauncherLogVerbosity)})
 
 		return guestConsoleLog
 	}
