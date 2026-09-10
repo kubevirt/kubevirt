@@ -14,9 +14,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type ResourceRendererOption func(renderer *ResourceRenderer)
@@ -466,7 +466,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, hypervisorResource k8s
 	if !allowEmulation {
 		res[hypervisorResource] = resource.MustParse("1")
 	}
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmitrait.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")
 	}
 	return res
