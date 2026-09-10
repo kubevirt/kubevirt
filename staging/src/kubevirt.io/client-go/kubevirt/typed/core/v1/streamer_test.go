@@ -135,6 +135,35 @@ var _ = Describe("AsyncSubresourceHelperContext", func() {
 		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 	})
 
+	It("should report the context deadline when the socket times out before context cancellation", func() {
+		server := newHangingUpgradeServer()
+		defer server.Close()
+
+		// Keep Err() nil and Done() open to reproduce the socket deadline
+		// firing before the context's cancellation timer runs.
+		ctx := deadlineOnlyContext{
+			Context:  context.Background(),
+			deadline: time.Now().Add(200 * time.Millisecond),
+		}
+
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+	})
+
+	It("should preserve handshake errors before the context deadline", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "console is not ready", http.StatusBadRequest)
+		}))
+		defer server.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "console", nil)
+		Expect(err).To(BeAssignableToTypeOf(&AsyncSubresourceError{}))
+		Expect(err.(*AsyncSubresourceError).GetStatusCode()).To(Equal(http.StatusBadRequest))
+	})
+
 	It("should still open a stream when the context has not expired", func() {
 		server := newEchoWebsocketServer()
 		defer server.Close()
@@ -147,6 +176,15 @@ var _ = Describe("AsyncSubresourceHelperContext", func() {
 		Expect(stream.AsConn().Close()).To(Succeed())
 	})
 })
+
+type deadlineOnlyContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c deadlineOnlyContext) Deadline() (time.Time, bool) {
+	return c.deadline, true
+}
 
 // newHangingUpgradeServer accepts the TCP connection and never writes a
 // websocket 101, reproducing a stalled handshake.
