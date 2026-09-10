@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
-	utils "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/gvk"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -350,7 +350,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	snapshotCR.Name = strings.Replace(existingCR.Name, s.snapshot.Spec.Source.Name, s.snapshot.Name, 1)
 
 	// Ensure GVK is set before we attempt to create the controller OwnerReference below
-	obj, err := utils.GenerateKubeVirtGroupVersionKind(s.snapshot)
+	obj, err := gvk.GenerateKubeVirtGroupVersionKind(s.snapshot)
 	if err != nil {
 		return "", err
 	}

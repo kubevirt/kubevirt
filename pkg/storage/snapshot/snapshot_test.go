@@ -63,7 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/gvk"
 )
 
 const (
@@ -3352,7 +3352,7 @@ func createInstancetypeVirtualMachineSnapshotCR(vm *v1.VirtualMachine, vmSnapsho
 	// Replace the VM name with the vmSnapshot name and clear the namespace as we don't expect to see this set during creation, only after.
 	cr.Name = strings.Replace(cr.Name, vm.Name, vmSnapshot.Name, 1)
 
-	vmSnapshotObj, err := util.GenerateKubeVirtGroupVersionKind(vmSnapshot)
+	vmSnapshotObj, err := gvk.GenerateKubeVirtGroupVersionKind(vmSnapshot)
 	Expect(err).ToNot(HaveOccurred())
 	vmSnapshotCopy, ok := vmSnapshotObj.(*snapshotv1.VirtualMachineSnapshot)
 	Expect(ok).To(BeTrue())

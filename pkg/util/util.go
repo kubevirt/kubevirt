@@ -1,13 +1,9 @@
 package util
 
 import (
-	"fmt"
 	"path/filepath"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	v1 "kubevirt.io/api/core/v1"
-	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -58,20 +54,6 @@ func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-
-// GenerateKubeVirtGroupVersionKind ensures a provided object registered with KubeVirts generated schema
-// has GVK set correctly. This is required as client-go continues to return objects without
-// TypeMeta set as set out in the following issue: https://github.com/kubernetes/client-go/issues/413
-func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error) {
-	objCopy := obj.DeepCopyObject()
-	gvks, _, err := generatedscheme.Scheme.ObjectKinds(objCopy)
-	if err != nil {
-		return nil, fmt.Errorf("could not get GroupVersionKind for object: %w", err)
-	}
-	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
-
-	return objCopy, nil
-}
 
 func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
 	swtpmPath := "/var/lib/libvirt/swtpm"
