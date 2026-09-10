@@ -25,6 +25,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,13 +38,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/vsock"
+	"kubevirt.io/kubevirt/pkg/vsock/mode"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
@@ -79,7 +84,7 @@ var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, 
 				&expect.BExp{R: "/dev/vsock"},
 			}, 300)).To(Succeed(), "Could not find a vsock device")
 
-			expectGuestVSOCKCID(vmi, *vmi.Status.VSOCKCID)
+			expectGuestVSOCKCID(vmi, guestVisibleVSOCKCID(vmi))
 		},
 			Entry("Use virtio transitional", true),
 			Entry("Use virtio non-transitional", false),
@@ -95,7 +100,8 @@ var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, 
 
 		By("Logging in as root")
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
-		expectGuestVSOCKCID(vmi, cid)
+		guestCID := guestVisibleVSOCKCID(vmi)
+		expectGuestVSOCKCID(vmi, guestCID)
 
 		By("Migrating the VMI")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -104,7 +110,7 @@ var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, 
 
 		By("Ensuring the CID survived the migration")
 		Expect(vmi.Status.VSOCKCID).To(HaveValue(Equal(cid)))
-		expectGuestVSOCKCID(vmi, cid)
+		expectGuestVSOCKCID(vmi, guestCID)
 	})
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
@@ -128,6 +134,43 @@ var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, 
 	},
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
+	)
+
+	DescribeTable("connecting to the guest from another Pod on the node", func(localNamespace bool) {
+		By("Creating a VMI with VSOCK enabled")
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachVSOCK(true))
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
+		Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+
+		By("Logging in as root")
+		Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+		By("copying the guest agent binary")
+		copyExampleGuestAgent(vmi)
+
+		By("starting the guest agent binary")
+		Expect(startExampleGuestAgent(vmi, false, guestAgentPort)).To(Succeed())
+
+		By("Ensuring the guest is reachable through the API, which enters the Pod network namespace")
+		expectVSOCKEchoViaAPI(vmi, guestAgentPort, false)
+
+		probe := newPeerPodVSOCKProbe(vmi.Status.NodeName)
+		if !localNamespace {
+			Expect(probe(*vmi.Status.VSOCKCID, guestAgentPort)).To(BeTrue(),
+				"VSOCK CID %d must be reachable from another Pod on the node", *vmi.Status.VSOCKCID)
+
+			return
+		}
+
+		for _, cid := range []uint32{vsock.LocalCID, *vmi.Status.VSOCKCID} {
+			Expect(probe(cid, guestAgentPort)).To(BeFalse(),
+				"VSOCK CID %d must not be reachable from another Pod on the node", cid)
+		}
+	},
+		Entry("should fail when VSOCK is confined to the Pod network namespace",
+			decorators.RequiresVSOCKLocalNamespace, true),
+		Entry("should succeed when VSOCK is shared with the whole node",
+			decorators.RequiresVSOCKGlobalNamespace, false),
 	)
 
 	It("should return err if the port is invalid", func() {
@@ -162,14 +205,58 @@ var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, 
 	})
 })
 
+// guestVisibleVSOCKCID returns the CID virt-launcher assigns to the guest. In
+// local mode that is the fixed CID instead of the one from the VMI status.
+func guestVisibleVSOCKCID(vmi *v1.VirtualMachineInstance) uint32 {
+	GinkgoHelper()
+
+	Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
+
+	pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).ToNot(HaveOccurred())
+
+	// A missing file means the kernel has no VSOCK namespaces, so global mode.
+	nsMode, err := exec.ExecuteCommandOnPod(pod, "compute",
+		[]string{"/bin/bash", "-c", "cat /proc/sys/net/vsock/ns_mode 2>/dev/null || true"})
+	Expect(err).ToNot(HaveOccurred())
+	if strings.TrimSpace(nsMode) == mode.ModeLocal {
+		return vsock.LocalCID
+	}
+
+	return *vmi.Status.VSOCKCID
+}
+
 func expectGuestVSOCKCID(vmi *v1.VirtualMachineInstance, cid uint32) {
 	GinkgoHelper()
 
-	By("Ensuring the guest uses the VSOCK CID from the VMI status")
+	By(fmt.Sprintf("Ensuring the guest uses VSOCK CID %d", cid))
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "hostnamectl --json=short\n"},
 		&expect.BExp{R: fmt.Sprintf(`"VSockCID":%d\b`, cid)},
 	}, 30)).To(Succeed(), "the guest must use VSOCK CID %d", cid)
+}
+
+func newPeerPodVSOCKProbe(nodeName string) func(cid, port uint32) bool {
+	const connectScript = `command -v ncat >/dev/null || { echo "ncat is missing" >&2; exit 1; }
+if ncat -z --vsock -w 5 "$1" "$2" 2>/dev/null; then echo true; else echo false; fi
+`
+
+	pod := libpod.RenderPrivilegedPod("vsock-peer-probe", []string{"sleep"}, []string{"infinity"})
+	pod.Spec.NodeName = nodeName
+
+	pod, err := libpod.Run(pod, pod.Namespace)
+	Expect(err).ToNot(HaveOccurred())
+
+	return func(cid, port uint32) bool {
+		out, execErr := exec.ExecuteCommandOnPod(pod, pod.Spec.Containers[0].Name,
+			[]string{"/bin/bash", "-c", connectScript, "probe", fmt.Sprint(cid), fmt.Sprint(port)})
+		ExpectWithOffset(1, execErr).ToNot(HaveOccurred())
+
+		reachable, parseErr := strconv.ParseBool(strings.TrimSpace(out))
+		ExpectWithOffset(1, parseErr).ToNot(HaveOccurred())
+
+		return reachable
+	}
 }
 
 // expectVSOCKEchoViaAPI retries because the agent binds its VSOCK port only

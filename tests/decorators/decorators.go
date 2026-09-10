@@ -98,6 +98,10 @@ var (
 	RequiresPersistentReservation = Label("RequiresPersistentReservation")
 	// RequiresPlugins requires the Plugins feature gate to be enabled on the kubevirt level
 	RequiresPlugins = Label("RequiresPlugins")
+	// RequiresVSOCKLocalNamespace requires nodes with net.vsock.child_ns_mode set to local
+	RequiresVSOCKLocalNamespace = Label("RequiresVSOCKLocalNamespace")
+	// RequiresVSOCKGlobalNamespace requires nodes with net.vsock.child_ns_mode unset or set to global
+	RequiresVSOCKGlobalNamespace = Label("RequiresVSOCKGlobalNamespace")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
