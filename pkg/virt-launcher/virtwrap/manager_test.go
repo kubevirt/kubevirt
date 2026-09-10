@@ -712,6 +712,87 @@ var _ = Describe("Manager", func() {
 				return false
 			}, 20*time.Second, 1).Should(BeTrue(), "Free wasn't called")
 		})
+		It("should sync guest time on every unpause, not just the first", func() {
+			setTimeCalls := make(chan bool, 2)
+			defer close(setTimeCalls)
+			freeCalls := make(chan bool, 4)
+			defer close(freeCalls)
+
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockLibvirt.VirtDomain, nil)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil).Times(2)
+			mockLibvirt.DomainEXPECT().Resume().Return(nil).Times(2)
+			mockLibvirt.DomainEXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(interface{}, interface{}, interface{}) {
+				setTimeCalls <- true
+			})
+			mockLibvirt.DomainEXPECT().Free().AnyTimes().Do(func() { freeCalls <- true })
+
+			manager, _ := NewLibvirtDomainManager(mockLibvirt.VirtConnection, "fake", "fake", nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
+
+			Expect(manager.UnpauseVMI(vmi)).To(Succeed())
+			Eventually(setTimeCalls, 20*time.Second, 1).Should(Receive(), "SetTime wasn't called on first unpause")
+
+			Expect(manager.UnpauseVMI(vmi)).To(Succeed())
+			Eventually(setTimeCalls, 20*time.Second, 1).Should(Receive(), "SetTime wasn't called on second unpause")
+
+			for i := 0; i < 4; i++ {
+				Eventually(freeCalls, 20*time.Second, 1).Should(Receive())
+			}
+		})
+		It("should call SetTime only once across repeated migration finalization retries", func() {
+			setTimeCalls := make(chan bool, 2)
+			defer close(setTimeCalls)
+			freeCalls := make(chan bool, 1)
+			defer close(freeCalls)
+
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockLibvirt.VirtDomain, nil)
+			mockLibvirt.DomainEXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(interface{}, interface{}, interface{}) {
+				setTimeCalls <- true
+			})
+			mockLibvirt.DomainEXPECT().Free().AnyTimes().Do(func() { freeCalls <- true })
+
+			manager, _ := NewLibvirtDomainManager(mockLibvirt.VirtConnection, "fake", "fake", nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
+
+			opts := &cmdv1.VirtualMachineOptions{}
+			Expect(manager.FinalizeVirtualMachineMigration(vmi, opts)).To(Succeed())
+			Expect(manager.FinalizeVirtualMachineMigration(vmi, opts)).To(Succeed())
+
+			Eventually(setTimeCalls, 20*time.Second, 1).Should(Receive(), "SetTime wasn't called on first finalization")
+			Expect(setTimeCalls).ShouldNot(Receive(), "SetTime was called more than once across retries")
+
+			Eventually(freeCalls, 20*time.Second, 1).Should(Receive())
+		})
+		It("should sync guest time on unpause after migration finalization", func() {
+			setTimeCalls := make(chan bool, 2)
+			defer close(setTimeCalls)
+			freeCalls := make(chan bool, 3)
+			defer close(freeCalls)
+
+			vmi := newVMI(testNamespace, testVmName)
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockLibvirt.VirtDomain, nil)
+			mockLibvirt.DomainEXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(interface{}, interface{}, interface{}) {
+				setTimeCalls <- true
+			})
+			mockLibvirt.DomainEXPECT().Free().AnyTimes().Do(func() { freeCalls <- true })
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
+			mockLibvirt.DomainEXPECT().Resume().Return(nil)
+
+			manager, _ := NewLibvirtDomainManager(mockLibvirt.VirtConnection, "fake", "fake", nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
+
+			Expect(manager.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+			Eventually(setTimeCalls, 20*time.Second, 1).Should(Receive(), "SetTime wasn't called on migration finalization")
+
+			Expect(manager.UnpauseVMI(vmi)).To(Succeed())
+			Eventually(setTimeCalls, 20*time.Second, 1).Should(Receive(), "SetTime wasn't called on unpause after migration")
+
+			for i := 0; i < 3; i++ {
+				Eventually(freeCalls, 20*time.Second, 1).Should(Receive())
+			}
+		})
 		It("should not try to unpause a running VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
