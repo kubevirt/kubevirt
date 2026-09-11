@@ -35,8 +35,8 @@ var _ = Describe("SCC", func() {
 			))
 		})
 
-		It("should allow HostDir volume plugin for host-disk", func() {
-			Expect(scc.AllowHostDirVolumePlugin).To(BeTrue())
+		It("should not allow HostDir volume plugin for host-disk", func() {
+			Expect(scc.AllowHostDirVolumePlugin).To(BeFalse())
 		})
 
 		It("should allow any user", func() {
