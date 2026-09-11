@@ -148,18 +148,6 @@ func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interfa
 	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPorts(ports...))
 }
 
-// InterfaceDeviceWithMasqueradeBindingPortRanges returns an Interface named "default" with masquerade
-// binding and the given port ranges.
-func InterfaceDeviceWithMasqueradeBindingPortRanges(portRanges ...kvirtv1.PortRange) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name: kvirtv1.DefaultPodNetwork().Name,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			Masquerade: &kvirtv1.InterfaceMasquerade{},
-		},
-		PortRanges: portRanges,
-	}
-}
-
 // InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
 func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithBridgeBinding())
