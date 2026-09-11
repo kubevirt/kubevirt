@@ -45,6 +45,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -57,6 +58,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/trace"
 
@@ -111,6 +113,14 @@ const (
 	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
 	// dataVolume is successfully created
 	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
+	// FailedResourceClaimCreateReason is added in an event when creating a ResourceClaim
+	// from a ResourceClaimTemplate fails.
+	FailedResourceClaimCreateReason = "FailedResourceClaimCreate"
+	// SuccessfulResourceClaimCreateReason is added in an event when a ResourceClaim is
+	// successfully created from a ResourceClaimTemplate.
+	SuccessfulResourceClaimCreateReason = "SuccessfulResourceClaimCreate"
+	FailedResourceClaimDeleteReason     = "FailedResourceClaimDelete"
+	SuccessfulResourceClaimDeleteReason = "SuccessfulResourceClaimDelete"
 	// SourcePVCNotAvailabe is added in an event when the source PVC of a valid
 	// clone Datavolume doesn't exist
 	SourcePVCNotAvailabe = "SourcePVCNotAvailabe"
@@ -139,6 +149,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	namespaceInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
+	resourceClaimInformer cache.SharedIndexInformer,
+	resourceClaimTemplateInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -154,18 +166,21 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
 		),
-		vmiIndexer:             vmiInformer.GetIndexer(),
-		vmIndexer:              vmInformer.GetIndexer(),
-		dataVolumeStore:        dataVolumeInformer.GetStore(),
-		dataSourceStore:        dataSourceInformer.GetStore(),
-		namespaceStore:         namespaceInformer.GetStore(),
-		pvcStore:               pvcInformer.GetStore(),
-		crIndexer:              crInformer.GetIndexer(),
-		instancetypeController: instancetypeController,
-		recorder:               recorder,
-		clientset:              clientset,
-		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiIndexer:                 vmiInformer.GetIndexer(),
+		vmIndexer:                  vmInformer.GetIndexer(),
+		dataVolumeStore:            dataVolumeInformer.GetStore(),
+		dataSourceStore:            dataSourceInformer.GetStore(),
+		namespaceStore:             namespaceInformer.GetStore(),
+		pvcStore:                   pvcInformer.GetStore(),
+		resourceClaimStore:         resourceClaimInformer.GetStore(),
+		resourceClaimTemplateStore: resourceClaimTemplateInformer.GetStore(),
+		crIndexer:                  crInformer.GetIndexer(),
+		instancetypeController:     instancetypeController,
+		recorder:                   recorder,
+		clientset:                  clientset,
+		expectations:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		resourceClaimExpectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
@@ -180,7 +195,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() && vmInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && dataSourceInformer.HasSynced() &&
-			pvcInformer.HasSynced() && crInformer.HasSynced()
+			pvcInformer.HasSynced() && crInformer.HasSynced() &&
+			resourceClaimInformer.HasSynced() && resourceClaimTemplateInformer.HasSynced()
 	}
 
 	_, err := vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -205,6 +221,23 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = resourceClaimInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addResourceClaim,
+		DeleteFunc: c.deleteResourceClaim,
+		UpdateFunc: c.updateResourceClaim,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = resourceClaimTemplateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addResourceClaimTemplate,
+		UpdateFunc: c.updateResourceClaimTemplate,
 	})
 	if err != nil {
 		return nil, err
@@ -281,22 +314,25 @@ type instancetypeHandler interface {
 }
 
 type Controller struct {
-	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.TypedRateLimitingInterface[string]
-	vmiIndexer             cache.Indexer
-	vmIndexer              cache.Indexer
-	dataVolumeStore        cache.Store
-	dataSourceStore        cache.Store
-	namespaceStore         cache.Store
-	pvcStore               cache.Store
-	crIndexer              cache.Indexer
-	instancetypeController instancetypeHandler
-	recorder               record.EventRecorder
-	expectations           *controller.UIDTrackingControllerExpectations
-	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
-	cloneAuthFunc          CloneAuthFunc
-	clusterConfig          *virtconfig.ClusterConfig
-	hasSynced              func() bool
+	clientset                  kubecli.KubevirtClient
+	Queue                      workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer                 cache.Indexer
+	vmIndexer                  cache.Indexer
+	dataVolumeStore            cache.Store
+	dataSourceStore            cache.Store
+	namespaceStore             cache.Store
+	pvcStore                   cache.Store
+	resourceClaimStore         cache.Store
+	resourceClaimTemplateStore cache.Store
+	crIndexer                  cache.Indexer
+	instancetypeController     instancetypeHandler
+	recorder                   record.EventRecorder
+	expectations               *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations     *controller.UIDTrackingControllerExpectations
+	resourceClaimExpectations  *controller.UIDTrackingControllerExpectations
+	cloneAuthFunc              CloneAuthFunc
+	clusterConfig              *virtconfig.ClusterConfig
+	hasSynced                  func() bool
 
 	netSynchronizer      synchronizer
 	firmwareSynchronizer synchronizer
@@ -328,7 +364,7 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) satisfiedExpectations(key string) bool {
-	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
+	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key) && c.resourceClaimExpectations.SatisfiedExpectations(key)
 }
 
 var virtControllerVMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
@@ -570,6 +606,252 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 		}
 	}
 	return ready, nil
+}
+
+func (c *Controller) handleResourceClaims(vm *virtv1.VirtualMachine) (bool, error) {
+	if !c.clusterConfig.PersistentDRAClaimsEnabled() {
+		// When the feature gate is disabled there are no VM-owned ResourceClaims
+		// to reconcile, so nothing blocks the VMI from starting.
+		return true, nil
+	}
+	ready := true
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+		claimObj, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil {
+			return false, err
+		}
+		if exists {
+			// A claim with the derived name already exists. Derived names are not
+			// collision proof across VMs, so only treat it as ours when we own it;
+			// otherwise refuse to start rather than adopt another VM's claim.
+			if !isClaimOwnedByVM(claimObj.(*resourcev1.ResourceClaim), vm) {
+				ready = false
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimCreateReason,
+					"ResourceClaim %s already exists and is not owned by this VM", claimName)
+			}
+			continue
+		}
+
+		// No claim with the derived name exists yet; create one from the template.
+		ready = false
+		templateKey := fmt.Sprintf("%s/%s", vm.Namespace, entry.ResourceClaimTemplateName)
+		templateObj, templateExists, err := c.resourceClaimTemplateStore.GetByKey(templateKey)
+		if err != nil {
+			return false, err
+		}
+		if !templateExists {
+			log.Log.Object(vm).Warningf("ResourceClaimTemplate %s not found, waiting", entry.ResourceClaimTemplateName)
+			c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimCreateReason, "ResourceClaimTemplate %s not found", entry.ResourceClaimTemplateName)
+			continue
+		}
+		claimTemplate := templateObj.(*resourcev1.ResourceClaimTemplate)
+		newClaim := watchutil.CreateResourceClaimManifest(entry, claimTemplate, vm)
+		c.resourceClaimExpectations.ExpectCreations(vmKey, 1)
+		_, err = c.clientset.ResourceV1().ResourceClaims(vm.Namespace).Create(context.Background(), newClaim, metav1.CreateOptions{})
+		if err != nil {
+			c.resourceClaimExpectations.CreationObserved(vmKey)
+			c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimCreateReason, "Error creating ResourceClaim %s: %v", claimName, err)
+			return false, fmt.Errorf("failed to create ResourceClaim: %v", err)
+		}
+		c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulResourceClaimCreateReason, "Created ResourceClaim %s", claimName)
+	}
+	return ready, nil
+}
+
+func hasVMInReservedFor(claim *resourcev1.ResourceClaim, vm *virtv1.VirtualMachine) bool {
+	for _, ref := range claim.Status.ReservedFor {
+		if ref.UID == vm.UID {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Controller) addVMToClaimReservedFor(claim *resourcev1.ResourceClaim, vm *virtv1.VirtualMachine) error {
+	vmRef := resourcev1.ResourceClaimConsumerReference{
+		APIGroup: "kubevirt.io",
+		Resource: "virtualmachines",
+		Name:     vm.Name,
+		UID:      vm.UID,
+	}
+	// reservedFor is a shared list: the scheduler adds the consuming virt-launcher
+	// pod to it. A read-modify-write from the informer cache pushed with a JSON
+	// merge patch would replace the whole list and could clobber consumers added
+	// concurrently. Read the live object and UpdateStatus under a resourceVersion
+	// precondition, retrying on conflict.
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := c.clientset.ResourceV1().ResourceClaims(claim.Namespace).Get(
+			context.Background(), claim.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if hasVMInReservedFor(current, vm) {
+			return nil
+		}
+		current.Status.ReservedFor = append(current.Status.ReservedFor, vmRef)
+		if _, err := c.clientset.ResourceV1().ResourceClaims(claim.Namespace).UpdateStatus(
+			context.Background(), current, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		log.Log.Infof("Added VM %s to ResourceClaim %s reservedFor", vm.Name, claim.Name)
+		return nil
+	})
+}
+
+// removeVMFromClaimReservedFor removes the VM's consumer reference from a claim's
+// reservedFor list using the same live-read + UpdateStatus + conflict-retry pattern
+// as addVMToClaimReservedFor, so concurrently added consumers are not clobbered.
+func (c *Controller) removeVMFromClaimReservedFor(namespace, name string, vm *virtv1.VirtualMachine) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := c.clientset.ResourceV1().ResourceClaims(namespace).Get(
+			context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !hasVMInReservedFor(current, vm) {
+			return nil
+		}
+		newReservedFor := make([]resourcev1.ResourceClaimConsumerReference, 0, len(current.Status.ReservedFor))
+		for _, ref := range current.Status.ReservedFor {
+			if ref.UID != vm.UID {
+				newReservedFor = append(newReservedFor, ref)
+			}
+		}
+		current.Status.ReservedFor = newReservedFor
+		_, err = c.clientset.ResourceV1().ResourceClaims(namespace).UpdateStatus(
+			context.Background(), current, metav1.UpdateOptions{})
+		return err
+	})
+}
+
+// isClaimOwnedByVM reports whether the ResourceClaim is controller-owned by the
+// given VM. Derived claim names (see ResourceClaimNameForVM) are not collision
+// proof across VMs, so ownership must be verified before a claim is consumed as
+// "ready" or deleted, to avoid acting on another VM's claim.
+func isClaimOwnedByVM(claim *resourcev1.ResourceClaim, vm *virtv1.VirtualMachine) bool {
+	controllerRef := metav1.GetControllerOf(claim)
+	return controllerRef != nil && controllerRef.UID == vm.UID
+}
+
+func (c *Controller) ensureVMInClaimReservedFor(vm *virtv1.VirtualMachine) {
+	if !c.clusterConfig.PersistentDRAClaimsEnabled() {
+		return
+	}
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		persist := entry.PersistWhenStopped != nil && *entry.PersistWhenStopped
+		if !persist {
+			continue
+		}
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+		claimObj, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil || !exists {
+			log.Log.Object(vm).V(4).Infof("ensureVMInClaimReservedFor: claim %s not in cache (exists=%v)", claimName, exists)
+			continue
+		}
+		// Read-only use of the cache object here: addVMToClaimReservedFor operates
+		// on a live copy fetched from the API server, so no DeepCopy is needed.
+		claim := claimObj.(*resourcev1.ResourceClaim)
+		if !isClaimOwnedByVM(claim, vm) {
+			// Name collision with another VM's claim; never reserve it for us.
+			continue
+		}
+		if claim.Status.Allocation == nil {
+			log.Log.Object(vm).V(4).Infof("ensureVMInClaimReservedFor: claim %s not allocated yet", claimName)
+			continue
+		}
+		if hasVMInReservedFor(claim, vm) {
+			continue
+		}
+		log.Log.Object(vm).Infof("Adding VM to ResourceClaim %s reservedFor (persistWhenStopped=true)", claimName)
+		if err := c.addVMToClaimReservedFor(claim, vm); err != nil {
+			log.Log.Object(vm).Warningf("Failed to add VM to ResourceClaim %s reservedFor: %v", claimName, err)
+		}
+	}
+}
+
+func (c *Controller) removeVMFromAllClaimReservedFor(vm *virtv1.VirtualMachine) {
+	if !c.clusterConfig.PersistentDRAClaimsEnabled() {
+		return
+	}
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		if entry.PersistWhenStopped == nil || !*entry.PersistWhenStopped {
+			continue
+		}
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+		claimObj, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil || !exists {
+			continue
+		}
+		claim := claimObj.(*resourcev1.ResourceClaim)
+		if !isClaimOwnedByVM(claim, vm) {
+			// Name collision with another VM's claim; never modify it.
+			continue
+		}
+		if !hasVMInReservedFor(claim, vm) {
+			continue
+		}
+		if err := c.removeVMFromClaimReservedFor(vm.Namespace, claimName, vm); err != nil {
+			log.Log.Object(vm).Warningf("Failed to remove VM from ResourceClaim %s reservedFor: %v", claimName, err)
+		} else {
+			log.Log.Infof("Removed VM %s from ResourceClaim %s reservedFor", vm.Name, claimName)
+		}
+	}
+}
+
+func (c *Controller) cleanupNonPersistentResourceClaims(vm *virtv1.VirtualMachine) error {
+	if !c.clusterConfig.PersistentDRAClaimsEnabled() {
+		return nil
+	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range vm.Spec.ResourceClaimTemplates {
+		if entry.PersistWhenStopped != nil && *entry.PersistWhenStopped {
+			continue
+		}
+
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
+		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
+
+		claimObj, exists, err := c.resourceClaimStore.GetByKey(key)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
+		if !isClaimOwnedByVM(claimObj.(*resourcev1.ResourceClaim), vm) {
+			// Name collision with another VM's claim; never delete a claim we
+			// don't own.
+			continue
+		}
+
+		c.resourceClaimExpectations.ExpectDeletions(vmKey, []string{key})
+		err = c.clientset.ResourceV1().ResourceClaims(vm.Namespace).Delete(
+			context.Background(), claimName, metav1.DeleteOptions{})
+		if err != nil {
+			c.resourceClaimExpectations.DeletionObserved(vmKey, key)
+			if !apiErrors.IsNotFound(err) {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedResourceClaimDeleteReason,
+					"Error deleting ResourceClaim %s: %v", claimName, err)
+				return fmt.Errorf("failed to delete ResourceClaim %s: %v", claimName, err)
+			}
+		} else {
+			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulResourceClaimDeleteReason,
+				"Deleted non-persistent ResourceClaim %s", claimName)
+		}
+	}
+	return nil
 }
 
 func (c *Controller) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -975,6 +1257,8 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
+	c.ensureVMInClaimReservedFor(vm)
+
 	switch runStrategy {
 	case virtv1.RunStrategyAlways:
 		// For this RunStrategy, a VMI should always be running. If a StateChangeRequest
@@ -1055,6 +1339,11 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
 				}
+				if forceStop {
+					if err := c.cleanupNonPersistentResourceClaims(vm); err != nil {
+						log.Log.Object(vm).Warningf("Failed to cleanup non-persistent ResourceClaims: %v", err)
+					}
+				}
 
 				if vmiFailed {
 					if err := c.addStartRequest(vm); err != nil {
@@ -1096,7 +1385,9 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
 				}
-				// return to let the controller pick up the expected deletion
+				if err := c.cleanupNonPersistentResourceClaims(vm); err != nil {
+					log.Log.Object(vm).Warningf("Failed to cleanup non-persistent ResourceClaims: %v", err)
+				}
 				return vm, nil
 			}
 		} else {
@@ -1134,6 +1425,9 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		vm, err = c.stopVMI(vm, vmi)
 		if err != nil {
 			return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
+		}
+		if err := c.cleanupNonPersistentResourceClaims(vm); err != nil {
+			log.Log.Object(vm).Warningf("Failed to cleanup non-persistent ResourceClaims: %v", err)
 		}
 		return vm, nil
 	case virtv1.RunStrategyOnce:
@@ -1273,6 +1567,15 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, nil
 	}
 
+	rcReady, err := c.handleResourceClaims(vm)
+	if err != nil {
+		return vm, err
+	}
+	if !rcReady {
+		log.Log.Object(vm).V(4).Info("Waiting for ResourceClaims to be allocated, delaying start")
+		return vm, nil
+	}
+
 	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
 		log.Log.Object(vm).Reason(err).Error(failedManualRecoveryRequiredCondSetErrMsg)
 		return vm, nil
@@ -1289,6 +1592,14 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	// start it
 	vmi := SetupVMIFromVM(vm)
+	// Rewriting the VMI's ResourceClaim references to the VM-owned claims is only
+	// valid when the feature is enabled; otherwise leave the template references
+	// untouched so standard pod-scoped DRA applies. This must stay immediately
+	// after SetupVMIFromVM: it rewrites the vmi.Spec.ResourceClaims that
+	// SetupVMIFromVM just populated and assumes nothing else has mutated them.
+	if c.clusterConfig.PersistentDRAClaimsEnabled() {
+		rewriteResourceClaimTemplateRefs(vmi, vm)
+	}
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
@@ -1904,6 +2215,28 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	return vmi
 }
 
+// rewriteResourceClaimTemplateRefs points the VMI's ResourceClaim references at the
+// VM-owned ResourceClaims created by handleResourceClaims, replacing each matching
+// template reference with the derived claim name. It must only be called when the
+// PersistentDRAClaims feature gate is enabled (the caller guards it): when the gate
+// is disabled the VMI keeps its original template references so that standard
+// pod-scoped DRA handles them.
+func rewriteResourceClaimTemplateRefs(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) {
+	for i, rc := range vmi.Spec.ResourceClaims {
+		if rc.ResourceClaimTemplateName == nil {
+			continue
+		}
+		for _, rct := range vm.Spec.ResourceClaimTemplates {
+			if rct.Name == rc.Name {
+				derivedName := watchutil.ResourceClaimNameForVM(vm.Name, rct.Name)
+				vmi.Spec.ResourceClaims[i].ResourceClaimName = &derivedName
+				vmi.Spec.ResourceClaims[i].ResourceClaimTemplateName = nil
+				break
+			}
+		}
+	}
+}
+
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {
 	if len(vm.Status.StateChangeRequests) == 0 {
 		return false
@@ -2284,6 +2617,120 @@ func (c *Controller) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 			if vm.Name != vmOwner {
 				log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
 				c.enqueueVm(vm)
+			}
+		}
+	}
+}
+
+func (c *Controller) addResourceClaim(obj interface{}) {
+	rc := obj.(*resourcev1.ResourceClaim)
+	if rc.DeletionTimestamp != nil {
+		c.deleteResourceClaim(rc)
+		return
+	}
+	controllerRef := metav1.GetControllerOf(rc)
+	if controllerRef != nil {
+		vm := c.resolveControllerRef(rc.Namespace, controllerRef)
+		if vm != nil {
+			vmKey, err := controller.KeyFunc(vm)
+			if err != nil {
+				log.Log.Object(rc).Errorf("Cannot parse key of VM: %s for ResourceClaim: %s", vm.Name, rc.Name)
+			} else {
+				c.resourceClaimExpectations.CreationObserved(vmKey)
+			}
+		}
+	}
+	c.queueVMsForResourceClaim(rc)
+}
+
+func (c *Controller) updateResourceClaim(old, cur interface{}) {
+	curRC := cur.(*resourcev1.ResourceClaim)
+	oldRC := old.(*resourcev1.ResourceClaim)
+	if curRC.ResourceVersion == oldRC.ResourceVersion {
+		return
+	}
+	labelChanged := !equality.Semantic.DeepEqual(curRC.Labels, oldRC.Labels)
+	if curRC.DeletionTimestamp != nil {
+		c.deleteResourceClaim(curRC)
+		if labelChanged {
+			c.deleteResourceClaim(oldRC)
+		}
+		return
+	}
+	curControllerRef := metav1.GetControllerOf(curRC)
+	oldControllerRef := metav1.GetControllerOf(oldRC)
+	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged && oldControllerRef != nil {
+		if vm := c.resolveControllerRef(oldRC.Namespace, oldControllerRef); vm != nil {
+			c.enqueueVm(vm)
+		}
+	}
+	c.queueVMsForResourceClaim(curRC)
+}
+
+func (c *Controller) deleteResourceClaim(obj interface{}) {
+	rc, ok := obj.(*resourcev1.ResourceClaim)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(failedProcessDeleteNotificationErrMsg)
+			return
+		}
+		rc, ok = tombstone.Obj.(*resourcev1.ResourceClaim)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a ResourceClaim %#v", obj)).Error(failedProcessDeleteNotificationErrMsg)
+			return
+		}
+	}
+	if controllerRef := metav1.GetControllerOf(rc); controllerRef != nil {
+		if vm := c.resolveControllerRef(rc.Namespace, controllerRef); vm != nil {
+			if vmKey, err := controller.KeyFunc(vm); err == nil {
+				c.resourceClaimExpectations.DeletionObserved(vmKey, controller.ResourceClaimKey(rc))
+			}
+		}
+	}
+	c.queueVMsForResourceClaim(rc)
+}
+
+func (c *Controller) queueVMsForResourceClaim(rc *resourcev1.ResourceClaim) {
+	if controllerRef := metav1.GetControllerOf(rc); controllerRef != nil {
+		if vm := c.resolveControllerRef(rc.Namespace, controllerRef); vm != nil {
+			log.Log.V(4).Object(rc).Infof("ResourceClaim updated for vm %s", vm.Name)
+			c.enqueueVm(vm)
+		}
+	}
+}
+
+func (c *Controller) addResourceClaimTemplate(obj interface{}) {
+	c.queueVMsForResourceClaimTemplate(obj.(*resourcev1.ResourceClaimTemplate))
+}
+
+func (c *Controller) updateResourceClaimTemplate(old, cur interface{}) {
+	curRCT := cur.(*resourcev1.ResourceClaimTemplate)
+	oldRCT := old.(*resourcev1.ResourceClaimTemplate)
+	if curRCT.ResourceVersion == oldRCT.ResourceVersion {
+		return
+	}
+	c.queueVMsForResourceClaimTemplate(curRCT)
+}
+
+// queueVMsForResourceClaimTemplate enqueues every VM in the template's namespace
+// that references it. ResourceClaimTemplates carry no owner reference back to the
+// VM, so a claim cannot be created until the template exists; without this the VM
+// would sit un-reconciled until the next unrelated resync when a template is
+// created after its VM.
+func (c *Controller) queueVMsForResourceClaimTemplate(rct *resourcev1.ResourceClaimTemplate) {
+	vms, err := c.vmIndexer.ByIndex(cache.NamespaceIndex, rct.Namespace)
+	if err != nil {
+		log.Log.Object(rct).Reason(err).Error("failed to list VMs for ResourceClaimTemplate")
+		return
+	}
+	for _, obj := range vms {
+		vm := obj.(*virtv1.VirtualMachine)
+		for _, entry := range vm.Spec.ResourceClaimTemplates {
+			if entry.ResourceClaimTemplateName == rct.Name {
+				c.enqueueVm(vm)
+				break
 			}
 		}
 	}
@@ -3243,6 +3690,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if vm.DeletionTimestamp != nil {
 		if vmi == nil || controller.HasFinalizer(vm, metav1.FinalizerOrphanDependents) {
+			c.removeVMFromAllClaimReservedFor(vm)
 			vm, err = c.removeVMFinalizer(vm)
 			if err != nil {
 				return vm, vmi, nil, err

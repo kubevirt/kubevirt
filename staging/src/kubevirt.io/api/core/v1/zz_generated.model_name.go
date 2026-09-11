@@ -879,6 +879,11 @@ func (in ReservedOverhead) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ResourceClaimTemplateEntry) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.ResourceClaimTemplateEntry"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ResourceRequirements) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.ResourceRequirements"
 }

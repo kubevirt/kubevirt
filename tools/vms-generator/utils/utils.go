@@ -107,6 +107,7 @@ const (
 	VMPriorityClass                  = "vm-priorityclass"
 	VmCirrosSata                     = "vm-cirros-sata"
 	VmCirrosWithHookSidecarConfigMap = "vm-cirros-with-sidecar-hook-configmap"
+	VmDRAGPU                         = "vm-dra-pgpu"
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -1028,6 +1029,30 @@ func GetVMIDRAGPU() *v1.VirtualMachineInstance {
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWithUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
+}
+
+// GetVMDRAGPU builds a VM-scoped persistent ResourceClaims example. Unlike the
+// pod-scoped vmi-dra-pgpu, the VM owns the ResourceClaim so the allocated device
+// persists across VMI restarts. Requires the PersistentDRAClaims feature gate.
+func GetVMDRAGPU() *v1.VirtualMachine {
+	vm := getBaseVM(VmDRAGPU, map[string]string{
+		kubevirtIoVM: VmDRAGPU,
+	})
+
+	vm.Spec.ResourceClaimTemplates = []v1.ResourceClaimTemplateEntry{
+		{
+			Name:                      DRAResourceClaimName,
+			ResourceClaimTemplateName: ResourceClaimTemplatePGPU,
+		},
+	}
+
+	vm.Spec.Template.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
+	vm.Spec.Template.Spec.ResourceClaims = getDRAGPUResourceClaims()
+	vm.Spec.Template.Spec.Domain.Devices.GPUs = getDRAGPUDevice(DRAResourceClaimName)
+
+	initFedora(&vm.Spec.Template.Spec)
+	addNoCloudDiskWithUserData(&vm.Spec.Template.Spec, generateCloudConfigString(cloudConfigUserPassword))
+	return vm
 }
 
 // The minimum memory for UEFI boot on Arm64 is 256Mi

@@ -183,11 +183,13 @@ type VirtControllerApp struct {
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
-	dataVolumeInformer     cache.SharedIndexInformer
-	dataSourceInformer     cache.SharedIndexInformer
-	storageProfileInformer cache.SharedIndexInformer
-	cdiInformer            cache.SharedIndexInformer
-	cdiConfigInformer      cache.SharedIndexInformer
+	dataVolumeInformer         cache.SharedIndexInformer
+	dataSourceInformer         cache.SharedIndexInformer
+	resourceClaimInformer      cache.SharedIndexInformer
+	resourceClaimTemplInformer cache.SharedIndexInformer
+	storageProfileInformer     cache.SharedIndexInformer
+	cdiInformer                cache.SharedIndexInformer
+	cdiConfigInformer          cache.SharedIndexInformer
 
 	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
@@ -252,6 +254,8 @@ type VirtControllerApp struct {
 	hasCDI bool
 	// indicates if controllers were started with or without DRA support
 	isDRAEnabled bool
+	// indicates if controllers were started with persistent DRA claims support
+	isPersistentDRAClaimsEnabled bool
 	// indicates if controllers were started with or without Template support
 	isVirtTemplateDeploymentEnabled bool
 	// indicates if controllers were started with or without OCI export support
@@ -365,6 +369,7 @@ func Execute() {
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.isDRAEnabled = app.clusterConfig.AnyDeviceDRAGateEnabled()
+	app.isPersistentDRAClaimsEnabled = app.clusterConfig.PersistentDRAClaimsEnabled()
 	app.isVirtTemplateDeploymentEnabled = app.clusterConfig.VirtTemplateDeploymentEnabled()
 	app.isOCIExportEnabled = app.clusterConfig.OCIExportEnabled()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
@@ -419,6 +424,14 @@ func Execute() {
 	app.allPodInformer = app.informerFactory.Pod()
 	app.exportServiceInformer = app.informerFactory.ExportService()
 	app.resourceQuotaInformer = app.informerFactory.ResourceQuota()
+	if app.isPersistentDRAClaimsEnabled {
+		app.resourceClaimInformer = app.informerFactory.ResourceClaim()
+		app.resourceClaimTemplInformer = app.informerFactory.ResourceClaimTemplate()
+		log.Log.Infof("PersistentDRAClaims enabled, ResourceClaim informers active")
+	} else {
+		app.resourceClaimInformer = app.informerFactory.DummyResourceClaim()
+		app.resourceClaimTemplInformer = app.informerFactory.DummyResourceClaimTemplate()
+	}
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -528,6 +541,16 @@ func (vca *VirtControllerApp) configModificationCallback() {
 			log.Log.Infof("Reinitialize virt-controller, DRA integration has been introduced")
 		} else {
 			log.Log.Infof("Reinitialize virt-controller, DRA integration has been removed")
+		}
+		vca.reInitChan <- "reinit"
+		return
+	}
+	newIsPersistentDRAClaimsEnabled := vca.clusterConfig.PersistentDRAClaimsEnabled()
+	if newIsPersistentDRAClaimsEnabled != vca.isPersistentDRAClaimsEnabled {
+		if newIsPersistentDRAClaimsEnabled {
+			log.Log.Infof("Reinitialize virt-controller, PersistentDRAClaims has been enabled")
+		} else {
+			log.Log.Infof("Reinitialize virt-controller, PersistentDRAClaims has been disabled")
 		}
 		vca.reInitChan <- "reinit"
 		return
@@ -826,6 +849,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.namespaceInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
+		vca.resourceClaimInformer,
+		vca.resourceClaimTemplInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,

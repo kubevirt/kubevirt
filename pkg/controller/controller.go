@@ -27,6 +27,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -193,6 +194,10 @@ func PodKey(pod *k8sv1.Pod) string {
 
 func DataVolumeKey(dataVolume *cdiv1.DataVolume) string {
 	return fmt.Sprintf("%v/%v", dataVolume.Namespace, dataVolume.Name)
+}
+
+func ResourceClaimKey(rc *resourcev1.ResourceClaim) string {
+	return fmt.Sprintf("%v/%v", rc.Namespace, rc.Name)
 }
 
 func VirtualMachineInstanceKeys(vmis []*v1.VirtualMachineInstance) []string {

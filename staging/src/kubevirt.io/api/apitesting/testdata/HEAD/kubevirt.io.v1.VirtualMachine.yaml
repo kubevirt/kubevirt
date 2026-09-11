@@ -194,6 +194,10 @@ spec:
     kind: kindValue
     name: nameValue
     revisionName: revisionNameValue
+  resourceClaimTemplates:
+  - name: nameValue
+    persistWhenStopped: true
+    resourceClaimTemplateName: resourceClaimTemplateNameValue
   runStrategy: runStrategyValue
   running: true
   template:

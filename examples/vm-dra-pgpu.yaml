@@ -1,0 +1,48 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-dra-pgpu
+  name: vm-dra-pgpu
+spec:
+  resourceClaimTemplates:
+  - name: pgpu-resource-claim
+    resourceClaimTemplateName: pgpu-resource-claim-tmpl
+  runStrategy: Halted
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-dra-pgpu
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          gpus:
+          - claimName: pgpu-resource-claim
+            name: example-gpu
+            requestName: pgpu
+          rng: {}
+        memory:
+          guest: 1024M
+        resources: {}
+      resourceClaims:
+      - name: pgpu-resource-claim
+        resourceClaimTemplateName: pgpu-resource-claim-tmpl
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - containerDisk:
+          image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+        name: containerdisk
+      - cloudInitNoCloud:
+          userData: |-
+            #cloud-config
+            password: fedora
+            chpasswd: { expire: False }
+        name: cloudinitdisk

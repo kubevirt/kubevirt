@@ -1748,6 +1748,29 @@ type DataVolumeTemplateSpec struct {
 	Status *DataVolumeTemplateDummyStatus `json:"status,omitempty"`
 }
 
+// ResourceClaimTemplateEntry defines a ResourceClaim that should be created
+// from a ResourceClaimTemplate and bound to this VirtualMachine's lifecycle.
+// The VM controller creates the ResourceClaim with the VM as owner, ensuring
+// the claim persists across VMI restarts and is only deleted when the VM is deleted.
+type ResourceClaimTemplateEntry struct {
+	// Name is the logical name used to match this entry to
+	// spec.template.spec.resourceClaims[].name in the VMI template.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+	// object in the same namespace to create the ResourceClaim from.
+	// +kubebuilder:validation:MinLength=1
+	ResourceClaimTemplateName string `json:"resourceClaimTemplateName"`
+	// PersistWhenStopped controls whether the ResourceClaim is retained
+	// when the VM is explicitly stopped. When false (the default), the
+	// claim is deleted on stop to free the device for other workloads,
+	// and re-created on the next start. When true, the claim persists
+	// for the VM's entire lifetime. Claims always persist across reboots
+	// regardless of this setting.
+	// +optional
+	PersistWhenStopped *bool `json:"persistWhenStopped,omitempty"`
+}
+
 type VirtualMachineInstanceTemplateSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
@@ -2042,6 +2065,22 @@ type VirtualMachineSpec struct {
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
+
+	// resourceClaimTemplates is a list of ResourceClaims that should be created from
+	// ResourceClaimTemplates and are tied to the VirtualMachine's lifecycle.
+	// ResourceClaims in this list are dynamically created for the VirtualMachine and
+	// persist across VMI restarts. When the VM is deleted, the ResourceClaims are
+	// garbage-collected via owner references.
+	//
+	// This is an alpha field and requires enabling the
+	// DynamicResourceAllocation feature gate in kubernetes.
+	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	//
+	// +kubebuilder:validation:MaxItems:=256
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	ResourceClaimTemplates []ResourceClaimTemplateEntry `json:"resourceClaimTemplates,omitempty"`
 
 	// UpdateVolumesStrategy is the strategy to apply on volumes updates
 	UpdateVolumesStrategy *UpdateVolumesStrategy `json:"updateVolumesStrategy,omitempty"`
