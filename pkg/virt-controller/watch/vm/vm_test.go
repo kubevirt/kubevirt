@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -365,6 +366,65 @@ var _ = Describe("VirtualMachine", func() {
 					ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"),
 				),
 			}))
+		})
+
+		Context("with a persistent vTPM/EFI backend-storage PVC", func() {
+			addRunningVMWithBackendPVC := func(capacity string, cbtEnabled bool) *v1.VirtualMachine {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+				if cbtEnabled {
+					vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+						State: v1.ChangedBlockTrackingEnabled,
+					}
+				}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				watchtesting.MarkAsReady(vmi)
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+				Expect(controller.pvcStore.Add(&k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "persistent-state-for-" + vmi.Name,
+						Namespace: vmi.Namespace,
+						Labels:    map[string]string{backendstorage.PVCPrefix: vmi.Name},
+					},
+					Status: k8sv1.PersistentVolumeClaimStatus{
+						Phase:    k8sv1.ClaimBound,
+						Capacity: k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse(capacity)},
+					},
+				})).To(Succeed())
+
+				return vm
+			}
+
+			It("should emit a warning event when the PVC is larger than the requested 10Mi", func() {
+				vm := addRunningVMWithBackendPVC("1Gi", false)
+
+				sanityExecute(vm)
+
+				testutils.ExpectEvent(recorder, common.OversizedPersisentStorageReason)
+			})
+
+			It("should not emit an event when the PVC size matches the requested 10Mi", func() {
+				vm := addRunningVMWithBackendPVC(backendstorage.PVCSize, false)
+
+				sanityExecute(vm)
+
+				Consistently(recorder.Events).ShouldNot(Receive(ContainSubstring(common.OversizedPersisentStorageReason)))
+			})
+
+			It("should not emit an event for a CBT-enabled VM even when the PVC is larger than 10Mi", func() {
+				vm := addRunningVMWithBackendPVC("1Gi", true)
+
+				sanityExecute(vm)
+
+				Consistently(recorder.Events).ShouldNot(Receive(ContainSubstring(common.OversizedPersisentStorageReason)))
+			})
 		})
 
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
