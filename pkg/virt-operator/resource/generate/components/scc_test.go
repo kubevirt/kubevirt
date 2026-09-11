@@ -24,7 +24,6 @@ var _ = Describe("SCC", func() {
 		It("should allow seccomp profiles used by Kubevirt", func() {
 			Expect(scc.SeccompProfiles).To(ConsistOf(
 				"runtime/default",
-				"unconfined",
 				"localhost/kubevirt/kubevirt.json",
 			))
 		})

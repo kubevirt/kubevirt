@@ -74,7 +74,6 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 	}
 	scc.SeccompProfiles = []string{
 		"runtime/default",
-		"unconfined",
 		"localhost/kubevirt/kubevirt.json",
 	}
 	scc.AllowedCapabilities = []corev1.Capability{
