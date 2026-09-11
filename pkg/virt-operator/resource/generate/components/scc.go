@@ -82,7 +82,6 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 		// add CAP_NET_BIND_SERVICE capability to allow dhcp and slirp operations
 		"NET_BIND_SERVICE",
 	}
-	scc.AllowHostDirVolumePlugin = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
 
 	return scc
