@@ -208,7 +208,6 @@ rules:
   - serviceaccounts
   - services
   - endpoints
-  - pods/exec
   verbs:
   - get
   - list
