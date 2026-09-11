@@ -538,6 +538,53 @@ var _ = Describe("VMSnapshot source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
+	It("Should be in skipped phase when two volume backups restore to the same PVC", func() {
+		testVMExport := createSnapshotVMExport()
+		// Restore PVCs are named <export>-<pvc>, so both backups collapse onto one.
+		const secondVolumesnapshotName = "test-snapshot-2"
+		content := createTestVMSnapshotContent("snapshot-content")
+		second := content.Spec.VolumeBackups[0]
+		second.VolumeName = "test-volume-2"
+		second.VolumeSnapshotName = pointer.P(secondVolumesnapshotName)
+		content.Spec.VolumeBackups = append(content.Spec.VolumeBackups, second)
+		content.Status.VolumeSnapshotStatus = append(content.Status.VolumeSnapshotStatus,
+			snapshotv1.VolumeSnapshotStatus{
+				VolumeSnapshotName: secondVolumesnapshotName,
+				ReadyToUse:         pointer.P(true),
+			})
+
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("no exporter pod must be created for a source with duplicate PVCs")
+			return true, nil, nil
+		})
+		updated := false
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyLinksEmpty(vmExport)
+			Expect(vmExport.Status.Phase).To(Equal(exportv1.Skipped))
+			Expect(vmExport.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", exportv1.ConditionReady),
+				HaveField("Status", k8sv1.ConditionFalse),
+				HaveField("Reason", duplicatePVCReason),
+				HaveField("Message", ContainSubstring("test-test-snapshot")),
+			)))
+			updated = true
+			return true, vmExport, nil
+		})
+
+		pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))
+		vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
+		vmSnapshotContentInformer.GetStore().Add(content)
+		fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+		Expect(updated).To(BeTrue())
+	})
+
 	It("Should update status with correct links from snapshot with kubevirt content type", func() {
 		testVMExport := createSnapshotVMExport()
 		restoreName := fmt.Sprintf("%s-%s", testVMExport.Name, testVolumesnapshotName)
