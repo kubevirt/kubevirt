@@ -40,7 +40,7 @@ type (
 )
 
 const (
-	// ConfigMap respresents a configmap type,
+	// ConfigMap represents a configmap type,
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 	ConfigMap Type = "configmap"
 	// Secret represents a secret type,

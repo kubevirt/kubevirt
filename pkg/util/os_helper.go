@@ -30,7 +30,7 @@ import (
 // CloseIOAndCheckErr closes the file and check the returned error.
 // If there was an error a log messages will be printed.
 // If a valid address (not nil) is passed in  err the function will also update the error
-// Note: to update the error the calling funtion need to use named returned variable (If called as defer function)
+// Note: to update the error the calling function need to use named returned variable (If called as defer function)
 func CloseIOAndCheckErr(c io.Closer, err *error) {
 	if ferr := c.Close(); ferr != nil {
 		log.DefaultLogger().Reason(ferr).Error("Error when closing file")
@@ -43,7 +43,7 @@ func CloseIOAndCheckErr(c io.Closer, err *error) {
 
 // The following helper functions wrap nosec annotations with os file functions that potentially assign files or directories
 // access permissions that are viewed as not secure by gosec. Since kubevirt functionality and many e2e tests rely on such
-// "unsafe" permission settings, e.g. the pathes shared between the virt-launcher and QEMU. the use of these functions avoids
+// "unsafe" permission settings, e.g. the paths shared between the virt-launcher and QEMU. the use of these functions avoids
 // have too many nosec annotations scattered in the code and refers back to places where the "unsafe" permissions are set.
 
 func MkdirAllWithNosec(pathName string) error {

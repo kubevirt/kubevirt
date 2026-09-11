@@ -36,7 +36,7 @@ type CheckpointManager interface {
 
 // Provides checkpoint manager that uses key to store checkpoints
 // within provided directory. The manager uses std json package to
-// encode/decode the stucts.
+// encode/decode the structs.
 // This is thread-safe per key which is usual usage.
 func NewSimpleCheckpointManager(path, tempPath string) *simpleCheckpointManager {
 	return &simpleCheckpointManager{

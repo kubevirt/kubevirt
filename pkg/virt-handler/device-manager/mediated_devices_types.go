@@ -201,7 +201,7 @@ func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
 		if parents, exist := m.availableMdevTypesMap[mdevTypeToConfigure]; exist {
 			if len(parents) > 0 {
 				// Currently, we can configure only one mdev type per card.
-				// Find the next available parent to congigure and remove the
+				// Find the next available parent to configure and remove the
 				// configured parents from the list.
 				parent, remainingParents := m.getNextAvailableParentToConfigure(parents)
 				parents = remainingParents

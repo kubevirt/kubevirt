@@ -136,7 +136,7 @@ func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVol
 }
 
 func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolumes map[string]bool, pvcVolume map[string]v1.VolumeStatus, volumeName string) bool {
-	// If a PVC is used in a Filesystem (passthough), it should not be mapped as a HostDisk and a image file should
+	// If a PVC is used in a Filesystem (passthrough), it should not be mapped as a HostDisk and a image file should
 	// not be created.
 	if _, isPassthoughFSVolume := passthoughFSVolumes[volumeName]; isPassthoughFSVolume {
 		log.Log.V(4).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volumeName)
