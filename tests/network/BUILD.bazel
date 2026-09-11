@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bindingplugin.go",
+        "bindingplugin_dra.go",
         "bindingplugin_macvtap.go",
         "dual_stack_cluster.go",
         "framework.go",
@@ -40,6 +41,7 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
+        "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -77,6 +79,7 @@ go_library(
         "//vendor/k8s.io/api/batch/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/networking/v1:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
