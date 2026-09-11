@@ -705,6 +705,13 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
+// exportSourceURL builds an in-cluster HTTPS URL for a volume. path.Join is
+// required (not filepath.Join) so host:port plus an absolute /volumes/... URI
+// stays a valid URL.
+func exportSourceURL(host, uri string) string {
+	return "https://" + path.Join(host, uri)
+}
+
 func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
@@ -724,7 +731,7 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			return
 		}
 		headerSecretName := getSecretTokenName(exportName)
-		path, err := getBasePath()
+		basePath, err := getBasePath()
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				log.Log.Reason(err).Info("path not found")
@@ -757,7 +764,7 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		}
 		for i, dvTemplate := range expandedVm.Spec.DataVolumeTemplates {
-			dvTemplate.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, vi[i].RawGzURI))
+			dvTemplate.Spec.Source.HTTP.URL = exportSourceURL(basePath, vi[i].RawGzURI)
 			dvTemplate.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dvTemplate.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
 		}
@@ -775,7 +782,7 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			}
 			for _, info := range vi {
 				if strings.Contains(info.RawGzURI, dv.Name) {
-					dv.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, info.RawGzURI))
+					dv.Spec.Source.HTTP.URL = exportSourceURL(basePath, info.RawGzURI)
 				}
 			}
 			dv.Spec.Source.HTTP.CertConfigMap = certCm.Name

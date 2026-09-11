@@ -52,6 +52,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	exportpkg "kubevirt.io/kubevirt/pkg/storage/export/export"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
@@ -413,7 +414,7 @@ var _ = Describe("MemoryDump", func() {
 				Spec: k8sv1.ServiceSpec{
 					Ports: []k8sv1.ServicePort{{
 						Name: "export",
-						Port: int32(443),
+						Port: int32(exportpkg.ExportServerPort),
 					}},
 				},
 			}

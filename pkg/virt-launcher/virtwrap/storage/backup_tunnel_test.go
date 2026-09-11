@@ -39,6 +39,7 @@ import (
 
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/filewatcher"
+	exportpkg "kubevirt.io/kubevirt/pkg/storage/export/export"
 )
 
 var _ = Describe("Backup Tunnel", func() {
@@ -46,7 +47,7 @@ var _ = Describe("Backup Tunnel", func() {
 		It("should create a manager with the provided fields", func() {
 			startTime := metav1.Now()
 			m := newBackupTunnelManager(
-				"127.0.0.1:443",
+				fmt.Sprintf("127.0.0.1:%d", exportpkg.ExportServerPort),
 				"server",
 				"/tmp/nbd.sock",
 				"ca",
@@ -57,7 +58,7 @@ var _ = Describe("Backup Tunnel", func() {
 				nil,
 			)
 			Expect(m).ToNot(BeNil())
-			Expect(m.targetAddr).To(Equal("127.0.0.1:443"))
+			Expect(m.targetAddr).To(Equal(fmt.Sprintf("127.0.0.1:%d", exportpkg.ExportServerPort)))
 			Expect(m.serverName).To(Equal("server"))
 			Expect(m.nbdSocket).To(Equal("/tmp/nbd.sock"))
 			Expect(m.backupName).To(Equal("test-backup"))
@@ -123,7 +124,7 @@ var _ = Describe("Backup Tunnel", func() {
 
 		It("should return an error when the CA cert PEM is invalid", func() {
 			m := newBackupTunnelManager(
-				"127.0.0.1:443",
+				fmt.Sprintf("127.0.0.1:%d", exportpkg.ExportServerPort),
 				"server",
 				"/tmp/nbd.sock",
 				"ca",
@@ -140,7 +141,7 @@ var _ = Describe("Backup Tunnel", func() {
 
 		It("should return an error when the CA cert PEM slice is empty", func() {
 			m := newBackupTunnelManager(
-				"127.0.0.1:443",
+				fmt.Sprintf("127.0.0.1:%d", exportpkg.ExportServerPort),
 				"server",
 				"/tmp/nbd.sock",
 				"",
@@ -158,7 +159,7 @@ var _ = Describe("Backup Tunnel", func() {
 		It("should return an error when the client keypair is invalid", func() {
 			caCert, _, _ := generateTestCerts()
 			m := newBackupTunnelManager(
-				"127.0.0.1:443",
+				fmt.Sprintf("127.0.0.1:%d", exportpkg.ExportServerPort),
 				"server",
 				"/tmp/nbd.sock",
 				caCert,
@@ -176,7 +177,7 @@ var _ = Describe("Backup Tunnel", func() {
 		It("should build a valid TLS config when all inputs are correct", func() {
 			caCert, clientCert, clientKey := generateTestCerts()
 			m := newBackupTunnelManager(
-				"127.0.0.1:443",
+				fmt.Sprintf("127.0.0.1:%d", exportpkg.ExportServerPort),
 				"server",
 				"/tmp/nbd.sock",
 				caCert,
