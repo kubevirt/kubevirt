@@ -45,15 +45,15 @@ type BackupVolumeInfo struct {
 	DataEndpoint string `json:"dataEndpoint,omitempty"`
 	// MapEndpoint is the URL of the endpoint for map for pull mode
 	MapEndpoint string `json:"mapEndpoint,omitempty"`
+	// Type is how the volume was backed up, either Full or Incremental
+	// +optional
+	// +kubebuilder:validation:Enum=Full;Incremental
+	Type BackupType `json:"type,omitempty"`
 }
 
 type BackupCheckpoint struct {
 	Name         string       `json:"name,omitempty"`
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
-	// Volumes lists volumes included in the backup
-	// +optional
-	// +listType=atomic
-	Volumes []BackupVolumeInfo `json:"volumes,omitempty"`
 }
 
 // BackupType is the const type for the backup possible types
@@ -219,8 +219,8 @@ const (
 // VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource
 type VirtualMachineBackupStatus struct {
 	// +optional
-	// Type indicates if the backup was full or incremental
-	Type BackupType `json:"type,omitempty"`
+	// StartTimestamp is the timestamp when the backup started
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional

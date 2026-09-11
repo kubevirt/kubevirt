@@ -496,7 +496,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 		return nil
 	}
 
-	if backup.Status.Type != "" {
+	if backup.Status.StartTimestamp != nil {
 		if !vmiExists {
 			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI was deleted during backup")
 			return nil
@@ -651,10 +651,8 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	log.Log.Object(backup).Infof("Starting backup for VMI %s with mode %s", vmi.Name, backupOptions.Mode)
-	backupType := backupv1.Full
 	if isIncrementalBackup(backup, backupTracker) {
 		backupOptions.Incremental = pointer.P(backupTracker.Status.LatestCheckpoint.Name)
-		backupType = backupv1.Incremental
 		log.Log.Object(backup).Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
 	}
 
@@ -668,7 +666,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	setProgressing(backup)
-	backup.Status.Type = backupType
+	backup.Status.StartTimestamp = new(metav1.Now())
 	return nil
 }
 
@@ -910,7 +908,6 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	newCheckpoint := backupv1.BackupCheckpoint{
 		Name:         *backupStatus.CheckpointName,
 		CreationTime: backupStatus.StartTimestamp,
-		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -941,10 +938,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		return fmt.Errorf("failed to patch BackupTracker status: %w", err)
 	}
 
-	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
-		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d",
-		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
+	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s created at %s",
+		namespace, tracker.Name, newCheckpoint.Name, newCheckpoint.CreationTime)
 
 	return nil
 }
@@ -1097,7 +1092,10 @@ func (ctrl *VMBackupController) setQuiescedCondition(backup *backupv1.VirtualMac
 func toBackupVolumeInfo(vols []v1.VirtualMachineInstanceBackupVolumeInfo) []backupv1.BackupVolumeInfo {
 	out := make([]backupv1.BackupVolumeInfo, len(vols))
 	for i, v := range vols {
-		out[i] = backupv1.BackupVolumeInfo{VolumeName: v.VolumeName}
+		out[i] = backupv1.BackupVolumeInfo{
+			VolumeName: v.VolumeName,
+			Type:       backupv1.BackupType(v.Type),
+		}
 	}
 	return out
 }

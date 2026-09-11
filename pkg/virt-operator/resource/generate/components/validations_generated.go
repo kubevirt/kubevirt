@@ -9025,6 +9025,13 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VirtualMachineInstanceBackupVolumeInfo contains information
                       about a volume included in a backup
                     properties:
+                      type:
+                        description: Type is how the volume was backed up, either
+                          Full or Incremental.
+                        enum:
+                        - Full
+                        - Incremental
+                        type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
@@ -9832,6 +9839,13 @@ var CRDsValidation map[string]string = map[string]string{
                 description: MapEndpoint is the URL of the endpoint for map for pull
                   mode
                 type: string
+              type:
+                description: Type is how the volume was backed up, either Full or
+                  Incremental
+                enum:
+                - Full
+                - Incremental
+                type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
                 type: string
@@ -9840,8 +9854,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
-        type:
-          description: Type indicates if the backup was full or incremental
+        startTimestamp:
+          description: StartTimestamp is the timestamp when the backup started
+          format: date-time
           type: string
       type: object
   required:
@@ -9926,28 +9941,6 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             name:
               type: string
-            volumes:
-              description: Volumes lists volumes included in the backup
-              items:
-                description: BackupVolumeInfo contains information about a volume
-                  included in a backup
-                properties:
-                  dataEndpoint:
-                    description: DataEndpoint is the URL of the endpoint for read
-                      for pull mode
-                    type: string
-                  mapEndpoint:
-                    description: MapEndpoint is the URL of the endpoint for map for
-                      pull mode
-                    type: string
-                  volumeName:
-                    description: VolumeName is the volume name from VMI spec
-                    type: string
-                required:
-                - volumeName
-                type: object
-              type: array
-              x-kubernetes-list-type: atomic
           type: object
       type: object
   required:
@@ -15216,6 +15209,13 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VirtualMachineInstanceBackupVolumeInfo contains information
                       about a volume included in a backup
                     properties:
+                      type:
+                        description: Type is how the volume was backed up, either
+                          Full or Incremental.
+                        enum:
+                        - Full
+                        - Incremental
+                        type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
@@ -32965,6 +32965,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   contains information about a volume included in
                                   a backup
                                 properties:
+                                  type:
+                                    description: Type is how the volume was backed
+                                      up, either Full or Incremental.
+                                    enum:
+                                    - Full
+                                    - Incremental
+                                    type: string
                                   volumeName:
                                     description: VolumeName is the volume name from
                                       VMI spec
