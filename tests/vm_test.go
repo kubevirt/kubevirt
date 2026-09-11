@@ -1020,7 +1020,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context(" when node becomes unhealthy", decorators.WgS390x, Serial, func() {
+	Context("[QUARANTINE] when node becomes unhealthy", decorators.Quarantine, decorators.Disruptive, decorators.WgS390x, Serial, func() {
 		const componentName = "virt-handler"
 		var nodeName string
 
