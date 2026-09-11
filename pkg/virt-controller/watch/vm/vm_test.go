@@ -6863,6 +6863,182 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
 			)
 
+			DescribeTable("RestartRequired condition based on VM and VMI maxGuest comparison", func(vmMaxGuest, vmiMaxGuest resource.Quantity, expected gomegatypes.GomegaMatcher) {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM without maxGuest")
+				Expect(vm.Spec.Template.Spec.Domain.Memory.MaxGuest).To(BeNil())
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with the given maxGuest")
+				vmi = SetupVMIFromVM(vm)
+				vmi.Spec.Domain.Memory.MaxGuest = pointer.P(vmiMaxGuest)
+				controller.vmiIndexer.Add(vmi)
+
+				By("Setting maxGuest on the VM spec")
+				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = pointer.P(vmMaxGuest)
+				createdVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(createdVM)
+
+				By("Executing the controller")
+				sanityExecute(createdVM)
+				createdVM, err = virtFakeClient.KubevirtV1().VirtualMachines(createdVM.Namespace).Get(context.TODO(), createdVM.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(createdVM).To(expected)
+			},
+				Entry("should not raise RestartRequired when VM and VMI maxGuest match", resource.MustParse("8Gi"), resource.MustParse("8Gi"), matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
+				Entry("should not raise RestartRequired when VM and VMI maxGuest match canonical quantities", resource.MustParse("8Gi"), resource.MustParse("8192Mi"), matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
+				Entry("should raise RestartRequired when VM and VMI maxGuest differ", resource.MustParse("16Gi"), resource.MustParse("8Gi"), matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
+			)
+
+			DescribeTable("RestartRequired condition based on VM and VMI cpu.model comparison", func(vmModel, vmiModel string, expected gomegatypes.GomegaMatcher) {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM without cpu.model")
+				Expect(vm.Spec.Template.Spec.Domain.CPU.Model).To(BeEmpty())
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with the given cpu.model")
+				vmi = SetupVMIFromVM(vm)
+				vmi.Spec.Domain.CPU.Model = vmiModel
+				controller.vmiIndexer.Add(vmi)
+
+				By("Setting cpu.model on the VM spec")
+				vm.Spec.Template.Spec.Domain.CPU.Model = vmModel
+				createdVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(createdVM)
+
+				By("Executing the controller")
+				sanityExecute(createdVM)
+				createdVM, err = virtFakeClient.KubevirtV1().VirtualMachines(createdVM.Namespace).Get(context.TODO(), createdVM.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(createdVM).To(expected)
+			},
+				Entry("should not raise RestartRequired when VM and VMI cpu.model match", v1.DefaultCPUModel, v1.DefaultCPUModel, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
+				Entry("should raise RestartRequired when VM and VMI cpu.model differ", "EPYC", v1.DefaultCPUModel, matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
+			)
+
+			It("should clear existing RestartRequired when only defaulted maxGuest and cpu.model differ", func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM with an existing RestartRequired condition and no defaulted fields")
+				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineRestartRequired,
+					Status: k8sv1.ConditionTrue,
+				})
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with KubeVirt-defaulted maxGuest and cpu.model")
+				vmi = SetupVMIFromVM(vm)
+				maxGuest := resource.MustParse("8Gi")
+				vmi.Spec.Domain.Memory.MaxGuest = pointer.P(maxGuest)
+				vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
+				controller.vmiIndexer.Add(vmi)
+
+				By("Persisting those same defaults on the current VM spec")
+				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = pointer.P(maxGuest)
+				vm.Spec.Template.Spec.Domain.CPU.Model = v1.DefaultCPUModel
+				createdVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(createdVM)
+
+				By("Executing the controller")
+				sanityExecute(createdVM)
+				createdVM, err = virtFakeClient.KubevirtV1().VirtualMachines(createdVM.Namespace).Get(context.TODO(), createdVM.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+
+				By("Verifying the RestartRequired condition was removed")
+				Expect(createdVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+			})
+
+			It("should still raise RestartRequired when maxGuest matches but cpu.cores differ", func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM with 2 cores and no maxGuest")
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with 2 cores, defaulted maxGuest, and defaulted cpu.model")
+				vmi = SetupVMIFromVM(vm)
+				maxGuest := resource.MustParse("8Gi")
+				vmi.Spec.Domain.Memory.MaxGuest = pointer.P(maxGuest)
+				vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
+				controller.vmiIndexer.Add(vmi)
+
+				By("Persisting matching defaults but changing cpu.cores to 4")
+				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = pointer.P(maxGuest)
+				vm.Spec.Template.Spec.Domain.CPU.Model = v1.DefaultCPUModel
+				vm.Spec.Template.Spec.Domain.CPU.Cores = 4
+				createdVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(createdVM)
+
+				By("Executing the controller expecting RestartRequired for the cores change")
+				sanityExecute(createdVM)
+				createdVM, err = virtFakeClient.KubevirtV1().VirtualMachines(createdVM.Namespace).Get(context.TODO(), createdVM.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(createdVM).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+			})
+
+			It("should not raise RestartRequired when lastSeen Memory is nil and maxGuest matches VMI", func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM with no Memory object")
+				vm.Spec.Template.Spec.Domain.Memory = nil
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with guest memory and defaulted maxGuest")
+				vmi = SetupVMIFromVM(vm)
+				guest := resource.MustParse("128Mi")
+				maxGuest := resource.MustParse("8Gi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest:    pointer.P(guest),
+					MaxGuest: pointer.P(maxGuest),
+				}
+				controller.vmiIndexer.Add(vmi)
+
+				By("Persisting matching Memory on the current VM spec")
+				vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+					Guest:    pointer.P(guest),
+					MaxGuest: pointer.P(maxGuest),
+				}
+				createdVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(createdVM)
+
+				By("Executing the controller")
+				sanityExecute(createdVM)
+				createdVM, err = virtFakeClient.KubevirtV1().VirtualMachines(createdVM.Namespace).Get(context.TODO(), createdVM.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(createdVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+			})
+
+			It("should not raise RestartRequired when lastSeen CPU is nil and cpu.model matches VMI", func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM with no CPU object")
+				vm.Spec.Template.Spec.Domain.CPU = nil
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with defaulted cpu.model")
+				vmi = SetupVMIFromVM(vm)
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.DefaultCPUModel}
+				controller.vmiIndexer.Add(vmi)
+
+				By("Persisting matching cpu.model on the current VM spec")
+				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Model: v1.DefaultCPUModel}
+				createdVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(createdVM)
+
+				By("Executing the controller")
+				sanityExecute(createdVM)
+				createdVM, err = virtFakeClient.KubevirtV1().VirtualMachines(createdVM.Namespace).Get(context.TODO(), createdVM.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(createdVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+			})
+
 			It("should clear existing RestartRequired condition when VM and VMI specs match", func() {
 				By("Creating a VM with an existing RestartRequired condition")
 				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
