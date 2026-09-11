@@ -356,7 +356,7 @@ var _ = Describe("Virt remote commands", func() {
 			BeforeEach(func() {
 				vmi = v1.NewVMIReferenceFromName("testvmi")
 				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
-					State: v1.ChangedBlockTrackingEnabled,
+					State: v1.ChangedBlockTrackingInitializing,
 				}
 				creationTime := metav1.Unix(1234567890, 0)
 				checkpoint = &backupv1.BackupCheckpoint{
@@ -403,12 +403,12 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(checkpointInvalid).To(BeTrue())
 			})
 
-			It("should fail when CBT is not enabled", func() {
+			It("should fail when CBT is not initializing", func() {
 				vmi.Status.ChangedBlockTracking = nil
 
 				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("ChangedBlockTracking is not enabled"))
+				Expect(err.Error()).To(ContainSubstring("ChangedBlockTracking is not initializing"))
 				Expect(checkpointInvalid).To(BeFalse())
 			})
 		})
