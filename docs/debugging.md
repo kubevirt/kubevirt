@@ -115,7 +115,7 @@ Having scaled down virt-operator, patch or edit the respective k8s workload mani
 Here's a working example of a `virt-controller` deployment patch 
 
 ```bash
-cluster-up/kubectl.sh --namespace kubevirt patch deployment virt-controller --type='json' -p '[
+kubevirtci/cluster-up/kubectl.sh --namespace kubevirt patch deployment virt-controller --type='json' -p '[
    {
       "op":"add",
       "path":"/spec/template/spec/containers/-",
