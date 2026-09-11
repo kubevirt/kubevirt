@@ -250,6 +250,7 @@ add_feature_gate() {
 }
 
 add_feature_gate "Plugins"
+add_feature_gate "OCIExport"
 
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
