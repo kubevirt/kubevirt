@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 )
@@ -141,4 +142,24 @@ func GetSnapshotContents(vmSnapshot *snapshotv1.VirtualMachineSnapshot, client k
 	vmSnapshotContentName := *vmSnapshot.Status.VirtualMachineSnapshotContentName
 
 	return client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Get(context.Background(), vmSnapshotContentName, metav1.GetOptions{})
+}
+
+// ExpandSnapshotVMSpec expands a snapshot VM spec using the provided expand handler.
+// Converts between snapshot VM and regular VM types for expansion.
+func ExpandSnapshotVMSpec(snapshotVM *snapshotv1.VirtualMachine, handler expandHandler) (*snapshotv1.VirtualMachine, error) {
+	regularVM := &kubevirtv1.VirtualMachine{
+		ObjectMeta: snapshotVM.ObjectMeta,
+		Spec:       snapshotVM.Spec,
+	}
+
+	expandedVM, err := handler.Expand(regularVM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to expand snapshot VM %s/%s: %w", snapshotVM.Namespace, snapshotVM.Name, err)
+	}
+
+	return &snapshotv1.VirtualMachine{
+		ObjectMeta: snapshotVM.ObjectMeta,
+		Spec:       expandedVM.Spec,
+		Status:     snapshotVM.Status,
+	}, nil
 }
