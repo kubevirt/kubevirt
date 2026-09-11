@@ -54,11 +54,17 @@ func DisableFeatureGate(feature string) {
 	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func EnableFeatureGate(feature string) *v1.KubeVirt {
+func EnableFeatureGate(features ...string) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 
 	kv := libkubevirt.GetCurrentKv(virtClient)
-	if checks.HasFeature(feature) {
+	var toBeEnabledFG []string
+	for _, fg := range features {
+		if !checks.HasFeature(fg) {
+			toBeEnabledFG = append(toBeEnabledFG, fg)
+		}
+	}
+	if len(toBeEnabledFG) == 0 {
 		return kv
 	}
 
@@ -66,15 +72,16 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 	}
 
-	kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = slices.DeleteFunc(
-		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-		func(fg string) bool { return fg == feature },
-	)
-
-	if !slices.Contains(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature) {
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
-			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature,
+	for _, featureGate := range toBeEnabledFG {
+		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = slices.DeleteFunc(
+			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
+			func(fg string) bool { return fg == featureGate },
 		)
+		if !slices.Contains(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featureGate) {
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featureGate,
+			)
+		}
 	}
 
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
