@@ -124,7 +124,6 @@ const (
 	ExportPaused                          = "ExportPaused"
 	secretCreatedEvent                    = "SecretCreated"
 	serviceCreatedEvent                   = "ServiceCreated"
-	serviceDeletedEvent                   = "ServiceDeleted"
 	certParamsChangedEvent                = "CertificateParametersChanged"
 	exporterManifestConfigMapCreatedEvent = "DataManifestCreated"
 	exporterManifestConfigMapUpdatedEvent = "DataManifestUpdated"
@@ -1042,18 +1041,10 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 		return nil, err
 	}
 	if exists {
-		existing := obj.(*corev1.Service)
-		if !exportServiceNeedsRecreate(existing) {
-			return existing, nil
-		}
-		// ClusterIP and conversion to headless are immutable; delete and wait
-		// for the informer to drop the old Service before creating the replacement.
-		// Creating immediately races with a terminating Service (AlreadyExists)
-		// and with a stale cache (which would delete the replacement).
-		if err := ctrl.deleteIncompatibleExportService(vmExport, existing); err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("waiting for service %s/%s to be deleted", existing.Namespace, existing.Name)
+		// Leave existing Services in place so in-flight ClusterIP exports
+		// (443 → targetPort 8443) keep working across upgrade. ClusterIP to
+		// headless is immutable; only newly created Services are headless.
+		return obj.(*corev1.Service), nil
 	}
 
 	service := ctrl.createServiceManifest(vmExport, source)
@@ -1064,48 +1055,6 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 	}
 	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
 	return service, nil
-}
-
-func exportServiceNeedsRecreate(service *corev1.Service) bool {
-	if service.Spec.ClusterIP != corev1.ClusterIPNone {
-		return true
-	}
-	if len(service.Spec.Ports) == 0 {
-		return true
-	}
-	for _, port := range service.Spec.Ports {
-		if port.Port != ExportServerPort || port.TargetPort.IntVal != ExportServerPort {
-			return true
-		}
-	}
-	return false
-}
-
-func (ctrl *VMExportController) deleteIncompatibleExportService(vmExport *exportv1.VirtualMachineExport, service *corev1.Service) error {
-	// Recreate the exporter pod on the next reconcile so createManifestAndAddToPod
-	// rewrites internal_host with ExportServerPort. Existing pods keep a stale
-	// ConfigMap mount from the pre-upgrade Service (ClusterIP and/or port 443).
-	// Always attempt this, including when the Service is already terminating;
-	// otherwise manageExporterPod would reuse the old pod and skip the rewrite.
-	podName := ctrl.getExportPodName(vmExport)
-	log.Log.V(3).Infof("Deleting exporter pod %s/%s for incompatible service replace", vmExport.Namespace, podName)
-	err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
-	if service.DeletionTimestamp != nil {
-		return nil
-	}
-	log.Log.V(3).Infof("Deleting incompatible exporter service %s/%s", service.Namespace, service.Name)
-	err = ctrl.Client.CoreV1().Services(vmExport.Namespace).Delete(context.Background(), service.Name, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	if err == nil {
-		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceDeletedEvent, "Deleted incompatible service %s/%s", service.Namespace, service.Name)
-	}
-	return nil
 }
 
 func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport, source exportSource) *corev1.Service {
@@ -1408,9 +1357,9 @@ func (ctrl *VMExportController) reconcileManifestAndAddToPod(vmExport *exportv1.
 func (ctrl *VMExportController) createManifestConfigMap(vmExport *exportv1.VirtualMachineExport, manifestKey string, manifestBytes []byte, service *corev1.Service, extraData map[string]string) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
-	// Headless services do not remap ports, so clone DV HTTP URLs built from
-	// this host must include ExportServerPort (HTTPS default 443 will not work).
-	data[internalHostKey] = fmt.Sprintf("%s.%s.svc:%d", service.Name, service.Namespace, ExportServerPort)
+	// ClusterIP Services remap 443 → 8443; headless Services do not remap, so
+	// clone DV HTTP URLs must use the dial port for this Service.
+	data[internalHostKey] = types.ExportServiceHost(service)
 	cert, err := ctrl.internalExportCa()
 	if err != nil {
 		return nil, err

@@ -19,5 +19,36 @@
 
 package types
 
-// ExportServerPort is the port the export server listens on inside the pod.
-const ExportServerPort = 8443
+import (
+	"fmt"
+
+	k8sv1 "k8s.io/api/core/v1"
+)
+
+const (
+	// ExportServerPort is the port the export server listens on inside the pod.
+	ExportServerPort = 8443
+	// ExportClusterIPServicePort is the Service port used by ClusterIP export
+	// Services created before headless migration. kube-proxy remaps this port
+	// to ExportServerPort.
+	ExportClusterIPServicePort = 443
+)
+
+// ExportServiceDialPort returns the TCP port clients should dial on the
+// export Service DNS name.
+//
+// Headless Services (clusterIP: None) resolve to the pod IP, so the container
+// port must be used. ClusterIP Services are remapped by kube-proxy, so the
+// Service port (historically 443) must be used.
+func ExportServiceDialPort(service *k8sv1.Service) int32 {
+	if service != nil && service.Spec.ClusterIP != k8sv1.ClusterIPNone {
+		return ExportClusterIPServicePort
+	}
+	return ExportServerPort
+}
+
+// ExportServiceHost is host:port for internal export URLs and ConfigMap
+// internal_host entries.
+func ExportServiceHost(service *k8sv1.Service) string {
+	return fmt.Sprintf("%s.%s.svc:%d", service.Name, service.Namespace, ExportServiceDialPort(service))
+}

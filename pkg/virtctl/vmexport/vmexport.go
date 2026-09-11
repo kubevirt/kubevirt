@@ -1171,8 +1171,9 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 		return nil, fmt.Errorf("no pods found for the service %s", service.Name)
 	}
 
-	// Set up the port forwarding ports
-	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, strconv.Itoa(storagetypes.ExportServerPort), *service, podList.Items[0])
+	// Set up the port forwarding ports. ClusterIP export Services expose 443
+	// (kube-proxy remaps to 8443); headless Services expose 8443 directly.
+	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, strconv.Itoa(int(storagetypes.ExportServiceDialPort(service))), *service, podList.Items[0])
 	if err != nil {
 		return nil, err
 	}

@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -59,10 +60,11 @@ func (ctrl *VMExportController) getInteralLinks(exporterPod *corev1.Pod, service
 	if err != nil {
 		return nil, err
 	}
-	// Headless services do not translate ports, so internal URLs must include
-	// ExportServerPort. TLS serverName remains host-only (no port) in the
-	// export proxy / CBT pull-mode clients that dial these URLs.
-	host := fmt.Sprintf("%s.%s.svc:%d", service.Name, service.Namespace, ExportServerPort)
+	// Internal URLs must include the dial port for this Service: 443 for
+	// ClusterIP (kube-proxy remaps to 8443) and 8443 for headless (DNS is the
+	// pod IP). TLS serverName remains host-only (no port) in the export proxy
+	// / CBT pull-mode clients that dial these URLs.
+	host := types.ExportServiceHost(service)
 	return ctrl.getLinks(exporterPod, export, host, internal, internalCert, source)
 }
 
