@@ -614,4 +614,98 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddressNUMA1: 1}))
 		})
 	})
+
+	Context("get device PCIe root", func() {
+		var fakeSysDevices string
+
+		createPCITopology := func(devices map[string]string) {
+			var err error
+			fakeSysDevices, err = os.MkdirTemp("", "sys_devices")
+			Expect(err).ToNot(HaveOccurred())
+
+			for bdf, sysPath := range devices {
+				targetDir := filepath.Join(fakeSysDevices, sysPath)
+				err = os.MkdirAll(targetDir, 0o755)
+				Expect(err).ToNot(HaveOccurred())
+
+				symlinkPath := filepath.Join(fakePciBasePath, bdf)
+				os.RemoveAll(symlinkPath)
+				err = os.Symlink(targetDir, symlinkPath)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
+
+		AfterEach(func() {
+			if fakeSysDevices != "" {
+				os.RemoveAll(fakeSysDevices)
+				fakeSysDevices = ""
+			}
+		})
+
+		It("should return the root port for a standard device", func() {
+			createPCITopology(map[string]string{
+				"0000:99:00.0": "devices/pci0000:98/0000:98:01.0/0000:99:00.0",
+			})
+			root, err := GetDevicePCIeRoot("0000:99:00.0")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(root).To(Equal("0000:98:01.0"))
+		})
+
+		It("should return the same root port for devices behind the same root port", func() {
+			createPCITopology(map[string]string{
+				"0000:99:00.0": "devices/pci0000:98/0000:98:01.0/0000:99:00.0",
+				"0000:99:00.1": "devices/pci0000:98/0000:98:01.0/0000:99:00.1",
+			})
+			root1, err := GetDevicePCIeRoot("0000:99:00.0")
+			Expect(err).ToNot(HaveOccurred())
+			root2, err := GetDevicePCIeRoot("0000:99:00.1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(root1).To(Equal(root2))
+		})
+
+		It("should return different root ports for devices on different root ports", func() {
+			createPCITopology(map[string]string{
+				"0000:99:00.0": "devices/pci0000:98/0000:98:01.0/0000:99:00.0",
+				"0000:ad:00.0": "devices/pci0000:98/0000:98:02.0/0000:ad:00.0",
+			})
+			root1, err := GetDevicePCIeRoot("0000:99:00.0")
+			Expect(err).ToNot(HaveOccurred())
+			root2, err := GetDevicePCIeRoot("0000:ad:00.0")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(root1).ToNot(Equal(root2))
+			Expect(root1).To(Equal("0000:98:01.0"))
+			Expect(root2).To(Equal("0000:98:02.0"))
+		})
+
+		It("should return the domain segment for a device directly on the root bus", func() {
+			createPCITopology(map[string]string{
+				"0000:98:00.0": "devices/pci0000:98/0000:98:00.0",
+			})
+			root, err := GetDevicePCIeRoot("0000:98:00.0")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(root).To(Equal("pci0000:98"))
+		})
+
+		It("should return the root port for a VF behind its PF root port", func() {
+			createPCITopology(map[string]string{
+				"0000:99:00.3": "devices/pci0000:98/0000:98:01.0/0000:99:00.0/0000:99:00.3",
+			})
+			root, err := GetDevicePCIeRoot("0000:99:00.3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(root).To(Equal("0000:98:01.0"))
+		})
+
+		It("should return an error for a non-existent device", func() {
+			_, err := GetDevicePCIeRoot("0000:ff:00.0")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return an error for a path without a PCI domain segment", func() {
+			createPCITopology(map[string]string{
+				"0000:01:00.0": "devices/virtual/0000:01:00.0",
+			})
+			_, err := GetDevicePCIeRoot("0000:01:00.0")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
