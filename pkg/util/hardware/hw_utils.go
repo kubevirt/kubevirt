@@ -146,6 +146,34 @@ func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
 	return &numaNode, nil
 }
 
+var pciDomainBusPattern = regexp.MustCompile(`^pci([\da-fA-F]{4}:[\da-fA-F]{2})$`)
+
+// GetDevicePCIeRoot returns the sysfs PCI root bus segment of the device (e.g. "pci0000:98"),
+// i.e. its host bridge. Devices behind different root ports of one host bridge share the same value.
+// Callers group by this value assuming a host bridge belongs to a single NUMA node.
+func GetDevicePCIeRoot(pciAddress string) (string, error) {
+	devicePath := filepath.Join(PciBasePath, pciAddress)
+	resolved, err := filepath.EvalSymlinks(devicePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve sysfs path for device %s: %w", pciAddress, err)
+	}
+
+	parts := strings.Split(resolved, string(filepath.Separator))
+
+	domainIdx := -1
+	for i, part := range parts {
+		if pciDomainBusPattern.MatchString(part) {
+			domainIdx = i
+			break
+		}
+	}
+	if domainIdx < 0 {
+		return "", fmt.Errorf("no PCI domain segment found in sysfs path %s", resolved)
+	}
+
+	return parts[domainIdx], nil
+}
+
 func GetDeviceAlignedCPUs(pciAddress string) ([]int, error) {
 	numaNode, err := GetDeviceNumaNode(pciAddress)
 	if err != nil {
