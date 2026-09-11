@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "amd64.go",
+        "arm64.go",
         "os_helper.go",
         "s390x.go",
         "util.go",

@@ -36,6 +36,7 @@ const (
 	EFICodeSNP           = "OVMF.amdsev.fd"
 	EFICodeTDX           = "OVMF.inteltdx.fd"
 	EFICodeTDXSecureBoot = "OVMF.inteltdx.secboot.fd"
+	EFICodeAARCH64CCA    = "AAVMF_CODE.cca.fd"
 )
 
 type EFIEnvironment struct {
@@ -48,6 +49,7 @@ type EFIEnvironment struct {
 	codeSNP           string
 	codeTDX           string
 	codeTDXSecureBoot string
+	codeCCA           string
 }
 
 type SecureVMType int
@@ -57,6 +59,7 @@ const (
 	SEV                      // AMD SEV/SEV-ES VM
 	SNP                      // AMD SNP VM
 	TDX                      // Intel TDX VM
+	CCA                      // ARM CCA VM
 )
 
 func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
@@ -81,6 +84,8 @@ func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
 		} else {
 			return e.codeTDX != ""
 		}
+	case CCA:
+		return e.codeCCA != ""
 	default:
 		if secureBoot {
 			return e.varsSecureBoot != "" && e.codeSecureBoot != ""
@@ -112,6 +117,8 @@ func (e *EFIEnvironment) EFICode(secureBoot bool, vmType SecureVMType) string {
 		} else {
 			return e.codeTDX
 		}
+	case CCA:
+		return e.codeCCA
 	default:
 		if secureBoot {
 			return e.codeSecureBoot
@@ -130,8 +137,8 @@ func (e *EFIEnvironment) EFIVars(secureBoot bool, vmType SecureVMType) string {
 		} else {
 			return e.varsSEV
 		}
-	case SNP, TDX:
-		// Both SNP and TDX use stateless firmware
+	case SNP, TDX, CCA:
+		// SNP and TDX and CCA use stateless firmware
 		return ""
 	default:
 		if secureBoot {
@@ -146,10 +153,12 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	if arch == "arm64" {
 		codeArm64 := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64)
 		varsArm64 := getEFIBinaryIfExists(ovmfPath, EFIVarsAARCH64)
+		codeArm64WithCCA := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64CCA)
 
 		return &EFIEnvironment{
-			code: codeArm64,
-			vars: varsArm64,
+			code:    codeArm64,
+			vars:    varsArm64,
+			codeCCA: codeArm64WithCCA,
 		}
 	}
 
