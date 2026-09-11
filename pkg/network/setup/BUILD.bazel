@@ -11,6 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/network/setup",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/vmitrait:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/driver:go_default_library",
@@ -22,7 +23,6 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
-        "//pkg/vmitrait:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
