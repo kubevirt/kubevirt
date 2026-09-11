@@ -68,7 +68,9 @@ func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineIns
 		}
 	}
 
-	l.setGuestTime(vmi)
+	l.migrationSetGuestTimeOnce.Do(func() {
+		l.setGuestTime(vmi)
+	})
 	return nil
 }
 
