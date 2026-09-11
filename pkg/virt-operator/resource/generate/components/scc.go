@@ -48,8 +48,6 @@ func NewKubeVirtHandlerSCC(namespace string) *secv1.SecurityContextConstraints {
 	scc.Name = "kubevirt-handler"
 	scc.AllowPrivilegedContainer = true
 	scc.AllowHostPID = true
-	scc.AllowHostPorts = true
-	scc.AllowHostIPC = true
 	scc.RunAsUser = secv1.RunAsUserStrategyOptions{
 		Type: secv1.RunAsUserStrategyRunAsAny,
 	}
