@@ -21,7 +21,9 @@ package cgroup
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -197,29 +199,70 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.Is
 	return isolationRes, nil
 }
 
-var miscCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")
+var (
+	miscCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")
+	miscMaxPath      = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.max")
+)
 
-func GetMiscCapacity(key string) (int, error) {
-	f, err := os.Open(miscCapacityPath)
+// miscMaxUnlimited is what misc.max reports for a key that has no limit set,
+// which is the default for every key.
+const miscMaxUnlimited = "max"
+
+var errMiscKeyNotFound = errors.New("key not found")
+
+// readMiscKey returns the raw value a misc cgroup file lists for key. Both
+// misc.capacity and misc.max hold lines in the format: "key [value]"
+func readMiscKey(filePath, key string) (string, error) {
+	f, err := os.Open(filePath)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	defer f.Close()
-	// File has lines in the format: "key [capacity]"
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Fields(line)
+		parts := strings.Fields(scanner.Text())
 		if len(parts) != 2 {
 			continue
 		}
 		if parts[0] == key {
-			capacity, err := strconv.Atoi(parts[1])
-			if err != nil {
-				return 0, err
-			}
-			return capacity, nil
+			return parts[1], nil
 		}
 	}
-	return 0, fmt.Errorf("key %s not found in misc.capacity", key)
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("%w: %s in %s", errMiscKeyNotFound, key, filePath)
+}
+
+// GetMiscCapacity reports how many guests charging the given misc cgroup key
+// this node can run.
+//
+// misc.capacity is declared CFTYPE_ONLY_ON_ROOT and misc.max CFTYPE_NOT_ON_ROOT,
+// so the kernel never puts both at the same cgroup. A node that owns the machine
+// reads the machine wide capacity the kernel registered, while a containerized
+// node, like a KinD node, has no capacity at all and can only be told its
+// share by way of a limit on its own cgroup. Prefer capacity, and fall back
+// to the limit where the kernel did not provide one.
+func GetMiscCapacity(key string) (int, error) {
+	capacity, err := readMiscKey(miscCapacityPath, key)
+	switch {
+	case err == nil:
+		return strconv.Atoi(capacity)
+	case !errors.Is(err, fs.ErrNotExist):
+		// A permission or I/O error says nothing about which kind of node this
+		// is, so do not let it silently downgrade to the limit.
+		return 0, err
+	}
+
+	limit, limitErr := readMiscKey(miscMaxPath, key)
+	if limitErr != nil {
+		return 0, fmt.Errorf("no capacity for %s (%v) and no limit either: %w", key, err, limitErr)
+	}
+	if limit == miscMaxUnlimited {
+		log.Log.Warningf("%s is unlimited in %s and absent from %s, treating it as not configured on this node",
+			key, miscMaxPath, miscCapacityPath)
+		return 0, fmt.Errorf("%s is not configured on this node", key)
+	}
+	return strconv.Atoi(limit)
 }
