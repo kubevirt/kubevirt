@@ -22501,7 +22501,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"ports": {
 						SchemaProps: spec.SchemaProps{
-							Description: "List of ports to be forwarded to the virtual machine. Mutually exclusive with portRanges.",
+							Description: "List of ports to be forwarded to the virtual machine.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -22520,7 +22520,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "List of port ranges to be forwarded to the virtual machine. Mutually exclusive with ports. Only supported on masquerade interfaces. This feature is in Alpha.",
+							Description: "List of port ranges to be forwarded to the virtual machine. Only supported on masquerade interfaces. This feature is in Beta.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
