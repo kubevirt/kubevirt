@@ -22,30 +22,23 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-PLATFORM=$(uname -m)
-case ${PLATFORM} in
-x86_64* | i?86_64* | amd64*)
-    ARCH="amd64"
-    ;;
-aarch64* | arm64*)
-    ARCH="arm64"
-    ;;
-s390x)
-    ARCH="s390x"
-    ;;
-*)
-    echo "invalid Arch, only support x86_64, aarch64 and s390x"
-    exit 1
-    ;;
-esac
+if [ -n "${BUILD_ARCH}" ]; then
+    ARCH=$(format_archname "${BUILD_ARCH}" tag)
+else
+    ARCH=$(format_archname "$(uname -m)" tag)
+fi
 
 function build_func_tests() {
     echo "building functional tests"
     rm -rf "${TESTS_OUT_DIR}"
     mkdir -p "${TESTS_OUT_DIR}/"
+    mkdir -p "${CMD_OUT_DIR}/dump" "${CMD_OUT_DIR}/virtctl" "${CMD_OUT_DIR}/example-guest-agent"
     GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${TESTS_OUT_DIR}/ginkgo" vendor/github.com/onsi/ginkgo/v2/ginkgo/main.go
     GOOS=linux GOARCH=${ARCH} GOPROXY=off go test -tags "${KUBEVIRT_GO_BUILD_TAGS}" -c -o "${TESTS_OUT_DIR}/tests.test" "${KUBEVIRT_DIR}/tests"
     GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${TESTS_OUT_DIR}/junit-merger" tools/junit-merger/junit-merger.go
+    GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${CMD_OUT_DIR}/dump/dump" ./cmd/dump
+    GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${CMD_OUT_DIR}/virtctl/virtctl" ./cmd/virtctl
+    GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${CMD_OUT_DIR}/example-guest-agent/example-guest-agent" ./cmd/example-guest-agent
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

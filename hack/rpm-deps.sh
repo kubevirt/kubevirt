@@ -3,12 +3,61 @@
 set -ex
 
 source hack/common.sh
-# Skip bootstrap and sandbox checks during rpm-deps as we're regenerating the targets
-KUBEVIRT_SKIP_BOOTSTRAP=true
-KUBEVIRT_BOOTSTRAPPING=true
-export KUBEVIRT_BOOTSTRAPPING
-source hack/bootstrap.sh
 source hack/config.sh
+source hack/install-bazeldnf.sh
+
+# Runs bazeldnf ldd without Bazel by downloading RPMs listed in a
+# rpmtree rule, combining them into a tar, and invoking ldd on it.
+#   bazeldnf_ldd <rpmtree_name> <rulename> <lib1> [lib2 ...]
+function bazeldnf_ldd() {
+    local rpmtree_name="$1"
+    local rulename="$2"
+    shift 2
+    local libs=("$@")
+
+    local buildfile="rpm/BUILD.bazel"
+    local workspace="WORKSPACE"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap "rm -rf ${tmpdir}" RETURN
+
+    # Extract RPM names from the rpmtree rule in BUILD.bazel.
+    # Lines look like: "@acl-0__2.3.1-4.el9.x86_64//rpm",
+    local rpm_names
+    rpm_names=$(sed -n "/name = \"${rpmtree_name}\"/,/^)/{ s/.*\"@\(.*\)\/\/rpm\".*/\1/p }" "${buildfile}")
+
+    local rpm_inputs=()
+    for rpm_name in ${rpm_names}; do
+        # Get the first URL for this RPM from WORKSPACE.
+        # rpm() entries have: urls = [ "http://...", ... ]
+        local url
+        url=$(sed -n "/name = \"${rpm_name}\"/,/^)/{
+            /urls/,/\]/{
+                s/.*\"\(http[^\"]*\)\".*/\1/p
+            }
+        }" "${workspace}" | head -1)
+
+        if [ -z "${url}" ]; then
+            echo "ERROR: could not find URL for RPM ${rpm_name} in ${workspace}" >&2
+            return 1
+        fi
+
+        local rpm_file="${tmpdir}/${rpm_name}.rpm"
+        curl -sSL -o "${rpm_file}" "${url}"
+        rpm_inputs+=("-i" "${rpm_file}")
+    done
+
+    local tar_file="${tmpdir}/combined.tar"
+    bazeldnf rpm2tar "${rpm_inputs[@]}" -o "${tar_file}"
+
+    bazeldnf ldd \
+        --input "${tar_file}" \
+        --rpmtree "${rpmtree_name}" \
+        --name "${rulename}" \
+        --buildfile "${buildfile}" \
+        --workspace "${workspace}" \
+        "${libs[@]}"
+}
 
 # CentOS Stream version selection (default to 9)
 KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION:-9}
@@ -48,6 +97,22 @@ fi
 
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
+
+# Shared library paths for ldd analysis (CS10 adds libfido2)
+libvirt_ldd_libs="
+  /usr/lib64/libvirt-admin.so.0
+  /usr/lib64/libvirt-lxc.so.0
+  /usr/lib64/libvirt-qemu.so.0
+  /usr/lib64/libvirt.so.0
+  /usr/lib64/libkrb5support.so.0
+  /usr/lib64/libkeyutils.so.1
+  /usr/lib64/liblz4.so.1
+  /usr/lib64/libmount.so.1
+"
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    libvirt_ldd_libs="/usr/lib64/libfido2.so.1 ${libvirt_ldd_libs}"
+fi
+libnbd_ldd_libs="/usr/lib64/libnbd.so.0"
 
 # Select repo file based on version
 bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
@@ -241,16 +306,12 @@ sidecar_shim="
 "
 
 # get latest repo data from repo.yaml
-bazel run \
-    --config=${ARCHITECTURE} \
-    //:bazeldnf -- fetch \
+bazeldnf fetch \
     ${bazeldnf_repos}
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name testimage_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -260,9 +321,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $testimage_main \
         $testimage_x86_64
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libvirt-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -272,9 +331,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $libvirtdevel_main \
         $libvirtdevel_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libnbd-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -283,9 +340,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $libnbddevel_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name sandboxroot_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -294,9 +349,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $sandboxroot_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name launcherbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -324,9 +377,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     fi
 
     # create a rpmtree for virt-handler
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name handlerbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -337,17 +388,14 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $handlerbase_main \
         $handlerbase_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name passt_tree_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         passt-${PASST_VERSION}
 
-    bazel run \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libguestfs-tools_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -364,9 +412,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --force-ignore-with-dependencies '^(man-db|mandoc)' \
         --force-ignore-with-dependencies '^dbus'
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name exportserverbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -375,9 +421,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $exportserverbase_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name pr-helper_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -386,9 +430,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $pr_helper
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name sidecar-shim_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -398,21 +440,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $sidecar_shim
 
     # remove all RPMs which are no longer referenced by a rpmtree
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- prune
+    bazeldnf prune
 
     # update tar2files targets which act as an adapter between rpms
     # and cc_library which we need for virt-launcher and virt-handler
-    bazel run \
-        --config=${ARCHITECTURE} \
-        --config=${CS_CONFIG} \
-        //rpm:ldd_x86_64${TARGET_SUFFIX}
+    bazeldnf_ldd libvirt-devel_x86_64${TARGET_SUFFIX} libvirt-libs_x86_64${TARGET_SUFFIX} \
+        ${libvirt_ldd_libs}
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        --config=${CS_CONFIG} \
-        //rpm:ldd_libnbd_x86_64${TARGET_SUFFIX}
+    bazeldnf_ldd libnbd-devel_x86_64${TARGET_SUFFIX} libnbd-libs_x86_64${TARGET_SUFFIX} \
+        ${libnbd_ldd_libs}
 
     # Note: sandbox regeneration is done separately after all targets are generated
     # by calling hack/regenerate-sandboxes.sh
@@ -420,9 +456,7 @@ fi
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name testimage_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -432,9 +466,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $testimage_main \
         $testimage_aarch64
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libvirt-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -444,9 +476,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $libvirtdevel_main \
         $libvirtdevel_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libnbd-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -455,9 +485,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $libnbddevel_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name sandboxroot_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -466,18 +494,14 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $sandboxroot_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name passt_tree_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         passt-${PASST_VERSION}
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name launcherbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -491,9 +515,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $launcherbase_extra
 
     if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
-        bazel run \
-            --config=${ARCHITECTURE} \
-            //:bazeldnf -- rpmtree \
+        bazeldnf rpmtree \
             --public --nobest \
             --name launcherbase_crossarch_aarch64${TARGET_SUFFIX} \
             --basesystem ${BASESYSTEM} \
@@ -506,9 +528,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     fi
 
     # create a rpmtree for virt-handler
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name handlerbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -519,9 +539,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $handlerbase_main \
         $handlerbase_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name exportserverbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -530,9 +548,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $exportserverbase_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name pr-helper_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -541,9 +557,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $pr_helper
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name sidecar-shim_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -553,30 +567,22 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $sidecar_shim
 
     # remove all RPMs which are no longer referenced by a rpmtree
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- prune
+    bazeldnf prune
 
     # update tar2files targets which act as an adapter between rpms
     # and cc_library which we need for virt-launcher and virt-handler
-    bazel run \
-        --config=${ARCHITECTURE} \
-        --config=${CS_CONFIG} \
-        //rpm:ldd_aarch64${TARGET_SUFFIX}
+    bazeldnf_ldd libvirt-devel_aarch64${TARGET_SUFFIX} libvirt-libs_aarch64${TARGET_SUFFIX} \
+        ${libvirt_ldd_libs}
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        --config=${CS_CONFIG} \
-        //rpm:ldd_libnbd_aarch64${TARGET_SUFFIX}
+    bazeldnf_ldd libnbd-devel_aarch64${TARGET_SUFFIX} libnbd-libs_aarch64${TARGET_SUFFIX} \
+        ${libnbd_ldd_libs}
 
     # Note: sandbox regeneration is done separately
 fi
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name testimage_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -586,9 +592,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $testimage_main \
         $testimage_s390x
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libvirt-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -598,9 +602,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $libvirtdevel_main \
         $libvirtdevel_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libnbd-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -609,9 +611,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_extra \
         $libnbddevel_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name sandboxroot_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -620,9 +620,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_extra \
         $sandboxroot_main
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name launcherbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -635,9 +633,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $launcherbase_s390x \
         $launcherbase_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name passt_tree_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -645,9 +641,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         passt-${PASST_VERSION}
 
     # create a rpmtree for virt-handler
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name handlerbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -658,9 +652,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $handlerbase_main \
         $handlerbase_extra
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name exportserverbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -669,8 +661,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_extra \
         $exportserverbase_main
 
-    bazel run \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name libguestfs-tools_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -687,9 +678,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --force-ignore-with-dependencies '^(man-db|mandoc)' \
         --force-ignore-with-dependencies '^dbus'
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- rpmtree \
+    bazeldnf rpmtree \
         --public --nobest \
         --name sidecar-shim_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -699,21 +688,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $sidecar_shim
 
     # remove all RPMs which are no longer referenced by a rpmtree
-    bazel run \
-        --config=${ARCHITECTURE} \
-        //:bazeldnf -- prune
+    bazeldnf prune
 
     # update tar2files targets which act as an adapter between rpms
     # and cc_library which we need for virt-launcher and virt-handler
-    bazel run \
-        --config=${ARCHITECTURE} \
-        --config=${CS_CONFIG} \
-        //rpm:ldd_s390x${TARGET_SUFFIX}
+    bazeldnf_ldd libvirt-devel_s390x${TARGET_SUFFIX} libvirt-libs_s390x${TARGET_SUFFIX} \
+        ${libvirt_ldd_libs}
 
-    bazel run \
-        --config=${ARCHITECTURE} \
-        --config=${CS_CONFIG} \
-        //rpm:ldd_libnbd_s390x${TARGET_SUFFIX}
+    bazeldnf_ldd libnbd-devel_s390x${TARGET_SUFFIX} libnbd-libs_s390x${TARGET_SUFFIX} \
+        ${libnbd_ldd_libs}
 
     # Note: sandbox regeneration is done separately
 fi
