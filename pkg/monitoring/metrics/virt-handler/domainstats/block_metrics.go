@@ -146,6 +146,7 @@ func (blockMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatorm
 		if block.FlTimesSet {
 			crs = append(crs, vmiReport.newCollectorResultWithLabels(storageFlushTimesSeconds, nanosecondsToSeconds(block.FlTimes), blkLabels))
 		}
+
 	}
 
 	return crs

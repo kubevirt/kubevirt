@@ -67,6 +67,28 @@ var _ = Describe("DiskConfigurator", func() {
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
+	It("should configure block latency histograms for disk I/O operations", func() {
+		vmi := libvmi.New(
+			libvmi.WithPersistentVolumeClaim("mypvc", "my-claim"),
+		)
+		configurator := storage.NewDiskConfigurator(
+			storage.DiskWithArchitecture(amd64),
+			storage.DiskWithVirtioModel(virtioModel),
+			storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
+		)
+		var domain api.Domain
+
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+		Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+
+		driver := domain.Spec.Devices.Disks[0].Driver
+		Expect(driver).ToNot(BeNil())
+		Expect(driver.Statistics).ToNot(BeNil())
+		Expect(driver.Statistics.LatencyHistograms).To(Equal(
+			expectedBlockLatencyHistogramStatistics().LatencyHistograms,
+		))
+	})
+
 	Context("volume source conversion", func() {
 		It("should convert a PVC volume in filesystem mode", func() {
 			vmi := libvmi.New(
@@ -1695,7 +1717,42 @@ func diskWithTarget(t api.DiskTarget) diskOption {
 }
 
 func diskWithDriver(drv api.DiskDriver) diskOption {
+	if drv.Statistics == nil {
+		drv.Statistics = expectedBlockLatencyHistogramStatistics()
+	}
 	return func(d *api.Disk) { d.Driver = &drv }
+}
+
+func expectedBlockLatencyHistogramBins() []api.DiskDriverLatencyHistBin {
+	return []api.DiskDriverLatencyHistBin{
+		{Start: 0},
+		{Start: 1_000_000},
+		{Start: 10_000_000},
+		{Start: 50_000_000},
+		{Start: 100_000_000},
+		{Start: 500_000_000},
+		{Start: 1_000_000_000},
+		{Start: 2_000_000_000},
+	}
+}
+
+func expectedBlockLatencyHistogramStatistics() *api.DiskDriverStatistics {
+	return &api.DiskDriverStatistics{
+		LatencyHistograms: []api.DiskDriverLatencyHistogram{
+			{
+				Type: "read",
+				Bins: expectedBlockLatencyHistogramBins(),
+			},
+			{
+				Type: "write",
+				Bins: expectedBlockLatencyHistogramBins(),
+			},
+			{
+				Type: "flush",
+				Bins: expectedBlockLatencyHistogramBins(),
+			},
+		},
+	}
 }
 
 func diskWithModel(m string) diskOption {

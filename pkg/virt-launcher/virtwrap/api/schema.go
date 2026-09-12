@@ -886,16 +886,28 @@ type DiskTarget struct {
 }
 
 type DiskDriver struct {
-	Cache       string             `xml:"cache,attr,omitempty"`
-	ErrorPolicy v1.DiskErrorPolicy `xml:"error_policy,attr,omitempty"`
-	IO          v1.DriverIO        `xml:"io,attr,omitempty"`
-	Name        string             `xml:"name,attr"`
-	Type        string             `xml:"type,attr"`
-	IOThread    *uint              `xml:"iothread,attr,omitempty"`
-	IOThreads   *DiskIOThreads     `xml:"iothreads"`
-	Queues      *uint              `xml:"queues,attr,omitempty"`
-	Discard     string             `xml:"discard,attr,omitempty"`
-	IOMMU       string             `xml:"iommu,attr,omitempty"`
+	Cache       string                `xml:"cache,attr,omitempty"`
+	ErrorPolicy v1.DiskErrorPolicy    `xml:"error_policy,attr,omitempty"`
+	IO          v1.DriverIO           `xml:"io,attr,omitempty"`
+	Name        string                `xml:"name,attr"`
+	Type        string                `xml:"type,attr"`
+	IOThread    *uint                 `xml:"iothread,attr,omitempty"`
+	IOThreads   *DiskIOThreads        `xml:"iothreads"`
+	Queues      *uint                 `xml:"queues,attr,omitempty"`
+	Discard     string                `xml:"discard,attr,omitempty"`
+	IOMMU       string                `xml:"iommu,attr,omitempty"`
+	Statistics  *DiskDriverStatistics `xml:"statistics,omitempty"`
+}
+
+type DiskDriverStatistics struct {
+	LatencyHistograms []DiskDriverLatencyHistogram `xml:"latency-histogram,omitempty"`
+}
+type DiskDriverLatencyHistogram struct {
+	Type string                     `xml:"type,attr,omitempty"`
+	Bins []DiskDriverLatencyHistBin `xml:"bin"`
+}
+type DiskDriverLatencyHistBin struct {
+	Start uint32 `xml:"start,attr"`
 }
 
 type DiskIOThreads struct {

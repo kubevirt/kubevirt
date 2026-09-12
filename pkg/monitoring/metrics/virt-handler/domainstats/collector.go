@@ -19,6 +19,7 @@
 package domainstats
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -33,6 +34,51 @@ const (
 	logVerbosityDebug = 4
 )
 
+type domainStatsPrometheusCollector struct{}
+
+func (domainStatsPrometheusCollector) Describe(ch chan<- *prometheus.Desc) {
+	scalarCollector := operatormetrics.Collector{
+		Metrics: domainStatsMetrics(domainStatsResourceMetrics...),
+	}
+
+	scalarCollector.Describe(ch)
+
+	ch <- histogramDesc
+}
+
+func (domainStatsPrometheusCollector) Collect(ch chan<- prometheus.Metric) {
+	vmis := cachedVMIs()
+	if len(vmis) == 0 {
+		return
+	}
+
+	concCollector := collector.NewConcurrentCollector(
+		settings.maxRequestsInFlight,
+	)
+
+	reports := collectDomainStatsReports(
+		concCollector,
+		vmis,
+	)
+
+	results := collectDomainStatsResults(reports)
+
+	// Reuse operator-observability-toolkit for all existing scalar
+	// metrics. No additional domain stats scrape is performed here.
+	scalarCollector := operatormetrics.Collector{
+		Metrics: domainStatsMetrics(domainStatsResourceMetrics...),
+		CollectCallback: func() []operatormetrics.CollectorResult {
+			return results
+		},
+	}
+
+	scalarCollector.Collect(ch)
+
+	for _, report := range reports {
+		collectBlockLatencyHistograms(report, ch)
+	}
+}
+
 var (
 	domainStatsResourceMetrics = []resourceMetrics{
 		memoryMetrics{},
@@ -44,10 +90,7 @@ var (
 		filesystemMetrics{},
 	}
 
-	Collector = operatormetrics.Collector{
-		Metrics:         domainStatsMetrics(domainStatsResourceMetrics...),
-		CollectCallback: domainStatsCollectorCallback,
-	}
+	Collector = domainStatsPrometheusCollector{}
 
 	settings *collectorSettings
 )
@@ -79,11 +122,60 @@ func domainStatsMetrics(rms ...resourceMetrics) []operatormetrics.Metric {
 	return metrics
 }
 
-func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
+func ListMetrics() []operatormetrics.Metric {
+	metrics := domainStatsMetrics(domainStatsResourceMetrics...)
+	return append(metrics, storageIOLatencySeconds)
+}
+
+func execDomainStatsCollector(
+	concCollector collector.Collector,
+	vmis []*k6tv1.VirtualMachineInstance,
+) []operatormetrics.CollectorResult {
+	reports := collectDomainStatsReports(concCollector, vmis)
+	return collectDomainStatsResults(reports)
+}
+
+func collectDomainStatsReports(
+	concCollector collector.Collector,
+	vmis []*k6tv1.VirtualMachineInstance,
+) []*VirtualMachineInstanceReport {
+	scraper := NewDomainstatsScraper(len(vmis))
+
+	go concCollector.Collect(
+		vmis,
+		scraper,
+		PrometheusCollectionTimeout,
+	)
+
+	var reports []*VirtualMachineInstanceReport
+
+	for report := range scraper.ch {
+		reports = append(reports, report)
+	}
+
+	return reports
+}
+
+func collectDomainStatsResults(
+	reports []*VirtualMachineInstanceReport,
+) []operatormetrics.CollectorResult {
+	var crs []operatormetrics.CollectorResult
+
+	for _, report := range reports {
+		for _, rm := range domainStatsResourceMetrics {
+			crs = append(crs, rm.Collect(report)...)
+		}
+	}
+
+	return crs
+}
+
+func cachedVMIs() []*k6tv1.VirtualMachineInstance {
 	cachedObjs := settings.vmiInformer.GetIndexer().List()
+
 	if len(cachedObjs) == 0 {
 		log.Log.V(logVerbosityDebug).Infof("No VMIs detected")
-		return []operatormetrics.CollectorResult{}
+		return nil
 	}
 
 	vmis := make([]*k6tv1.VirtualMachineInstance, len(cachedObjs))
@@ -92,21 +184,5 @@ func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	concCollector := collector.NewConcurrentCollector(settings.maxRequestsInFlight)
-	return execDomainStatsCollector(concCollector, vmis)
-}
-
-func execDomainStatsCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	scraper := NewDomainstatsScraper(len(vmis))
-	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
-
-	var crs []operatormetrics.CollectorResult
-
-	for vmiReport := range scraper.ch {
-		for _, rm := range domainStatsResourceMetrics {
-			crs = append(crs, rm.Collect(vmiReport)...)
-		}
-	}
-
-	return crs
+	return vmis
 }
