@@ -37,7 +37,9 @@ func applyMemory(
 		vmiSpec.Domain.Memory = &virtv1.Memory{}
 	}
 
-	// If we have any conflicts return as there's no need to apply
+	// validateMemory must run before any writes: it rejects a pre-existing
+	// Resources.Requests[memory] entry, but applyMemory itself writes that
+	// entry when OvercommitPercent > 0.
 	if conflicts := validateMemory(baseConflict, instancetypeSpec, vmiSpec); len(conflicts) > 0 {
 		return conflicts
 	}

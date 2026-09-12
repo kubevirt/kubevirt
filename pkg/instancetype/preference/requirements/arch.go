@@ -32,6 +32,9 @@ const (
 )
 
 func checkArch(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
+	if preferenceSpec.Requirements.Architecture == nil {
+		return nil, nil
+	}
 	if vmiSpec.Architecture != *preferenceSpec.Requirements.Architecture {
 		return conflict.Conflicts{conflict.New("spec", "template", "spec", "architecture")},
 			fmt.Errorf(requiredArchitectureNotUsedErrFmt, *preferenceSpec.Requirements.Architecture, vmiSpec.Architecture)
