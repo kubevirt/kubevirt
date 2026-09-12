@@ -31,6 +31,8 @@ import (
 // VolumeInfo contains paths for a volume
 type VolumeInfo struct {
 	Path       string
+	PVCName    string
+	VolumeName string
 	ArchiveURI string
 	DirURI     string
 	RawURI     string
@@ -96,6 +98,8 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 		envPrefix := strings.TrimSuffix(k, "_EXPORT_PATH")
 		vi := VolumeInfo{
 			Path:       env[k],
+			PVCName:    env[envPrefix+"_EXPORT_PVC_NAME"],
+			VolumeName: env[envPrefix+"_EXPORT_VOLUME_NAME"],
 			ArchiveURI: env[envPrefix+"_EXPORT_ARCHIVE_URI"],
 			DirURI:     env[envPrefix+"_EXPORT_DIR_URI"],
 			RawURI:     env[envPrefix+"_EXPORT_RAW_URI"],
@@ -117,11 +121,21 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 
 // GetVolumeInfo returns the VolumeInfo for a given PVC name
 func (sp *ServerPaths) GetVolumeInfo(pvcName string) *VolumeInfo {
-	targetName := getExportPodVolumeNameFromStr(pvcName)
-	for _, v := range sp.Volumes {
-		_, n := filepath.Split(filepath.Clean(v.Path))
-		if n == targetName {
-			return &v
+	for i := range sp.Volumes {
+		if sp.Volumes[i].PVCName == pvcName {
+			return &sp.Volumes[i]
+		}
+	}
+
+	// Fall back to the mount directory for exporter pods created before the
+	// PVC name was passed in the environment.
+	mountName := getExportPodVolumeNameFromStr(pvcName)
+	for i := range sp.Volumes {
+		if sp.Volumes[i].PVCName != "" {
+			continue
+		}
+		if _, n := filepath.Split(filepath.Clean(sp.Volumes[i].Path)); n == mountName {
+			return &sp.Volumes[i]
 		}
 	}
 	return nil

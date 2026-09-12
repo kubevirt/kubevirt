@@ -25,6 +25,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -295,6 +297,55 @@ var _ = Describe("OCI export", func() {
 		It("should return empty architecture when embedded VM has none", func() {
 			tpl := createTemplate("")
 			Expect(extractArchitectureFromVMTemplate(tpl)).To(BeEmpty())
+		})
+	})
+
+	Context("collectDiskInfo", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "disk.img"), []byte("data"), 0o600)).To(Succeed())
+		})
+
+		It("should name the disk after the volume of the VM", func() {
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "fedora-vm-rootdisk", VolumeName: "rootdisk"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: "rootdisk",
+			}))
+		})
+
+		It("should fall back to the PVC name without a volume name", func() {
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "my.disk"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: "my.disk",
+			}))
+		})
+
+		It("should fall back to the mount directory without either name", func() {
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: filepath.Base(dir),
+			}))
+		})
+
+		It("should error when the volume path does not exist", func() {
+			_, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: filepath.Join(dir, "missing")}},
+			})
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

@@ -71,7 +71,7 @@ func (s *VMSnapshotSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMSnapshotSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMSnapshotSource) ConfigurePod(pod *corev1.Pod) {
@@ -92,18 +92,27 @@ func (s *VMSnapshotSource) ConfigureExportLink(exportLink *exportv1.VirtualMachi
 func (s *VMSnapshotSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
 	vmExport.Status.VirtualMachineName = pointer.P(s.vmName)
 
-	if err := s.updateVMSnapshotExportStatusConditions(vmExport); err != nil {
+	if err := s.updateVMSnapshotExportStatusConditions(vmExport, pod); err != nil {
 		return 0, err
 	}
 
 	return 0, nil
 }
 
-func (s *VMSnapshotSource) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport) error {
+func (s *VMSnapshotSource) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
 	// Handle no volumes case
 	if !s.HasContent() {
+		if len(s.sourceVolumes.duplicatePVCNames()) > 0 {
+			if pod == nil {
+				vmExportCopy.Status.Phase = exportv1.Skipped
+			}
+			return nil
+		}
+
 		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, s.SourceCondition())
-		if s.SourceCondition().Reason == noVolumeSnapshotReason || s.SourceCondition().Reason == VMSnapshotNotFoundReason {
+		// Only report skipped while no pod is running, a ready export keeps its links.
+		if pod == nil &&
+			(s.SourceCondition().Reason == noVolumeSnapshotReason || s.SourceCondition().Reason == VMSnapshotNotFoundReason) {
 			vmExportCopy.Status.Phase = exportv1.Skipped
 		}
 		return nil
@@ -160,13 +169,13 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 		}, nil
 	}
 	if vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
-		pvcs, restoreableSnapshots, err := ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
+		volumesToExport, restoreableSnapshots, err := ctrl.restoreSourceVolumesFromVMSnapshot(vmExport, vmSnapshot)
 		if err != nil {
 			return nil, err
 		}
-		if len(pvcs) == restoreableSnapshots && restoreableSnapshots > 0 {
+		if len(volumesToExport) == restoreableSnapshots && restoreableSnapshots > 0 {
 			return &sourceVolumes{
-				volumes:         ctrl.pvcsToSourceVolumes(pvcs...),
+				volumes:         volumesToExport,
 				inUse:           false,
 				isPopulated:     true,
 				readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
@@ -199,10 +208,10 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 	}, nil
 }
 
-func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *exportv1.VirtualMachineExport, vmSnapshot *snapshotv1.VirtualMachineSnapshot) ([]*corev1.PersistentVolumeClaim, int, error) {
+func (ctrl *VMExportController) restoreSourceVolumesFromVMSnapshot(vmExport *exportv1.VirtualMachineExport, vmSnapshot *snapshotv1.VirtualMachineSnapshot) ([]sourceVolume, int, error) {
 	var content *snapshotv1.VirtualMachineSnapshotContent
 	var err error
-	var pvcs []*corev1.PersistentVolumeClaim
+	var volumesToExport []sourceVolume
 	exists := false
 	totalVolumes := 0
 
@@ -219,12 +228,12 @@ func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *ex
 				if pvc, err := ctrl.getOrCreatePVCFromSnapshot(vmExport, &volumeBackup, sourceVm); err != nil {
 					return nil, 0, err
 				} else {
-					pvcs = append(pvcs, pvc)
+					volumesToExport = append(volumesToExport, ctrl.newSourceVolume(pvc, volumeBackup.VolumeName))
 				}
 			}
 		}
 	}
-	return pvcs, totalVolumes, err
+	return volumesToExport, totalVolumes, err
 }
 
 func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.VirtualMachineExport, volumeBackup *snapshotv1.VolumeBackup, sourceVm *snapshotv1.VirtualMachine) (*corev1.PersistentVolumeClaim, error) {

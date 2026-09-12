@@ -89,9 +89,20 @@ func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 			p = path.Join(p, "disk.img")
 		}
 
+		// Fall back to the PVC name for sources without a VM, and to the mount
+		// directory for exporter pods created before either name was passed in
+		// the environment.
+		volumeName := vi.VolumeName
+		if volumeName == "" {
+			volumeName = vi.PVCName
+		}
+		if volumeName == "" {
+			volumeName = path.Base(vi.Path)
+		}
+
 		disks = append(disks, oci.DiskInfo{
 			FilePath:   p,
-			VolumeName: path.Base(vi.Path),
+			VolumeName: volumeName,
 		})
 	}
 	return disks, nil
