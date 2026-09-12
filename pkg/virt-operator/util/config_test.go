@@ -19,6 +19,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -359,6 +361,67 @@ var _ = Describe("Operator Config", func() {
 			Entry(fmt.Sprintf("provided via old %s env variable - expected to pass", OldOperatorImageEnvName), OldOperatorImageEnvName, true),
 			Entry("not provided at all - expected to fail", "", false),
 		)
+	})
+
+	Describe("getKVMapFromSpec", func() {
+		It("should serialize string fields as plain strings", func() {
+			spec := v1.KubeVirtSpec{
+				ImagePullPolicy: k8sv1.PullAlways,
+			}
+			result := getKVMapFromSpec(spec)
+			Expect(result).To(HaveKeyWithValue("ImagePullPolicy", "Always"))
+		})
+
+		It("should serialize struct fields as JSON", func() {
+			spec := v1.KubeVirtSpec{
+				CertificateRotationStrategy: v1.KubeVirtCertificateRotateStrategy{
+					SelfSigned: &v1.KubeVirtSelfSignConfiguration{
+						CARotateInterval:   &metav1.Duration{Duration: 1},
+						CAOverlapInterval:  &metav1.Duration{Duration: 1},
+						CertRotateInterval: &metav1.Duration{Duration: 1},
+					},
+				},
+			}
+			result := getKVMapFromSpec(spec)
+			value, ok := result["CertificateRotationStrategy"]
+			Expect(ok).To(BeTrue())
+			Expect(json.Valid([]byte(value))).To(BeTrue(),
+				fmt.Sprintf("expected valid JSON, got: %s", value))
+		})
+
+		It("should serialize pointer-to-struct fields as JSON", func() {
+			spec := v1.KubeVirtSpec{
+				Infra: &v1.ComponentConfig{
+					NodePlacement: &v1.NodePlacement{
+						NodeSelector: map[string]string{"node-role.kubernetes.io/compute": "true"},
+					},
+				},
+			}
+			result := getKVMapFromSpec(spec)
+			value, ok := result["Infra"]
+			Expect(ok).To(BeTrue())
+			Expect(json.Valid([]byte(value))).To(BeTrue(),
+				fmt.Sprintf("expected valid JSON, got: %s", value))
+			Expect(value).To(ContainSubstring("node-role.kubernetes.io/compute"))
+		})
+
+		It("should serialize nil pointer fields as null", func() {
+			spec := v1.KubeVirtSpec{}
+			result := getKVMapFromSpec(spec)
+			value, ok := result["Infra"]
+			Expect(ok).To(BeTrue())
+			Expect(value).To(Equal("null"))
+		})
+
+		It("should skip ImageTag and ImageRegistry", func() {
+			spec := v1.KubeVirtSpec{
+				ImageTag:      "v1.0.0",
+				ImageRegistry: "quay.io/kubevirt",
+			}
+			result := getKVMapFromSpec(spec)
+			Expect(result).ToNot(HaveKey("ImageTag"))
+			Expect(result).ToNot(HaveKey("ImageRegistry"))
+		})
 	})
 
 	Context("kubevirt version", func() {
