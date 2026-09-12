@@ -18,6 +18,7 @@ package checkpoint
 
 import (
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,6 +60,18 @@ var _ = Describe("Simple checkpoint manager", func() {
 
 		r := &record{}
 		Expect(cp.Get("win", r)).To(MatchError(os.ErrNotExist))
+	})
+
+	It("should return err when asked for key with empty record", func() {
+		dir := GinkgoT().TempDir()
+		f, err := os.Create(filepath.Join(dir, "key"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(f.Close()).ToNot(HaveOccurred())
+
+		cp := NewSimpleCheckpointManager(dir)
+
+		r := &record{}
+		Expect(cp.Get("key", r)).To(MatchError("unexpected end of JSON input"))
 	})
 
 	It("should remove key", func() {
