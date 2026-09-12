@@ -3698,6 +3698,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "testdisk",
 					DiskDevice: v1.DiskDevice{
 						LUN: &v1.LunTarget{
+							Bus:         v1.DiskBusSCSI,
 							Reservation: true,
 						},
 					},
