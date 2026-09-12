@@ -266,6 +266,7 @@ add_to_label_filter '(!requires-arm64)' '&&'
 add_to_label_filter '(!requires-s390x)' '&&'
 add_to_label_filter '(!requires-cross-arch-emulation)' '&&'
 add_to_label_filter '(!RequiresPersistentReservation)' '&&'
+add_to_label_filter '(!RequiresVSOCKLocalNamespace)' '&&'
 
 if [[ ${KUBEVIRT_NUM_NODES:-} = "1" && ${KUBEVIRT_INFRA_REPLICAS:-} = "1" ]]; then
   add_to_label_filter '!(multi-replica)' '&&'
