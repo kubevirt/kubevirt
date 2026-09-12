@@ -44,6 +44,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -248,18 +249,23 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		logger.V(3).Info("Setting up TCP proxies to support incoming legacy VMI migration")
 		loopbackAddress := ip.GetLoopbackAddress()
 
+		mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(l.virtShareDir)
+		if err != nil {
+			logger.Reason(err).Error("failed to create mount root for migration proxy")
+			return err
+		}
+
 		migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
 		for _, port := range migrationPortsRange {
 			// Prepare the direct migration proxy
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
-			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
-			logger.V(2).Infof("Creating socketpath for unix migration/tcp %s", unixSocketPath)
-			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, string(vmi.UID))
+			unixSocketPath := filepath.Join("/migrationproxy", key+"-source.sock")
+			migrationProxy := migrationproxy.NewSourceProxy(mountRoot, unixSocketPath, curDirectAddress, nil, string(vmi.UID))
 
 			err := migrationProxy.Start()
 			if err != nil {
-				logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
+				logger.Reason(err).Errorf("proxy listening failed, socket %s", migrationproxy.SourceUnixFile(l.virtShareDir, key))
 				return err
 			}
 
