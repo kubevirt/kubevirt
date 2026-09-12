@@ -146,6 +146,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 	netSynchronizer synchronizer,
 	firmwareSynchronizer synchronizer,
 	instancetypeController instancetypeHandler,
+	diskPreferenceApplier diskPreferenceApplier,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
@@ -171,6 +172,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		clusterConfig:                     clusterConfig,
 		netSynchronizer:                   netSynchronizer,
 		firmwareSynchronizer:              firmwareSynchronizer,
+		diskPreferenceApplier:             diskPreferenceApplier,
 		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
 		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
 	}
@@ -271,6 +273,10 @@ type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
 
+type diskPreferenceApplier interface {
+	ApplyDiskPreferences(vm *virtv1.VirtualMachine, vmiSpec *virtv1.VirtualMachineInstanceSpec) error
+}
+
 type instancetypeHandler interface {
 	synchronizer
 	ApplyToVM(*virtv1.VirtualMachine) error
@@ -298,6 +304,8 @@ type Controller struct {
 
 	netSynchronizer      synchronizer
 	firmwareSynchronizer synchronizer
+
+	diskPreferenceApplier diskPreferenceApplier
 
 	additionalLauncherAnnotationsSync []string
 	additionalLauncherLabelsSync      []string
@@ -3577,7 +3585,7 @@ func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, v
 		return nil
 	}
 
-	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi)
+	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi, c.diskPreferenceApplier)
 }
 
 func (c *Controller) handleKubeVirtUpdate(oldObj, newObj interface{}) {

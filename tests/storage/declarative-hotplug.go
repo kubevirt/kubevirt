@@ -41,6 +41,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -59,14 +60,19 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	createVM := func(options ...libvmi.Option) *v1.VirtualMachine {
+	createVMWithVMOptions := func(vmiOptions []libvmi.Option, vmOptions ...libvmi.VMOption) *v1.VirtualMachine {
+		allVMOptions := append([]libvmi.VMOption{libvmi.WithRunStrategy(v1.RunStrategyAlways)}, vmOptions...)
 		vm := libvmi.NewVirtualMachine(
-			libvmifact.NewAlpineWithTestTooling(options...),
-			libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			libvmifact.NewAlpineWithTestTooling(vmiOptions...),
+			allVMOptions...)
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 		Eventually(matcher.ThisVM(vm)).WithTimeout(300*time.Second).WithPolling(time.Second).Should(matcher.BeReady(), "VM %s did not become ready in time", vm.Name)
 		return vm
+	}
+
+	createVM := func(options ...libvmi.Option) *v1.VirtualMachine {
+		return createVMWithVMOptions(options)
 	}
 
 	createAndStartVMWithEmptyCDRom := func() *v1.VirtualMachine {
@@ -339,15 +345,39 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	})
 
 	Context("Hotplug disks", func() {
-		It("Should add and remove a hotplug disk", func() {
-			By("Creating a VM")
-			vm := createVM()
+		const preferredBus = v1.DiskBusVirtio
 
-			By("Hotplugging a disk")
+		It("Should add and remove a hotplug disk", func() {
+			By("Creating a preference with PreferredDiskBus")
+			preference := builder.NewPreference(
+				builder.WithPreferredDiskBus(preferredBus),
+			)
+			preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating a VM with the preference")
+			vm := createVMWithVMOptions(nil, libvmi.WithPreference(preference.Name))
+
+			By("Hotplugging a disk with empty bus")
 			dv1 := createBlankVolume(vm.Namespace)
-			vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugDiskName, dv1.Name)
+			vm = libstorage.AddHotplugDiskAndVolumeWithBus(virtClient, vm, hotplugDiskName, dv1.Name, "")
 			libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugDiskName, dv1.Name, true)
 			libstorage.EventuallyDV(dv1, 240, matcher.HaveSucceeded())
+
+			By("Verifying the hotplugged disk has the preferred bus")
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			var hotplugDisk *v1.Disk
+			for i := range vmi.Spec.Domain.Devices.Disks {
+				if vmi.Spec.Domain.Devices.Disks[i].Name == hotplugDiskName {
+					hotplugDisk = &vmi.Spec.Domain.Devices.Disks[i]
+					break
+				}
+			}
+			Expect(hotplugDisk).NotTo(BeNil(), "hotplugged disk should exist in VMI spec")
+			Expect(hotplugDisk.DiskDevice.Disk.Bus).To(Equal(preferredBus),
+				"hotplugged disk should have the preferred bus from the preference")
 
 			By("Unplug the disk")
 			vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, hotplugDiskName)
