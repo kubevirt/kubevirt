@@ -335,13 +335,17 @@ func (m *VirtualMachineControllerRefManager) ReleaseDetachedVirtualMachines(vms 
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of DataVolumes that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
+func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes []*cdiv1.DataVolume, dvTemplates []virtv1.DataVolumeTemplateSpec) ([]*cdiv1.DataVolume, error) {
 	var claimed []*cdiv1.DataVolume
 	var errlist []error
 
 	match := func(obj metav1.Object) bool {
-		return true
-
+		for i := range dvTemplates {
+			if dvTemplates[i].Name == obj.GetName() {
+				return true
+			}
+		}
+		return false
 	}
 	adopt := func(obj metav1.Object) error {
 		return m.AdoptDataVolume(obj.(*cdiv1.DataVolume))
