@@ -20,12 +20,18 @@
 package domainstats
 
 const (
-	nanosecondsPerSecond float64 = 1_000_000_000
-	bytesPerKibibyte     float64 = 1024
+	nanosecondsPerSecond  float64 = 1_000_000_000
+	millisecondsPerSecond float64 = 1000
+	bytesPerKibibyte      float64 = 1024
 )
 
 func nanosecondsToSeconds(ns uint64) float64 {
 	return float64(ns) / nanosecondsPerSecond
+}
+
+// MillisecondsToSeconds converts a libvirt millisecond duration to seconds.
+func MillisecondsToSeconds(milliseconds uint64) float64 {
+	return float64(milliseconds) / millisecondsPerSecond
 }
 
 func kibibytesToBytes(kibibytes uint64) float64 {

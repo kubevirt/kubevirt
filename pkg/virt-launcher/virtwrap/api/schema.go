@@ -122,13 +122,19 @@ type Domain struct {
 }
 
 type DomainStatus struct {
-	Status         LifeCycle
-	Reason         StateChangeReason
-	Interfaces     []InterfaceStatus
-	OSInfo         GuestOSInfo
-	FSFreezeStatus FSFreeze
-	GuestPanicInfo *GuestPanicInfo
-	PanicCount     int
+	Status                  LifeCycle
+	Reason                  StateChangeReason
+	Interfaces              []InterfaceStatus
+	OSInfo                  GuestOSInfo
+	FSFreezeStatus          FSFreeze
+	GuestPanicInfo          *GuestPanicInfo
+	PanicCount              int
+	CompletedMigrationStats *CompletedMigrationStats
+}
+
+type CompletedMigrationStats struct {
+	DowntimeSet bool
+	Downtime    uint64
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU
