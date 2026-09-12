@@ -64,7 +64,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 			kv := getCurrentKvConfig(virtClient)
 			var exists bool
 			kv.VMStateStorageClass, exists = libstorage.GetRWOFileSystemStorageClass()
-			Expect(exists).To(BeTrue())
+			Expect(exists).To(BeTrue(), "an RWO filesystem storage class must be present to test migration recovery")
 			config.UpdateKubeVirtConfigValueAndWait(kv)
 		}
 
@@ -157,7 +157,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 
 func createPVCFor(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *k8score.PersistentVolumeClaim {
 	storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
-	Expect(exists).To(BeTrue())
+	Expect(exists).To(BeTrue(), "an RWO filesystem storage class must be present to create the backend-storage PVC")
 	mode := k8score.PersistentVolumeFilesystem
 	accessMode := k8score.ReadWriteOnce
 	ownerReferences := []k8smeta.OwnerReference{
