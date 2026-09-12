@@ -28,13 +28,14 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
 var _ = Describe("Validate network DRA", func() {
 	It("should reject DRA network when feature gate is disabled", func() {
-		spec := newDRASpec()
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "claim1", "vf"))
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -45,16 +46,15 @@ var _ = Describe("Validate network DRA", func() {
 	})
 
 	It("should accept valid DRA network when feature gate is enabled", func() {
-		spec := newDRASpec()
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "claim1", "vf"))
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
 	})
 
 	It("should reject DRA network with empty claimName", func() {
-		spec := newDRASpec()
-		spec.Networks[0].ResourceClaim.ClaimName = ""
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "", "vf"))
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueRequired,
@@ -65,9 +65,8 @@ var _ = Describe("Validate network DRA", func() {
 	})
 
 	It("should reject DRA network with empty requestName", func() {
-		spec := newDRASpec()
-		spec.Networks[0].ResourceClaim.RequestName = ""
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "claim1", ""))
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueRequired,
@@ -78,9 +77,8 @@ var _ = Describe("Validate network DRA", func() {
 	})
 
 	It("should reject DRA network with non-existent resourceClaim reference", func() {
-		spec := newDRASpec()
-		spec.Networks[0].ResourceClaim.ClaimName = "missing-claim"
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "missing-claim", "vf"))
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
@@ -91,38 +89,14 @@ var _ = Describe("Validate network DRA", func() {
 	})
 
 	It("should reject duplicate claimName/requestName across DRA networks", func() {
-		spec := newDRASpec()
-		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name:    "dra-net-1",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
-			{
-				Name:    "dra-net-2",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
-		}
-		spec.Networks = []v1.Network{
-			{
-				Name: "dra-net-1",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
-				},
-			},
-			{
-				Name: "dra-net-2",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
-				},
-			},
-		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("dra-net-1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithInterface(libvmi.NewInterface("dra-net-2", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithNetwork(libvmi.DRANetwork("dra-net-1", "claim1", "vf")),
+			libvmi.WithNetwork(libvmi.DRANetwork("dra-net-2", "claim1", "vf")),
+			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
+		)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueDuplicate,
@@ -133,25 +107,14 @@ var _ = Describe("Validate network DRA", func() {
 	})
 
 	It("should reject mixing Multus and DRA networks", func() {
-		spec := newDRASpec()
-		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name:    "multus-net",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
-			{
-				Name:    "dra-net",
-				Binding: &v1.PluginBinding{Name: "netbinding"},
-			},
-		}
-		spec.Networks = []v1.Network{
-			{
-				Name:          "multus-net",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "nad1"}},
-			},
-			spec.Networks[0],
-		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("multus-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithInterface(libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithNetwork(libvmi.MultusNetwork("multus-net", "nad1")),
+			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "vf")),
+			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
+		)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -163,10 +126,10 @@ var _ = Describe("Validate network DRA", func() {
 
 	DescribeTable("should reject DRA network with core interface binding",
 		func(iface v1.Interface) {
-			spec := newDRASpec()
+			vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "claim1", "vf"))
 			iface.Name = "dra-net"
-			spec.Domain.Devices.Interfaces = []v1.Interface{iface}
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 			causes := validator.Validate()
 			Expect(causes).To(ContainElement(HaveField("Message", `DRA network "dra-net" requires a binding plugin interface`)))
 		},
@@ -177,35 +140,24 @@ var _ = Describe("Validate network DRA", func() {
 	)
 
 	It("should accept DRA network with plugin interface binding", func() {
-		spec := newDRASpec()
-		spec.Domain.Devices.Interfaces = []v1.Interface{
-			{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{},
-				},
-			},
-			{
-				Name: "dra-net",
-				Binding: &v1.PluginBinding{
-					Name: "vhostuser",
-				},
-			},
+		vmi := newDRAVMI(libvmi.DRANetwork("dra-net", "claim1", "vf"))
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+			libvmi.NewInterface("default", libvmi.WithMasqueradeBinding()),
+			libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "vhostuser"})),
 		}
-		spec.Networks = append(spec.Networks, v1.Network{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-		})
+		vmi.Spec.Networks = append(vmi.Spec.Networks, *v1.DefaultPodNetwork())
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
 	})
 
 	It("should reject DRA network with no corresponding interface", func() {
-		spec := newDRASpec()
-		spec.Domain.Devices.Interfaces = nil
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		vmi := libvmi.New(
+			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "vf")),
+			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
+		)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		expectedCauses := []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueRequired,
@@ -216,31 +168,12 @@ var _ = Describe("Validate network DRA", func() {
 	})
 })
 
-func newDRASpec() *v1.VirtualMachineInstanceSpec {
-	return &v1.VirtualMachineInstanceSpec{
-		Domain: v1.DomainSpec{
-			Devices: v1.Devices{
-				Interfaces: []v1.Interface{
-					{
-						Name:    "dra-net",
-						Binding: &v1.PluginBinding{Name: "netbinding"},
-					},
-				},
-			},
-		},
-		Networks: []v1.Network{
-			{
-				Name: "dra-net",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
-				},
-			},
-		},
-		ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-			{Name: "claim1", ResourceClaimName: new("claim1")},
-		},
+func newDRAVMI(network *v1.Network, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	base := []libvmi.Option{
+		libvmi.WithInterface(libvmi.NewInterface("dra-net",
+			libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+		libvmi.WithNetwork(network),
+		libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
 	}
+	return libvmi.New(append(base, opts...)...)
 }
