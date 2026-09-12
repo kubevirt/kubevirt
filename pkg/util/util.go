@@ -71,8 +71,8 @@ func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
 
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
-	varName = strings.Replace(varName, "/", "_", -1)
-	varName = strings.Replace(varName, ".", "_", -1)
+	varName = strings.ReplaceAll(varName, "/", "_")
+	varName = strings.ReplaceAll(varName, ".", "_")
 	return fmt.Sprintf("%s_%s", prefix, varName)
 }
 
