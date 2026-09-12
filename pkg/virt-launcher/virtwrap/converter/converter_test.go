@@ -2137,13 +2137,34 @@ var _ = Describe("Converter", func() {
 				AutoattachSerialConsole: autoAttach,
 			}
 			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
-			Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Consoles).To(HaveLen(devices))
+			if runtime.GOARCH == s390x {
+				// On s390x: console-only approach, no serial device
+				Expect(domain.Spec.Devices.Serials).To(BeEmpty())
+			} else {
+				Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
+			}
 
 		},
 			Entry("and add the serial console if it is not set", nil, 1),
 			Entry("and add the serial console if it is set to true", pointer.P(true), 1),
 			Entry("and not add the serial console if it is set to false", pointer.P(false), 0),
+		)
+
+		DescribeTable("should handle console device based on architecture", func(arch string, expectSerials int, expectConsoles int) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace("mynamespace"),
+				libvmi.WithName("testvmi"),
+				libvmi.WithUID("1234"),
+				libvmi.WithAutoattachSerialConsole(true),
+			)
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch), AllowEmulation: true, HypervisorDeviceAvailable: true})
+			Expect(domain.Spec.Devices.Serials).To(HaveLen(expectSerials))
+			Expect(domain.Spec.Devices.Consoles).To(HaveLen(expectConsoles))
+		},
+			Entry("when architecture is amd64", amd64, 1, 1),
+			Entry("when architecture is arm64", arm64, 1, 1),
+			Entry("when architecture is s390x", s390x, 0, 1),
 		)
 	})
 

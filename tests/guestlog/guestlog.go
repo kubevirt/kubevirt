@@ -85,6 +85,41 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 
 			var alpineCheck = "Welcome to Alpine Linux"
 
+			It("it should not produce duplicate log lines on s390x", decorators.RequiresS390X, func() {
+				By("Starting a VMI with serial console logging enabled")
+				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
+
+				By("Finding virt-launcher pod")
+				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for boot messages to appear in the console log")
+				Eventually(func(g Gomega) string {
+					logs, err := getConsoleLogs(virtlauncherPod)
+					g.Expect(err).ToNot(HaveOccurred())
+					return logs
+				}, time.Duration(flags.StartupTimeoutSecondsSmall())*time.Second, 2*time.Second).Should(ContainSubstring(alpineCheck))
+
+				By("Logging into the VM and echoing a unique string")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "echo " + testString + "\n"},
+					&expect.BExp{R: testString},
+				}, 240)).To(Succeed())
+
+				By("Fetching the guest-console-log and verifying no duplicate lines")
+				var logs string
+				Eventually(func(g Gomega) {
+					logs, err = getConsoleLogs(virtlauncherPod)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(logs).To(ContainSubstring(testString))
+				}, 30*time.Second, 2*time.Second).Should(Succeed())
+
+				By("Counting occurrences of the unique test string - must appear exactly once")
+				Expect(strings.Count(logs, testString)).To(Equal(1),
+					"guest-console-log should not contain duplicate log lines on s390x (each line must appear exactly once)")
+			})
+
 			It("[QUARANTINE] it should fetch logs for a running VM with logs API", decorators.Quarantine, func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 
