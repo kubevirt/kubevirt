@@ -66,6 +66,7 @@ go_test(
     srcs = [
         "application_test.go",
         "kubevirt_test.go",
+        "strategy_test.go",
         "virt_operator_suite_test.go",
     ],
     embed = [":go_default_library"],
