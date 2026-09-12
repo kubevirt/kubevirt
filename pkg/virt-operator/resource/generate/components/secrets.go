@@ -23,10 +23,12 @@ import (
 
 // #nosec 101, false positives were caused by variables not holding any secret value.
 const (
-	KubeVirtCASecretName                              = "kubevirt-ca"
-	ExternalKubeVirtCAConfigMapName                   = "kubevirt-external-ca"
-	KubeVirtExportCASecretName                        = "kubevirt-export-ca"
-	KubeVirtBackupCASecretName                        = "kubevirt-backup-ca"
+	KubeVirtCASecretName                  = "kubevirt-ca"
+	ExternalKubeVirtCAConfigMapName       = "kubevirt-external-ca"
+	KubeVirtExportCASecretName            = "kubevirt-export-ca"
+	KubeVirtExportExternalCAConfigMapName = "kubevirt-export-external-ca" // optional custom root CA for VMExport external links
+	KubeVirtBackupCASecretName            = "kubevirt-backup-ca"
+
 	VirtHandlerCertSecretName                         = "kubevirt-virt-handler-certs"
 	VirtHandlerServerCertSecretName                   = "kubevirt-virt-handler-server-certs"
 	VirtHandlerMigrationClientCertSecretName          = "kubevirt-virt-handler-migration-client-certs"

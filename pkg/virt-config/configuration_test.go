@@ -377,6 +377,17 @@ var _ = Describe("test configuration", func() {
 		Expect(*result.AllowAutoConverge).To(BeTrue())
 	})
 
+	DescribeTable("Should return external certification strategy", func(config *v1.KubeVirtConfiguration, expected v1.ExternalCertificationStrategy) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(config)
+		Expect(clusterConfig.GetExternalCertificationStrategy()).To(Equal(expected))
+	},
+		Entry("default when unset", &v1.KubeVirtConfiguration{}, v1.ExternalCertificationStrategyClusterRootCA),
+		Entry("default when exportConfiguration empty", &v1.KubeVirtConfiguration{ExportConfiguration: &v1.ExportConfiguration{}}, v1.ExternalCertificationStrategyClusterRootCA),
+		Entry("SystemTrust", &v1.KubeVirtConfiguration{ExportConfiguration: &v1.ExportConfiguration{ExternalCertificationStrategy: pointer.P(v1.ExternalCertificationStrategySystemTrust)}}, v1.ExternalCertificationStrategySystemTrust),
+		Entry("CustomRootCA", &v1.KubeVirtConfiguration{ExportConfiguration: &v1.ExportConfiguration{ExternalCertificationStrategy: pointer.P(v1.ExternalCertificationStrategyCustomRootCA)}}, v1.ExternalCertificationStrategyCustomRootCA),
+		Entry("ClusterRootCA", &v1.KubeVirtConfiguration{ExportConfiguration: &v1.ExportConfiguration{ExternalCertificationStrategy: pointer.P(v1.ExternalCertificationStrategyClusterRootCA)}}, v1.ExternalCertificationStrategyClusterRootCA),
+	)
+
 	It("Should return defaults if parts of the config are not set", func() {
 		parallelOutboundMigrationsPerNode := uint32(10)
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{

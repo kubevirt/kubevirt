@@ -143,6 +143,8 @@ spec:
     emulatedMachines:
     - emulatedMachinesValue
     evictionStrategy: evictionStrategyValue
+    exportConfiguration:
+      externalCertificationStrategy: externalCertificationStrategyValue
     handlerConfiguration:
       restClient:
         rateLimiter:

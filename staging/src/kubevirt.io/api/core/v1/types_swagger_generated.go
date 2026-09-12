@@ -909,6 +909,14 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"persistentReservationConfiguration": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs\n+nullable",
 		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
 		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting RoleAggregationStrategy to \"Manual\" requires the OptOutRoleAggregation feature gate\nto be enabled (Beta, enabled by default since v1.9.0).\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
+		"exportConfiguration":                "ExportConfiguration holds cluster-level settings for VirtualMachineExport.\n+nullable",
+	}
+}
+
+func (ExportConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                              "ExportConfiguration holds cluster-level VirtualMachineExport settings.",
+		"externalCertificationStrategy": "ExternalCertificationStrategy controls how VirtualMachineExport external\nlink certificates are populated.\nDefaults to ClusterRootCA.\n+optional\n+kubebuilder:validation:Enum=ClusterRootCA;CustomRootCA;SystemTrust",
 	}
 }
 
