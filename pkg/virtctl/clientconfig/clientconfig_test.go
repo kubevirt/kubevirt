@@ -36,4 +36,9 @@ var _ = Describe("client", func() {
 		_, _, _, err := clientconfig.ClientAndNamespaceFromContext(context.Background())
 		Expect(err).To(MatchError("unable to get client config from context"))
 	})
+
+	It("K8sClientFromContext should fail when clientConfig is missing from context", func() {
+		_, err := clientconfig.K8sClientFromContext(context.Background())
+		Expect(err).To(MatchError("unable to get client config from context"))
+	})
 })
