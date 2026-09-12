@@ -450,14 +450,6 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		return false, err
 	}
 
-	// backup any old RBAC rules that don't match current version
-	if !infrastructureRolledOver {
-		err = r.backupRBACs()
-		if err != nil {
-			return false, err
-		}
-	}
-
 	// create/update all RBAC rules
 	err = r.createOrUpdateRbac()
 	if err != nil {
