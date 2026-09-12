@@ -50,9 +50,6 @@ func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
-	if vmi == nil {
-		return false
-	}
 	vmiFirmware := vmi.Spec.Domain.Firmware
 	if (vmiFirmware == nil) || (vmiFirmware.KernelBoot == nil) || (vmiFirmware.KernelBoot.Container == nil) {
 		return false
