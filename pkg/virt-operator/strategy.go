@@ -24,13 +24,13 @@ func (c *KubeVirtController) getCachedInstallStrategy(config *operatorutil.KubeV
 	}
 
 	if cachedEntry.key == fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation) {
-		return cachedEntry.value, true
+		return cachedEntry.value.DeepCopy(), true
 	}
 	return nil, false
 }
 
 func (c *KubeVirtController) cacheInstallStrategy(cachedEntry *install.Strategy, config *operatorutil.KubeVirtDeploymentConfig, generation int64) {
-	c.latestStrategy.Store(strategyCacheEntry{key: fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation), value: cachedEntry})
+	c.latestStrategy.Store(strategyCacheEntry{key: fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation), value: cachedEntry.DeepCopy()})
 }
 
 func (c *KubeVirtController) deleteAllInstallStrategy() error {
