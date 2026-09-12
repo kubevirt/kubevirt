@@ -20,8 +20,6 @@
 package util
 
 import (
-	"strings"
-
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -30,96 +28,79 @@ import (
 )
 
 func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Stores) bool {
-
-	// ensure we're looking at the latest daemonset from cache
 	obj, exists, _ := stores.DaemonSetCache.Get(daemonset)
-	if exists {
-		daemonset = obj.(*appsv1.DaemonSet)
-	} else {
-		// not in cache yet
+	if !exists {
+		return false
+	}
+	daemonset = obj.(*appsv1.DaemonSet)
+
+	if !DaemonSetIsUpToDate(kv, daemonset) {
+		log.Log.V(4).Infof("DaemonSet %v not at target version yet", daemonset.Name)
 		return false
 	}
 
-	if daemonset.Status.DesiredNumberScheduled == 0 ||
-		daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
+	// Status fields are only reliable once the controller has observed the current spec.
+	if daemonset.Status.ObservedGeneration < daemonset.Generation {
+		log.Log.V(4).Infof("DaemonSet %v controller has not observed current spec", daemonset.Name)
+		return false
+	}
 
+	// NumberReady and UpdatedNumberScheduled both exclude misscheduled pods (k8s API guarantee),
+	// so == is safe even when there are extra pods running on tainted nodes.
+	if daemonset.Status.DesiredNumberScheduled == 0 ||
+		daemonset.Status.UpdatedNumberScheduled != daemonset.Status.DesiredNumberScheduled ||
+		daemonset.Status.NumberReady != daemonset.Status.DesiredNumberScheduled {
 		log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
 		return false
 	}
 
-	// cross check that we have 'daemonset.Status.NumberReady' pods with
-	// the desired version tag. This ensures we wait for rolling update to complete
-	// before marking the infrastructure as 100% ready.
-	var podsReady int32
-	for _, obj := range stores.InfrastructurePodCache.List() {
-		if pod, ok := obj.(*k8sv1.Pod); ok {
-			if !podIsRunning(pod) {
-				continue
-			} else if !podHasNamePrefix(pod, daemonset.Name) {
-				continue
-			}
-
-			if !PodIsUpToDate(pod, kv) {
-				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate.", daemonset.Name)
-				return false
-			}
-
-			if PodIsReady(pod) {
-				podsReady++
-			}
-		}
-	}
-
-	if podsReady == 0 {
-		log.Log.Infof("DaemonSet %v not ready yet. Waiting for all pods to be ready", daemonset.Name)
-		return false
-	}
-
-	// Misscheduled but up to date daemonset pods will not be evicted unless manually deleted or the daemonset gets updated.
-	// Don't force the Available condition to false or block the upgrade on up-to-date misscheduled pods.
-	return podsReady >= daemonset.Status.DesiredNumberScheduled
+	return true
 }
 
+// deploymentProgressingReasonComplete is the Reason the k8s deployment controller
+// sets on the Progressing condition when a rollout has reached its desired replica count.
+// It is not exported as a typed constant in k8s.io/api/apps/v1.
+const deploymentProgressingReasonComplete = "NewReplicaSetAvailable"
+
 func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
-	// ensure we're looking at the latest deployment from cache
 	obj, exists, _ := stores.DeploymentCache.Get(deployment)
-	if exists {
-		deployment = obj.(*appsv1.Deployment)
-	} else {
-		// not in cache yet
+	if !exists {
+		return false
+	}
+	deployment = obj.(*appsv1.Deployment)
+
+	// Conditions in Status reflect the state as of ObservedGeneration. If the spec
+	// has been updated (Generation incremented) but the controller hasn't reconciled
+	// yet, conditions are stale and must not be trusted.
+	if deployment.Status.ObservedGeneration < deployment.Generation {
+		log.Log.V(4).Infof("Deployment %v conditions are stale (generation mismatch)", deployment.Name)
 		return false
 	}
 
-	if deployment.Status.Replicas == 0 || deployment.Status.ReadyReplicas == 0 {
-		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
+	if deployment.Annotations[v1.InstallStrategyVersionAnnotation] != kv.Status.TargetKubeVirtVersion ||
+		deployment.Annotations[v1.InstallStrategyRegistryAnnotation] != kv.Status.TargetKubeVirtRegistry ||
+		deployment.Annotations[v1.InstallStrategyIdentifierAnnotation] != kv.Status.TargetDeploymentID {
+		log.Log.V(4).Infof("Deployment %v not at target version yet", deployment.Name)
 		return false
 	}
 
-	// cross check that we have 'deployment.Status.ReadyReplicas' pods with
-	// the desired version tag. This ensures we wait for rolling update to complete
-	// before marking the infrastructure as 100% ready.
-	var podsReady int32
-	for _, obj := range stores.InfrastructurePodCache.List() {
-		if pod, ok := obj.(*k8sv1.Pod); ok {
-			if !podIsRunning(pod) {
-				continue
-			} else if !podHasNamePrefix(pod, deployment.Name) {
-				continue
-			}
-
-			if !PodIsUpToDate(pod, kv) {
-				log.Log.Infof("Deployment %v waiting for out of date pods to terminate.", deployment.Name)
-				return false
-			}
-
-			if PodIsReady(pod) {
-				podsReady++
-			}
+	// Require both rollout completion and current availability. Progressing=True/NewReplicaSetAvailable
+	// is set once when the rollout finishes and never resets if pods subsequently crash-loop.
+	// Available=True confirms pods are currently healthy.
+	var rolloutComplete, currentlyAvailable bool
+	for _, c := range deployment.Status.Conditions {
+		switch {
+		case c.Type == appsv1.DeploymentProgressing &&
+			c.Status == k8sv1.ConditionTrue &&
+			c.Reason == deploymentProgressingReasonComplete:
+			rolloutComplete = true
+		case c.Type == appsv1.DeploymentAvailable &&
+			c.Status == k8sv1.ConditionTrue:
+			currentlyAvailable = true
 		}
 	}
-
-	if podsReady == 0 {
-		log.Log.Infof("Deployment %v not ready yet. Waiting for at least one pod to become ready", deployment.Name)
+	if !rolloutComplete || !currentlyAvailable {
+		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
 		return false
 	}
 	return true
@@ -133,14 +114,6 @@ func DaemonSetIsUpToDate(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) bool {
 	return daemonSet.Annotations[v1.InstallStrategyVersionAnnotation] == version &&
 		daemonSet.Annotations[v1.InstallStrategyRegistryAnnotation] == registry &&
 		daemonSet.Annotations[v1.InstallStrategyIdentifierAnnotation] == id
-}
-
-func podIsRunning(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodRunning
-}
-
-func podHasNamePrefix(pod *k8sv1.Pod, namePrefix string) bool {
-	return strings.Contains(pod.Name, namePrefix)
 }
 
 func PodIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
