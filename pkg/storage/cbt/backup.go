@@ -79,6 +79,13 @@ const (
 	caDefaultPath = "/etc/virt-controller/backupca"
 	caCertFile    = caDefaultPath + "/tls.crt"
 	caKeyFile     = caDefaultPath + "/tls.key"
+
+	// attachPendingRequeueInterval bounds how long a VirtualMachineBackup can
+	// wait for its target PVC hotplug attach to complete before being
+	// re-evaluated, so reconciliation does not depend solely on the VMI
+	// informer observing a VolumeStatus change that may never arrive (e.g. a
+	// stuck virt-handler hotplug pipeline).
+	attachPendingRequeueInterval = 15 * time.Second
 )
 
 var (
@@ -641,7 +648,21 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 
 		volumeName := backupTargetVolumeName(backup.Name)
 		if !ctrl.backupTargetPVCAttached(vmi, volumeName) {
-			return ctrl.attachBackupTargetPVC(vmi, *backup.Spec.PvcName, volumeName)
+			if err := ctrl.attachBackupTargetPVC(vmi, *backup.Spec.PvcName, volumeName); err != nil {
+				return err
+			}
+			setInitializing(backup, fmt.Sprintf(attachTargetPVCMsg, *backup.Spec.PvcName, vmi.Name))
+			// AddAfter is not redundant with the status write above: once this
+			// condition already matches on a repeat reconcile (attach is
+			// idempotent -- attachBackupTargetPVC no-ops once the volume is
+			// already in vmi.Spec.UtilityVolumes), meta.SetStatusCondition
+			// makes no change, backup.Status stays byte-identical, and
+			// execute() skips UpdateStatus entirely. With no status delta,
+			// nothing enqueues this key again except the VMI watch -- the
+			// exact dependency this PR exists to stop relying on solely.
+			backupKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
+			ctrl.backupQueue.AddAfter(backupKey, attachPendingRequeueInterval)
+			return nil
 		}
 		backupOptions.Mode = *backup.Spec.Mode
 		backupOptions.TargetPath = pointer.P(hotplugdisk.GetVolumeMountDir(volumeName))
