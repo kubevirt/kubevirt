@@ -37,8 +37,8 @@ message RegisterRequest {
 	string endpoint = 2;
 	// Schedulable resource name. As of now it's expected to be a DNS Label
 	string resource_name = 3;
-        // Options to be communicated with Device Manager
-        DevicePluginOptions options = 4;
+	// Options to be communicated with Device Manager
+	DevicePluginOptions options = 4;
 }
 
 message Empty {
@@ -47,11 +47,11 @@ message Empty {
 // DevicePlugin is the service advertised by Device Plugins
 service DevicePlugin {
 	// GetDevicePluginOptions returns options to be communicated with Device
-        // Manager
+    // Manager
 	rpc GetDevicePluginOptions(Empty) returns (DevicePluginOptions) {}
 
 	// ListAndWatch returns a stream of List of Devices
-	// Whenever a Device state change or a Device disapears, ListAndWatch
+	// Whenever a Device state change or a Device disappears, ListAndWatch
 	// returns the new list
 	rpc ListAndWatch(Empty) returns (stream ListAndWatchResponse) {}
 
@@ -60,14 +60,14 @@ service DevicePlugin {
 	// of the steps to make the Device available in the container
 	rpc Allocate(AllocateRequest) returns (AllocateResponse) {}
 
-        // PreStartContainer is called, if indicated by Device Plugin during registeration phase,
-        // before each container start. Device plugin can run device specific operations
-        // such as reseting the device before making devices available to the container
+    // PreStartContainer is called, if indicated by Device Plugin during registration phase,
+    // before each container start. Device plugin can run device specific operations
+    // such as resetting the device before making devices available to the container
 	rpc PreStartContainer(PreStartContainerRequest) returns (PreStartContainerResponse) {}
 }
 
 // ListAndWatch returns a stream of List of Devices
-// Whenever a Device state change or a Device disapears, ListAndWatch
+// Whenever a Device state change or a Device disappears, ListAndWatch
 // returns the new list
 message ListAndWatchResponse {
 	repeated Device devices = 1;
