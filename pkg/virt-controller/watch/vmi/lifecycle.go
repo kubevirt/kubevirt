@@ -1051,6 +1051,9 @@ func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.
 	}
 	activePods := make(map[types.UID]string)
 	for _, pod := range pods {
+		if controller.PodIsDown(pod) {
+			continue
+		}
 		activePods[pod.UID] = pod.Spec.NodeName
 	}
 	vmi.Status.ActivePods = activePods
