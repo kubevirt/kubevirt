@@ -66,6 +66,18 @@ var _ = Describe("memory metrics", func() {
 					TotalSet:         true,
 					Total:            11,
 				},
+				CgroupMemory: &stats.CgroupMemoryStats{
+					AnonSet:         true,
+					Anon:            1073741824,
+					AnonTHPSet:      true,
+					AnonTHP:         1006632960,
+					ShmemTHPSet:     true,
+					ShmemTHP:        134217728,
+					InactiveAnonSet: true,
+					InactiveAnon:    805306368,
+					ActiveAnonSet:   true,
+					ActiveAnon:      268435456,
+				},
 			},
 		}
 
@@ -86,6 +98,11 @@ var _ = Describe("memory metrics", func() {
 			Entry("kubevirt_vmi_memory_actual_ballon_bytes", memoryActualBallon, kibibytesToBytes(9)),
 			Entry("kubevirt_vmi_memory_usable_bytes", memoryUsableBytes, kibibytesToBytes(10)),
 			Entry("kubevirt_vmi_memory_domain_bytes", memoryDomainBytes, kibibytesToBytes(11)),
+			Entry("kubevirt_vmi_memory_anon_bytes", memoryAnonBytes, float64(1073741824)),
+			Entry("kubevirt_vmi_memory_anon_thp_bytes", memoryAnonTHPBytes, float64(1006632960)),
+			Entry("kubevirt_vmi_memory_inactive_anon_bytes", memoryInactiveAnonBytes, float64(805306368)),
+			Entry("kubevirt_vmi_memory_active_anon_bytes", memoryActiveAnonBytes, float64(268435456)),
+			Entry("kubevirt_vmi_memory_shmem_thp_bytes", memoryShmemTHPBytes, float64(134217728)),
 		)
 
 		It("result should be empty if stat not populated or set is false", func() {
@@ -94,6 +111,7 @@ var _ = Describe("memory metrics", func() {
 				MinorFaultSet: false,
 				TotalSet:      false,
 			}
+			vmiStats.DomainStats.CgroupMemory = nil
 			crs := memoryMetrics{}.Collect(vmiReport)
 			Expect(crs).To(BeEmpty())
 		})
