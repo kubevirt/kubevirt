@@ -44,6 +44,24 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+// launcherPIDsByUID maps VMI UID (string) to launcher PID (string).
+// Written by Setup(), deleted by Teardown(), read by NetStat.
+var launcherPIDsByUID sync.Map
+
+// StoreLauncherPID registers the PID of a launcher pod for a VMI UID.
+// Production code goes through Setup(); this is exposed only so tests can
+// exercise the primary (non-upgrade-fallback) read path in NetStat without
+// running a full Setup.
+func StoreLauncherPID(vmiUID string, pid int) {
+	launcherPIDsByUID.Store(vmiUID, pid)
+}
+
+// DeleteLauncherPID removes the PID registration for a VMI UID.
+// Counterpart of StoreLauncherPID for test cleanup.
+func DeleteLauncherPID(vmiUID string) {
+	launcherPIDsByUID.Delete(vmiUID)
+}
+
 type clusterConfigurer interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
 	PortRangesSpecGateEnabled() bool
@@ -83,11 +101,13 @@ func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
 func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error {
+	launcherPIDsByUID.Store(string(vmi.UID), launcherPid)
+
 	c.configStateMutex.RLock()
 	state, ok := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
-		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
+		configStateCache := NewConfigStateCache(string(vmi.UID), launcherPid, c.cacheCreator)
 		ns := c.nsFactory(launcherPid)
 		state = netpod.NewState(&configStateCache, ns)
 		c.configStateMutex.Lock()
@@ -122,10 +142,11 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 }
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
+	launcherPIDsByUID.Delete(string(vmi.UID))
 	c.configStateMutex.Lock()
 	delete(c.state, string(vmi.UID))
 	c.configStateMutex.Unlock()
-	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
+	podCache := cache.NewLegacyPodInterfaceCache(c.cacheCreator, string(vmi.UID))
 	if err := podCache.Remove(); err != nil {
 		return fmt.Errorf("teardown failed, err: %w", err)
 	}

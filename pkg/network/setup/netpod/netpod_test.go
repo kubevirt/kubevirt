@@ -49,6 +49,7 @@ const (
 	defaultPodNetworkName = "default"
 
 	vmiUID = "12345"
+	podPID = 0
 
 	primaryIPv4Address = "10.222.222.1"
 	primaryIPv6Address = "2001::1"
@@ -267,7 +268,7 @@ var _ = Describe("netpod", func() {
 		Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
 		Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
 		Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
-		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 			Iface:  &vmiIface,
 			PodIP:  primaryIPv4Address,
 			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
@@ -406,7 +407,7 @@ var _ = Describe("netpod", func() {
 				}},
 			}),
 		)
-		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 			Iface:  &vmiIface,
 			PodIP:  primaryIPv4Address,
 			PodIPs: []string{primaryIPv4Address},
@@ -559,7 +560,7 @@ var _ = Describe("netpod", func() {
 				}},
 			}),
 		)
-		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 			Iface:  &vmiIface,
 			PodIP:  primaryIPv4Address,
 			PodIPs: []string{primaryIPv4Address},
@@ -657,7 +658,7 @@ var _ = Describe("netpod", func() {
 			}),
 		)
 		// When there are no IP/s, the pod interface data is not stored.
-		_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)
+		_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, defaultPodNetworkName)
 		Expect(err).To(HaveOccurred())
 
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(
@@ -890,13 +891,13 @@ var _ = Describe("netpod", func() {
 			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
 			Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
 			Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
-			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 				Iface:  &specInterfaces[0],
 				PodIP:  primaryIPv4Address,
 				PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
 			}))
 			// When there are no IP/s, the pod interface data is not stored.
-			_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, secondaryNetworkName)
+			_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, secondaryNetworkName)
 			Expect(err).To(HaveOccurred())
 		},
 			Entry("with two setup invokes", !hotplugEnabled),
@@ -1928,7 +1929,7 @@ var _ = Describe("netpod", func() {
 					}},
 				},
 			))
-			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, podPID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 				Iface:  &vmiIface,
 				PodIP:  primaryIPv4Address,
 				PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
