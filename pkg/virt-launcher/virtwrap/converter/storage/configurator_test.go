@@ -721,7 +721,7 @@ var _ = Describe("DiskConfigurator", func() {
 						Type: "qcow2",
 					},
 					Source: &api.DiskSource{
-						File: containerdisk.GetDiskTargetPathFromLauncherView(0),
+						File: containerdisk.GetDiskTargetPathFromLauncherView("mycontainerdisk"),
 					},
 				}),
 			))
