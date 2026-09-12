@@ -285,7 +285,7 @@ func validateTopologySpreadConstraints(constraints []core.TopologySpreadConstrai
 
 		// this is missing in upstream codebase https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L6571-L6600
 		// issue captured here https://github.com/kubernetes/kubernetes/issues/111791#issuecomment-1211184962
-		allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(constraint.LabelSelector, unversionedvalidation.LabelSelectorValidationOptions{}, fldPath.Child("labelSelector"))...)
+		allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(constraint.LabelSelector, unversionedvalidation.LabelSelectorValidationOptions{}, subFldPath.Child("labelSelector"))...)
 
 		// tuple {topologyKey, whenUnsatisfiable} denotes one kind of spread constraint
 		if err := ValidateSpreadConstraintNotRepeat(subFldPath.Child("{topologyKey, whenUnsatisfiable}"), constraint, constraints[i+1:]); err != nil {
