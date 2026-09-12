@@ -5,14 +5,12 @@ go_library(
     srcs = [
         "compare.go",
         "handler.go",
-        "patch.go",
         "reference.go",
         "store.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/revision",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/compatibility:go_default_library",
         "//pkg/instancetype/find:go_default_library",
