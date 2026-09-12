@@ -35,6 +35,7 @@ var _ = Describe("Routes", func() {
 		Expect(route).ToNot(BeNil())
 		Expect(route.Namespace).To(Equal(testNamespace))
 		Expect(route.Name).To(Equal(components.VirtExportProxyName))
+		Expect(route.Annotations).To(HaveKeyWithValue("haproxy.router.openshift.io/timeout", "10m"))
 		Expect(route.Spec.TLS).ToNot(BeNil())
 		Expect(route.Spec.TLS.Termination).To(Equal(routev1.TLSTerminationReencrypt))
 		Expect(route.Spec.TLS.InsecureEdgeTerminationPolicy).To(Equal(routev1.InsecureEdgeTerminationPolicyRedirect))
