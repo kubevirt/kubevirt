@@ -1234,7 +1234,25 @@ func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]
 	if err != nil {
 		return nil, err
 	}
-	return append(gpuHostDevices, gpuDRAHostDevices...), nil
+	devices := append(gpuHostDevices, gpuDRAHostDevices...)
+	if !gpu.IsVgpuDisplaySet(vmi.Spec.Domain.Devices.GPUs) {
+		consolidateDefaultDisplay(devices)
+	}
+	return devices, nil
+}
+
+func consolidateDefaultDisplay(devices []api.HostDevice) {
+	var foundFirst bool
+	for i := range devices {
+		if devices[i].RamFB == "on" {
+			if !foundFirst {
+				foundFirst = true
+			} else {
+				devices[i].RamFB = ""
+				devices[i].Display = ""
+			}
+		}
+	}
 }
 
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*convertertypes.ConverterContext, error) {
