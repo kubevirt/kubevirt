@@ -251,18 +251,48 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 	}
 
 	volumes := storagetypes.GetVolumesByName(spec)
+	filesystemsField := field.Child("domain", "devices", "filesystems")
 
-	for _, fs := range spec.Domain.Devices.Filesystems {
+	for i, fs := range spec.Domain.Devices.Filesystems {
 		volume, ok := volumes[fs.Name]
-		if !ok {
-			continue
-		}
-
-		if storagetypes.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled()) {
+		if ok && storagetypes.IsStorageVolume(volume) && !config.VirtiofsStorageEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",
-				Field:   field.Child("domain", "devices", "filesystems").String(),
+				Field:   filesystemsField.String(),
+			})
+		}
+
+		if fs.Virtiofs == nil || fs.Virtiofs.SubPath == "" {
+			continue
+		}
+
+		subPathField := filesystemsField.Index(i).Child("virtiofs", "subPath")
+
+		if strings.HasPrefix(fs.Virtiofs.SubPath, "/") {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("virtiofs subPath %q must be a relative path", fs.Virtiofs.SubPath),
+				Field:   subPathField.String(),
+			})
+		}
+
+		for _, seg := range strings.Split(fs.Virtiofs.SubPath, "/") {
+			if seg == ".." {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("virtiofs subPath %q must not contain '..'", fs.Virtiofs.SubPath),
+					Field:   subPathField.String(),
+				})
+				break
+			}
+		}
+
+		if ok && volume.ContainerPath != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("virtiofs subPath is not supported when volume %q uses containerPath", fs.Name),
+				Field:   subPathField.String(),
 			})
 		}
 	}
