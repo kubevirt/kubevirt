@@ -33,6 +33,7 @@ type Cache struct {
 	MemoryDump        SafeData[api.MemoryDumpMetadata]
 	Backup            SafeData[api.BackupMetadata]
 	GuestPanicHandled SafeData[bool]
+	FSFreezeStatus    SafeData[api.FSFreeze]
 
 	notificationSignal chan struct{}
 }
@@ -48,6 +49,7 @@ func NewCache() *Cache {
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
 	cache.Backup.dirtyChanel = cache.notificationSignal
 	cache.GuestPanicHandled.dirtyChanel = cache.notificationSignal
+	cache.FSFreezeStatus.dirtyChanel = cache.notificationSignal
 	return cache
 }
 
