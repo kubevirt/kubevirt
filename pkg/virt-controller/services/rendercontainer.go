@@ -11,6 +11,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -81,7 +82,7 @@ func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
 
 	if len(csr.sharedFilesystems) != 0 {
 		env = append(env, k8sv1.EnvVar{
-			Name:  util.ENV_VAR_SHARED_FILESYSTEM_PATHS,
+			Name:  envvar.ENV_VAR_SHARED_FILESYSTEM_PATHS,
 			Value: strings.Join(csr.sharedFilesystems, ":"),
 		})
 	}

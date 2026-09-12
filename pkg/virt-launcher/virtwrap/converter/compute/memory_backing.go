@@ -23,8 +23,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type MemoryBackingConfigurator struct {
@@ -37,7 +37,7 @@ func NewMemoryBackingConfigurator(isMemfdSupported bool) MemoryBackingConfigurat
 
 func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	hasHugepages := vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
-	needsSharedAccess := util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi)
+	needsSharedAccess := vmitrait.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi)
 
 	if !hasHugepages && !needsSharedAccess {
 		return nil
@@ -64,5 +64,5 @@ func isMemfdRequired(vmi *v1.VirtualMachineInstance) bool {
 			return true
 		}
 	}
-	return util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi)
+	return vmitrait.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi)
 }

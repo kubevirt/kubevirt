@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	utils "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/storage/vmispecdefaults"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -89,7 +89,7 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 
 	expandedVM := vm.DeepCopy()
 
-	utils.SetDefaultVolumeDisk(&expandedVM.Spec.Template.Spec)
+	vmispecdefaults.SetDefaultVolumeDisk(&expandedVM.Spec.Template.Spec)
 
 	if err := vmispec.SetDefaultNetworkInterface(e.clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
 		return nil, err

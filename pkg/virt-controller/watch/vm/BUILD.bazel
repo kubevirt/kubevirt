@@ -24,7 +24,7 @@ go_library(
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//pkg/storage/velero:go_default_library",
-        "//pkg/util:go_default_library",
+        "//pkg/storage/vmispecdefaults:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/trace:go_default_library",

@@ -118,6 +118,7 @@ go_test(
         "//pkg/storage/cbt:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/envvar:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",

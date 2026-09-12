@@ -158,7 +158,7 @@ func (k *MshvHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance
 		overhead.Add(resource.MustParse("100Mi"))
 	}
 
-	if util.RequiresMemoryOverheadReservation(vmi) {
+	if vmitrait.RequiresMemoryOverheadReservation(vmi) {
 		overhead.Add(*vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead)
 	}
 

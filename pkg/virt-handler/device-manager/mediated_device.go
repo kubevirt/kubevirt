@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
@@ -153,7 +154,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
-	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
+	resourceNameEnvVar := envvar.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: resourceNameEnvVar: %s", resourceNameEnvVar)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
