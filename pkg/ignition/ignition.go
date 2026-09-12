@@ -21,6 +21,7 @@ package ignition
 
 import (
 	"fmt"
+	"os"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -73,9 +74,19 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 
 	ignitionFile := fmt.Sprintf("%s/%s", domainBasePath, IgnitionFile)
 	ignitionData := []byte(vmi.Annotations[v1.IgnitionAnnotation])
-	err = util.WriteFileWithNosec(ignitionFile, ignitionData)
+	err = os.WriteFile(ignitionFile, ignitionData, 0600)
 	if err != nil {
 		return err
+	}
+
+	// When virt-launcher runs as root the file is created owned by root, but
+	// it must be readable by the qemu user that runs the VM.
+	// drop this when the Root feature gate is dropped.
+	const qemuUid, qemuGid = 107, 107
+	if os.Geteuid() == 0 {
+		if err := os.Chown(ignitionFile, qemuUid, qemuGid); err != nil {
+			return err
+		}
 	}
 
 	log.Log.V(2).Infof("generated Ignition file %s", ignitionFile)
