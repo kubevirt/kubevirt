@@ -34,7 +34,8 @@ const (
 // into the env var name used by device plugins (e.g. "PCIDEVICE_NVIDIA_COM_GPU").
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
-	varName = strings.Replace(varName, "/", "_", -1)
-	varName = strings.Replace(varName, ".", "_", -1)
+	// ReplaceAll is idiomatic for unconditional global replacement (Go 1.12+).
+	varName = strings.ReplaceAll(varName, "/", "_")
+	varName = strings.ReplaceAll(varName, ".", "_")
 	return fmt.Sprintf("%s_%s", prefix, varName)
 }
