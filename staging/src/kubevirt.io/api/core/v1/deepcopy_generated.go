@@ -2507,6 +2507,11 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 		*out = new(DHCPOptions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.MTU != nil {
+		in, out := &in.MTU, &out.MTU
+		*out = new(uint32)
+		**out = **in
+	}
 	return
 }
 

@@ -22580,6 +22580,13 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"mtu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MTU specifies the Maximum Transmission Unit size in bytes for the interface. When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition. Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},

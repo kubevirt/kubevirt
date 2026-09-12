@@ -268,6 +268,13 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-network / @giulianoquites
+	// Alpha: v1.10.0
+	//
+	// InterfaceMTUOverride enables setting MTU per-interface in the VMI spec,
+	// overriding the MTU inherited from the pod network or NetworkAttachmentDefinition.
+	InterfaceMTUOverride = "InterfaceMTUOverride"
 )
 
 func init() {
@@ -314,4 +321,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: InterfaceMTUOverride, State: Alpha})
 }
