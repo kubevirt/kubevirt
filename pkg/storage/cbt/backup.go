@@ -446,6 +446,11 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 		return err
 	}
 	if backupTracker == nil && backup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
+		if backupDeleting {
+			// The source VMI is only reachable through the tracker, so without it there is
+			// nothing left to clean up and blocking deletion would strand the finalizer.
+			return ctrl.removeBackupFinalizer(backup)
+		}
 		setInitializing(backup, fmt.Sprintf(backupTrackerNotFoundMsg, backup.Spec.Source.Name))
 		return nil
 	}
