@@ -59,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -190,9 +189,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstBinding},
-			},
+			DeveloperConfiguration: &v1.DeveloperConfiguration{},
 		}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)

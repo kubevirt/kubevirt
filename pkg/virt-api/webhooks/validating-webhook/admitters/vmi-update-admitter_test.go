@@ -64,11 +64,6 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := NewVMIUpdateAdmitter(config, webhooks.KubeVirtServiceAccounts(kubeVirtNamespace))
 
-	enableFeatureGate := func(featureGate string) {
-		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-	}
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -117,8 +112,6 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 
 		Context("with Node Restriction feature gate enabled", func() {
-			BeforeEach(func() { enableFeatureGate(featuregate.NodeRestrictionGate) })
-
 			shouldNotAllowCrossNodeRequest := And(
 				WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
 					BeFalse(),
