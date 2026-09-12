@@ -1624,6 +1624,46 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Expect(loaded).To(BeFalse())
 	})
 
+	Context("getOutboundConnectionByMigrationID", func() {
+		const (
+			addrA = "10.0.0.1:9185"
+			addrB = "10.0.0.2:9185"
+		)
+		var vmi *virtv1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = clientgoapi.NewMinimalVMI("testvmi")
+		})
+
+		AfterEach(func() {
+			controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, testMigrationID)
+		})
+
+		It("should reuse the cached connection when the address is unchanged", func() {
+			first, err := controller.getOutboundConnectionByMigrationID(vmi, testMigrationID, addrA, controller.syncOutboundConnectionMap)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(first.grpcClientConnection.Target()).To(Equal(addrA))
+
+			second, err := controller.getOutboundConnectionByMigrationID(vmi, testMigrationID, addrA, controller.syncOutboundConnectionMap)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(second).To(BeIdenticalTo(first))
+		})
+
+		It("should redial and replace the cached connection when the peer address changed", func() {
+			first, err := controller.getOutboundConnectionByMigrationID(vmi, testMigrationID, addrA, controller.syncOutboundConnectionMap)
+			Expect(err).ToNot(HaveOccurred())
+
+			second, err := controller.getOutboundConnectionByMigrationID(vmi, testMigrationID, addrB, controller.syncOutboundConnectionMap)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(second).ToNot(BeIdenticalTo(first))
+			Expect(second.grpcClientConnection.Target()).To(Equal(addrB))
+
+			stored, loaded := controller.syncOutboundConnectionMap.Load(testMigrationID)
+			Expect(loaded).To(BeTrue())
+			Expect(stored).To(BeIdenticalTo(second))
+		})
+	})
+
 	Context("resource handler functions", func() {
 		var (
 			sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
