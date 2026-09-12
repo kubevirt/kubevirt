@@ -9,12 +9,20 @@ In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have t
 ## Updating Go Version
 ### Updating builder image
 
-* Change the `GIMME_GO_VERSION` in the [hack/builder/Dockerfile](../hack/builder/Dockerfile) to the desired Go version.
-* Rebuild the builder image by executing `make builder-build`.
+* Change the `GIMME_GO_VERSION` in the [hack/builder/Dockerfile](../hack/builder/Dockerfile) and [hack/builder/Dockerfile.cs10](../hack/builder/Dockerfile.cs10) to the desired Go version.
+* Rebuild the builder images by executing:
+  ```shell
+  make builder-build
+  make builder-build-centos-stream-10
+  ```
   
 ### Publishing builder image
-* Publish new builder image with `make builder-publish`.
-  * Note: Proper access rights are required in order to publish builder image.
+* Publish new builder images with:
+  ```shell
+  make builder-publish
+  make builder-publish-centos-stream-10
+  ```
+  * Note: Proper access rights are required in order to publish builder images.
   * When publish is finished, the builder image tag will be presented. For instance, if the output of `make builder-publish` is:
     ```shell
     2103210933-9be558add-amd64: digest: sha256:cc83534b5d99da35643f8a2a87830b0dabcb4f130c1db181a835dc8def09174b size: 3271
