@@ -207,7 +207,7 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
 			Socket:         "/var/run/kubevirt/plugins/test.sock",
 			PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
-			Condition:      `vmi.spec.domain.cpu.cores > 0`,
+			Condition:      `vmi.Spec.Domain.CPU.Cores > 0`,
 		}}
 		resp := admit(p)
 		Expect(resp.Allowed).To(BeTrue())
