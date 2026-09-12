@@ -1,6 +1,8 @@
 package tls
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -91,6 +93,66 @@ var _ = Describe("CaManager", func() {
 		cert, err := manager.GetCurrent()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cert.Subjects()[0]).To(ContainSubstring("first"))
+	})
+
+	// This test relies on the race detector: it has no assertions and only
+	// fails under `go test -race`, which is how CI runs the unit tests.
+	It("should not race between GetCurrentRaw and a concurrent CA rotation", func() {
+		newCA := func(rev string) *k8sv1.ConfigMap {
+			ca, err := triple.NewCA("rotating", time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			return &k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            util.ExtensionAPIServerAuthenticationConfigMap,
+					Namespace:       metav1.NamespaceSystem,
+					ResourceVersion: rev,
+				},
+				Data: map[string]string{
+					util.RequestHeaderClientCAFileKey: string(cert.EncodeCertPEM(ca.Cert)),
+				},
+			}
+		}
+
+		var wg sync.WaitGroup
+		stop := make(chan struct{})
+
+		// Churn the resource version so GetCurrent keeps taking the update path
+		// that writes lastRaw under the lock.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 2; ; i++ {
+				select {
+				case <-stop:
+					return
+				default:
+					_ = store.Update(newCA(fmt.Sprintf("%d", i)))
+				}
+			}
+		}()
+
+		// Readers hit GetCurrentRaw, which must read lastRaw under the same lock.
+		// At least two readers are needed: the write to lastRaw happens inside a
+		// reader's own GetCurrent call, so a single reader never produces a
+		// cross-goroutine access pair for the race detector to flag.
+		for g := 0; g < 4; g++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						_, _ = manager.GetCurrentRaw()
+					}
+				}
+			}()
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		close(stop)
+		wg.Wait()
 	})
 })
 
