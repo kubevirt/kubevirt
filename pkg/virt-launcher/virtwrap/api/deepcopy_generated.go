@@ -831,6 +831,11 @@ func (in *ControllerDriver) DeepCopyInto(out *ControllerDriver) {
 		*out = new(uint)
 		**out = **in
 	}
+	if in.IOThreads != nil {
+		in, out := &in.IOThreads, &out.IOThreads
+		*out = new(DiskIOThreads)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Queues != nil {
 		in, out := &in.Queues, &out.Queues
 		*out = new(uint)

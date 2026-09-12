@@ -379,6 +379,9 @@
       "virtTemplateDeployment": {
         "enabled": true
       },
+      "multiIOThreadAutoPolicy": {
+        "enabled": true
+      },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
       },

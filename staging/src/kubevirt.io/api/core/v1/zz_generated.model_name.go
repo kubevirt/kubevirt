@@ -704,6 +704,11 @@ func (in MigrationConfiguration) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MultiIOThreadAutoPolicy) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.MultiIOThreadAutoPolicy"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MultusNetwork) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.MultusNetwork"
 }

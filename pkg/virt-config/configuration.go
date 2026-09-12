@@ -464,6 +464,18 @@ func (c *ClusterConfig) VirtTemplateDeploymentEnabled() bool {
 	return vtd == nil || vtd.Enabled == nil || *vtd.Enabled
 }
 
+func (c *ClusterConfig) MultiIOThreadAutoPolicyEnabled() bool {
+	if !c.SCSIMultiIOThreadEnabled() {
+		return false
+	}
+	autoPolicy := c.GetConfig().MultiIOThreadAutoPolicy
+
+	if autoPolicy == nil || autoPolicy.Enabled == nil {
+		return false
+	}
+	return *autoPolicy.Enabled
+}
+
 func parseNodeSelectors(str string) (map[string]string, error) {
 	nodeSelectors := make(map[string]string)
 	for _, s := range strings.Split(strings.TrimSpace(str), "\n") {
