@@ -6,6 +6,7 @@ go_library(
         "deepcopy_generated.go",
         "defaults.go",
         "doc.go",
+        "guest_termination.go",
         "schema.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api",

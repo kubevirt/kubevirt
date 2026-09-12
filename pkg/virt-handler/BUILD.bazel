@@ -6,6 +6,7 @@ go_library(
     srcs = [
         "cbt.go",
         "controller.go",
+        "guest_termination.go",
         "guestagent.go",
         "migration.go",
         "migration-source.go",
@@ -89,6 +90,7 @@ go_test(
     timeout = "long",
     srcs = [
         "cbt_test.go",
+        "guest_termination_test.go",
         "migration-source_test.go",
         "migration-target_test.go",
         "migration_test.go",

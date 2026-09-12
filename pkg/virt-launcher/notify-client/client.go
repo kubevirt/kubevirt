@@ -287,6 +287,150 @@ func (e *eventCaller) updateStatus(status *api.DomainStatus) {
 	e.domainStatusChangeReason = status.Reason
 }
 
+const (
+	platformTerminationIntentFreshness         = 2 * time.Minute
+	platformTerminationIntentGracePeriodMargin = 30 * time.Second
+)
+
+func isGuestTerminationEvent(event *libvirt.DomainEventLifecycle) bool {
+	return event != nil && (event.Event == libvirt.DOMAIN_EVENT_SHUTDOWN ||
+		event.Event == libvirt.DOMAIN_EVENT_CRASHED ||
+		event.Event == libvirt.DOMAIN_EVENT_STOPPED)
+}
+
+func guestTerminationEventFromLibvirtEventAt(libvirtEvent libvirtEvent, metadataCache *metadata.Cache, now metav1.Time) *api.TerminationEvent {
+	if !isGuestTerminationEvent(libvirtEvent.Event) {
+		return nil
+	}
+
+	var event *api.TerminationEvent
+	switch libvirtEvent.Event.Event {
+	case libvirt.DOMAIN_EVENT_SHUTDOWN:
+		switch libvirt.DomainEventShutdownDetailType(libvirtEvent.Event.Detail) {
+		case libvirt.DOMAIN_EVENT_SHUTDOWN_GUEST:
+			event = &api.TerminationEvent{
+				Reason:    reasonForDomainShutdownEvent(metadataCache, api.TerminationReasonGuestShutdown, now.Time),
+				Timestamp: now,
+			}
+		case libvirt.DOMAIN_EVENT_SHUTDOWN_HOST:
+			event = &api.TerminationEvent{
+				Reason:    reasonForDomainShutdownEvent(metadataCache, api.TerminationReasonHostShutdown, now.Time),
+				Timestamp: now,
+			}
+		}
+	case libvirt.DOMAIN_EVENT_CRASHED:
+		switch libvirt.DomainEventCrashedDetailType(libvirtEvent.Event.Detail) {
+		case libvirt.DOMAIN_EVENT_CRASHED_PANICKED, libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED:
+			event = &api.TerminationEvent{
+				Reason:    api.TerminationReasonGuestCrashed,
+				Timestamp: now,
+			}
+		}
+	case libvirt.DOMAIN_EVENT_STOPPED:
+		switch libvirt.DomainEventStoppedDetailType(libvirtEvent.Event.Detail) {
+		case libvirt.DOMAIN_EVENT_STOPPED_CRASHED:
+			event = &api.TerminationEvent{
+				Reason:    api.TerminationReasonGuestCrashed,
+				Timestamp: now,
+			}
+		case libvirt.DOMAIN_EVENT_STOPPED_FAILED:
+			event = &api.TerminationEvent{
+				Reason:    api.TerminationReasonHostStoppedFailed,
+				Timestamp: now,
+			}
+		}
+	}
+
+	return event
+}
+
+func clearStaleTerminationStateOnDomainStart(domain *api.Domain, metadataCache *metadata.Cache, libvirtEvent libvirtEvent) {
+	if libvirtEvent.Event == nil || libvirtEvent.Event.Event != libvirt.DOMAIN_EVENT_STARTED {
+		return
+	}
+
+	domain.Status.TerminationEvent = nil
+
+	if metadataCache != nil {
+		metadataCache.PendingPlatformTermination.Set(api.PendingPlatformTerminationIntent{})
+		metadataCache.ObservedTerminationEvent.Set(api.TerminationEvent{})
+	}
+}
+
+func cacheAndSetTerminationEvent(domain *api.Domain, metadataCache *metadata.Cache, event *api.TerminationEvent) {
+	if event == nil {
+		return
+	}
+
+	domain.Status.TerminationEvent = event
+	if metadataCache != nil {
+		metadataCache.ObservedTerminationEvent.Set(*event)
+	}
+}
+
+func setCachedTerminationEvent(domain *api.Domain, metadataCache *metadata.Cache) {
+	if metadataCache == nil {
+		return
+	}
+
+	event, exists := metadataCache.ObservedTerminationEvent.Load()
+	if !exists || event.Reason == "" {
+		return
+	}
+
+	eventCopy := event
+	domain.Status.TerminationEvent = &eventCopy
+}
+
+func reasonForDomainShutdownEvent(metadataCache *metadata.Cache, defaultReason api.TerminationReason, now time.Time) api.TerminationReason {
+	if consumePendingPlatformTerminationIntent(metadataCache, now) {
+		return api.TerminationReasonPlatformRequestedShutdown
+	}
+	return defaultReason
+}
+
+// consumePendingPlatformTerminationIntent returns true for a fresh platform
+// termination intent, and clears observed intents.
+func consumePendingPlatformTerminationIntent(metadataCache *metadata.Cache, now time.Time) bool {
+	if metadataCache == nil {
+		return false
+	}
+
+	intent, exists := metadataCache.PendingPlatformTermination.Load()
+	if !exists || intent.Timestamp.IsZero() {
+		return false
+	}
+	metadataCache.PendingPlatformTermination.Set(api.PendingPlatformTerminationIntent{})
+
+	age := now.Sub(intent.Timestamp.Time)
+	freshness := platformTerminationIntentFreshnessFor(metadataCache)
+	if age <= freshness {
+		return true
+	}
+
+	log.Log.V(3).Infof("Ignoring stale platform termination intent; age=%s freshness=%s", age, freshness)
+	return false
+}
+
+func platformTerminationIntentFreshnessFor(metadataCache *metadata.Cache) time.Duration {
+	freshness := platformTerminationIntentFreshness
+	if metadataCache == nil {
+		return freshness
+	}
+
+	gracePeriod, exists := metadataCache.GracePeriod.Load()
+	if !exists || gracePeriod.DeletionGracePeriodSeconds <= 0 {
+		return freshness
+	}
+
+	gracePeriodFreshness := time.Duration(gracePeriod.DeletionGracePeriodSeconds)*time.Second + platformTerminationIntentGracePeriodMargin
+	if gracePeriodFreshness > freshness {
+		return gracePeriodFreshness
+	}
+
+	return freshness
+}
+
 func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
 	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
@@ -337,6 +481,18 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache, nonRoot bool) {
+	clearStaleTerminationStateOnDomainStart(domain, metadataCache, libvirtEvent)
+	if terminationEvent := guestTerminationEventFromLibvirtEventAt(libvirtEvent, metadataCache, metav1.Now()); terminationEvent != nil {
+		cacheAndSetTerminationEvent(domain, metadataCache, terminationEvent)
+		log.Log.Object(domain).Infof("Observed guest termination event: libvirtEventID=%d libvirtDetailID=%d reason=%s timestamp=%s",
+			libvirtEvent.Event.Event,
+			libvirtEvent.Event.Detail,
+			terminationEvent.Reason,
+			terminationEvent.Timestamp.Format(time.RFC3339))
+	} else {
+		setCachedTerminationEvent(domain, metadataCache)
+	}
+
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if isGuestPanicEvent(libvirtEvent.Event) {
 		if panicInfo := e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail, nonRoot); panicInfo != nil {

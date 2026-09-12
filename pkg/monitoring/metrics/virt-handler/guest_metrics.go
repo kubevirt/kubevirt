@@ -24,11 +24,14 @@ import (
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var (
-	guestPanicMetrics = []operatormetrics.Metric{
+	guestMetrics = []operatormetrics.Metric{
 		guestOSPanicTotal,
+		guestOSTerminationTotal,
 	}
 
 	guestOSPanicTotal = operatormetrics.NewCounterVec(
@@ -37,6 +40,14 @@ var (
 			Help: "Total number of guest OS panic events detected, partitioned by VMI and panic type.",
 		},
 		[]string{"namespace", "name", "type", "bugcheck_code"},
+	)
+
+	guestOSTerminationTotal = operatormetrics.NewCounterVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_guest_os_termination_total",
+			Help: "Total number of observed guest OS termination events, partitioned by VMI and normalized termination reason.",
+		},
+		[]string{"namespace", "name", "reason"},
 	)
 )
 
@@ -55,4 +66,18 @@ func IncGuestOSPanic(namespace, name, panicType string, bugcheckCode uint64) {
 		return
 	}
 	counter.Inc()
+}
+
+func IncGuestOSTermination(namespace, name string, reason api.TerminationReason) {
+	if !api.IsSupportedTerminationReason(reason) {
+		return
+	}
+
+	guestOSTerminationTotal.WithLabelValues(namespace, name, string(reason)).Inc()
+}
+
+func DeleteGuestOSTerminationMetrics(namespace, name string) {
+	for _, reason := range api.SupportedTerminationReasons() {
+		guestOSTerminationTotal.DeleteLabelValues(namespace, name, string(reason))
+	}
 }

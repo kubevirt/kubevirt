@@ -33,6 +33,12 @@ type Cache struct {
 	MemoryDump        SafeData[api.MemoryDumpMetadata]
 	Backup            SafeData[api.BackupMetadata]
 	GuestPanicHandled SafeData[bool]
+	// A zero-value PendingPlatformTerminationIntent means no platform termination
+	// intent is currently pending.
+	PendingPlatformTermination SafeData[api.PendingPlatformTerminationIntent]
+	// A zero-value TerminationEvent means no guest termination event has been
+	// observed for the current domain lifecycle.
+	ObservedTerminationEvent SafeData[api.TerminationEvent]
 
 	notificationSignal chan struct{}
 }
