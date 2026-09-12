@@ -23,7 +23,6 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"strings"
 	"syscall"
 	"time"
 
@@ -43,46 +42,25 @@ import (
 var _ = Describe("cgroup manager", func() {
 
 	var (
-		ctrl                  *gomock.Controller
-		rulesDefined          []*devices.Rule
-		v2DirPath             string
-		subsystemPathsDefined map[string]string
+		ctrl               *gomock.Controller
+		rulesDefined       []*devices.Rule
+		v2DirPath          string
+		cgroupPathsDefined []string
 	)
 
-	newMockManagerFromCtrl := func(ctrl *gomock.Controller, version CgroupVersion) (Manager, error) {
+	newMockManager := func() (Manager, error) {
 		mockCgroupsManager := NewMockcgroupsManager(ctrl)
 		mockCgroupsManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
-			paths := make(map[string]string)
-
-			// See documentation here for more info: https://github.com/opencontainers/cgroups/blob/main/cgroups.go
-			if version == V1 {
-				paths["devices"] = "/sys/fs/cgroup/devices"
-			} else {
-				paths[""] = v2DirPath
-			}
-
-			return paths
+			return map[string]string{"": v2DirPath}
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		execVirtChrootFunc := func(r *cgroups.Resources, cgroupPaths []string, rootless bool) error {
 			rulesDefined = r.Devices
-			subsystemPathsDefined = subsystemPaths
+			cgroupPathsDefined = cgroupPaths
 			return nil
 		}
 
-		getCurrentlyDefinedRulesFunc := func(cgManager cgroups.Manager) ([]*devices.Rule, error) {
-			return rulesDefined, nil
-		}
-
-		if version == V1 {
-			return newCustomizedV1Manager(mockCgroupsManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
-		} else {
-			return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc)
-		}
-	}
-
-	newMockManager := func(version CgroupVersion) (Manager, error) {
-		return newMockManagerFromCtrl(ctrl, version)
+		return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc)
 	}
 
 	newResourcesWithRule := func(rule *devices.Rule) *cgroups.Resources {
@@ -113,8 +91,8 @@ var _ = Describe("cgroup manager", func() {
 		v2DirPath = ""
 	})
 
-	DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
-		manager, err := newMockManager(version)
+	It("should add default rules", func() {
+		manager, err := newMockManager()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		fakeRule := newDeviceRule(123)
@@ -129,13 +107,10 @@ var _ = Describe("cgroup manager", func() {
 			Expect(rulesDefined).To(ContainElement(defaultRule), "default rules are expected to be defined")
 		}
 		Expect(rulesDefined).To(HaveLen(len(defaultDeviceRules) + 1))
-	},
-		Entry("for v1", V1),
-		Entry("for v2", V2),
-	)
+	})
 
-	DescribeTable("ensure that past rules are not overridden", func(version CgroupVersion) {
-		manager, err := newMockManager(version)
+	It("should not override past rules", func() {
+		manager, err := newMockManager()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		fakeRule1 := newDeviceRule(123)
@@ -148,14 +123,10 @@ var _ = Describe("cgroup manager", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Expect(rulesDefined).To(ContainElement(fakeRule1), "previous rule is expected to not be overridden")
+	})
 
-	},
-		Entry("for v1", V1),
-		Entry("for v2", V2),
-	)
-
-	DescribeTable("ensure that past rules are overridden if explicitly set", func(version CgroupVersion) {
-		manager, err := newMockManager(version)
+	It("should override past rules if explicitly set", func() {
+		manager, err := newMockManager()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		fakeRule := newDeviceRule(123)
@@ -167,15 +138,11 @@ var _ = Describe("cgroup manager", func() {
 
 		fakeRule.Permissions = "fake-permissions-456"
 		Expect(rulesDefined).To(ContainElement(fakeRule), "rule needs to be overridden since explicitly re-set")
-
-	},
-		Entry("for v1", V1),
-		Entry("for v2", V2),
-	)
+	})
 
 	DescribeTable("ensure that correct set of cgroups is configured", func(dirPath string, expectedPaths []string) {
 		v2DirPath = dirPath
-		manager, err := newMockManager(V2)
+		manager, err := newMockManager()
 		Expect(err).ShouldNot(HaveOccurred())
 
 		fakeRule := newDeviceRule(123)
@@ -190,7 +157,7 @@ var _ = Describe("cgroup manager", func() {
 			Expect(rulesDefined).To(ContainElement(defaultRule), "default rules are expected to be defined")
 		}
 		Expect(rulesDefined).To(HaveLen(len(defaultDeviceRules) + 1))
-		Expect(subsystemPathsDefined).To(ConsistOf(expectedPaths))
+		Expect(cgroupPathsDefined).To(ConsistOf(expectedPaths))
 	},
 		Entry("for crun installation",
 			"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope/container",
@@ -247,102 +214,6 @@ var _ = Describe("GetMiscCapacity", func() {
 		),
 		Entry("produces error for non-numeric capacity",
 			"tdx abc\n", "tdx", 0, true,
-		),
-	)
-})
-
-var _ = Describe("parseDevicesList", func() {
-	DescribeTable("should parse valid devices.list entries",
-		func(input string, expected []*devices.Rule) {
-			rules, err := parseDevicesList(strings.NewReader(input))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rules).To(Equal(expected))
-		},
-		Entry("single block device",
-			"b 8:0 rwm\n",
-			[]*devices.Rule{{
-				Type: devices.BlockDevice, Major: 8, Minor: 0,
-				Permissions: "rwm", Allow: true,
-			}},
-		),
-		Entry("single char device",
-			"c 1:3 rw\n",
-			[]*devices.Rule{{
-				Type: devices.CharDevice, Major: 1, Minor: 3,
-				Permissions: "rw", Allow: true,
-			}},
-		),
-		Entry("wildcard major and minor",
-			"c *:* rwm\n",
-			[]*devices.Rule{{
-				Type: devices.CharDevice, Major: devices.Wildcard, Minor: devices.Wildcard,
-				Permissions: "rwm", Allow: true,
-			}},
-		),
-		Entry("wildcard major only",
-			"b *:0 r\n",
-			[]*devices.Rule{{
-				Type: devices.BlockDevice, Major: devices.Wildcard, Minor: 0,
-				Permissions: "r", Allow: true,
-			}},
-		),
-		Entry("wildcard minor only",
-			"c 5:* rw\n",
-			[]*devices.Rule{{
-				Type: devices.CharDevice, Major: 5, Minor: devices.Wildcard,
-				Permissions: "rw", Allow: true,
-			}},
-		),
-		Entry("multiple rules",
-			"c 1:3 rwm\nb 8:0 rw\nc 136:* rw\n",
-			[]*devices.Rule{
-				{Type: devices.CharDevice, Major: 1, Minor: 3, Permissions: "rwm", Allow: true},
-				{Type: devices.BlockDevice, Major: 8, Minor: 0, Permissions: "rw", Allow: true},
-				{Type: devices.CharDevice, Major: 136, Minor: devices.Wildcard, Permissions: "rw", Allow: true},
-			},
-		),
-		Entry("'a' wildcard line is skipped",
-			"a *:* rwm\nc 1:3 rw\n",
-			[]*devices.Rule{{
-				Type: devices.CharDevice, Major: 1, Minor: 3,
-				Permissions: "rw", Allow: true,
-			}},
-		),
-		Entry("only 'a' wildcard yields empty list",
-			"a *:* rwm\n",
-			([]*devices.Rule)(nil),
-		),
-		Entry("empty input",
-			"",
-			([]*devices.Rule)(nil),
-		),
-	)
-
-	DescribeTable("should reject malformed input",
-		func(input string, errSubstring string) {
-			_, err := parseDevicesList(strings.NewReader(input))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(errSubstring))
-		},
-		Entry("too few fields",
-			"b 8:0\n",
-			"malformed devices.list rule",
-		),
-		Entry("unknown device type",
-			"x 8:0 rwm\n",
-			"unknown device type",
-		),
-		Entry("invalid major number",
-			"c abc:0 rwm\n",
-			"invalid major number",
-		),
-		Entry("invalid minor number",
-			"b 8:abc rwm\n",
-			"invalid minor number",
-		),
-		Entry("too many fields",
-			"b 8 0 rwm extra\n",
-			"malformed devices.list rule",
 		),
 	)
 })
