@@ -261,6 +261,17 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		metaObj.GetGeneration(),
 	)
 
+	revisionLabels := map[string]string{
+		api.ControllerRevisionObjectGenerationLabel: fmt.Sprintf("%d", metaObj.GetGeneration()),
+		api.ControllerRevisionObjectKindLabel:       obj.GetObjectKind().GroupVersionKind().Kind,
+		api.ControllerRevisionObjectNameLabel:       metaObj.GetName(),
+		api.ControllerRevisionObjectUIDLabel:        string(metaObj.GetUID()),
+		api.ControllerRevisionObjectVersionLabel:    obj.GetObjectKind().GroupVersionKind().Version,
+	}
+	if version, ok := metaObj.GetLabels()[api.ControllerRevisionObjectCommonInstancetypesVersionLabel]; ok {
+		revisionLabels[api.ControllerRevisionObjectCommonInstancetypesVersionLabel] = version
+	}
+
 	// Removing unnecessary metadata
 	metaObj.SetLabels(nil)
 	metaObj.SetAnnotations(nil)
@@ -273,13 +284,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 			Name:            revisionName,
 			Namespace:       vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
-			Labels: map[string]string{
-				api.ControllerRevisionObjectGenerationLabel: fmt.Sprintf("%d", metaObj.GetGeneration()),
-				api.ControllerRevisionObjectKindLabel:       obj.GetObjectKind().GroupVersionKind().Kind,
-				api.ControllerRevisionObjectNameLabel:       metaObj.GetName(),
-				api.ControllerRevisionObjectUIDLabel:        string(metaObj.GetUID()),
-				api.ControllerRevisionObjectVersionLabel:    obj.GetObjectKind().GroupVersionKind().Version,
-			},
+			Labels:          revisionLabels,
 		},
 		Data: runtime.RawExtension{
 			Object: obj,
