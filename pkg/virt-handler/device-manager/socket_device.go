@@ -68,11 +68,15 @@ type SocketDevicePlugin struct {
 	p             PermissionManager
 	healthChecks  bool
 	hostRootMount string
+	// healthy is the last health reported to ListAndWatch; only the health check goroutine touches it.
+	healthy bool
 }
 
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
 
 	err = dpi.cleanup()
 	if err != nil {
@@ -163,6 +167,14 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
+// applyPermissions hands the socket and its directory over to the non-root user consumers run as.
+func (dpi *SocketDevicePlugin) applyPermissions() error {
+	if err := dpi.setSocketDirectoryPermissions(); err != nil {
+		return err
+	}
+	return dpi.setSocketPermissions()
+}
+
 func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager, useHostRootMount bool) (*SocketDevicePlugin, error) {
 	socketRoot := "/"
 	if useHostRootMount {
@@ -185,19 +197,19 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		executor:     executor,
 		p:            p,
 		healthChecks: true,
+		// The devices start Unhealthy: they are only advertised once the initial reconcile in healthCheck has verified the socket and applied its permissions.
+		// healthy must match their initial state, or the first report is deduplicated away; both survive a plugin restart, which the reconcile on start covers.
+		healthy: false,
 	}
 
 	for i := 0; i < maxDevices; i++ {
 		deviceId := dpi.socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy,
 		})
 	}
-	if err := dpi.setSocketDirectoryPermissions(); err != nil {
-		return dpi, err
-	}
-	if err := dpi.setSocketPermissions(); err != nil {
+	if err := dpi.applyPermissions(); err != nil {
 		return dpi, err
 	}
 
@@ -208,6 +220,11 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager, useHostRootMount bool) *SocketDevicePlugin {
 	dpi, _ := NewSocketDevicePlugin(socketName, socketDir, socket, maxDevices, executor, p, useHostRootMount)
 	dpi.healthChecks = false
+	// With health checks disabled nothing would ever report Healthy, so the devices must start that way.
+	dpi.healthy = true
+	for _, dev := range dpi.devs {
+		dev.Health = pluginapi.Healthy
+	}
 	return dpi
 }
 
@@ -250,15 +267,73 @@ func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloca
 	return &response, nil
 }
 
+// sendHealthUpdate reports a health change to ListAndWatch; unchanged health is not resent, as every send blocks the draining of the fsnotify queue.
 func (dpi *SocketDevicePlugin) sendHealthUpdate(healthy bool) {
-	if !dpi.healthChecks {
+	if !dpi.healthChecks || healthy == dpi.healthy {
 		return
 	}
+	dpi.healthy = healthy
 	if healthy {
+		log.DefaultLogger().Infof("monitored device %s became healthy", dpi.socketName)
 		dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 	} else {
+		log.DefaultLogger().Infof("monitored device %s became unhealthy", dpi.socketName)
 		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 	}
+}
+
+// reconcileDeviceHealth re-arms the deviceDir watch and derives health from the filesystem rather than from events, which can be missed or dropped.
+// A permission failure is an error: no event would ever retry it here, so it is left to the device controller, which restarts the plugin with backoff, as at construction.
+func (dpi *SocketDevicePlugin) reconcileDeviceHealth(watcher *fsnotify.Watcher, deviceDir, devicePath string) error {
+	logger := log.DefaultLogger()
+
+	// Replaces the watch if deviceDir was recreated; a no-op if it is still alive.
+	if err := watcher.Add(deviceDir); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			logger.Reason(err).Errorf("failed to watch the device directory '%s'", deviceDir)
+		}
+		dpi.sendHealthUpdate(false)
+		return nil
+	}
+	if _, err := os.Stat(devicePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			logger.Reason(err).Errorf("could not stat the device '%s'", devicePath)
+		}
+		dpi.sendHealthUpdate(false)
+		return nil
+	}
+	// Apply the socket's permissions before advertising it, so a newly scheduled consumer cannot race the chown; a socket whose permissions failed to apply is not advertised at all.
+	if err := dpi.applyPermissions(); err != nil {
+		return fmt.Errorf("failed to set permissions for socket device %s: %v", dpi.socketName, err)
+	}
+	dpi.sendHealthUpdate(true)
+	return nil
+}
+
+// armDeviceDirWatch watches the device's directory and derives the initial health from the filesystem; a missing directory or socket is unhealthy, not fatal.
+func (dpi *SocketDevicePlugin) armDeviceDirWatch(watcher *fsnotify.Watcher, deviceDir, devicePath string) error {
+	logger := log.DefaultLogger()
+
+	// Watch before the existence checks to avoid races; fsnotify passes the errno through untouched.
+	if err := watcher.Add(deviceDir); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
+		}
+		logger.Warningf("device directory '%s' is not present, waiting for it to be created.", deviceDir)
+		dpi.sendHealthUpdate(false)
+		return nil
+	}
+	if _, err := os.Stat(devicePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("could not stat the device: %v", err)
+		}
+		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.socketName)
+		dpi.sendHealthUpdate(false)
+		return nil
+	}
+	logger.Infof("device '%s' is present.", devicePath)
+	// Stale health survives a plugin restart, and with the socket already present no Create event would fix it up.
+	return dpi.reconcileDeviceHealth(watcher, deviceDir, devicePath)
 }
 
 func (dpi *SocketDevicePlugin) healthCheck() error {
@@ -272,30 +347,22 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 	deviceDir := filepath.Join(dpi.socketRoot, dpi.socketDir)
 	devicePath := filepath.Join(deviceDir, dpi.socket)
 
-	// Start watching the files before we check for their existence to avoid races
-	err = watcher.Add(deviceDir)
-	if err != nil {
-		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
+	// deviceDir (typically a systemd RuntimeDirectory=) dies with service restarts, so watch its stable parent to re-arm on recreation; a missing parent is fatal.
+	if err := watcher.Add(filepath.Dir(deviceDir)); err != nil {
+		return fmt.Errorf("failed to add the parent of the device root path to the watcher: %v", err)
 	}
 
-	_, err = os.Stat(devicePath)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("could not stat the device: %v", err)
-		}
-		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.socketName)
-		dpi.sendHealthUpdate(false)
-	}
-	logger.Infof("device '%s' is present.", devicePath)
-
-	err = watcher.Add(deviceDir)
-
-	if err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
+	if err := watcher.Add(filepath.Dir(dpi.socketPath)); err != nil {
+		return fmt.Errorf("failed to add the kubelet device-plugin directory to the watcher: %v", err)
 	}
 	_, err = os.Stat(dpi.socketPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
+	}
+
+	// This may block reporting the initial health until ListAndWatch drains it, so it goes last, after every watch is in place.
+	if err := dpi.armDeviceDirWatch(watcher, deviceDir, devicePath); err != nil {
+		return err
 	}
 
 	for {
@@ -304,24 +371,27 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 			return nil
 		case err := <-watcher.Errors:
 			logger.Reason(err).Errorf("error watching devices and device plugin directory")
+			// The kernel drops events on queue overflow, so re-check the filesystem instead of trusting events.
+			// This cannot loop back here: watcher.Add failures are returned synchronously, never sent to watcher.Errors.
+			if dpi.healthChecks {
+				if err := dpi.reconcileDeviceHealth(watcher, deviceDir, devicePath); err != nil {
+					return err
+				}
+			}
 		case event := <-watcher.Events:
 			logger.V(4).Infof("health Event: %v", event)
-			if event.Name == devicePath && dpi.healthChecks {
-				// Health in this case is if the device path actually exists
-				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.socketName)
-					dpi.sendHealthUpdate(true)
-					if err := dpi.setSocketDirectoryPermissions(); err != nil {
-						logger.Warningf("failed to set directory permissions for socket device %s", dpi.socketName)
+			if (event.Name == devicePath || event.Name == deviceDir) && dpi.healthChecks {
+				// Health in this case is if the device path actually exists.
+				// Only these ops are handled: reacting to the Chmod from applying permissions would loop.
+				if event.Has(fsnotify.Create) {
+					if err := dpi.reconcileDeviceHealth(watcher, deviceDir, devicePath); err != nil {
+						return err
 					}
-					if err := dpi.setSocketPermissions(); err != nil {
-						logger.Warningf("failed to set socket permissions for socket device %s", dpi.socketName)
-					}
-				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.socketName)
+				} else if event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
+					logger.Infof("monitored device %s disappeared: %s was removed", dpi.socketName, event.Name)
 					dpi.sendHealthUpdate(false)
 				}
-			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
+			} else if event.Name == dpi.socketPath && event.Has(fsnotify.Remove) {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.socketName)
 				return nil
 			}
