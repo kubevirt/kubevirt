@@ -694,18 +694,19 @@ func configureAlpineInterfaceIP(vmi *v1.VirtualMachineInstance, ifaceName, stati
 }
 
 func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...string) error {
-	interfacesConfig := "auto lo\\niface lo inet loopback\\n\\n"
+	var interfacesConfig strings.Builder
+	interfacesConfig.WriteString("auto lo\\niface lo inet loopback\\n\\n")
 
 	for idx := range ifacesNames {
-		interfacesConfig += fmt.Sprintf("auto %s\\niface %s inet dhcp\\nhostname localhost\\n\\n",
+		interfacesConfig.WriteString(fmt.Sprintf("auto %s\\niface %s inet dhcp\\nhostname localhost\\n\\n",
 			ifacesNames[idx],
-			ifacesNames[idx])
+			ifacesNames[idx]))
 	}
 
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
-		&expect.BSnd{S: "echo $'" + interfacesConfig + "' > /etc/network/interfaces\n"},
+		&expect.BSnd{S: "echo $'" + interfacesConfig.String() + "' > /etc/network/interfaces\n"},
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: "/etc/init.d/networking restart\n"},
 		&expect.BExp{R: ""},
@@ -740,7 +741,7 @@ func createPtpNetworkAttachmentDefinition(namespace, networkName, subnet string)
 	ipam := map[string]string{"type": "host-local", "subnet": subnet}
 	netAttachDef := libnet.NewNetAttachDef(
 		networkName,
-		libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(pluginType, map[string]interface{}{"ipam": ipam})),
+		libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(pluginType, map[string]any{"ipam": ipam})),
 	)
 	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
 	return err
