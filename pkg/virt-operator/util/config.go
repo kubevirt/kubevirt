@@ -295,6 +295,12 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 }
 
 func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+	if envVarManager == nil {
+		envVarManager = DefaultEnvVarManager
+	}
+	if envVarManager == nil {
+		envVarManager = EnvVarManagerImpl{}
+	}
 
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
@@ -328,7 +334,7 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 		operatorImage = fmt.Sprintf("%s/%s%s", registry, fmt.Sprintf("%s%s", operatorImagePrefix, "virt-operator"), version)
 	}
 
-	passthroughEnv := GetPassthroughEnv()
+	passthroughEnv := GetPassthroughEnvWithEnvVarManager(envVarManager)
 
 	apiImage := envVarManager.Getenv(VirtApiImageEnvName)
 	controllerImage := envVarManager.Getenv(VirtControllerImageEnvName)
@@ -366,6 +372,12 @@ func GetPassthroughEnv() map[string]string {
 
 func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]string {
 	passthroughEnv := map[string]string{}
+	if envVarManager == nil {
+		envVarManager = DefaultEnvVarManager
+	}
+	if envVarManager == nil {
+		return passthroughEnv
+	}
 
 	for _, env := range envVarManager.Environ() {
 		if strings.HasPrefix(env, PassthroughEnvPrefix) {
