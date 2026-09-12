@@ -20,14 +20,10 @@ const (
 func CreateDownwardMetricDisk(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.DownwardMetrics != nil {
-			return vhostmd.NewMetricsIODisk(config.DownwardMetricDisk).Create()
+			return vhostmd.CreateDisk(config.DownwardMetricDisk)
 		}
 	}
 	return nil
-}
-
-func FormatDownwardMetricPath(pid int) string {
-	return filepath.Join("/proc", strconv.Itoa(pid), "/root", config.DownwardMetricDisk)
 }
 
 func HasDownwardMetricDisk(vmi *v1.VirtualMachineInstance) bool {
