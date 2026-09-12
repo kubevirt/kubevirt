@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -1105,7 +1104,7 @@ var _ = Describe("Export controller", func() {
 		vmExportCopy := vmExport.DeepCopy()
 		svc := &k8sv1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: testNamespace}}
 
-		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source)
+		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vmExportCopy.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -1145,7 +1144,7 @@ var _ = Describe("Export controller", func() {
 			Status: k8sv1.PodStatus{Phase: k8sv1.PodRunning, ContainerStatuses: []k8sv1.ContainerStatus{{Ready: true}}},
 		}
 
-		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source)
+		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, source, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		for _, cond := range vmExportCopy.Status.Conditions {
@@ -1222,30 +1221,82 @@ var _ = Describe("Export controller", func() {
 		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
 	)
 
-	DescribeTable("GetVolumeInfo should correctly resolve volume paths for various PVC names", func(pvcName string) {
-		targetName := getExportPodVolumeNameFromStr(pvcName)
+	DescribeTable("sourceVolumes should report PVCs referenced by more than one volume", func(pvcNames []string, expectedDuplicates []string) {
+		sv := &sourceVolumes{
+			readyCondition: newReadyCondition(k8sv1.ConditionTrue, podReadyReason, ""),
+		}
+		for _, name := range pvcNames {
+			sv.volumes = append(sv.volumes, sourceVolume{
+				pvc: &k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: name}},
+			})
+		}
+
+		Expect(sv.duplicatePVCNames()).To(Equal(expectedDuplicates))
+		Expect(sv.hasContent()).To(Equal(len(pvcNames) > 0 && len(expectedDuplicates) == 0))
+
+		condition := sv.ReadyCondition()
+		Expect(condition.Type).To(Equal(exportv1.ConditionReady))
+		if len(expectedDuplicates) == 0 {
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition.Reason).ToNot(Equal(duplicatePVCReason))
+			return
+		}
+		Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+		Expect(condition.Reason).To(Equal(duplicatePVCReason))
+		for _, name := range expectedDuplicates {
+			Expect(condition.Message).To(ContainSubstring(name))
+		}
+	},
+		Entry("no volumes", nil, nil),
+		Entry("distinct PVCs", []string{"pvc1", "pvc2"}, nil),
+		Entry("names differing only by dots", []string{"my.disk", "my-disk"}, nil),
+		Entry("one PVC twice", []string{"shared", "shared"}, []string{"shared"}),
+		Entry("one PVC three times reported once", []string{"shared", "shared", "shared"}, []string{"shared"}),
+		Entry("two duplicates sorted", []string{"b", "a", "b", "a"}, []string{"a", "b"}),
+	)
+
+	DescribeTable("GetVolumeInfo should resolve volumes by PVC name", func(pvcNames ...string) {
+		sp := &ServerPaths{}
+		for i, pvcName := range pvcNames {
+			sp.Volumes = append(sp.Volumes, VolumeInfo{
+				Path:    fmt.Sprintf("/var/run/kubevirt-export/volume%d", i),
+				PVCName: pvcName,
+			})
+		}
+
+		for i, pvcName := range pvcNames {
+			result := sp.GetVolumeInfo(pvcName)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Path).To(Equal(fmt.Sprintf("/var/run/kubevirt-export/volume%d", i)))
+		}
+		Expect(sp.GetVolumeInfo("does-not-exist")).To(BeNil())
+	},
+		Entry("Short name", "pvc-name"),
+		Entry("Name with dots", "pvc.with.dots"),
+		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
+		// Both sanitize to the same mount directory, resolving by PVC name
+		// keeps them apart.
+		Entry("Names differing only by dots", "my.disk", "my-disk"),
+	)
+
+	DescribeTable("GetVolumeInfo should fall back to the mount directory without a PVC name", func(pvcName, mountName string) {
 		sp := &ServerPaths{
 			Volumes: []VolumeInfo{
 				{
-					Path: "/var/run/kubevirt-export/" + targetName,
+					Path: "/var/run/kubevirt-export/" + mountName,
 				},
 			},
 		}
 
 		result := sp.GetVolumeInfo(pvcName)
 		Expect(result).ToNot(BeNil())
-
-		_, foundName := filepath.Split(filepath.Clean(result.Path))
-		Expect(foundName).To(Equal(targetName))
-
-		if len(pvcName) > validation.DNS1035LabelMaxLength {
-			Expect(len(foundName)).To(BeNumerically("<", 63))
-			Expect(foundName).To(HavePrefix(exportPrefix))
-		}
+		Expect(result.Path).To(Equal("/var/run/kubevirt-export/" + mountName))
 	},
-		Entry("Short name", "pvc-name"),
-		Entry("Name with dots", "pvc.with.dots"),
-		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
+		Entry("Short name", "pvc-name", "pvc-name"),
+		Entry("Name with dots", "pvc.with.dots", "pvc-with-dots"),
+		Entry("Long name exceeding limit",
+			strings.Repeat("a", validation.DNS1035LabelMaxLength+1),
+			"virt-export-419f8d5e"),
 	)
 
 	It("CreateServerPaths should parse OCI URI", func() {
@@ -1256,6 +1307,27 @@ var _ = Describe("Export controller", func() {
 		}
 		paths := CreateServerPaths(env)
 		Expect(paths.OCIURI).To(Equal(uri))
+	})
+
+	It("CreateServerPaths should parse the PVC name of a volume", func() {
+		paths := CreateServerPaths(map[string]string{
+			"VOLUME0_EXPORT_PATH":     "/export-volumes/my-disk",
+			"VOLUME0_EXPORT_PVC_NAME": "my.disk",
+		})
+		Expect(paths.Volumes).To(HaveLen(1))
+		Expect(paths.Volumes[0].PVCName).To(Equal("my.disk"))
+	})
+
+	It("The exporter pod should be passed the PVC name of every volume", func() {
+		pvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{Name: "my.disk", Namespace: testNamespace},
+		}
+		container := &k8sv1.Container{}
+		addVolumeEnvironmentVariables(container, pvc, 0, "/export-volumes/my-disk", true)
+		Expect(container.Env).To(ContainElement(k8sv1.EnvVar{
+			Name:  "VOLUME0_EXPORT_PVC_NAME",
+			Value: "my.disk",
+		}))
 	})
 
 	DescribeTable("service name should be sanitized", func(exportName, expectedServiceName string) {

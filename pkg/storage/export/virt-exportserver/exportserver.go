@@ -37,7 +37,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -118,7 +117,7 @@ type ExportServerConfig struct {
 	DirHandler         func(string, string) http.Handler
 	FileHandler        func(string) http.Handler
 	GzipHandler        func(string) http.Handler
-	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
+	VmHandler          func(*export.ServerPaths, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 	OCIHandler         func(*oci.Builder) http.Handler
 
@@ -179,8 +178,8 @@ func (s *exportServer) initHandler() {
 		mux.Handle(bi.DataURI, tokenChecker(s.TokenGetter, s.backupDataHandler(bi.Path)))
 	}
 	if s.Paths.VMURI != "" {
-		mux.Handle(filepath.Join(internal, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getInternalBasePath, getInternalCAConfigMap)))
-		mux.Handle(filepath.Join(external, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getExternalBasePath, getExternalCAConfigMap)))
+		mux.Handle(filepath.Join(internal, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths, getInternalBasePath, getInternalCAConfigMap)))
+		mux.Handle(filepath.Join(external, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths, getExternalBasePath, getExternalCAConfigMap)))
 	}
 	if s.Paths.SecretURI != "" {
 		mux.Handle(filepath.Join(internal, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
@@ -705,7 +704,7 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
-func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
+func vmHandler(paths *export.ServerPaths, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusBadRequest)
@@ -756,8 +755,19 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
 			APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		}
-		for i, dvTemplate := range expandedVm.Spec.DataVolumeTemplates {
-			dvTemplate.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, vi[i].RawGzURI))
+		for i := range expandedVm.Spec.DataVolumeTemplates {
+			dvTemplate := &expandedVm.Spec.DataVolumeTemplates[i]
+			// The controller only rewrites templates backed by an exported volume.
+			if dvTemplate.Spec.Source == nil || dvTemplate.Spec.Source.HTTP == nil {
+				continue
+			}
+			volume := paths.GetVolumeInfo(dvTemplate.Name)
+			if volume == nil {
+				log.Log.Errorf("no exported volume for DataVolumeTemplate %s", dvTemplate.Name)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			dvTemplate.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, volume.RawGzURI))
 			dvTemplate.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dvTemplate.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
 		}
@@ -773,10 +783,8 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 				Kind:       "DataVolume",
 				APIVersion: "cdi.kubevirt.io/v1beta1",
 			}
-			for _, info := range vi {
-				if strings.Contains(info.RawGzURI, dv.Name) {
-					dv.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, info.RawGzURI))
-				}
+			if volume := paths.GetVolumeInfo(dv.Name); volume != nil {
+				dv.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, volume.RawGzURI))
 			}
 			dv.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dv.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
