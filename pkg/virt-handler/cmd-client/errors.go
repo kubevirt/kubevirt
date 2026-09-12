@@ -43,6 +43,17 @@ func IsUnimplemented(err error) bool {
 }
 
 func handleError(err error, cmdName string, response *cmdv1.Response) error {
+	if transportErr := handleTransportError(err, cmdName); transportErr != nil {
+		return transportErr
+	}
+
+	if response != nil && !response.Success && response.Message != "" {
+		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
+	}
+	return nil
+}
+
+func handleTransportError(err error, cmdName string) error {
 	if IsDisconnected(err) {
 		return err
 	} else if IsUnimplemented(err) {
@@ -54,11 +65,6 @@ func handleError(err error, cmdName string, response *cmdv1.Response) error {
 		return fmt.Errorf("command %s failed with %s: %w", cmdName, st.Code(), err)
 	}
 
-	// Fallback for old servers that embed errors in Response instead of using gRPC status codes
-	// This check can be removed once all servers are migrated
-	if response != nil && !response.Success && response.Message != "" {
-		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
-	}
 	return nil
 }
 

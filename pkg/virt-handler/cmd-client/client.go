@@ -513,12 +513,8 @@ func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.V
 	defer cancel()
 
 	vmstatsResponse, err := c.v1client.GetVMStats(ctx, request)
-	var response *cmdv1.Response
-	if vmstatsResponse != nil {
-		response = vmstatsResponse.Response
-	}
 
-	if err := handleError(err, "GetVMStats", response); err != nil || vmstatsResponse == nil {
+	if err := handleTransportError(err, "GetVMStats"); err != nil || vmstatsResponse == nil {
 		return result, err
 	}
 
@@ -528,7 +524,7 @@ func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.V
 		}
 	}
 
-	if vmstatsResponse.GetDirtyRateStats() != nil {
+	if vmstatsResponse.GetDirtyRateStats().GetResponse().GetSuccess() {
 		result.DirtyRateMbps = ptr.To(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
 	}
 

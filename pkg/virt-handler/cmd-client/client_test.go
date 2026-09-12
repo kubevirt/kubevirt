@@ -41,7 +41,94 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
+
+var _ = Describe("GetVMStats partial results", func() {
+	var (
+		mockCmdClient *cmdv1.MockCmdClient
+		client        LauncherClient
+	)
+
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
+		client = newV1Client(mockCmdClient, nil)
+	})
+
+	It("returns already-collected stats when an optional agent command failed", func() {
+		mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(&cmdv1.VMStatsResponse{
+			// Aggregate failure because guest-get-diskstats is unsupported by the guest agent.
+			Response: &cmdv1.Response{Success: false, Message: "agent data guest-get-diskstats: command not found"},
+			DomainStats: &cmdv1.DomainStatsResponse{
+				Response:    &cmdv1.Response{Success: true},
+				DomainStats: `{"Name":"test-domain"}`,
+			},
+			GuestGetDiskStats: &cmdv1.Response{Success: false, Message: "command not found"},
+		}, nil)
+
+		result, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+			DomainStats:       &cmdv1.DomainStatsRequest{},
+			GuestGetDiskStats: &cmdv1.AgentDiskStatsRequest{},
+		})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.DomainStats.Name).To(Equal("test-domain"))
+		Expect(result.GuestGetDiskStats).To(ContainSubstring("command not found"))
+	})
+
+	It("returns an error on transport failure", func() {
+		mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+			nil, status.Errorf(codes.Unavailable, "connection refused"),
+		)
+
+		_, err := client.GetVMStats(&cmdv1.VMStatsRequest{DomainStats: &cmdv1.DomainStatsRequest{}})
+		Expect(err).To(MatchError(ContainSubstring("Unavailable")))
+	})
+
+	It("returns partial results when domain-stats collection failed", func() {
+		mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(&cmdv1.VMStatsResponse{
+			// Aggregate failure because domain stats could not be collected.
+			Response: &cmdv1.Response{Success: false, Message: "domain stats: connection to libvirt failed"},
+			DomainStats: &cmdv1.DomainStatsResponse{
+				Response: &cmdv1.Response{Success: false, Message: "connection to libvirt failed"},
+			},
+			GuestGetLoad: &cmdv1.Response{Success: true, Message: "load1=0.5"},
+		}, nil)
+
+		result, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+			DomainStats:  &cmdv1.DomainStatsRequest{},
+			GuestGetLoad: &cmdv1.AgentLoadRequest{},
+		})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.DomainStats).To(Equal(stats.DomainStats{}))
+		Expect(result.GuestGetLoad).To(Equal("load1=0.5"))
+	})
+
+	It("returns partial results when dirty-rate collection failed", func() {
+		mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(&cmdv1.VMStatsResponse{
+			// Aggregate failure because dirty rate is not available yet.
+			Response: &cmdv1.Response{Success: false, Message: "dirty rate stats: MegabytesPerSecondSet is false"},
+			DomainStats: &cmdv1.DomainStatsResponse{
+				Response:    &cmdv1.Response{Success: true},
+				DomainStats: `{"Name":"test-domain"}`,
+			},
+			DirtyRateStats: &cmdv1.DirtyRateStatsResponse{
+				Response: &cmdv1.Response{Success: false, Message: "MegabytesPerSecondSet is false"},
+			},
+		}, nil)
+
+		result, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+			DomainStats: &cmdv1.DomainStatsRequest{},
+			DirtyRate:   &cmdv1.DirtyRateRequest{},
+		})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.DomainStats.Name).To(Equal("test-domain"))
+		Expect(result.DirtyRateMbps).To(BeNil())
+	})
+})
 
 var _ = Describe("Virt remote commands", func() {
 
