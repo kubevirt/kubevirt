@@ -16,11 +16,11 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/sys/unix"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/capability"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/translate"
 
@@ -266,7 +266,7 @@ func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 			cmd := exec.Command("/usr/sbin/virtqemud", args...)
 			if l.user != 0 {
 				cmd.SysProcAttr = &syscall.SysProcAttr{
-					AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
+					AmbientCaps: capability.BuildAmbientCaps(),
 				}
 			}
 
