@@ -39,9 +39,7 @@ func (app *SubresourceAPIApp) PortForwardRequestHandler(fetcher vmiFetcher) rest
 		defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
 		streamer := NewWebsocketStreamer(
-			fetcher,
-			validateVMIForPortForward,
-			netDial{request: request},
+			NewDirectDialer(fetcher, validateVMIForPortForward, netDial{request: request}),
 		)
 
 		streamer.Handle(request, response)
