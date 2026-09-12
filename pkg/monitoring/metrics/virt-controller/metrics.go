@@ -69,6 +69,7 @@ var (
 		migrationMetrics,
 		perfscaleMetrics,
 		vmSnapshotMetrics,
+		vmPoolMetrics,
 	}
 
 	indexers       *Indexers
