@@ -21,6 +21,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime/debug"
 	"strings"
@@ -259,6 +260,22 @@ func SetLatestApiVersionAnnotation(object metav1.Object) {
 	annotations[v1.ControllerAPILatestVersionObservedAnnotation] = v1.ApiLatestVersion
 	annotations[v1.ControllerAPIStorageVersionObservedAnnotation] = v1.ApiStorageVersion
 	object.SetAnnotations(annotations)
+}
+
+// LatestApiVersionMergePatch returns a merge patch setting the latest observed
+// API version annotations. The write has no read-dependency, so the patch
+// carries no resourceVersion precondition: unlike a full-object Update from an
+// informer-cache copy it cannot conflict with concurrent writers, and it
+// leaves all other annotations and labels untouched.
+func LatestApiVersionMergePatch() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]string{
+				v1.ControllerAPILatestVersionObservedAnnotation:  v1.ApiLatestVersion,
+				v1.ControllerAPIStorageVersionObservedAnnotation: v1.ApiStorageVersion,
+			},
+		},
+	})
 }
 
 func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
