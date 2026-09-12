@@ -1170,6 +1170,68 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Warnings).To(HaveLen(1))
 		})
 
+		DescribeTable("should warn about explicitly disabling ACPI on amd64", func(arch string, acpiEnabled *bool, expectWarning bool) {
+			vmi.Spec.Architecture = arch
+			vmi.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: acpiEnabled}}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			if expectWarning {
+				Expect(resp.Warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+			} else {
+				Expect(resp.Warnings).NotTo(ContainElement(ContainSubstring("disabling ACPI")))
+			}
+		},
+			Entry("amd64 with ACPI explicitly disabled", "amd64", new(false), true),
+			Entry("amd64 with ACPI explicitly enabled", "amd64", new(true), false),
+			Entry("amd64 with ACPI unset (defaults enabled)", "amd64", nil, false),
+			Entry("arm64 with ACPI explicitly disabled", "arm64", new(false), false),
+		)
+
+		DescribeTable("should only warn about disabling ACPI on amd64 for BIOS boot guests", func(firmware *v1.Firmware, expectWarning bool) {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Architecture: "amd64",
+				Domain: v1.DomainSpec{
+					Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}},
+					Firmware: firmware,
+				},
+			}
+
+			warnings := warnDisabledACPIAmd64(spec, config)
+			if expectWarning {
+				Expect(warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+			} else {
+				Expect(warnings).To(BeEmpty())
+			}
+		},
+			Entry("EFI boot", &v1.Firmware{Bootloader: &v1.Bootloader{EFI: &v1.EFI{}}}, false),
+			Entry("explicit BIOS boot", &v1.Firmware{Bootloader: &v1.Bootloader{BIOS: &v1.BIOS{}}}, true),
+			Entry("empty bootloader (defaults to BIOS)", &v1.Firmware{Bootloader: &v1.Bootloader{}}, true),
+			Entry("firmware unset (defaults to BIOS)", nil, true),
+		)
+
+		DescribeTable("should fall back to the cluster default architecture when spec.architecture is unset", func(defaultArch string, expectWarning bool) {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}},
+				},
+			}
+			updateDefaultArchitecture(defaultArch)
+
+			warnings := warnDisabledACPIAmd64(spec, config)
+			if expectWarning {
+				Expect(warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+			} else {
+				Expect(warnings).To(BeEmpty())
+			}
+		},
+			Entry("cluster default amd64", "amd64", true),
+			Entry("cluster default arm64", "arm64", false),
+		)
+
 		It("should allow BlockMultiQueue with CPU settings", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
