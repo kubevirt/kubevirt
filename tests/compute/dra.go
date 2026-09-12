@@ -215,6 +215,28 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 		By("Waiting for the VMI to reach Running")
 		waitForVMIToBeRunning(createdVMI)
 	})
+
+	It("should fail when the matchattribute has different values", func() {
+		By("creating the ResourceClaimTemplate with matchAttribute on pciBusID across two requests")
+		createVFIOGPUResourceClaimTemplate(
+			WithVfioGPUMultipleRequests(draVfioMatchAttributeRequestCount),
+			WithVfioGPURequestMatchAttribute(
+				"resource.kubernetes.io/pciBusID",
+				vfioGPUIndexedRequestName(0),
+				vfioGPUIndexedRequestName(1),
+			),
+		)
+
+		By("creating the VMI with two GPUs backed by the matched requests")
+		vmi := createVFIOGPUVMI(
+			WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+			WithVfioGPUMultipleGPUs(draVfioMatchAttributeRequestCount),
+		)
+
+		Eventually(matcher.ThisVMI(vmi), 30*time.Second, pollingInterval).Should(matcher.BeInPhase(v1.Scheduling))
+		Consistently(matcher.ThisVMI(vmi), 30*time.Second, pollingInterval).Should(matcher.BeInPhase(v1.Scheduling))
+		verifyVMIPodUnschedulable(vmi.Name, ContainSubstring("cannot allocate all claims"))
+	})
 })
 
 func createVFIOGPUResourceClaimTemplate(opts ...vfioGPUResourceClaimTemplateOption) {
