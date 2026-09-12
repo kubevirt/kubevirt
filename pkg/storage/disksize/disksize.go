@@ -22,7 +22,6 @@ package disksize
 import "kubevirt.io/client-go/log"
 
 // AlignImageSizeTo1MiB rounds down size to the nearest multiple of 1 MiB.
-// A warning or error is logged when the size is not already aligned.
 // The caller is responsible for ensuring the rounded-down size is not 0.
 func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 	remainder := size % (1024 * 1024)
