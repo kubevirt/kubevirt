@@ -102,6 +102,10 @@ func (c *fakeVirtualMachines) RemoveVolume(ctx context.Context, name string, rem
 }
 
 func (c *fakeVirtualMachines) PortForward(name string, port int, protocol string) (kubevirtv1.StreamInterface, error) {
+	return c.PortForwardContext(context.Background(), name, port, protocol)
+}
+
+func (c *fakeVirtualMachines) PortForwardContext(ctx context.Context, name string, port int, protocol string) (kubevirtv1.StreamInterface, error) {
 	return nil, nil
 }
 
