@@ -89,6 +89,13 @@ type MigrationTargetController struct {
 	passtRepairHandler               passtRepairTargetHandler
 	pluginExecutor                   plugins.NodeHookExecutor
 	vmiExpectations                  *controller.UIDTrackingControllerExpectations
+	migrationProxy                   targetProxyManager
+}
+
+type targetProxyManager interface {
+	StartTargetListener(key string, targetUnixFiles []string) error
+	GetTargetListenerPorts(key string) map[string]int
+	StopTargetListener(key string)
 }
 
 func NewMigrationTargetController(
@@ -101,7 +108,7 @@ func NewMigrationTargetController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
+	migrationProxy targetProxyManager,
 	virtLauncherFSRunDirPattern string,
 	capabilities *libvirtxml.Caps,
 	netConf netconf,
@@ -132,7 +139,6 @@ func NewMigrationTargetController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
@@ -154,6 +160,7 @@ func NewMigrationTargetController(
 		passtRepairHandler:               passtRepairHandler,
 		pluginExecutor:                   pluginExecutor,
 		vmiExpectations:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationProxy:                   migrationProxy,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

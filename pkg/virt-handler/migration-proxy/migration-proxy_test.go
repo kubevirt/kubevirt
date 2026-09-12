@@ -200,7 +200,7 @@ var _ = Describe("MigrationProxy", func() {
 				go msgReader(virtqemudListener, libvirtChan)
 				go msgReader(directListener, directChan)
 
-				for _, sockFile := range manager.GetSourceListenerFiles("mykey") {
+				for _, sockFile := range manager.getSourceListenerFiles("mykey") {
 					if strings.Contains(sockFile, directMigrationPort) {
 						msgWriter(sockFile, directChan, "some direct message")
 					} else {
