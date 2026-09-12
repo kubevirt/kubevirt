@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -497,6 +498,22 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 	}
 
 	if backup.Status.Type != "" {
+		if alreadyTerminal, err := ctrl.isBackupAlreadyTerminalOnServer(backup); err != nil {
+			return err
+		} else if alreadyTerminal {
+			// This reconcile is operating on a stale (pre-completion) local
+			// snapshot of backup.Status: cleanupVMIState() clears the VMI's
+			// BackupStatus as one of the last steps of a normal completion,
+			// which re-triggers a reconcile via the VMI informer before this
+			// backup's own informer cache has necessarily observed the
+			// terminal status we just wrote (UpdateStatus only updates the
+			// API server; the local cache updates asynchronously via watch).
+			// The live object already reflects the real outcome -- nothing to
+			// do here.
+			log.Log.Object(backup).V(3).Infof("Skipping stale reconcile: backup is already terminal on the server")
+			return nil
+		}
+
 		if !vmiExists {
 			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI was deleted during backup")
 			return nil
@@ -992,6 +1009,22 @@ func isBackupFailed(backup *backupv1.VirtualMachineBackup) bool {
 
 func IsBackupTerminal(backup *backupv1.VirtualMachineBackup) bool {
 	return isBackupComplete(backup) || isBackupFailed(backup)
+}
+
+// isBackupAlreadyTerminalOnServer re-checks the backup directly against the
+// API server (bypassing the informer cache) to guard against acting on a
+// stale local snapshot: this backup's own informer cache can lag behind a
+// terminal status this same controller just wrote, so a local-only check
+// here is not sufficient to rule out a race.
+func (ctrl *VMBackupController) isBackupAlreadyTerminalOnServer(backup *backupv1.VirtualMachineBackup) (bool, error) {
+	liveBackup, err := ctrl.client.VirtualMachineBackup(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return IsBackupTerminal(liveBackup), nil
 }
 
 func isBackupDeleting(backup *backupv1.VirtualMachineBackup) bool {
