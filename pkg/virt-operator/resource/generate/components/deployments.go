@@ -671,7 +671,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 }
 
 func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.Deployment {
-	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
+	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtExportProxyName})
 	deploymentName := VirtExportProxyName
 	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
 	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
@@ -724,6 +724,21 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 					Type:   intstr.Int,
 					IntVal: 8443,
 				},
+				Path: "/readyz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+	}
+
+	container.LivenessProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
 				Path: "/healthz",
 			},
 		},
@@ -731,10 +746,17 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 		PeriodSeconds:       10,
 	}
 
+	// Burstable on purpose: low requests avoid reserving storm capacity while
+	// idle; higher limits contain transfer bursts. Resource HPA targets are
+	// >100% of request so scale-out aligns with ~70% of these limits.
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("150Mi"),
+			corev1.ResourceCPU:    resource.MustParse("350m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
 
@@ -873,21 +895,30 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 	if deployment.Spec.Replicas != nil {
 		minAvailable = intstr.FromInt(int(*deployment.Spec.Replicas - 1))
 	}
-	selector := deployment.Spec.Selector.DeepCopy()
-	podDisruptionBudget := &policyv1.PodDisruptionBudget{
+	return newPodDisruptionBudget(deployment.Namespace, pdbName, minAvailable, deployment.Spec.Selector)
+}
+
+// NewExportProxyPodDisruptionBudget returns a PDB for virt-exportproxy with a fixed
+// minAvailable of 1 so voluntary disruptions cannot take down every proxy pod during
+// cluster maintenance, independent of HPA-managed replica count.
+func NewExportProxyPodDisruptionBudget(deployment *appsv1.Deployment) *policyv1.PodDisruptionBudget {
+	return newPodDisruptionBudget(deployment.Namespace, deployment.Name+"-pdb", intstr.FromInt(1), deployment.Spec.Selector)
+}
+
+func newPodDisruptionBudget(namespace, name string, minAvailable intstr.IntOrString, selector *metav1.LabelSelector) *policyv1.PodDisruptionBudget {
+	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: deployment.Namespace,
-			Name:      pdbName,
+			Namespace: namespace,
+			Name:      name,
 			Labels: map[string]string{
-				virtv1.AppLabel: pdbName,
+				virtv1.AppLabel: name,
 			},
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
-			Selector:     selector,
+			Selector:     selector.DeepCopy(),
 		},
 	}
-	return podDisruptionBudget
 }
 
 func generateVirtOperatorEnvVars(runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
