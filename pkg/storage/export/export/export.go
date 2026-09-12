@@ -24,6 +24,7 @@ import (
 	"crypto/ecdsa"
 	cryptorand "crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strconv"
@@ -33,13 +34,14 @@ import (
 	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -86,11 +88,13 @@ const (
 	podPendingReason          = "PodPending"
 	podReadyReason            = "PodReady"
 	podCompletedReason        = "PodCompleted"
+	exporterPodErrorReason    = "ExporterPodError"
 	vmNotFoundReason          = "VMNotFound"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
 	noVolumeVMReason          = "VMNoVolumes"
 	noVolumeSnapshotReason    = "VMSnapshotNoVolumes"
 	notAllPVCsCreatedReason   = "NotAllPVCsCreated"
+	duplicatePVCReason        = "DuplicatePVC"
 	VMSnapshotNotFoundReason  = "VMSnapshotNotFound"
 	ociDigestsComputedReason  = "DigestsComputed"
 	ociDigestsPendingReason   = "DigestsPending"
@@ -208,8 +212,38 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
+// duplicatePVCNames returns the names of PVCs referenced by more than one volume.
+func (sv *sourceVolumes) duplicatePVCNames() []string {
+	seen, duplicates := sets.New[string](), sets.New[string]()
+	for _, volume := range sv.volumes {
+		if volume.pvc == nil {
+			continue
+		}
+		if seen.Has(volume.pvc.Name) {
+			duplicates.Insert(volume.pvc.Name)
+		}
+		seen.Insert(volume.pvc.Name)
+	}
+	return sets.List(duplicates)
+}
+
+func (sv *sourceVolumes) hasDuplicatePVCs() bool {
+	return len(sv.duplicatePVCNames()) > 0
+}
+
+// hasContent reports whether there is anything to export. A PVC can only be
+// mounted once into the exporter pod, so duplicates leave nothing exportable.
 func (sv *sourceVolumes) hasContent() bool {
-	return len(sv.volumes) > 0
+	return len(sv.volumes) > 0 && !sv.hasDuplicatePVCs()
+}
+
+func (sv *sourceVolumes) ReadyCondition() exportv1.Condition {
+	if duplicates := sv.duplicatePVCNames(); len(duplicates) > 0 {
+		return newReadyCondition(corev1.ConditionFalse, duplicatePVCReason,
+			fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s",
+				strings.Join(duplicates, ", ")))
+	}
+	return sv.readyCondition
 }
 
 func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
@@ -756,12 +790,14 @@ func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineEx
 		return 0, err
 	}
 
-	pod, err := ctrl.manageExporterPod(vmExport, service, source)
-	if err != nil {
-		return 0, err
+	// Update the status even on failure, so the export does not stay empty.
+	pod, podErr := ctrl.manageExporterPod(vmExport, service, source)
+	requeue, statusErr := ctrl.updateStatus(vmExport, pod, service, source, podErr)
+	if podErr != nil {
+		return 0, errors.Join(podErr, statusErr)
 	}
 
-	return ctrl.updateStatus(vmExport, pod, service, source)
+	return requeue, statusErr
 }
 
 func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, source exportSource) (*corev1.Pod, error) {
@@ -801,7 +837,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 
 func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, deleteReason, message string) error {
 	ctrl.Recorder.Event(vmExport, corev1.EventTypeWarning, deleteReason, message)
-	if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !errors.IsNotFound(err) {
+	if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !k8serrors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -862,7 +898,7 @@ func (ctrl *VMExportController) createCertSecret(vmExport *exportv1.VirtualMachi
 		return err
 	}
 	_, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	} else if err == nil {
 		log.Log.V(3).Infof("Created new exporter pod secret")
@@ -959,7 +995,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 
 	secret, err := ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
+		if k8serrors.IsAlreadyExists(err) {
 			return nil
 		}
 		return err
@@ -1298,7 +1334,7 @@ func (ctrl *VMExportController) reconcileManifestAndAddToPod(vmExport *exportv1.
 	}
 	cm, err := ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Get(context.Background(), manifestConfigMap.Name, metav1.GetOptions{})
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !k8serrors.IsNotFound(err) {
 			return err
 		}
 		cm, err = ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), manifestConfigMap, metav1.CreateOptions{})
@@ -1502,12 +1538,12 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	return isKubevirt
 }
 
-func (ctrl *VMExportController) updateStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, source exportSource) (time.Duration, error) {
+func (ctrl *VMExportController) updateStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, source exportSource, podErr error) (time.Duration, error) {
 	var requeue time.Duration
 
 	vmExportCopy := vmExport.DeepCopy()
 
-	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, source); err != nil {
+	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, source, podErr); err != nil {
 		return requeue, err
 	}
 
@@ -1522,13 +1558,17 @@ func (ctrl *VMExportController) updateStatus(vmExport *exportv1.VirtualMachineEx
 	return requeue, nil
 }
 
-func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExportCopy *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, source exportSource) error {
+func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExportCopy *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, source exportSource, podErr error) error {
 	var err error
 
 	vmExportCopy.Status.ServiceName = service.Name
 	vmExportCopy.Status.Links = &exportv1.VirtualMachineExportLinks{}
 	if exporterPod == nil {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, source.ReadyCondition())
+		condition := source.ReadyCondition()
+		if podErr != nil {
+			condition = newReadyCondition(corev1.ConditionFalse, exporterPodErrorReason, podErr.Error())
+		}
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, condition)
 		vmExportCopy.Status.Phase = exportv1.Pending
 	} else {
 		if optutil.PodIsReady(exporterPod) {
