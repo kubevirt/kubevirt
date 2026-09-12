@@ -237,28 +237,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			validateGenerationState(vm, 6, 6, 6, 6)
 		})
 
-		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", decorators.Conformance, decorators.WgS390x, func(createTemplate vmiBuilder, ensureGracefulTermination bool) {
-			template, _ := createTemplate()
-			vm := libvmops.StartVirtualMachine(createVM(virtClient, template))
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			// Delete it
-			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})).To(Succeed())
-			// Wait until VMI is gone
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 2*time.Second).ShouldNot(Exist())
-			if !ensureGracefulTermination {
-				return
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			// Under default settings, termination is graceful (shutdown instead of destroy)
-			event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.ShuttingDown)
-			Expect(event).ToNot(BeNil(), "There should be a shutdown event")
-		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewAlpine(), nil }, false),
-			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk, true),
-		)
-
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", decorators.Conformance, decorators.WgS390x, func() {
 			vm := libvmops.StartVirtualMachine(createVM(virtClient, libvmifact.NewGuestless()))
 

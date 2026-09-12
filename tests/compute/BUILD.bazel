@@ -50,6 +50,7 @@ go_library(
         "//tests/libvmops:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
+        "//tests/watcher:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
@@ -61,6 +62,5 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
     ],
 )
