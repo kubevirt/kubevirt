@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 
+	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +23,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -577,4 +579,21 @@ func WaitUntilMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMa
 		}
 		return ""
 	}, timeout, 1*time.Second).Should(Equal(expectedMode))
+}
+
+func RunStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
+	By("Run a stress test to dirty some pages and slow down the migration")
+	stressCmd := fmt.Sprintf("stress-ng --vm 4 --vm-bytes %s --vm-method write64 --vm-keep &\n", vmsize)
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: ""},
+		&expect.BSnd{S: "command -v stress-ng\n"},
+		&expect.BExp{R: ""},
+		&expect.BSnd{S: console.EchoLastReturnValue},
+		&expect.BExp{R: console.RetValue("0")},
+		&expect.BSnd{S: stressCmd},
+		&expect.BExp{R: ""},
+	}, 15)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
+
+	time.Sleep(5 * time.Second)
 }
