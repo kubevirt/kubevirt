@@ -517,6 +517,14 @@ func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigra
 	return nil
 }
 
+// isLocalTargetOnSourceNode reports whether a local migration's target pod was
+// scheduled onto the node already running the VMI (the source), which can never
+// succeed. Decentralized migrations are excluded: their nodes may live in
+// different clusters and can share a name.
+func isLocalTargetOnSourceNode(migration *virtv1.VirtualMachineInstanceMigration, pod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) bool {
+	return !migration.IsDecentralized() && pod != nil && pod.Spec.NodeName != "" && pod.Spec.NodeName == vmi.Status.NodeName
+}
+
 func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil || !backendstorage.IsBackendStorageNeeded(vmi) {
 		return c.failMigration(migration)
@@ -586,6 +594,21 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		if err != nil {
 			return err
 		}
+	} else if podExists && isLocalTargetOnSourceNode(migration, pod, vmi) {
+		// The target pod landed on the source node, normally prevented by the
+		// target pod's required anti-affinity but possible when its placement does
+		// not honor that constraint (e.g. a non-conformant scheduler or external
+		// binder). Fail with a clear reason instead of stalling in PreparingTarget
+		// and reporting the generic "target pod shutdown" below. sync() skips the
+		// handoff for the same condition, so the target was never prepared.
+		err := c.failMigration(migrationCopy)
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason,
+			"Migration failed because target pod %s was scheduled onto the source node %q; a live migration cannot target the node already running the VMI",
+			pod.Name, vmi.Status.NodeName)
+		log.Log.Object(migration).Errorf("target pod %s/%s was scheduled onto source node %s; failing migration", pod.Namespace, pod.Name, vmi.Status.NodeName)
 	} else if podExists && controller.PodIsDown(pod) {
 		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
@@ -1887,7 +1910,9 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 
 		// once target pod is running, then alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
-		if targetPodExists && controller.IsPodReady(pod) {
+		// Skip the handoff if the target landed on the source node: that migration
+		// can never succeed, and updateStatus() fails it below.
+		if targetPodExists && controller.IsPodReady(pod) && !isLocalTargetOnSourceNode(migration, pod, vmi) {
 			if err := c.updateTargetPodNetworkInfo(vmi, pod); err != nil {
 				return err
 			}
