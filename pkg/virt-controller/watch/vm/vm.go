@@ -131,7 +131,8 @@ const (
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
 
-func NewController(vmiInformer cache.SharedIndexInformer,
+func NewController(queue workqueue.TypedRateLimitingInterface[string],
+	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	dataSourceInformer cache.SharedIndexInformer,
@@ -150,10 +151,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 ) (*Controller, error) {
 
 	c := &Controller{
-		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
-		),
+		Queue:                  queue,
 		vmiIndexer:             vmiInformer.GetIndexer(),
 		vmIndexer:              vmInformer.GetIndexer(),
 		dataVolumeStore:        dataVolumeInformer.GetStore(),

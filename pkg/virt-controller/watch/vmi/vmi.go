@@ -52,7 +52,8 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
-func NewController(templateService templateService,
+func NewController(queue workqueue.TypedRateLimitingInterface[string],
+	templateService templateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -79,11 +80,8 @@ func NewController(templateService templateService,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService: templateService,
-		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
-		),
+		templateService:                   templateService,
+		Queue:                             queue,
 		vmiIndexer:                        vmiInformer.GetIndexer(),
 		vmStore:                           vmInformer.GetStore(),
 		podIndexer:                        podInformer.GetIndexer(),

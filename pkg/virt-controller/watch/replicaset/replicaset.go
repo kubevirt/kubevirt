@@ -60,13 +60,10 @@ const (
 	SuccessfulResumedReplicaSetReason = "SuccessfulResumed"
 )
 
-func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) (*Controller, error) {
+func NewController(queue workqueue.TypedRateLimitingInterface[string], vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) (*Controller, error) {
 
 	c := &Controller{
-		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-replicaset"},
-		),
+		Queue:         queue,
 		vmiIndexer:    vmiInformer.GetIndexer(),
 		vmiRSIndexer:  vmiRSInformer.GetIndexer(),
 		recorder:      recorder,

@@ -196,7 +196,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 		fakeNodeStore := fakeNodeInformer.GetStore()
 		fakeBackupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
 		cbtHandler := NewCBTHandler(virtClient, fakeBackupTrackerInformer)
+		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-handler-vm"))
 		controller, _ = NewVirtualMachineController(
+			mockQueue,
 			recorder,
 			virtClient,
 			k8sfakeClient,
@@ -230,9 +232,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		f, err = os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.Close()).To(Succeed())
-
-		mockQueue = testutils.NewMockWorkQueue(controller.queue)
-		controller.queue = mockQueue
 
 		wg.Add(1)
 
