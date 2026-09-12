@@ -75,6 +75,60 @@ var _ = Describe("Install Strategy", func() {
 		})
 	}
 
+	Context("DeepCopy", func() {
+		It("should return nil when strategy is nil", func() {
+			var strategy *Strategy
+			Expect(strategy.DeepCopy()).To(BeNil())
+		})
+
+		It("should produce an isolated deep copy of strategy objects", func() {
+			strategy := &Strategy{
+				serviceAccounts: []*corev1.ServiceAccount{{
+					ObjectMeta: metav1.ObjectMeta{Name: "sa-1"},
+				}},
+				clusterRoles: []*rbacv1.ClusterRole{{
+					ObjectMeta: metav1.ObjectMeta{Name: "cr-1"},
+				}},
+				deployments: []*appsv1.Deployment{{
+					ObjectMeta: metav1.ObjectMeta{Name: "virt-controller"},
+				}},
+				daemonSets: []*appsv1.DaemonSet{{
+					ObjectMeta: metav1.ObjectMeta{Name: "virt-handler"},
+					Spec: appsv1.DaemonSetSpec{
+						Template: corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name: "virt-handler",
+									Args: []string{"--existing-arg"},
+								}},
+							},
+						},
+					},
+				}},
+			}
+
+			copied := strategy.DeepCopy()
+			Expect(copied).ToNot(BeNil())
+			Expect(copied).ToNot(BeIdenticalTo(strategy))
+			Expect(copied.ServiceAccounts()).To(HaveLen(1))
+			Expect(copied.ServiceAccounts()[0]).ToNot(BeIdenticalTo(strategy.ServiceAccounts()[0]))
+			Expect(copied.ClusterRoles()).To(HaveLen(1))
+			Expect(copied.ClusterRoles()[0]).ToNot(BeIdenticalTo(strategy.ClusterRoles()[0]))
+			Expect(copied.Deployments()).To(HaveLen(1))
+			Expect(copied.Deployments()[0]).ToNot(BeIdenticalTo(strategy.Deployments()[0]))
+			Expect(copied.DaemonSets()).To(HaveLen(1))
+			Expect(copied.DaemonSets()[0]).ToNot(BeIdenticalTo(strategy.DaemonSets()[0]))
+
+			// Modifying copied object should not affect the original
+			copied.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args = append(
+				copied.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args,
+				"--custom-arg",
+			)
+			Expect(strategy.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"--existing-arg"}))
+			Expect(copied.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"--existing-arg", "--custom-arg"}))
+		})
+	})
+
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
 			client := fake.NewSimpleClientset(objects...)
