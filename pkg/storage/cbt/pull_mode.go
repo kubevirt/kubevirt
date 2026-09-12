@@ -184,7 +184,7 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 	}
 
 	setPreparingExport(backup)
-	backup.Status.EndpointCert = nil
+	backup.Status.Links = nil
 	return nil
 }
 
@@ -197,46 +197,48 @@ func (ctrl *VMBackupController) populateExportLinks(backup *backupv1.VirtualMach
 		return nil
 	}
 
-	links := vmExport.Status.Links
-	hasInternalLinks := links != nil && links.Internal != nil && len(links.Internal.Backups) > 0
-	hasExternalLinks := links != nil && links.External != nil && len(links.External.Backups) > 0
-
-	if !hasInternalLinks && !hasExternalLinks {
-		return fmt.Errorf("associated export ready but has no backup links")
-	}
-
-	iterableLinks := links.External
-	if !hasExternalLinks {
-		iterableLinks = links.Internal
-	}
-
-	if iterableLinks.Cert == "" {
-		return fmt.Errorf("associated export ready but has no cert exposed")
-	}
-
-	var volumes []backupv1.BackupVolumeInfo
-	endpointMap := make(map[string][]exportv1.VirtualMachineExportBackupEndpoint)
-	for _, backupEndpoint := range iterableLinks.Backups {
-		endpointMap[backupEndpoint.Name] = backupEndpoint.Endpoints
-	}
-	for _, volume := range backup.Status.IncludedVolumes {
-		if endpoints, ok := endpointMap[volume.VolumeName]; ok {
-			for _, link := range endpoints {
-				switch link.Endpoint {
-				case exportv1.Data:
-					volume.DataEndpoint = link.Url
-				case exportv1.Map:
-					volume.MapEndpoint = link.Url
-				}
-			}
-		}
-		volumes = append(volumes, volume)
+	backupLinks, err := buildBackupLinks(vmExport.Status.Links)
+	if err != nil {
+		return err
 	}
 
 	setExportReady(backup)
-	backup.Status.EndpointCert = &iterableLinks.Cert
-	backup.Status.IncludedVolumes = volumes
+	backup.Status.Links = backupLinks
+
 	return nil
+}
+
+func buildBackupLinks(links *exportv1.VirtualMachineExportLinks) (*backupv1.BackupLinks, error) {
+	if links == nil || (links.Internal == nil && links.External == nil) {
+		return nil, fmt.Errorf("associated export ready but has no backup links")
+	}
+
+	result := &backupv1.BackupLinks{}
+	if links.Internal != nil {
+		result.Internal = toBackupLink(links.Internal)
+	}
+	if links.External != nil {
+		result.External = toBackupLink(links.External)
+	}
+
+	return result, nil
+}
+
+func toBackupLink(link *exportv1.VirtualMachineExportLink) *backupv1.BackupLink {
+	bl := &backupv1.BackupLink{Cert: link.Cert}
+	for _, b := range link.Backups {
+		vl := backupv1.BackupVolumeLink{VolumeName: b.Name}
+		for _, ep := range b.Endpoints {
+			switch ep.Endpoint {
+			case exportv1.Data:
+				vl.DataEndpoint = ep.Url
+			case exportv1.Map:
+				vl.MapEndpoint = ep.Url
+			}
+		}
+		bl.Volumes = append(bl.Volumes, vl)
+	}
+	return bl
 }
 
 func (ctrl *VMBackupController) generateBackupTunnelCert(backup *backupv1.VirtualMachineBackup) (*triple.KeyPair, error) {

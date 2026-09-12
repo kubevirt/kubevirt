@@ -1754,32 +1754,37 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	Expect(vmbackup.Status.Type).To(Equal(expectedBackupType))
 	Expect(vmbackup.Status.IncludedVolumes).ToNot(BeEmpty(), "Should have at least one included volume")
 
-	var volumeInfo *backupv1.BackupVolumeInfo
 	if targetVolumeName != "" {
-		for i, vol := range vmbackup.Status.IncludedVolumes {
-			if vol.VolumeName == targetVolumeName {
-				volumeInfo = &vmbackup.Status.IncludedVolumes[i]
-				break
-			}
-		}
-		Expect(volumeInfo).ToNot(BeNil(), fmt.Sprintf("Target volume %s not found in backup", targetVolumeName))
-	} else {
-		Expect(vmbackup.Status.IncludedVolumes).To(HaveLen(1), "Expected exactly 1 volume when no targetVolumeName is provided")
-		volumeInfo = &vmbackup.Status.IncludedVolumes[0]
+		Expect(vmbackup.Status.IncludedVolumes).To(
+			ContainElement(HaveField("VolumeName", Equal(targetVolumeName))),
+			fmt.Sprintf("Target volume %s not found in backup", targetVolumeName))
 	}
 
-	Expect(volumeInfo.DataEndpoint).ToNot(BeEmpty(), "Data endpoint should be populated")
-	Expect(volumeInfo.MapEndpoint).ToNot(BeEmpty(), "Map endpoint should be populated")
+	By("Verifying structured Links field is populated and consistent with IncludedVolumes")
+	verifyPullBackupLinks(vmbackup.Status.Links, vmbackup.Status.IncludedVolumes)
+
+	curlVolumeName := targetVolumeName
+	if curlVolumeName == "" {
+		curlVolumeName = vmbackup.Status.Links.Internal.Volumes[0].VolumeName
+	}
+	var curlVolume *backupv1.BackupVolumeLink
+	for i, v := range vmbackup.Status.Links.Internal.Volumes {
+		if v.VolumeName == curlVolumeName {
+			curlVolume = &vmbackup.Status.Links.Internal.Volumes[i]
+			break
+		}
+	}
+	Expect(curlVolume).ToNot(BeNil(), fmt.Sprintf("Volume %s not found in Links.Internal.Volumes", curlVolumeName))
 
 	By("Creating CA configmap and downloader pod")
-	Expect(vmbackup.Status.EndpointCert).ToNot(BeNil(), "EndpointCert should be populated")
+	Expect(vmbackup.Status.Links.Internal.Cert).ToNot(BeEmpty(), "Internal link cert should be populated")
 	caConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("export-ca-%s-%s", vmbackup.Name, rand.String(5)),
 			Namespace: vmbackup.Namespace,
 		},
 		Data: map[string]string{
-			caBundleKey: *vmbackup.Status.EndpointCert,
+			caBundleKey: vmbackup.Status.Links.Internal.Cert,
 		},
 	}
 	_, err := virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Create(context.Background(), caConfigMap, metav1.CreateOptions{})
@@ -1806,7 +1811,7 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	Eventually(matcher.ThisPod(pod), 30*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(corev1.PodReady))
 
 	By("Curling and parsing the Map endpoint using our injected token")
-	mapUrl := fmt.Sprintf("%s?x-kubevirt-export-token=%s", volumeInfo.MapEndpoint, token)
+	mapUrl := fmt.Sprintf("%s?x-kubevirt-export-token=%s", curlVolume.MapEndpoint, token)
 	curlMapCmd := []string{
 		"curl", "-s", "-L", "--fail", "--cacert", filepath.Join(caCertPath, caBundleKey), mapUrl,
 	}
@@ -1835,7 +1840,7 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 	}
 
 	By("Curling the Data endpoint using the length and offset query parameters")
-	dataUrl := fmt.Sprintf("%s?x-kubevirt-export-token=%s&length=%d", volumeInfo.DataEndpoint, token, length)
+	dataUrl := fmt.Sprintf("%s?x-kubevirt-export-token=%s&length=%d", curlVolume.DataEndpoint, token, length)
 	if offset > 0 {
 		dataUrl += fmt.Sprintf("&offset=%d", offset)
 	}
@@ -1871,6 +1876,28 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 
 	err = virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Delete(context.Background(), caConfigMap.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func verifyPullBackupLinks(links *backupv1.BackupLinks, includedVolumes []backupv1.BackupVolumeInfo) {
+	Expect(links).ToNot(BeNil(), "Links should be populated for pull mode backups")
+	Expect(links.External != nil || links.Internal != nil).To(BeTrue(), "Links should have at least one of internal or external")
+
+	if links.Internal != nil {
+		verifyPullBackupLink("internal", links.Internal, includedVolumes)
+	}
+	if links.External != nil {
+		verifyPullBackupLink("external", links.External, includedVolumes)
+	}
+}
+
+func verifyPullBackupLink(linkType string, link *backupv1.BackupLink, expectedVolumes []backupv1.BackupVolumeInfo) {
+	Expect(link.Cert).ToNot(BeEmpty(), fmt.Sprintf("%s link cert should be populated", linkType))
+	Expect(link.Volumes).To(HaveLen(len(expectedVolumes)), fmt.Sprintf("%s link should have the same number of volumes as IncludedVolumes", linkType))
+	for _, vol := range link.Volumes {
+		Expect(expectedVolumes).To(ContainElement(HaveField("VolumeName", Equal(vol.VolumeName))), fmt.Sprintf("%s link volume %q should be in IncludedVolumes", linkType, vol.VolumeName))
+		Expect(vol.DataEndpoint).ToNot(BeEmpty(), fmt.Sprintf("%s data endpoint for %s should be populated", linkType, vol.VolumeName))
+		Expect(vol.MapEndpoint).ToNot(BeEmpty(), fmt.Sprintf("%s map endpoint for %s should be populated", linkType, vol.VolumeName))
+	}
 }
 
 // verifyExportPodAffinity verifies that the VMExport pod has proper affinity

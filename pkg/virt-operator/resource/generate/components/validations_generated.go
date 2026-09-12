@@ -9807,11 +9807,6 @@ var CRDsValidation map[string]string = map[string]string{
           x-kubernetes-list-map-keys:
           - type
           x-kubernetes-list-type: map
-        endpointCert:
-          description: |-
-            EndpointCert is the raw CACert that is to be used when connecting
-            to an exported backup endpoint in pull mode.
-          type: string
         exportUID:
           description: |-
             ExportUID tracks the UID of the associated VMExport for pull-mode backups
@@ -9824,14 +9819,6 @@ var CRDsValidation map[string]string = map[string]string{
             description: BackupVolumeInfo contains information about a volume included
               in a backup
             properties:
-              dataEndpoint:
-                description: DataEndpoint is the URL of the endpoint for read for
-                  pull mode
-                type: string
-              mapEndpoint:
-                description: MapEndpoint is the URL of the endpoint for map for pull
-                  mode
-                type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
                 type: string
@@ -9840,6 +9827,86 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        links:
+          description: |-
+            Links exposes internal (in-cluster) and external (Ingress/Route) endpoints
+            for pull-mode backups, each with a CA certificate and per-volume URLs.
+            Contains per-volume data and map endpoint URLs for each network path.
+          properties:
+            external:
+              description: External contains endpoints reachable from outside the
+                cluster
+              properties:
+                cert:
+                  description: Cert is the CA certificate bundle for TLS verification
+                  type: string
+                volumes:
+                  description: Volumes lists the data and map endpoints for each backed-up
+                    volume
+                  items:
+                    description: BackupVolumeLink contains the data and map endpoint
+                      URLs for a single volume
+                    properties:
+                      dataEndpoint:
+                        description: DataEndpoint is the URL for reading backup data
+                        type: string
+                      mapEndpoint:
+                        description: MapEndpoint is the URL for reading the changed
+                          block map
+                        type: string
+                      volumeName:
+                        description: VolumeName identifies the volume these endpoints
+                          belong to
+                        type: string
+                    required:
+                    - dataEndpoint
+                    - mapEndpoint
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - volumeName
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+            internal:
+              description: Internal contains endpoints reachable from within the cluster
+              properties:
+                cert:
+                  description: Cert is the CA certificate bundle for TLS verification
+                  type: string
+                volumes:
+                  description: Volumes lists the data and map endpoints for each backed-up
+                    volume
+                  items:
+                    description: BackupVolumeLink contains the data and map endpoint
+                      URLs for a single volume
+                    properties:
+                      dataEndpoint:
+                        description: DataEndpoint is the URL for reading backup data
+                        type: string
+                      mapEndpoint:
+                        description: MapEndpoint is the URL for reading the changed
+                          block map
+                        type: string
+                      volumeName:
+                        description: VolumeName identifies the volume these endpoints
+                          belong to
+                        type: string
+                    required:
+                    - dataEndpoint
+                    - mapEndpoint
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - volumeName
+                  x-kubernetes-list-type: map
+              required:
+              - cert
+              type: object
+          type: object
         type:
           description: Type indicates if the backup was full or incremental
           type: string
@@ -9932,14 +9999,6 @@ var CRDsValidation map[string]string = map[string]string{
                 description: BackupVolumeInfo contains information about a volume
                   included in a backup
                 properties:
-                  dataEndpoint:
-                    description: DataEndpoint is the URL of the endpoint for read
-                      for pull mode
-                    type: string
-                  mapEndpoint:
-                    description: MapEndpoint is the URL of the endpoint for map for
-                      pull mode
-                    type: string
                   volumeName:
                     description: VolumeName is the volume name from VMI spec
                     type: string
