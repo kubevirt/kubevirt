@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
 var _ = Describe("cgroup manager", func() {
@@ -64,7 +65,7 @@ var _ = Describe("cgroup manager", func() {
 			return paths
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, version CgroupVersion) error {
 			rulesDefined = r.Devices
 			subsystemPathsDefined = subsystemPaths
 			return nil
@@ -75,9 +76,9 @@ var _ = Describe("cgroup manager", func() {
 		}
 
 		if version == V1 {
-			return newCustomizedV1Manager(mockCgroupsManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+			return newCustomizedV1Manager(mockCgroupsManager, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 		} else {
-			return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc)
+			return newCustomizedV2Manager(mockCgroupsManager, nil, execVirtChrootFunc, nil, nil, false)
 		}
 	}
 
@@ -206,6 +207,137 @@ var _ = Describe("cgroup manager", func() {
 			},
 		),
 	)
+})
+
+var _ = Describe("v2Manager AllowDevice/RemoveDevice/ListDevices", func() {
+	type updateCall struct {
+		cgroupPath, deviceType string
+		major, minor           int64
+		permissions            string
+		allow                  bool
+	}
+
+	var (
+		ctrl         *gomock.Controller
+		rulesDefined []*devices.Rule
+		updateCalls  []updateCall
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		rulesDefined = make([]*devices.Rule, 0)
+		updateCalls = nil
+	})
+
+	newV2WithSplice := func(spliceEnabled bool) *v2Manager {
+		mockCgroupsManager := NewMockcgroupsManager(ctrl)
+		mockCgroupsManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
+			return map[string]string{"": "/sys/fs/cgroup/test"}
+		}).AnyTimes()
+
+		mgr, err := newCustomizedV2Manager(
+			mockCgroupsManager, nil,
+			func(r *cgroups.Resources, _ map[string]string, _ CgroupVersion) error {
+				rulesDefined = r.Devices
+				return nil
+			},
+			func(cgroupPath, deviceType string, major, minor int64, permissions string, allow bool) error {
+				updateCalls = append(updateCalls, updateCall{cgroupPath, deviceType, major, minor, permissions, allow})
+				return nil
+			},
+			func(cgroupPath string) ([]cgroupconsts.DeviceMapEntry, error) {
+				return []cgroupconsts.DeviceMapEntry{{Type: "b", Major: 8, Minor: 0, Permissions: "rwm"}}, nil
+			},
+			spliceEnabled,
+		)
+		Expect(err).ShouldNot(HaveOccurred())
+		return mgr.(*v2Manager)
+	}
+
+	Context("with spliceDeviceMap disabled", func() {
+		It("AllowDevice should route through Set with a block allow rule", func() {
+			mgr := newV2WithSplice(false)
+			Expect(mgr.AllowDevice("b", 8, 0, "rwm")).To(Succeed())
+
+			var found *devices.Rule
+			for _, r := range rulesDefined {
+				if r != nil && r.Major == 8 && r.Minor == 0 {
+					found = r
+					break
+				}
+			}
+			Expect(found).ShouldNot(BeNil())
+			Expect(found.Type).To(Equal(devices.BlockDevice))
+			Expect(found.Allow).To(BeTrue())
+			Expect(string(found.Permissions)).To(Equal("rwm"))
+			Expect(updateCalls).To(BeEmpty(), "updateDevice should not be called")
+		})
+
+		It("AllowDevice should use CharDevice type for 'c'", func() {
+			mgr := newV2WithSplice(false)
+			Expect(mgr.AllowDevice("c", 1, 3, "rw")).To(Succeed())
+
+			var found *devices.Rule
+			for _, r := range rulesDefined {
+				if r != nil && r.Major == 1 && r.Minor == 3 {
+					found = r
+					break
+				}
+			}
+			Expect(found).ShouldNot(BeNil())
+			Expect(found.Type).To(Equal(devices.CharDevice))
+		})
+
+		It("RemoveDevice should route through Set with a deny rule", func() {
+			mgr := newV2WithSplice(false)
+			Expect(mgr.RemoveDevice("b", 8, 0)).To(Succeed())
+
+			var found *devices.Rule
+			for _, r := range rulesDefined {
+				if r != nil && r.Major == 8 && r.Minor == 0 {
+					found = r
+					break
+				}
+			}
+			Expect(found).ShouldNot(BeNil())
+			Expect(found.Allow).To(BeFalse())
+			Expect(string(found.Permissions)).To(Equal("rwm"))
+			Expect(updateCalls).To(BeEmpty())
+		})
+
+	})
+
+	Context("with spliceDeviceMap enabled", func() {
+		It("AllowDevice should call updateDevice instead of Set", func() {
+			mgr := newV2WithSplice(true)
+			Expect(mgr.AllowDevice("b", 8, 0, "rwm")).To(Succeed())
+
+			Expect(rulesDefined).To(BeEmpty(), "Set() should not be called")
+			Expect(updateCalls).To(HaveLen(1))
+			Expect(updateCalls[0].deviceType).To(Equal("b"))
+			Expect(updateCalls[0].major).To(Equal(int64(8)))
+			Expect(updateCalls[0].minor).To(Equal(int64(0)))
+			Expect(updateCalls[0].permissions).To(Equal("rwm"))
+			Expect(updateCalls[0].allow).To(BeTrue())
+		})
+
+		It("RemoveDevice should call updateDevice with allow=false", func() {
+			mgr := newV2WithSplice(true)
+			Expect(mgr.RemoveDevice("b", 8, 0)).To(Succeed())
+
+			Expect(rulesDefined).To(BeEmpty())
+			Expect(updateCalls).To(HaveLen(1))
+			Expect(updateCalls[0].allow).To(BeFalse())
+		})
+
+		It("ListDevices should return entries from the device map", func() {
+			mgr := newV2WithSplice(true)
+			entries, err := mgr.ListDevices()
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Major).To(Equal(uint32(8)))
+		})
+	})
 })
 
 var _ = Describe("GetMiscCapacity", func() {

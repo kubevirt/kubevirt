@@ -25,4 +25,16 @@ const (
 	hostRootPath       = ProcMountPoint + "/1/root"
 	CgroupBasePath     = "/sys/fs/" + CgroupStr
 	HostCgroupBasePath = hostRootPath + CgroupBasePath
+
+	BlockDevice = "b"
+	CharDevice  = "c"
 )
+
+// DeviceMapEntry represents a device in the eBPF device map used for
+// hotplug device filtering. Shared between virt-handler and virt-chroot.
+type DeviceMapEntry struct {
+	Type        string `json:"type"`
+	Major       uint32 `json:"major"`
+	Minor       uint32 `json:"minor"`
+	Permissions string `json:"permissions"`
+}
