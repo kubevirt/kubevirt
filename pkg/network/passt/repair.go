@@ -79,11 +79,13 @@ func (r *RepairManager) HandleMigrationSource(vmi *v1.VirtualMachineInstance,
 
 	passtDir, err := socketDirFunc(vmi)
 	if err != nil {
+		r.activeVMs.SetInactive(vmi)
 		return err
 	}
 
 	repairSocket, err := r.findRepairSocketFunc(passtDir)
 	if err != nil {
+		r.activeVMs.SetInactive(vmi)
 		return err
 	}
 	r.execCommandFunc(repairSocket, vmi, r.activeVMs.SetInactive)
@@ -104,6 +106,7 @@ func (r *RepairManager) HandleMigrationTarget(vmi *v1.VirtualMachineInstance,
 
 	passtDir, err := socketDirFunc(vmi)
 	if err != nil {
+		r.activeVMs.SetInactive(vmi)
 		return err
 	}
 
