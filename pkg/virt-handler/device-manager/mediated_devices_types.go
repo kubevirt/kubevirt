@@ -21,6 +21,7 @@ package device_manager
 
 import (
 	"container/ring"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -34,16 +35,31 @@ import (
 // Not a const for static test purposes
 var mdevClassBusPath = "/sys/class/mdev_bus"
 
+// managedMdevTypesStateFile records the mdev types virt-handler last configured
+// on this node. It survives virt-handler restarts (hostPath /var/run/kubevirt)
+// so KubeVirt-created types can still be garbage-collected after a crash, but
+// is lost on node reboot - which is fine, because sysfs mdevs are too.
+// Not a const for static test purposes.
+var managedMdevTypesStateFile = "/var/run/kubevirt/managed-mdev-types"
+
 type MDEVTypesManager struct {
 	availableMdevTypesMap   map[string][]string
 	unconfiguredParentsMap  map[string]struct{}
 	mdevsConfigurationMutex sync.Mutex
+	// previouslyManagedTypes is the set of mdev types this manager most
+	// recently configured. Removal is limited to this set so that mdevs
+	// created by an external provider (DRA, GPU operator, vfio-ap, ...)
+	// are not destroyed.
+	previouslyManagedTypes map[string]struct{}
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
-	return &MDEVTypesManager{
-		availableMdevTypesMap: make(map[string][]string),
+	m := &MDEVTypesManager{
+		availableMdevTypesMap:  make(map[string][]string),
+		previouslyManagedTypes: make(map[string]struct{}),
 	}
+	m.loadManagedTypes()
+	return m
 }
 
 func (m *MDEVTypesManager) getAlreadyConfiguredMdevParents() (map[string]struct{}, error) {
@@ -78,26 +94,25 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 	m.mdevsConfigurationMutex.Lock()
 	defer m.mdevsConfigurationMutex.Unlock()
 
-	// create a map of types that should not be removed
 	typesToKeepMap := make(map[string]struct{})
-	for key, val := range externallyProvidedTypesMap {
-		typesToKeepMap[key] = val
+	for key := range externallyProvidedTypesMap {
+		addMdevTypeKey(typesToKeepMap, key)
 	}
 
-	// construct a map of desired types for lookup
 	desiredTypesMap := make(map[string]struct{})
 	for _, mdevType := range desiredTypesList {
-		desiredTypesMap[mdevType] = struct{}{}
-		typesToKeepMap[mdevType] = struct{}{}
+		addMdevTypeKey(desiredTypesMap, mdevType)
+		addMdevTypeKey(typesToKeepMap, mdevType)
 	}
 
-	// the following will remove all configured types that have not been
-	// created by an external provider and are not in the desiredTypesMap
-	removeUndesiredMDEVs(typesToKeepMap)
+	// Remove only types this manager previously configured. Unknown types
+	// (for example vfio-ap mdevs created by a DRA driver) are left alone.
+	removeUndesiredMDEVs(typesToKeepMap, m.previouslyManagedTypes)
 
 	err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to discover which mdev types are available for configuration")
+		m.setPreviouslyManagedTypes(mergeManagedTypes(desiredTypesMap, remainingManagedTypes(m.previouslyManagedTypes)))
 		return false, err
 	}
 
@@ -105,6 +120,7 @@ func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []strin
 		m.configureDesiredMDEVTypes()
 	}
 
+	m.setPreviouslyManagedTypes(mergeManagedTypes(desiredTypesMap, remainingManagedTypes(m.previouslyManagedTypes)))
 	return true, nil
 }
 
@@ -243,32 +259,97 @@ func createMdevTypes(mdevType string, parentID string) error {
 	return nil
 }
 
-func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool {
-
-	if rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
-		typeNameStr := strings.ReplaceAll(string(rawName), " ", "_")
-		typeNameStr = strings.TrimSpace(typeNameStr)
-		if _, exist := desiredTypesMap[typeNameStr]; exist {
-			return false
+func mergeManagedTypes(sets ...map[string]struct{}) map[string]struct{} {
+	merged := make(map[string]struct{})
+	for _, set := range sets {
+		for key, val := range set {
+			merged[key] = val
 		}
+	}
+	return merged
+}
+
+func remainingManagedTypes(previouslyManaged map[string]struct{}) map[string]struct{} {
+	// Keep types that we failed to remove so the next reconcile retries,
+	// without ever adopting unknown/external mdevs.
+	remaining := make(map[string]struct{})
+	if len(previouslyManaged) == 0 {
+		return remaining
+	}
+	files, err := os.ReadDir(mdevBasePath)
+	if err != nil {
+		for key, val := range previouslyManaged {
+			remaining[key] = val
+		}
+		return remaining
+	}
+	for _, file := range files {
+		typeName, typeID := mdevTypeNameAndID(file.Name())
+		if mdevTypeInSet(typeName, typeID, previouslyManaged) {
+			addMdevTypeKey(remaining, typeName)
+			addMdevTypeKey(remaining, typeID)
+		}
+	}
+	return remaining
+}
+
+func addMdevTypeKey(types map[string]struct{}, mdevType string) {
+	if mdevType == "" {
+		return
+	}
+	types[mdevType] = struct{}{}
+	if normalized := removeSelectorSpaces(mdevType); normalized != mdevType {
+		types[normalized] = struct{}{}
+	}
+}
+
+func mdevTypeInSet(typeName, typeID string, types map[string]struct{}) bool {
+	if typeName != "" {
+		if _, exist := types[typeName]; exist {
+			return true
+		}
+	}
+	if typeID != "" {
+		if _, exist := types[typeID]; exist {
+			return true
+		}
+	}
+	return false
+}
+
+func mdevTypeNameAndID(mdevUUID string) (typeName, typeID string) {
+	if rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
+		typeName = strings.TrimSpace(strings.ReplaceAll(string(rawName), " ", "_"))
 	}
 
 	originFile, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID, "mdev_type"))
 	if err != nil {
-		return false
+		return typeName, typeID
 	}
-	rawName := []byte(filepath.Base(originFile))
-
-	// The name usually contain spaces which should be replaced with _
-	typeNameStr := strings.ReplaceAll(string(rawName), " ", "_")
-	typeNameStr = strings.TrimSpace(typeNameStr)
-	if _, exist := desiredTypesMap[typeNameStr]; exist {
-		return false
-	}
-	return true
+	typeID = strings.TrimSpace(strings.ReplaceAll(filepath.Base(originFile), " ", "_"))
+	return typeName, typeID
 }
 
-func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
+// shouldRemoveMDEV reports whether an existing mdev should be destroyed.
+// Types currently desired or marked as externally provided are kept.
+// Types this manager previously configured and that are no longer desired
+// are removed. Any other type is assumed to belong to an external owner
+// and is left untouched.
+func shouldRemoveMDEV(mdevUUID string, typesToKeep, previouslyManaged map[string]struct{}) bool {
+	typeName, typeID := mdevTypeNameAndID(mdevUUID)
+	if typeName == "" && typeID == "" {
+		return false
+	}
+	if mdevTypeInSet(typeName, typeID, typesToKeep) {
+		return false
+	}
+	return mdevTypeInSet(typeName, typeID, previouslyManaged)
+}
+
+func removeUndesiredMDEVs(typesToKeep, previouslyManaged map[string]struct{}) {
+	if len(previouslyManaged) == 0 {
+		return
+	}
 	files, err := os.ReadDir(mdevBasePath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -279,9 +360,85 @@ func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
 		return
 	}
 	for _, file := range files {
-		if shouldRemoveMDEV(file.Name(), desiredTypesMap) {
-			err = handler.RemoveMDEVType(file.Name())
+		if !shouldRemoveMDEV(file.Name(), typesToKeep, previouslyManaged) {
+			continue
+		}
+		if err := handler.RemoveMDEVType(file.Name()); err != nil {
 			log.Log.Reason(err).Warningf("failed to remove mdev type: %s", file.Name())
 		}
+	}
+}
+
+func equalStringSets(a, b map[string]struct{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for key := range a {
+		if _, exist := b[key]; !exist {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *MDEVTypesManager) setPreviouslyManagedTypes(next map[string]struct{}) {
+	if equalStringSets(m.previouslyManagedTypes, next) {
+		return
+	}
+	m.previouslyManagedTypes = make(map[string]struct{}, len(next))
+	for key, val := range next {
+		m.previouslyManagedTypes[key] = val
+	}
+	m.persistManagedTypes()
+}
+
+func (m *MDEVTypesManager) loadManagedTypes() {
+	if managedMdevTypesStateFile == "" {
+		return
+	}
+	data, err := os.ReadFile(managedMdevTypesStateFile)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Log.Reason(err).Warningf("failed to read managed mdev types state file %s", managedMdevTypesStateFile)
+		}
+		return
+	}
+	var types []string
+	if err := json.Unmarshal(data, &types); err != nil {
+		log.Log.Reason(err).Warningf("failed to parse managed mdev types state file %s", managedMdevTypesStateFile)
+		return
+	}
+	for _, mdevType := range types {
+		addMdevTypeKey(m.previouslyManagedTypes, mdevType)
+	}
+}
+
+func (m *MDEVTypesManager) persistManagedTypes() {
+	if managedMdevTypesStateFile == "" {
+		return
+	}
+	types := make([]string, 0, len(m.previouslyManagedTypes))
+	for mdevType := range m.previouslyManagedTypes {
+		types = append(types, mdevType)
+	}
+	data, err := json.Marshal(types)
+	if err != nil {
+		log.Log.Reason(err).Warning("failed to marshal managed mdev types")
+		return
+	}
+	// Do not create the parent directory. virt-handler's share dir is a
+	// volume mount; skipping when it is absent also keeps unit tests from
+	// writing under /var/run/kubevirt.
+	if _, err := os.Stat(filepath.Dir(managedMdevTypesStateFile)); err != nil {
+		return
+	}
+	tmp := managedMdevTypesStateFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		log.Log.Reason(err).Warningf("failed to write managed mdev types state file %s", tmp)
+		return
+	}
+	if err := os.Rename(tmp, managedMdevTypesStateFile); err != nil {
+		log.Log.Reason(err).Warningf("failed to persist managed mdev types state file %s", managedMdevTypesStateFile)
+		_ = os.Remove(tmp)
 	}
 }
