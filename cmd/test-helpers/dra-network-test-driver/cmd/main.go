@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,6 +39,10 @@ import (
 
 func main() {
 	log.InitializeLogging("dra-network-test-driver")
+	targetInterface := flag.String("target-interface", "eth1", "Target network interface")
+	targetPort := flag.Int("target-port", 5201, "Target port number")
+
+	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -58,7 +63,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	d := driver.New(cancel)
+	d := driver.New(*targetInterface, *targetPort, cancel)
 	helper, err := kubeletplugin.Start(ctx, d,
 		kubeletplugin.DriverName(driver.DriverName),
 		kubeletplugin.KubeClient(clientset),
