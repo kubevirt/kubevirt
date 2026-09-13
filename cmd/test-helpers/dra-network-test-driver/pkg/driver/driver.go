@@ -22,6 +22,7 @@ package driver
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,10 +46,26 @@ func New(cancel context.CancelFunc) *Driver {
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
 	results := make(map[types.UID]kubeletplugin.PrepareResult)
 	for _, claim := range claims {
+		opaqueParams, err := getOpaqueParams(claim, DriverName)
+		if err != nil {
+			results[claim.UID] = kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to get parameters for claim %s: %w", claim.Name, err),
+			}
+			continue
+		}
+		log.Log.Infof("Claim %s parameters: %+v", claim.Name, opaqueParams)
+
 		cdiDeviceID, err := prepareHostpath(claim.UID)
 		if err != nil {
 			results[claim.UID] = kubeletplugin.PrepareResult{
 				Err: fmt.Errorf("failed to prepare claim %s: %w", claim.Name, err),
+			}
+			continue
+		}
+
+		if err := executeBackendDevice(ctx, hostPathFor(claim.UID), opaqueParams); err != nil {
+			results[claim.UID] = kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to start backend device for claim %s: %w", claim.Name, err),
 			}
 			continue
 		}

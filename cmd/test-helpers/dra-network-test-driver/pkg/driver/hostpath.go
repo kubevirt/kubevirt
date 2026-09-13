@@ -49,22 +49,27 @@ func cdiSpecPath(claimUID types.UID) string {
 	return filepath.Join(cdiDir, fmt.Sprintf("%s-%s-%s.json", cdiVendor, cdiClass, claimUID))
 }
 
+// hostPathFor returns the host directory backing a single claim.
+func hostPathFor(claimUID types.UID) string {
+	return filepath.Join(baseDir, string(claimUID))
+}
+
 // The claim UID, not the claim name, identifies the host directory and the CDI
 // device: claim names are unique only within a namespace, and are reused across
 // runs, which would let a stale spec satisfy a new claim.
 func prepareHostpath(claimUID types.UID) (string, error) {
-	path := filepath.Join(baseDir, string(claimUID))
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create directory %s: %w", path, err)
+	hostPath := hostPathFor(claimUID)
+	if err := os.MkdirAll(hostPath, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", hostPath, err)
 	}
-	if err := os.Chown(path, qemuUID, qemuGID); err != nil {
-		return "", fmt.Errorf("failed to chown %s: %w", path, err)
+	if err := os.Chown(hostPath, qemuUID, qemuGID); err != nil {
+		return "", fmt.Errorf("failed to chown %s: %w", hostPath, err)
 	}
-	if err := selinux.SetFileLabel(path, "system_u:object_r:container_file_t:s0"); err != nil {
-		return "", fmt.Errorf("failed to set SELinux label on %s: %w", path, err)
+	if err := selinux.SetFileLabel(hostPath, "system_u:object_r:container_file_t:s0"); err != nil {
+		return "", fmt.Errorf("failed to set SELinux label on %s: %w", hostPath, err)
 	}
 
-	return createCDISpec(claimUID, path)
+	return createCDISpec(claimUID, hostPath)
 }
 
 func createCDISpec(claimUID types.UID, path string) (string, error) {
@@ -102,7 +107,7 @@ func createCDISpec(claimUID types.UID, path string) (string, error) {
 }
 
 func unprepareHostpath(claimUID types.UID) {
-	path := filepath.Join(baseDir, string(claimUID))
+	path := hostPathFor(claimUID)
 	os.RemoveAll(path)
 	log.Log.Infof("Removed directory: %s", path)
 
