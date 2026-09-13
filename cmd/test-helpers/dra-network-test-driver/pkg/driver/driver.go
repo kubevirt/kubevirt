@@ -34,13 +34,19 @@ import (
 const DriverName = "vhostuser.net.kubevirt.io"
 
 type Driver struct {
-	cancel context.CancelFunc
+	targetInterface string
+	targetPort      int
+	cancel          context.CancelFunc
 }
 
 // New returns a Driver that cancels the given context on non-recoverable errors,
 // letting the caller run its regular shutdown path.
-func New(cancel context.CancelFunc) *Driver {
-	return &Driver{cancel: cancel}
+func New(targetInterface string, targetPort int, cancel context.CancelFunc) *Driver {
+	return &Driver{
+		targetInterface: targetInterface,
+		targetPort:      targetPort,
+		cancel:          cancel,
+	}
 }
 
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
@@ -58,6 +64,13 @@ func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceap
 		if err != nil {
 			results[claim.UID] = kubeletplugin.PrepareResult{
 				Err: fmt.Errorf("failed to create CDI spec %s: %w", claim.Name, err),
+			}
+			continue
+		}
+
+		if err := executeBackendDevice(ctx, hostPathFor(claim.UID), d.targetInterface, d.targetPort); err != nil {
+			results[claim.UID] = kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to start backend device for claim %s: %w", claim.Name, err),
 			}
 			continue
 		}
