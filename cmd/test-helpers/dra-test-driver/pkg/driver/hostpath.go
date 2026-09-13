@@ -51,20 +51,21 @@ func cdiSpecPath(claimUID types.UID) string {
 // The claim UID, not the claim name, identifies the host directory and the CDI
 // device: claim names are unique only within a namespace, and are reused across
 // runs, which would let a stale spec satisfy a new claim.
-func prepareHostpath(claimUID types.UID) (string, error) {
-	path := filepath.Join(baseDir, string(claimUID))
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create directory %s: %w", path, err)
-	}
-	if err := os.Chown(path, qemuUID, qemuGID); err != nil {
-		return "", fmt.Errorf("failed to chown %s: %w", path, err)
-	}
-	if err := selinux.SetFileLabel(path, "system_u:object_r:container_file_t:s0"); err != nil {
-		return "", fmt.Errorf("failed to set SELinux label on %s: %w", path, err)
-	}
-	log.Printf("Created directory: %s", path)
+func (d *Driver) prepareHostpath(claimUID types.UID) (string, error) {
 
-	return createCDISpec(claimUID, path)
+	d.hostPath = filepath.Join(baseDir, string(claimUID))
+	if err := os.MkdirAll(d.hostPath, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", d.hostPath, err)
+	}
+	if err := os.Chown(d.hostPath, qemuUID, qemuGID); err != nil {
+		return "", fmt.Errorf("failed to chown %s: %w", d.hostPath, err)
+	}
+	if err := selinux.SetFileLabel(d.hostPath, "system_u:object_r:container_file_t:s0"); err != nil {
+		return "", fmt.Errorf("failed to set SELinux label on %s: %w", d.hostPath, err)
+	}
+	log.Printf("Created directory: %s", d.hostPath)
+
+	return createCDISpec(claimUID, d.hostPath)
 }
 
 func createCDISpec(claimUID types.UID, path string) (string, error) {

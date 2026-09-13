@@ -31,15 +31,32 @@ import (
 
 const DriverName = "hostpath.dra.kubevirt.io"
 
-type Driver struct{}
+type Driver struct {
+	hostPath     string
+	opaqueParams map[string]string
+}
 
 func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[types.UID]kubeletplugin.PrepareResult, error) {
 	results := make(map[types.UID]kubeletplugin.PrepareResult)
 	for _, claim := range claims {
-		cdiDeviceID, err := prepareHostpath(claim.UID)
+		opaqueParams, err := getOpaqueParams(claim, DriverName)
+		if err != nil {
+			return nil, err
+		}
+		d.opaqueParams = opaqueParams
+		log.Printf("driver parameters: %+v\n", opaqueParams)
+
+		cdiDeviceID, err := d.prepareHostpath(claim.UID)
 		if err != nil {
 			results[claim.UID] = kubeletplugin.PrepareResult{
 				Err: fmt.Errorf("failed to prepare claim %s: %w", claim.Name, err),
+			}
+			continue
+		}
+
+		if err := d.executeBackendDevice(ctx); err != nil {
+			results[claim.UID] = kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to start backend device for claim %s: %w", claim.Name, err),
 			}
 			continue
 		}
