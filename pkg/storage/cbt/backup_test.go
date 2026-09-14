@@ -687,6 +687,29 @@ var _ = Describe("Backup Controller", func() {
 			Expect(result.Finalizers).To(ContainElement(vmBackupFinalizer))
 		})
 
+		It("should preserve status when patch response has no status", func() {
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []backupv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "waiting"),
+				},
+			}
+
+			addBackup(backup)
+
+			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				updatedBackup := backup.DeepCopy()
+				updatedBackup.Finalizers = []string{vmBackupFinalizer}
+				updatedBackup.Status = nil
+				return true, updatedBackup, nil
+			})
+
+			_, err := controller.addBackupFinalizer(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backup.Status).ToNot(BeNil())
+			Expect(backup.Status.Conditions).To(HaveLen(1))
+		})
+
 		It("should not re-add finalizer if already present", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}

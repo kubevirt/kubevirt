@@ -1033,7 +1033,12 @@ func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachi
 		return backup, err
 	}
 
-	return ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	patched, err := ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to add finalizer: %w", err)
+	}
+	patched.ObjectMeta.DeepCopyInto(&backup.ObjectMeta)
+	return patched, nil
 }
 
 func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMachineBackup) *SyncInfo {
