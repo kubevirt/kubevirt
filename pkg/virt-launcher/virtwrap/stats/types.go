@@ -127,37 +127,38 @@ type DomainStatsNet struct {
 }
 
 type DomainStatsBlock struct {
-	NameSet         bool
-	Name            string
-	Alias           string
-	BackingIndexSet bool
-	BackingIndex    uint
-	PathSet         bool
-	Path            string
-	RdReqsSet       bool
-	RdReqs          uint64
-	RdBytesSet      bool
-	RdBytes         uint64
-	RdTimesSet      bool
-	RdTimes         uint64
-	WrReqsSet       bool
-	WrReqs          uint64
-	WrBytesSet      bool
-	WrBytes         uint64
-	WrTimesSet      bool
-	WrTimes         uint64
-	FlReqsSet       bool
-	FlReqs          uint64
-	FlTimesSet      bool
-	FlTimes         uint64
-	ErrorsSet       bool
-	Errors          uint64
-	AllocationSet   bool
-	Allocation      uint64
-	CapacitySet     bool
-	Capacity        uint64
-	PhysicalSet     bool
-	Physical        uint64
+	NameSet           bool
+	Name              string
+	Alias             string
+	BackingIndexSet   bool
+	BackingIndex      uint
+	PathSet           bool
+	Path              string
+	RdReqsSet         bool
+	RdReqs            uint64
+	RdBytesSet        bool
+	RdBytes           uint64
+	RdTimesSet        bool
+	RdTimes           uint64
+	WrReqsSet         bool
+	WrReqs            uint64
+	WrBytesSet        bool
+	WrBytes           uint64
+	WrTimesSet        bool
+	WrTimes           uint64
+	FlReqsSet         bool
+	FlReqs            uint64
+	FlTimesSet        bool
+	FlTimes           uint64
+	ErrorsSet         bool
+	Errors            uint64
+	AllocationSet     bool
+	Allocation        uint64
+	CapacitySet       bool
+	Capacity          uint64
+	PhysicalSet       bool
+	Physical          uint64
+	LatencyHistograms DomainStatsBlockLatencyHistograms
 }
 
 // mimic existing structs, but data is taken from
@@ -185,6 +186,21 @@ type DomainStatsMemory struct {
 	Usable           uint64
 	TotalSet         bool
 	Total            uint64
+}
+
+type DomainStatsBlockLatencyHistogramBin struct {
+	StartSet bool
+	Start    uint64
+	ValueSet bool
+	Value    uint64
+}
+type DomainStatsBlockLatencyHistogram struct {
+	Bins []DomainStatsBlockLatencyHistogramBin
+}
+type DomainStatsBlockLatencyHistograms struct {
+	Read  *DomainStatsBlockLatencyHistogram
+	Write *DomainStatsBlockLatencyHistogram
+	Flush *DomainStatsBlockLatencyHistogram
 }
 
 // mimic existing structs, but data is taken from
