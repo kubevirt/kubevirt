@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "backup.go",
         "cbt.go",
+        "external_snapshot.go",
         "fsfreeze.go",
         "manager.go",
         "memoryDump.go",

@@ -212,6 +212,8 @@ type DomainManager interface {
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	GetGuestAgentVersion() string
 	GetAgentData(dataKey string) (string, error)
+	ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error
+	CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error
 }
 
 type diskDriverConfigurator interface {
@@ -3456,6 +3458,14 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 	default:
 		return fmt.Errorf("recieved unknown backup command")
 	}
+}
+
+func (l *LibvirtDomainManager) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error {
+	return l.storageManager.ExternalSnapshot(vmi, overlayDir, volumes)
+}
+
+func (l *LibvirtDomainManager) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	return l.storageManager.CommitSnapshot(vmi, overlayDir)
 }
 
 func AgentDataCommandTTLKeys() []string {
