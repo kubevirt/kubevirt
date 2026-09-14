@@ -4295,7 +4295,7 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
 	})
 	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
-		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
+		SetOptimalIOMode(disk, isPreAllocated)
 		Expect(disk.Driver.IO).To(Equal(expectedIO))
 	},
 		Entry("user-specified IO",
