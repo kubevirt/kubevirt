@@ -875,27 +875,22 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					specs := []struct {
 						name  string
 						cache v1.DriverCache
+						dev   string
 					}{
-						{"disk0", v1.CacheNone},
-						{"disk1", v1.CacheDirectSync},
-						{"disk2", v1.CacheWriteThrough},
-						{"disk3", v1.CacheWriteBack},
+						{"disk1", v1.CacheNone, "/dev/vdb"},
+						{"disk2", v1.CacheDirectSync, "/dev/vdc"},
+						{"disk3", v1.CacheWriteThrough, "/dev/vdd"},
+						{"disk4", v1.CacheWriteBack, "/dev/vde"},
 					}
 
-					By("Creating DataVolumes for each cache mode")
-					sourceURL := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
-
-					var vmiOpts []libvmi.Option
+					By("Creating blank block DataVolumes for each cache mode")
+					var cacheDiskOpts []libvmi.Option
 					for _, spec := range specs {
 						dv := libdv.NewDataVolume(
-							libdv.WithRegistrySource(
-								libdv.WithURL(sourceURL),
-								libdv.WithPullMethod(cdiv1.RegistryPullNode),
-								libdv.WithPlatformArch(defaultArch),
-							),
+							libdv.WithBlankImageSource(),
 							libdv.WithStorage(
 								libdv.StorageWithStorageClass(sc),
-								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(sourceURL)),
+								libdv.StorageWithVolumeSize("128Mi"),
 								libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
 								libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 							),
@@ -904,32 +899,42 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 							context.Background(), dv, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
-						vmiOpts = append(vmiOpts, libvmi.WithDataVolume(spec.name, dv.Name, libvmi.WithDiskCache(spec.cache)))
+						cacheDiskOpts = append(cacheDiskOpts, libvmi.WithDataVolume(spec.name, dv.Name, libvmi.WithDiskCache(spec.cache)))
 					}
 
 					By("Starting the VirtualMachineInstance")
-					vmi := libvmi.New(append(vmiOpts,
-						libvmi.WithMemoryRequest("256Mi"),
-						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)...)
+					vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc, cacheDiskOpts...)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-					By("Writing test data before migration")
-					testData := "migration-cache-test-data-1234567890"
-					Expect(console.RunCommand(vmi, fmt.Sprintf("echo '%s' > /testfile", testData), 30*time.Second)).To(Succeed())
+					By("Writing test data to blank block disks before migration")
+					const blockDataOffset = 1048576
+					for _, spec := range specs {
+						Expect(console.RunCommand(vmi, fmt.Sprintf(
+							"test $(blockdev --getsize64 %s) -eq 134217728", spec.dev,
+						), 30*time.Second)).To(Succeed())
+						writeCmd := fmt.Sprintf(
+							"marker='%s'; printf \"$marker\" | dd of=%s bs=1 count=${#marker} seek=%d conv=notrunc",
+							spec.name, spec.dev, blockDataOffset,
+						)
+						Expect(console.RunCommand(vmi, writeCmd, 30*time.Second)).To(Succeed())
+					}
 
 					By("Starting a Migration")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
-					By("Verifying test data survived migration")
-					Expect(console.RunCommand(vmi, fmt.Sprintf("grep -q '%s' /testfile", testData), 30*time.Second)).To(Succeed())
+					By("Verifying test data survived migration on all block disks")
+					for _, spec := range specs {
+						verifyCmd := fmt.Sprintf(
+							"marker='%s'; test \"$(dd if=%s bs=1 count=${#marker} skip=%d 2>/dev/null)\" = \"$marker\"",
+							spec.name, spec.dev, blockDataOffset,
+						)
+						Expect(console.RunCommand(vmi, verifyCmd, 30*time.Second)).To(Succeed())
+					}
 				})
 
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
