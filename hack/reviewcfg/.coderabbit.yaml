@@ -23,6 +23,8 @@ reviews:
       instructions: "See docs/network/network-binding-mechanisms.md."
     - path: "pkg/monitoring/**"
       instructions: "See docs/observability/monitoring-guidelines.md."
+    - path: "{staging/src/kubevirt.io/api,pkg/virt-api/webhooks}/**"
+      instructions: "Follow the rules in docs/api/design_guidelines.md."
   tools:
     trufflehog:
       enabled: true
