@@ -29376,7 +29376,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             OverlayScratchSize overrides the size of the scratch volume holding the
             copy-on-write overlays for the duration of an External mode snapshot.
-            When not set, the size is derived from the size of the snapshotted disks.
+            When not set, the size is derived from FailureDeadline, capped by the
+            size of the snapshotted disks.
             This field can only be set when SnapshotMode is External
           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
           x-kubernetes-int-or-string: true

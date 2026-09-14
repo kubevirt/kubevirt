@@ -65,6 +65,14 @@ const (
 
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
 
+	overlayScratchFinalizer = "snapshot.kubevirt.io/overlay-protection"
+
+	overlayOwnerVMIUIDAnnotation = "snapshot.kubevirt.io/owner-vmi-uid"
+
+	overlayScratchPVCPrefix = "snap-scratch-"
+
+	scratchPVCCreateEvent = "SuccessfulOverlayScratchVolumeCreate"
+
 	snapshotRetryInterval = 5 * time.Second
 
 	contentDeletionInterval = 5 * time.Second
