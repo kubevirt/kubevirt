@@ -57,6 +57,7 @@ type Connection interface {
 	DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error)
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
+	VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (int, error)
 	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
 	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
@@ -230,6 +231,19 @@ func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirD
 		dom = domain.(*libvirt.Domain)
 	}
 	return l.Connect.DomainEventDeviceRemovedRegister(dom, callback)
+}
+
+func (l *LibvirtConnection) VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (int, error) {
+	l.reconnectLock.Lock()
+	defer l.reconnectLock.Unlock()
+
+	if err := l.reconnectIfNecessaryLocked(); err != nil {
+		return 0, err
+	}
+
+	registrationID, err := l.Connect.DomainEventBlockJob2Register(nil, callback)
+	l.checkConnectionLostLocked(err)
+	return registrationID, err
 }
 
 func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
@@ -653,6 +667,9 @@ type VirDomain interface {
 	Resume() error
 	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
 	GetBlockInfo(disk string, flags uint32) (*libvirt.DomainBlockInfo, error)
+	BlockCommit(disk string, base string, top string, bandwidth uint64, flags libvirt.DomainBlockCommitFlags) error
+	BlockJobAbort(disk string, flags libvirt.DomainBlockJobAbortFlags) error
+	GetBlockJobInfo(disk string, flags libvirt.DomainBlockJobInfoFlags) (*libvirt.DomainBlockJobInfo, error)
 	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error

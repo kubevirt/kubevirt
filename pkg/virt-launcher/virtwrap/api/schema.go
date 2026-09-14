@@ -901,6 +901,11 @@ type Disk struct {
 	FilesystemOverhead *v1.Percent   `xml:"filesystemOverhead,omitempty"`
 	Capacity           *int64        `xml:"capacity,omitempty"`
 	Shareable          *Shareable    `xml:"shareable,omitempty"`
+	Mirror             *DiskMirror   `xml:"mirror,omitempty"`
+}
+
+type DiskMirror struct {
+	Ready string `xml:"ready,attr,omitempty"`
 }
 
 type DiskAuth struct {
