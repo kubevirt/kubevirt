@@ -77,21 +77,14 @@ func (l *LibvirtDomainManager) expandDisksOnline(dom cli.VirDomain, domain *api.
 			logger.V(3).Infof("skipping resize of disk %s: unable to determine guest size", name)
 			continue
 		}
-		trackSize := int64(rszArgs.size)
-		if trackSize == 0 {
-			// For block devices libvirt infers the size, so we track PVC capacity
-			// as a change trigger. To report the actual guest-visible size back
-			// (e.g. for VolumeStatus.CurrentGuestSize), we would need to query
-			// the device size via ioctl/blockdev --getsize64 after resize.
-			trackSize = *disk.Capacity
-		}
+		trackSize := *disk.Capacity
 		size, seen := l.guestDiskSizes[name]
 		if !seen {
 			logger.V(1).Infof("tracking disk %s with initial size %d", name, trackSize)
 			l.guestDiskSizes[name] = trackSize
 			continue
 		}
-		if size == trackSize {
+		if size >= trackSize {
 			continue
 		}
 		logger.V(3).Infof("disk %s size changed from %d to %d", name, size, trackSize)

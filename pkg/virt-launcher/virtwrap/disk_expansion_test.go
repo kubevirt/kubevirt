@@ -36,12 +36,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
+const (
+	existingFilePath    = "/dev/null"
+	nonExistingFilePath = "/disks/disk.img"
+)
+
 var _ = Describe("getBlockResizeArgs", func() {
 	const (
-		gb                  = 1024 * 1024 * 1024
-		fakePercent         = v1.Percent("0.05")
-		existingFilePath    = "/dev/null"
-		nonExistingFilePath = "/disks/disk.img"
+		gb          = 1024 * 1024 * 1024
+		fakePercent = v1.Percent("0.05")
 	)
 
 	It("should let libvirt infer size for direct block device (LUKS-safe)", func() {
@@ -204,6 +207,29 @@ var _ = Describe("expandDisksOnline", func() {
 		Expect(manager.guestDiskSizes["disk0"]).To(Equal(newCapacity))
 	})
 
+	It("should not call BlockResize when capacity decreases", func() {
+		oldCapacity := int64(2 * gb)
+		newCapacity := int64(1 * gb)
+		manager.guestDiskSizes["disk0"] = oldCapacity
+
+		domain := &api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{{
+						Source:   api.DiskSource{Dev: "/dev/vda"},
+						Alias:    api.NewUserDefinedAlias("disk0"),
+						Capacity: &newCapacity,
+					}},
+				},
+			},
+		}
+		vmi := pvcBackedVMI("disk0")
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(oldCapacity))
+	})
+
 	It("should not update map when BlockResize fails", func() {
 		oldCapacity := int64(1 * gb)
 		newCapacity := int64(2 * gb)
@@ -228,6 +254,27 @@ var _ = Describe("expandDisksOnline", func() {
 		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
 
 		Expect(manager.guestDiskSizes["disk0"]).To(Equal(oldCapacity))
+	})
+
+	It("should track PVC capacity for file-backed disks", func() {
+		capacity := int64(42 * gb)
+		domain := &api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{{
+						FilesystemOverhead: virtpointer.P(v1.Percent("0.05")),
+						Capacity:           &capacity,
+						Source:             api.DiskSource{File: existingFilePath},
+						Alias:              api.NewUserDefinedAlias("disk0"),
+					}},
+				},
+			},
+		}
+		vmi := pvcBackedVMI("disk0")
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(capacity))
 	})
 
 	It("should skip disks without PVC backing", func() {
