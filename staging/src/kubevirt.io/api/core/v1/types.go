@@ -3104,6 +3104,18 @@ type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
 }
 
+// SnapshotOverlayOptions names the utility volume the copy-on-write overlays
+// of an External mode VirtualMachineSnapshot are written to
+type SnapshotOverlayOptions struct {
+	// VolumeName is the utility volume attached to the VirtualMachineInstance
+	VolumeName string `json:"volumeName"`
+	// Volumes are the volumes the snapshot captures, the only ones put on overlays.
+	// Not used to commit the overlays.
+	// +optional
+	// +listType=atomic
+	Volumes []string `json:"volumes,omitempty"`
+}
+
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info
 type VirtualMachineMemoryDumpRequest struct {
 	// ClaimName is the name of the pvc that will contain the memory dump

@@ -840,6 +840,14 @@ func (FreezeUnfreezeTimeout) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SnapshotOverlayOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "SnapshotOverlayOptions names the utility volume the copy-on-write overlays\nof an External mode VirtualMachineSnapshot are written to",
+		"volumeName": "VolumeName is the utility volume attached to the VirtualMachineInstance",
+		"volumes":    "Volumes are the volumes the snapshot captures, the only ones put on overlays.\nNot used to commit the overlays.\n+optional\n+listType=atomic",
+	}
+}
+
 func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
