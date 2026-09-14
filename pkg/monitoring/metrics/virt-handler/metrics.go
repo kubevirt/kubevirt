@@ -60,8 +60,14 @@ func SetupMetrics(
 		return err
 	}
 
+	// DomainStats uses a custom Prometheus collector because block latency
+	// statistics need to be exposed as pre-aggregated histograms.
+	operatormetrics.Unregister(domainstats.Collector)
+	if err := operatormetrics.Register(domainstats.Collector); err != nil {
+		return err
+	}
+
 	return operatormetrics.RegisterCollector(
-		domainstats.Collector,
 		domainstats.DomainDirtyRateStatsCollector,
 		migrationdomainstats.MigrationStatsCollector,
 		gpuinfo.Collector,
@@ -69,5 +75,5 @@ func SetupMetrics(
 }
 
 func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+	return append(operatormetrics.ListMetrics(), domainstats.ListMetrics()...)
 }
