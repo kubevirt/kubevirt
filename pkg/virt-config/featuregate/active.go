@@ -85,6 +85,14 @@ const (
 	// To support incremental backups, a QCOW2 overlay must be created on top of the VM's raw disk image.
 	IncrementalBackupGate = "IncrementalBackup"
 
+	// Owner: @noamasu
+	// Alpha: v1.10.0
+	//
+	// ExternalVMSnapshot feature gate enables online VM snapshots taken with a QEMU
+	// external snapshot transaction. The guest is only frozen while the qcow2 overlays
+	// are put in place, and the VolumeSnapshots are then taken of the read-only base images.
+	ExternalVMSnapshotGate = "ExternalVMSnapshot"
+
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	// Owner: @alaypatel07
@@ -332,4 +340,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ExternalVMSnapshotGate, State: Alpha})
 }
