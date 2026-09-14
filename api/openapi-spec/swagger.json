@@ -23166,7 +23166,7 @@
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "overlayScratchSize": {
-      "description": "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+      "description": "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from FailureDeadline, capped by the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
      },
      "snapshotMode": {

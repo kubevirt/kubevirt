@@ -23,12 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -41,6 +41,9 @@ import (
 // OverlayScratchPVCPrefix names the volume holding the qcow2 overlays of one
 // External mode snapshot.
 const OverlayScratchPVCPrefix = "snap-scratch-"
+
+// OverlayOwnerVMIUIDAnnotation records which VMI the overlays belong to.
+const OverlayOwnerVMIUIDAnnotation = "snapshot.kubevirt.io/owner-vmi-uid"
 
 // OverlayProtectionFinalizer keeps scratch alive until its overlays are proven safe.
 const OverlayProtectionFinalizer = "snapshot.kubevirt.io/overlay-protection"
@@ -78,6 +81,7 @@ func ScratchPVCName(contentUID types.UID) string {
 
 const (
 	MiB = 1024 * 1024
+	GiB = 1024 * MiB
 
 	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
 )

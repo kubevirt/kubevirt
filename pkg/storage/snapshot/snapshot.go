@@ -22,6 +22,7 @@ package snapshot
 import (
 	"context"
 	"fmt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"strings"
 	"time"
 
@@ -64,6 +65,16 @@ const (
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
+
+	vmSnapshotOverlaysGoneEarlyError = "the overlays were gone before the snapshot completed"
+
+	vmSnapshotUnsupportedModeError = "unsupported snapshotMode"
+
+	overlayScratchFinalizer = storagetypes.OverlayProtectionFinalizer
+
+	scratchPVCCreateEvent = "SuccessfulOverlayScratchVolumeCreate"
+
+	overlayCommitFailedEvent = "OverlayCommitFailed"
 
 	snapshotRetryInterval = 5 * time.Second
 

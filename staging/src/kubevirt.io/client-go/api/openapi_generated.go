@@ -37135,7 +37135,7 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotSpec(ref commo
 					},
 					"overlayScratchSize": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+							Description: "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from FailureDeadline, capped by the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
 							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
 						},
 					},
