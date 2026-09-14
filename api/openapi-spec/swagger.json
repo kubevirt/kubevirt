@@ -22850,6 +22850,10 @@
      "readyToUse": {
       "type": "boolean"
      },
+     "snapshotMode": {
+      "description": "SnapshotMode is the actual mode the snapshot is taken with",
+      "type": "string"
+     },
      "volumeSnapshotStatus": {
       "type": "array",
       "items": {
@@ -22902,6 +22906,14 @@
      "failureDeadline": {
       "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "overlayScratchSize": {
+      "description": "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
+     },
+     "snapshotMode": {
+      "description": "SnapshotMode selects the flow used to snapshot a running VM. Only meaningful for online snapshots; offline snapshots are unaffected. External requires the ExternalVMSnapshot feature gate. Defaults to Direct",
+      "type": "string"
      },
      "source": {
       "default": {},

@@ -37014,6 +37014,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotContentStatus(
 							},
 						},
 					},
+					"snapshotMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotMode is the actual mode the snapshot is taken with",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -37096,12 +37103,25 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotSpec(ref commo
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},
+					"snapshotMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotMode selects the flow used to snapshot a running VM. Only meaningful for online snapshots; offline snapshots are unaffected. External requires the ExternalVMSnapshot feature gate. Defaults to Direct",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overlayScratchSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			v1.TypedLocalObjectReference{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), resource.Quantity{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
 	}
 }
 
