@@ -433,6 +433,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/backup",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
+					"virtualmachineinstances/externalsnapshot",
+					"virtualmachineinstances/commitsnapshot",
 					"virtualmachineinstances/reset",
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/sev/setupsession",
