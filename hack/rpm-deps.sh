@@ -18,7 +18,7 @@ CS_CONFIG="cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
 # Version-specific package versions
 if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
     # CS10 pinned versions
-    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:12.5.0-1.el10}
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:12.5.0-4.el10}
     QEMU_VERSION=${QEMU_VERSION:-18:10.1.0-25.el10}
     # Pinned to 1.16.3 rather than 1.17.0: SeaBIOS 1.17.0 dropped the internal
     # ACPI table generator, so a BIOS guest launched with ACPI disabled
@@ -34,7 +34,7 @@ if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
     LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.25.7-1.el10}
 else
     # CS9 pinned versions
-    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.10.0-12.el9}
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.10.0-19.el9}
     QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-20.el9}
     SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
     EDK2_VERSION=${EDK2_VERSION:-0:20241117-8.el9}
