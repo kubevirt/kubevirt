@@ -102,7 +102,8 @@ type VirtualMachineSnapshotSpec struct {
 
 	// OverlayScratchSize overrides the size of the scratch volume holding the
 	// copy-on-write overlays for the duration of an External mode snapshot.
-	// When not set, the size is derived from the size of the snapshotted disks.
+	// When not set, the size is derived from FailureDeadline, capped by the
+	// size of the snapshotted disks.
 	// This field can only be set when SnapshotMode is External
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="quantity(string(self)).isGreaterThan(quantity('0'))",message="overlayScratchSize must be greater than zero"
