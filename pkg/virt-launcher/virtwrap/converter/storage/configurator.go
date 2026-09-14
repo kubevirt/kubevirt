@@ -130,6 +130,9 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		if err != nil {
 			return err
 		}
+		if !emptyCDRom {
+			newDisk.Driver.Statistics = getDefaultDiskDriverStatistics()
+		}
 
 		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
 			return err
@@ -217,6 +220,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		Cache: string(diskDevice.Cache),
 		IO:    diskDevice.IO,
 	}
+
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
 		if !slices.Contains(d.volumesDiscardIgnore, diskDevice.Name) {
 			disk.Driver.Discard = "unmap"
@@ -239,6 +243,55 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 	}
 
 	return nil
+}
+
+func getDefaultDiskDriverStatistics() *api.DiskDriverStatistics {
+	histograms := make(
+		[]api.DiskDriverLatencyHistogram,
+		0,
+		len(DefaultLatencyHistogramOperations()),
+	)
+
+	for _, operation := range DefaultLatencyHistogramOperations() {
+		histograms = append(histograms, api.DiskDriverLatencyHistogram{
+			Type: operation,
+			Bins: getDefaultLatencyHistogramBins(),
+		})
+	}
+
+	return &api.DiskDriverStatistics{
+		LatencyHistograms: histograms,
+	}
+}
+
+func getDefaultLatencyHistogramBins() []api.DiskDriverLatencyHistBin {
+	starts := DefaultLatencyHistogramBinStarts()
+	bins := make([]api.DiskDriverLatencyHistBin, len(starts))
+
+	for i, start := range starts {
+		bins[i] = api.DiskDriverLatencyHistBin{
+			Start: start,
+		}
+	}
+
+	return bins
+}
+
+func DefaultLatencyHistogramOperations() []string {
+	return []string{"read", "write", "flush"}
+}
+
+func DefaultLatencyHistogramBinStarts() []uint32 {
+	return []uint32{
+		0,
+		1_000_000,
+		10_000_000,
+		50_000_000,
+		100_000_000,
+		500_000_000,
+		1_000_000_000,
+		2_000_000_000,
+	}
 }
 
 func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string) error {
