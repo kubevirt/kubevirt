@@ -135,7 +135,7 @@ var _ = Describe("Validating network binding combinations", func() {
 var _ = Describe("Validating core binding", func() {
 	It("should reject a masquerade interface on a network different than pod", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(v1.Port{Name: "test"})),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPorts(v1.Port{Name: "test"}))),
 			libvmi.WithNetwork(libvmi.MultusNetwork("default", "test")),
 		)
 
@@ -173,7 +173,7 @@ var _ = Describe("Validating core binding", func() {
 
 	It("should reject a bridge interface on a pod network when it is not permitted", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
