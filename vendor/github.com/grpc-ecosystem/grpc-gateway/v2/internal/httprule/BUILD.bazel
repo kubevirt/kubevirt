@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compile.go",
+        "parse.go",
+        "types.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule",
+    importpath = "github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule",
+    visibility = ["//vendor/github.com/grpc-ecosystem/grpc-gateway/v2:__subpackages__"],
+    deps = ["//vendor/github.com/grpc-ecosystem/grpc-gateway/v2/utilities:go_default_library"],
+)
