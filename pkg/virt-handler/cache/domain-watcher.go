@@ -295,53 +295,10 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
-	if err != nil {
-		return nil, err
-	}
-	for _, socketFile := range socketFiles {
+	ghostRecords := GhostRecordGlobalStore.list()
 
-		exists, err := diskutils.FileExists(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed access cmd client socket")
-			continue
-		}
-
-		if !exists {
-			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
-			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
-				log.Log.Object(domain).Warning("detected stale domain from ghost record")
-				domains = append(domains, domain)
-			}
-			continue
-		}
-
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to connect to cmd client socket")
-			// Ignore failure to connect to client.
-			// These are all local connections via unix socket.
-			// A failure to connect means there's nothing on the other
-			// end listening.
-			continue
-		}
-		defer client.Close()
-
-		domain, exists, err := client.GetDomain()
-		if err != nil {
-			log.Log.Reason(err).Error("failed to list domains on cmd client socket")
-			// Failure to get domain list means that client
-			// was unable to contact libvirt. As soon as the connection
-			// is restored on the client's end, a domain notification will
-			// be sent.
-			continue
-		}
-		if exists {
+	for _, record := range ghostRecords {
+		if domain := getDomainFromRecord(record); domain != nil {
 			domains = append(domains, domain)
 		}
 	}
@@ -406,4 +363,49 @@ func listSockets(ghostRecords []ghostRecord) ([]string, error) {
 	}
 
 	return sockets, nil
+}
+
+func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {
+	domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+	domain.ObjectMeta.UID = record.UID
+	domain.Spec.Metadata.KubeVirt.UID = record.UID
+	domain.Status = status
+
+	return domain
+}
+
+func getDomainFromRecord(record ghostRecord) *api.Domain {
+	socketFile := record.SocketFile
+
+	exists, err := diskutils.FileExists(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Error("failed access cmd client socket")
+		return nil
+	}
+
+	if !exists {
+		domain := newDomainFromGhostRecord(record, api.DomainStatus{})
+		now := metav1.Now()
+		domain.DeletionTimestamp = &now
+		log.Log.Object(domain).Warning("detected stale domain from ghost record")
+		return domain
+	}
+
+	log.Log.V(3).Infof("List domains from sock %s", socketFile)
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	defer client.Close()
+
+	domain, exists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	if !exists {
+		return nil
+	}
+	return domain
 }
