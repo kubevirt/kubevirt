@@ -412,6 +412,7 @@ var _ = Describe("MemoryDump", func() {
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: k8sv1.ServiceSpec{
+					ClusterIP: k8sv1.ClusterIPNone,
 					Ports: []k8sv1.ServicePort{{
 						Name: "export",
 						Port: int32(exportpkg.ExportServerPort),
