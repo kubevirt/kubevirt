@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
@@ -64,6 +65,10 @@ const (
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
+
+	overlayScratchFinalizer = storagetypes.OverlayProtectionFinalizer
+
+	scratchPVCCreateEvent = "SuccessfulOverlayScratchVolumeCreate"
 
 	snapshotRetryInterval = 5 * time.Second
 

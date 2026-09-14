@@ -32,6 +32,9 @@ import (
 // External mode snapshot.
 const OverlayScratchPVCPrefix = "snap-scratch-"
 
+// OverlayOwnerVMIUIDAnnotation records which VMI the overlays belong to.
+const OverlayOwnerVMIUIDAnnotation = "snapshot.kubevirt.io/owner-vmi-uid"
+
 // OverlayProtectionFinalizer keeps the scratch PVC alive until its overlays are proven safe.
 const OverlayProtectionFinalizer = "snapshot.kubevirt.io/overlay-protection"
 

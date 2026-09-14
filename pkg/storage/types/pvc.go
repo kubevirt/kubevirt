@@ -38,6 +38,7 @@ import (
 
 const (
 	MiB = 1024 * 1024
+	GiB = 1024 * MiB
 
 	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
 )
