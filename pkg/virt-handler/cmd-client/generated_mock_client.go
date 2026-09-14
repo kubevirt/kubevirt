@@ -71,6 +71,20 @@ func (mr *MockLauncherClientMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockLauncherClient)(nil).Close))
 }
 
+// CommitSnapshot mocks base method.
+func (m *MockLauncherClient) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitSnapshot", vmi, overlayDir)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CommitSnapshot indicates an expected call of CommitSnapshot.
+func (mr *MockLauncherClientMockRecorder) CommitSnapshot(vmi, overlayDir any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitSnapshot", reflect.TypeOf((*MockLauncherClient)(nil).CommitSnapshot), vmi, overlayDir)
+}
+
 // DeleteDomain mocks base method.
 func (m *MockLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
 	m.ctrl.T.Helper()
@@ -99,6 +113,20 @@ func (m *MockLauncherClient) Exec(arg0, arg1 string, arg2 []string, arg3 int32) 
 func (mr *MockLauncherClientMockRecorder) Exec(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockLauncherClient)(nil).Exec), arg0, arg1, arg2, arg3)
+}
+
+// ExternalSnapshot mocks base method.
+func (m *MockLauncherClient) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExternalSnapshot", vmi, overlayDir)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExternalSnapshot indicates an expected call of ExternalSnapshot.
+func (mr *MockLauncherClientMockRecorder) ExternalSnapshot(vmi, overlayDir any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExternalSnapshot", reflect.TypeOf((*MockLauncherClient)(nil).ExternalSnapshot), vmi, overlayDir)
 }
 
 // FinalizeVirtualMachineMigration mocks base method.

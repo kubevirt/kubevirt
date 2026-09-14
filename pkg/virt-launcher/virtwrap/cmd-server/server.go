@@ -1008,3 +1008,37 @@ func (l *Launcher) RedefineCheckpoint(_ context.Context, request *cmdv1.Redefine
 		},
 	}, nil
 }
+
+func (l *Launcher) ExternalSnapshot(_ context.Context, request *cmdv1.ExternalSnapshotRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.ExternalSnapshot(vmi, request.OverlayDir); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to start external snapshot")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("External snapshot transaction accepted")
+	return response, nil
+}
+
+func (l *Launcher) CommitSnapshot(_ context.Context, request *cmdv1.CommitSnapshotRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.CommitSnapshot(vmi, request.OverlayDir); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to start snapshot overlay commit")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Snapshot overlay commit started")
+	return response, nil
+}

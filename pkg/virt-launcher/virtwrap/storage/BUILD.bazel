@@ -6,6 +6,7 @@ go_library(
         "backup.go",
         "backup_tunnel.go",
         "cbt.go",
+        "external_snapshot.go",
         "fsfreeze.go",
         "manager.go",
         "memoryDump.go",
