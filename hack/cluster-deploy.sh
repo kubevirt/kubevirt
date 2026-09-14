@@ -57,6 +57,8 @@ function _ensure_cdi_deployment() {
 function configure_prometheus() {
     if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && _kubectl get crd prometheuses.monitoring.coreos.com; then
         _kubectl patch prometheus k8s -n monitoring --type=json -p '[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {"kubevirt.io": ""}}}]'
+        _kubectl patch deployment kube-state-metrics -n monitoring --type=json -p '[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--metric-labels-allowlist=pods=[*],nodes=[*],namespaces=[*],persistentvolumes=[*],persistentvolumeclaims=[*],poddisruptionbudgets=[*]"}]'
+        _kubectl rollout status deployment kube-state-metrics -n monitoring --timeout=5m
     fi
 }
 

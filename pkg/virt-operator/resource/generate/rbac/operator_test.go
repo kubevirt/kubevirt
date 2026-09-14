@@ -72,6 +72,25 @@ var _ = Describe("RBAC", func() {
 			Expect(clusterRole).ToNot(BeNil())
 			expectExactRuleDoesntExists(clusterRole.Rules, "", "secrets", "get", "list", "watch")
 		})
+
+		It("holds every permission granted by the monitoring role", func() {
+			clusterRole := getFirstItemOfType(forOperator, reflect.TypeOf(&rbacv1.ClusterRole{})).(*rbacv1.ClusterRole)
+			Expect(clusterRole).ToNot(BeNil())
+
+			monitorRole := getObject(
+				GetAllServiceMonitor(expectedNamespace, "monitoring", "prometheus-k8s"),
+				reflect.TypeOf(&rbacv1.Role{}), MONITOR_SERVICEACCOUNT_NAME,
+			).(*rbacv1.Role)
+			Expect(monitorRole).ToNot(BeNil())
+
+			for _, rule := range monitorRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					for _, resource := range rule.Resources {
+						expectRuleIsGranted(clusterRole.Rules, apiGroup, resource, rule.Verbs...)
+					}
+				}
+			}
+		})
 	})
 
 	Context("GetKubevirtComponentsServiceAccounts", func() {
@@ -100,6 +119,27 @@ func getFirstItemOfType(items []interface{}, tp reflect.Type) interface{} {
 		}
 	}
 	return nil
+}
+
+func expectRuleIsGranted(rules []rbacv1.PolicyRule, apiGroup, resource string, verbs ...string) {
+	for _, rule := range rules {
+		if !contains(rule.APIGroups, apiGroup) || !contains(rule.Resources, resource) {
+			continue
+		}
+
+		granted := true
+		for _, verb := range verbs {
+			if !contains(rule.Verbs, verb) {
+				granted = false
+				break
+			}
+		}
+		if granted {
+			return
+		}
+	}
+
+	Fail(fmt.Sprintf("Rule (apiGroup: %s, resource: %s, verbs: %v) not granted", apiGroup, resource, verbs))
 }
 
 func expectExactRuleDoesntExists(rules []rbacv1.PolicyRule, apiGroup, resource string, verbs ...string) {
