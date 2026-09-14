@@ -29,6 +29,8 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 
+	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -57,6 +59,15 @@ var _ = Describe("RBAC", func() {
 			Entry("for vmsnapshotcontents", "snapshot.kubevirt.io", "virtualmachinesnapshotcontents"),
 			Entry("for vms", "kubevirt.io", "virtualmachines"),
 			Entry("for vmis", "kubevirt.io", "virtualmachineinstances"),
+		)
+
+		DescribeTable("has rbac to update", func(resource string) {
+			clusterRole := getObject(forController, reflect.TypeOf(&rbacv1.ClusterRole{}), components.ControllerServiceAccountName).(*rbacv1.ClusterRole)
+			Expect(clusterRole).ToNot(BeNil())
+			expectExactRuleExists(clusterRole.Rules, virtv1.SubresourceGroupName, resource, "update")
+		},
+			Entry("virtualmachineinstances/externalsnapshot", "virtualmachineinstances/externalsnapshot"),
+			Entry("virtualmachineinstances/commitsnapshot", "virtualmachineinstances/commitsnapshot"),
 		)
 	})
 })
