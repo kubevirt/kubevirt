@@ -29369,6 +29369,28 @@ var CRDsValidation map[string]string = map[string]string{
             as failed.
             Defaults to DefaultFailureDeadline - 5min
           type: string
+        overlayScratchSize:
+          anyOf:
+          - type: integer
+          - type: string
+          description: |-
+            OverlayScratchSize overrides the size of the scratch volume holding the
+            copy-on-write overlays for the duration of an External mode snapshot.
+            When not set, the size is derived from the size of the snapshotted disks.
+            This field can only be set when SnapshotMode is External
+          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+          x-kubernetes-int-or-string: true
+          x-kubernetes-validations:
+          - message: overlayScratchSize must be greater than zero
+            rule: quantity(string(self)).isGreaterThan(quantity('0'))
+        snapshotMode:
+          default: Direct
+          description: |-
+            SnapshotMode selects the flow used to snapshot a running VM.
+            Only meaningful for online snapshots; offline snapshots are unaffected.
+            External requires the ExternalVMSnapshot feature gate.
+            Defaults to Direct
+          type: string
         source:
           description: |-
             TypedLocalObjectReference contains enough information to let you locate the
@@ -29394,6 +29416,10 @@ var CRDsValidation map[string]string = map[string]string{
       required:
       - source
       type: object
+      x-kubernetes-validations:
+      - message: overlayScratchSize can only be set when snapshotMode is External
+        rule: '!has(self.overlayScratchSize) || (has(self.snapshotMode) && self.snapshotMode
+          == ''External'')'
     status:
       description: VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot
         resource
@@ -35006,6 +35032,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
         readyToUse:
           type: boolean
+        snapshotMode:
+          description: SnapshotMode is the actual mode the snapshot is taken with
+          type: string
         volumeSnapshotStatus:
           items:
             description: VolumeSnapshotStatus is the status of a VolumeSnapshot
