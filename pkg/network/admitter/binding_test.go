@@ -173,7 +173,7 @@ var _ = Describe("Validating core binding", func() {
 
 	It("should reject a bridge interface on a pod network when it is not permitted", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
