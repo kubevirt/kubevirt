@@ -30,19 +30,18 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
 var _ = Describe("Validating VMI network spec", func() {
 	It("should reject network with missing interface", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{}
-		spec.Networks = []v1.Network{{
+		vmi := libvmi.New(libvmi.WithNetwork(&v1.Network{
 			Name:          "not-the-default",
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-		}}
+		}))
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -53,11 +52,13 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	It("should reject interface with missing network", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		spec.Networks = []v1.Network{}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		vmi := libvmi.New(libvmi.WithInterface(
+			libvmi.NewInterface(
+				"default",
+				libvmi.WithBridgeBinding(),
+			)),
+		)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -68,24 +69,13 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	It("should reject networks with duplicate names", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		spec.Networks = []v1.Network{
-			{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Pod: &v1.PodNetwork{},
-				},
-			},
-			{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "test"},
-				},
-			},
-		}
+		vmi := libvmi.New(libvmi.WithInterface(
+			libvmi.InterfaceDeviceWithBridgeBinding("default")),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "test")),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -96,17 +86,14 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	It("should reject interfaces with duplicate names", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{
-			*v1.DefaultBridgeNetworkInterface(),
-			*v1.DefaultBridgeNetworkInterface(),
-		}
-		spec.Networks = []v1.Network{
-			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-			{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}}},
-		}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "test")),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ContainElements(metav1.StatusCause{
@@ -117,14 +104,15 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	It("should reject interface named with unsupported characters", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   "bad.name",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-		}}
-		spec.Networks = []v1.Network{{Name: "bad.name", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("bad.name", libvmi.WithMasqueradeBinding())),
+			libvmi.WithNetwork(&v1.Network{
+				Name:          "bad.name",
+				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			}),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
@@ -133,12 +121,12 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	It("should reject invalid interface model", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].Model = "invalid_model"
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithModel("invalid_model"))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueNotSupported",
 			Message: "interface fake.domain.devices.interfaces[0].name uses model invalid_model that is not supported.",
@@ -147,22 +135,22 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	It("should accept valid interface model", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].Model = v1.VirtIO
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithModel(v1.VirtIO))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 
 	DescribeTable("should reject invalid MAC addresses", func(macAddress, expectedMessage string) {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].MacAddress = macAddress
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithMac(macAddress))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: expectedMessage,
@@ -187,12 +175,12 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	DescribeTable("should accept valid MAC addresses", func(macAddress string) {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].MacAddress = macAddress
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithMac(macAddress))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	},
 		Entry("valid address in lowercase and colon separated", "de:ad:00:00:be:af"),
@@ -202,12 +190,12 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	DescribeTable("should reject invalid PCI addresses", func(pciAddress string) {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPciAddress(pciAddress))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: fmt.Sprintf("interface fake.domain.devices.interfaces[0].name has malformed PCI address (%s).", pciAddress),
@@ -220,12 +208,12 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	DescribeTable("should accept valid PCI address", func(pciAddress string) {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPciAddress(pciAddress))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	},
 		Entry("valid address A", "0000:81:11.1"),
@@ -234,15 +222,12 @@ var _ = Describe("Validating VMI network spec", func() {
 
 	When("the interface port is specified", func() {
 		DescribeTable("should reject interface port with", func(ports []v1.Port, expectedCauses []metav1.StatusCause) {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  ports,
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPorts(ports...))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
 		},
 			Entry(
@@ -293,15 +278,12 @@ var _ = Describe("Validating VMI network spec", func() {
 		)
 
 		DescribeTable("should accept interface with", func(ports []v1.Port) {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  ports,
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPorts(ports...))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
 			Entry("single minimal port", []v1.Port{{Port: 80}}),
@@ -314,15 +296,16 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 	When("the interface portRanges is specified", func() {
 		It("should reject portRanges when feature gate is disabled", func() {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				PortRanges:             []v1.PortRange{{Start: 80, End: 90}},
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					PortRanges:             []v1.PortRange{{Start: 80, End: 90}},
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: false})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{portRangesSpecGateEnabled: false})
 			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "portRanges is specified on interface but the PortRangesSpec feature gate is not enabled",
@@ -330,16 +313,17 @@ var _ = Describe("Validating VMI network spec", func() {
 			}))
 		})
 		It("should reject when binding method is not masquerade", func() {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+					PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
 			validator := admitter.NewValidator(
-				k8sfield.NewPath("fake"), spec,
+				k8sfield.NewPath("fake"), &vmi.Spec,
 				stubClusterConfigChecker{portRangesSpecGateEnabled: true, bridgeBindingOnPodNetEnabled: true},
 			)
 			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
@@ -350,16 +334,17 @@ var _ = Describe("Validating VMI network spec", func() {
 		})
 
 		It("should reject when portRanges and ports are both set", func() {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  []v1.Port{{Port: 22}},
-				PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Ports:                  []v1.Port{{Port: 22}},
+					PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
 			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "Cannot define both ports and portRanges on interface",
@@ -368,15 +353,16 @@ var _ = Describe("Validating VMI network spec", func() {
 		})
 
 		DescribeTable("should reject portRanges with", func(portRanges []v1.PortRange, expectedCauses []metav1.StatusCause) {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				PortRanges:             portRanges,
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					PortRanges:             portRanges,
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
 			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
 		},
 			Entry(
@@ -427,15 +413,16 @@ var _ = Describe("Validating VMI network spec", func() {
 		)
 
 		DescribeTable("should accept portRanges with", func(portRanges []v1.PortRange) {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				PortRanges:             portRanges,
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					PortRanges:             portRanges,
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
 			Entry("single range", []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}}),
@@ -450,15 +437,16 @@ var _ = Describe("Validating VMI network spec", func() {
 
 	When("the interface DHCP options is specified", func() {
 		DescribeTable("should reject interface DHCP options with", func(dhcpOpts v1.DHCPOptions, expectedCauses []metav1.StatusCause) {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				DHCPOptions:            &dhcpOpts,
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					DHCPOptions:            &dhcpOpts,
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
 		},
 			Entry(
@@ -500,15 +488,16 @@ var _ = Describe("Validating VMI network spec", func() {
 		)
 
 		DescribeTable("should accept interface DHCP options with", func(dhcpOpts v1.DHCPOptions) {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				DHCPOptions:            &dhcpOpts,
-			}}
-			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					DHCPOptions:            &dhcpOpts,
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 			Expect(validator.Validate()).To(BeEmpty())
 		},
 			Entry("  valid DHCPPrivateOptions", v1.DHCPOptions{
