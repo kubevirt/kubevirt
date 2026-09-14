@@ -81,6 +81,26 @@ func (mr *MockCmdClientMockRecorder) CancelVirtualMachineMigration(ctx, in any, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelVirtualMachineMigration", reflect.TypeOf((*MockCmdClient)(nil).CancelVirtualMachineMigration), varargs...)
 }
 
+// CommitSnapshot mocks base method.
+func (m *MockCmdClient) CommitSnapshot(ctx context.Context, in *CommitSnapshotRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CommitSnapshot", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitSnapshot indicates an expected call of CommitSnapshot.
+func (mr *MockCmdClientMockRecorder) CommitSnapshot(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitSnapshot", reflect.TypeOf((*MockCmdClient)(nil).CommitSnapshot), varargs...)
+}
+
 // DeleteVirtualMachine mocks base method.
 func (m *MockCmdClient) DeleteVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	m.ctrl.T.Helper()
@@ -119,6 +139,26 @@ func (mr *MockCmdClientMockRecorder) Exec(ctx, in any, opts ...any) *gomock.Call
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockCmdClient)(nil).Exec), varargs...)
+}
+
+// ExternalSnapshot mocks base method.
+func (m *MockCmdClient) ExternalSnapshot(ctx context.Context, in *ExternalSnapshotRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExternalSnapshot", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExternalSnapshot indicates an expected call of ExternalSnapshot.
+func (mr *MockCmdClientMockRecorder) ExternalSnapshot(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExternalSnapshot", reflect.TypeOf((*MockCmdClient)(nil).ExternalSnapshot), varargs...)
 }
 
 // FinalizeVirtualMachineMigration mocks base method.
@@ -815,6 +855,21 @@ func (mr *MockCmdServerMockRecorder) CancelVirtualMachineMigration(arg0, arg1 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelVirtualMachineMigration", reflect.TypeOf((*MockCmdServer)(nil).CancelVirtualMachineMigration), arg0, arg1)
 }
 
+// CommitSnapshot mocks base method.
+func (m *MockCmdServer) CommitSnapshot(arg0 context.Context, arg1 *CommitSnapshotRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitSnapshot", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitSnapshot indicates an expected call of CommitSnapshot.
+func (mr *MockCmdServerMockRecorder) CommitSnapshot(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitSnapshot", reflect.TypeOf((*MockCmdServer)(nil).CommitSnapshot), arg0, arg1)
+}
+
 // DeleteVirtualMachine mocks base method.
 func (m *MockCmdServer) DeleteVirtualMachine(arg0 context.Context, arg1 *VMIRequest) (*Response, error) {
 	m.ctrl.T.Helper()
@@ -843,6 +898,21 @@ func (m *MockCmdServer) Exec(arg0 context.Context, arg1 *ExecRequest) (*ExecResp
 func (mr *MockCmdServerMockRecorder) Exec(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockCmdServer)(nil).Exec), arg0, arg1)
+}
+
+// ExternalSnapshot mocks base method.
+func (m *MockCmdServer) ExternalSnapshot(arg0 context.Context, arg1 *ExternalSnapshotRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExternalSnapshot", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExternalSnapshot indicates an expected call of ExternalSnapshot.
+func (mr *MockCmdServerMockRecorder) ExternalSnapshot(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExternalSnapshot", reflect.TypeOf((*MockCmdServer)(nil).ExternalSnapshot), arg0, arg1)
 }
 
 // FinalizeVirtualMachineMigration mocks base method.
