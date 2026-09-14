@@ -192,6 +192,10 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
 
+func (config *ClusterConfig) ExternalVMSnapshotEnabled() bool {
+	return config.IsFeatureGateEnabled(featuregate.ExternalVMSnapshotGate)
+}
+
 func (config *ClusterConfig) RebootPolicyEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.RebootPolicy)
 }
