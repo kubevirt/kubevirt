@@ -15,6 +15,7 @@ go_library(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/collector:go_default_library",
         "//pkg/safepath:go_default_library",
+        "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
@@ -38,6 +39,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "console_test.go",
+        "lifecycle_test.go",
         "rest_suite_test.go",
         "vmstats_test.go",
     ],

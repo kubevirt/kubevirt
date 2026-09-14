@@ -35,14 +35,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 const (
-	failedRetrieveVMI      = "Failed to retrieve VMI"
-	failedFreezeVMI        = "Failed to freeze VMI"
-	failedDetectCmdClient  = "Failed to detect cmd client"
-	failedConnectCmdClient = "Failed to connect cmd client"
+	failedRetrieveVMI         = "Failed to retrieve VMI"
+	failedFreezeVMI           = "Failed to freeze VMI"
+	failedExternalSnapshotVMI = "Failed to start the external snapshot of the VMI"
+	failedCommitSnapshotVMI   = "Failed to start the snapshot overlay commit of the VMI"
+	failedDetectCmdClient     = "Failed to detect cmd client"
+	failedConnectCmdClient    = "Failed to connect cmd client"
 )
 
 type LifecycleHandler struct {
@@ -153,6 +156,80 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) ExternalSnapshotHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+
+	overlayDir, err := overlayDirFromRequest(request, vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to resolve the overlay directory of the external snapshot request")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	if err := client.ExternalSnapshot(vmi, overlayDir); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedExternalSnapshotVMI)
+		response.WriteError(http.StatusInternalServerError, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "ExternalSnapshotError", "%s: %s", failedExternalSnapshotVMI, err.Error())
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) CommitSnapshotHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+
+	overlayDir, err := overlayDirFromRequest(request, vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to resolve the overlay directory of the commit snapshot request")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	if err := client.CommitSnapshot(vmi, overlayDir); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedCommitSnapshotVMI)
+		response.WriteError(http.StatusInternalServerError, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "CommitSnapshotError", "%s: %s", failedCommitSnapshotVMI, err.Error())
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+// The volume has to be attached to the VMI: the launcher is handed a path, and
+// an unknown name would let the caller pick an arbitrary directory.
+func overlayDirFromRequest(request *restful.Request, vmi *v1.VirtualMachineInstance) (string, error) {
+	if request.Request.Body == nil {
+		return "", fmt.Errorf("failed to retrieve the snapshot overlay volume from the request")
+	}
+	defer request.Request.Body.Close()
+
+	opts := &v1.SnapshotOverlayOptions{}
+	err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		return "", err
+	}
+
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		if utilityVolume.Name == opts.VolumeName {
+			return hotplugdisk.GetVolumeMountDir(opts.VolumeName), nil
+		}
+	}
+
+	return "", fmt.Errorf("%q is not a utility volume of this VirtualMachineInstance", opts.VolumeName)
 }
 
 func (lh *LifecycleHandler) ResetHandler(request *restful.Request, response *restful.Response) {

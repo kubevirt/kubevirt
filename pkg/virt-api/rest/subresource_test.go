@@ -1227,6 +1227,54 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	Context("Snapshot overlays", func() {
+		It("Should start an external snapshot of a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/externalsnapshot"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+
+			expectVMI(Running, UnPaused)
+
+			app.ExternalSnapshotVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail starting an external snapshot of a not running VMI", func() {
+			expectVMI(NotRunning, UnPaused)
+
+			app.ExternalSnapshotVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should commit the overlays of a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/commitsnapshot"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+
+			expectVMI(Running, UnPaused)
+
+			app.CommitSnapshotVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail committing the overlays of a not running VMI", func() {
+			expectVMI(NotRunning, UnPaused)
+
+			app.CommitSnapshotVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+	})
+
 	Context("Reset", func() {
 		It("Should reset a running VMI", func() {
 			backend.AppendHandlers(

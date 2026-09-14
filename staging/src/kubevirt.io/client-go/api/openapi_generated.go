@@ -560,6 +560,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.SeccompConfiguration{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		corev1.SecretVolumeSource{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		corev1.ServiceAccountVolumeSource{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
+		corev1.SnapshotOverlayOptions{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_SnapshotOverlayOptions(ref),
 		corev1.SoundDevice{}.OpenAPIModelName():                                                           schema_kubevirtio_api_core_v1_SoundDevice(ref),
 		corev1.StallDetectorOptions{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_StallDetectorOptions(ref),
 		corev1.StartOptions{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_StartOptions(ref),
@@ -26388,6 +26389,28 @@ func schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref common.Referen
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SnapshotOverlayOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SnapshotOverlayOptions names the utility volume the copy-on-write overlays of an External mode VirtualMachineSnapshot are written to",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the utility volume attached to the VirtualMachineInstance",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName"},
 			},
 		},
 	}

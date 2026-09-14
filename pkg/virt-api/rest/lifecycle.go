@@ -664,6 +664,36 @@ func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, 
 	app.putRequestHandler(request, response, validate, getURL, false)
 }
 
+func (app *SubresourceAPIApp) ExternalSnapshotVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ExternalSnapshotURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+func (app *SubresourceAPIApp) CommitSnapshotVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.CommitSnapshotURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
 func (app *SubresourceAPIApp) RedefineCheckpointVMIRequestHandler(request *restful.Request, response *restful.Response) {
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.ChangedBlockTracking == nil ||

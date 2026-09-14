@@ -733,6 +733,8 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze").To(lifecycleHandler.FreezeHandler).Reads(v1.FreezeUnfreezeTimeout{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze").To(lifecycleHandler.UnfreezeHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/externalsnapshot").To(lifecycleHandler.ExternalSnapshotHandler).Reads(v1.SnapshotOverlayOptions{}))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/commitsnapshot").To(lifecycleHandler.CommitSnapshotHandler).Reads(v1.SnapshotOverlayOptions{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot").To(lifecycleHandler.SoftRebootHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/reset").To(lifecycleHandler.ResetHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo").To(lifecycleHandler.GetGuestInfo).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
