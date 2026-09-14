@@ -1322,6 +1322,10 @@ const (
 
 	// This annotation is used to mark a VMI as a migration target, and to start a receiver pod.
 	CreateMigrationTarget = "kubevirt.io/create-migration-target"
+
+	// PendingOverlayRecoveryAnnotation names the scratch volume a VMI is waiting
+	// to have hotplugged before its domain starts on the overlays it holds
+	PendingOverlayRecoveryAnnotation = "snapshot.kubevirt.io/pending-overlay-recovery"
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 
@@ -3000,6 +3004,13 @@ type VirtualMachineInstanceFileSystem struct {
 // FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
 type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
+}
+
+// SnapshotOverlayOptions names the utility volume the copy-on-write overlays
+// of an External mode VirtualMachineSnapshot are written to
+type SnapshotOverlayOptions struct {
+	// VolumeName is the utility volume attached to the VirtualMachineInstance
+	VolumeName string `json:"volumeName"`
 }
 
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info

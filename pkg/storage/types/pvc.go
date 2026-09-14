@@ -20,8 +20,10 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -35,6 +37,44 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 )
+
+// OverlayScratchPVCPrefix names the volume holding the qcow2 overlays of one
+// External mode snapshot.
+const OverlayScratchPVCPrefix = "snap-scratch-"
+
+// OverlayProtectionFinalizer keeps scratch alive until its overlays are proven safe.
+const OverlayProtectionFinalizer = "snapshot.kubevirt.io/overlay-protection"
+
+// OverlaySnapshotReferenceAnnotation carries the expected transaction to launcher
+// through the VMI JSON already included in snapshot and commit requests.
+const OverlaySnapshotReferenceAnnotation = "snapshot.kubevirt.io/overlay-reference"
+
+// SnapshotOverlayReference identifies the transaction carried in launcher
+// requests. It is not part of the public API.
+type SnapshotOverlayReference struct {
+	ContentUID    types.UID `json:"contentUID"`
+	ScratchPVCUID types.UID `json:"scratchPVCUID"`
+}
+
+func GetOverlaySnapshotReference(vmi *virtv1.VirtualMachineInstance) (*SnapshotOverlayReference, error) {
+	if vmi == nil || vmi.Annotations[OverlaySnapshotReferenceAnnotation] == "" {
+		return nil, nil
+	}
+	var reference SnapshotOverlayReference
+	if err := json.Unmarshal([]byte(vmi.Annotations[OverlaySnapshotReferenceAnnotation]), &reference); err != nil {
+		return nil, fmt.Errorf("invalid snapshot overlay reference: %w", err)
+	}
+	if reference.ContentUID == "" || reference.ScratchPVCUID == "" {
+		return nil, fmt.Errorf("snapshot overlay reference requires content and scratch PVC UIDs")
+	}
+	return &reference, nil
+}
+
+// ScratchPVCName is derived from the content UID, so a snapshot recreated
+// under the same name gets a new volume.
+func ScratchPVCName(contentUID types.UID) string {
+	return OverlayScratchPVCPrefix + string(contentUID)
+}
 
 const (
 	MiB = 1024 * 1024
