@@ -1,6 +1,8 @@
 package libmonitoring
 
 import (
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -49,4 +51,8 @@ func RegisterAllMetrics() error {
 	workqueueMetricsProvider.NewRetriesMetric("")
 
 	return nil
+}
+
+func ListMetrics() []operatormetrics.Metric {
+	return virthandler.ListMetrics()
 }
