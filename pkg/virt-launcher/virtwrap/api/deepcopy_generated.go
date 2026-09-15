@@ -722,6 +722,11 @@ func (in *Console) DeepCopyInto(out *Console) {
 		*out = new(ConsoleSource)
 		**out = **in
 	}
+	if in.Log != nil {
+		in, out := &in.Log, &out.Log
+		*out = new(SerialLog)
+		**out = **in
+	}
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
 		*out = new(Alias)

@@ -39,51 +39,88 @@ var _ = Describe("Console Domain Configurator", func() {
 	serialType := "serial"
 
 	DescribeTable("should configure serial console when AutoattachSerialConsole is not disabled",
-		func(autoattach *bool) {
+		func(autoattach *bool, arch string, expectSerial bool) {
 			vmi := libvmi.New(libvmi.WithUID(uid))
 			vmi.Spec.Domain.Devices.AutoattachSerialConsole = autoattach
 
 			var domain api.Domain
-			Expect(compute.NewConsoleDomainConfigurator(false).Configure(vmi, &domain)).To(Succeed())
+			Expect(compute.NewConsoleDomainConfigurator(false, arch).Configure(vmi, &domain)).To(Succeed())
+
+			if arch == "s390x" {
+				// On s390x: only <console> with sclp target, no <serial>
+				sclpType := "sclp"
+				expectedDomain := api.Domain{
+					Spec: api.DomainSpec{
+						Devices: api.Devices{
+							Consoles: []api.Console{
+								{
+									Type: "unix",
+									Source: &api.ConsoleSource{
+										Mode: "bind",
+										Path: socketPath,
+									},
+									Target: &api.ConsoleTarget{
+										Type: &sclpType,
+										Port: &serialPort,
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(domain).To(Equal(expectedDomain))
+				return
+			}
+
+			// Non-s390x: <console type="pty"> + <serial type="unix">
+			var consoles []api.Console
+			var serials []api.Serial
+			if expectSerial {
+				consoles = []api.Console{
+					{
+						Type: "pty",
+						Target: &api.ConsoleTarget{
+							Type: &serialType,
+							Port: &serialPort,
+						},
+					},
+				}
+				serials = []api.Serial{
+					{
+						Type: "unix",
+						Source: &api.SerialSource{
+							Mode: "bind",
+							Path: socketPath,
+						},
+						Target: &api.SerialTarget{
+							Port: &serialPort,
+						},
+					},
+				}
+			}
 
 			expectedDomain := api.Domain{
 				Spec: api.DomainSpec{
 					Devices: api.Devices{
-						Consoles: []api.Console{
-							{
-								Type: "pty",
-								Target: &api.ConsoleTarget{
-									Type: &serialType,
-									Port: &serialPort,
-								},
-							},
-						},
-						Serials: []api.Serial{
-							{
-								Type: "unix",
-								Source: &api.SerialSource{
-									Mode: "bind",
-									Path: socketPath,
-								},
-								Target: &api.SerialTarget{
-									Port: &serialPort,
-								},
-							},
-						},
+						Consoles: consoles,
+						Serials:  serials,
 					},
 				},
 			}
 			Expect(domain).To(Equal(expectedDomain))
 		},
-		Entry("when AutoattachSerialConsole is nil", nil),
-		Entry("when AutoattachSerialConsole is true", pointer.P(true)),
+		Entry("when AutoattachSerialConsole is nil on amd64", nil, "amd64", true),
+		Entry("when AutoattachSerialConsole is true on amd64", pointer.P(true), "amd64", true),
+		Entry("when AutoattachSerialConsole is nil on arm64", nil, "arm64", true),
+		Entry("when AutoattachSerialConsole is nil on s390x", nil, "s390x", true),
+		Entry("when AutoattachSerialConsole is true on s390x", pointer.P(true), "s390x", true),
 	)
 
 	It("should NOT configure serial console when AutoattachSerialConsole is explicitly false", func() {
 		vmi := libvmi.New(libvmi.WithAutoattachSerialConsole(false))
 		var domain api.Domain
 
-		Expect(compute.NewConsoleDomainConfigurator(false).Configure(vmi, &domain)).To(Succeed())
+		Expect(compute.NewConsoleDomainConfigurator(false, "amd64").Configure(vmi, &domain)).To(Succeed())
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
@@ -91,7 +128,7 @@ var _ = Describe("Console Domain Configurator", func() {
 		vmi := libvmi.New(libvmi.WithUID(uid))
 
 		var domain api.Domain
-		configurator := compute.NewConsoleDomainConfigurator(true)
+		configurator := compute.NewConsoleDomainConfigurator(true, "amd64")
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
@@ -114,6 +151,41 @@ var _ = Describe("Console Domain Configurator", func() {
 								Path: socketPath,
 							},
 							Target: &api.SerialTarget{
+								Port: &serialPort,
+							},
+							Log: &api.SerialLog{
+								File:   socketPath + "-log",
+								Append: "on",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("should configure console-only with sclp target and log on s390x (no serial device)", func() {
+		vmi := libvmi.New(libvmi.WithUID(uid))
+
+		var domain api.Domain
+		configurator := compute.NewConsoleDomainConfigurator(true, "s390x")
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		sclpType := "sclp"
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					Consoles: []api.Console{
+						{
+							Type: "unix",
+							Source: &api.ConsoleSource{
+								Mode: "bind",
+								Path: socketPath,
+							},
+							Target: &api.ConsoleTarget{
+								Type: &sclpType,
 								Port: &serialPort,
 							},
 							Log: &api.SerialLog{
