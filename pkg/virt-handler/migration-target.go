@@ -289,10 +289,6 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	vmi.Status.NodeName = c.host
 	// clean the evacuation node name since have already migrated to a new node
 	vmi.Status.EvacuationNodeName = ""
-	// update the vmi migrationTransport to indicate that the next migration should use unix URI
-	// new workloads will set the migrationTransport on creation, however legacy workloads
-	// can make the switch only after the first migration
-	vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 	// Update the memory overhead to reflect the target pod's overhead after migration completes
 	if vmi.Status.MigrationState.TargetMemoryOverhead != nil {
 		if vmi.Status.Memory == nil {

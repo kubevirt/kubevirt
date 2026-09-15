@@ -508,7 +508,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
 		Expect(updatedVMI.Status.EvacuationNodeName).To(BeEmpty())
 		Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
-		Expect(updatedVMI.Status.MigrationTransport).To(Equal(v1.MigrationTransportUnix))
 		Expect(updatedVMI.Status.Interfaces).To(BeEmpty())
 	})
 

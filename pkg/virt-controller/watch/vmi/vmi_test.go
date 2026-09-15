@@ -2186,11 +2186,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("ErrImagePull --> ImagePullBackOff", kvcontroller.ErrImagePullReason, kvcontroller.ImagePullBackOffReason),
 			Entry("ImagePullBackOff --> ErrImagePull", kvcontroller.ImagePullBackOffReason, kvcontroller.ErrImagePullReason),
 		)
-		It("should add MigrationTransport to VMI status if MigrationTransportUnixAnnotation was set", func() {
+		It("should add MigrationTransport to VMI status", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduling
 			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.Annotations[virtv1.MigrationTransportUnixAnnotation] = "true"
 
 			addVirtualMachine(vmi)
 			addPod(pod)
