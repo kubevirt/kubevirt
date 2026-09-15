@@ -1079,6 +1079,8 @@ type InterfaceSource struct {
 	Device  string   `xml:"dev,attr,omitempty"`
 	Bridge  string   `xml:"bridge,attr,omitempty"`
 	Mode    string   `xml:"mode,attr,omitempty"`
+	Type    string   `xml:"type,attr,omitempty"`
+	Path    string   `xml:"path,attr,omitempty"`
 	Address *Address `xml:"address,omitempty"`
 }
 
