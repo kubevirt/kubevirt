@@ -62,6 +62,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/gvk"
 )
@@ -574,6 +575,234 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 				Expect(*patchCalls).To(Equal(1))
 				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			DescribeTable("should settle an interrupted snapshot before allowing restore cleanup", func(captured, restored, committed bool) {
+				vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (bool, runtime.Object, error) {
+					updated := action.(testing.UpdateAction).GetObject()
+					return true, updated, vmSnapshotClient.Tracker().Update(snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots"), updated, testNamespace)
+				})
+				vm := createLockedVM()
+				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
+					Type: v1.VirtualMachineManualRecoveryRequired, Status: corev1.ConditionTrue, Reason: "UncommittedOverlays",
+				})
+				Expect(vmInformer.GetStore().Add(vm)).To(Succeed())
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				vmSnapshot.Spec.FailureDeadline = &metav1.Duration{}
+				content := createReadyVMSnapshotContent()
+				content.UID = "external-content-uid"
+				content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				if !captured {
+					content.Status.CreationTime = nil
+					content.Status.ReadyToUse = pointer.P(false)
+				}
+				Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
+				Expect(vmSnapshotClient.Tracker().Add(vmSnapshot)).To(Succeed())
+				pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
+					Name: scratchPVCName(content), Namespace: content.Namespace, UID: "scratch-uid",
+					Finalizers:      []string{overlayScratchFinalizer},
+					OwnerReferences: []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: content.Name, UID: content.UID, Controller: pointer.P(true)}},
+				}}
+				Expect(pvcInformer.GetStore().Add(pvc)).To(Succeed())
+				if restored || committed {
+					virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+					vmiInterface.EXPECT().Get(gomock.Any(), vm.Name, gomock.Any()).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstances"), vm.Name))
+					k8sClient.PrependReactor("list", "pods", func(testing.Action) (bool, runtime.Object, error) { return true, &corev1.PodList{}, nil })
+					k8sClient.PrependReactor("patch", "persistentvolumeclaims", func(testing.Action) (bool, runtime.Object, error) { return true, pvc, nil })
+				}
+				if committed {
+					metav1.SetMetaDataAnnotation(&vm.ObjectMeta, storagetypes.OverlaysCommittedAnnotation, "scratch-uid")
+					Expect(vmInformer.GetStore().Update(vm)).To(Succeed())
+				}
+				if restored {
+					r := &snapshotv1.VirtualMachineRestore{ObjectMeta: metav1.ObjectMeta{Name: "restore", Namespace: testNamespace, UID: "restore-uid", OwnerReferences: []metav1.OwnerReference{{UID: vm.UID, Controller: pointer.P(true)}}}, Status: &snapshotv1.VirtualMachineRestoreStatus{Complete: pointer.P(true)}}
+					setLastRestoreAnnotation(r, vm)
+					vm.Spec.Template.Spec.Volumes = nil
+					Expect(vmInformer.GetStore().Update(vm)).To(Succeed())
+					virtClient.EXPECT().VirtualMachineRestore(testNamespace).Return(vmSnapshotClient.SnapshotV1beta1().VirtualMachineRestores(testNamespace)).AnyTimes()
+					vmSnapshotClient.PrependReactor("list", "virtualmachinerestores", func(testing.Action) (bool, runtime.Object, error) {
+						return true, &snapshotv1.VirtualMachineRestoreList{Items: []snapshotv1.VirtualMachineRestore{*r}}, nil
+					})
+				}
+				vmInterface.EXPECT().Patch(gomock.Any(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(vm.DeepCopy(), nil)
+				vmInterface.EXPECT().UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, updated *v1.VirtualMachine, _ metav1.UpdateOptions) (*v1.VirtualMachine, error) {
+						Expect(updated.Status.SnapshotInProgress).To(BeNil())
+						Expect(virtcontroller.NewVirtualMachineConditionManager().HasConditionWithStatus(updated, v1.VirtualMachineManualRecoveryRequired, corev1.ConditionTrue)).To(BeTrue())
+						return updated, nil
+					})
+				_, err := controller.updateVMSnapshot(vmSnapshot)
+				Expect(err).ToNot(HaveOccurred())
+				if !captured {
+					obj, getErr := vmSnapshotClient.Tracker().Get(snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots"), testNamespace, vmSnapshot.Name)
+					Expect(getErr).ToNot(HaveOccurred())
+					vmSnapshot = obj.(*snapshotv1.VirtualMachineSnapshot)
+					Expect(err).ToNot(HaveOccurred())
+					_, err = controller.updateVMSnapshot(vmSnapshot)
+					Expect(err).ToNot(HaveOccurred())
+				}
+				if restored || committed {
+					Expect(pvc.Finalizers).To(ContainElement(overlayScratchFinalizer))
+					vm.Status.SnapshotInProgress = nil
+					vm.Finalizers = nil
+					Expect(vmInformer.GetStore().Update(vm)).To(Succeed())
+					oldSnapshot := vmSnapshot.DeepCopy()
+					oldSnapshot.Name, oldSnapshot.UID = "older-snapshot", "older-uid"
+					oldSnapshot.Status.VirtualMachineSnapshotContentName = pointer.P("older-content")
+					Expect(vmSnapshotClient.Tracker().Add(oldSnapshot)).To(Succeed())
+					oldContent := content.DeepCopy()
+					oldContent.Name, oldContent.UID = GetVMSnapshotContentName(oldSnapshot), "older-content-uid"
+					Expect(vmSnapshotContentInformer.GetStore().Add(oldContent)).To(Succeed())
+					k8sClient.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						if action.(testing.GetAction).GetName() == scratchPVCName(oldContent) {
+							return true, nil, errors.NewNotFound(corev1.Resource("persistentvolumeclaims"), scratchPVCName(oldContent))
+						}
+						return false, nil, nil
+					})
+					_, err = controller.updateVMSnapshot(oldSnapshot)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pvcInformer.GetStore().Delete(pvc)).To(Succeed())
+					k8sClient.PrependReactor("get", "persistentvolumeclaims", func(testing.Action) (bool, runtime.Object, error) {
+						return true, nil, errors.NewNotFound(corev1.Resource("persistentvolumeclaims"), pvc.Name)
+					})
+					vm.Status.SnapshotInProgress = nil
+					vm.Finalizers = nil
+					Expect(vmInformer.GetStore().Update(vm)).To(Succeed())
+					vmInterface.EXPECT().UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, updated *v1.VirtualMachine, _ metav1.UpdateOptions) (*v1.VirtualMachine, error) {
+						Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(updated, v1.VirtualMachineManualRecoveryRequired)).To(BeFalse())
+						return updated, nil
+					})
+					if committed {
+						vmInterface.EXPECT().Patch(gomock.Any(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(_ context.Context, _ string, _ types.PatchType, data []byte, _ metav1.PatchOptions, _ ...string) (*v1.VirtualMachine, error) {
+								Expect(data).To(MatchJSON(`[{"op":"test","path":"/metadata/annotations/snapshot.kubevirt.io~1overlays-committed","value":"scratch-uid"},{"op":"remove","path":"/metadata/annotations/snapshot.kubevirt.io~1overlays-committed"}]`))
+								return vm, nil
+							})
+					}
+					_, err = controller.updateVMSnapshot(vmSnapshot)
+					Expect(err).ToNot(HaveOccurred())
+				} else {
+					Expect(pvc.Finalizers).To(ContainElement(overlayScratchFinalizer))
+					Expect(k8sClient.Actions()).To(BeEmpty())
+				}
+			}, Entry("completed capture", true, false, false), Entry("unfinished capture with no deadline", false, false, false), Entry("successful restore waits for scratch cleanup", true, true, false),
+				Entry("manual commit waits for scratch cleanup", true, false, true))
+
+			DescribeTable("should keep the external source locked while scratch remains", func(phase snapshotv1.VirtualMachineSnapshotPhase) {
+				vmSnapshot := createVMSnapshotSuccess()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				vmSnapshot.Status.Phase = phase
+				if phase == snapshotv1.Deleting {
+					vmSnapshot.DeletionTimestamp = currentTime()
+				}
+				vmSnapshotClient.PrependReactor("delete", "virtualmachinesnapshotcontents", func(action testing.Action) (bool, runtime.Object, error) {
+					return true, nil, nil
+				})
+				vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (bool, runtime.Object, error) {
+					return true, action.(testing.UpdateAction).GetObject(), nil
+				})
+				vm := createLockedVM()
+				Expect(vmInformer.GetStore().Add(vm)).To(Succeed())
+				content := createReadyVMSnapshotContent()
+				content.UID = "external-content-uid"
+				content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
+				pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
+					Name: scratchPVCName(content), Namespace: content.Namespace, UID: "scratch-uid",
+					Finalizers:      []string{overlayScratchFinalizer},
+					OwnerReferences: []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: content.Name, UID: content.UID, Controller: pointer.P(true)}},
+				}}
+				Expect(pvcInformer.GetStore().Add(pvc)).To(Succeed())
+				_, err := controller.updateVMSnapshot(vmSnapshot)
+				Expect(err).ToNot(HaveOccurred())
+			},
+				Entry("after capture succeeded", snapshotv1.Succeeded),
+				Entry("after capture failed", snapshotv1.Failed),
+				Entry("while deleting", snapshotv1.Deleting),
+			)
+
+			DescribeTable("should fail an unfinished External capture before unlocking its deleting source", func(csiReady bool) {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				vmSnapshot.Spec.FailureDeadline = &metav1.Duration{}
+				var failed *snapshotv1.VirtualMachineSnapshot
+				vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (bool, runtime.Object, error) {
+					failed = action.(testing.UpdateAction).GetObject().(*snapshotv1.VirtualMachineSnapshot).DeepCopy()
+					return true, failed, nil
+				})
+				vm := createLockedVM()
+				vm.DeletionTimestamp = currentTime()
+				Expect(vmInformer.GetStore().Add(vm)).To(Succeed())
+				if csiReady {
+					content := createReadyVMSnapshotContent()
+					content.Status.CreationTime = nil
+					content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+					Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
+					vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshotcontents", func(action testing.Action) (bool, runtime.Object, error) {
+						updated := action.(testing.UpdateAction).GetObject().(*snapshotv1.VirtualMachineSnapshotContent)
+						Expect(updated.Status.ReadyToUse).To(HaveValue(BeFalse()))
+						Expect(vmSnapshotContentInformer.GetStore().Update(updated)).To(Succeed())
+						return true, updated, nil
+					})
+					virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+					k8sClient.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						return true, nil, errors.NewNotFound(schema.GroupResource{Resource: "persistentvolumeclaims"}, scratchPVCName(content))
+					})
+				}
+
+				_, err := controller.updateVMSnapshot(vmSnapshot)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(failed).ToNot(BeNil())
+				Expect(failed.Status.Phase).To(Equal(snapshotv1.Failed))
+				Expect(failed.Status.ReadyToUse).To(HaveValue(BeFalse()))
+				if csiReady {
+					_, err = controller.updateVMSnapshot(failed)
+					Expect(err).ToNot(HaveOccurred())
+					content, err := controller.getContent(failed)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(content.Status.ReadyToUse).To(HaveValue(BeFalse()))
+				}
+
+				updatedVM := vm.DeepCopy()
+				updatedVM.Finalizers = []string{}
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(updatedVM, nil)
+				updatedVM.Status.SnapshotInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Return(updatedVM, nil)
+				_, err = controller.updateVMSnapshot(failed)
+				Expect(err).ToNot(HaveOccurred())
+			},
+				Entry("before CSI capture", false),
+				Entry("CSI ready without a recorded valid capture", true),
+			)
+
+			It("should keep a completed External capture usable when its source is deleting", func() {
+				vmSnapshot := createVMSnapshotSuccess()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				vm := createLockedVM()
+				vm.DeletionTimestamp = currentTime()
+				Expect(vmInformer.GetStore().Add(vm)).To(Succeed())
+				content := createReadyVMSnapshotContent()
+				content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
+				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+				k8sClient.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewNotFound(schema.GroupResource{Resource: "persistentvolumeclaims"}, scratchPVCName(content))
+				})
+				updatedVM := vm.DeepCopy()
+				updatedVM.Finalizers = []string{}
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(updatedVM, nil)
+				updatedVM.Status.SnapshotInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Return(updatedVM, nil)
+				vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (bool, runtime.Object, error) {
+					updated := action.(testing.UpdateAction).GetObject().(*snapshotv1.VirtualMachineSnapshot)
+					Expect(updated.Status.Phase).To(Equal(snapshotv1.Succeeded))
+					Expect(updated.Status.ReadyToUse).To(HaveValue(BeTrue()))
+					return true, updated, nil
+				})
+
+				_, err := controller.updateVMSnapshot(vmSnapshot)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("should unlock source VirtualMachine", func() {
@@ -1381,6 +1610,26 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*contentDeletes).To(Equal(1))
 			})
 
+			It("should fail a VirtualMachineSnapshot asking for a mode this version does not know", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotMode("Hybrid"))
+				vmSource.Add(createLockedVM())
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.Phase = snapshotv1.Failed
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newFailureCondition(corev1.ConditionTrue, `unsupported snapshotMode "Hybrid"`),
+					newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
 			It("should remove error if vmsnapshotcontent not in error anymore", func() {
 				vmSnapshot := createVMSnapshotErrored()
 				vm := createLockedVM()
@@ -1443,6 +1692,72 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 				Expect(*contentDeletes).To(Equal(1))
+			})
+
+			It("should fail an External snapshot whose overlays closed before it captured", func() {
+				// The overlays hold the base images still, so once they are gone
+				// the capture cannot be retried and the deadline is moot.
+				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+				k8sClient.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewNotFound(corev1.Resource("persistentvolumeclaims"), action.(testing.GetAction).GetName())
+				})
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createLockedVM()
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					SnapshotMode:         pointer.P(snapshotv1.SnapshotModeExternal),
+					ReadyToUse:           pointer.P(false),
+					VolumeSnapshotStatus: []snapshotv1.VolumeSnapshotStatus{{VolumeSnapshotName: "vs-disk1"}},
+				}
+
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				vmSource.Add(vm)
+				vmiSource.Add(createVMI(vm))
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.Phase = snapshotv1.Failed
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newFailureCondition(corev1.ConditionTrue, vmSnapshotOverlaysGoneEarlyError),
+					newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should record External mode before doing anything else", func() {
+				// The record is what still identifies the scratch volume as this
+				// snapshot's once the VMSnapshot is gone.
+				vm := createLockedVM()
+				storageClass := createStorageClass()
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					SnapshotMode: pointer.P(snapshotv1.SnapshotModeExternal),
+				}
+
+				vmSource.Add(vm)
+				storageClassSource.Add(storageClass)
+
+				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*snapshotCreates).To(Equal(0))
 			})
 
 			It("should create VolumeSnapshot", func() {
@@ -2236,6 +2551,37 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("created and ready", timeFunc(), true),
 			)
 
+			DescribeTable("should keep Direct content protected when only the content is deleting", func(mode *snapshotv1.SnapshotMode, phase snapshotv1.VirtualMachineSnapshotPhase) {
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmi := createVMI(vm)
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceAgentConnected,
+					Status: corev1.ConditionTrue,
+				})
+				vmiSource.Add(vmi)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = mode
+				vmSnapshot.Status.Phase = phase
+				vmSnapshot.Status.ReadyToUse = pointer.P(phase == snapshotv1.Succeeded)
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.DeletionTimestamp = timeFunc()
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{SnapshotMode: mode}
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Times(0)
+				patchCalls := expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, vmSnapshotContent)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*patchCalls).To(Equal(0))
+			},
+				Entry("default mode, in progress", nil, snapshotv1.InProgress),
+				Entry("default mode, succeeded", nil, snapshotv1.Succeeded),
+				Entry("explicit Direct mode, in progress", pointer.P(snapshotv1.SnapshotModeDirect), snapshotv1.InProgress),
+				Entry("explicit Direct mode, succeeded", pointer.P(snapshotv1.SnapshotModeDirect), snapshotv1.Succeeded),
+			)
+
 			DescribeTable("should attempt to unfreeze vm and remove content finalizer if vmsnapshot deleting", func(unfreezeError error) {
 				vm := createLockedVM()
 				vmSource.Add(vm)
@@ -2270,6 +2616,119 @@ var _ = Describe("Snapshot controlleer", func() {
 			},
 				Entry("UnFreeze success", nil),
 				Entry("UnFreeze error", fmt.Errorf("error")),
+			)
+
+			DescribeTable("should keep the content finalizer until the overlays are merged", func(deleteContent bool) {
+				// The content is the last object that knows the guest is on
+				// overlays, so it cannot go before they are back on base.
+				vm := createLockedVM()
+				vmSource.Add(vm)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotContent := createVMSnapshotContent()
+				if deleteContent {
+					vmSnapshotContent.DeletionTimestamp = timeFunc()
+				} else {
+					vmSnapshot.DeletionTimestamp = timeFunc()
+				}
+				vmSnapshotContent.UID = contentUID
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					SnapshotMode: pointer.P(snapshotv1.SnapshotModeExternal),
+				}
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmi := createVMI(vm)
+				vmi.UID = "vmi-uid"
+				vmi.Status.SnapshotOverlayPVCUID = "scratch-uid"
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+					Status: corev1.ConditionTrue,
+					Reason: v1.VirtualMachineInstanceReasonOverlaysReady,
+				})
+				vmiSource.Add(vmi)
+
+				pvcSource.Add(&corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            scratchPVCName(vmSnapshotContent),
+						Namespace:       testNamespace,
+						UID:             "scratch-uid",
+						Finalizers:      []string{overlayScratchFinalizer},
+						OwnerReferences: []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: vmSnapshotContent.Name, UID: vmSnapshotContent.UID, Controller: pointer.P(true)}},
+						Annotations:     map[string]string{storagetypes.OverlayOwnerVMIUIDAnnotation: string(vmi.UID)},
+					},
+				})
+
+				vmiInterface.EXPECT().
+					CommitSnapshot(context.Background(), vm.Name, gomock.Any()).
+					Return(nil).
+					Times(1)
+				patchCalls := expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, vmSnapshotContent)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*patchCalls).To(Equal(0))
+			},
+				Entry("snapshot deleting", false),
+				Entry("content deleting", true),
+			)
+
+			DescribeTable("should be ready only once the External capture is recorded", func(creationTime *metav1.Time, expectReady bool) {
+				vm := createLockedVM()
+				vmSource.Add(vm)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					SnapshotMode: pointer.P(snapshotv1.SnapshotModeExternal),
+					CreationTime: creationTime,
+					ReadyToUse:   pointer.P(false),
+				}
+
+				vmi := createVMI(vm)
+				vmi.UID = "vmi-uid"
+				vmi.Status.SnapshotOverlayPVCUID = "scratch-uid"
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+					Status: corev1.ConditionTrue,
+					Reason: v1.VirtualMachineInstanceReasonOverlayCommitting,
+				})
+				vmiSource.Add(vmi)
+
+				pvcSource.Add(&corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            scratchPVCName(vmSnapshotContent),
+						Namespace:       testNamespace,
+						UID:             "scratch-uid",
+						Finalizers:      []string{overlayScratchFinalizer},
+						OwnerReferences: []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: vmSnapshotContent.Name, UID: vmSnapshotContent.UID, Controller: pointer.P(true)}},
+						Annotations:     map[string]string{storagetypes.OverlayOwnerVMIUIDAnnotation: string(vmi.UID)},
+					},
+				})
+
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				var updated *snapshotv1.VirtualMachineSnapshotContent
+				vmSnapshotClient.Fake.PrependReactor("update", "virtualmachinesnapshotcontents", func(action testing.Action) (bool, runtime.Object, error) {
+					updated = action.(testing.UpdateAction).GetObject().(*snapshotv1.VirtualMachineSnapshotContent)
+					return true, updated, nil
+				})
+
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					volumeSnapshots[i].Status.ReadyToUse = pointer.P(true)
+					volumeSnapshots[i].Status.CreationTime = timeFunc()
+					addVolumeSnapshot(&volumeSnapshots[i])
+				}
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(updated).ToNot(BeNil())
+				Expect(updated.Status.ReadyToUse).To(HaveValue(Equal(expectReady)))
+				Expect(updated.Status.CreationTime).To(Equal(creationTime))
+			},
+				Entry("not when a commit started before the capture", nil, false),
+				Entry("when the capture was recorded before the commit", timeFunc(), true),
 			)
 
 			DescribeTable("should delete informer", func(crdName string) {

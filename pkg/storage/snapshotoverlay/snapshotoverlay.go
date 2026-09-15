@@ -88,3 +88,10 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, condMan
 		LastTransitionTime: metav1.Now(),
 	})
 }
+
+// HasUncommittedOverlays reports whether the VM is blocked by overlays a stopped
+// launcher left uncommitted.
+func HasUncommittedOverlays(vm *v1.VirtualMachine) bool {
+	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
+	return condition != nil && condition.Status == k8sv1.ConditionTrue && condition.Reason == storagetypes.UncommittedOverlaysReason
+}

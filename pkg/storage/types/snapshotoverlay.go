@@ -42,6 +42,13 @@ const OverlayProtectionFinalizer = "snapshot.kubevirt.io/overlay-protection"
 // through the VMI JSON already included in snapshot and commit requests.
 const OverlaySnapshotReferenceAnnotation = "snapshot.kubevirt.io/overlay-reference"
 
+// UncommittedOverlaysReason is the ManualRecoveryRequired reason for overlays a
+// stopped launcher left uncommitted.
+const UncommittedOverlaysReason = "UncommittedOverlays"
+
+// OverlaysCommittedAnnotation records on the VM which scratch PVC had its overlays committed manually.
+const OverlaysCommittedAnnotation = "snapshot.kubevirt.io/overlays-committed"
+
 // SnapshotOverlayReference identifies the transaction carried in launcher
 // requests. It is not part of the public API.
 type SnapshotOverlayReference struct {
