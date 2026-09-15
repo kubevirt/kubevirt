@@ -377,7 +377,8 @@
                 },
                 "tag": "tagValue",
                 "acpiIndex": -9,
-                "state": "stateValue"
+                "state": "stateValue",
+                "mtu": -3
               }
             ],
             "inputs": [

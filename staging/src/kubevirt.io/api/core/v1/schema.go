@@ -1495,6 +1495,12 @@ type Interface struct {
 	// Empty value functions as `up`.
 	// +optional
 	State InterfaceState `json:"state,omitempty"`
+	// MTU specifies the Maximum Transmission Unit size in bytes advertised to the guest via the VirtIO device.
+	// When set, this value overrides the MTU in the libvirt domain XML without changing the pod network infrastructure
+	// (tap, bridge, and pod interface MTU remain unchanged).
+	// Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+	// +optional
+	MTU *uint32 `json:"mtu,omitempty"`
 }
 
 type InterfaceState string
