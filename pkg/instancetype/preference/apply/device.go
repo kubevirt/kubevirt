@@ -99,7 +99,7 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 
 	ApplyAutoAttachPreferences(preferenceSpec, vmiSpec)
 	applyDiskPreferences(preferenceSpec, vmiSpec)
-	applyInterfacePreferences(preferenceSpec, vmiSpec)
+	ApplyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
 	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
 }
