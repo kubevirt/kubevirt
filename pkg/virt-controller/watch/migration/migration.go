@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -323,12 +324,26 @@ func (c *Controller) Execute() bool {
 	return true
 }
 
-func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigration) {
-	if migration.Labels == nil {
-		migration.Labels = map[string]string{virtv1.MigrationSelectorLabel: migration.Spec.VMIName}
-	} else if _, exist := migration.Labels[virtv1.MigrationSelectorLabel]; !exist {
-		migration.Labels[virtv1.MigrationSelectorLabel] = migration.Spec.VMIName
+// latestApiVersionMetadataPatch returns a merge patch setting the latest
+// observed API version annotations and, when missing, the migration selector
+// label. The annotations have no read-dependency, so on their own they carry
+// no precondition. The selector label must not overwrite a live value the
+// informer has not observed yet, so when the patch includes it, it also
+// carries the cached object's resourceVersion, keeping optimistic concurrency
+// for exactly that write: on conflict the controller requeues and retries
+// from a fresher cache.
+func latestApiVersionMetadataPatch(migration *virtv1.VirtualMachineInstanceMigration) ([]byte, error) {
+	metadata := map[string]interface{}{
+		"annotations": map[string]string{
+			virtv1.ControllerAPILatestVersionObservedAnnotation:  virtv1.ApiLatestVersion,
+			virtv1.ControllerAPIStorageVersionObservedAnnotation: virtv1.ApiStorageVersion,
+		},
 	}
+	if _, exists := migration.Labels[virtv1.MigrationSelectorLabel]; !exists {
+		metadata["labels"] = map[string]string{virtv1.MigrationSelectorLabel: migration.Spec.VMIName}
+		metadata["resourceVersion"] = migration.ResourceVersion
+	}
+	return json.Marshal(map[string]interface{}{"metadata": metadata})
 }
 
 func (c *Controller) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
@@ -387,11 +402,12 @@ func (c *Controller) execute(key string) error {
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(migration) {
-		migration := migration.DeepCopy()
-		controller.SetLatestApiVersionAnnotation(migration)
-		// Ensure the migration contains our selector label
-		ensureSelectorLabelPresent(migration)
-		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
+		var patchBytes []byte
+		patchBytes, err = latestApiVersionMetadataPatch(migration)
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Patch(context.Background(), migration.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	}
 
