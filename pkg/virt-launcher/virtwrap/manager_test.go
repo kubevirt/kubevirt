@@ -60,7 +60,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -2724,12 +2723,17 @@ var _ = Describe("Manager", func() {
 	})
 
 	Context("on successful VirtualMachineInstance migrate", func() {
-		funcPreviousValue := ip.GetLoopbackAddress
 
-		BeforeEach(func() {
-			ip.GetLoopbackAddress = func() string {
-				return "127.0.0.1"
+		It("should fail without set transport", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				TargetPod:    "fakepod",
 			}
+
+			manager, _ := newLibvirtDomainManagerDefault()
+			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).
+				To(MatchError(ContainSubstring("unsupported migration transport")))
 		})
 
 		It("should prepare the target pod", func() {
@@ -2738,6 +2742,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 				TargetPod:    "fakepod",
 			}
+			vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 
 			By("PrepareMigrationTarget safepath requires an absolute, existing directory")
 			testVirtShareDir = GinkgoT().TempDir()
@@ -2806,9 +2811,6 @@ var _ = Describe("Manager", func() {
 			Expect(manager.MigrateVMI(vmi, options)).To(Succeed())
 			migration, _ := metadataCache.Migration.Load()
 			Expect(migration).To(Equal(startupMigrationMetadata))
-		})
-		AfterEach(func() {
-			ip.GetLoopbackAddress = funcPreviousValue
 		})
 	})
 
