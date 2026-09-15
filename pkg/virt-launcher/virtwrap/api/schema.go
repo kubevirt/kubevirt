@@ -462,17 +462,18 @@ type MemoryDumpMetadata struct {
 	FailureReason  string       `xml:"failureReason,omitempty"`
 }
 
+// SnapshotOverlayPhase is reported as the reason of the OverlaySnapshotActive condition
 type SnapshotOverlayPhase string
 
 const (
-	SnapshotOverlayPreparing  SnapshotOverlayPhase = "Preparing"
-	SnapshotOverlayReady      SnapshotOverlayPhase = "Ready"
-	SnapshotOverlayCommitting SnapshotOverlayPhase = "Committing"
-	SnapshotOverlayCommitted  SnapshotOverlayPhase = "Committed"
+	SnapshotOverlayPreparing  SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayPreparing
+	SnapshotOverlayReady      SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlaysReady
+	SnapshotOverlayCommitting SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayCommitting
+	SnapshotOverlayCommitted  SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayCommitted
 	// the disks are back on their base images, nothing to commit
-	SnapshotOverlaySnapshotFailed SnapshotOverlayPhase = "SnapshotFailed"
+	SnapshotOverlaySnapshotFailed SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlaySnapshotFailed
 	// the overlays may still hold writes, so the scratch volume stays
-	SnapshotOverlayCommitFailed SnapshotOverlayPhase = "CommitFailed"
+	SnapshotOverlayCommitFailed SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayCommitFailed
 )
 
 type SnapshotOverlayMetadata struct {
