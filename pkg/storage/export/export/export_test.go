@@ -20,6 +20,7 @@ package export
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -1093,6 +1094,37 @@ var _ = Describe("Export controller", func() {
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_CIPHER_SUITES")}),
 		))
 	})
+
+	DescribeTable("TLS_CURVE_PREFERENCES env var in exporter pod", func(featureGates []string, expectEnvVar bool) {
+		groups := []string{"X25519", "secp384r1"}
+		kvObj, _, _ := kvInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		kv := kvObj.(*virtv1.KubeVirt)
+		kv.Spec.Configuration.TLSConfiguration = &virtv1.TLSConfiguration{
+			Groups: groups,
+		}
+		if len(featureGates) > 0 {
+			kv.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{
+				FeatureGates: featureGates,
+			}
+		}
+		kv.ResourceVersion = "tls-groups-table"
+		Expect(kvInformer.GetStore().Update(kv)).To(Succeed())
+
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		matcher := gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_CURVE_PREFERENCES")})
+		if expectEnvVar {
+			Expect(pod.Spec.Containers[0].Env).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Name":  Equal("TLS_CURVE_PREFERENCES"),
+				"Value": Equal(fmt.Sprintf("[%d,%d]", tls.CurveP384, tls.X25519)),
+			})))
+		} else {
+			Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(matcher))
+		}
+	},
+		Entry("should set when TLSGroupPreferences gate is enabled", []string{featuregate.TLSGroupPreferences}, true),
+		Entry("should not set when TLSGroupPreferences gate is disabled", nil, false),
+	)
 
 	DescribeTable("Should set export pod env vars", func(vmExport *exportv1.VirtualMachineExport, source exportSource, expectManifest bool) {
 		pod, err := controller.createExporterPodManifest(vmExport, nil, source)
