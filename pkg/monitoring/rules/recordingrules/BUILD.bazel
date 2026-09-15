@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "api.go",
         "deprecated_recordingrules.go",
+        "gpu.go",
         "nodes.go",
         "operator.go",
         "pvc.go",
