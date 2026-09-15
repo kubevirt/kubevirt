@@ -1129,6 +1129,7 @@
         }
       }
     ],
+    "snapshotOverlayPVCUID": "snapshotOverlayPVCUIDValue",
     "kernelBootStatus": {
       "kernelInfo": {
         "checksum": 4294967288

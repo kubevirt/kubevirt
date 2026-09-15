@@ -17230,6 +17230,11 @@ var CRDsValidation map[string]string = map[string]string{
           description: SELinuxContext is the actual SELinux context of the virt-launcher
             pod
           type: string
+        snapshotOverlayPVCUID:
+          description: |-
+            SnapshotOverlayPVCUID identifies the scratch PVC verified for the
+            OverlaySnapshotActive condition. Updated together with that condition.
+          type: string
         topologyHints:
           properties:
             tscFrequency:
