@@ -53,8 +53,8 @@ func AsyncSubresourceHelper(config *rest.Config, resource, namespace, name strin
 }
 
 // AsyncSubresourceHelperContext opens a subresource websocket stream.
-// ctx bounds the handshake; canceling it unblocks the caller and closes an
-// in-flight upgrade.
+// A deadline bounds the socket upgrade; a bare cancel unblocks the caller
+// and the handshake is then bounded by websocketHandshakeTimeout.
 // params are strings with "key=value" format
 func AsyncSubresourceHelperContext(ctx context.Context, config *rest.Config, resource, namespace, name string, subresource string, queryParams url.Values) (StreamInterface, error) {
 	if err := ctx.Err(); err != nil {
@@ -117,12 +117,12 @@ func AsyncSubresourceHelperContext(ctx context.Context, config *rest.Config, res
 	select {
 	case err = <-errChan:
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, fmt.Errorf("Can't connect to websocket: %w", ctxErr)
+			return nil, wrapHandshakeError(ctxErr, err)
 		}
 		// The socket deadline can fire before the context's cancellation timer
 		// updates ctx.Err(). Honor the caller's deadline in either case.
 		if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
-			return nil, fmt.Errorf("Can't connect to websocket: %w", context.DeadlineExceeded)
+			return nil, wrapHandshakeError(context.DeadlineExceeded, err)
 		}
 		return nil, err
 	case ws := <-aws.Connection:
@@ -146,6 +146,13 @@ func releaseHandshake(aws *AsyncWSRoundTripper, errChan <-chan error, done chan 
 		close(done)
 	case <-errChan:
 	}
+}
+
+func wrapHandshakeError(ctxErr, err error) error {
+	if err != nil {
+		return fmt.Errorf("Can't connect to websocket: %w: %w", ctxErr, err)
+	}
+	return fmt.Errorf("Can't connect to websocket: %w", ctxErr)
 }
 
 type RoundTripCallback func(conn *websocket.Conn, resp *http.Response, err error) error
