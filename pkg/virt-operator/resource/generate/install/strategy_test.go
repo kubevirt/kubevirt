@@ -20,6 +20,7 @@
 package install
 
 import (
+	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -74,6 +75,97 @@ var _ = Describe("Install Strategy", func() {
 			},
 		})
 	}
+
+	Context("DeepCopy", func() {
+		It("should return nil when strategy is nil", func() {
+			var strategy *Strategy
+			Expect(strategy.DeepCopy()).To(BeNil())
+		})
+
+		It("should produce an isolated deep copy of strategy objects", func() {
+			strategy := &Strategy{
+				serviceAccounts: []*corev1.ServiceAccount{{
+					ObjectMeta: metav1.ObjectMeta{Name: "sa-1"},
+				}},
+				clusterRoles: []*rbacv1.ClusterRole{{
+					ObjectMeta: metav1.ObjectMeta{Name: "cr-1"},
+				}},
+				deployments: []*appsv1.Deployment{{
+					ObjectMeta: metav1.ObjectMeta{Name: "virt-controller"},
+				}},
+				daemonSets: []*appsv1.DaemonSet{{
+					ObjectMeta: metav1.ObjectMeta{Name: "virt-handler"},
+					Spec: appsv1.DaemonSetSpec{
+						Template: corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name: "virt-handler",
+									Args: []string{"--existing-arg"},
+								}},
+							},
+						},
+					},
+				}},
+			}
+
+			copied := strategy.DeepCopy()
+			Expect(copied).ToNot(BeNil())
+			Expect(copied).ToNot(BeIdenticalTo(strategy))
+			Expect(copied.ServiceAccounts()).To(HaveLen(1))
+			Expect(copied.ServiceAccounts()[0]).ToNot(BeIdenticalTo(strategy.ServiceAccounts()[0]))
+			Expect(copied.ClusterRoles()).To(HaveLen(1))
+			Expect(copied.ClusterRoles()[0]).ToNot(BeIdenticalTo(strategy.ClusterRoles()[0]))
+			Expect(copied.Deployments()).To(HaveLen(1))
+			Expect(copied.Deployments()[0]).ToNot(BeIdenticalTo(strategy.Deployments()[0]))
+			Expect(copied.DaemonSets()).To(HaveLen(1))
+			Expect(copied.DaemonSets()[0]).ToNot(BeIdenticalTo(strategy.DaemonSets()[0]))
+
+			// Modifying copied object should not affect the original
+			copied.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args = append(
+				copied.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args,
+				"--custom-arg",
+			)
+			Expect(strategy.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"--existing-arg"}))
+			Expect(copied.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"--existing-arg", "--custom-arg"}))
+		})
+
+		It("should deep copy every field of Strategy to prevent divergence", func() {
+			strategyType := reflect.TypeOf(Strategy{})
+			numFields := strategyType.NumField()
+
+			strategyVal := reflect.New(strategyType).Elem()
+			// Populate a 1-element slice with an initialized struct pointer for every field
+			for i := 0; i < numFields; i++ {
+				field := strategyType.Field(i)
+				Expect(field.Type.Kind()).To(Equal(reflect.Slice), "Strategy field %s must be a slice", field.Name)
+
+				elemType := field.Type.Elem()
+				Expect(elemType.Kind()).To(Equal(reflect.Pointer), "Strategy field %s must contain pointers", field.Name)
+
+				sliceVal := reflect.MakeSlice(field.Type, 1, 1)
+				sliceVal.Index(0).Set(reflect.New(elemType.Elem()))
+				strategyVal.Field(i).Set(sliceVal)
+			}
+
+			populatedStrategy := strategyVal.Addr().Interface().(*Strategy)
+			copied := populatedStrategy.DeepCopy()
+			Expect(copied).ToNot(BeNil())
+
+			copiedVal := reflect.ValueOf(copied).Elem()
+			for i := 0; i < numFields; i++ {
+				fieldName := strategyType.Field(i).Name
+				origSlice := strategyVal.Field(i)
+				copiedSlice := copiedVal.Field(i)
+
+				Expect(copiedSlice.Len()).To(Equal(origSlice.Len()),
+					"field %s in copied Strategy should have same length as original", fieldName)
+				Expect(copiedSlice.Pointer()).ToNot(Equal(origSlice.Pointer()),
+					"field %s slice header must be a distinct allocated slice", fieldName)
+				Expect(copiedSlice.Index(0).Pointer()).ToNot(Equal(origSlice.Index(0).Pointer()),
+					"element 0 of field %s must be deep-copied to a distinct pointer", fieldName)
+			}
+		})
+	})
 
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
