@@ -38,14 +38,14 @@ const (
 	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
 )
 
-type pluginConfOption func(map[string]interface{})
+type pluginConfOption func(map[string]any)
 
 func NewBridgeNetAttachDef(name, bridgeName string, opts ...pluginConfOption) *nadv1.NetworkAttachmentDefinition {
 	const cniPluginType = "bridge"
 
 	pluginConfig := NewNetPluginConfig(
 		cniPluginType,
-		map[string]interface{}{"bridge": bridgeName},
+		map[string]any{"bridge": bridgeName},
 	)
 	for _, f := range opts {
 		f(pluginConfig)
@@ -55,7 +55,7 @@ func NewBridgeNetAttachDef(name, bridgeName string, opts ...pluginConfOption) *n
 
 func NewSriovNetAttachDef(name string, vlanID int, opts ...pluginConfOption) *nadv1.NetworkAttachmentDefinition {
 	const pluginType = "sriov"
-	pluginConf := map[string]interface{}{"vlan": vlanID}
+	pluginConf := map[string]any{"vlan": vlanID}
 	for _, f := range opts {
 		f(pluginConf)
 	}
@@ -81,9 +81,9 @@ func NewNetAttachDef(name, config string) *nadv1.NetworkAttachmentDefinition {
 	}
 }
 
-func NewNetConfig(name string, pluginsConfigs ...map[string]interface{}) string {
+func NewNetConfig(name string, pluginsConfigs ...map[string]any) string {
 	const cniVersion = "0.3.1"
-	netConfig := map[string]interface{}{
+	netConfig := map[string]any{
 		"cniVersion": cniVersion,
 		"name":       name,
 	}
@@ -105,40 +105,40 @@ func NewNetConfig(name string, pluginsConfigs ...map[string]interface{}) string 
 	return string(rawNetConfig)
 }
 
-func NewNetPluginConfig(cniType string, conf map[string]interface{}) map[string]interface{} {
+func NewNetPluginConfig(cniType string, conf map[string]any) map[string]any {
 	if conf == nil {
-		conf = map[string]interface{}{}
+		conf = map[string]any{}
 	}
 	conf["type"] = cniType
 	return conf
 }
 
 func WithMTU(mtu int) pluginConfOption {
-	return func(conf map[string]interface{}) {
+	return func(conf map[string]any) {
 		conf["mtu"] = mtu
 	}
 }
 
 func WithVLAN(vlanID int) pluginConfOption {
-	return func(conf map[string]interface{}) {
+	return func(conf map[string]any) {
 		conf["vlan"] = vlanID
 	}
 }
 
 func WithMacSpoofChk(enabled bool) pluginConfOption {
-	return func(conf map[string]interface{}) {
+	return func(conf map[string]any) {
 		conf["macspoofchk"] = enabled
 	}
 }
 
 func WithIPAM(ipam map[string]string) pluginConfOption {
-	return func(conf map[string]interface{}) {
+	return func(conf map[string]any) {
 		conf["ipam"] = ipam
 	}
 }
 
 func WithLinkState() pluginConfOption {
-	return func(conf map[string]interface{}) {
+	return func(conf map[string]any) {
 		conf["link_state"] = "enable"
 	}
 }
