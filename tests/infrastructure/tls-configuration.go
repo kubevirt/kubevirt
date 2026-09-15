@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -80,6 +81,47 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		const virtTemplatePodTLSPort = 9443
 		verifyTLSEnforcement(podsToTest, virtTemplatePodTLSPort, cipher)
 	})
+}))
+
+var _ = Describe(SIGSerial("tls group preferences", func() {
+	BeforeEach(func() {
+		config.EnableFeatureGate(featuregate.TLSGroupPreferences)
+		DeferCleanup(config.DisableFeatureGate, featuregate.TLSGroupPreferences)
+	})
+
+	It("should negotiate using the configured TLS group when TLSGroupPreferences is enabled",
+		decorators.WgS390x, func() {
+			By("Configuring TLS with only secp384r1 group")
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"},
+				Groups:        []string{v1.TLSGroupSecp384r1},
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			By("Connecting to kubevirt pods and verifying the negotiated curve")
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+			const kubevirtPodTLSPort = 8443
+			verifyGroupPreferences(podsToTest, kubevirtPodTLSPort, tls.CurveP384)
+		})
+
+	It("should negotiate using X25519 when configured",
+		decorators.WgS390x, func() {
+			By("Configuring TLS with X25519 group")
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"},
+				Groups:        []string{v1.TLSGroupX25519, v1.TLSGroupSecp256r1},
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			By("Connecting to kubevirt pods and verifying one of the configured curves is used")
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+			const kubevirtPodTLSPort = 8443
+			verifyGroupPreferencesAnyOf(podsToTest, kubevirtPodTLSPort, []tls.CurveID{tls.X25519, tls.CurveP256})
+		})
 }))
 
 func listPods(labelSelectors ...string) []k8sv1.Pod {
@@ -131,6 +173,46 @@ func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.Ciphe
 				// The error message changed with the golang 1.19 update
 				BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
 			))
+		}(&pods[i])
+	}
+}
+
+func verifyGroupPreferences(pods []k8sv1.Pod, containerPort int, expectedCurve tls.CurveID) {
+	verifyGroupPreferencesAnyOf(pods, containerPort, []tls.CurveID{expectedCurve})
+}
+
+func verifyGroupPreferencesAnyOf(pods []k8sv1.Pod, containerPort int, allowedCurves []tls.CurveID) {
+	for i := range pods {
+		func(pod *k8sv1.Pod) {
+			stopChan := make(chan struct{})
+			defer close(stopChan)
+			const expectTimeout = 10 * time.Second
+			localPort, fwErr := libpod.ForwardPorts(pod, []string{fmt.Sprintf("0:%d", containerPort)}, stopChan, expectTimeout)
+			Expect(fwErr).ToNot(HaveOccurred())
+
+			tlsConfig := &tls.Config{
+				//nolint:gosec
+				InsecureSkipVerify: true,
+				CurvePreferences:   allowedCurves,
+			}
+			rawConn, err := (&tls.Dialer{Config: tlsConfig}).DialContext(context.Background(), "tcp", fmt.Sprintf("localhost:%d", localPort))
+			Expect(err).ToNot(HaveOccurred(), "Pod %s should accept TLS connection with configured groups", pod.Name)
+			Expect(rawConn).ToNot(BeNil())
+			conn, ok := rawConn.(*tls.Conn)
+			Expect(ok).To(BeTrue())
+
+			negotiatedCurve := conn.ConnectionState().CurveID
+			curveMatched := false
+			for _, allowed := range allowedCurves {
+				if negotiatedCurve == allowed {
+					curveMatched = true
+					break
+				}
+			}
+			Expect(curveMatched).To(BeTrue(),
+				"Pod %s negotiated curve %d, expected one of %v", pod.Name, negotiatedCurve, allowedCurves)
+
+			Expect(conn.Close()).To(Succeed())
 		}(&pods[i])
 	}
 }
