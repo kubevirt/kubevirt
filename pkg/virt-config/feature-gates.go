@@ -240,3 +240,7 @@ func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 func (config *ClusterConfig) MigrationDowntimeTuningEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationDowntimeTuning)
 }
+
+func (config *ClusterConfig) DataVolumeOwnershipProtectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.DataVolumeOwnershipProtection)
+}
