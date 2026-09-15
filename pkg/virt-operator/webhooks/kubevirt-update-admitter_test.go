@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -277,6 +278,64 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 		}, 0),
+	)
+
+	DescribeTable("validateCertificates", func(certConfig *v1.KubeVirtSelfSignConfiguration, expectedCauses int) {
+		causes := validateCertificates(certConfig)
+		Expect(causes).To(HaveLen(expectedCauses))
+	},
+		Entry("nil config accepted", nil, 0),
+		Entry("valid cert rotation parameters accepted", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, 0),
+		Entry("combining deprecated and new cert rotation parameters rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+			CAOverlapInterval: &metav1.Duration{Duration: 8 * time.Hour},
+		}, 1),
+		Entry("CA expires before rotation rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 14 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, 1),
+		Entry("Cert expires before rotation rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 8 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, 1),
+		Entry("Cert rotates after CA expires rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 36 * time.Hour},
+			},
+		}, 1),
 	)
 
 	Context("with TLSConfiguration", func() {
