@@ -34,37 +34,47 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
+
+type updateDeviceFunc func(cgroupPath, deviceType string, major, minor int64, permissions string, allow bool) error
+type listDevicesFunc func(cgroupPath string) ([]cgroupconsts.DeviceMapEntry, error)
 
 type v2Manager struct {
 	cgroups.Manager
-	dirPath        string
-	isRootless     bool
-	deviceRules    []*devices.Rule
-	execVirtChroot execVirtChrootFunc
+	dirPath         string
+	deviceRules     []*devices.Rule
+	execVirtChroot  execVirtChrootFunc
+	spliceDeviceMap bool
+	updateDevice    updateDeviceFunc
+	listDevices     listDevicesFunc
 }
 
-func newV2Manager(config *cgroups.Cgroup, dirPath string) (Manager, error) {
+func newV2Manager(config *cgroups.Cgroup, dirPath string, spliceDeviceMap bool) (Manager, error) {
 	cgManager, err := cgroupfs2.NewManager(config, dirPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(cgManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups)
+	return newCustomizedV2Manager(cgManager, config.Resources.Devices, execVirtChrootCgroups, execVirtChrootUpdateDevice, execVirtChrootListDevices, spliceDeviceMap)
 }
 
 func newCustomizedV2Manager(
 	cgManager cgroups.Manager,
-	isRootless bool,
 	deviceRules []*devices.Rule,
 	execVirtChroot execVirtChrootFunc,
+	updateDevice updateDeviceFunc,
+	listDevicesFn listDevicesFunc,
+	spliceDeviceMap bool,
 ) (Manager, error) {
 	manager := v2Manager{
 		cgManager,
 		cgManager.GetPaths()[""],
-		isRootless,
 		append(deviceRules, GenerateDefaultDeviceRules()...),
 		execVirtChroot,
+		spliceDeviceMap,
+		updateDevice,
+		listDevicesFn,
 	}
 
 	return &manager, nil
@@ -101,7 +111,7 @@ func (v *v2Manager) Set(r *cgroups.Resources) error {
 	}
 	log.Log.V(5).Infof("cgroupsv2 device allowlist: paths passed to virt-chroot: %s", subsystemPaths)
 
-	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.isRootless, v.GetCgroupVersion())
+	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.GetCgroupVersion())
 }
 
 func (v *v2Manager) GetCgroupVersion() CgroupVersion {
@@ -179,4 +189,49 @@ func (v *v2Manager) GetCgroupThreads() ([]int, error) {
 
 func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
+}
+
+func (v *v2Manager) AllowDevice(deviceType string, major, minor int64, permissions string) error {
+	if !v.spliceDeviceMap {
+		devType := devices.BlockDevice
+		if deviceType == cgroupconsts.CharDevice {
+			devType = devices.CharDevice
+		}
+		return v.Set(&cgroups.Resources{
+			Devices: []*devices.Rule{{
+				Type:        devType,
+				Major:       major,
+				Minor:       minor,
+				Permissions: devices.Permissions(permissions),
+				Allow:       true,
+			}},
+		})
+	}
+	return v.updateDevice(v.dirPath, deviceType, major, minor, permissions, true)
+}
+
+func (v *v2Manager) RemoveDevice(deviceType string, major, minor int64) error {
+	if !v.spliceDeviceMap {
+		devType := devices.BlockDevice
+		if deviceType == cgroupconsts.CharDevice {
+			devType = devices.CharDevice
+		}
+		return v.Set(&cgroups.Resources{
+			Devices: []*devices.Rule{{
+				Type:        devType,
+				Major:       major,
+				Minor:       minor,
+				Permissions: devices.Permissions(getDeviceRwmPermissions()),
+				Allow:       false,
+			}},
+		})
+	}
+	return v.updateDevice(v.dirPath, deviceType, major, minor, "", false)
+}
+
+func (v *v2Manager) ListDevices() ([]cgroupconsts.DeviceMapEntry, error) {
+	if !v.spliceDeviceMap {
+		return nil, nil
+	}
+	return v.listDevices(v.dirPath)
 }
