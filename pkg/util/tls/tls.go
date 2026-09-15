@@ -9,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 
@@ -334,6 +335,49 @@ func CipherSuiteNameMap() map[string]uint16 {
 		idByName[cipherSuite.Name] = cipherSuite.ID
 	}
 	return idByName
+}
+
+// CurvePreferenceIds converts a list of IANA TLS Supported Groups registry
+// names (e.g. "X25519", "secp256r1", "X25519MLKEM768") to the corresponding
+// tls.CurveID values. Unrecognised names are silently skipped so that an older
+// component tolerates group names added in a newer release. Returns nil when
+// the input is empty, which leaves tls.Config.CurvePreferences unset and
+// preserves Go's default behaviour.
+func CurvePreferenceIds(names []string) []tls.CurveID {
+	if len(names) == 0 {
+		return nil
+	}
+	ids := sets.New[tls.CurveID]()
+	for _, name := range names {
+		if id, ok := curveIdByName(name); ok {
+			ids.Insert(id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return sets.List(ids)
+}
+
+func curveIdByName(name string) (tls.CurveID, bool) {
+	switch name {
+	case v1.TLSGroupX25519:
+		return tls.X25519, true
+	case v1.TLSGroupSecp256r1:
+		return tls.CurveP256, true
+	case v1.TLSGroupSecp384r1:
+		return tls.CurveP384, true
+	case v1.TLSGroupSecp521r1:
+		return tls.CurveP521, true
+	case v1.TLSGroupX25519MLKEM768:
+		return tls.X25519MLKEM768, true
+	case v1.TLSGroupSecP256r1MLKEM768:
+		return tls.SecP256r1MLKEM768, true
+	case v1.TLSGroupSecP384r1MLKEM1024:
+		return tls.SecP384r1MLKEM1024, true
+	default:
+		return 0, false
+	}
 }
 
 // TLSVersion converts from human-readable TLS version (for example "1.1")
