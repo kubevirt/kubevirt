@@ -195,7 +195,7 @@ func (NUMAGuestMappingPassthrough) SwaggerDoc() map[string]string {
 
 func (NUMA) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"guestMappingPassthrough": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.\nThe created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.\n+optional",
+		"guestMappingPassthrough": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.\nThe created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.\nIt is not supported on a VMI with dedicatedCPUPlacement while the CPUsWithDRA feature gate is enabled, because the\nhost CPUs are then assigned by the DRA driver instead of by kubelet's CPU manager.\n+optional",
 	}
 }
 
