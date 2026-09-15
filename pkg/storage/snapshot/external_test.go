@@ -38,6 +38,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -93,6 +94,7 @@ var _ = Describe("Overlay scratch volume", func() {
 			Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 				Source: snapshotv1.SourceSpec{
 					VirtualMachine: &snapshotv1.VirtualMachine{
+						ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: testNamespace},
 						Spec: v1.VirtualMachineSpec{
 							Template: &v1.VirtualMachineInstanceTemplateSpec{
 								Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes},
@@ -446,4 +448,648 @@ var _ = Describe("Overlay scratch volume", func() {
 			Expect(controller.deleteScratchPVC(pvc)).To(MatchError(ContainSubstring("failed to release")))
 		})
 	})
+
+	Context("mode", func() {
+		It("should be direct unless the snapshot asked for something else", func() {
+			Expect(snapshotMode(nil)).To(Equal(snapshotv1.SnapshotModeDirect))
+			Expect(snapshotMode(overlaySnapshot(nil, nil))).To(Equal(snapshotv1.SnapshotModeDirect))
+
+			external := overlaySnapshot(nil, nil)
+			external.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+			Expect(snapshotMode(external)).To(Equal(snapshotv1.SnapshotModeExternal))
+		})
+
+		It("should be read off the content, which outlives the snapshot", func() {
+			content := overlayContent()
+			Expect(externalMode(content)).To(BeFalse())
+
+			content.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{}
+			Expect(externalMode(content)).To(BeFalse())
+
+			content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+			Expect(externalMode(content)).To(BeTrue())
+		})
+	})
+
+	Context("ownership", func() {
+		scratch := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{overlayOwnerVMIUIDAnnotation: string(overlayVMIUID)},
+			},
+		}
+
+		It("should recognise the launcher that made the overlays", func() {
+			vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: overlayVMIUID}}
+			Expect(overlaysOwnedByRunningVMI(scratch, vmi)).To(BeTrue())
+		})
+
+		It("should not recognise a launcher that never saw them", func() {
+			vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "a-newer-vmi"}}
+			Expect(overlaysOwnedByRunningVMI(scratch, vmi)).To(BeFalse())
+			Expect(overlaysOwnedByRunningVMI(scratch, nil)).To(BeFalse())
+		})
+	})
+
+	Context("flow", func() {
+		var (
+			ctrl         *gomock.Controller
+			controller   *VMSnapshotController
+			vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+			k8sClient    *k8sfake.Clientset
+			recorder     *record.FakeRecorder
+			content      *snapshotv1.VirtualMachineSnapshotContent
+			vmSnapshot   *snapshotv1.VirtualMachineSnapshot
+			vmi          *v1.VirtualMachineInstance
+			addVMI       func()
+			addScratch   func()
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiInterface).AnyTimes()
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+
+			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			recorder = record.NewFakeRecorder(10)
+
+			controller = &VMSnapshotController{
+				Client:      virtClient,
+				PVCInformer: pvcInformer,
+				VMIInformer: vmiInformer,
+				Recorder:    recorder,
+			}
+
+			vmSnapshot = overlaySnapshot(nil, nil)
+			vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+
+			content = overlayContent(volumeBackup("disk1", "10Gi", nil))
+			content.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+				SnapshotMode: pointer.P(snapshotv1.SnapshotModeExternal),
+			}
+
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: testNamespace, UID: overlayVMIUID},
+				Status: v1.VirtualMachineInstanceStatus{
+					Conditions: []v1.VirtualMachineInstanceCondition{{
+						Type:   v1.VirtualMachineInstanceAgentConnected,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			}
+
+			addVMI = func() {
+				Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
+			}
+
+			addScratch = func() {
+				pvc := &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        scratchPVCName(content),
+						Namespace:   testNamespace,
+						Annotations: map[string]string{overlayOwnerVMIUIDAnnotation: string(overlayVMIUID)},
+						Finalizers:  []string{overlayScratchFinalizer},
+					},
+				}
+				_, err := k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvcInformer.GetStore().Add(pvc)).To(Succeed())
+			}
+		})
+
+		// The scratch volume hotplugged and mounted, which the launcher needs
+		// before it can be asked for anything.
+		mountScratch := func() {
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{
+				Name: scratchPVCName(content),
+				Type: pointer.P(v1.SnapshotOverlay),
+			}}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{
+				Name:          scratchPVCName(content),
+				HotplugVolume: &v1.HotplugVolumeStatus{},
+				Phase:         v1.HotplugVolumeMounted,
+			}}
+		}
+
+		reportPhase := func(status corev1.ConditionStatus, reason, message string) {
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:    v1.VirtualMachineInstanceOverlaySnapshotActive,
+				Status:  status,
+				Reason:  reason,
+				Message: message,
+			})
+		}
+
+		expectPatch := func() {
+			vmiInterface.EXPECT().
+				Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmi, nil)
+		}
+
+		overlayOptions := func() *v1.SnapshotOverlayOptions {
+			return &v1.SnapshotOverlayOptions{VolumeName: scratchPVCName(content)}
+		}
+
+		Context("creating the disk overlays", func() {
+			It("should refuse a source with no guest agent", func() {
+				vmi.Status.Conditions = nil
+				addVMI()
+
+				_, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).To(MatchError(ContainSubstring("guest agent")))
+				Expect(k8sClient.Actions()).To(BeEmpty())
+			})
+
+			It("should refuse a source that is not running", func() {
+				_, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).To(MatchError(ContainSubstring("guest agent")))
+				Expect(k8sClient.Actions()).To(BeEmpty())
+			})
+
+			It("should create the scratch volume first", func() {
+				addVMI()
+
+				prepared, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(prepared).To(BeFalse())
+				testutils.ExpectEvent(recorder, scratchPVCCreateEvent)
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should hotplug the volume once it is there", func() {
+				addVMI()
+				addScratch()
+				expectPatch()
+
+				prepared, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(prepared).To(BeFalse())
+			})
+
+			It("should ask the launcher once the volume is mounted", func() {
+				mountScratch()
+				addVMI()
+				addScratch()
+				vmiInterface.EXPECT().ExternalSnapshot(context.Background(), vmi.Name, overlayOptions()).Return(nil)
+
+				prepared, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(prepared).To(BeFalse())
+			})
+
+			It("should wait while the launcher is working", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayPreparing, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				prepared, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(prepared).To(BeFalse())
+			})
+
+			It("should report ready once every disk is on an overlay", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				prepared, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(prepared).To(BeTrue())
+			})
+
+			It("should report a transaction that failed as a lost capture", func() {
+				reportPhase(corev1.ConditionFalse, v1.VirtualMachineInstanceReasonOverlaySnapshotFailed, "the guest would not quiesce")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				_, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).To(MatchError(errCaptureLost))
+				Expect(err).To(MatchError(ContainSubstring("the guest would not quiesce")))
+			})
+
+			It("should not create a second set of overlays under volumes already captured", func() {
+				// One snapshot made of two points in time is not a snapshot.
+				content.Status.VolumeSnapshotStatus = []snapshotv1.VolumeSnapshotStatus{{VolumeSnapshotName: "vs-disk1"}}
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				_, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).To(MatchError(errCaptureLost))
+				Expect(err).To(MatchError(ContainSubstring("merged before every volume was captured")))
+			})
+
+			// The caller removes the scratch volume on errCaptureLost, this
+			// function only reports it.
+			It("should leave the scratch volume alone when the capture is lost", func() {
+				content.Status.VolumeSnapshotStatus = []snapshotv1.VolumeSnapshotStatus{{VolumeSnapshotName: "vs-disk1"}}
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				_, err := controller.createDiskOverlays(vmSnapshot, content)
+				Expect(err).To(MatchError(errCaptureLost))
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("removing the scratch volume", func() {
+			It("should take it off the VMI before deleting it", func() {
+				mountScratch()
+				addVMI()
+				addScratch()
+				expectPatch()
+
+				done, err := controller.removeScratchVolume(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeFalse())
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should delete it once it is off the VMI", func() {
+				addVMI()
+				addScratch()
+
+				done, err := controller.removeScratchVolume(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeTrue())
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should report done when there is no volume left", func() {
+				addVMI()
+
+				done, err := controller.removeScratchVolume(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeTrue())
+			})
+		})
+
+		Context("committing the overlays", func() {
+			It("should have nothing to do without a scratch volume", func() {
+				addVMI()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(BeZero())
+				Expect(captured).To(BeFalse())
+			})
+
+			It("should do nothing when the launcher is gone", func() {
+				addScratch()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(BeZero())
+				Expect(captured).To(BeFalse())
+			})
+
+			It("should do nothing when the overlays belong to a different launcher", func() {
+				vmi.UID = "a-newer-vmi"
+				addVMI()
+				addScratch()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(BeZero())
+				Expect(captured).To(BeFalse())
+			})
+
+			It("should wait for every volume snapshot to be readyToUse", func() {
+				// Created is not readyToUse, and a VolumeSnapshot still reading a
+				// base image needs it to stay still.
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				requeue, captured, err := controller.commitOverlays(content, false)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(Equal(snapshotRetryInterval))
+				Expect(captured).To(BeFalse())
+			})
+
+			It("should record the capture before asking for the commit", func() {
+				// A commit requested first and a status update that then failed
+				// would leave nothing to say the capture was good.
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(Equal(snapshotRetryInterval))
+				Expect(captured).To(BeTrue())
+			})
+
+			It("should commit once the capture is recorded", func() {
+				content.Status.CreationTime = currentTime()
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+				vmiInterface.EXPECT().CommitSnapshot(context.Background(), vmi.Name, overlayOptions()).Return(nil)
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(Equal(snapshotRetryInterval))
+				Expect(captured).To(BeTrue())
+			})
+
+			It("should wait for a commit that is already running", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitting, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(Equal(snapshotRetryInterval))
+				Expect(captured).To(BeFalse())
+			})
+
+			It("should retry a commit that failed, and not call it a capture", func() {
+				// The commit runs disk by disk, so a failure part way through
+				// already pivoted the disks before it onto base images.
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitFailed, "the block job stalled")
+				mountScratch()
+				addVMI()
+				addScratch()
+				vmiInterface.EXPECT().CommitSnapshot(context.Background(), vmi.Name, overlayOptions()).Return(nil)
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(Equal(snapshotRetryInterval))
+				Expect(captured).To(BeFalse())
+				testutils.ExpectEvent(recorder, overlayCommitFailedEvent)
+			})
+
+			It("should unplug the volume before deleting it", func() {
+				// A PVC a pod still mounts hangs on pvc-protection.
+				mountScratch()
+				addVMI()
+				addScratch()
+				expectPatch()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(Equal(snapshotRetryInterval))
+				Expect(captured).To(BeFalse())
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should delete the volume once it is off the VMI", func() {
+				addVMI()
+				addScratch()
+
+				requeue, captured, err := controller.commitOverlays(content, true)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(requeue).To(BeZero())
+				Expect(captured).To(BeFalse())
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(err).To(MatchError(ContainSubstring("not found")))
+			})
+		})
+
+		Context("spotting overlays that went early", func() {
+			// The capture is over and cannot be retried, a second set of overlays
+			// would span two points in time.
+			capturing := func() {
+				content.Status.VolumeSnapshotStatus = []snapshotv1.VolumeSnapshotStatus{
+					{VolumeSnapshotName: "vs-disk1"},
+				}
+			}
+
+			It("should ignore a content that is not External", func() {
+				content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeDirect)
+				capturing()
+				addVMI()
+
+				Expect(controller.overlaysGoneEarly(content)).To(BeFalse())
+			})
+
+			It("should ignore a content whose overlays never opened", func() {
+				addVMI()
+
+				Expect(controller.overlaysGoneEarly(content)).To(BeFalse())
+			})
+
+			It("should ignore a content that already captured", func() {
+				content.Status.CreationTime = currentTime()
+				capturing()
+				addVMI()
+
+				Expect(controller.overlaysGoneEarly(content)).To(BeFalse())
+			})
+
+			It("should accept overlays that are still holding the base images", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				capturing()
+				addVMI()
+
+				Expect(controller.overlaysGoneEarly(content)).To(BeFalse())
+			})
+
+			DescribeTable("should report a window that is no longer protecting the base images",
+				func(status corev1.ConditionStatus, reason string) {
+					reportPhase(status, reason, "")
+					capturing()
+					addVMI()
+
+					Expect(controller.overlaysGoneEarly(content)).To(BeTrue())
+				},
+				Entry("a commit in flight", corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitting),
+				Entry("a commit that failed part way through", corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitFailed),
+				Entry("overlays reported gone", corev1.ConditionFalse, v1.VirtualMachineInstanceReasonOverlaySnapshotFailed),
+			)
+
+			It("should report a launcher that says nothing at all", func() {
+				capturing()
+				addVMI()
+
+				Expect(controller.overlaysGoneEarly(content)).To(BeTrue())
+			})
+
+			It("should report a source that is gone", func() {
+				capturing()
+
+				Expect(controller.overlaysGoneEarly(content)).To(BeTrue())
+			})
+
+			It("should fail the snapshot without waiting for its deadline", func() {
+				capturing()
+				addVMI()
+				vmSnapshot.CreationTimestamp = metav1.Now()
+				vmSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{Phase: snapshotv1.InProgress}
+
+				reason, failed, err := controller.vmSnapshotFailure(vmSnapshot, content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(failed).To(BeTrue())
+				Expect(reason).To(Equal(vmSnapshotOverlaysGoneEarlyError))
+			})
+
+			It("should keep the reason the snapshot first failed with", func() {
+				// Failed is sticky, and every later pass goes through the deadline,
+				// which would otherwise relabel this a timeout.
+				vmSnapshot.Spec.FailureDeadline = &metav1.Duration{Duration: -time.Minute}
+				vmSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+					Phase: snapshotv1.Failed,
+					Conditions: []snapshotv1.Condition{
+						newFailureCondition(corev1.ConditionTrue, vmSnapshotOverlaysGoneEarlyError),
+					},
+				}
+
+				reason, failed, err := controller.vmSnapshotFailure(vmSnapshot, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(failed).To(BeTrue())
+				Expect(reason).To(Equal(vmSnapshotOverlaysGoneEarlyError))
+			})
+		})
+
+		Context("cleaning up", func() {
+			It("should have nothing to wind down for a direct snapshot", func() {
+				content.Status.SnapshotMode = nil
+				addVMI()
+				addScratch()
+
+				done, err := controller.cleanupOverlays(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeTrue())
+			})
+
+			It("should have nothing to wind down without a scratch volume", func() {
+				addVMI()
+
+				done, err := controller.cleanupOverlays(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeTrue())
+			})
+
+			It("should not wind down when the launcher is gone", func() {
+				addScratch()
+
+				done, err := controller.cleanupOverlays(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeFalse())
+			})
+
+			It("should commit whatever the volume snapshots are doing", func() {
+				// The gate on readyToUse protects an artifact being thrown away.
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+				vmiInterface.EXPECT().CommitSnapshot(context.Background(), vmi.Name, overlayOptions()).Return(nil)
+
+				done, err := controller.cleanupOverlays(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeFalse())
+			})
+
+			It("should wait for a commit that is already running", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitting, "")
+				mountScratch()
+				addVMI()
+				addScratch()
+
+				done, err := controller.cleanupOverlays(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeFalse())
+			})
+
+			It("should finish once the volume is released", func() {
+				addVMI()
+				addScratch()
+
+				done, err := controller.cleanupOverlays(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeTrue())
+
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
+					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
+				Expect(err).To(MatchError(ContainSubstring("not found")))
+			})
+		})
+	})
+
+	Context("wake-up", func() {
+		var (
+			controller *VMSnapshotController
+			vmSnapshot *snapshotv1.VirtualMachineSnapshot
+		)
+
+		BeforeEach(func() {
+			vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+			controller = &VMSnapshotController{
+				VMSnapshotInformer: vmSnapshotInformer,
+				vmSnapshotContentQueue: workqueue.NewTypedRateLimitingQueue[string](
+					workqueue.DefaultTypedControllerRateLimiter[string](),
+				),
+			}
+
+			vmSnapshot = overlaySnapshot(nil, nil)
+			vmSnapshot.UID = "snapshot-uid"
+			DeferCleanup(func() { controller.vmSnapshotContentQueue.ShutDown() })
+		})
+
+		add := func() {
+			Expect(controller.VMSnapshotInformer.GetStore().Add(vmSnapshot)).To(Succeed())
+			controller.enqueueExternalContent(cacheKeyFunc(testNamespace, vmSnapshot.Name))
+		}
+
+		It("should wake the content of an external snapshot on a change to its VMI", func() {
+			// The VMI is where the launcher reports how far it has got, and the
+			// content acts on it.
+			vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+			add()
+
+			Expect(controller.vmSnapshotContentQueue.Len()).To(Equal(1))
+			key, _ := controller.vmSnapshotContentQueue.Get()
+			Expect(key).To(Equal(cacheKeyFunc(testNamespace, GetVMSnapshotContentName(vmSnapshot))))
+		})
+
+		It("should leave a direct snapshot alone", func() {
+			add()
+			Expect(controller.vmSnapshotContentQueue.Len()).To(BeZero())
+		})
+
+		It("should leave a snapshot it cannot find alone", func() {
+			controller.enqueueExternalContent(cacheKeyFunc(testNamespace, "gone"))
+			Expect(controller.vmSnapshotContentQueue.Len()).To(BeZero())
+		})
+	})
+
+	DescribeTable("should recognize", func(mode snapshotv1.SnapshotMode, supported bool) {
+		Expect(supportedSnapshotMode(mode)).To(Equal(supported))
+	},
+		Entry("Direct", snapshotv1.SnapshotModeDirect, true),
+		Entry("External", snapshotv1.SnapshotModeExternal, true),
+		Entry("a mode from a newer version", snapshotv1.SnapshotMode("Hybrid"), false),
+		Entry("a mode that differs only in case", snapshotv1.SnapshotMode("external"), false),
+		Entry("the empty mode, which never reaches it", snapshotv1.SnapshotMode(""), false),
+	)
 })
