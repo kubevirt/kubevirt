@@ -31,6 +31,7 @@ import (
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
@@ -102,7 +103,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	)
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 
-	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
+	interfacesStatus := ifacesStatusFromDomainInterfaces(vmi, domain.Spec.Devices.Interfaces)
 	interfacesStatus = append(interfacesStatus,
 		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
 	)
@@ -274,13 +275,22 @@ func ifaceNameFromKey(key string, vmiUID types.UID) string {
 	return strings.TrimPrefix(key, keyPrefix(vmiUID))
 }
 
-func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+func ifacesStatusFromDomainInterfaces(vmi *v1.VirtualMachineInstance, domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, domainSpecIface := range domainSpecIfaces {
+		if domainSpecIface.Alias == nil {
+			// Interfaces which do not include an alias cannot be associated with an iface spec.
+			log.Log.Object(vmi).Errorf("Missing alias for domain interface %v", domainSpecIface)
+			continue
+		}
+		var mac string
+		if domainSpecIface.MAC != nil {
+			mac = domainSpecIface.MAC.MAC
+		}
 		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
 			Name:       domainSpecIface.Alias.GetName(),
-			MAC:        domainSpecIface.MAC.MAC,
+			MAC:        mac,
 			InfoSource: netvmispec.InfoSourceDomain,
 			QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
 			LinkState:  linkStateFromDomain(domainSpecIface.LinkState),
