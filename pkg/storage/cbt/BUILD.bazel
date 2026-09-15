@@ -21,6 +21,7 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/utilityvolume:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/util/tls:go_default_library",

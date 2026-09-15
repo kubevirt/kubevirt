@@ -21,9 +21,11 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"k8s.io/apimachinery/pkg/types"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"maps"
 	"math"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/utilityvolume"
 )
 
 const (
@@ -167,6 +170,96 @@ func (ctrl *VMSnapshotController) createScratchPVC(
 	)
 
 	return created, nil
+}
+
+func (ctrl *VMSnapshotController) initializeOverlayReference(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent, reference *storagetypes.SnapshotOverlayReference) error {
+	encoded, err := json.Marshal(reference)
+	if err != nil {
+		return err
+	}
+	annotations := make(map[string]string, len(vmi.Annotations)+1)
+	maps.Copy(annotations, vmi.Annotations)
+	annotations[storagetypes.OverlaySnapshotReferenceAnnotation] = string(encoded)
+	patchSet := patch.New(patch.WithTest("/metadata/uid", vmi.UID), patch.WithTest("/metadata/annotations", vmi.Annotations), patch.WithAdd("/metadata/annotations", annotations))
+	if vmi.ResourceVersion != "" {
+		patchSet.AddOption(patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
+	}
+	volumes := append([]kubevirtv1.UtilityVolume(nil), vmi.Spec.UtilityVolumes...)
+	found := false
+	for _, volume := range volumes {
+		if volume.Name == scratchPVCName(content) {
+			if volume.ClaimName != scratchPVCName(content) || volume.Type == nil || *volume.Type != kubevirtv1.SnapshotOverlay {
+				return fmt.Errorf("scratch utility volume %s has a different source", volume.Name)
+			}
+			found = true
+		}
+	}
+	if !found {
+		volumes = append(volumes, kubevirtv1.UtilityVolume{Name: scratchPVCName(content), PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: scratchPVCName(content)}, Type: pointer.P(kubevirtv1.SnapshotOverlay)})
+		patchSet.AddOption(patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes), patch.WithAdd("/spec/utilityVolumes", volumes))
+	}
+	payload, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.Client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+	return err
+}
+
+// detachScratchVolume only requests the detach, scratchVolumeDetached reports
+// when it has happened
+func (ctrl *VMSnapshotController) detachScratchVolume(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) error {
+	patchSet := patch.New(patch.WithTest("/metadata/uid", vmi.UID))
+	if vmi.ResourceVersion != "" {
+		patchSet.AddOption(patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
+	}
+	volumes := make([]kubevirtv1.UtilityVolume, 0, len(vmi.Spec.UtilityVolumes))
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Name != scratchPVCName(content) {
+			volumes = append(volumes, volume)
+		}
+	}
+	changed := len(volumes) != len(vmi.Spec.UtilityVolumes)
+	if changed {
+		patchSet.AddOption(patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes))
+		if len(volumes) == 0 {
+			patchSet.AddOption(patch.WithRemove("/spec/utilityVolumes"))
+		} else {
+			patchSet.AddOption(patch.WithReplace("/spec/utilityVolumes", volumes))
+		}
+	}
+	annotations := maps.Clone(vmi.Annotations)
+	reference, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err != nil {
+		return err
+	}
+	if reference != nil && reference.ContentUID == content.UID {
+		delete(annotations, storagetypes.OverlaySnapshotReferenceAnnotation)
+	}
+	if annotations[kubevirtv1.PendingOverlayRecoveryAnnotation] == scratchPVCName(content) {
+		delete(annotations, kubevirtv1.PendingOverlayRecoveryAnnotation)
+	}
+	if len(annotations) != len(vmi.Annotations) {
+		changed = true
+		patchSet.AddOption(patch.WithTest("/metadata/annotations", vmi.Annotations), patch.WithReplace("/metadata/annotations", annotations))
+	}
+	if !changed {
+		return nil
+	}
+	payload, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.Client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+	return err
+}
+
+func scratchVolumeAttached(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return utilityvolume.Attached(vmi, scratchPVCName(content))
+}
+
+func scratchVolumeDetached(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return utilityvolume.Detached(vmi, scratchPVCName(content))
 }
 
 func (ctrl *VMSnapshotController) getScratchPVC(content *snapshotv1.VirtualMachineSnapshotContent) (*corev1.PersistentVolumeClaim, error) {
