@@ -5169,6 +5169,11 @@ func (in *TLSConfiguration) DeepCopyInto(out *TLSConfiguration) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Groups != nil {
+		in, out := &in.Groups, &out.Groups
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

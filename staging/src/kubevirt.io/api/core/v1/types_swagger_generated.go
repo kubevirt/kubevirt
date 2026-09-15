@@ -1020,9 +1020,10 @@ func (DisableSerialConsoleLog) SwaggerDoc() map[string]string {
 
 func (TLSConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "TLSConfiguration holds TLS options",
+		"":              "TLSConfiguration holds TLS options\n+kubebuilder:validation:XValidation:rule=\"!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion) && self.minTLSVersion == 'VersionTLS13') || self.groups.exists(g, !(g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024']))\",message=\"at least one classical group (e.g. X25519, secp256r1, secp384r1 or secp521r1) is required in groups when minTLSVersion is below VersionTLS13\"",
 		"minTLSVersion": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.\nProtocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known\nvulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE\n+kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13",
 		"ciphers":       "+listType=set",
+		"groups":        "Groups defines the set of allowed TLS supported groups (elliptic curves)\non all TLS server endpoints. Group names follow the IANA TLS Supported\nGroups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised\nnames are silently ignored at TLS setup time, so an older component\ntolerates group names added in a newer release. When empty or when the\nTLSGroupPreferences feature gate is disabled, Go's default curve\npreferences apply.\n+optional\n+listType=atomic\nMaxItems bounds the CEL cost estimate for the exists() validation rule\non TLSConfiguration; without it the CRD is rejected at creation time.\n+kubebuilder:validation:MaxItems=32",
 	}
 }
 
