@@ -24,6 +24,7 @@ var (
 	GPU             = Label("GPU")
 	VGPU            = Label("VGPU")
 	DRAGPU          = Label("DRA-GPU")
+	DRANetwork      = Label("DRA-Network")
 	SEV             = Label("SEV")
 	SEVES           = Label("SEVES")
 	SEVSNP          = Label("SEVSNP")
