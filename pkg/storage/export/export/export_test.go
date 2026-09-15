@@ -1094,6 +1094,42 @@ var _ = Describe("Export controller", func() {
 		))
 	})
 
+	It("should set TLS_CURVE_PREFERENCES when TLSGroupPreferences gate is enabled and groups are configured", func() {
+		groups := []string{"X25519", "secp384r1"}
+		kvObj, _, _ := kvInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		kv := kvObj.(*virtv1.KubeVirt)
+		kv.Spec.Configuration.TLSConfiguration = &virtv1.TLSConfiguration{
+			Groups: groups,
+		}
+		kv.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{
+			FeatureGates: []string{featuregate.TLSGroupPreferences},
+		}
+		kv.ResourceVersion = "tls-groups-enabled"
+		Expect(kvInformer.GetStore().Update(kv)).To(Succeed())
+
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).To(ContainElement(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_CURVE_PREFERENCES")}),
+		))
+	})
+
+	It("should not set TLS_CURVE_PREFERENCES when TLSGroupPreferences gate is disabled", func() {
+		kvObj, _, _ := kvInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		kv := kvObj.(*virtv1.KubeVirt)
+		kv.Spec.Configuration.TLSConfiguration = &virtv1.TLSConfiguration{
+			Groups: []string{"X25519", "secp384r1"},
+		}
+		kv.ResourceVersion = "tls-groups-disabled"
+		Expect(kvInformer.GetStore().Update(kv)).To(Succeed())
+
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_CURVE_PREFERENCES")}),
+		))
+	})
+
 	DescribeTable("Should set export pod env vars", func(vmExport *exportv1.VirtualMachineExport, source exportSource, expectManifest bool) {
 		pod, err := controller.createExporterPodManifest(vmExport, nil, source)
 		Expect(err).ToNot(HaveOccurred())

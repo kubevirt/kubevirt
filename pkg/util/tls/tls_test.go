@@ -488,6 +488,7 @@ var _ = Describe("TLS", func() {
 
 			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(config.CipherSuites).To(BeNil())
+			Expect(config.CurvePreferences).To(BeNil())
 		})
 
 		It("should apply custom TLS configuration from KubeVirt", func() {
@@ -505,5 +506,58 @@ var _ = Describe("TLS", func() {
 			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS13)))
 			Expect(config.CipherSuites).To(Equal(kvtls.CipherSuiteIds([]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"})))
 		})
+
+		It("should never set CurvePreferences even when groups are configured and feature gate is enabled", func() {
+			kv := testutils.GetFakeKubeVirtClusterConfig(kubeVirtStore)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{"TLSGroupPreferences"},
+			}
+			kvConfig.Spec.Configuration.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Groups:        []string{"X25519", "secp256r1"},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtStore, kvConfig)
+
+			config := &tls.Config{}
+			kvtls.ApplyTLSConfigurationFromKubeVirtStore(config, kubeVirtStore)
+
+			Expect(config.CurvePreferences).To(BeNil(),
+				"CurvePreferences must stay unset on client paths so that export-proxy "+
+					"clients can still connect to export-server pods created with different groups")
+		})
 	})
+
+	Describe("CurvePreferenceIds", func() {
+		It("should return nil for empty input", func() {
+			Expect(kvtls.CurvePreferenceIds(nil)).To(BeNil())
+			Expect(kvtls.CurvePreferenceIds([]string{})).To(BeNil())
+		})
+
+		It("should map all recognised group names to correct CurveID values in sorted order", func() {
+			ids := kvtls.CurvePreferenceIds([]string{
+				"X25519", "secp256r1", "secp384r1", "secp521r1",
+				"X25519MLKEM768", "SecP256r1MLKEM768", "SecP384r1MLKEM1024",
+			})
+			Expect(ids).To(Equal([]tls.CurveID{
+				tls.CurveP256, tls.CurveP384, tls.CurveP521, tls.X25519,
+				tls.SecP256r1MLKEM768, tls.X25519MLKEM768, tls.SecP384r1MLKEM1024,
+			}))
+		})
+
+		It("should skip unrecognised group names", func() {
+			ids := kvtls.CurvePreferenceIds([]string{"X25519", "unknownGroup", "secp256r1"})
+			Expect(ids).To(Equal([]tls.CurveID{tls.CurveP256, tls.X25519}))
+		})
+
+		It("should return nil when all names are unrecognised", func() {
+			Expect(kvtls.CurvePreferenceIds([]string{"foo", "bar"})).To(BeNil())
+		})
+
+		It("should deduplicate resolved IDs and return sorted order", func() {
+			ids := kvtls.CurvePreferenceIds([]string{"X25519", "secp256r1", "X25519", "secp384r1", "secp256r1"})
+			Expect(ids).To(Equal([]tls.CurveID{tls.CurveP256, tls.CurveP384, tls.X25519}))
+		})
+	})
+
 })
