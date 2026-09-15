@@ -22,21 +22,23 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"maps"
 	"math"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -53,6 +55,368 @@ const (
 	// qcow2 metadata overhead on a fully dirtied overlay
 	overlayMetadataPercent = 10
 )
+
+func snapshotMode(vmSnapshot *snapshotv1.VirtualMachineSnapshot) snapshotv1.SnapshotMode {
+	if vmSnapshot != nil && vmSnapshot.Spec.SnapshotMode != nil {
+		return *vmSnapshot.Spec.SnapshotMode
+	}
+
+	return snapshotv1.SnapshotModeDirect
+}
+
+// supportedSnapshotMode reports whether this version knows the mode. The CRD has
+// no enum, so a newer mode reaches an older control plane as a plain string
+func supportedSnapshotMode(mode snapshotv1.SnapshotMode) bool {
+	return mode == snapshotv1.SnapshotModeDirect || mode == snapshotv1.SnapshotModeExternal
+}
+
+// externalMode reads the mode off the content, not the VMSnapshot, which the
+// content outlives while it is being cleaned up
+func externalMode(content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return content.Status != nil &&
+		content.Status.SnapshotMode != nil &&
+		*content.Status.SnapshotMode == snapshotv1.SnapshotModeExternal
+}
+
+func overlayCondition(vmi *kubevirtv1.VirtualMachineInstance) *kubevirtv1.VirtualMachineInstanceCondition {
+	return controller.NewVirtualMachineInstanceConditionManager().
+		GetCondition(vmi, kubevirtv1.VirtualMachineInstanceOverlaySnapshotActive)
+}
+
+// overlaysOwnedByRunningVMI reports whether the running VMI is the one that
+// created the overlays. Checked before anything else the VMI reports.
+func overlaysOwnedByRunningVMI(scratch *corev1.PersistentVolumeClaim, vmi *kubevirtv1.VirtualMachineInstance) bool {
+	return vmi != nil && vmi.UID != "" && scratch.Annotations[storagetypes.OverlayOwnerVMIUIDAnnotation] == string(vmi.UID)
+}
+
+// sourceOnOverlays reports whether the source VM's VMI is already running on
+// overlays, which a second snapshot has to wait out.
+func (ctrl *VMSnapshotController) sourceOnOverlays(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	if vmSnapshot.Spec.Source.Kind != "VirtualMachine" {
+		return false
+	}
+
+	obj, exists, err := ctrl.VMIInformer.GetStore().GetByKey(
+		cacheKeyFunc(vmSnapshot.Namespace, vmSnapshot.Spec.Source.Name))
+	if err != nil || !exists {
+		return false
+	}
+
+	condition := overlayCondition(obj.(*kubevirtv1.VirtualMachineInstance))
+	return condition != nil && condition.Status == corev1.ConditionTrue
+}
+
+// errCaptureLost means capture cannot complete. Cleanup still needs a verified report.
+var errCaptureLost = errors.New("no capture can follow")
+
+// createDiskOverlays moves the guest onto qcow2 overlays, one step per
+// reconcile. Returns true once every disk is on an overlay.
+func (ctrl *VMSnapshotController) createDiskOverlays(
+	vmSnapshot *snapshotv1.VirtualMachineSnapshot,
+	content *snapshotv1.VirtualMachineSnapshotContent,
+) (bool, error) {
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return false, err
+	}
+
+	// Checked here to avoid provisioning a volume that will go unused. The
+	// launcher checks too, the agent can drop before the call lands
+	if vmi == nil || !controller.NewVirtualMachineInstanceConditionManager().
+		HasConditionWithStatus(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected, corev1.ConditionTrue) {
+		return false, fmt.Errorf("external mode needs a running guest agent on the source of %s", content.Name)
+	}
+
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return false, err
+	}
+	if content.Status.CreationTime != nil || content.Status.Error != nil ||
+		(scratch != nil && (!controller.HasFinalizer(scratch, overlayScratchFinalizer) || scratch.DeletionTimestamp != nil)) {
+		return false, fmt.Errorf("the cleanup of %s already began: %w", content.Name, errCaptureLost)
+	}
+
+	condition := overlayCondition(vmi)
+	if condition != nil && !overlayReportMatches(scratch, vmi) {
+		if condition.Status == corev1.ConditionFalse && (condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlayCommitted || condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlaySnapshotFailed) {
+			return false, ctrl.requestOverlays(vmSnapshot, content, vmi)
+		}
+		return false, nil
+	}
+
+	switch {
+	case condition == nil:
+		if len(content.Status.VolumeSnapshotStatus) > 0 {
+			// A second set of overlays would span two points in time
+			return false, fmt.Errorf("the overlays of %s were merged before every volume was captured: %w", content.Name, errCaptureLost)
+		}
+
+		return false, ctrl.requestOverlays(vmSnapshot, content, vmi)
+
+	case condition.Status == corev1.ConditionTrue && condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlaysReady:
+		return true, nil
+
+	case condition.Status == corev1.ConditionFalse && (condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlaySnapshotFailed ||
+		condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlayCommitted):
+		// The launcher put the disks back on their base images
+		return false, fmt.Errorf("the overlays of %s could not be taken: %s: %w", content.Name, condition.Message, errCaptureLost)
+
+	default:
+		// Preparing, or an earlier transaction still committing
+		return false, nil
+	}
+}
+
+// commitOverlays merges the overlays back into the base images and removes the
+// scratch volume. Returns true when the capture is complete: every VolumeSnapshot
+// readyToUse while the guest is still on its overlays. The caller turns that
+// into the content's creationTime.
+func (ctrl *VMSnapshotController) commitOverlays(
+	content *snapshotv1.VirtualMachineSnapshotContent,
+	ready bool,
+) (time.Duration, bool, error) {
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return 0, false, err
+	}
+
+	if scratch == nil {
+		// Either there never were overlays, or they are already merged
+		return 0, false, nil
+	}
+
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return 0, false, err
+	}
+
+	if !controller.HasFinalizer(scratch, overlayScratchFinalizer) || overlayCleanupVerified(scratch, vmi) {
+		done, err := ctrl.removeScratchVolume(content)
+		if done || err != nil {
+			return 0, false, err
+		}
+		return snapshotRetryInterval, false, nil
+	}
+
+	// The overlays may hold the only copy of what the guest wrote, so wait for a
+	// launcher that can confirm otherwise
+	if !overlayReportMatches(scratch, vmi) {
+		return snapshotRetryInterval, false, nil
+	}
+
+	condition := overlayCondition(vmi)
+
+	switch {
+	case condition == nil || condition.Status != corev1.ConditionTrue:
+		return snapshotRetryInterval, false, nil
+
+	case condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlayCommitFailed:
+		// Not a capture even with the overlays still on. The commit runs disk by
+		// disk, so a partial failure already moved some base images
+		ctrl.Recorder.Eventf(
+			content,
+			corev1.EventTypeWarning,
+			overlayCommitFailedEvent,
+			"Retrying the commit of the overlays of %s: %s",
+			content.Name,
+			condition.Message,
+		)
+		return snapshotRetryInterval, false, ctrl.requestCommit(content, vmi)
+
+	case condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlaysReady:
+		if !ready {
+			// A VolumeSnapshot still reading a base image needs it to stay still
+			return snapshotRetryInterval, false, nil
+		}
+
+		if content.Status.CreationTime == nil {
+			// Record the capture before the commit starts writing base images, a
+			// lost status update would leave nothing to say it was good
+			return snapshotRetryInterval, true, nil
+		}
+
+		return snapshotRetryInterval, true, ctrl.requestCommit(content, vmi)
+
+	default:
+		// Preparing or Committing, the launcher is mid-transaction
+		return snapshotRetryInterval, false, nil
+	}
+}
+
+// overlaysGoneEarly reports overlays that went away before the capture
+// completed. No second set can follow, so the failure deadline is pointless.
+func (ctrl *VMSnapshotController) overlaysGoneEarly(content *snapshotv1.VirtualMachineSnapshotContent) (bool, error) {
+	if content == nil || !externalMode(content) ||
+		content.Status.CreationTime != nil ||
+		len(content.Status.VolumeSnapshotStatus) == 0 {
+		// Not External, already captured, or the overlays never went on
+		return false, nil
+	}
+
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return false, err
+	}
+
+	condition := overlayCondition(vmi)
+
+	// OverlaysReady is the only state still protecting the base images.
+	// Committing is writing them, CommitFailed has written some.
+	return condition == nil ||
+		condition.Status != corev1.ConditionTrue ||
+		condition.Reason != kubevirtv1.VirtualMachineInstanceReasonOverlaysReady, nil
+}
+
+// overlayReportMatches binds a launcher report to this exact scratch transaction.
+func overlayReportMatches(scratch *corev1.PersistentVolumeClaim, vmi *kubevirtv1.VirtualMachineInstance) bool {
+	return scratch != nil && overlaysOwnedByRunningVMI(scratch, vmi) && scratch.UID != "" && vmi.Status.SnapshotOverlayPVCUID == scratch.UID
+}
+
+func overlayCleanupVerified(scratch *corev1.PersistentVolumeClaim, vmi *kubevirtv1.VirtualMachineInstance) bool {
+	if !overlayReportMatches(scratch, vmi) {
+		return false
+	}
+	condition := overlayCondition(vmi)
+	return condition != nil && condition.Status == corev1.ConditionFalse &&
+		(condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlayCommitted ||
+			condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlaySnapshotFailed)
+}
+
+// cleanupOverlays commits an abandoned transaction, then completes its durable cleanup.
+func (ctrl *VMSnapshotController) cleanupOverlays(content *snapshotv1.VirtualMachineSnapshotContent) (bool, error) {
+	if !externalMode(content) {
+		return true, nil
+	}
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return false, err
+	}
+	if scratch == nil || !controller.HasFinalizer(scratch, overlayScratchFinalizer) {
+		return ctrl.removeScratchVolume(content)
+	}
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return false, err
+	}
+	if !overlayReportMatches(scratch, vmi) {
+		return false, nil
+	}
+	if overlayCleanupVerified(scratch, vmi) {
+		return ctrl.removeScratchVolume(content)
+	}
+	condition := overlayCondition(vmi)
+	if condition == nil || condition.Status != corev1.ConditionTrue || condition.Reason == kubevirtv1.VirtualMachineInstanceReasonOverlayCommitting {
+		return false, nil
+	}
+	return false, ctrl.requestCommit(content, vmi)
+}
+
+// removeScratchVolume records cleanup permission before requesting detach. Once
+// protection is released, later reconciliations can finish even without a launcher.
+func (ctrl *VMSnapshotController) removeScratchVolume(content *snapshotv1.VirtualMachineSnapshotContent) (bool, error) {
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return false, err
+	}
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return false, err
+	}
+	if scratch != nil && controller.HasFinalizer(scratch, overlayScratchFinalizer) {
+		if !overlayCleanupVerified(scratch, vmi) {
+			return false, nil
+		}
+		return false, ctrl.releaseScratchPVC(scratch)
+	}
+	reference, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err != nil {
+		return false, err
+	}
+	contextAttached := vmi != nil && (vmi.Annotations[kubevirtv1.PendingOverlayRecoveryAnnotation] == scratchPVCName(content) || (reference != nil && reference.ContentUID == content.UID))
+	if !scratchVolumeDetached(vmi, content) || contextAttached {
+		return false, ctrl.detachScratchVolume(vmi, content)
+	}
+	if scratch == nil {
+		return true, nil
+	}
+	// Delete acceptance does not mean that kubelet has stopped using the PVC.
+	return false, ctrl.deleteScratchPVC(scratch)
+}
+
+// requestOverlays creates the scratch PVC, hotplugs it, then calls
+// ExternalSnapshot. One step per call, each waiting for the last on the VMI.
+func (ctrl *VMSnapshotController) requestOverlays(
+	vmSnapshot *snapshotv1.VirtualMachineSnapshot,
+	content *snapshotv1.VirtualMachineSnapshotContent,
+	vmi *kubevirtv1.VirtualMachineInstance,
+) error {
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return err
+	}
+
+	if scratch == nil {
+		_, err := ctrl.createScratchPVC(vmSnapshot, content, vmi)
+		return err
+	}
+
+	if !controller.HasFinalizer(scratch, overlayScratchFinalizer) || scratch.DeletionTimestamp != nil || !overlaysOwnedByRunningVMI(scratch, vmi) {
+		return fmt.Errorf("the scratch volume of %s cannot start a new capture: %w", content.Name, errCaptureLost)
+	}
+	found := false
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Name == scratchPVCName(content) && (volume.ClaimName != scratchPVCName(content) || volume.Type == nil || *volume.Type != kubevirtv1.SnapshotOverlay) {
+			return fmt.Errorf("scratch utility volume %s has a different source", volume.Name)
+		}
+		found = found || volume.Name == scratchPVCName(content)
+	}
+	reference, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err != nil {
+		return err
+	}
+	expected := &storagetypes.SnapshotOverlayReference{ContentUID: content.UID, ScratchPVCUID: scratch.UID}
+	if scratch.UID == "" {
+		return fmt.Errorf("the scratch volume of %s has no UID", content.Name)
+	}
+	if reference == nil || *reference != *expected || !found {
+		return ctrl.initializeOverlayReference(vmi, content, expected)
+	}
+	if !scratchVolumeAttached(vmi, content) {
+		return nil
+	}
+
+	return ctrl.Client.VirtualMachineInstance(vmi.Namespace).ExternalSnapshot(
+		context.Background(),
+		vmi.Name,
+		&kubevirtv1.SnapshotOverlayOptions{VolumeName: scratchPVCName(content)},
+	)
+}
+
+// requestCommit calls CommitSnapshot, a no-op if a commit is already running
+func (ctrl *VMSnapshotController) requestCommit(
+	content *snapshotv1.VirtualMachineSnapshotContent,
+	vmi *kubevirtv1.VirtualMachineInstance,
+) error {
+	return ctrl.Client.VirtualMachineInstance(vmi.Namespace).CommitSnapshot(
+		context.Background(),
+		vmi.Name,
+		&kubevirtv1.SnapshotOverlayOptions{VolumeName: scratchPVCName(content)},
+	)
+}
+
+func (ctrl *VMSnapshotController) getSourceVMI(content *snapshotv1.VirtualMachineSnapshotContent) (*kubevirtv1.VirtualMachineInstance, error) {
+	vm := content.Spec.Source.VirtualMachine
+	if vm == nil {
+		return nil, nil
+	}
+
+	obj, exists, err := ctrl.VMIInformer.GetStore().GetByKey(cacheKeyFunc(content.Namespace, vm.Name))
+	if err != nil || !exists {
+		return nil, err
+	}
+
+	return obj.(*kubevirtv1.VirtualMachineInstance).DeepCopy(), nil
+}
 
 // scratchPVCName is derived from the content UID, so a snapshot recreated under
 // the same name gets a new volume. It doubles as the name the PVC is hotplugged
