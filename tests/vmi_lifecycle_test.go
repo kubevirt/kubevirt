@@ -574,19 +574,20 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
 				seconds := int64(10)
 				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
+				deviceResourceName := fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, "kvm")
 				Eventually(func() string {
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs")
 					return string(data)
 				}, 60, 1).Should(
 					ContainSubstring(
-						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", "kvm"),
+						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", deviceResourceName),
 					), "Should log device plugin restart")
 
-				// This is a little bit arbitrar
+				// This is a little bit arbitrary
 				// Background is that new pods go into a crash loop if the devices are still report but virt-handler
 				// re-registers exactly during that moment. This is not too bad, since normally kubelet itself deletes
-				// the socket and knows that the devices are not there. However we have to wait in this test a little bit.
+				// the socket and knows that the devices are not there. However, we have to wait in this test a little bit.
 				time.Sleep(10 * time.Second)
 
 				By("starting another VMI on the same node, to verify devices still work")
