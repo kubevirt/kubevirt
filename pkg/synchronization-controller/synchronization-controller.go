@@ -616,23 +616,28 @@ func (s *SynchronizationController) getOutboundConnectionByMigrationID(vmi *virt
 	}
 	log.Log.Object(vmi).V(4).Infof("found migration ID %s", migrationID)
 	obj, ok := connectionMap.Load(migrationID)
-	if !ok {
-		grpcClientConnection, err := s.createOutboundConnection(syncAddress)
-		if err != nil {
-			return nil, err
+	if ok {
+		outboundSyncConnection, ok := obj.(*SynchronizationConnection)
+		if !ok {
+			return nil, fmt.Errorf("found unknown object in outbound connection cache %#v", obj)
 		}
-		conn := &SynchronizationConnection{
-			migrationID:          migrationID,
-			grpcClientConnection: grpcClientConnection,
+		currentAddress := outboundSyncConnection.grpcClientConnection.Target()
+		if currentAddress == syncAddress {
+			return outboundSyncConnection, nil
 		}
-		connectionMap.Store(migrationID, conn)
-		return conn, nil
+		log.Log.Object(vmi).V(2).Infof("synchronization address for migration %s changed from %s to %s, reconnecting", migrationID, currentAddress, syncAddress)
+		_ = s.closeConnectionForMigrationID(connectionMap, migrationID)
 	}
-	outboundSyncConnection, ok := obj.(*SynchronizationConnection)
-	if !ok {
-		return nil, fmt.Errorf("found unknown object in outbound connection cache %#v", outboundSyncConnection)
+	grpcClientConnection, err := s.createOutboundConnection(syncAddress)
+	if err != nil {
+		return nil, err
 	}
-	return outboundSyncConnection, nil
+	conn := &SynchronizationConnection{
+		migrationID:          migrationID,
+		grpcClientConnection: grpcClientConnection,
+	}
+	connectionMap.Store(migrationID, conn)
+	return conn, nil
 }
 
 func (s *SynchronizationController) handleSourceState(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
