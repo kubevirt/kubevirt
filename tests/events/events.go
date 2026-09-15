@@ -34,6 +34,28 @@ func ExpectEvent(object k8sObject, eventType, reason string) {
 	expectEvent(object, eventType, reason, Not(BeEmpty()))
 }
 
+// ConsistentlyExpectNoEvent asserts that no events matching the selector appear for the
+// full duration. Unlike ExpectNoEvent, which only polls until the list is empty once,
+// this helper rejects events that reappear during the observation window.
+func ConsistentlyExpectNoEvent(object k8sObject, eventType, reason string, duration, interval time.Duration) {
+	By(fmt.Sprintf("Expecting for %s events to not reappear for %s", reason, duration))
+	fieldSelector, namespace := constructFieldSelectorAndNamespace(object, eventType, reason)
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+
+	Consistently(func(g Gomega) {
+		eventList, err := virtClient.CoreV1().Events(namespace).List(
+			context.Background(),
+			metav1.ListOptions{
+				FieldSelector: fieldSelector,
+			},
+		)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(eventList.Items).To(BeEmpty())
+	}).WithTimeout(duration).WithPolling(interval).Should(Succeed())
+}
+
 // DeleteEvents is safe to use in parallel as long as you are asserting namespaced object that is not shared between tests
 func DeleteEvents(object k8sObject, eventType, reason string) {
 	By("Expecting events to be removed")
