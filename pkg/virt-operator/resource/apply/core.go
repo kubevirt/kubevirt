@@ -872,16 +872,40 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 }
 
 func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	networkStatuses := multus.NetworkStatusesFromPod(pod)
-	for _, networkStatus := range networkStatuses {
-		if networkStatus.Interface == v1.MigrationInterfaceName {
-			if len(networkStatus.IPs) == 0 {
-				break
+	// Priority for advertised SynchronizationAddresses (must match where the
+	// sync controller actually listens for peer gRPC):
+	// 1. crosscluster0 when Proxy datapath is enabled and crossClusterNetwork is set
+	// 2. migration0 when Direct datapath (or Proxy not enabled)
+	// 3. (caller falls back to pod IP when Proxy peer binds on pod network)
+
+	if r.isDecentralizedLiveMigrationProxyEnabled() {
+		if r.isCrossClusterMigrationNetworkConfigured() {
+			ips := multus.GetMigrationNetworkIPs(pod, v1.CrossClusterMigrationInterfaceName)
+			if len(ips) > 0 {
+				return ips
 			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
-			return networkStatus.IPs
 		}
+		// Proxy without crossClusterNetwork: peer gRPC binds on pod IP, not migration0.
+		return nil
 	}
-	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
-	return nil
+
+	return multus.GetMigrationNetworkIPs(pod, v1.MigrationInterfaceName)
+}
+
+func (r *Reconciler) isCrossClusterMigrationNetworkConfigured() bool {
+	mig := r.kv.Spec.Configuration.MigrationConfiguration
+	return mig != nil && mig.CrossClusterNetwork != nil
+}
+
+// isDecentralizedLiveMigrationProxyEnabled mirrors virtconfig.DecentralizedLiveMigrationProxyEnabled:
+// CrossClusterMigrationProxy feature gate + decentralizedLiveMigrationDatapath=Proxy.
+func (r *Reconciler) isDecentralizedLiveMigrationProxyEnabled() bool {
+	if !r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
+		return false
+	}
+	mig := r.kv.Spec.Configuration.MigrationConfiguration
+	if mig == nil || mig.DecentralizedLiveMigrationDatapath == nil {
+		return false
+	}
+	return *mig.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy
 }

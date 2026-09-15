@@ -447,6 +447,15 @@ func (c *MigrationSourceController) execute(key string) error {
 	// post migration clean up
 	if isMigrationDone(vmi.Status.MigrationState) {
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
+		// Completed/EndTimestamp can be synced onto the source VMI before this
+		// controller observes the migrated domain. Still run sync so updateStatus
+		// can mark a decentralized source VMI as Succeeded. Limit to the source
+		// node — every virt-handler watches the VMI, but only this host has the domain.
+		if vmi.IsDecentralizedMigration() &&
+			vmi.Status.Phase != v1.Succeeded &&
+			vmi.Status.MigrationState.SourceNode == c.host {
+			return c.sync(vmi.DeepCopy(), domain)
+		}
 		return nil
 	}
 

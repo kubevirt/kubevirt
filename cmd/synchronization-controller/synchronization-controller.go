@@ -25,6 +25,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
+	synccontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-synchronization-controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
@@ -75,6 +77,11 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-sync-controller/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-sync-controller/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-sync-controller/servercertificates/tls.key"
+	// Virt-handler migration certs for terminating TLS on the proxy data path
+	defaultMigrationClientCertFilePath = "/etc/virt-handler/migrationclientcertificates/tls.crt"
+	defaultMigrationClientKeyFilePath  = "/etc/virt-handler/migrationclientcertificates/tls.key"
+	defaultMigrationServerCertFilePath = "/etc/virt-handler/migrationservercertificates/tls.crt"
+	defaultMigrationServerKeyFilePath  = "/etc/virt-handler/migrationservercertificates/tls.key"
 
 	defaultGracefulShutdownSeconds = 30
 	maxRetryCount                  = 10
@@ -92,21 +99,30 @@ type synchronizationControllerApp struct {
 	namespace      string
 	LeaderElection leaderelectionconfig.Configuration
 
-	caConfigMapName    string
-	clientCertFilePath string
-	clientKeyFilePath  string
-	serverCertFilePath string
-	serverKeyFilePath  string
-	externallyManaged  bool
-	ip                 string
+	caConfigMapName             string
+	clientCertFilePath          string
+	clientKeyFilePath           string
+	serverCertFilePath          string
+	serverKeyFilePath           string
+	migrationClientCertFilePath string
+	migrationClientKeyFilePath  string
+	migrationServerCertFilePath string
+	migrationServerKeyFilePath  string
+	externallyManaged           bool
+	ip                          string
+	podIP                       string
 
-	serverTLSConfig       *tls.Config
-	clientTLSConfig       *tls.Config
-	clientcertmanager     certificate.Manager
-	servercertmanager     certificate.Manager
-	clusterConfig         *virtconfig.ClusterConfig
-	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
-	caManager             kvtls.ClientCAManager
+	serverTLSConfig            *tls.Config
+	clientTLSConfig            *tls.Config
+	migrationClientTLSConfig   *tls.Config
+	migrationServerTLSConfig   *tls.Config
+	clientcertmanager          certificate.Manager
+	servercertmanager          certificate.Manager
+	migrationclientcertmanager certificate.Manager
+	migrationservercertmanager certificate.Manager
+	clusterConfig              *virtconfig.ClusterConfig
+	reloadableRateLimiter      *ratelimiter.ReloadableRateLimiter
+	caManager                  kvtls.ClientCAManager
 
 	ctx context.Context
 }
@@ -114,6 +130,8 @@ type synchronizationControllerApp struct {
 func (app *synchronizationControllerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
+	app.migrationclientcertmanager = bootstrap.NewFileCertificateManager(app.migrationClientCertFilePath, app.migrationClientKeyFilePath)
+	app.migrationservercertmanager = bootstrap.NewFileCertificateManager(app.migrationServerCertFilePath, app.migrationServerKeyFilePath)
 	return
 }
 
@@ -154,6 +172,13 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 
 	app.serverTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
 	app.clientTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+
+	// Terminating TLS for virt-handler ↔ proxy:
+	// - client config (migration client cert): dial target virt-handler
+	// - server config (virt-handler server cert): accept source virt-handler
+	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationclientcertmanager, app.externallyManaged)
+	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.migrationservercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler", "migration"})
+
 	return nil
 }
 
@@ -165,6 +190,7 @@ func (app *synchronizationControllerApp) Run() {
 	app.ctx = ctx
 
 	envIP, _ := os.LookupEnv("MY_POD_IP")
+	app.podIP = envIP
 	ip, err := virthandler.FindMigrationIP(envIP)
 	app.ip = ip
 
@@ -247,15 +273,35 @@ func (app *synchronizationControllerApp) Run() {
 		cancel()
 	}()
 
+	// ClusterConfig is backed by informers; start and sync before reading Proxy
+	// datapath / Multus requirements, otherwise we always see defaults (Direct).
+	factory.Start(stop)
+	if !cache.WaitForCacheSync(stop, factory.CRD().HasSynced, factory.KubeVirt().HasSynced) {
+		panic("timed out waiting for KubeVirt configuration caches to sync")
+	}
+
+	proxyConfig := &synchronization.ProxyInitConfig{
+		Enabled: app.clusterConfig.DecentralizedLiveMigrationProxyEnabled(),
+	}
+	if mig := app.clusterConfig.GetConfig().MigrationConfiguration; mig != nil {
+		proxyConfig.RequireMigrationInterface = mig.Network != nil
+		proxyConfig.RequireCrossClusterInterface = mig.CrossClusterNetwork != nil
+	}
+	log.Log.Infof("Migration proxy init config: enabled=%t requireMigrationIface=%t requireCrossClusterIface=%t",
+		proxyConfig.Enabled, proxyConfig.RequireMigrationInterface, proxyConfig.RequireCrossClusterInterface)
+
 	synchronizationController, err := synchronization.NewSynchronizationController(
 		app.virtCli,
 		vmiInformer,
 		migrationInformer,
 		app.clientTLSConfig,
 		app.serverTLSConfig,
+		app.migrationClientTLSConfig,
+		app.migrationServerTLSConfig,
 		app.BindAddress,
 		app.Port,
 		app.ip,
+		proxyConfig,
 	)
 	if err != nil {
 		panic(err)
@@ -263,8 +309,9 @@ func (app *synchronizationControllerApp) Run() {
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
+	go app.migrationclientcertmanager.Start()
+	go app.migrationservercertmanager.Start()
 
-	factory.Start(stop)
 	app.runWithLeaderElection(synchronizationController, stop)
 }
 
@@ -280,32 +327,43 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 	tlsConfig := kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", app.healthzHandler)
+	mux.Handle("/metrics", synccontrollermetrics.Handler(0))
 
 	log.Log.V(2).Infof("Listing on %s", app.Address())
 
-	server := &http.Server{
-		Addr:      "0.0.0.0:8443",
-		Handler:   mux,
-		TLSConfig: tlsConfig,
-		// Disable HTTP/2
-		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+	// Serve metrics/healthz on the primary pod IP (kubelet probes) and localhost
+	// (kubectl port-forward). Do not use 0.0.0.0 — that would also expose 8443 on
+	// secondary networks (internal migration / cross-cluster Multus interfaces).
+	metricsHosts := []string{"127.0.0.1"}
+	if app.podIP != "" && app.podIP != "127.0.0.1" {
+		metricsHosts = append(metricsHosts, app.podIP)
 	}
-
-	go func() {
-		log.Log.V(2).Infof("/healthz listening on %s", server.Addr)
-		for {
-			if err := server.ListenAndServeTLS("", ""); err != nil {
-				if errors.Is(err, http.ErrServerClosed) {
-					// Normal exit, do nothing.
-					log.Log.V(1).Info("shut down healthz http server")
-					return
-				}
-				log.Log.Errorf("unable to listen and serve TLS %v, retrying in 1 second", err)
-			}
-			time.Sleep(time.Second)
+	var metricsServers []*http.Server
+	for _, host := range metricsHosts {
+		metricsAddr := net.JoinHostPort(host, "8443")
+		server := &http.Server{
+			Addr:      metricsAddr,
+			Handler:   mux,
+			TLSConfig: tlsConfig.Clone(),
+			// Disable HTTP/2
+			// See CVE-2023-44487
+			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		}
-	}()
+		metricsServers = append(metricsServers, server)
+		go func(s *http.Server) {
+			log.Log.V(2).Infof("/healthz and /metrics listening on %s", s.Addr)
+			for {
+				if err := s.ListenAndServeTLS("", ""); err != nil {
+					if errors.Is(err, http.ErrServerClosed) {
+						log.Log.V(1).Infof("shut down http server on %s", s.Addr)
+						return
+					}
+					log.Log.Errorf("unable to listen and serve TLS on %s: %v, retrying in 1 second", s.Addr, err)
+				}
+				time.Sleep(time.Second)
+			}
+		}(server)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -313,12 +371,13 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 		defer wg.Done()
 		<-stop
 		app.close()
-		httpShutdownnCTX, httpShutdownCancel := context.WithTimeout(context.Background(), defaultGracefulShutdownSeconds*time.Second)
+		httpShutdownCTX, httpShutdownCancel := context.WithTimeout(context.Background(), defaultGracefulShutdownSeconds*time.Second)
 		defer httpShutdownCancel()
 
-		// Shutdown the server
-		if err := server.Shutdown(httpShutdownnCTX); err != nil {
-			log.Log.Errorf("server shutdown error: %v", err)
+		for _, s := range metricsServers {
+			if err := s.Shutdown(httpShutdownCTX); err != nil {
+				log.Log.Errorf("server shutdown error on %s: %v", s.Addr, err)
+			}
 		}
 		log.Log.V(1).Info("completed stop function")
 	}()
@@ -378,6 +437,8 @@ func (app *synchronizationControllerApp) close() {
 	// release resources associated with the application
 	app.clientcertmanager.Stop()
 	app.servercertmanager.Stop()
+	app.migrationclientcertmanager.Stop()
+	app.migrationservercertmanager.Stop()
 }
 
 func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, _ *http.Request) {
@@ -408,6 +469,18 @@ func (app *synchronizationControllerApp) AddFlags() {
 
 	flag.StringVar(&app.serverKeyFilePath, "tls-key-file", defaultTlsKeyFilePath,
 		"File containing the default x509 private key matching --tls-cert-file")
+
+	flag.StringVar(&app.migrationClientCertFilePath, "migration-client-cert-file", defaultMigrationClientCertFilePath,
+		"Client certificate with CN='migration' used to connect to virt-handler migration proxies")
+
+	flag.StringVar(&app.migrationClientKeyFilePath, "migration-client-key-file", defaultMigrationClientKeyFilePath,
+		"Private key for the migration client certificate")
+
+	flag.StringVar(&app.migrationServerCertFilePath, "migration-server-cert-file", defaultMigrationServerCertFilePath,
+		"Server certificate (virt-handler server cert) used to accept TLS from source virt-handlers")
+
+	flag.StringVar(&app.migrationServerKeyFilePath, "migration-server-key-file", defaultMigrationServerKeyFilePath,
+		"Private key for the migration server certificate")
 
 	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
