@@ -32,6 +32,9 @@ func (p PanicDevicesDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance
 		domain.Spec.Devices.PanicDevices = append(domain.Spec.Devices.PanicDevices, api.PanicDevice{
 			Model: panicDevice.Model,
 		})
+		if panicDevice.Model != nil && *panicDevice.Model == v1.Hyperv {
+			domain.Spec.OnCrash = api.DomainOnCrashPreserveRunning
+		}
 	}
 
 	return nil
