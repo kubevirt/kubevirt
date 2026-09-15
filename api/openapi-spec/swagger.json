@@ -18597,6 +18597,10 @@
      "volumeName"
     ],
     "properties": {
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental.",
+      "type": "string"
+     },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
       "type": "string",
@@ -20481,15 +20485,6 @@
      },
      "name": {
       "type": "string"
-     },
-     "volumes": {
-      "description": "Volumes lists volumes included in the backup",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
-      },
-      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -20548,6 +20543,10 @@
      },
      "mapEndpoint": {
       "description": "MapEndpoint is the URL of the endpoint for map for pull mode",
+      "type": "string"
+     },
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental",
       "type": "string"
      },
      "volumeName": {
@@ -20806,9 +20805,9 @@
       },
       "x-kubernetes-list-type": "atomic"
      },
-     "type": {
-      "description": "Type indicates if the backup was full or incremental",
-      "type": "string"
+     "startTimestamp": {
+      "description": "StartTimestamp is the timestamp when the backup started",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
