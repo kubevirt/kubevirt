@@ -2738,6 +2738,7 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 				TargetPod:    "fakepod",
 			}
+			vmi.Status.MigrationTransport = v1.MigrationTransportUnix
 
 			manager, _ := newLibvirtDomainManagerDefault()
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
