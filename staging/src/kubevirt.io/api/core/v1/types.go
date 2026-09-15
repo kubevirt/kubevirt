@@ -747,6 +747,9 @@ const (
 
 	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
 	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
+
+	// VirtualMachineInstanceOverlaySnapshotActive indicates the VMI's disks are running on copy-on-write overlays
+	VirtualMachineInstanceOverlaySnapshotActive VirtualMachineInstanceConditionType = "OverlaySnapshotActive"
 )
 
 // These are valid reasons for VMI conditions.
@@ -794,6 +797,17 @@ const (
 
 	// Indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceReasonEvictionRequested = "EvictionRequested"
+
+	// Reason means the overlay snapshot transaction has been accepted and is running
+	VirtualMachineInstanceReasonOverlayPreparing = "OverlayPreparing"
+	// Reason means every snapshottable disk is on its overlay and the base images are read-only
+	VirtualMachineInstanceReasonOverlaysReady = "OverlaysReady"
+	// Reason means the overlays are being committed back into the base images
+	VirtualMachineInstanceReasonOverlayCommitting = "OverlayCommitting"
+	// Reason means the commit failed and the overlays may still be in use
+	VirtualMachineInstanceReasonOverlayCommitFailed = "OverlayCommitFailed"
+	// Reason means the transaction failed and the disks are back on their base images
+	VirtualMachineInstanceReasonOverlaySnapshotFailed = "OverlaySnapshotFailed"
 )
 
 const (
