@@ -5001,4 +5001,68 @@ var _ = Describe("findDiskFileInImageVolume", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed to read image volume directory"))
 	})
+
+	Context("consolidateDefaultDisplay", func() {
+		It("should leave a single default ramfb display untouched", func() {
+			devices := []api.HostDevice{
+				{
+					Type:    api.HostDeviceMDev,
+					Display: "on",
+					RamFB:   "on",
+				},
+				{
+					Type: api.HostDeviceMDev,
+				},
+			}
+			consolidateDefaultDisplay(devices)
+			Expect(devices[0].RamFB).To(Equal("on"))
+			Expect(devices[0].Display).To(Equal("on"))
+			Expect(devices[1].RamFB).To(BeEmpty())
+			Expect(devices[1].Display).To(BeEmpty())
+		})
+
+		It("should consolidate multiple default ramfb displays to at most one", func() {
+			devices := []api.HostDevice{
+				{
+					Type:    api.HostDeviceMDev,
+					Display: "on",
+					RamFB:   "on",
+				},
+				{
+					Type:    api.HostDeviceMDev,
+					Display: "on",
+					RamFB:   "on",
+				},
+			}
+			consolidateDefaultDisplay(devices)
+			Expect(devices[0].RamFB).To(Equal("on"))
+			Expect(devices[0].Display).To(Equal("on"))
+			Expect(devices[1].RamFB).To(BeEmpty())
+			Expect(devices[1].Display).To(BeEmpty())
+		})
+
+		It("should keep the first default display even if preceding devices have no display", func() {
+			devices := []api.HostDevice{
+				{
+					Type: api.HostDevicePCI,
+				},
+				{
+					Type:    api.HostDeviceMDev,
+					Display: "on",
+					RamFB:   "on",
+				},
+				{
+					Type:    api.HostDeviceMDev,
+					Display: "on",
+					RamFB:   "on",
+				},
+			}
+			consolidateDefaultDisplay(devices)
+			Expect(devices[0].RamFB).To(BeEmpty())
+			Expect(devices[1].RamFB).To(Equal("on"))
+			Expect(devices[1].Display).To(Equal("on"))
+			Expect(devices[2].RamFB).To(BeEmpty())
+			Expect(devices[2].Display).To(BeEmpty())
+		})
+	})
 })
