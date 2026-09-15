@@ -110,6 +110,104 @@ var _ = Describe("StatsConverter", func() {
 			Expect(out.Block).To(HaveLen(len(testStats[0].Block)))
 		})
 
+		It("should convert block latency histograms", func() {
+			readHistogram := &libvirt.DomainStatsBlockLatencyHistogram{
+				Bins: []libvirt.DomainStatsBlockLatencyHistogramBin{
+					{
+						StartSet: true,
+						Start:    0,
+						ValueSet: true,
+						Value:    10,
+					},
+					{
+						StartSet: true,
+						Start:    1_000_000,
+						ValueSet: true,
+						Value:    5,
+					},
+				},
+			}
+
+			writeHistogram := &libvirt.DomainStatsBlockLatencyHistogram{
+				Bins: []libvirt.DomainStatsBlockLatencyHistogramBin{
+					{
+						StartSet: true,
+						Start:    0,
+						ValueSet: true,
+						Value:    4,
+					},
+					{
+						StartSet: true,
+						Start:    10_000_000,
+						ValueSet: true,
+						Value:    2,
+					},
+				},
+			}
+
+			flushHistogram := &libvirt.DomainStatsBlockLatencyHistogram{
+				Bins: []libvirt.DomainStatsBlockLatencyHistogramBin{
+					{
+						StartSet: true,
+						Start:    0,
+						ValueSet: true,
+						Value:    1,
+					},
+				},
+			}
+
+			in := &libvirt.DomainStats{
+				Block: []libvirt.DomainStatsBlock{
+					{
+						NameSet: true,
+						Name:    "vda",
+						LatencyHistograms: libvirt.DomainStatsBlockLatencyHistograms{
+							Read:  readHistogram,
+							Write: writeHistogram,
+							Flush: flushHistogram,
+						},
+					},
+				},
+			}
+
+			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
+			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
+
+			out := stats.DomainStats{}
+			jobInfo := &stats.DomainJobInfo{}
+
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(
+				DomainIdentifier(mockDomainIdent),
+				in,
+				nil,
+				jobInfo,
+				&libvirt.DomainStatsDirtyRate{},
+				&out,
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(out.Block).To(HaveLen(1))
+
+			histograms := out.Block[0].LatencyHistograms
+			Expect(histograms.Read).To(Equal(&stats.DomainStatsBlockLatencyHistogram{
+				Bins: []stats.DomainStatsBlockLatencyHistogramBin{
+					{StartSet: true, Start: 0, ValueSet: true, Value: 10},
+					{StartSet: true, Start: 1_000_000, ValueSet: true, Value: 5},
+				},
+			}))
+			Expect(histograms.Write).To(Equal(&stats.DomainStatsBlockLatencyHistogram{
+				Bins: []stats.DomainStatsBlockLatencyHistogramBin{
+					{StartSet: true, Start: 0, ValueSet: true, Value: 4},
+					{StartSet: true, Start: 10_000_000, ValueSet: true, Value: 2},
+				},
+			}))
+			Expect(histograms.Flush).To(Equal(&stats.DomainStatsBlockLatencyHistogram{
+				Bins: []stats.DomainStatsBlockLatencyHistogramBin{
+					{StartSet: true, Start: 0, ValueSet: true, Value: 1},
+				},
+			}))
+		})
+
 		It("should convert valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
