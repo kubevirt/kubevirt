@@ -1092,6 +1092,55 @@ var _ = Describe(SIG("Storage", func() {
 				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
+		Context("non-shareable disk conflict", func() {
+			It("should report a clear error when two VMs use the same DataVolume without shareable", decorators.RequiresRWXFilesystemStorage, func() {
+				sc, exists := libstorage.GetRWXFileSystemStorageClass()
+				if !exists {
+					Skip("Skip when RWX filesystem storage class is not present")
+				}
+
+				By("Creating a DataVolume")
+				dv := libdv.NewDataVolume(
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					),
+				)
+
+				By("Creating VM1 that owns the DataVolume via dataVolumeTemplates")
+				vm1 := libstorage.RenderVMWithDataVolumeTemplate(dv, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+				vm1, err = virtClient.VirtualMachine(vm1.Namespace).Create(context.Background(), vm1, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VM1's VMI to be running")
+				Eventually(matcher.ThisVMIWith(vm1.Namespace, vm1.Name), time.Second*250, time.Second*5).Should(matcher.BeRunning())
+
+				By("Creating VM2 referencing the same DataVolume by name")
+				vmi2 := libstorage.RenderVMIWithDataVolume(dv.Name, vm1.Namespace)
+				vm2 := libvmi.NewVirtualMachine(vmi2, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+				vm2, err = virtClient.VirtualMachine(vm2.Namespace).Create(context.Background(), vm2, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking VM2's VMI gets a clear disk local error in its Synchronized condition")
+				Eventually(func(g Gomega) {
+					vmi, err := virtClient.VirtualMachineInstance(vm2.Namespace).Get(context.Background(), vm2.Name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+
+					var syncCond *v1.VirtualMachineInstanceCondition
+					for i := range vmi.Status.Conditions {
+						if vmi.Status.Conditions[i].Type == v1.VirtualMachineInstanceSynchronized {
+							syncCond = &vmi.Status.Conditions[i]
+							break
+						}
+					}
+					g.Expect(syncCond).ToNot(BeNil())
+					g.Expect(syncCond.Status).To(Equal(k8sv1.ConditionFalse))
+					g.Expect(syncCond.Message).To(ContainSubstring("is locked by another process"))
+				}, time.Second*120, time.Second*5).Should(Succeed())
+			})
+		})
 		Context("write and read data from a shared disk", func() {
 			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
 				const diskName = "disk1"
