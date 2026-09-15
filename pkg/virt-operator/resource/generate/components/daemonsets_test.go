@@ -16,6 +16,60 @@ var _ = Describe("Handler DaemonSet", func() {
 		config = &operatorutil.KubeVirtDeploymentConfig{}
 	})
 
+	Context("SecurityContext", func() {
+		It("should NOT set ReadOnlyRootFilesystem on privileged virt-handler container", func() {
+			ds := NewHandlerDaemonSet(config, "", "", "")
+			container := ds.Spec.Template.Spec.Containers[0]
+			Expect(container.Name).To(Equal(VirtHandlerName))
+			Expect(container.SecurityContext).ToNot(BeNil())
+			Expect(container.SecurityContext.Privileged).ToNot(BeNil())
+			Expect(*container.SecurityContext.Privileged).To(BeTrue())
+			Expect(container.SecurityContext.ReadOnlyRootFilesystem).To(BeNil(),
+				"privileged containers should not set readOnlyRootFilesystem as it provides no security benefit and breaks runtime writes")
+		})
+
+		It("should NOT set ReadOnlyRootFilesystem on privileged virt-launcher init container", func() {
+			ds := NewHandlerDaemonSet(config, "", "", "")
+			var launcher *corev1.Container
+			for i := range ds.Spec.Template.Spec.InitContainers {
+				if ds.Spec.Template.Spec.InitContainers[i].Name == VirtLauncherName {
+					launcher = &ds.Spec.Template.Spec.InitContainers[i]
+					break
+				}
+			}
+			Expect(launcher).ToNot(BeNil(), "virt-launcher init container should exist")
+			Expect(launcher.SecurityContext).ToNot(BeNil())
+			Expect(launcher.SecurityContext.Privileged).ToNot(BeNil())
+			Expect(*launcher.SecurityContext.Privileged).To(BeTrue())
+			Expect(launcher.SecurityContext.ReadOnlyRootFilesystem).To(BeNil(),
+				"privileged containers should not set readOnlyRootFilesystem as it provides no security benefit and breaks runtime writes")
+		})
+
+		It("should set ReadOnlyRootFilesystem on virt-launcher-image-holder container", func() {
+			config.AdditionalProperties = map[string]string{
+				operatorutil.AdditionalPropertiesPullSecrets: `[{"name":"test-secret"}]`,
+			}
+			ds := NewHandlerDaemonSet(config, "", "", "")
+
+			var imageHolder *corev1.Container
+			for i := range ds.Spec.Template.Spec.Containers {
+				if ds.Spec.Template.Spec.Containers[i].Name == "virt-launcher-image-holder" {
+					imageHolder = &ds.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(imageHolder).ToNot(BeNil(), "virt-launcher-image-holder container should exist")
+			Expect(imageHolder.SecurityContext).ToNot(BeNil())
+			Expect(imageHolder.SecurityContext.ReadOnlyRootFilesystem).ToNot(BeNil())
+			Expect(*imageHolder.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue())
+			Expect(imageHolder.SecurityContext.AllowPrivilegeEscalation).ToNot(BeNil())
+			Expect(*imageHolder.SecurityContext.AllowPrivilegeEscalation).To(BeFalse())
+			Expect(imageHolder.SecurityContext.Capabilities).ToNot(BeNil())
+			Expect(imageHolder.SecurityContext.Capabilities.Drop).ToNot(BeNil())
+			Expect(imageHolder.SecurityContext.Capabilities.Drop).To(ContainElement(corev1.Capability("ALL")))
+		})
+	})
+
 	DescribeTable("should propagate imagePullPolicy to",
 		func(additionalProperties map[string]string, containerName string, isInitContainer bool, expectedPolicy corev1.PullPolicy) {
 			config.AdditionalProperties = additionalProperties
