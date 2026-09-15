@@ -67,10 +67,10 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 
 }
 
-func NewIterableCheckpointManager(base string) IterableCheckpointManager {
+func NewIterableCheckpointManager(base, tempPath string) IterableCheckpointManager {
 	return &iterableCheckpointManager{
 		base,
-		checkpoint.NewSimpleCheckpointManager(base),
+		checkpoint.NewSimpleCheckpointManager(base, tempPath),
 	}
 }
 

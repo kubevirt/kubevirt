@@ -30,7 +30,7 @@ type record struct {
 var _ = Describe("Simple checkpoint manager", func() {
 	It("should be able to check and retrieve", func() {
 		r := &record{"Hi"}
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Store("win", r)).To(Succeed())
 
@@ -42,7 +42,7 @@ var _ = Describe("Simple checkpoint manager", func() {
 
 	It("should override if checkpoint already exists", func() {
 		r := &record{"Hi"}
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Store("win", r)).To(Succeed())
 
@@ -55,7 +55,7 @@ var _ = Describe("Simple checkpoint manager", func() {
 	})
 
 	It("should return ErrNotExist when asked for non-existing key", func() {
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		r := &record{}
 		Expect(cp.Get("win", r)).To(MatchError(os.ErrNotExist))
@@ -63,7 +63,7 @@ var _ = Describe("Simple checkpoint manager", func() {
 
 	It("should remove key", func() {
 		r := &record{"Hi"}
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Store("win", r)).To(Succeed())
 
@@ -78,7 +78,7 @@ var _ = Describe("Simple checkpoint manager", func() {
 	})
 
 	It("remove non-existing key should return not found", func() {
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Delete("win")).To(MatchError(os.ErrNotExist))
 	})
