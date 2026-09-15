@@ -336,6 +336,49 @@ func CipherSuiteNameMap() map[string]uint16 {
 	return idByName
 }
 
+// CurvePreferenceIds converts a list of IANA TLS Supported Groups registry
+// names (e.g. "X25519", "secp256r1", "X25519MLKEM768") to the corresponding
+// tls.CurveID values. Unrecognised names are silently skipped so that an older
+// component tolerates group names added in a newer release. Returns nil when
+// the input is empty, which leaves tls.Config.CurvePreferences unset and
+// preserves Go's default behaviour.
+func CurvePreferenceIds(names []string) []tls.CurveID {
+	if len(names) == 0 {
+		return nil
+	}
+	ids := make([]tls.CurveID, 0, len(names))
+	for _, name := range names {
+		if id, ok := curveIdByName(name); ok {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
+}
+
+func curveIdByName(name string) (tls.CurveID, bool) {
+	switch name {
+	case v1.TLSGroupX25519:
+		return tls.X25519, true
+	case v1.TLSGroupSecp256r1:
+		return tls.CurveP256, true
+	case v1.TLSGroupSecp384r1:
+		return tls.CurveP384, true
+	case v1.TLSGroupSecp521r1:
+		return tls.CurveP521, true
+	case v1.TLSGroupX25519MLKEM768:
+		return tls.X25519MLKEM768, true
+	case v1.TLSGroupSecP256r1MLKEM768:
+		return tls.SecP256r1MLKEM768, true
+	case v1.TLSGroupSecP384r1MLKEM1024:
+		return tls.SecP384r1MLKEM1024, true
+	default:
+		return 0, false
+	}
+}
+
 // TLSVersion converts from human-readable TLS version (for example "1.1")
 // to the values accepted by tls.Config (for example 0x301).
 func TLSVersion(version v1.TLSProtocolVersion) uint16 {
