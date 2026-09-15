@@ -61,6 +61,12 @@ const (
 
 	// sized so a slow waiter never blocks the libvirt event loop
 	blockJobEventBuffer = 16
+
+	// how full the volume gets before the overlays are committed unasked. The
+	// headroom lets the commit drain what the guest writes while it runs
+	overlayUsageThresholdPercent = 70
+	// short enough that the volume cannot fill between two measurements
+	overlayUsagePollInterval = 10 * time.Second
 )
 
 // Timings of a block commit, variables so that tests can shorten them
@@ -597,6 +603,65 @@ func (m *StorageManager) runExternalSnapshot(vmi *v1.VirtualMachineInstance, ove
 
 	m.setSnapshotOverlayPhase(api.SnapshotOverlayReady, "")
 	log.Log.Object(vmi).Info("External snapshot taken, all snapshottable disks are on their overlays")
+
+	go m.monitorOverlayUsage(vmi, overlayDir)
+}
+
+// monitorOverlayUsage commits the overlays when the scratch volume is nearly
+// full. A qcow2 overlay that cannot grow pauses the guest, so the snapshot is
+// sacrificed to keep it running.
+func (m *StorageManager) monitorOverlayUsage(vmi *v1.VirtualMachineInstance, overlayDir string) {
+	reference, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err != nil || reference == nil {
+		return
+	}
+	ticker := time.NewTicker(m.overlayUsageInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if m.snapshotShutdownRequested() {
+			return
+		}
+		overlay, _ := m.metadataCache.SnapshotOverlay.Load()
+		if overlay.Phase != api.SnapshotOverlayReady ||
+			overlay.ContentUID != reference.ContentUID || overlay.ScratchPVCUID != reference.ScratchPVCUID {
+			return
+		}
+
+		used, err := m.overlayUsage(overlayDir)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Warning("Cannot measure the overlay scratch volume")
+			continue
+		}
+
+		if used < overlayUsageThresholdPercent {
+			continue
+		}
+
+		reason := fmt.Sprintf("the overlay scratch volume is %d%% full, committing the overlays to keep the guest running", used)
+		log.Log.Object(vmi).Warning(reason)
+
+		if err := m.commitSnapshot(vmi, overlayDir, reason); err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed to commit the overlays of a full scratch volume")
+			continue
+		}
+		return
+	}
+}
+
+// overlayUsedPercent returns how full the volume holding the overlays is.
+// Blocks reserved from the launcher count as used.
+func overlayUsedPercent(overlayDir string) (int64, error) {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(overlayDir, &stat); err != nil {
+		return 0, fmt.Errorf("failed to statfs the overlay directory %s: %w", overlayDir, err)
+	}
+
+	if stat.Blocks == 0 {
+		return 0, fmt.Errorf("the volume of the overlay directory %s reports no blocks", overlayDir)
+	}
+
+	return int64((stat.Blocks - stat.Bavail) * 100 / stat.Blocks), nil
 }
 
 func (m *StorageManager) takeExternalSnapshot(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, overlayDir string, volumes []string) (baseVerified bool, err error) {
