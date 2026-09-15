@@ -104,6 +104,7 @@ testimage_main="
   tar
   targetcli
   util-linux
+  kmod
   which
 "
 # sevctl is x86_64-only in CS10, but available for all architectures in CS9
