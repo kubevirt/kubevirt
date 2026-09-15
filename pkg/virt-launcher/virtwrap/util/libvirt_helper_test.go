@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -471,9 +472,9 @@ var _ = Describe("LibvirtHelper", func() {
 			// Random content to ensure we append properly
 			file.WriteString("dummy = 1\n")
 			Expect(file.Close()).To(Succeed())
-			Expect(os.Setenv(util.ENV_VAR_SHARED_FILESYSTEM_PATHS, envInput)).To(Succeed())
+			Expect(os.Setenv(envvar.ENV_VAR_SHARED_FILESYSTEM_PATHS, envInput)).To(Succeed())
 			DeferCleanup(func() {
-				Expect(os.Unsetenv(util.ENV_VAR_SHARED_FILESYSTEM_PATHS)).To(Succeed())
+				Expect(os.Unsetenv(envvar.ENV_VAR_SHARED_FILESYSTEM_PATHS)).To(Succeed())
 				Expect(os.RemoveAll(confPath)).To(Succeed())
 			})
 

@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -56,7 +57,7 @@ func (q QemuCmdDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if q.verboseLogEnabled {
-		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
+		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
 		if err == nil && virtLauncherLogVerbosity > util.EXT_LOG_VERBOSITY_THRESHOLD {
 			// isa-debugcon device is only for x86_64
 			initializeQEMUCmdAndQEMUArg(domain)

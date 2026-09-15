@@ -59,7 +59,7 @@ import (
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -2751,7 +2751,7 @@ var _ = Describe("Manager", func() {
 			)
 
 			It("should add vGPUs to converter context when migration target has single vGPU and vGPU live migration is enabled", func() {
-				envVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, vGPUResourceName)
+				envVar := envvar.ResourceNameToEnvVar(v1.MDevResourcePrefix, vGPUResourceName)
 				Expect(os.Setenv(envVar, vGPUMdevUUID)).To(Succeed())
 				DeferCleanup(func() { _ = os.Unsetenv(envVar) })
 

@@ -83,6 +83,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -110,6 +111,7 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
@@ -1116,7 +1118,7 @@ func qemuImgResizeArgs(imagePath string, size int64, preallocated bool) ([]strin
 	} else {
 		preallocateFlag = "--preallocation=off"
 	}
-	size = kutil.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
+	size = disksize.AlignImageSizeTo1MiB(size, log.Log.With("image", imagePath))
 	if size == 0 {
 		return nil, fmt.Errorf("%s must be at least 1MiB", imagePath)
 	}
@@ -1183,7 +1185,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 	preferredSize = min(usableSize, preferredSize)
 
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
-	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
+	size = disksize.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
 	}
@@ -2873,7 +2875,7 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	if kutil.HasKernelBootContainerImage(vmi) {
+	if vmitrait.HasKernelBootContainerImage(vmi) {
 		kb := vmi.Spec.Domain.Firmware.KernelBoot
 
 		err := os.MkdirAll(containerdisk.GetKernelBootArtifactPathFromLauncherView(""), 0755)
