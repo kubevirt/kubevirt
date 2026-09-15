@@ -320,6 +320,11 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 	return vmiSpec
 }
 
+// CurrentVMIPod returns the active launcher pod for the given VMI.
+// It returns (nil, err) when the pod indexer lookup fails, and
+// (nil, nil) when no matching pod exists in the cache (e.g. during
+// upgrades before the pod is observed by the informer). Callers must
+// handle both cases before dereferencing the returned pod.
 func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
 
 	// current pod is the most recent pod created on the current VMI node
