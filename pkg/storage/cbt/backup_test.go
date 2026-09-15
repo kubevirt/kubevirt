@@ -48,6 +48,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -1790,6 +1791,17 @@ var _ = Describe("Backup Controller", func() {
 			vmi = createInitializedVMI()
 			controller.vmiStore.Add(vmi)
 		})
+
+		DescribeTable("exportServerAddrForService should pick the Service dial port",
+			func(svc *corev1.Service, expectedPort int32) {
+				addr, serverName := exportServerAddrForService("virt-export-test-backup", testNamespace, svc)
+				Expect(addr).To(Equal(fmt.Sprintf("virt-export-test-backup.%s.svc:%d", testNamespace, expectedPort)))
+				Expect(serverName).To(Equal(fmt.Sprintf("virt-export-test-backup.%s.svc.cluster.local", testNamespace)))
+			},
+			Entry("headless Service", &corev1.Service{Spec: corev1.ServiceSpec{ClusterIP: corev1.ClusterIPNone}}, int32(storagetypes.ExportServerPort)),
+			Entry("ClusterIP Service", &corev1.Service{Spec: corev1.ServiceSpec{ClusterIP: "172.30.1.10"}}, int32(storagetypes.ExportClusterIPServicePort)),
+			Entry("nil Service", nil, int32(storagetypes.ExportServerPort)),
+		)
 
 		It("should return false for a new backup", func() {
 			Expect(isPullBackupTTLExpired(backup)).To(BeFalse())
