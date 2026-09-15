@@ -327,13 +327,37 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).To(HaveOccurred())
 				})
 
-				It("should succeed if the socket is there", func() {
-					path1, err := NewSocketPathGetter(tmpDir)(vmi, 0)
+				DescribeTable("should succeed if the socket is there",
+					func(volumeIndex int, expectedSocket string) {
+						path, err := NewSocketPathGetter(tmpDir)(vmi, volumeIndex)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(path).To(Equal(fmt.Sprintf(
+							"%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/%s",
+							tmpDir, "poduid", expectedSocket)))
+					},
+					Entry("at index 0", 0, "disk_0.sock"),
+					Entry("at index 1", 1, "disk_1.sock"),
+				)
+
+				// The socket name is derived from the index into the full volume list
+				// when the container-disk sidecar is rendered, so the getter has to
+				// interpret its argument the same way. Counting only container disks
+				// here would resolve the wrong socket, or none at all.
+				It("should index into the full volume list, not only the container disks", func() {
+					vmi = libvmi.New(
+						libvmi.WithPersistentVolumeClaim("pvc", "pvc"),
+						libvmi.WithContainerDisk("r1", someImage),
+						libvmistatus.WithStatus(
+							libvmistatus.New(
+								libvmistatus.WithActivePod("poduid", ""),
+							)),
+					)
+
+					path, err := NewSocketPathGetter(tmpDir)(vmi, 1)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(path1).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid")))
-					path2, err := NewSocketPathGetter(tmpDir)(vmi, 1)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(path2).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid")))
+					Expect(path).To(Equal(fmt.Sprintf(
+						"%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock",
+						tmpDir, "poduid")))
 				})
 			})
 		})

@@ -244,7 +244,7 @@ func convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, ephemeralDiskPath string, diskIndex int, diskFormat string) error {
+func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, ephemeralDiskPath string, diskFormat string) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
@@ -256,7 +256,7 @@ func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 		Source: &api.DiskSource{},
 	}
 
-	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+	source := containerdisk.GetDiskTargetPathFromLauncherView(volumeName)
 	disk.BackingStore.Format.Type = diskFormat
 	disk.BackingStore.Source.File = source
 	disk.BackingStore.Type = "file"
