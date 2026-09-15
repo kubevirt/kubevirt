@@ -291,6 +291,17 @@ func InjectTLSConfigIntoDeployment(kv *v1.KubeVirt, deployment *appsv1.Deploymen
 			"--tls-min-version", string(tlsConfig.MinTLSVersion),
 		)
 	}
+	curveIDs := CurvePreferenceIds(tlsConfig.Groups)
+	if kv != nil && featuregate.IsEnabled(featuregate.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) && len(curveIDs) > 0 {
+		idStrs := make([]string, 0, len(curveIDs))
+		for _, id := range curveIDs {
+			idStrs = append(idStrs, fmt.Sprintf("%d", id))
+		}
+		deployment.Spec.Template.Spec.Containers[idx].Args = append(
+			deployment.Spec.Template.Spec.Containers[idx].Args,
+			"--tls-curve-preferences", strings.Join(idStrs, ","),
+		)
+	}
 	return nil
 }
 
