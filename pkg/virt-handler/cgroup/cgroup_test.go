@@ -209,24 +209,29 @@ var _ = Describe("cgroup manager", func() {
 })
 
 var _ = Describe("GetMiscCapacity", func() {
-	var originalMiscCapacityPath string
+	var originalMiscCapacityPath, originalMiscMaxPath string
 	var tempDir string
 
 	BeforeEach(func() {
 		tempDir = GinkgoT().TempDir()
-		originalMiscCapacityPath = miscCapacityPath
+		originalMiscCapacityPath, originalMiscMaxPath = miscCapacityPath, miscMaxPath
+		// A case that writes neither file must see neither, rather than falling
+		// through to the misc cgroup of whatever host the test runs on.
 		miscCapacityPath = path.Join(tempDir, "misc.capacity")
+		miscMaxPath = path.Join(tempDir, "misc.max")
 	})
 
 	AfterEach(func() {
-		miscCapacityPath = originalMiscCapacityPath
+		miscCapacityPath, miscMaxPath = originalMiscCapacityPath, originalMiscMaxPath
 	})
 
 	DescribeTable("should return correct capacity",
-		func(fileContent string, key string, expectedCapacity int, expectError bool) {
-			if fileContent != "" {
-				err := os.WriteFile(path.Join(tempDir, "misc.capacity"), []byte(fileContent), 0644)
-				Expect(err).ToNot(HaveOccurred())
+		func(capacityContent, maxContent, key string, expectedCapacity int, expectError bool) {
+			if capacityContent != "" {
+				Expect(os.WriteFile(miscCapacityPath, []byte(capacityContent), 0644)).To(Succeed())
+			}
+			if maxContent != "" {
+				Expect(os.WriteFile(miscMaxPath, []byte(maxContent), 0644)).To(Succeed())
 			}
 			capacity, err := GetMiscCapacity(key)
 			Expect(capacity).To(Equal(expectedCapacity))
@@ -237,18 +242,41 @@ var _ = Describe("GetMiscCapacity", func() {
 			}
 		},
 		Entry("returns capacity for matching key",
-			"tdx 10\nsev 5\n", "tdx", 10, false,
+			"tdx 10\nsev 5\n", "", "tdx", 10, false,
 		),
-		Entry("produces error when key not found",
-			"tdx 10\nsev 5\n", "nonexistent", 0, true,
+		Entry("produces error when key not found for capacity file",
+			"tdx 10\nsev 5\n", "", "nonexistent", 0, true,
 		),
 		Entry("produces error for malformed line",
-			"tdx\n", "tdx", 0, true,
+			"tdx\n", "", "tdx", 0, true,
 		),
 		Entry("produces error for non-numeric capacity",
-			"tdx abc\n", "tdx", 0, true,
+			"tdx abc\n", "", "tdx", 0, true,
+		),
+		Entry("falls back to the limit when there is no capacity file",
+			"", "tdx max\nsev_es 4\n", "sev_es", 4, false,
+		),
+		Entry("produces error when key not found in limit file",
+			"", "sev_es 4\n", "tdx", 0, true,
+		),
+		// NOTE: Unlikely scenario since misc.capacity and misc.max should not be present simultaneously
+		Entry("prefers capacity over the limit",
+			"sev_es 999\n", "sev_es 4\n", "sev_es", 999, false,
+		),
+		Entry("produces error when an unlimited limit leaves the key unconfigured",
+			"", "sev_es max\n", "sev_es", 0, true,
+		),
+		Entry("produces error for a non-numeric limit",
+			"", "sev_es abc\n", "sev_es", 0, true,
 		),
 	)
+
+	It("reports an unlimited limit as unconfigured rather than as a missing key", func() {
+		Expect(os.WriteFile(miscMaxPath, []byte("sev_es max\n"), 0644)).To(Succeed())
+
+		_, err := GetMiscCapacity("sev_es")
+		Expect(err).To(MatchError(ContainSubstring("not configured")))
+	})
 })
 
 var _ = Describe("parseDevicesList", func() {
