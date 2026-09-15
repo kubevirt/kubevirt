@@ -275,6 +275,16 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-compute / @bmordeha
+	// Alpha: v1.10.0
+	//
+	// TLSGroupPreferences enables the Groups field on TLSConfiguration,
+	// allowing cluster administrators to configure TLS supported groups
+	// (elliptic curves) negotiated during TLS handshakes across all virt
+	// pod endpoints. When disabled, the Groups field is ignored and Go's
+	// default curve preferences apply.
+	TLSGroupPreferences = "TLSGroupPreferences"
 )
 
 func init() {
@@ -321,4 +331,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: TLSGroupPreferences, State: Alpha})
 }
