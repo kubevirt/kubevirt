@@ -22,6 +22,8 @@ package v1
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -29,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -148,6 +151,8 @@ var _ = Describe("AsyncSubresourceHelperContext", func() {
 
 		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
 		Expect(err).To(MatchError(context.DeadlineExceeded))
+		var asyncErr *AsyncSubresourceError
+		Expect(errors.As(err, &asyncErr)).To(BeTrue())
 	})
 
 	It("should preserve handshake errors before the context deadline", func() {
@@ -160,8 +165,9 @@ var _ = Describe("AsyncSubresourceHelperContext", func() {
 		defer cancel()
 
 		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "console", nil)
-		Expect(err).To(BeAssignableToTypeOf(&AsyncSubresourceError{}))
-		Expect(err.(*AsyncSubresourceError).GetStatusCode()).To(Equal(http.StatusBadRequest))
+		var asyncErr *AsyncSubresourceError
+		Expect(errors.As(err, &asyncErr)).To(BeTrue())
+		Expect(asyncErr.GetStatusCode()).To(Equal(http.StatusBadRequest))
 	})
 
 	It("should still open a stream when the context has not expired", func() {
@@ -174,6 +180,40 @@ var _ = Describe("AsyncSubresourceHelperContext", func() {
 		stream, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(stream.AsConn().Close()).To(Succeed())
+	})
+})
+
+var _ = Describe("releaseHandshake", func() {
+	It("should close a websocket that completes after the caller stopped waiting", func() {
+		server := newEchoWebsocketServer()
+		defer server.Close()
+
+		ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		done := make(chan struct{})
+		aws := &AsyncWSRoundTripper{
+			Connection: make(chan *websocket.Conn, 1),
+			Done:       done,
+		}
+		aws.Connection <- ws
+		releaseHandshake(aws, make(chan error), done)
+
+		Eventually(done).Should(BeClosed())
+		Expect(ws.WriteMessage(websocket.TextMessage, []byte("x"))).ToNot(Succeed())
+	})
+
+	It("should return when the handshake fails after the caller stopped waiting", func() {
+		done := make(chan struct{})
+		aws := &AsyncWSRoundTripper{
+			Connection: make(chan *websocket.Conn),
+			Done:       done,
+		}
+		errChan := make(chan error, 1)
+		errChan <- fmt.Errorf("handshake failed")
+
+		releaseHandshake(aws, errChan, done)
+		Consistently(done, 100*time.Millisecond).ShouldNot(BeClosed())
 	})
 })
 

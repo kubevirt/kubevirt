@@ -104,38 +104,38 @@ func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions
 }
 
 func (v *vmis) SerialConsoleContext(ctx context.Context, name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
-	if options != nil && options.ConnectionTimeout != 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, options.ConnectionTimeout)
-		defer cancel()
+	if options == nil || options.ConnectionTimeout == 0 {
+		return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
+	}
 
-		for {
-			con, err := kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
-			if err == nil {
-				return con, nil
-			}
-			asyncSubresourceError, ok := err.(*kvcorev1.AsyncSubresourceError)
-			// return if response status code does not equal to 400
-			if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
-				if errors.Is(err, context.DeadlineExceeded) {
-					return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
-				}
-				return nil, err
-			}
+	ctx, cancel := context.WithTimeout(ctx, options.ConnectionTimeout)
+	defer cancel()
 
-			timer := time.NewTimer(time.Second)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-					return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
-				}
-				return nil, ctx.Err()
-			case <-timer.C:
+	for {
+		con, err := kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
+		if err == nil {
+			return con, nil
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+		}
+		var asyncSubresourceError *kvcorev1.AsyncSubresourceError
+		// return if response status code does not equal to 400
+		if !errors.As(err, &asyncSubresourceError) || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
+			return nil, err
+		}
+
+		timer := time.NewTimer(time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
 			}
+			return nil, ctx.Err()
+		case <-timer.C:
 		}
 	}
-	return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
 }
 
 func (v *vmis) Get(ctx context.Context, name string, options metav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
