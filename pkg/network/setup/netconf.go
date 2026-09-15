@@ -140,10 +140,6 @@ func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance, portRangesSpecGateEnab
 			masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
 		)
 	} else {
-		return masquerade.New(
-			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
-			masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
-			masquerade.WithLegacyMigrationPorts(),
-		)
+		panic(fmt.Sprintf("unsupported migration transport, %s", vmi.Status.MigrationTransport))
 	}
 }
