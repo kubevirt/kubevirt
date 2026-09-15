@@ -1883,15 +1883,21 @@ var _ = Describe("Manager", func() {
 		It("Should signal graceful shutdown after marked for shutdown", func() {
 			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
-			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN).Return(nil)
 
 			manager, _ := newLibvirtDomainManagerDefault()
 
 			vmi := newVMI(testNamespace, testVmName)
+			beforeShutdown := metav1.Now()
 			manager.SignalShutdownVMI(vmi)
 
 			gracePeriod, _ := metadataCache.GracePeriod.Load()
 			Expect(gracePeriod.DeletionTimestamp).NotTo(BeNil())
+
+			intent, exists := metadataCache.PendingPlatformTermination.Load()
+			Expect(exists).To(BeTrue())
+			Expect(intent.Timestamp.IsZero()).To(BeFalse())
+			Expect(intent.Timestamp.Time).To(BeTemporally(">=", beforeShutdown.Time))
 		})
 	})
 	Context("test migration monitor", func() {
