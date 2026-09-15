@@ -25,6 +25,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -143,6 +145,60 @@ var _ = Describe("OCI export", func() {
 		req := httptest.NewRequest(http.MethodGet, export.ReadinessPath, http.NoBody)
 		es.handler.ServeHTTP(rec, req)
 		Expect(rec.Code).To(Equal(http.StatusOK))
+	})
+
+	Context("collectDiskInfo", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+		})
+
+		It("should collect a directory holding a disk image", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk.img"), []byte("data"), 0o600)).To(Succeed())
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: filepath.Base(dir),
+			}))
+		})
+
+		It("should skip a directory holding no disk image", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "vtpm-data"), []byte("state"), 0o600)).To(Succeed())
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(BeEmpty())
+		})
+
+		It("should collect the disks of a VM with backend storage", func() {
+			disk := filepath.Join(dir, "rootdisk")
+			state := filepath.Join(dir, "persistent-state-for-vm")
+			Expect(os.Mkdir(disk, 0o700)).To(Succeed())
+			Expect(os.Mkdir(state, 0o700)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(disk, "disk.img"), []byte("data"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(state, "vtpm-data"), []byte("state"), 0o600)).To(Succeed())
+
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: disk}, {Path: state}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(disk, "disk.img"),
+				VolumeName: "rootdisk",
+			}))
+		})
+
+		It("should error when the volume path does not exist", func() {
+			_, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: filepath.Join(dir, "missing")}},
+			})
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Context("prepareVMConfig", func() {

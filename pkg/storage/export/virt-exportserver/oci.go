@@ -21,6 +21,7 @@ package virtexportserver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -87,6 +88,14 @@ func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 		}
 		if fi.IsDir() {
 			p = path.Join(p, "disk.img")
+			if _, err := os.Stat(p); err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return nil, fmt.Errorf("error statting %s: %w", p, err)
+				}
+				// Backend storage for instance, not exported as a layer yet.
+				log.Log.Infof("Skipping volume %s, holds no disk image", vi.Path)
+				continue
+			}
 		}
 
 		disks = append(disks, oci.DiskInfo{
