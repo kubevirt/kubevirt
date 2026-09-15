@@ -635,6 +635,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!ImageVolume)" "&&"
   fi
 
+  if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-6] ]]; then
+    add_to_label_filter "(!kubernetes137)" "&&"
+  fi
+
   vmstate_sc=$(jq -r .storageVMState "${kubevirt_test_config}")
   if [[ "${vmstate_sc}" == "rook-ceph-block" ]]; then
     # ceph block doesn't do RWX FS
@@ -750,4 +754,3 @@ fi
 
 # Sanity check test execution by looking at results file
 ./automation/assert-not-all-tests-skipped.sh "${ARTIFACTS}/junit.functest.xml"
-
