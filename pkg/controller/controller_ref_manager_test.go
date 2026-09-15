@@ -203,8 +203,18 @@ func TestClaimDataVolume(t *testing.T) {
 		name        string
 		manager     *VirtualMachineControllerRefManager
 		datavolumes []*cdiv1.DataVolume
+		dvTemplates []virtv1.DataVolumeTemplateSpec
 		claimed     []*cdiv1.DataVolume
 		expectError bool
+	}
+	dvTemplatesFor := func(names ...string) []virtv1.DataVolumeTemplateSpec {
+		templates := make([]virtv1.DataVolumeTemplateSpec, len(names))
+		for i, name := range names {
+			templates[i] = virtv1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Name: name},
+			}
+		}
+		return templates
 	}
 	var tests = []test{
 		func() test {
@@ -220,6 +230,7 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", nil), newDataVolume("datavolume2", nil)},
+				dvTemplates: dvTemplatesFor("datavolume1", "datavolume2"),
 				claimed:     nil,
 			}
 		}(),
@@ -236,6 +247,7 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", nil)},
+				dvTemplates: dvTemplatesFor("datavolume1", "datavolume2"),
 				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
 			}
 		}(),
@@ -252,6 +264,7 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", &controller2)},
+				dvTemplates: dvTemplatesFor("datavolume1", "datavolume2"),
 				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
 			}
 		}(),
@@ -272,12 +285,28 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{datavolumeToDelete1, datavolumeToDelete2},
+				dvTemplates: dvTemplatesFor("datavolume1", "datavolume2"),
 				claimed:     []*cdiv1.DataVolume{datavolumeToDelete1},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			return test{
+				name: "Controller releases owned datavolume not in template names",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", &controller)},
+				dvTemplates: dvTemplatesFor("datavolume1"),
+				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
 			}
 		}(),
 	}
 	for _, test := range tests {
-		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes)
+		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes, test.dvTemplates)
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
 		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {

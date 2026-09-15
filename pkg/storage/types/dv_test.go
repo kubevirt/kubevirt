@@ -28,11 +28,16 @@ import (
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 var _ = Describe("DataVolume utils test", func() {
@@ -183,6 +188,158 @@ var _ = Describe("DataVolume utils test", func() {
 			Expect(cs).ToNot(BeNil())
 			Expect(cs.PVC.Namespace).To(Equal(vm.Namespace))
 			Expect(cs.PVC.Name).To(Equal(sourceName))
+		})
+	})
+
+	Context("ListDataVolumeClaimCandidates", func() {
+		var (
+			vm    *virtv1.VirtualMachine
+			store cache.Store
+		)
+
+		BeforeEach(func() {
+			vm = &virtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vm",
+					UID:       types.UID("vm-uid"),
+				},
+			}
+			store = cache.NewStore(controller.KeyFunc)
+		})
+
+		ownerRef := func(vm *virtv1.VirtualMachine) metav1.OwnerReference {
+			return metav1.OwnerReference{
+				APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+				Name:               vm.Name,
+				UID:                vm.UID,
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
+			}
+		}
+
+		dvTemplatesFor := func(names ...string) []virtv1.DataVolumeTemplateSpec {
+			templates := make([]virtv1.DataVolumeTemplateSpec, len(names))
+			for i, name := range names {
+				templates[i] = virtv1.DataVolumeTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{Name: name},
+				}
+			}
+			return templates
+		}
+
+		It("should return owned DV that is still in templates", func() {
+			vm.Spec.DataVolumeTemplates = dvTemplatesFor("dv1")
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "dv1",
+					Namespace:       vm.Namespace,
+					OwnerReferences: []metav1.OwnerReference{ownerRef(vm)},
+				},
+			}
+			Expect(store.Add(dv)).To(Succeed())
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ConsistOf(HaveField("Name", "dv1")))
+		})
+
+		It("should return owned DV removed from templates for release", func() {
+			vm.Spec.DataVolumeTemplates = nil
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "stale-dv",
+					Namespace:       vm.Namespace,
+					OwnerReferences: []metav1.OwnerReference{ownerRef(vm)},
+				},
+			}
+			Expect(store.Add(dv)).To(Succeed())
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ConsistOf(HaveField("Name", "stale-dv")))
+		})
+
+		It("should return orphan DV matching a template for adoption", func() {
+			vm.Spec.DataVolumeTemplates = dvTemplatesFor("orphan-dv")
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "orphan-dv",
+					Namespace: vm.Namespace,
+				},
+			}
+			Expect(store.Add(dv)).To(Succeed())
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ConsistOf(HaveField("Name", "orphan-dv")))
+		})
+
+		It("should not duplicate a DV that is both owned and in templates", func() {
+			vm.Spec.DataVolumeTemplates = dvTemplatesFor("dv1")
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "dv1",
+					Namespace:       vm.Namespace,
+					OwnerReferences: []metav1.OwnerReference{ownerRef(vm)},
+				},
+			}
+			Expect(store.Add(dv)).To(Succeed())
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ConsistOf(HaveField("Name", "dv1")))
+		})
+
+		It("should exclude DVs from a different namespace", func() {
+			vm.Spec.DataVolumeTemplates = nil
+			dv := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "other-ns-dv",
+					Namespace:       "other-ns",
+					OwnerReferences: []metav1.OwnerReference{ownerRef(vm)},
+				},
+			}
+			Expect(store.Add(dv)).To(Succeed())
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should skip templates with no existing DV", func() {
+			vm.Spec.DataVolumeTemplates = dvTemplatesFor("missing-dv")
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return both owned stale and orphan template DVs", func() {
+			vm.Spec.DataVolumeTemplates = dvTemplatesFor("new-dv")
+			staleDV := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "stale-dv",
+					Namespace:       vm.Namespace,
+					OwnerReferences: []metav1.OwnerReference{ownerRef(vm)},
+				},
+			}
+			orphanDV := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "new-dv",
+					Namespace: vm.Namespace,
+				},
+			}
+			Expect(store.Add(staleDV)).To(Succeed())
+			Expect(store.Add(orphanDV)).To(Succeed())
+
+			result, err := ListDataVolumeClaimCandidates(vm, store)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ConsistOf(
+				HaveField("Name", "stale-dv"),
+				HaveField("Name", "new-dv"),
+			))
 		})
 	})
 })
