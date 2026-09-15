@@ -189,7 +189,7 @@ func (c *BaseController) prepareNetwork(vmi *v1.VirtualMachineInstance, res isol
 	return nil
 }
 
-func (c *BaseController) nonRootSetup(vmi *v1.VirtualMachineInstance) error {
+func (c *BaseController) setupDeviceOwnership(vmi *v1.VirtualMachineInstance) error {
 	res, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err

@@ -50,7 +50,6 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -347,10 +346,8 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	if vmitrait.IsNonRoot(vmi) {
-		if err := c.nonRootSetup(vmi); err != nil {
-			return err
-		}
+	if err := c.setupDeviceOwnership(vmi); err != nil {
+		return err
 	}
 
 	if err := c.configureVirtioFS(vmi, isolationRes); err != nil {

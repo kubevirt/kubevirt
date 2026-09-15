@@ -197,10 +197,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
 
-		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
-		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0755)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(f.Close()).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev", "net"), 0755)).To(Succeed())
+		var f *os.File
+		for _, device := range []string{"kvm", "vhost-net", filepath.Join("net", "tun")} {
+			f, err = os.OpenFile(filepath.Join(vmiShareDir, "dev", device), os.O_CREATE, 0755)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+		}
 
 		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
