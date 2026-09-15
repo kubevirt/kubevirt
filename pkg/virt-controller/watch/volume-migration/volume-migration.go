@@ -466,6 +466,26 @@ func PatchVMIVolumes(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachin
 	return clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
+// MigratedVolumesMatchVMSpec is a helper to determine if the destination in the migrated volumes match VM spec
+func MigratedVolumesMatchVMSpec(migratedVols []virtv1.StorageMigratedVolumeInfo, vmSpec *virtv1.VirtualMachineInstanceSpec) bool {
+	vmVols := make(map[string]string)
+	for _, v := range vmSpec.Volumes {
+		if claim := storagetypes.PVCNameFromVirtVolume(&v); claim != "" {
+			vmVols[v.Name] = claim
+		}
+	}
+	for _, mv := range migratedVols {
+		if mv.DestinationPVCInfo == nil {
+			return false
+		}
+		vmClaim, ok := vmVols[mv.VolumeName]
+		if !ok || vmClaim != mv.DestinationPVCInfo.ClaimName {
+			return false
+		}
+	}
+	return true
+}
+
 // ValidateVolumesUpdateMigration checks if the VMI can be update with the volume migration. For example, for certain VMs, the migration is not allowed for other reasons then the storage
 func ValidateVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine, migVolsInfo []virtv1.StorageMigratedVolumeInfo) error {
 	if vmi == nil {
