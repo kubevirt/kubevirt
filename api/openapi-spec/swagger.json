@@ -15641,7 +15641,7 @@
       "type": "string"
      },
      "portRanges": {
-      "description": "List of port ranges to be forwarded to the virtual machine. Mutually exclusive with ports. Only supported on masquerade interfaces. This feature is in Alpha.",
+      "description": "List of port ranges to be forwarded to the virtual machine. Only supported on masquerade interfaces. This feature is in Beta.",
       "type": "array",
       "items": {
        "default": {},
@@ -15650,7 +15650,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "ports": {
-      "description": "List of ports to be forwarded to the virtual machine. Mutually exclusive with portRanges.",
+      "description": "List of ports to be forwarded to the virtual machine.",
       "type": "array",
       "items": {
        "default": {},
