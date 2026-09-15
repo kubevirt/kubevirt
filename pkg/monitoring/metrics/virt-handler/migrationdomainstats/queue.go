@@ -49,6 +49,10 @@ type result struct {
 	namespace string
 	node      string
 
+	// Set only from terminal migration events.
+	downtimeSet bool
+	downtime    uint64
+
 	domainJobInfo stats.DomainJobInfo
 	timestamp     time.Time
 }

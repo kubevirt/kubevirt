@@ -52,6 +52,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -106,6 +107,44 @@ var _ = Describe("Live migration source", func() {
 		)
 		libvirtDomainManager = manager.(*LibvirtDomainManager)
 		libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	})
+
+	Context("Migration metadata initialization", func() {
+		It("should clear completed data before publishing a new migration", func() {
+			libvirtDomainManager.metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{
+				Stats: api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150},
+				Migration: api.MigrationMetadata{
+					UID: "previous-migration",
+				},
+			})
+			libvirtDomainManager.metadataCache.ResetNotification()
+			vmi.Status.MigrationState.MigrationUID = "next-migration"
+
+			inProgress, err := libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inProgress).To(BeFalse())
+			completedData, exists := libvirtDomainManager.metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(completedData).To(Equal(metadata.CompletedMigrationData{}))
+			migrationData, exists := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(migrationData.UID).To(Equal(types.UID("next-migration")))
+		})
+	})
+
+	Context("Migration monitor lifecycle", func() {
+		It("should clear active job stats when the monitor exits", func() {
+			libvirtDomainManager.domainInfoStats = &stats.DomainJobInfo{DataTotalSet: true, DataTotal: 100}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, fmt.Errorf("domain unavailable"))
+			monitor := &migrationMonitor{l: libvirtDomainManager, vmi: vmi}
+			ready := make(chan error, 1)
+
+			monitor.startMonitor(ready)
+
+			Expect(<-ready).To(HaveOccurred())
+			Expect(*libvirtDomainManager.domainInfoStats).To(Equal(stats.DomainJobInfo{}))
+		})
 	})
 
 	Context("Migration result", func() {

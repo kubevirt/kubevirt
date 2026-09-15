@@ -43,6 +43,7 @@ import (
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -325,6 +326,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		StartTimestamp: &now,
 		Mode:           migrationMode,
 	}
+	l.metadataCache.CompletedMigration.Set(metadata.CompletedMigrationData{})
 	l.metadataCache.Migration.Store(m)
 	log.Log.V(4).Infof("initialize migration metadata: %v", m)
 	return false, nil
