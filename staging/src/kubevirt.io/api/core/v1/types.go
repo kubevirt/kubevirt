@@ -3388,6 +3388,20 @@ const (
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
 
+// TLS supported group name constants using IANA TLS Supported Groups
+// registry names. These are convenience constants for use with
+// TLSConfiguration.Groups; the field is an open string set and is
+// not restricted to these values.
+const (
+	TLSGroupX25519             = "X25519"
+	TLSGroupSecp256r1          = "secp256r1"
+	TLSGroupSecp384r1          = "secp384r1"
+	TLSGroupSecp521r1          = "secp521r1"
+	TLSGroupX25519MLKEM768     = "X25519MLKEM768"
+	TLSGroupSecP256r1MLKEM768  = "SecP256r1MLKEM768"
+	TLSGroupSecP384r1MLKEM1024 = "SecP384r1MLKEM1024"
+)
+
 type CustomProfile struct {
 	LocalhostProfile      *string `json:"localhostProfile,omitempty"`
 	RuntimeDefaultProfile bool    `json:"runtimeDefaultProfile,omitempty"`
@@ -3423,6 +3437,7 @@ type DisableFreePageReporting struct{}
 type DisableSerialConsoleLog struct{}
 
 // TLSConfiguration holds TLS options
+// +kubebuilder:validation:XValidation:rule="!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion) && self.minTLSVersion == 'VersionTLS13') || !self.groups.exists(g, g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024']) || self.groups.exists(g, g in ['X25519','secp256r1','secp384r1','secp521r1'])",message="a classical group (X25519, secp256r1, secp384r1 or secp521r1) is required in groups when minTLSVersion is below VersionTLS13 and a TLS 1.3-only group such as X25519MLKEM768 is configured"
 type TLSConfiguration struct {
 	// MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
 	// Protocol versions are based on the following most common TLS configurations:
@@ -3435,6 +3450,19 @@ type TLSConfiguration struct {
 	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
 	// +listType=set
 	Ciphers []string `json:"ciphers,omitempty"`
+	// Groups defines the set of allowed TLS supported groups (elliptic curves)
+	// on all TLS server endpoints. Group names follow the IANA TLS Supported
+	// Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised
+	// names are silently ignored at TLS setup time, so an older component
+	// tolerates group names added in a newer release. When empty or when the
+	// TLSGroupPreferences feature gate is disabled, Go's default curve
+	// preferences apply.
+	// +optional
+	// +listType=atomic
+	// MaxItems bounds the CEL cost estimate for the exists() validation rule
+	// on TLSConfiguration; without it the CRD is rejected at creation time.
+	// +kubebuilder:validation:MaxItems=32
+	Groups []string `json:"groups,omitempty"`
 }
 
 type StallDetectorOptions struct {
