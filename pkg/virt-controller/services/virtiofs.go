@@ -32,7 +32,7 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 				continue
 			}
 			resources := virtiofs.ResourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
-			container := generateContainerFromVolume(&volume, image, resources)
+			container := generateContainerFromVolume(&volume, image, resources, config.GetImagePullPolicy())
 			containers = append(containers, container)
 
 		}
@@ -62,7 +62,7 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	return volumeMountPoint
 }
 
-func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
+func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements, imagePullPolicy k8sv1.PullPolicy) k8sv1.Container {
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
@@ -114,7 +114,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 	return k8sv1.Container{
 		Name:            fmt.Sprintf("virtiofs-%s", volume.Name),
 		Image:           image,
-		ImagePullPolicy: k8sv1.PullIfNotPresent,
+		ImagePullPolicy: imagePullPolicy,
 		Command:         []string{"/usr/libexec/virtiofsd"},
 		Args:            args,
 		VolumeMounts:    volumeMounts,
