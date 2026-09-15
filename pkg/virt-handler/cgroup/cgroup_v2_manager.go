@@ -91,21 +91,15 @@ func (v *v2Manager) Set(r *cgroups.Resources) error {
 		log.Log.V(5).Infof("cgroupsv2 device allowlist: rule after appending current+new: type: %d permissions: %s allow: %t major: %d minor: %d", rule.Type, rule.Permissions, rule.Allow, rule.Major, rule.Minor)
 	}
 
-	subsystemPaths := map[string]string{
-		"target": v.dirPath,
-	}
+	cgroupPaths := []string{v.dirPath}
 	if targetDir, parentPath := filepath.Base(v.dirPath), path.Dir(v.dirPath); targetDir == "container" && strings.HasSuffix(parentPath, ".scope") {
 		// This is needed for crun based installations for a brief period of time
 		// crun will eventually stop configuring both cgroups
-		subsystemPaths["parent"] = parentPath
+		cgroupPaths = append(cgroupPaths, parentPath)
 	}
-	log.Log.V(5).Infof("cgroupsv2 device allowlist: paths passed to virt-chroot: %s", subsystemPaths)
+	log.Log.V(5).Infof("cgroupsv2 device allowlist: paths passed to virt-chroot: %v", cgroupPaths)
 
-	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.isRootless, v.GetCgroupVersion())
-}
-
-func (v *v2Manager) GetCgroupVersion() CgroupVersion {
-	return V2
+	return v.execVirtChroot(&resourcesToSet, cgroupPaths, v.isRootless)
 }
 
 func (v *v2Manager) GetCpuSet() (string, error) {
