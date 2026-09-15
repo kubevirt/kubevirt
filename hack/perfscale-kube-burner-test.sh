@@ -15,40 +15,60 @@
 # limitations under the License.
 #
 # Copyright 2026 The KubeVirt Authors.
+#
+# This script should be executed through the makefile via `make kube-burner-perftest`.
 
 set -e
 
-export PROMETHEUS_PORT=${PROMETHEUS_PORT:-30007}
-export PROMETHEUS_ENDPOINT=${PROMETHEUS_ENDPOINT:-http://127.0.0.1}
+source hack/common.sh
+source hack/config.sh
+
+KUBE_BURNER_VERSION=${KUBE_BURNER_VERSION:-v2.7.0}
+PROMETHEUS_PORT=${PROMETHEUS_PORT:-30007}
+PROMETHEUS_ENDPOINT=${PROMETHEUS_ENDPOINT:-http://127.0.0.1}
+PERFSCALE_WORKLOAD=${PERFSCALE_WORKLOAD:-tests/performance/manifests/kube-burner/kubevirt-density/kubevirt-density.yml}
+KB_LOG_LEVEL=${KB_LOG_LEVEL:-debug}
+export QPS=${QPS:-10}
+export BURST=${BURST:-10}
+export JOB_ITERATIONS=${JOB_ITERATIONS:-1}
 
 echo 'Preparing directory for artifacts'
-mkdir -p $ARTIFACTS
+mkdir -p "${ARTIFACTS}"
 
-KUBE_BURNER_VERSION=${KUBE_BURNER_VERSION:-v2.2.2}
-OS=$(uname -s)
-HARDWARE=$(uname -m)
-EXTRA_FLAGS=${EXTRA_FLAGS:-}
-KUBE_DIR=${KUBE_DIR:-/tmp}
+echo "Building kube-burner ${KUBE_BURNER_VERSION} from source"
+KUBE_BURNER_BIN="${KUBE_DIR:-/tmp}/kube-burner"
+mkdir -p "$(dirname "${KUBE_BURNER_BIN}")"
+KUBE_BURNER_SRC=$(mktemp -d)
+if [[ "${KUBE_BURNER_VERSION}" == "latest" ]]; then
+    git clone --depth 1 "https://github.com/kube-burner/kube-burner.git" "${KUBE_BURNER_SRC}"
+else
+    git clone --depth 1 --branch "${KUBE_BURNER_VERSION}" "https://github.com/kube-burner/kube-burner.git" "${KUBE_BURNER_SRC}"
+fi
+(cd "${KUBE_BURNER_SRC}" && GOFLAGS="" go build -o "${KUBE_BURNER_BIN}" ./cmd/kube-burner/)
+rm -rf "${KUBE_BURNER_SRC}"
 
-# in kubevirt CI/CD the node we run the job is on a different cluster, so time is not synced across all nodes
-# as a workaround, we collect the timestamps by making a prometheus query, so we can use the exact time that prometheus is using
+# In kubevirt CI/CD the node running the job is on a different cluster,
+# so time is not synced across all nodes. As a workaround we collect
+# timestamps via a prometheus query to use its exact clock.
 function get_timestamp() {
     curr_timestamp=$(curl -fs --data-urlencode 'query=container_cpu_usage_seconds_total{pod!="",container="prometheus"}' "${PROMETHEUS_ENDPOINT}:${PROMETHEUS_PORT}/api/v1/query" | jq -r '.data.result[0] | .value[0]')
-    date -u +%Y-%m-%dT%TZ -d @$curr_timestamp
-}
-
-download_binary() {
-    REPO_URL="https://github.com/kube-burner/kube-burner"
-    LATEST_TAG=$(curl -s "https://api.github.com/repos/kube-burner/kube-burner/releases/latest" | jq -r '.tag_name')
-    TAG_OPTION=$(if [ "$KUBE_BURNER_VERSION" == "latest" ]; then echo "${LATEST_TAG#v}"; else echo "${KUBE_BURNER_VERSION#v}"; fi)
-    KUBE_BURNER_URL="https://github.com/kube-burner/kube-burner/releases/download/v${TAG_OPTION}/kube-burner-V${TAG_OPTION}-${OS}-${HARDWARE}.tar.gz"
-    curl --fail --retry 8 --retry-all-errors -sS -L "${KUBE_BURNER_URL}" | tar -xzC "${KUBE_DIR}/" kube-burner
+    date -u +%Y-%m-%dT%TZ -d @"${curr_timestamp}"
 }
 
 function perftest() {
-    SKIP_INDEXING=${SKIP_INDEXING:-false} JOB_ITERATIONS=${JOB_ITERATIONS:-1} GC=${GC:-false} GC_METRICS=${GC_METRICS:-false} METRICS_FOLDER=${METRICS_FOLDER:-"collected-metrics"} ${KUBE_DIR}/kube-burner init \
-        --config ${PERFSCALE_WORKLOAD} \
-        --log-level debug \
+    SKIP_INDEXING=${SKIP_INDEXING:-false} \
+    JOB_ITERATIONS=${JOB_ITERATIONS} \
+    GC=${GC:-false} \
+    GC_METRICS=${GC_METRICS:-false} \
+    METRICS_FOLDER=${METRICS_FOLDER:-collected-metrics} \
+    QPS=${QPS} \
+    BURST=${BURST} \
+    PROMETHEUS_ENDPOINT=${PROMETHEUS_ENDPOINT} \
+    PROMETHEUS_PORT=${PROMETHEUS_PORT} \
+    PROMETHEUS_TOKEN=${PROMETHEUS_TOKEN:-} \
+    "${KUBE_BURNER_BIN}" init \
+        --config "${PERFSCALE_WORKLOAD}" \
+        --log-level "${KB_LOG_LEVEL}" \
         ${EXTRA_FLAGS:-}
 }
 
@@ -57,20 +77,19 @@ function perfaudit() {
     cp -r "${metrics_folder_name}" "${ARTIFACTS}/"
 }
 
-# run small test to verify the functionality
-download_binary
+# run small test to verify functionality
 time SKIP_INDEXING=true JOB_ITERATIONS=1 perftest
-echo "Sleeping 30 to let system cooldown after the test"
+echo "Sleeping 30s to let system cool down after the test"
 sleep 30
 start_timestamp=$(get_timestamp)
-# run the test
+# run the actual test
 time GC=true perftest
 stop_timestamp=$(get_timestamp)
 
-# run audit tool to transform all kube-burner collected metrics into kubevirt perfscale format
-if [[ ${PERFAUDIT} == "true" || ${PERFAUDIT} == "True" ]]; then
+# copy kube-burner collected metrics into artifacts
+if [[ "${PERFAUDIT:-true}" == "true" || "${PERFAUDIT:-true}" == "True" ]]; then
     perfaudit
 fi
 
-echo "start_timestamp= $start_timestamp"
-echo "stop_timestamp= $stop_timestamp"
+echo "start_timestamp= ${start_timestamp}"
+echo "stop_timestamp= ${stop_timestamp}"
