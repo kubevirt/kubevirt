@@ -435,6 +435,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.EphemeralVolumeSource{}.OpenAPIModelName():                                                 schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
 		corev1.EvacuateCancelOptions{}.OpenAPIModelName():                                                 schema_kubevirtio_api_core_v1_EvacuateCancelOptions(ref),
 		corev1.ExperimentalMigrationOptions{}.OpenAPIModelName():                                          schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref),
+		corev1.ExportConfiguration{}.OpenAPIModelName():                                                   schema_kubevirtio_api_core_v1_ExportConfiguration(ref),
 		corev1.FeatureAPIC{}.OpenAPIModelName():                                                           schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
 		corev1.FeatureHyperv{}.OpenAPIModelName():                                                         schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
 		corev1.FeatureKVM{}.OpenAPIModelName():                                                            schema_kubevirtio_api_core_v1_FeatureKVM(ref),
@@ -21363,6 +21364,26 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ExportConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExportConfiguration holds cluster-level VirtualMachineExport settings.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"externalCertificationStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExternalCertificationStrategy controls how VirtualMachineExport external link certificates are populated. Defaults to ClusterRootCA.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_FeatureAPIC(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23360,11 +23381,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"exportConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExportConfiguration holds cluster-level settings for VirtualMachineExport.",
+							Ref:         ref(corev1.ExportConfiguration{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			resource.Quantity{}.OpenAPIModelName(), metav1.LabelSelector{}.OpenAPIModelName(), corev1.ArchConfiguration{}.OpenAPIModelName(), corev1.ChangedBlockTrackingSelectors{}.OpenAPIModelName(), corev1.CommonInstancetypesDeployment{}.OpenAPIModelName(), corev1.ConfidentialComputeConfiguration{}.OpenAPIModelName(), corev1.DeveloperConfiguration{}.OpenAPIModelName(), corev1.HypervisorConfiguration{}.OpenAPIModelName(), corev1.InstancetypeConfiguration{}.OpenAPIModelName(), corev1.KSMConfiguration{}.OpenAPIModelName(), corev1.LiveUpdateConfiguration{}.OpenAPIModelName(), corev1.MediatedDevicesConfiguration{}.OpenAPIModelName(), corev1.MigrationConfiguration{}.OpenAPIModelName(), corev1.NetworkConfiguration{}.OpenAPIModelName(), corev1.PermittedHostDevices{}.OpenAPIModelName(), corev1.PersistentReservationConfiguration{}.OpenAPIModelName(), corev1.ReloadableComponentConfiguration{}.OpenAPIModelName(), corev1.SMBiosConfiguration{}.OpenAPIModelName(), corev1.SeccompConfiguration{}.OpenAPIModelName(), corev1.SupportContainerResources{}.OpenAPIModelName(), corev1.TLSConfiguration{}.OpenAPIModelName(), corev1.VirtTemplateDeployment{}.OpenAPIModelName(), corev1.VirtualMachineOptions{}.OpenAPIModelName()},
+			resource.Quantity{}.OpenAPIModelName(), metav1.LabelSelector{}.OpenAPIModelName(), corev1.ArchConfiguration{}.OpenAPIModelName(), corev1.ChangedBlockTrackingSelectors{}.OpenAPIModelName(), corev1.CommonInstancetypesDeployment{}.OpenAPIModelName(), corev1.ConfidentialComputeConfiguration{}.OpenAPIModelName(), corev1.DeveloperConfiguration{}.OpenAPIModelName(), corev1.ExportConfiguration{}.OpenAPIModelName(), corev1.HypervisorConfiguration{}.OpenAPIModelName(), corev1.InstancetypeConfiguration{}.OpenAPIModelName(), corev1.KSMConfiguration{}.OpenAPIModelName(), corev1.LiveUpdateConfiguration{}.OpenAPIModelName(), corev1.MediatedDevicesConfiguration{}.OpenAPIModelName(), corev1.MigrationConfiguration{}.OpenAPIModelName(), corev1.NetworkConfiguration{}.OpenAPIModelName(), corev1.PermittedHostDevices{}.OpenAPIModelName(), corev1.PersistentReservationConfiguration{}.OpenAPIModelName(), corev1.ReloadableComponentConfiguration{}.OpenAPIModelName(), corev1.SMBiosConfiguration{}.OpenAPIModelName(), corev1.SeccompConfiguration{}.OpenAPIModelName(), corev1.SupportContainerResources{}.OpenAPIModelName(), corev1.TLSConfiguration{}.OpenAPIModelName(), corev1.VirtTemplateDeployment{}.OpenAPIModelName(), corev1.VirtualMachineOptions{}.OpenAPIModelName()},
 	}
 }
 
