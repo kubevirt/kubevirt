@@ -22,6 +22,7 @@ package rest
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/gorilla/websocket"
 
@@ -34,6 +35,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
@@ -88,6 +90,9 @@ func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8se
 	if protocolParam := n.request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
 		protocol = protocolParam
 	}
+	if protocol != "tcp" && protocol != "udp" {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("unsupported protocol %q", protocol))
+	}
 
 	addr := fmt.Sprintf("%s:%s", targetIP, port)
 	if netutils.IsIPv6String(targetIP) {
@@ -130,12 +135,32 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	return kubecli.NewVirtHandlerClient(app.virtClient, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
-// get the first available interface IP
-// if no interface is present, return error
 func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	interfaces := vmi.Status.Interfaces
-	if len(interfaces) < 1 {
-		return "", fmt.Errorf("no network interfaces are present")
+	podNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks)
+	if podNetwork == nil {
+		return "", fmt.Errorf("vmi has no pod network")
 	}
-	return interfaces[0].IP, nil
+	ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, podNetwork.Name)
+	if ifaceStatus == nil || ifaceStatus.IP == "" {
+		return "", fmt.Errorf("pod network interface has no IP")
+	}
+	return validateTargetIP(ifaceStatus.IP)
+}
+
+func validateTargetIP(ip string) (string, error) {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "", fmt.Errorf("invalid target IP %q: %w", ip, err)
+	}
+	switch {
+	case addr.IsLoopback():
+		return "", fmt.Errorf("target IP %s is a loopback address", ip)
+	case addr.IsLinkLocalUnicast():
+		return "", fmt.Errorf("target IP %s is a link-local address", ip)
+	case addr.IsMulticast():
+		return "", fmt.Errorf("target IP %s is a multicast address", ip)
+	case addr.IsUnspecified():
+		return "", fmt.Errorf("target IP %s is an unspecified address", ip)
+	}
+	return ip, nil
 }

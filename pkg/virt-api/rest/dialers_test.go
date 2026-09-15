@@ -21,7 +21,6 @@ package rest
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -31,7 +30,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -56,40 +54,69 @@ var _ = Describe("NetDialer", func() {
 		request = restful.NewRequest(httpReq)
 	})
 
-	makeVMIWithInterfaceStatus := func(interfaces []v1.VirtualMachineInstanceNetworkInterface) *v1.VirtualMachineInstance {
-		return &v1.VirtualMachineInstance{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmName,
-				Namespace: vmNamespace,
-			},
-			Spec: v1.VirtualMachineInstanceSpec{},
-			Status: v1.VirtualMachineInstanceStatus{
-				Interfaces: interfaces,
-			},
-		}
+	newVMIWithPodNetwork := func(ip string) *v1.VirtualMachineInstance {
+		return libvmi.New(
+			libvmi.WithNamespace(vmNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					Name: v1.DefaultPodNetwork().Name,
+					IP:   ip,
+				}),
+			)),
+		)
 	}
 
-	It("Should fail if vmi has no network interfaces", func() {
-		dialer := netDial{
-			request: request,
-		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus(nil))
-		Expect(statusErr.Status().Message).To(Equal("no network interfaces are present"))
+	It("Should fail if VMI has no pod network", func() {
+		vmi := libvmi.New(
+			libvmi.WithNamespace(vmNamespace),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					IP: "10.0.0.1",
+				}),
+			)),
+		)
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(vmi)
+		Expect(statusErr.Status().Message).To(ContainSubstring("no pod network"))
+	})
+
+	It("Should fail if pod network interface has no IP", func() {
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork(""))
+		Expect(statusErr.Status().Message).To(ContainSubstring("no IP"))
 	})
 
 	It("Should fail if request has no port", func() {
 		request.PathParameters()["port"] = ""
-		dialer := netDial{
-			request: request,
-		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP: "192.168.0.1",
-			},
-		}))
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork("192.168.0.1"))
 		Expect(statusErr.Status().Message).To(Equal("port must not be empty"))
 	})
+
+	It("Should fail with unsupported protocol", func() {
+		request.PathParameters()["port"] = "22"
+		request.PathParameters()["protocol"] = "unix"
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork("192.168.0.1"))
+		Expect(statusErr.Status().Message).To(ContainSubstring("unsupported protocol"))
+	})
+
+	DescribeTable("Should reject dangerous target IPs", func(ip, expectedMsg string) {
+		dialer := netDial{request: request}
+		_, statusErr := dialer.DialUnderlying(newVMIWithPodNetwork(ip))
+		Expect(statusErr.Status().Message).To(ContainSubstring(expectedMsg))
+	},
+		Entry("loopback IPv4", "127.0.0.1", "loopback"),
+		Entry("loopback IPv6", "::1", "loopback"),
+		Entry("link-local IPv4", "169.254.1.1", "link-local"),
+		Entry("link-local IPv6", "fe80::1", "link-local"),
+		Entry("multicast IPv4", "224.0.0.1", "multicast"),
+		Entry("multicast IPv6", "ff02::1", "multicast"),
+		Entry("unspecified IPv4", "0.0.0.0", "unspecified"),
+		Entry("unspecified IPv6", "::", "unspecified"),
+	)
 
 	It("Should forward error from Request's Body", func() {
 		const errMsg = "foo bar from the App handler!"
@@ -128,26 +155,4 @@ var _ = Describe("NetDialer", func() {
 		Expect(statusErr).To(MatchError(ContainSubstring(errMsg)))
 		Expect(conn).To(BeNil())
 	})
-
-	DescribeTable("Should dial vmi", func(ipAddr string) {
-		ln, err := net.Listen("tcp", fmt.Sprintf("%s:0", ipAddr))
-		Expect(err).NotTo(HaveOccurred())
-		defer ln.Close()
-		tcpAddr := ln.Addr().(*net.TCPAddr)
-
-		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
-		dialer := netDial{
-			request: request,
-		}
-		conn, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP: tcpAddr.IP.String(),
-			},
-		}))
-		Expect(statusErr).NotTo(HaveOccurred())
-		Expect(conn).NotTo(BeNil())
-	},
-		Entry("with ipv4 ip address", "127.0.0.1"),
-		Entry("with ipv6 ip address", "[::1]"),
-	)
 })

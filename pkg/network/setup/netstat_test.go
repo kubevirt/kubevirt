@@ -207,6 +207,8 @@ var _ = Describe("netstat", func() {
 				{
 					Name:          secondaryNetworkName,
 					InterfaceName: secondaryIfaceName,
+					IP:            secondaryPodIPv4,
+					IPs:           []string{secondaryPodIPv4, secondaryPodIPv6},
 					MAC:           secondaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
@@ -371,14 +373,14 @@ var _ = Describe("netstat", func() {
 				{
 					Name:          primaryNetworkName,
 					InterfaceName: primaryIfaceName,
-					IP:            primaryGaIPv6,
-					IPs:           []string{primaryGaIPv6},
+					IP:            primaryPodIPv4,
+					IPs:           []string{primaryPodIPv4},
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
 					LinkState:     linkStateUp,
 				},
-			}), "the guest-agent IP/s should be reported in the status")
+			}), "the pod cache IP/s should be reported in the status, guest-agent IPs are not used when pod cache IPs exist")
 
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 		})
@@ -484,12 +486,14 @@ var _ = Describe("netstat", func() {
 			{
 				Name:          primaryNetworkName,
 				InterfaceName: primaryIfaceName,
+				IP:            origIPv4,
+				IPs:           []string{origIPv4, origIPv6},
 				MAC:           origMAC,
 				InfoSource:    netvmispec.InfoSourceDomainAndGA,
 				QueueCount:    netsetup.DefaultInterfaceQueueCount,
 				LinkState:     linkStateUp,
 			},
-		}), "the pod IP/s should be reported in the status")
+		}), "the pod IP/s should be reported in the status, guest-agent cannot clear pod cache IPs")
 	})
 
 	It("should report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
@@ -587,50 +591,6 @@ var _ = Describe("netstat", func() {
 				QueueCount:    netsetup.UnknownInterfaceQueueCount,
 			},
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
-	})
-
-	It("should not report link local addresses for masquerade binding when reported by guest-agent", func() {
-		const (
-			primaryNetworkName = "primary"
-
-			primaryGaIPv4    = "1.1.1.1"
-			primaryGaIPv6    = "fd20:244::8c4c"
-			primaryGaLLAIPv6 = "fe80::a00:27ff:fe8f:5d42"
-
-			primaryMAC     = "1C:CE:C0:01:BE:E7"
-			primaryPodIPv4 = "1.1.1.1"
-		)
-
-		Expect(
-			setup.addNetworkInterface(
-				newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
-				newVMISpecPodNetwork(primaryNetworkName),
-				newDomainSpecIface(primaryNetworkName, primaryMAC),
-				primaryPodIPv4,
-			)).To(Succeed())
-
-		setup.addGuestAgentInterfaces(
-			newDomainStatusIface(
-				[]string{primaryGaIPv4, primaryGaIPv6, primaryGaLLAIPv6},
-				primaryMAC,
-				"eth0",
-			),
-		)
-
-		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
-
-		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				Name:          primaryNetworkName,
-				InterfaceName: "eth0",
-				IP:            primaryPodIPv4,
-				IPs:           []string{primaryPodIPv4, primaryGaIPv6},
-				MAC:           primaryMAC,
-				InfoSource:    netvmispec.InfoSourceDomainAndGA,
-				QueueCount:    netsetup.DefaultInterfaceQueueCount,
-				LinkState:     linkStateUp,
-			},
-		}))
 	})
 
 	It("should report link local addresses for secondary iface using bridge binding w/o IPAM when reported by guest-agent", func() {
@@ -937,6 +897,8 @@ var _ = Describe("netstat", func() {
 			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 				{
 					Name:       primaryNetworkName,
+					IP:         primaryPodIPv4,
+					IPs:        []string{primaryPodIPv4},
 					MAC:        primaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
