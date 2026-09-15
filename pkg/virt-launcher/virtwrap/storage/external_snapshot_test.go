@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -133,6 +134,10 @@ var _ = Describe("External snapshot", func() {
 
 		verifyOverlayDirMounted = func(string) error { return nil }
 		DeferCleanup(func() { verifyOverlayDirMounted = isMounted })
+
+		// A snapshot leaves a monitor watching the scratch volume, parked here
+		// because these specs are about taking the snapshot.
+		manager.overlayUsageInterval = time.Hour
 	})
 
 	Context("the transaction", func() {
@@ -419,9 +424,18 @@ var _ = Describe("Snapshot overlay commit", func() {
 		metadataCache *metadata.Cache
 		vmi           *v1.VirtualMachineInstance
 
-		fireEvent func(disk string, status libvirt.ConnectDomainEventBlockJobStatus)
-		removed   []string
+		removed []string
 	)
+
+	// blockJobCallback is what the running commit registered with libvirt, and
+	// fireEvent delivers an event to it the way the libvirt event loop would.
+	// Held atomically because the commit registers it from its own goroutine.
+	blockJobCallback := &atomic.Pointer[libvirt.DomainEventBlockJobCallback]{}
+	fireEvent := func(disk string, status libvirt.ConnectDomainEventBlockJobStatus) {
+		callback := blockJobCallback.Load()
+		Expect(callback).ToNot(BeNil())
+		(*callback)(nil, nil, &libvirt.DomainEventBlockJob{Disk: disk, Status: status})
+	}
 
 	removeFile := removeOverlayFile
 	gracePeriod, readyTimeout, pollInterval := commitConvergenceGracePeriod, commitReadyTimeout, commitReadyPollInterval
@@ -465,12 +479,10 @@ var _ = Describe("Snapshot overlay commit", func() {
 		mockConn.EXPECT().LookupDomainByName(domainName).Return(mockDomain, nil).AnyTimes()
 		mockDomain.EXPECT().Free().Return(nil).AnyTimes()
 
-		fireEvent = nil
+		blockJobCallback.Store(nil)
 		mockConn.EXPECT().VolatileDomainEventBlockJobRegister(gomock.Any()).
 			DoAndReturn(func(callback libvirt.DomainEventBlockJobCallback) (int, error) {
-				fireEvent = func(disk string, status libvirt.ConnectDomainEventBlockJobStatus) {
-					callback(nil, nil, &libvirt.DomainEventBlockJob{Disk: disk, Status: status})
-				}
+				blockJobCallback.Store(&callback)
 				return registrationID, nil
 			}).AnyTimes()
 		mockConn.EXPECT().DomainEventDeregister(registrationID).Return(nil).AnyTimes()
@@ -555,7 +567,7 @@ var _ = Describe("Snapshot overlay commit", func() {
 
 			Expect(manager.CommitSnapshot(vmi, overlayDir)).To(Succeed())
 
-			Eventually(func() func(string, libvirt.ConnectDomainEventBlockJobStatus) { return fireEvent }).ShouldNot(BeNil())
+			Eventually(blockJobCallback.Load).ShouldNot(BeNil())
 			Eventually(func() api.SnapshotOverlayPhase {
 				fireEvent("vda", libvirt.DOMAIN_BLOCK_JOB_READY)
 				fireEvent("vdb", libvirt.DOMAIN_BLOCK_JOB_READY)
@@ -769,7 +781,7 @@ var _ = Describe("Snapshot overlay commit", func() {
 
 			Expect(manager.CommitSnapshot(vmi, overlayDir)).To(Succeed())
 
-			Eventually(func() func(string, libvirt.ConnectDomainEventBlockJobStatus) { return fireEvent }).ShouldNot(BeNil())
+			Eventually(blockJobCallback.Load).ShouldNot(BeNil())
 			Eventually(func() api.SnapshotOverlayPhase {
 				fireEvent("vda", libvirt.DOMAIN_BLOCK_JOB_FAILED)
 				return overlayPhase()
@@ -876,6 +888,180 @@ var _ = Describe("Snapshot overlay commit", func() {
 			Expect(manager.CommitSnapshot(vmi, overlayDir)).ToNot(Succeed())
 
 			Expect(overlayPhase()).To(Equal(api.SnapshotOverlayReady))
+		})
+	})
+})
+
+var _ = Describe("Overlay usage monitor", func() {
+	const (
+		overlayDir = "/var/run/kubevirt/hotplug-disks/scratch"
+		domainName = "default_testvmi"
+	)
+
+	var (
+		ctrl          *gomock.Controller
+		mockConn      *cli.MockConnection
+		manager       *StorageManager
+		metadataCache *metadata.Cache
+		vmi           *v1.VirtualMachineInstance
+
+		// usage is what the next measurement of the scratch volume returns, and
+		// measured is fed once per measurement so a spec can wait for the next one.
+		usage    func() (int64, error)
+		measured chan struct{}
+	)
+
+	overlayPhase := func() api.SnapshotOverlayPhase {
+		overlay, exists := metadataCache.SnapshotOverlay.Load()
+		if !exists {
+			return ""
+		}
+		return overlay.Phase
+	}
+	overlayMessage := func() string {
+		overlay, _ := metadataCache.SnapshotOverlay.Load()
+		return overlay.Message
+	}
+
+	// runMonitor starts the monitor and hands back a channel that closes when it
+	// stops watching the overlays. A monitor left running is stopped the way
+	// anything stops it, by taking the overlays off the guest.
+	runMonitor := func() chan struct{} {
+		stopped := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(stopped)
+			manager.monitorOverlayUsage(vmi, overlayDir)
+		}()
+
+		DeferCleanup(func() {
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting})
+			Eventually(stopped).Should(BeClosed())
+		})
+		return stopped
+	}
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockConn = cli.NewMockConnection(ctrl)
+		metadataCache = metadata.NewCache()
+		manager = NewStorageManager(mockConn, metadataCache, nil)
+
+		vmi = libvmi.New(
+			libvmi.WithName("testvmi"),
+			libvmi.WithNamespace("default"),
+		)
+
+		// A commit the monitor starts is held at its first call, so the phase and
+		// the message it claimed with stay put for the spec to read.
+		release := make(chan struct{})
+		mockConn.EXPECT().LookupDomainByName(domainName).
+			DoAndReturn(func(string) (cli.VirDomain, error) {
+				<-release
+				return nil, fmt.Errorf("the spec is over")
+			}).AnyTimes()
+
+		usage = func() (int64, error) { return 0, nil }
+		measured = make(chan struct{}, 1024)
+		manager.overlayUsage = func(dir string) (int64, error) {
+			Expect(dir).To(Equal(overlayDir))
+			used, err := usage()
+			select {
+			case measured <- struct{}{}:
+			default:
+			}
+			return used, err
+		}
+		// Production measures every few seconds, shortened here so a spec does not
+		// wait on a poll.
+		manager.overlayUsageInterval = 5 * time.Millisecond
+
+		DeferCleanup(func() { close(release) })
+
+		metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayReady})
+	})
+
+	Context("watching the scratch volume", func() {
+		It("should leave the overlays alone while the volume has room", func() {
+			usage = func() (int64, error) { return 69, nil }
+
+			runMonitor()
+
+			Consistently(overlayPhase, 100*time.Millisecond, 10*time.Millisecond).
+				Should(Equal(api.SnapshotOverlayReady))
+		})
+
+		It("should commit the overlays once the volume is full enough", func() {
+			usage = func() (int64, error) { return 70, nil }
+
+			stopped := runMonitor()
+
+			Eventually(overlayPhase).Should(Equal(api.SnapshotOverlayCommitting))
+			// The commit it started is what ends it.
+			Eventually(stopped).Should(BeClosed())
+		})
+
+		It("should say how full the volume was", func() {
+			usage = func() (int64, error) { return 85, nil }
+
+			runMonitor()
+
+			Eventually(overlayMessage).Should(ContainSubstring("85% full"))
+		})
+
+		It("should keep measuring a volume it cannot read", func() {
+			var polls int
+			usage = func() (int64, error) {
+				polls++
+				if polls < 3 {
+					return 0, fmt.Errorf("no such file or directory")
+				}
+				return 90, nil
+			}
+
+			runMonitor()
+
+			Eventually(overlayPhase).Should(Equal(api.SnapshotOverlayCommitting))
+		})
+
+		It("should keep measuring while the commit is refused", func() {
+			now := metav1.Now()
+			metadataCache.Migration.Store(api.MigrationMetadata{StartTimestamp: &now})
+			usage = func() (int64, error) { return 99, nil }
+
+			runMonitor()
+
+			Eventually(measured).Should(Receive())
+			Eventually(measured).Should(Receive())
+			Expect(overlayPhase()).To(Equal(api.SnapshotOverlayReady))
+		})
+
+		DescribeTable("should stop watching overlays that are no longer the guest's write target", func(phase api.SnapshotOverlayPhase) {
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: phase})
+			usage = func() (int64, error) { return 99, nil }
+
+			Eventually(runMonitor()).Should(BeClosed())
+
+			Expect(overlayPhase()).To(Equal(phase))
+		},
+			Entry("when a commit is already running", api.SnapshotOverlayCommitting),
+			Entry("when the overlays are gone", api.SnapshotOverlayPhase("")),
+			Entry("when the snapshot failed and left nothing behind", api.SnapshotOverlaySnapshotFailed),
+		)
+	})
+
+	Context("measuring the scratch volume", func() {
+		It("should report how full the volume holding the overlays is", func() {
+			used, err := overlayUsedPercent(GinkgoT().TempDir())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(And(BeNumerically(">=", 0), BeNumerically("<=", 100)))
+		})
+
+		It("should fail on a directory that is not there", func() {
+			_, err := overlayUsedPercent(overlayDir)
+
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
