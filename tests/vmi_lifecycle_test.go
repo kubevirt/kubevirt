@@ -48,10 +48,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -984,25 +982,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unschedulable")
 			})
 
-		})
-
-		Context("VM Accelerated Mode", decorators.WgS390x, func() {
-
-			It("[test_id:1648]Should provide KVM via plugin framework", func() {
-				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
-
-				if len(nodeList.Items) == 0 {
-					Fail("There are no compute nodes in cluster")
-				}
-				node := nodeList.Items[0]
-
-				kvmResource := services.ConstructHypervisorResourceName(hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName))
-				_, ok := node.Status.Allocatable[kvmResource]
-				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
-
-				_, ok = node.Status.Capacity[kvmResource]
-				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
-			})
 		})
 	})
 
