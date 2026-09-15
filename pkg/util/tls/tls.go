@@ -291,6 +291,12 @@ func InjectTLSConfigIntoDeployment(kv *v1.KubeVirt, deployment *appsv1.Deploymen
 			"--tls-min-version", string(tlsConfig.MinTLSVersion),
 		)
 	}
+	if kv != nil && featuregate.IsEnabled(featuregate.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) && len(tlsConfig.Groups) > 0 {
+		deployment.Spec.Template.Spec.Containers[idx].Args = append(
+			deployment.Spec.Template.Spec.Containers[idx].Args,
+			"--tls-groups", strings.Join(tlsConfig.Groups, ","),
+		)
+	}
 	return nil
 }
 
