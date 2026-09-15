@@ -516,13 +516,20 @@ var _ = Describe("generateDeviceRulesForVMI", func() {
 		Expect(rules).To(HaveLen(4))
 	})
 
-	It("should create a rule for urandom when RNG is enabled", func() {
-		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
-			if relPath == "/dev/urandom" {
-				return charDeviceInfo(1, 9), nil
-			}
-			return nil, os.ErrNotExist
-		}
+	It("should include urandom in default device rules", func() {
+		defaultRules := GenerateDefaultDeviceRules()
+		Expect(defaultRules).To(ContainElement(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(devices.CharDevice),
+				"Major": Equal(int64(1)),
+				"Minor": Equal(int64(9)),
+				"Allow": BeTrue(),
+			})),
+		), "/dev/urandom (char 1:9) must be in the default device rules")
+	})
+
+	It("should not create a VMI-specific rule for urandom even when RNG is enabled", func() {
+		statDevice = noDevices
 		readDeviceDir = noDirs
 
 		vmi := &v1.VirtualMachineInstance{}
@@ -530,11 +537,10 @@ var _ = Describe("generateDeviceRulesForVMI", func() {
 
 		rules, err := generateDeviceRulesForVMI(vmi, nil, "", "kvm", true)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(rules).To(ConsistOf(
-			PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type": Equal(devices.CharDevice), "Major": Equal(int64(1)), "Minor": Equal(int64(9)),
-			})),
-		))
+		for _, rule := range rules {
+			Expect(rule.Major).ToNot(Equal(int64(1)),
+				"/dev/urandom should not be in VMI-specific rules; it is in default rules")
+		}
 	})
 
 	It("should create a rule for vhost-vsock when AutoattachVSOCK is enabled", func() {
