@@ -106,7 +106,7 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []v1.Vir
 			displayEnabled := gpu.VirtualGPUOptions.Display.Enabled
 			if displayEnabled == nil || *displayEnabled {
 				hostDevice.Display = "on"
-				if gpu.VirtualGPUOptions.Display.RamFB == nil || *gpu.VirtualGPUOptions.Display.RamFB.Enabled {
+				if isRamFBEnabled(gpu.VirtualGPUOptions.Display) {
 					hostDevice.RamFB = "on"
 				}
 			}
@@ -148,6 +148,17 @@ func isVgpuDisplaySet(gpuSpecs []v1.GPU) bool {
 		}
 	}
 	return false
+}
+
+// isRamFBEnabled reports whether the boot framebuffer should be turned on for
+// the given vGPU display options. Both Display.RamFB and RamFB.Enabled are
+// optional and documented as defaulting to true, so a nil at either level means
+// enabled. virt-launcher does not run the defaulter, so it must not assume
+// Enabled is populated.
+func isRamFBEnabled(display *v1.VGPUDisplayOptions) bool {
+	return display.RamFB == nil ||
+		display.RamFB.Enabled == nil ||
+		*display.RamFB.Enabled
 }
 
 func validateCreationOfDRAGPUDevices(gpus []v1.GPU, hostDevices []api.HostDevice) error {

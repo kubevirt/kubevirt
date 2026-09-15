@@ -396,6 +396,53 @@ var _ = Describe("HostDevice", func() {
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
 
+		It("sets ramfb when RamFB is present but Enabled is nil", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{
+					AliasPrefix:  aliasPrefix,
+					Name:         devName0,
+					ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB:   &v1.FeatureState{},
+						},
+					},
+				},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+			expectHostDevice1.Display = "on"
+			expectHostDevice1.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+
+		It("does not set ramfb when RamFB.Enabled is false", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{
+					AliasPrefix:  aliasPrefix,
+					Name:         devName0,
+					ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB: &v1.FeatureState{
+								Enabled: pointer.P(false),
+							},
+						},
+					},
+				},
+			}
+			pool.AddResource(resourceName0, uuid0, uuid1)
+
+			hostDevices, err := hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, true)
+			expectHostDevice1.Display = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+
 		It("creates 2 PCI devices that are connected to different resources", func() {
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
