@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -61,9 +62,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -2667,6 +2670,133 @@ var _ = Describe("Migration watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 			Expect(pods.Items[0].Spec.NodeSelector).To(HaveKeyWithValue(intelVendorLabel, "true"))
+		})
+	})
+
+	Context("virt-handler version-skew migration guard", func() {
+		const nodeName = "testNode"
+		const currentHandlerImage = "registry.example.com/kubevirt/virt-handler@sha256:currentcurrentcurrentcurrentcurrentcurrentcurr"
+		const outdatedHandlerImage = "registry.example.com/kubevirt/virt-handler@sha256:outdatedoutdatedoutdatedoutdatedoutdatedoutda"
+		currentHandlerHash := util.ImageHashLabelValue(currentHandlerImage)
+		outdatedHandlerHash := util.ImageHashLabelValue(outdatedHandlerImage)
+
+		// sets Status.TargetDeploymentConfig to report image as desired
+		setTargetVirtHandlerImage := func(image string) {
+			deploymentConfig, err := json.Marshal(operatorutil.KubeVirtDeploymentConfig{
+				ComponentImages: operatorutil.ComponentImages{VirtHandlerImage: image},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: v1.KubeVirtStatus{
+					TargetDeploymentConfig: string(deploymentConfig),
+				},
+			}
+			config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+			controller.clusterConfig = config
+		}
+
+		requiredNodeAffinityValues := func(pod *k8sv1.Pod, key string) []string {
+			if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil ||
+				pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+				return nil
+			}
+			for _, term := range pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+				for _, req := range term.MatchExpressions {
+					if req.Key == key && req.Operator == k8sv1.NodeSelectorOpIn {
+						return req.Values
+					}
+				}
+			}
+			return nil
+		}
+
+		DescribeTable("target pod version-skew affinity constraint",
+			func(nodeLabelHash string, desiredImageKnown bool, expectedValues []string) {
+				vmi := newVirtualMachine("testvmi", v1.Running)
+				addNodeNameToVMI(vmi, nodeName)
+				migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+				node := newNode(nodeName)
+				if nodeLabelHash != "" {
+					node.Labels = map[string]string{v1.VirtHandlerImageHashLabel: nodeLabelHash}
+				}
+
+				if desiredImageKnown {
+					setTargetVirtHandlerImage(currentHandlerImage)
+				}
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPod(newSourcePodForVirtualMachine(vmi))
+				addNode(node)
+
+				sanityExecute()
+
+				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+				targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(targetPod).ToNot(BeNil())
+				if len(expectedValues) == 0 {
+					Expect(requiredNodeAffinityValues(targetPod, v1.VirtHandlerImageHashLabel)).To(BeEmpty())
+				} else {
+					Expect(requiredNodeAffinityValues(targetPod, v1.VirtHandlerImageHashLabel)).To(ConsistOf(expectedValues))
+				}
+			},
+			Entry("requires the target to match when the source already runs the desired virt-handler image",
+				currentHandlerHash, true, []string{currentHandlerHash}),
+			Entry("does not constrain the target when the source has not yet been updated",
+				outdatedHandlerHash, true, nil),
+			Entry("does not constrain the target when the source node was never labeled (older virt-handler)",
+				"", true, nil),
+			Entry("does not constrain the target when the desired virt-handler image isn't known yet",
+				currentHandlerHash, false, nil),
+		)
+
+		It("should not constrain a decentralized migration target", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceNode: nodeName,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:           nodeName,
+						SelinuxContext: "none",
+					},
+					NodeSelectors: map[string]string{
+						v1.VirtHandlerImageHashLabel: currentHandlerHash,
+					},
+				},
+			}
+
+			setTargetVirtHandlerImage(currentHandlerImage)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.MigrationJobLabel, string(migration.UID), v1.CreatedByLabel, string(vmi.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			Expect(requiredNodeAffinityValues(&pods.Items[0], v1.VirtHandlerImageHashLabel)).To(BeEmpty())
+		})
+
+		It("should return an error if the target deployment config can't be unmarshaled", func() {
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: v1.KubeVirtStatus{
+					TargetDeploymentConfig: "{not valid json",
+				},
+			}
+			config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+			controller.clusterConfig = config
+
+			_, err := controller.desiredVirtHandlerImageHash()
+			Expect(err).To(HaveOccurred())
 		})
 	})
 

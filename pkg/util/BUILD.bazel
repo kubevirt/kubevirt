@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "amd64.go",
+        "image_hash.go",
         "os_helper.go",
         "s390x.go",
         "util.go",
@@ -23,6 +24,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "image_hash_test.go",
         "util_suite_test.go",
         "util_test.go",
     ],
