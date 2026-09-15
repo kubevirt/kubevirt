@@ -24,6 +24,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -87,4 +88,29 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, condMan
 		Message:            overlay.Message,
 		LastTransitionTime: metav1.Now(),
 	})
+}
+
+// OverlayPhase returns the reason of the OverlaySnapshotActive condition, which
+// also decides its status, or "" when the VMI has none.
+func OverlayPhase(vmi *v1.VirtualMachineInstance) string {
+	condition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive)
+	if condition == nil {
+		return ""
+	}
+	return condition.Reason
+}
+
+// OverlaysSettled reports whether the VMI reports the overlays on the scratch
+// PVC with this UID as committed, or as never taken.
+func OverlaysSettled(vmi *v1.VirtualMachineInstance, scratchPVCUID types.UID) bool {
+	phase := OverlayPhase(vmi)
+	return scratchPVCUID != "" && vmi.Status.SnapshotOverlayPVCUID == scratchPVCUID &&
+		(phase == v1.VirtualMachineInstanceReasonOverlayCommitted || phase == v1.VirtualMachineInstanceReasonOverlaySnapshotFailed)
+}
+
+// HasUncommittedOverlays reports whether the VM is blocked by overlays a stopped
+// launcher left uncommitted.
+func HasUncommittedOverlays(vm *v1.VirtualMachine) bool {
+	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
+	return condition != nil && condition.Status == k8sv1.ConditionTrue && condition.Reason == storagetypes.UncommittedOverlaysReason
 }

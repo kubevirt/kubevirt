@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
@@ -66,9 +67,15 @@ const (
 
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
 
+	vmSnapshotOverlaysGoneEarlyError = "the overlays were gone before the snapshot completed"
+
+	vmSnapshotUnsupportedModeError = "unsupported snapshotMode"
+
 	overlayScratchFinalizer = storagetypes.OverlayProtectionFinalizer
 
 	scratchPVCCreateEvent = "SuccessfulOverlayScratchVolumeCreate"
+
+	overlayCommitFailedEvent = "OverlayCommitFailed"
 
 	snapshotRetryInterval = 5 * time.Second
 
@@ -157,6 +164,43 @@ func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) b
 	return timeUntilDeadline(vmSnapshot) < 0
 }
 
+func (ctrl *VMSnapshotController) vmSnapshotFailure(
+	vmSnapshot *snapshotv1.VirtualMachineSnapshot,
+	content *snapshotv1.VirtualMachineSnapshotContent,
+) (reason string, failed bool, err error) {
+	if vmSnapshotFailed(vmSnapshot) {
+		// Failed is sticky: report what it failed with rather than deriving a new reason
+		for _, condition := range vmSnapshot.Status.Conditions {
+			if condition.Type == snapshotv1.ConditionFailure {
+				return condition.Reason, true, nil
+			}
+		}
+		return vmSnapshotDeadlineExceededError, true, nil
+	}
+
+	if vmSnapshotDeadlineExceeded(vmSnapshot) {
+		return vmSnapshotDeadlineExceededError, true, nil
+	}
+
+	// A mode this version does not know about is not Direct, and must not
+	// quietly become a crash-consistent snapshot
+	if mode := snapshotMode(vmSnapshot); !supportedSnapshotMode(mode) {
+		return fmt.Sprintf("%s %q", vmSnapshotUnsupportedModeError, mode), true, nil
+	}
+
+	if !vmSnapshotProgressing(vmSnapshot) {
+		return "", false, nil
+	}
+
+	// External mode is over once the overlays are gone, whatever the deadline says
+	goneEarly, err := ctrl.overlaysGoneEarly(content)
+	if err != nil || !goneEarly {
+		return "", false, err
+	}
+
+	return vmSnapshotOverlaysGoneEarlyError, true, nil
+}
+
 func GetVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
 	if vmSnapshot.Status != nil && vmSnapshot.Status.VirtualMachineSnapshotContentName != nil {
 		return *vmSnapshot.Status.VirtualMachineSnapshotContentName
@@ -189,6 +233,12 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 	if err != nil {
 		return 0, err
 	}
+	if snapshotMode(vmSnapshot) == snapshotv1.SnapshotModeExternal && source != nil && source.Deleting() {
+		return ctrl.cleanupDeletingSource(vmSnapshot, content, source)
+	}
+	if source != nil && snapshotoverlay.HasUncommittedOverlays(source.VirtualMachine()) {
+		return ctrl.settleInterruptedSource(vmSnapshot, content, source)
+	}
 
 	terminating := vmSnapshotTerminating(vmSnapshot)
 	if !terminating {
@@ -198,11 +248,35 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
+	externalCleanupPending := false
+	if content != nil && externalMode(content) {
+		scratch, err := ctrl.getScratchPVC(content)
+		if err != nil {
+			return 0, err
+		}
+		vmi, err := ctrl.getSourceVMI(content)
+		if err != nil {
+			return 0, err
+		}
+		externalCleanupPending = scratch != nil || !scratchVolumeDetached(vmi, content)
+		if externalCleanupPending {
+			retry = snapshotRetryInterval
+		}
+	}
+
 	canRemoveFinalizer := true
 	// Make sure status is initialized before doing anything
 	if vmSnapshot.Status != nil {
 		if source != nil {
-			if vmSnapshotProgressing(vmSnapshot) && !terminating {
+			// updateSnapshotStatus fails an unsupported mode, do no work for it here
+			if vmSnapshotProgressing(vmSnapshot) && !terminating && supportedSnapshotMode(snapshotMode(vmSnapshot)) {
+				// A snapshot of its own makes its own overlays. Anything else
+				// on them belongs to a snapshot still running, and that window
+				// always closes, so wait rather than fail.
+				if content == nil && ctrl.sourceOnOverlays(vmSnapshot) {
+					return snapshotRetryInterval, nil
+				}
+
 				// attempt to lock source
 				// if fails will attempt again when source is updated
 				if !source.Locked() {
@@ -224,7 +298,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 				}
 				canRemoveFinalizer = false
 			} else {
-				if canUnlockSource(vmSnapshot, content) {
+				if !externalCleanupPending && canUnlockSource(vmSnapshot, content) {
 					if _, err := source.Unlock(); err != nil {
 						return 0, err
 					}
@@ -232,6 +306,10 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 				canRemoveFinalizer = !source.Locked()
 			}
 		}
+	}
+
+	if externalCleanupPending {
+		canRemoveFinalizer = false
 	}
 
 	if terminating && content != nil {
@@ -346,14 +424,37 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 	var volumeSnapshotStatus []snapshotv1.VolumeSnapshotStatus
 	var deletedSnapshots, skippedSnapshots []string
-	var didFreeze bool
+	var sourcePrepared bool
 
 	vmSnapshot, err := ctrl.getVMSnapshot(content)
 	if err != nil {
 		return 0, err
 	}
+	if vmSnapshot != nil && snapshotMode(vmSnapshot) == snapshotv1.SnapshotModeExternal {
+		source, err := ctrl.getSnapshotSource(vmSnapshot)
+		if err != nil {
+			return 0, err
+		}
+		if source != nil && (source.Deleting() || snapshotoverlay.HasUncommittedOverlays(source.VirtualMachine())) {
+			// The snapshot worker settles capture before unlocking the source.
+			// Do not start another capture during deletion or manual recovery.
+			return snapshotRetryInterval, nil
+		}
+	}
 
-	if vmSnapshot == nil || vmSnapshotTerminating(vmSnapshot) {
+	externalContentDeleting := externalMode(content) && vmSnapshotContentDeleting(content)
+	if vmSnapshot == nil || vmSnapshotTerminating(vmSnapshot) || externalContentDeleting {
+		if externalMode(content) {
+			// the content keeps its finalizer until the overlays are merged
+			done, err := ctrl.cleanupOverlays(content)
+			if err != nil {
+				return 0, err
+			}
+			if !done {
+				return snapshotRetryInterval, nil
+			}
+		}
+
 		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
 			log.Log.Warningf("Failed to unfreeze source for snapshot content %s/%s: %+v",
@@ -377,6 +478,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy := content.DeepCopy()
 	if contentCpy.Status == nil {
 		contentCpy.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{}
+	}
+
+	// recorded before anything external exists, so the scratch volume stays
+	// identifiable once the VMSnapshot is gone
+	if contentCpy.Status.SnapshotMode == nil && snapshotMode(vmSnapshot) == snapshotv1.SnapshotModeExternal {
+		contentCpy.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+		return 0, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 	}
 
 	contentCreated := vmSnapshotContentCreated(content)
@@ -414,35 +522,46 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 				continue
 			}
 
-			if !didFreeze {
-				source, err := ctrl.getSnapshotSource(vmSnapshot)
-				if err != nil {
-					return 0, err
-				}
-
-				if source == nil {
-					return 0, fmt.Errorf("unable to get snapshot source")
-				}
-
-				if err := source.Freeze(); err != nil {
-					contentCpy.Status.Error = &snapshotv1.Error{
-						Time:    currentTime(),
-						Message: pointer.P(err.Error()),
+			if !sourcePrepared {
+				if externalMode(content) {
+					if requeue, err := ctrl.prepareOverlays(vmSnapshot, content, contentCpy); requeue > 0 || err != nil {
+						return requeue, err
 					}
-					contentCpy.Status.ReadyToUse = pointer.P(false)
-					// Retry again in 5 seconds
-					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+				} else {
+					source, err := ctrl.getSnapshotSource(vmSnapshot)
+					if err != nil {
+						return 0, err
+					}
+
+					if source == nil {
+						return 0, fmt.Errorf("unable to get snapshot source")
+					}
+
+					if err := source.Freeze(); err != nil {
+						contentCpy.Status.Error = &snapshotv1.Error{
+							Time:    currentTime(),
+							Message: pointer.P(err.Error()),
+						}
+						contentCpy.Status.ReadyToUse = pointer.P(false)
+						// Retry again in 5 seconds
+						return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+					}
+
+					// assuming that VM is frozen once Freeze() returns
+					// which should be the case
+					// if Freeze() were async, we'd have to return
+					// and only continue when source.Frozen() == true
 				}
 
-				// assuming that VM is frozen once Freeze() returns
-				// which should be the case
-				// if Freeze() were async, we'd have to return
-				// and only continue when source.Frozen() == true
-
-				didFreeze = true
+				sourcePrepared = true
 			}
 
 			volumeSnapshot, err = ctrl.createVolumeSnapshot(content, volumeBackup)
+			if err != nil && externalMode(content) {
+				// The guest runs on its overlays meanwhile, so retry as soon as the
+				// cause may have cleared rather than backing off
+				return snapshotRetryInterval, err
+			}
 			if err != nil {
 				return 0, err
 			}
@@ -485,7 +604,9 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		}
 	}
 
-	if created && contentCpy.Status.CreationTime == nil {
+	// External mode sets creationTime in commitOverlays instead: it has to mean
+	// the base images were untouched when the last VolumeSnapshot read them
+	if created && contentCpy.Status.CreationTime == nil && !externalMode(content) {
 		contentCpy.Status.CreationTime = currentTime()
 
 		err = ctrl.unfreezeSource(vmSnapshot)
@@ -513,10 +634,24 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		contentCpy.Status.Error = nil
 	}
 
-	contentCpy.Status.ReadyToUse = &ready
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
-	return 0, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+	var requeue time.Duration
+	if externalMode(content) {
+		var captured bool
+		requeue, captured, err = ctrl.commitOverlays(content, ready)
+		if err != nil {
+			return 0, err
+		}
+
+		if (captured || len(volumeSnapshotStatus) == 0) && contentCpy.Status.CreationTime == nil {
+			contentCpy.Status.CreationTime = currentTime()
+		}
+		ready = ready && contentCpy.Status.CreationTime != nil
+	}
+	contentCpy.Status.ReadyToUse = &ready
+
+	return requeue, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 }
 
 func shouldUpdateError(contentCpy *snapshotv1.VirtualMachineSnapshotContent, errorMessage string) bool {
@@ -802,13 +937,21 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.VirtualMachineSnapshotContentName = &content.Name
 		vmSnapshotCpy.Status.CreationTime = content.Status.CreationTime
 		vmSnapshotCpy.Status.ReadyToUse = content.Status.ReadyToUse
-		vmSnapshotCpy.Status.Error = content.Status.Error
+		// a failed snapshot keeps the error it failed with, like its reason
+		if !vmSnapshotFailed(vmSnapshot) || vmSnapshotError(vmSnapshot) == nil {
+			vmSnapshotCpy.Status.Error = content.Status.Error
+		}
+	}
+
+	failureReason, failed, err := ctrl.vmSnapshotFailure(vmSnapshotCpy, content)
+	if err != nil {
+		return vmSnapshot, err
 	}
 
 	// terminal phase 1 - failed
-	if vmSnapshotDeadlineExceeded(vmSnapshotCpy) {
+	if failed {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Failed
-		updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
+		updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, failureReason))
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation failed"))
 		// terminal phase 2 - succeeded
 	} else if vmSnapshotSucceeded(vmSnapshotCpy) || vmSnapshotCpy.Status.CreationTime != nil {
