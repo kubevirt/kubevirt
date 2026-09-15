@@ -200,6 +200,81 @@ var _ = Describe("Overlay scratch volume", func() {
 		})
 	})
 
+	Context("attachment", func() {
+		var (
+			ctrl         *gomock.Controller
+			controller   *VMSnapshotController
+			vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+			content      *snapshotv1.VirtualMachineSnapshotContent
+			vmi          *v1.VirtualMachineInstance
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiInterface).AnyTimes()
+
+			controller = &VMSnapshotController{Client: virtClient}
+			content = overlayContent(volumeBackup("disk1", "10Gi", nil))
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vm", Namespace: testNamespace, UID: overlayVMIUID},
+			}
+		})
+
+		expectPatch := func(assert func(patch string)) {
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, _ string, _ types.PatchType, data []byte, _ metav1.PatchOptions, _ ...string) (*v1.VirtualMachineInstance, error) {
+					assert(string(data))
+					return vmi, nil
+				})
+		}
+
+		It("should hotplug the scratch volume under its own name", func() {
+			expectPatch(func(patch string) {
+				// The utility volume, the PVC and the overlay directory all go by
+				// the same name.
+				Expect(patch).To(ContainSubstring(`"name":"` + scratchPVCName(content) + `"`))
+				Expect(patch).To(ContainSubstring(`"claimName":"` + scratchPVCName(content) + `"`))
+				Expect(patch).To(ContainSubstring(`"type":"SnapshotOverlay"`))
+			})
+
+			Expect(controller.attachScratchVolume(vmi, content)).To(Succeed())
+		})
+
+		It("should unplug the scratch volume", func() {
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{
+				Name: scratchPVCName(content),
+				Type: pointer.P(v1.SnapshotOverlay),
+			}}
+
+			expectPatch(func(patch string) {
+				Expect(patch).To(ContainSubstring(`"op":"remove"`))
+			})
+
+			Expect(controller.detachScratchVolume(vmi, content)).To(Succeed())
+		})
+
+		It("should report the scratch volume as attached once it is mounted", func() {
+			Expect(scratchVolumeAttached(vmi, content)).To(BeFalse())
+
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{
+				Name:          scratchPVCName(content),
+				HotplugVolume: &v1.HotplugVolumeStatus{},
+				Phase:         v1.HotplugVolumeMounted,
+			}}
+			Expect(scratchVolumeAttached(vmi, content)).To(BeTrue())
+		})
+
+		It("should not report the scratch volume as detached while the VMI still has it", func() {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: scratchPVCName(content)}}
+			Expect(scratchVolumeDetached(vmi, content)).To(BeFalse())
+
+			vmi.Status.VolumeStatus = nil
+			Expect(scratchVolumeDetached(vmi, content)).To(BeTrue())
+		})
+	})
+
 	Context("lifecycle", func() {
 		var (
 			ctrl       *gomock.Controller

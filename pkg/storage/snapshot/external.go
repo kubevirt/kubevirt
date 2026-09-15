@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/utilityvolume"
 )
 
 const (
@@ -50,7 +51,8 @@ const (
 )
 
 // scratchPVCName is derived from the content UID, so a snapshot recreated under
-// the same name gets a new volume
+// the same name gets a new volume. It doubles as the name the PVC is hotplugged
+// under.
 func scratchPVCName(content *snapshotv1.VirtualMachineSnapshotContent) string {
 	return overlayScratchPVCPrefix + string(content.UID)
 }
@@ -164,6 +166,25 @@ func (ctrl *VMSnapshotController) createScratchPVC(
 	)
 
 	return created, nil
+}
+
+func (ctrl *VMSnapshotController) attachScratchVolume(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) error {
+	name := scratchPVCName(content)
+	return utilityvolume.Attach(ctrl.Client, vmi, name, name, kubevirtv1.SnapshotOverlay)
+}
+
+// detachScratchVolume only requests the detach, scratchVolumeDetached reports
+// when it has happened
+func (ctrl *VMSnapshotController) detachScratchVolume(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) error {
+	return utilityvolume.Detach(ctrl.Client, vmi, scratchPVCName(content))
+}
+
+func scratchVolumeAttached(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return utilityvolume.Attached(vmi, scratchPVCName(content))
+}
+
+func scratchVolumeDetached(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return utilityvolume.Detached(vmi, scratchPVCName(content))
 }
 
 func (ctrl *VMSnapshotController) getScratchPVC(content *snapshotv1.VirtualMachineSnapshotContent) (*corev1.PersistentVolumeClaim, error) {
