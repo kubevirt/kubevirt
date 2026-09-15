@@ -130,6 +130,11 @@ const (
 	secondaryNetworkName          = "secondarynet"
 )
 
+const (
+	fromY = iota
+	fromZ
+)
+
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
 	var originalKv *v1.KubeVirt
@@ -644,49 +649,16 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
-		const (
-			fromY = iota
-			fromZ
-		)
-
 		// This test is installing a previous release of KubeVirt
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		DescribeTable("[release-blocker][test_id:3145]to target tested release", func(previousRelease int, updateOperator bool) {
+		DescribeTable("[release-blocker][test_id:3145]to target tested release", func(previousRelease int, approach upgradeApproach) {
 			if !libstorage.HasCDI() {
 				Fail("Fail update test when CDI is not present")
 			}
 
-			if updateOperator && flags.OperatorManifestPath == "" {
-				Fail("operator manifest path must be configured for update tests")
-			}
-
-			previousImageTag := flags.PreviousReleaseTag
-			previousImageRegistry := flags.PreviousReleaseRegistry
-
-			// The z-1 release upgrade tests will be skipped if:
-			// - previousImageTag is explicitly set
-			// - z-1 is equal to y-1
-			if previousImageTag == "" {
-				prevY, prevZ, err := version.DetectLatestYAndZOfficialTags()
-				Expect(err).ToNot(HaveOccurred())
-				if previousRelease == fromZ && (prevZ == "" || prevY == prevZ) {
-					Skip("Skip z-1 upgrade test because it is already covered by y-1")
-				}
-				switch previousRelease {
-				case fromY:
-					previousImageTag = prevY
-				case fromZ:
-					previousImageTag = prevZ
-				}
-				By(fmt.Sprintf("Using detected tag %s for previous kubevirt", previousImageTag))
-			} else {
-				if previousRelease == fromZ {
-					Skip("Skip z-1 upgrade test because the previous tag is explicitly set")
-				}
-				By(fmt.Sprintf("Using user defined tag %s for previous kubevirt", previousImageTag))
-			}
+			previousImageTag, previousImageRegistry := detectPreviousReleaseTag(previousRelease)
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
 			createVMs := true
@@ -706,90 +678,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
-			// Delete current KubeVirt install so we can install previous release.
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false, originalKv.Name)
-
-			By("Verifying all infra pods have terminated")
-			expectVirtOperatorPodsToTerminate(originalKv)
-
-			By("Sanity Checking Deployments infrastructure is deleted")
-			eventuallyDeploymentNotFound(virtApiDepName)
-			eventuallyDeploymentNotFound(virtControllerDepName)
-
-			if updateOperator {
-				By("Deleting testing manifests")
-				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", flags.TestingManifestPath)
-				Expect(err).ToNot(HaveOccurred(), "failed to delete testing manifests: "+stderr)
-
-				By("Deleting virt-operator installation")
-				_, stderr, err = clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", flags.OperatorManifestPath)
-				Expect(err).ToNot(HaveOccurred(), "failed to delete virt-operator installation: "+stderr)
-
-				By("Installing previous release of virt-operator")
-				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
-				installOperator(manifestURL)
-			}
-
-			// Install previous release of KubeVirt
-			By("Creating KubeVirt object")
-			kv := copyOriginalKv(originalKv)
-			kv.Name = "kubevirt-release-install"
-			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
-
-			// If updating via the KubeVirt CR, explicitly specify the desired release.
-			if !updateOperator {
-				kv.Spec.ImageTag = previousImageTag
-				kv.Spec.ImageRegistry = previousImageRegistry
-			}
-			// For now disable upgrading the synchronization controller since no previous released versions
-			// exist.
-			updatedFeatureGates := make([]string, 0)
-			featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-			for _, fg := range featureGates {
-				if fg != featuregate.DecentralizedLiveMigration {
-					updatedFeatureGates = append(updatedFeatureGates, fg)
-				}
-			}
-			// Old releases don't support Beta-on-by-default, so Snapshot must be
-			// explicitly listed for the previous release's webhook to accept
-			// snapshot creation.
-			updatedFeatureGates = append(updatedFeatureGates, featuregate.SnapshotGate)
-			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = updatedFeatureGates
-
-			// ImageVolume requires k8s 1.35+ (kubelet image volume support).
-			// Disable it on older clusters so the new virt-launcher doesn't
-			// panic looking for image-volume paths after the upgrade.
-			k8sVersion, err := checks.GetKubernetesVersion()
-			Expect(err).ToNot(HaveOccurred())
-			if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
-				kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
-					kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-					featuregate.ImageVolume,
-				)
-			}
-
-			// Now create the kubevirt CR
-			createKv(kv)
-
-			// Wait for previous release to come online
-			// wait 7 minutes because this test involves pulling containers
-			// over the internet related to the latest kubevirt release
-			By("Waiting for KV to stabilize")
-			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
-			//previousImageTag
-			// TODO: find way to verify strategy job version as well
-			pods, err := kubevirt.Client().CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by=virt-operator"})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pods.Items).ToNot(BeEmpty())
-			for _, pod := range pods.Items {
-				Expect(pod.Spec.Containers[0].Image).To(ContainSubstring(previousImageTag))
-				fmt.Println(pod.Spec.Containers[0].Image)
-			}
-
-			By("Verifying infrastructure is Ready")
-			allKvInfraPodsAreReady(kv)
-			sanityCheckDeploymentsExist()
+			kv := installPreviousKubeVirt(originalKv, previousImageTag, previousImageRegistry, approach)
 
 			// kubectl API discovery cache only refreshes every 10 minutes
 			// Since we're likely dealing with api additions/removals here, we
@@ -851,32 +740,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Starting multiple migratable VMIs before performing update")
 			migratableVMIs = createRunningVMIs(migratableVMIs)
 
-			// Update KubeVirt from the previous release to the testing target release.
-			if updateOperator {
-				By("Updating virt-operator installation")
-				installOperator(flags.OperatorManifestPath)
-
-				By("Re-installing testing manifests")
-				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", flags.TestingManifestPath)
-				Expect(err).ToNot(HaveOccurred(), "failed to re-install the testing manifests: "+stderr)
-			} else {
-				By("Updating KubeVirt object With current tag")
-				patches := patch.New(
-					patch.WithReplace("/spec/imageTag", curVersion),
-					patch.WithReplace("/spec/imageRegistry", curRegistry),
-				)
-
-				patchKV(kv.Name, patches)
-			}
-
-			By("Wait for Updating Condition")
-			waitForUpdateCondition(kv)
-
-			By("Waiting for KV to stabilize")
-			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
-
-			By("Verifying infrastructure Is Updated")
-			allKvInfraPodsAreReady(kv)
+			upgradeKubeVirt(kv, curVersion, curRegistry, approach)
 
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
@@ -1014,11 +878,48 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false, originalKv.Name)
 		},
-			Entry("from previous y release by patching KubeVirt CR", fromY, false),
-			Entry("from previous y release by updating virt-operator", fromY, true),
-			Entry("from previous z release by patching KubeVirt CR", fromZ, false),
-			Entry("from previous z release by updating virt-operator", fromZ, true),
+			Entry("from previous y release by patching KubeVirt CR", fromY, upgradeByCRPatch),
+			Entry("from previous y release by updating virt-operator", fromY, upgradeByOperatorUpdate),
+			Entry("from previous z release by patching KubeVirt CR", fromZ, upgradeByCRPatch),
+			Entry("from previous z release by updating virt-operator", fromZ, upgradeByOperatorUpdate),
 		)
+
+		DescribeTable("should preserve RBAC aggregate labels and support OptOutRoleAggregation after upgrade from previous y release",
+			decorators.Upgrade,
+			func(approach upgradeApproach) {
+				previousImageTag, previousImageRegistry := detectPreviousReleaseTag(fromY)
+
+				curVersion := originalKv.Status.ObservedKubeVirtVersion
+				curRegistry := originalKv.Status.ObservedKubeVirtRegistry
+
+				allKvInfraPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
+
+				kv := installPreviousKubeVirt(originalKv, previousImageTag, previousImageRegistry, approach)
+				upgradeKubeVirt(kv, curVersion, curRegistry, approach)
+
+				By("Verifying RBAC aggregate labels are preserved after upgrade")
+				verifyAggregateLabels(virtClient, "true")
+
+				By("Setting RoleAggregationStrategy to Manual after upgrade")
+				currentKV := libkubevirt.GetCurrentKv(virtClient)
+				savedConfig := currentKV.Spec.Configuration.DeepCopy()
+				currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
+
+				By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
+				verifyAggregateLabels(virtClient, "false")
+
+				By("Restoring RoleAggregationStrategy to default after upgrade verification")
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*savedConfig)
+
+				By("Verifying aggregate labels are restored after upgrade")
+				verifyAggregateLabels(virtClient, "true")
+			},
+			Entry("by patching KubeVirt CR", upgradeByCRPatch),
+			Entry("by updating virt-operator", upgradeByOperatorUpdate),
+		)
+
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
@@ -2682,6 +2583,174 @@ func installOperator(manifestPath string) {
 		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kubevirts.kubevirt.io", metav1.GetOptions{})
 		return err
 	}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
+}
+
+// upgradeApproach encapsulates the two strategy-specific moments in an upgrade test:
+// setup runs before the y-1 KubeVirt object is created (e.g. swapping the operator binary),
+// and perform triggers the actual upgrade to the current version.
+type upgradeApproach interface {
+	setup(kv *v1.KubeVirt, previousImageTag, previousImageRegistry string)
+	perform(kv *v1.KubeVirt, curVersion, curRegistry string)
+}
+
+type crPatchUpgrade struct{}
+
+func (crPatchUpgrade) setup(kv *v1.KubeVirt, previousImageTag, previousImageRegistry string) {
+	kv.Spec.ImageTag = previousImageTag
+	kv.Spec.ImageRegistry = previousImageRegistry
+}
+
+func (crPatchUpgrade) perform(kv *v1.KubeVirt, curVersion, curRegistry string) {
+	GinkgoHelper()
+	By("Updating KubeVirt object With current tag")
+	patches := patch.New(
+		patch.WithReplace("/spec/imageTag", curVersion),
+		patch.WithReplace("/spec/imageRegistry", curRegistry),
+	)
+	patchKV(kv.Name, patches)
+}
+
+type operatorUpdateUpgrade struct{}
+
+func (operatorUpdateUpgrade) setup(kv *v1.KubeVirt, previousImageTag, _ string) {
+	GinkgoHelper()
+	if flags.OperatorManifestPath == "" {
+		Fail("operator manifest path must be configured for update tests")
+	}
+	By("Deleting testing manifests")
+	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", flags.TestingManifestPath)
+	Expect(err).ToNot(HaveOccurred(), "failed to delete testing manifests: "+stderr)
+
+	By("Deleting virt-operator installation")
+	_, stderr, err = clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", flags.OperatorManifestPath)
+	Expect(err).ToNot(HaveOccurred(), "failed to delete virt-operator installation: "+stderr)
+
+	By("Installing previous release of virt-operator")
+	manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
+	installOperator(manifestURL)
+}
+
+func (operatorUpdateUpgrade) perform(kv *v1.KubeVirt, _, _ string) {
+	GinkgoHelper()
+	By("Updating virt-operator installation")
+	installOperator(flags.OperatorManifestPath)
+
+	By("Re-installing testing manifests")
+	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", flags.TestingManifestPath)
+	Expect(err).ToNot(HaveOccurred(), "failed to re-install the testing manifests: "+stderr)
+}
+
+var (
+	upgradeByCRPatch        upgradeApproach = crPatchUpgrade{}
+	upgradeByOperatorUpdate upgradeApproach = operatorUpdateUpgrade{}
+)
+
+func installPreviousKubeVirt(originalKv *v1.KubeVirt, previousImageTag, previousImageRegistry string, approach upgradeApproach) *v1.KubeVirt {
+	GinkgoHelper()
+	By("Deleting KubeVirt object")
+	deleteAllKvAndWait(false, originalKv.Name)
+
+	By("Verifying all infra pods have terminated")
+	expectVirtOperatorPodsToTerminate(originalKv)
+
+	By("Sanity Checking Deployments infrastructure is deleted")
+	eventuallyDeploymentNotFound(virtApiDepName)
+	eventuallyDeploymentNotFound(virtControllerDepName)
+
+	By("Creating KubeVirt object")
+	kv := copyOriginalKv(originalKv)
+	kv.Name = "kubevirt-release-install"
+	kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+
+	approach.setup(kv, previousImageTag, previousImageRegistry)
+
+	// For now disable upgrading the synchronization controller since no previous released versions
+	// exist.
+	updatedFeatureGates := make([]string, 0)
+	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
+	for _, fg := range featureGates {
+		if fg != featuregate.DecentralizedLiveMigration {
+			updatedFeatureGates = append(updatedFeatureGates, fg)
+		}
+	}
+	// Old releases don't support Beta-on-by-default, so Snapshot must be
+	// explicitly listed for the previous release's webhook to accept
+	// snapshot creation.
+	updatedFeatureGates = append(updatedFeatureGates, featuregate.SnapshotGate)
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = updatedFeatureGates
+
+	// ImageVolume requires k8s 1.35+ (kubelet image volume support).
+	// Disable it on older clusters so the new virt-launcher doesn't
+	// panic looking for image-volume paths after the upgrade.
+	k8sVersion, err := checks.GetKubernetesVersion()
+	Expect(err).ToNot(HaveOccurred())
+	if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
+		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
+			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
+			featuregate.ImageVolume,
+		)
+	}
+
+	createKv(kv)
+
+	By("Waiting for KV to stabilize")
+	testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
+
+	// TODO: find way to verify strategy job version as well
+	pods, err := kubevirt.Client().CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by=virt-operator"})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).ToNot(BeEmpty())
+	for _, pod := range pods.Items {
+		Expect(pod.Spec.Containers[0].Image).To(ContainSubstring(previousImageTag))
+	}
+
+	By("Verifying infrastructure is Ready")
+	allKvInfraPodsAreReady(kv)
+	sanityCheckDeploymentsExist()
+
+	return kv
+}
+
+func detectPreviousReleaseTag(previousRelease int) (tag, registry string) {
+	GinkgoHelper()
+	tag = flags.PreviousReleaseTag
+	registry = flags.PreviousReleaseRegistry
+
+	if tag != "" {
+		if previousRelease == fromZ {
+			Skip("Skip z-1 upgrade test because the previous tag is explicitly set")
+		}
+		By(fmt.Sprintf("Using user defined tag %s for previous kubevirt", tag))
+		return
+	}
+
+	prevY, prevZ, err := version.DetectLatestYAndZOfficialTags()
+	Expect(err).ToNot(HaveOccurred())
+	if previousRelease == fromZ && (prevZ == "" || prevY == prevZ) {
+		Skip("Skip z-1 upgrade test because it is already covered by y-1")
+	}
+	switch previousRelease {
+	case fromY:
+		tag = prevY
+	case fromZ:
+		tag = prevZ
+	}
+	By(fmt.Sprintf("Using detected tag %s for previous kubevirt", tag))
+	return
+}
+
+func upgradeKubeVirt(kv *v1.KubeVirt, curVersion, curRegistry string, approach upgradeApproach) {
+	GinkgoHelper()
+	approach.perform(kv, curVersion, curRegistry)
+
+	By("Wait for Updating Condition")
+	waitForUpdateCondition(kv)
+
+	By("Waiting for KV to stabilize")
+	testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
+
+	By("Verifying infrastructure Is Updated")
+	allKvInfraPodsAreReady(kv)
 }
 
 func getDaemonsetImage(name string) string {
