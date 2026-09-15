@@ -203,11 +203,16 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
 				Expect(libnet.PingFromVMConsole(serverVMI, clientIP)).To(Succeed())
 			}
+
 			serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+			By("ping  a UDP server")
+			clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
+			fmt.Printf("\nclient=%v => server=%v\n\n", clientIP, serverIP)
+			Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 			Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
 		},
 			Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
-			Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
+			FEntry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
 		)
 	})
 
