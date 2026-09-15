@@ -20,13 +20,17 @@ package main
  */
 
 import (
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
+	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -52,6 +56,13 @@ const (
 	apiGroup           = "export.kubevirt.io"
 	apiVersions        = "v1beta1|v1"
 	exportResourceName = "virtualmachineexports"
+
+	backendIdleConnTimeout       = 30 * time.Second
+	backendDialTimeout           = 10 * time.Second
+	backendDialKeepAlive         = 30 * time.Second
+	backendResponseHeaderTimeout = 30 * time.Second
+	serverIdleTimeout            = 60 * time.Second
+	serverReadHeaderTimeout      = 10 * time.Second
 )
 
 type exportProxyApp struct {
@@ -62,6 +73,9 @@ type exportProxyApp struct {
 	caManager       kvtls.ClientCAManager
 	exportStore     cache.Store
 	kubeVirtStore   cache.Store
+	// reverseProxy is a shared template; proxyHandler takes a shallow copy per
+	// request and sets a per-request Rewrite closure on the copy.
+	reverseProxy *httputil.ReverseProxy
 }
 
 func NewExportProxyApp() service.Service {
@@ -81,10 +95,14 @@ func (app *exportProxyApp) AddFlags() {
 func (app *exportProxyApp) Run() {
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
-	app.prepareInformers(stopChan)
+	if err := app.prepareInformers(stopChan); err != nil {
+		panic(err)
+	}
 
 	app.prepareCertManager()
 	go app.certManager.Start()
+
+	app.initReverseProxy()
 
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
@@ -93,9 +111,11 @@ func (app *exportProxyApp) Run() {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	server := &http.Server{
-		Addr:      app.Address(),
-		Handler:   mux,
-		TLSConfig: appTLSConfig,
+		Addr:              app.Address(),
+		Handler:           mux,
+		TLSConfig:         appTLSConfig,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		IdleTimeout:       serverIdleTimeout,
 		// Disable HTTP/2
 		// See CVE-2023-44487
 		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
@@ -132,54 +152,117 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	export := obj.(*exportv1.VirtualMachineExport)
-	if export.Status.Phase != exportv1.Ready {
+	if export.Status == nil || export.Status.Phase != exportv1.Ready {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	host := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[2])
-	targetPath := "/" + match[4]
+	backendHost := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[2])
+	backendPath := "/" + match[4]
+	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
+	proxy := *app.reverseProxy
+	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
+		// Route via Out (not SetURL) so the inbound path is not joined onto the target.
+		pr.Out.URL.Scheme = "https"
+		pr.Out.URL.Host = backendHost
+		pr.Out.URL.Path = backendPath
+		pr.Out.URL.RawPath = ""
+		pr.Out.Host = ""
+	}
+	proxy.ServeHTTP(w, r)
+}
+
+func (app *exportProxyApp) initReverseProxy() {
+	transport := &http.Transport{
+		DialTLSContext:        app.dialBackendTLS,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       backendIdleConnTimeout,
+		ResponseHeaderTimeout: backendResponseHeaderTimeout,
+	}
+	app.reverseProxy = &httputil.ReverseProxy{
+		Transport:     transport,
+		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
+	}
+}
+
+func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := net.Dialer{
+		Timeout:   backendDialTimeout,
+		KeepAlive: backendDialKeepAlive,
+	}
+	conn, err := dialer.DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	serverName, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("could not parse backend address %q: %w", addr, err)
+	}
+	cfg := &tls.Config{
+		// Neither the client nor the server should validate anything itself; VerifyConnection is still executed.
+		InsecureSkipVerify: true, // #nosec G402 -- VerifyConnection performs certificate verification
+		VerifyConnection:   app.verifyBackendConnection,
+		ServerName:         serverName,
+	}
+	kvtls.ApplyTLSConfigurationFromKubeVirtStore(cfg, app.kubeVirtStore)
+
+	tlsConn := tls.Client(conn, cfg)
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	return tlsConn, nil
+}
+
+func (app *exportProxyApp) verifyBackendConnection(cs tls.ConnectionState) error {
+	if len(cs.PeerCertificates) == 0 {
+		return fmt.Errorf("backend presented no certificate")
+	}
+	if cs.ServerName == "" {
+		return fmt.Errorf("backend TLS ServerName is required")
+	}
 
 	certPool, err := app.caManager.GetCurrent()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	p := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "https"
-			req.URL.Host = host
-			req.URL.Path = targetPath
-			log.Log.Infof("Proxying to %s", req.URL.String())
-			if _, ok := req.Header["User-Agent"]; !ok {
-				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set("User-Agent", "")
-			}
-		},
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: certPool,
-			},
-		},
+	peer := cs.PeerCertificates[0]
+	intermediates := x509.NewCertPool()
+	for _, intermediate := range cs.PeerCertificates[1:] {
+		intermediates.AddCert(intermediate)
 	}
 
-	p.ServeHTTP(w, r)
+	opts := x509.VerifyOptions{
+		Roots:         certPool,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSName:       cs.ServerName,
+	}
+
+	_, err = peer.Verify(opts)
+	if err != nil {
+		return fmt.Errorf("could not verify backend certificate: %w", err)
+	}
+	return nil
 }
 
-func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
+func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) error {
 	namespace, err := clientutil.GetNamespace()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to get namespace: %w", err)
 	}
 
 	clientConfig, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to get kubevirt client config: %w", err)
 	}
 	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create kubevirt client: %w", err)
 	}
 	aggregatorClient := aggregatorclient.NewForConfigOrDie(clientConfig)
 
@@ -191,6 +274,7 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	app.caManager = kvtls.NewCAManager(caInformer.GetStore(), namespace, "kubevirt-export-ca")
+	return nil
 }
 
 func (app *exportProxyApp) prepareCertManager() {
