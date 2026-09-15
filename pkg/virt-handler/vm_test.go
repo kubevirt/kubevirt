@@ -3566,6 +3566,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Entry("when the migration source failed", v1.Failed),
 		)
 	})
+
 	Context("launcher client verification in sync", func() {
 		It("should set domainAlive to false when GetVerifiedLauncherClient fails", func() {
 			vmi := libvmi.New(

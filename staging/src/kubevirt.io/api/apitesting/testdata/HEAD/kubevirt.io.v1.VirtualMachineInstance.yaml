@@ -877,6 +877,7 @@ status:
   reason: reasonValue
   runtimeUser: 18446744073709551605
   selinuxContext: selinuxContextValue
+  snapshotOverlayPVCUID: snapshotOverlayPVCUIDValue
   topologyHints:
     tscFrequency: -12
   virtualMachineRevisionName: virtualMachineRevisionNameValue

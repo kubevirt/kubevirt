@@ -22,10 +22,15 @@ package snapshotoverlay
 import (
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // ScratchDir returns where the scratch volume of the VMI's External snapshot is
@@ -46,4 +51,40 @@ func ScratchDir(vmi *v1.VirtualMachineInstance, volumeName string) (string, erro
 	}
 
 	return "", fmt.Errorf("%q is not a utility volume of this VirtualMachineInstance", volumeName)
+}
+
+// UpdateVMIStatus reports the launcher's overlay metadata as the
+// OverlaySnapshotActive condition and snapshotOverlayPVCUID of the VMI.
+func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+	if domain == nil {
+		// the condition's absence means the overlays were committed, so a domain
+		// that could not be read must not clear it
+		return
+	}
+
+	// the launcher zeroes the metadata rather than dropping the element
+	overlay := domain.Spec.Metadata.KubeVirt.SnapshotOverlay
+	vmi.Status.SnapshotOverlayPVCUID = ""
+	if overlay == nil || overlay.Phase == "" {
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive)
+		return
+	}
+	expected, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err == nil && expected != nil && overlay.ContentUID == expected.ContentUID && overlay.ScratchPVCUID == expected.ScratchPVCUID {
+		vmi.Status.SnapshotOverlayPVCUID = overlay.ScratchPVCUID
+	}
+
+	status := k8sv1.ConditionTrue
+	if overlay.Phase == api.SnapshotOverlayCommitted || overlay.Phase == api.SnapshotOverlaySnapshotFailed {
+		// the disks are back on their base images
+		status = k8sv1.ConditionFalse
+	}
+
+	condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+		Type:               v1.VirtualMachineInstanceOverlaySnapshotActive,
+		Status:             status,
+		Reason:             string(overlay.Phase),
+		Message:            overlay.Message,
+		LastTransitionTime: metav1.Now(),
+	})
 }

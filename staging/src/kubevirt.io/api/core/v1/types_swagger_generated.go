@@ -100,6 +100,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"evacuationNodeName":            "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
 		"activePods":                    "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
 		"volumeStatus":                  "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
+		"snapshotOverlayPVCUID":         "SnapshotOverlayPVCUID identifies the scratch PVC verified for the\nOverlaySnapshotActive condition. Updated together with that condition.\n+optional",
 		"kernelBootStatus":              "KernelBootStatus contains info about the kernelBootContainer\n+optional",
 		"fsFreezeStatus":                "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.\nIt will be set to \"frozen\" if the request was made, or unset otherwise.\nThis does not reflect the actual state of the guest filesystem.\n+optional",
 		"topologyHints":                 "+optional",

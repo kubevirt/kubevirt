@@ -30157,6 +30157,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							},
 						},
 					},
+					"snapshotOverlayPVCUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotOverlayPVCUID identifies the scratch PVC verified for the OverlaySnapshotActive condition. Updated together with that condition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"kernelBootStatus": {
 						SchemaProps: spec.SchemaProps{
 							Description: "KernelBootStatus contains info about the kernelBootContainer",
