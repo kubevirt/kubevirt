@@ -24,7 +24,7 @@ func stripAgentResponse(agentReply string) string {
 	return stripRE.FindStringSubmatch(agentReply)[1]
 }
 
-// stripAgentStringResponse use regex to stip the wrapping item
+// stripAgentStringResponse use regex to strip the wrapping item
 // and returns the embedded string response
 // unlike stripAgentResponse the response is a simple string
 // rather then a complex object
