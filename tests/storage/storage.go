@@ -510,7 +510,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			BeforeEach(func() {
 				if !checks.HasFeature(featuregate.HostDiskGate) {
-					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests") //nolint:forbidigo
+					Fail("Cluster has the HostDisk featuregate disabled, fail the tests")
 				}
 			})
 
