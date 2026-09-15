@@ -215,7 +215,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
+	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, spec.Architecture, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
 	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
@@ -1472,21 +1472,46 @@ func smmFeatureEnabled(features *v1.Features) bool {
 	return features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)
 }
 
-func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
+func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec, arch string, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, storageadmitters.ValidateDisks(field.Child("devices").Child("disks"), spec.Devices.Disks)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
-	// TDX uses stateless firmware with Secure Boot keys embedded in the ROM;
-	// it does not need SMM to protect UEFI variable writes.
-	tdxEnabled := spec.LaunchSecurity != nil && spec.LaunchSecurity.TDX != nil
-	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) && !tdxEnabled {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
-			Field:   field.String(),
-		})
+	if secureBootEnabled(spec.Firmware) {
+		tdxEnabled := spec.LaunchSecurity != nil && spec.LaunchSecurity.TDX != nil
+		sbField := field.Child("firmware", "bootloader", "efi", "secureBoot")
+		switch arch {
+		case "amd64", "":
+			if !smmFeatureEnabled(spec.Features) && !tdxEnabled {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
+					Field:   field.String(),
+				})
+			}
+		case "arm64":
+			if !config.ARM64SecureBootEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.ARM64SecureBoot),
+					Field:   sbField.String(),
+				})
+			}
+			if !config.FirmwareAutoSelectionEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection),
+					Field:   sbField.String(),
+				})
+			}
+		default:
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SecureBoot is not supported on architecture %s", arch),
+				Field:   field.String(),
+			})
+		}
 	}
 
 	return causes

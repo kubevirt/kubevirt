@@ -265,6 +265,7 @@ add_to_label_filter '(!USB)' '&&'
 add_to_label_filter '(!requires-arm64)' '&&'
 add_to_label_filter '(!requires-s390x)' '&&'
 add_to_label_filter '(!requires-cross-arch-emulation)' '&&'
+add_to_label_filter '(!requires-arm64-secure-boot)' '&&'
 add_to_label_filter '(!RequiresPersistentReservation)' '&&'
 
 if [[ ${KUBEVIRT_NUM_NODES:-} = "1" && ${KUBEVIRT_INFRA_REPLICAS:-} = "1" ]]; then
