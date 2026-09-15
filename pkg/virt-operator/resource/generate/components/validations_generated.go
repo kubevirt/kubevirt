@@ -1801,6 +1801,20 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                   type: array
                   x-kubernetes-list-type: set
+                groups:
+                  description: |-
+                    Groups is a list of TLS supported groups (elliptic curves) to configure
+                    as CurvePreferences on all TLS server endpoints. Group names follow the
+                    IANA TLS Supported Groups registry (e.g. X25519, secp256r1,
+                    X25519MLKEM768). Unrecognised names are silently ignored at TLS setup
+                    time, so an older component tolerates group names added in a newer
+                    release. When empty or when the TLSGroupPreferences feature gate is
+                    disabled, Go's default curve preferences apply.
+                  items:
+                    type: string
+                  maxItems: 32
+                  type: array
+                  x-kubernetes-list-type: atomic
                 minTLSVersion:
                   description: |-
                     MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
@@ -1817,6 +1831,13 @@ var CRDsValidation map[string]string = map[string]string{
                   - VersionTLS13
                   type: string
               type: object
+              x-kubernetes-validations:
+              - message: at least one classical group (e.g. X25519, secp256r1, secp384r1
+                  or secp521r1) is required in groups when minTLSVersion is below
+                  VersionTLS13
+                rule: '!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion)
+                  && self.minTLSVersion == ''VersionTLS13'') || self.groups.exists(g,
+                  !(g in [''X25519MLKEM768'',''SecP256r1MLKEM768'',''SecP384r1MLKEM1024'']))'
             virtTemplateDeployment:
               description: VirtTemplateDeployment controls the deployment of virt-template
                 components
