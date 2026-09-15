@@ -29,12 +29,19 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-type MemoryCalculator struct{}
+type bindingPluginsProvider interface {
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+}
 
-func (mc MemoryCalculator) Calculate(
-	vmi *v1.VirtualMachineInstance,
-	registeredPlugins map[string]v1.InterfaceBindingPlugin,
-) resource.Quantity {
+type MemoryCalculator struct {
+	bindingsProvider bindingPluginsProvider
+}
+
+func NewMemoryCalculator(bindingsProvider bindingPluginsProvider) MemoryCalculator {
+	return MemoryCalculator{bindingsProvider: bindingsProvider}
+}
+
+func (mc MemoryCalculator) Calculate(vmi *v1.VirtualMachineInstance) resource.Quantity {
 	totalMemory := resource.Quantity{}
 
 	if vmispec.HasPasstBinding(vmi) {
@@ -42,7 +49,7 @@ func (mc MemoryCalculator) Calculate(
 	}
 
 	totalMemory.Add(sumPluginsMemoryRequests(
-		filterUniquePlugins(vmi.Spec.Domain.Devices.Interfaces, registeredPlugins),
+		filterUniquePlugins(vmi.Spec.Domain.Devices.Interfaces, mc.bindingsProvider.GetNetworkBindings()),
 	))
 
 	return totalMemory

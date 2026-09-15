@@ -115,7 +115,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		recorder                 *record.FakeRecorder
 		mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 
-		networkBindingPluginMemoryCalculator *stubNetBindingPluginMemoryCalculator
+		networkBindingPluginMemoryCalculator *stubMemoryOverheadCalculator
 		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
 	)
 
@@ -149,7 +149,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	}
 
 	BeforeEach(func() {
-		networkBindingPluginMemoryCalculator = &stubNetBindingPluginMemoryCalculator{}
+		networkBindingPluginMemoryCalculator = &stubMemoryOverheadCalculator{}
 		diskutils.MockDefaultOwnershipManager()
 
 		wg = &sync.WaitGroup{}
@@ -234,12 +234,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			nil, // capabilities
 			&netConfStub{},
 			&netStatStub{},
-			networkBindingPluginMemoryCalculator,
 			migrationTargetPasstRepairHandler,
 			nil,
 			nil,
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
+			networkBindingPluginMemoryCalculator,
 		)
 
 		vmiTestUUID = uuid.NewUUID()
