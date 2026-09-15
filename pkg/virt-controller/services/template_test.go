@@ -570,7 +570,6 @@ var _ = Describe("Template", func() {
 					HaveKeyWithValue(v1.DomainAnnotation, "testvmi"),
 					HaveKeyWithValue("test", "shouldBeInPod"),
 					HaveKeyWithValue(hooks.HookSidecarListAnnotationName, `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`),
-					HaveKeyWithValue("kubevirt.io/migrationTransportUnix", "true"),
 					HaveKeyWithValue("kubectl.kubernetes.io/default-container", "compute"),
 					HaveKeyWithValue("descheduler.alpha.kubernetes.io/request-evict-only", ""),
 					HaveKey(v1.MemoryOverheadAnnotationBytes),
@@ -1117,17 +1116,6 @@ var _ = Describe("Template", func() {
 
 			})
 
-		})
-		Context("migration over unix sockets", func() {
-			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := api.NewMinimalVMI("fake-vmi")
-
-				pod, err := svc.RenderLaunchManifest(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
-				Expect(ok).To(BeTrue())
-			})
 		})
 
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
