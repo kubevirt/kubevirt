@@ -1847,6 +1847,22 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject NUMA passthrough when CPUsWithDRA feature gate is enabled", func() {
+			enableFeatureGates(featuregate.CPUsWithDRAGate)
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(ContainElement(metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Field:   "fake.domain.cpu.numa.guestMappingPassthrough",
+				Message: "fake.domain.cpu.numa.guestMappingPassthrough is not supported when CPUsWithDRA is enabled",
+			}))
+		})
+
 		It("should reject vmi with threads > 1 for arm64 arch", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
