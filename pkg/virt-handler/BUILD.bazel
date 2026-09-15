@@ -15,6 +15,7 @@ go_library(
         "retry_manager.go",
         "unsafepath.go",
         "vm.go",
+        "vm_status.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler",
     visibility = ["//visibility:public"],
