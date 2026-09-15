@@ -166,6 +166,10 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		if originalKindLabel, hasLabel := originalInstancetypeCR.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; hasLabel {
 			Expect(newInstancetypeCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
 		}
+		versionLabel := instancetypeapi.ControllerRevisionObjectCommonInstancetypesVersionLabel
+		if originalVersionLabel, hasLabel := originalInstancetypeCR.Labels[versionLabel]; hasLabel {
+			Expect(newInstancetypeCR.Labels).To(HaveKeyWithValue(versionLabel, originalVersionLabel))
+		}
 
 		Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(originalPreferenceCR.Name))
 
@@ -180,6 +184,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Expect(upgrade.IsObjectLatestVersion(newPreferenceCR)).To(BeTrue())
 		if originalKindLabel, hasLabel := originalPreferenceCR.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; hasLabel {
 			Expect(newPreferenceCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
+		}
+		if originalVersionLabel, hasLabel := originalPreferenceCR.Labels[versionLabel]; hasLabel {
+			Expect(newPreferenceCR.Labels).To(HaveKeyWithValue(versionLabel, originalVersionLabel))
 		}
 	},
 		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype without version label",
@@ -260,6 +267,53 @@ var _ = Describe("ControllerRevision upgrades", func() {
 					},
 				)
 				cr.Name = "legacy-preference-cr-name"
+				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+				return cr
+			},
+		),
+		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype with common-instancetypes-version label",
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineClusterInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "instancetype",
+							Namespace: vm.Namespace,
+							Labels: map[string]string{
+								instancetypeapi.ControllerRevisionObjectCommonInstancetypesVersionLabel: "v1.7.0",
+							},
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				)
+				cr.Name = "legacy-clusterinstancetype-with-version-cr-name"
+				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+				return cr
+			},
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineClusterPreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "preference",
+							Namespace: vm.Namespace,
+							Labels: map[string]string{
+								instancetypeapi.ControllerRevisionObjectCommonInstancetypesVersionLabel: "v1.7.0",
+							},
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+							},
+						},
+					},
+				)
+				cr.Name = "legacy-clusterpreference-with-version-cr-name"
 				delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
 				return cr
 			},
