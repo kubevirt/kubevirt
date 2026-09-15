@@ -30,7 +30,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -154,7 +154,7 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 			runningPods := getRunningReadyPods(podList, []string{podName})
 			Expect(runningPods).ToNot(BeEmpty())
 			for index, pod := range runningPods {
-				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1beta1(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				if index == len(runningPods)-1 {
 					if isMultiReplica {
 						Expect(err).To(HaveOccurred(), fmt.Sprintf("no error occurred on evict of last %s pod", podName))
