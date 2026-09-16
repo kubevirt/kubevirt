@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
 	expect "github.com/google/goexpect"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -164,7 +166,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			namespace := testsuite.GetTestNamespace(nil)
 
 			By("Starting server VMI")
-			serverVMI = libvmifact.NewAlpineWithTestTooling(
+			serverVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 					libvmi.WithPasstBinding(),
 					libvmi.WithPorts(
@@ -179,7 +181,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting client VMI")
-			clientVMI = libvmifact.NewAlpineWithTestTooling(
+			clientVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -187,7 +189,16 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				context.Background(), clientVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
+			Eventually(matcher.ThisVMI(serverVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(clientVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(serverVMI.GetNamespace()).Get(context.Background(), serverVMI.GetName(), metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(clientVMI.GetNamespace()).Get(context.Background(), clientVMI.GetName(), metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(console.LoginToFedora(serverVMI)).To(Succeed())
+			Expect(console.LoginToFedora(clientVMI)).To(Succeed())
 		})
 
 		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
