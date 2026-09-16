@@ -95,9 +95,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
-	disableSEVFeatureGate := func() {
+	withDisabledFeatureGates := func(gates ...string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.WorkloadEncryptionSEV}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = gates
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
@@ -2854,7 +2854,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-			disableSEVFeatureGate()
+			withDisabledFeatureGates(featuregate.WorkloadEncryptionSEV)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
@@ -2937,7 +2937,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should reject when the feature gate is disabled", func() {
-				disableSEVFeatureGate()
+				withDisabledFeatureGates(featuregate.WorkloadEncryptionSEV)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
@@ -3105,7 +3105,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGates(featuregate.VSOCKGate)
 		})
 
 		Context("feature gate enabled", func() {
@@ -3123,7 +3122,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		Context("feature gate disabled", func() {
 			It("should reject when the feature gate is disabled", func() {
-				disableFeatureGates()
+				withDisabledFeatureGates(featuregate.VSOCKGate)
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
