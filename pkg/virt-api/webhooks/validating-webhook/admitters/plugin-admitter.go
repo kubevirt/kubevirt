@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"slices"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -116,8 +115,6 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 		}
 	}
 
-	causes = append(causes, validateSidecarSocketPaths(p)...)
-
 	return causes
 }
 
@@ -172,28 +169,5 @@ func validateNodeHookCEL(eval *nodecelutil.Evaluator, nh pluginv1alpha1.NodeHook
 		}
 	}
 
-	return causes
-}
-
-func validateSidecarSocketPaths(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	specPath := field.NewPath("spec")
-
-	for i, dh := range p.Spec.LauncherHooks {
-		if dh.Sidecar == nil {
-			continue
-		}
-		dhPath := specPath.Child("launcherHooks").Index(i).Child("sidecar", "socketPath")
-		sp := dh.Sidecar.SocketPath
-
-		cleaned := filepath.Clean(sp)
-		if cleaned != sp {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "socketPath must be a clean path (no '..' segments or redundant separators)",
-				Field:   dhPath.String(),
-			})
-		}
-	}
 	return causes
 }
