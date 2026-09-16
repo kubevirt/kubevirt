@@ -481,6 +481,7 @@ func Execute() {
 		Preference:            app.preferenceInformer.GetStore(),
 		ClusterPreference:     app.clusterPreferenceInformer.GetStore(),
 		ControllerRevision:    app.controllerRevisionInformer.GetStore(),
+		VMRestore:             app.vmRestoreInformer.GetStore(),
 	}
 
 	if err := metrics.SetupMetrics(

@@ -70,6 +70,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
 			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
 
+			// needs a restore - ignoring since already tested in - VM Monitoring, VM restore metrics
+			"kubevirt_vmrestore_info": true,
+
 			// needs a machines variable - ignoring since already tested in - tests/infrastructure/prometheus
 			"kubevirt_node_deprecated_machine_types": true,
 

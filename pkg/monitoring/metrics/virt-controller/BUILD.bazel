@@ -10,6 +10,7 @@ go_library(
         "migrationstats_collector.go",
         "perfscale_metrics.go",
         "vmistats_collector.go",
+        "vmrestorestats_collector.go",
         "vmsnapshot.go",
         "vmstats_collector.go",
     ],
@@ -55,6 +56,7 @@ go_test(
         "perfscale_metrics_test.go",
         "virt_controller_suite_test.go",
         "vmistats_collector_test.go",
+        "vmrestorestats_collector_test.go",
         "vmsnapshot_test.go",
         "vmstats_collector_test.go",
     ],
@@ -79,6 +81,7 @@ go_test(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

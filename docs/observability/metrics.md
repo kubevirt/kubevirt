@@ -98,6 +98,7 @@
 | kubevirt_vmi_vcpu_seconds_total | Metric | Counter | Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. |
 | kubevirt_vmi_vcpu_wait_seconds_total | Metric | Counter | Amount of time spent by each vcpu while waiting on I/O. |
 | kubevirt_vmi_vnic_info | Metric | Gauge | Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC of a running instance. |
+| kubevirt_vmrestore_info | Metric | Gauge | Information about VirtualMachineRestores. Includes namespace, name (restore name), uid, vm (target VirtualMachine name), and complete (true or false from status.complete). Join to kubevirt_vm_info via namespace and vm (mapped from kubevirt_vm_info name). Series are gone when the Restore object is deleted. |
 | kubevirt_vmsnapshot_succeeded_timestamp_seconds | Metric | Gauge | Returns the timestamp of successful virtual machine snapshot. |
 | kubevirt_vnc_active_connections | Metric | Gauge | Amount of active VNC connections, broken down by namespace and vmi name. |
 | kubevirt_workqueue_adds_total | Metric | Counter | Total number of adds handled by workqueue |

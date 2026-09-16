@@ -61,6 +61,7 @@ type Stores struct {
 	Preference            cache.Store
 	ClusterPreference     cache.Store
 	ControllerRevision    cache.Store
+	VMRestore             cache.Store
 }
 
 var (
@@ -131,6 +132,7 @@ func SetupMetrics(
 		migrationStatsCollector,
 		vmiStatsCollector,
 		vmStatsCollector,
+		vmRestoreStatsCollector,
 	)
 }
 

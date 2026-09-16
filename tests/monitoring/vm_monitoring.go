@@ -43,6 +43,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -243,6 +244,59 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.WaitForMetricValueWithLabelsToBe(
 				virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0,
 			)
+		})
+	})
+
+	Context("VM restore metrics", func() {
+		It("should expose kubevirt_vmrestore_info for live restores and drop the series on delete", func() {
+			By("Creating a halted Virtual Machine")
+			vm := createRunningVM(
+				virtClient, libvmifact.NewGuestless(), v1.RunStrategyHalted, false,
+			)
+
+			apiGroup := "kubevirt.io"
+			restore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore-" + vm.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: snapshotv1.VirtualMachineRestoreSpec{
+					Target: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vm.Name,
+					},
+					VirtualMachineSnapshotName: "snapshot-" + vm.Name,
+				},
+			}
+
+			By("Creating a VirtualMachineRestore")
+			restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(
+				context.Background(), restore, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			infoLabels := map[string]string{
+				"namespace": restore.Namespace,
+				"name":      restore.Name,
+				"uid":       string(restore.UID),
+				"vm":        vm.Name,
+				"complete":  "false",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmrestore_info", 1, infoLabels, 1)
+
+			By("Verifying kubevirt_vm_info can be joined via namespace and vm name")
+			vmInfoLabels := map[string]string{
+				"namespace": vm.Namespace,
+				"name":      vm.Name,
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vm_info", 1, vmInfoLabels, 1)
+
+			By("Deleting the VirtualMachineRestore")
+			Expect(virtClient.VirtualMachineRestore(restore.Namespace).Delete(
+				context.Background(), restore.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmrestore_info", -1, infoLabels, 1)
 		})
 	})
 
