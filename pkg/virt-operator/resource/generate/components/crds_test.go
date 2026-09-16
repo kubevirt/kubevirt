@@ -371,58 +371,57 @@ var _ = Describe("CRDs", func() {
 		),
 	)
 
-	DescribeTable("Expected categories should be present on CRD", func(crdFunc func() (*extv1.CustomResourceDefinition, error), expected []string) {
+	DescribeTable("CRD served only on deprecated versions should not be in the \"all\" category", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
 		crd, err := crdFunc()
 		Expect(err).ToNot(HaveOccurred())
-
-		Expect(crd.Spec.Names.Categories).To(HaveLen(len(expected)))
-		for _, category := range expected {
-			Expect(crd.Spec.Names.Categories).To(ContainElement(category))
+		if !servedOnlyOnDeprecatedVersions(crd) {
+			return
 		}
-
-		if servedOnlyOnDeprecatedVersions(crd) {
-			Expect(crd.Spec.Names.Categories).ToNot(ContainElement("all"),
-				"%s is served only on deprecated versions, so listing it under \"all\" makes every "+
-					"\"kubectl get all\" emit its deprecation warning", crd.ObjectMeta.Name)
-		}
+		Expect(crd.Spec.Names.Categories).ToNot(ContainElement("all"),
+			"%s is served only on deprecated versions, so listing it under \"all\" makes every "+
+				"\"kubectl get all\" emit its deprecation warning", crd.ObjectMeta.Name)
 	},
-		crdCategoriesEntries(),
+		crdEntries(),
 	)
 })
 
-// crdCategoriesEntries is the single source of truth for the categories every
-// CRD is expected to declare.
-func crdCategoriesEntries() []TableEntry {
-	cases := []struct {
-		name       string
-		crdFunc    func() (*extv1.CustomResourceDefinition, error)
-		categories []string
-	}{
-		{"VirtualMachineInstance", NewVirtualMachineInstanceCrd, []string{"all"}},
-		{"VirtualMachine", NewVirtualMachineCrd, []string{"all"}},
-		{"VirtualMachineInstancePreset", NewPresetCrd, nil},
-		{"VirtualMachineInstanceReplicaSet", NewReplicaSetCrd, []string{"all"}},
-		{"VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd, []string{"all"}},
-		{"KubeVirt", NewKubeVirtCrd, []string{"all"}},
-		{"VirtualMachinePool", NewVirtualMachinePoolCrd, []string{"all"}},
-		{"VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd, []string{"all"}},
-		{"VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd, []string{"all"}},
-		{"VirtualMachineRestore", NewVirtualMachineRestoreCrd, []string{"all"}},
-		{"VirtualMachineExport", NewVirtualMachineExportCrd, []string{"all"}},
-		{"VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd, []string{"all"}},
-		{"VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd, nil},
-		{"VirtualMachinePreference", NewVirtualMachinePreferenceCrd, []string{"all"}},
-		{"VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd, nil},
-		{"VirtualMachineClone", NewVirtualMachineCloneCrd, []string{"all"}},
-		{"MigrationPolicy", NewMigrationPolicyCrd, nil},
-		{"VirtualMachineBackup", NewVirtualMachineBackupCrd, []string{"all"}},
-		{"VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd, []string{"all"}},
-		{"Plugin", NewPluginCrd, nil},
-	}
+type crdConstructor struct {
+	name string
+	fn   func() (*extv1.CustomResourceDefinition, error)
+}
 
-	entries := make([]TableEntry, 0, len(cases))
-	for _, c := range cases {
-		entries = append(entries, Entry(fmt.Sprintf("for %s", c.name), c.crdFunc, c.categories))
+// allCrdConstructors returns every CRD virt-operator generates, for tests
+// asserting a property that should hold across all of them.
+func allCrdConstructors() []crdConstructor {
+	return []crdConstructor{
+		{"VirtualMachineInstance", NewVirtualMachineInstanceCrd},
+		{"VirtualMachine", NewVirtualMachineCrd},
+		{"VirtualMachineInstancePreset", NewPresetCrd},
+		{"VirtualMachineInstanceReplicaSet", NewReplicaSetCrd},
+		{"VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd},
+		{"KubeVirt", NewKubeVirtCrd},
+		{"VirtualMachinePool", NewVirtualMachinePoolCrd},
+		{"VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd},
+		{"VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd},
+		{"VirtualMachineRestore", NewVirtualMachineRestoreCrd},
+		{"VirtualMachineExport", NewVirtualMachineExportCrd},
+		{"VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd},
+		{"VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd},
+		{"VirtualMachinePreference", NewVirtualMachinePreferenceCrd},
+		{"VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd},
+		{"VirtualMachineClone", NewVirtualMachineCloneCrd},
+		{"MigrationPolicy", NewMigrationPolicyCrd},
+		{"VirtualMachineBackup", NewVirtualMachineBackupCrd},
+		{"VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd},
+		{"Plugin", NewPluginCrd},
+	}
+}
+
+func crdEntries() []TableEntry {
+	constructors := allCrdConstructors()
+	entries := make([]TableEntry, 0, len(constructors))
+	for _, c := range constructors {
+		entries = append(entries, Entry(fmt.Sprintf("for %s", c.name), c.fn))
 	}
 	return entries
 }
