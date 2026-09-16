@@ -57,7 +57,10 @@ var _ = Describe("HandleStandaloneMode", func() {
 
 		Expect(func() {
 			standalone.HandleStandaloneMode(mockDM)
-		}).To(PanicWith(MatchError(ContainSubstring("invalid character"))))
+		}).To(PanicWith(MatchError(And(
+			ContainSubstring("YAML:"),
+			ContainSubstring("JSON:"),
+		))))
 	})
 
 	It("should panic if SyncVMI fails", func() {
