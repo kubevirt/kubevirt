@@ -249,6 +249,55 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			}),
 	)
 
+	DescribeTable("should configure PCI controller based on passthrough PCI hole64 sizing", func(
+		vmi *v1.VirtualMachineInstance,
+		passthroughPCIHole64KiB uint,
+		expectedControllers []api.Controller,
+	) {
+		var domain api.Domain
+
+		configurator := compute.NewControllersDomainConfigurator(
+			compute.ControllersWithUSBNeeded(!usbNeeded),
+			compute.ControllersWithSCSIModel("test-model"),
+			compute.ControllersWithSCSIIOThreads(0),
+			compute.ControllersWithUseLaunchSecuritySEV(false),
+			compute.ControllersWithUseLaunchSecurityPV(false),
+			compute.ControllersWithSupportPCIHole64Disabling(pciHole64DisablingSupported),
+			compute.ControllersWithPassthroughPCIHole64KiB(passthroughPCIHole64KiB),
+			compute.ControllersWithVirtioSerialModel("virtio-test-model"),
+		)
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		Expect(domain).To(Equal(newDomainWithControllers(expectedControllers)))
+	},
+		Entry("when the passthrough hole size is 0",
+			libvmi.New(),
+			uint(0),
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
+		Entry("when the passthrough hole size is above 0",
+			libvmi.New(),
+			uint(536870912),
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 536870912, Unit: "KiB"}},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
+		Entry("when the disable annotation wins over a non-zero passthrough hole size",
+			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
+			uint(536870912),
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 0, Unit: "KiB"}},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
+	)
+
 	DescribeTable("should set IOMMU on SCSI and virtio-serial controllers when launch security is active",
 		func(useLaunchSecuritySEV, useLaunchSecurityPV bool, vmi *v1.VirtualMachineInstance, autoThreads int, expectedDomain api.Domain) {
 			var domain api.Domain

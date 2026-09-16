@@ -1938,6 +1938,48 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 			Expect(domain.Spec.Devices.HostDevices).To(Equal([]api.HostDevice{{Type: identifyDevice}}))
 		})
+		DescribeTable("configures a pcihole64 PCI controller for passthrough devices only on architectures that support it", func(arch string, expectHole64 bool) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostPassthrough}
+			domain := &api.Domain{}
+			c.Architecture = archconverter.NewConverter(arch)
+
+			devicesPath := GinkgoT().TempDir()
+			previousPath := passthroughPCIDevicesPath
+			passthroughPCIDevicesPath = devicesPath
+			DeferCleanup(func() { passthroughPCIDevicesPath = previousPath })
+
+			const bdf = "0000:81:00.0"
+			devicePath := filepath.Join(devicesPath, bdf)
+			Expect(os.MkdirAll(devicePath, 0755)).To(Succeed())
+			resource := "0x0000000100000000 0x00000041ffffffff 0x0000020c\n" // 256 GiB, 64-bit prefetchable
+			Expect(os.WriteFile(filepath.Join(devicePath, "resource"), []byte(resource), 0644)).To(Succeed())
+
+			c.GPUHostDevices = []api.HostDevice{{
+				Type:   api.HostDevicePCI,
+				Source: api.HostDeviceSource{Address: &api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}},
+			}}
+
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+
+			var pciRootController *api.Controller
+			for i := range domain.Spec.Devices.Controllers {
+				controller := &domain.Spec.Devices.Controllers[i]
+				if controller.Type == "pci" && controller.Model == "pcie-root" {
+					pciRootController = controller
+				}
+			}
+			if expectHole64 {
+				Expect(pciRootController).ToNot(BeNil())
+				Expect(pciRootController.PCIHole64).To(Equal(&api.PCIHole64{Value: 536870912, Unit: "KiB"}))
+			} else {
+				Expect(pciRootController).To(BeNil())
+			}
+		},
+			Entry("amd64 configures the hole", amd64, true),
+			Entry("arm64 does not configure the hole", arm64, false),
+			Entry("s390x does not configure the hole", s390x, false),
+		)
 	})
 
 	Context("graphics and video device", func() {

@@ -20,7 +20,6 @@
 package converter
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"math"
@@ -46,13 +45,6 @@ const (
 	gracePCIHole64MarginKiB  = uint64(1024 * 1024)
 	gracePCIHole64FloorBytes = uint64(512) << 30
 	graceMaxPCIHole64KiB     = uint64(16) << 30
-
-	// Linux exposes IORESOURCE_* bits in the sysfs PCI resource file along
-	// with PCI BAR memory type bits in the low nibble.
-	ioResourceMem                = uint64(0x00000200)
-	pciBaseAddressMemoryTypeMask = uint64(0x0000000f)
-	pciBaseAddressMemoryType64   = uint64(0x00000004)
-	pciBaseAddressMemoryPrefetch = uint64(0x00000008)
 
 	graceDefaultIOMMUAccel = "on"
 	graceDefaultIOMMUATS   = "on"
@@ -539,7 +531,7 @@ func applyGraceNUMADistances(domainSpec *api.DomainSpec, guestToHostNUMA map[uin
 }
 
 func applyGracePCIHole64(domainSpec *api.DomainSpec, pciHoleBytes uint64) error {
-	pciHoleKiB := calculateGracePCIHole64KiB(pciHoleBytes, gracePCIHole64MarginKiB)
+	pciHoleKiB := hardware.PCIHole64KiB(pciHoleBytes, gracePCIHole64MarginKiB)
 	if pciHoleKiB == 0 || pciHoleKiB > graceMaxPCIHole64KiB || pciHoleKiB > uint64(math.MaxUint) {
 		return fmt.Errorf("invalid Grace pcihole64 size %d KiB", pciHoleKiB)
 	}
@@ -582,29 +574,6 @@ func ensureGracePCIeRootController(domainSpec *api.DomainSpec) (*api.Controller,
 		Model: api.ControllerModelPCIeRoot,
 	})
 	return &domainSpec.Devices.Controllers[len(domainSpec.Devices.Controllers)-1], nil
-}
-
-func calculateGracePCIHole64KiB(sizeBytes, marginKiB uint64) uint64 {
-	if sizeBytes == 0 {
-		return 0
-	}
-	sizeKiB := sizeBytes / 1024
-	if sizeBytes%1024 != 0 {
-		sizeKiB++
-	}
-	if sizeKiB > math.MaxUint64-marginKiB {
-		return 0
-	}
-	sizeKiB += marginKiB
-
-	var rounded uint64 = 1
-	for rounded < sizeKiB {
-		if rounded > math.MaxUint64/2 {
-			return 0
-		}
-		rounded <<= 1
-	}
-	return rounded
 }
 
 func appendGraceGINUMACells(domainSpec *api.DomainSpec, guestGINodes []uint32) {
@@ -744,45 +713,7 @@ func (p sysfsGraceRuntimeInfoProvider) PCINUMANode(bdf string) (uint32, error) {
 }
 
 func (p sysfsGraceRuntimeInfoProvider) PCIHole64SizeBytes(bdf string) (uint64, error) {
-	resourcePath := filepath.Join(p.pciDevicesPath, bdf, "resource")
-	file, err := os.Open(resourcePath)
-	if err != nil {
-		return 0, err
-	}
-	defer file.Close()
-
-	var total uint64
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) != 3 {
-			continue
-		}
-		start, err := strconv.ParseUint(strings.TrimPrefix(fields[0], "0x"), 16, 64)
-		if err != nil {
-			return 0, err
-		}
-		end, err := strconv.ParseUint(strings.TrimPrefix(fields[1], "0x"), 16, 64)
-		if err != nil {
-			return 0, err
-		}
-		flags, err := strconv.ParseUint(strings.TrimPrefix(fields[2], "0x"), 16, 64)
-		if err != nil {
-			return 0, err
-		}
-		if start == 0 || end == 0 || start > end {
-			continue
-		}
-		if flags&ioResourceMem != ioResourceMem ||
-			flags&pciBaseAddressMemoryTypeMask != pciBaseAddressMemoryType64|pciBaseAddressMemoryPrefetch {
-			continue
-		}
-		total += end - start + 1
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, err
-	}
-	return total, nil
+	return hardware.PCI64BitPrefetchableBARBytes(p.pciDevicesPath, bdf)
 }
 
 func (p sysfsGraceRuntimeInfoProvider) PCICapabilities(_ string) (gracePCICapabilities, error) {
