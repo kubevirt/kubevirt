@@ -160,8 +160,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 		oldHandler := handler
 		handler = mockMDEV
+		origStateFile := managedMdevTypesStateFile
+		managedMdevTypesStateFile = filepath.Join(GinkgoT().TempDir(), "managed-mdev-types")
 		DeferCleanup(func() {
 			handler = oldHandler
+			managedMdevTypesStateFile = origStateFile
 		})
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
 
@@ -536,6 +539,26 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(countCreatedMdevs("nvidia-222")).To(Equal(1))
 			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+		})
+
+		It("should still remove previously managed types after a manager restart", Label(mdevOwnershipLabel), func() {
+			noExternallyConfiguredMdevs := make(map[string]struct{})
+			createTempMDEVSysfsStructure(map[string][]string{
+				"0000:65:00.0": {"nvidia-223"},
+			})
+			createPreexistingMdev("vfio_ap-passthrough", "VFIO AP Passthrough Device", "matrix")
+
+			mdevManager := NewMDEVTypesManager()
+			_, err := mdevManager.updateMDEVTypesConfiguration([]string{"nvidia-223"}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+
+			By("simulating a virt-handler restart")
+			restartedManager := NewMDEVTypesManager()
+			_, err = restartedManager.updateMDEVTypesConfiguration([]string{}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeZero())
+			Expect(countCreatedMdevs("vfio_ap-passthrough")).To(Equal(1))
 		})
 
 		It("should not remove previously managed types listed as externally provided", Label(mdevOwnershipLabel), func() {

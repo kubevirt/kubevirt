@@ -21,6 +21,7 @@ package device_manager
 
 import (
 	"container/ring"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -34,6 +35,13 @@ import (
 // Not a const for static test purposes
 var mdevClassBusPath = "/sys/class/mdev_bus"
 
+// managedMdevTypesStateFile records the mdev types virt-handler last configured
+// on this node. It survives virt-handler restarts (hostPath /var/run/kubevirt)
+// so KubeVirt-created types can still be garbage-collected after a crash, but
+// is lost on node reboot - which is fine, because sysfs mdevs are too.
+// Not a const for static test purposes.
+var managedMdevTypesStateFile = "/var/run/kubevirt/managed-mdev-types"
+
 type MDEVTypesManager struct {
 	availableMdevTypesMap   map[string][]string
 	unconfiguredParentsMap  map[string]struct{}
@@ -46,10 +54,12 @@ type MDEVTypesManager struct {
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
-	return &MDEVTypesManager{
+	m := &MDEVTypesManager{
 		availableMdevTypesMap:  make(map[string][]string),
 		previouslyManagedTypes: make(map[string]struct{}),
 	}
+	m.loadManagedTypes()
+	return m
 }
 
 func (m *MDEVTypesManager) getAlreadyConfiguredMdevParents() (map[string]struct{}, error) {
@@ -381,5 +391,57 @@ func (m *MDEVTypesManager) setPreviouslyManagedTypes(next map[string]struct{}) {
 	m.previouslyManagedTypes = make(map[string]struct{}, len(next))
 	for key, val := range next {
 		m.previouslyManagedTypes[key] = val
+	}
+	m.persistManagedTypes()
+}
+
+func (m *MDEVTypesManager) loadManagedTypes() {
+	if managedMdevTypesStateFile == "" {
+		return
+	}
+	data, err := os.ReadFile(managedMdevTypesStateFile)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Log.Reason(err).Warningf("failed to read managed mdev types state file %s", managedMdevTypesStateFile)
+		}
+		return
+	}
+	var types []string
+	if err := json.Unmarshal(data, &types); err != nil {
+		log.Log.Reason(err).Warningf("failed to parse managed mdev types state file %s", managedMdevTypesStateFile)
+		return
+	}
+	for _, mdevType := range types {
+		addMdevTypeKey(m.previouslyManagedTypes, mdevType)
+	}
+}
+
+func (m *MDEVTypesManager) persistManagedTypes() {
+	if managedMdevTypesStateFile == "" {
+		return
+	}
+	types := make([]string, 0, len(m.previouslyManagedTypes))
+	for mdevType := range m.previouslyManagedTypes {
+		types = append(types, mdevType)
+	}
+	data, err := json.Marshal(types)
+	if err != nil {
+		log.Log.Reason(err).Warning("failed to marshal managed mdev types")
+		return
+	}
+	// Do not create the parent directory. virt-handler's share dir is a
+	// volume mount; skipping when it is absent also keeps unit tests from
+	// writing under /var/run/kubevirt.
+	if _, err := os.Stat(filepath.Dir(managedMdevTypesStateFile)); err != nil {
+		return
+	}
+	tmp := managedMdevTypesStateFile + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		log.Log.Reason(err).Warningf("failed to write managed mdev types state file %s", tmp)
+		return
+	}
+	if err := os.Rename(tmp, managedMdevTypesStateFile); err != nil {
+		log.Log.Reason(err).Warningf("failed to persist managed mdev types state file %s", managedMdevTypesStateFile)
+		_ = os.Remove(tmp)
 	}
 }
