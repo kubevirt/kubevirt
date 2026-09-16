@@ -71,7 +71,7 @@ func (s *VMSnapshotSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMSnapshotSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMSnapshotSource) ConfigurePod(pod *corev1.Pod) {
@@ -92,18 +92,27 @@ func (s *VMSnapshotSource) ConfigureExportLink(exportLink *exportv1.VirtualMachi
 func (s *VMSnapshotSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
 	vmExport.Status.VirtualMachineName = pointer.P(s.vmName)
 
-	if err := s.updateVMSnapshotExportStatusConditions(vmExport); err != nil {
+	if err := s.updateVMSnapshotExportStatusConditions(vmExport, pod); err != nil {
 		return 0, err
 	}
 
 	return 0, nil
 }
 
-func (s *VMSnapshotSource) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport) error {
+func (s *VMSnapshotSource) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
 	// Handle no volumes case
 	if !s.HasContent() {
+		if len(s.sourceVolumes.duplicatePVCNames()) > 0 {
+			if pod == nil {
+				vmExportCopy.Status.Phase = exportv1.Skipped
+			}
+			return nil
+		}
+
 		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, s.SourceCondition())
-		if s.SourceCondition().Reason == noVolumeSnapshotReason || s.SourceCondition().Reason == VMSnapshotNotFoundReason {
+		// Only report skipped while no pod is running, a ready export keeps its links.
+		if pod == nil &&
+			(s.SourceCondition().Reason == noVolumeSnapshotReason || s.SourceCondition().Reason == VMSnapshotNotFoundReason) {
 			vmExportCopy.Status.Phase = exportv1.Skipped
 		}
 		return nil

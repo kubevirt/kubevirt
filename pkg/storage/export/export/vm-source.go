@@ -61,7 +61,7 @@ func (s *VMSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMSource) ConfigurePod(pod *corev1.Pod) {
@@ -81,11 +81,14 @@ func (s *VMSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *co
 
 	vmExport.Status.VirtualMachineName = pointer.P(vmExport.Spec.Source.Name)
 
-	if !s.HasContent() {
+	// Only report skipped while no pod is running, a ready export keeps its links.
+	if pod == nil && !s.HasContent() {
 		vmExport.Status.Phase = exportv1.Skipped
 	}
 
-	if !s.sourceVolumes.isPopulated && s.ReadyCondition().Reason != vmNotFoundReason {
+	if !s.sourceVolumes.isPopulated &&
+		s.ReadyCondition().Reason != vmNotFoundReason &&
+		s.ReadyCondition().Reason != duplicatePVCReason {
 		requeue = requeueTime
 	}
 
