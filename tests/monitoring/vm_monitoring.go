@@ -42,11 +42,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	clonev1 "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -243,6 +247,209 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.WaitForMetricValueWithLabelsToBe(
 				virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0,
 			)
+		})
+	})
+
+	Context("VM export metrics", func() {
+		It("should expose kubevirt_vmexport_info for live exports and drop the series on delete", func() {
+			const exportStatusTimeout = 2 * time.Minute
+			By("Creating a halted Virtual Machine")
+			vm := createRunningVM(
+				virtClient, libvmifact.NewGuestless(), v1.RunStrategyHalted, false,
+			)
+
+			apiGroup := "kubevirt.io"
+			vmExport := &exportv1.VirtualMachineExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-" + vm.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vm.Name,
+					},
+				},
+			}
+
+			By("Creating a VirtualMachineExport")
+			vmExport, err = virtClient.VirtualMachineExport(vm.Namespace).Create(
+				context.Background(), vmExport, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			infoLabels := map[string]string{
+				"namespace":   vmExport.Namespace,
+				"name":        vmExport.Name,
+				"uid":         string(vmExport.UID),
+				"vm":          vm.Name,
+				"source":      vm.Name,
+				"source_kind": "VirtualMachine",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmexport_info", 1, infoLabels, 1)
+
+			var ttlExpiration *metav1.Time
+			Eventually(func(g Gomega) {
+				current, getErr := virtClient.VirtualMachineExport(vmExport.Namespace).Get(
+					context.Background(), vmExport.Name, metav1.GetOptions{},
+				)
+				g.Expect(getErr).ToNot(HaveOccurred())
+				g.Expect(current.Status).ToNot(BeNil())
+				g.Expect(current.Status.TTLExpirationTime).ToNot(BeNil())
+				ttlExpiration = current.Status.TTLExpirationTime
+			}).WithTimeout(exportStatusTimeout).WithPolling(time.Second).Should(Succeed())
+			libmonitoring.WaitForMetricValueWithLabels(
+				virtClient,
+				"kubevirt_vmexport_ttl_expiration_timestamp_seconds",
+				float64(ttlExpiration.Unix()),
+				map[string]string{"name": vmExport.Name, "namespace": vmExport.Namespace},
+				1,
+			)
+
+			By("Deleting the VirtualMachineExport")
+			Expect(virtClient.VirtualMachineExport(vmExport.Namespace).Delete(
+				context.Background(), vmExport.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmexport_info", -1, infoLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(
+				virtClient,
+				"kubevirt_vmexport_ttl_expiration_timestamp_seconds",
+				-1,
+				map[string]string{"name": vmExport.Name, "namespace": vmExport.Namespace},
+				1,
+			)
+		})
+	})
+
+	Context("VM clone metrics", func() {
+		It("should expose kubevirt_vmclone_info for live clones and drop the series on delete", func() {
+			By("Creating a halted Virtual Machine")
+			vm := createRunningVM(
+				virtClient, libvmifact.NewGuestless(), v1.RunStrategyHalted, false,
+			)
+
+			apiGroup := "kubevirt.io"
+			targetName := vm.Name + "-clone-target"
+			vmClone := &clonev1.VirtualMachineClone{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clone-" + vm.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: clonev1.VirtualMachineCloneSpec{
+					Source: &corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vm.Name,
+					},
+					Target: &corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     targetName,
+					},
+				},
+			}
+
+			By("Creating a VirtualMachineClone")
+			vmClone, err = virtClient.VirtualMachineClone(vm.Namespace).Create(
+				context.Background(), vmClone, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			infoLabels := map[string]string{
+				"namespace":   vmClone.Namespace,
+				"name":        vmClone.Name,
+				"uid":         string(vmClone.UID),
+				"source":      vm.Name,
+				"source_kind": "VirtualMachine",
+				"target_vm":   targetName,
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmclone_info", 1, infoLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(
+				virtClient,
+				"kubevirt_vmclone_create_date_timestamp_seconds",
+				float64(vmClone.CreationTimestamp.Unix()),
+				map[string]string{"name": vmClone.Name, "namespace": vmClone.Namespace},
+				1,
+			)
+
+			By("Deleting the VirtualMachineClone")
+			Expect(virtClient.VirtualMachineClone(vmClone.Namespace).Delete(
+				context.Background(), vmClone.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmclone_info", -1, infoLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(
+				virtClient,
+				"kubevirt_vmclone_create_date_timestamp_seconds",
+				-1,
+				map[string]string{"name": vmClone.Name, "namespace": vmClone.Namespace},
+				1,
+			)
+		})
+	})
+
+	Context("VM pool metrics", func() {
+		It("should expose pool info and replica gauges and drop the series on delete", func() {
+			const randStrLen = 5
+			selector := "pool" + rand.String(randStrLen)
+			replicas := int32(0)
+			pool := &poolv1.VirtualMachinePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pool" + rand.String(randStrLen),
+					Namespace: testsuite.GetTestNamespace(nil),
+				},
+				Spec: poolv1.VirtualMachinePoolSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"select": selector},
+					},
+					VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"select": selector},
+						},
+						Spec: v1.VirtualMachineSpec{
+							RunStrategy: pointer.P(v1.RunStrategyManual),
+							Template: &v1.VirtualMachineInstanceTemplateSpec{
+								ObjectMeta: metav1.ObjectMeta{
+									Labels: map[string]string{"select": selector},
+								},
+								Spec: libvmifact.NewGuestless().Spec,
+							},
+						},
+					},
+				},
+			}
+
+			By("Creating a VirtualMachinePool")
+			pool, err = virtClient.VirtualMachinePool(pool.Namespace).Create(
+				context.Background(), pool, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			infoLabels := map[string]string{
+				"namespace": pool.Namespace,
+				"name":      pool.Name,
+				"uid":       string(pool.UID),
+			}
+			replicaLabels := map[string]string{
+				"namespace": pool.Namespace,
+				"name":      pool.Name,
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_info", 1, infoLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_desired_replicas", 0, replicaLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_replicas", 0, replicaLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_ready_replicas", 0, replicaLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_paused", 0, replicaLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_replica_failure", 0, replicaLabels, 1)
+
+			By("Deleting the VirtualMachinePool")
+			Expect(virtClient.VirtualMachinePool(pool.Namespace).Delete(
+				context.Background(), pool.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_info", -1, infoLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_desired_replicas", -1, replicaLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_paused", -1, replicaLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmpool_replica_failure", -1, replicaLabels, 1)
 		})
 	})
 

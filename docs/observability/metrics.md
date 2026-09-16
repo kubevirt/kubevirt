@@ -30,6 +30,10 @@
 | kubevirt_vm_running_status_last_transition_timestamp_seconds | Metric | Counter | Virtual Machine last transition timestamp to running status. |
 | kubevirt_vm_starting_status_last_transition_timestamp_seconds | Metric | Counter | Virtual Machine last transition timestamp to starting status. |
 | kubevirt_vm_vnic_info | Metric | Gauge | Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC defined in the VM's configuration. |
+| kubevirt_vmclone_create_date_timestamp_seconds | Metric | Gauge | Virtual Machine Clone creation timestamp. |
+| kubevirt_vmclone_info | Metric | Gauge | Information about VirtualMachineClones. |
+| kubevirt_vmexport_info | Metric | Gauge | Information about VirtualMachineExports. |
+| kubevirt_vmexport_ttl_expiration_timestamp_seconds | Metric | Gauge | Time at which a VirtualMachineExport will be deleted according to its TTL (status.ttlExpirationTime). |
 | kubevirt_vmi_cpu_system_usage_seconds_total | Metric | Counter | Total CPU time spent in system mode. |
 | kubevirt_vmi_cpu_usage_seconds_total | Metric | Counter | Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). |
 | kubevirt_vmi_cpu_user_usage_seconds_total | Metric | Counter | Total CPU time spent in user mode. |
@@ -98,6 +102,12 @@
 | kubevirt_vmi_vcpu_seconds_total | Metric | Counter | Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. |
 | kubevirt_vmi_vcpu_wait_seconds_total | Metric | Counter | Amount of time spent by each vcpu while waiting on I/O. |
 | kubevirt_vmi_vnic_info | Metric | Gauge | Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC of a running instance. |
+| kubevirt_vmpool_desired_replicas | Metric | Gauge | Desired number of VirtualMachine replicas in a VirtualMachinePool (spec.replicas, default 1). |
+| kubevirt_vmpool_info | Metric | Gauge | Information about VirtualMachinePools. |
+| kubevirt_vmpool_paused | Metric | Gauge | Whether a VirtualMachinePool is paused (spec.paused). 1 if paused, 0 otherwise. |
+| kubevirt_vmpool_ready_replicas | Metric | Gauge | Number of ready VirtualMachine replicas in a VirtualMachinePool (status.readyReplicas). |
+| kubevirt_vmpool_replica_failure | Metric | Gauge | Whether a VirtualMachinePool has a ReplicaFailure condition set to True. 1 if failing, 0 otherwise. |
+| kubevirt_vmpool_replicas | Metric | Gauge | Current number of VirtualMachine replicas in a VirtualMachinePool (status.replicas). |
 | kubevirt_vmsnapshot_succeeded_timestamp_seconds | Metric | Gauge | Returns the timestamp of successful virtual machine snapshot. |
 | kubevirt_vnc_active_connections | Metric | Gauge | Amount of active VNC connections, broken down by namespace and vmi name. |
 | kubevirt_workqueue_adds_total | Metric | Counter | Total number of adds handled by workqueue |

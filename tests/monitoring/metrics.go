@@ -70,6 +70,18 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
 			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
 
+			// needs export / clone / pool objects - ignoring since already tested in - VM Monitoring
+			"kubevirt_vmexport_info":                             true,
+			"kubevirt_vmexport_ttl_expiration_timestamp_seconds": true,
+			"kubevirt_vmclone_info":                              true,
+			"kubevirt_vmclone_create_date_timestamp_seconds":     true,
+			"kubevirt_vmpool_info":                               true,
+			"kubevirt_vmpool_desired_replicas":                   true,
+			"kubevirt_vmpool_replicas":                           true,
+			"kubevirt_vmpool_ready_replicas":                     true,
+			"kubevirt_vmpool_paused":                             true,
+			"kubevirt_vmpool_replica_failure":                    true,
+
 			// needs a machines variable - ignoring since already tested in - tests/infrastructure/prometheus
 			"kubevirt_node_deprecated_machine_types": true,
 
