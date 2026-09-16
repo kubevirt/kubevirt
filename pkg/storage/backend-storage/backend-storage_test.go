@@ -22,6 +22,7 @@ package backendstorage
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -176,6 +177,7 @@ var _ = Describe("Backend Storage", func() {
 	Context("Migration", func() {
 		var k8sClient *k8sfake.Clientset
 		var migration *virtv1.VirtualMachineInstanceMigration
+		var vmi *virtv1.VirtualMachineInstance
 		const (
 			nsName        = "testns"
 			vmiName       = "testvmi"
@@ -187,10 +189,16 @@ var _ = Describe("Backend Storage", func() {
 		BeforeEach(func() {
 			k8sClient = k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			vmi = &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{Name: vmiName, Namespace: nsName, UID: "vmi-uid"},
+			}
 			sourcePVC := &v1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:   sourcePVCName,
 					Labels: map[string]string{"persistent-state-for": vmiName},
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{Kind: "VirtualMachineInstance", Name: vmiName, UID: "vmi-uid", Controller: pointer.P(true)},
+					},
 				},
 			}
 			targetPVC := &v1.PersistentVolumeClaim{
@@ -224,13 +232,41 @@ var _ = Describe("Backend Storage", func() {
 			}
 		})
 		It("Should label the target PVC and remove the source PVC on migration success", func() {
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			err := MigrationHandoff(virtClient, pvcStore, migration, vmi)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			targetPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(targetPVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
+		})
+		It("Should keep a source-adopted PVC after migration success", func() {
+			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			sourcePVC.OwnerReferences = nil
+			sourcePVC, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Update(context.TODO(), sourcePVC, k8smetav1.UpdateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvcStore.Update(sourcePVC)).To(Succeed())
+
+			Expect(MigrationHandoff(virtClient, pvcStore, migration, vmi)).To(Succeed())
+
+			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("Should keep a PVC owned by something other than this VMI after migration success", func() {
+			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			sourcePVC.OwnerReferences = []k8smetav1.OwnerReference{
+				{Kind: "DataVolume", Name: "unrelated-dv", UID: "dv-uid", Controller: pointer.P(true)},
+			}
+			sourcePVC, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Update(context.TODO(), sourcePVC, k8smetav1.UpdateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvcStore.Update(sourcePVC)).To(Succeed())
+
+			Expect(MigrationHandoff(virtClient, pvcStore, migration, vmi)).To(Succeed())
+
+			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 		It("Should remove the target PVC on migration failure", func() {
 			err := MigrationAbort(virtClient, migration)
@@ -243,7 +279,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration success", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			err := MigrationHandoff(virtClient, pvcStore, migration, vmi)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -404,6 +440,9 @@ var _ = Describe("Backend Storage", func() {
 				spec.Domain.Devices.TPM.Persistent = pointer.P(true)
 				spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
 			}),
+			Entry("be true when virtualMachineState is set", true, func(spec *virtv1.VirtualMachineInstanceSpec) {
+				spec.VirtualMachineState = &virtv1.VirtualMachineStateSpec{VolumeClaimTemplate: &v1.PersistentVolumeClaimTemplate{}}
+			}),
 		)
 
 		DescribeTable("should with VM and VMI", func(expected bool, alter func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)) {
@@ -460,5 +499,367 @@ var _ = Describe("Backend Storage", func() {
 				snapshotVM.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
 			}),
 		)
+
+		DescribeTable("HasLegacyBackendStorage", func(expected bool, alter func(spec *virtv1.VirtualMachineInstanceSpec)) {
+			alter(&vm.Spec.Template.Spec)
+			alter(&snapshotVM.Spec.Template.Spec)
+			alter(&vmi.Spec)
+			Expect(HasLegacyBackendStorage(vm)).To(Equal(expected))
+			Expect(HasLegacyBackendStorage(snapshotVM)).To(Equal(expected))
+			Expect(HasLegacyBackendStorage(vmi)).To(Equal(expected))
+		},
+			Entry("be false when backend storage isn't needed at all", false, func(_ *virtv1.VirtualMachineInstanceSpec) {
+			}),
+			Entry("be true when persistent TPM is set implicitly", true, func(spec *virtv1.VirtualMachineInstanceSpec) {
+				spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+			}),
+			Entry("be false when virtualMachineState is set", false, func(spec *virtv1.VirtualMachineInstanceSpec) {
+				spec.VirtualMachineState = &virtv1.VirtualMachineStateSpec{VolumeClaimTemplate: &v1.PersistentVolumeClaimTemplate{}}
+				spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+			}),
+		)
+	})
+
+	Context("Declarative VMState", func() {
+		var k8sClient *k8sfake.Clientset
+
+		const (
+			nsName  = "testns"
+			vmiName = "testvmi"
+			vmiUID  = "vmi-uid"
+		)
+
+		newDeclarativeVMI := func() *virtv1.VirtualMachineInstance {
+			return &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmiName,
+					Namespace: nsName,
+					UID:       vmiUID,
+				},
+				Spec: virtv1.VirtualMachineInstanceSpec{
+					VirtualMachineState: &virtv1.VirtualMachineStateSpec{
+						Source: &virtv1.VirtualMachineStateSource{Name: "baseline-source-pvc"},
+					},
+				},
+			}
+		}
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+		})
+
+		DescribeTable("HasDeclarativeVMState", func(state *virtv1.VirtualMachineStateSpec, expected bool) {
+			spec := &virtv1.VirtualMachineInstanceSpec{VirtualMachineState: state}
+			Expect(HasDeclarativeVMState(spec)).To(Equal(expected))
+		},
+			Entry("is true when volumeClaimTemplate is set", &virtv1.VirtualMachineStateSpec{VolumeClaimTemplate: &v1.PersistentVolumeClaimTemplate{}}, true),
+			Entry("is true when source is set", &virtv1.VirtualMachineStateSpec{Source: &virtv1.VirtualMachineStateSource{Name: "pvc"}}, true),
+			Entry("is false when virtualMachineState is empty", &virtv1.VirtualMachineStateSpec{}, false),
+			Entry("is false when virtualMachineState is nil", nil, false),
+		)
+
+		It("ownerUIDForVMI returns the controller owner UID when present", func() {
+			vmi := newDeclarativeVMI()
+			vmi.OwnerReferences = []k8smetav1.OwnerReference{{
+				Controller: pointer.P(true),
+				UID:        "vm-uid",
+				Name:       "vm",
+				Kind:       "VirtualMachine",
+			}}
+			Expect(ownerUIDForVMI(vmi)).To(Equal("vm-uid"))
+		})
+
+		It("ownerUIDForVMI falls back to the VMI's own UID", func() {
+			Expect(ownerUIDForVMI(newDeclarativeVMI())).To(Equal(vmiUID))
+		})
+
+		DescribeTable("HasPersistentEFI", func(declarative bool, persistent *bool, expected bool) {
+			spec := &virtv1.VirtualMachineInstanceSpec{
+				Domain: virtv1.DomainSpec{
+					Firmware: &virtv1.Firmware{
+						Bootloader: &virtv1.Bootloader{
+							EFI: &virtv1.EFI{Persistent: persistent},
+						},
+					},
+				},
+			}
+			if declarative {
+				spec.VirtualMachineState = &virtv1.VirtualMachineStateSpec{VolumeClaimTemplate: &v1.PersistentVolumeClaimTemplate{}}
+			}
+			Expect(HasPersistentEFI(spec)).To(Equal(expected))
+		},
+			Entry("declarative: unset persistent implies persistent EFI", true, nil, true),
+			Entry("declarative: persistent:false opts out", true, pointer.P(false), false),
+			Entry("declarative: persistent:true keeps persistent EFI", true, pointer.P(true), true),
+			Entry("non-declarative: unset persistent is not persistent", false, nil, false),
+		)
+
+		It("declarativeOwnerReferences returns the controller ref when the VMI has one", func() {
+			vmi := newDeclarativeVMI()
+			vmi.OwnerReferences = []k8smetav1.OwnerReference{{
+				Controller: pointer.P(true),
+				UID:        "vm-uid",
+				Name:       "vm",
+				Kind:       "VirtualMachine",
+			}}
+			refs := declarativeOwnerReferences(vmi)
+			Expect(refs).To(HaveLen(1))
+			Expect(string(refs[0].UID)).To(Equal("vm-uid"))
+			Expect(refs[0].Name).To(Equal("vm"))
+		})
+
+		It("declarativeOwnerReferences falls back to a controller ref to the VMI", func() {
+			refs := declarativeOwnerReferences(newDeclarativeVMI())
+			Expect(refs).To(HaveLen(1))
+			Expect(string(refs[0].UID)).To(Equal(vmiUID))
+			Expect(refs[0].Name).To(Equal(vmiName))
+		})
+
+		Context("declarativePVCForVMI resolution", func() {
+			addPVC := func(pvc *v1.PersistentVolumeClaim) {
+				Expect(pvcStore.Add(pvc)).To(Succeed())
+			}
+
+			It("resolves by the status volume claim name", func() {
+				vmi := newDeclarativeVMI()
+				vmi.Status.VirtualMachineStateVolume = &virtv1.VolumeStatus{
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: "status-pvc"},
+				}
+				addPVC(&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{Name: "status-pvc", Namespace: nsName}})
+
+				pvc := declarativePVCForVMI(pvcStore, vmi)
+				Expect(pvc).NotTo(BeNil())
+				Expect(pvc.Name).To(Equal("status-pvc"))
+			})
+
+			It("falls back to the owner-UID labelled PVC", func() {
+				addPVC(&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "owned-pvc",
+					Namespace: nsName,
+					Labels:    map[string]string{VMStateOwnerLabel: vmiUID},
+				}})
+
+				pvc := declarativePVCForVMI(pvcStore, newDeclarativeVMI())
+				Expect(pvc).NotTo(BeNil())
+				Expect(pvc.Name).To(Equal("owned-pvc"))
+			})
+
+			It("falls back to the source PVC name", func() {
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.Source = &virtv1.VirtualMachineStateSource{Name: "source-pvc"}
+				addPVC(&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{Name: "source-pvc", Namespace: nsName}})
+
+				pvc := declarativePVCForVMI(pvcStore, vmi)
+				Expect(pvc).NotTo(BeNil())
+				Expect(pvc.Name).To(Equal("source-pvc"))
+			})
+
+			It("skips a PVC being deleted", func() {
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.Source = &virtv1.VirtualMachineStateSource{Name: "source-pvc"}
+				addPVC(&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{
+					Name:              "source-pvc",
+					Namespace:         nsName,
+					DeletionTimestamp: pointer.P(k8smetav1.Now()),
+				}})
+
+				Expect(declarativePVCForVMI(pvcStore, vmi)).To(BeNil())
+			})
+
+			It("returns nil when nothing matches", func() {
+				Expect(declarativePVCForVMI(pvcStore, newDeclarativeVMI())).To(BeNil())
+			})
+
+			It("deterministically prefers the newest PVC when several share the owner label", func() {
+				now := time.Now()
+				addPVC(&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{
+					Name:              "older-pvc",
+					Namespace:         nsName,
+					Labels:            map[string]string{VMStateOwnerLabel: vmiUID},
+					CreationTimestamp: k8smetav1.NewTime(now.Add(-time.Hour)),
+				}})
+				addPVC(&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{
+					Name:              "newer-pvc",
+					Namespace:         nsName,
+					Labels:            map[string]string{VMStateOwnerLabel: vmiUID},
+					CreationTimestamp: k8smetav1.NewTime(now),
+				}})
+
+				pvc := declarativePVCForVMI(pvcStore, newDeclarativeVMI())
+				Expect(pvc).NotTo(BeNil())
+				Expect(pvc.Name).To(Equal("newer-pvc"))
+			})
+		})
+
+		Context("createOrAdoptDeclarativePVC via CreatePVCForVMI", func() {
+			It("adopts an existing resolvable PVC and stamps the owner label", func() {
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.Source = &virtv1.VirtualMachineStateSource{Name: "existing-pvc"}
+				existing, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(),
+					&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{Name: "existing-pvc", Namespace: nsName}},
+					k8smetav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvcStore.Add(existing)).To(Succeed())
+
+				pvc, err := backendStorage.CreatePVCForVMI(vmi)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvc.Labels).To(HaveKeyWithValue(VMStateOwnerLabel, vmiUID))
+
+				got, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), "existing-pvc", k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got.Labels).To(HaveKeyWithValue(VMStateOwnerLabel, vmiUID))
+			})
+
+			It("returns ErrVMStatePVCNotFound when the source PVC is missing", func() {
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.Source = &virtv1.VirtualMachineStateSource{Name: "missing-pvc"}
+				_, err := backendStorage.CreatePVCForVMI(vmi)
+				Expect(err).To(MatchError(ErrVMStatePVCNotFound))
+			})
+
+			It("creates a PVC from the volumeClaimTemplate when none exists", func() {
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.Source = nil
+				vmi.Spec.VirtualMachineState.VolumeClaimTemplate = &v1.PersistentVolumeClaimTemplate{
+					Spec: v1.PersistentVolumeClaimSpec{StorageClassName: pointer.P("sc")},
+				}
+
+				pvc, err := backendStorage.CreatePVCForVMI(vmi)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvc.GenerateName).To(Equal(PVCPrefix + "-" + vmiName + "-"))
+				Expect(pvc.Labels).To(HaveKeyWithValue(VMStateOwnerLabel, vmiUID))
+			})
+
+			It("createPVCFromTemplate defaults omitted fields and merges labels with controller precedence", func() {
+				Expect(storageClassStore.Add(&storagev1.StorageClass{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:        "sc",
+						Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+					},
+				})).To(Succeed())
+
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.Source = nil
+				vmi.Spec.VirtualMachineState.VolumeClaimTemplate = &v1.PersistentVolumeClaimTemplate{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Labels: map[string]string{
+							"custom":          "value",
+							VMStateOwnerLabel: "should-not-win",
+						},
+					},
+				}
+
+				pvc, err := backendStorage.CreatePVCForVMI(vmi)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvc.Spec.VolumeMode).To(HaveValue(Equal(v1.PersistentVolumeFilesystem)))
+				Expect(pvc.Spec.Resources.Requests.Storage().Cmp(resource.MustParse(PVCSize))).To(Equal(0))
+				Expect(pvc.Spec.AccessModes).NotTo(BeEmpty())
+				Expect(pvc.Labels).To(HaveKeyWithValue("custom", "value"))
+				Expect(pvc.Labels).To(HaveKeyWithValue(VMStateOwnerLabel, vmiUID))
+			})
+		})
+
+		Context("ensureOwnerLabel", func() {
+			DescribeTable("adds the owner label when absent", func(initial map[string]string) {
+				vmi := newDeclarativeVMI()
+				created, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(),
+					&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{Name: "pvc", Namespace: nsName, Labels: initial}},
+					k8smetav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				updated, err := backendStorage.ensureOwnerLabel(vmi, created)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updated.Labels).To(HaveKeyWithValue(VMStateOwnerLabel, vmiUID))
+			},
+				Entry("PVC with no labels", nil),
+				Entry("PVC with an unrelated label", map[string]string{"foo": "bar"}),
+			)
+
+			It("is a no-op when the PVC is already owned", func() {
+				pvc := &v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "pvc",
+					Namespace: nsName,
+					Labels:    map[string]string{VMStateOwnerLabel: vmiUID},
+				}}
+				updated, err := backendStorage.ensureOwnerLabel(newDeclarativeVMI(), pvc)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updated).To(Equal(pvc))
+			})
+		})
+
+		Context("AcquireVMStateLock", func() {
+			DescribeTable("records the holder UID", func(initial map[string]string) {
+				created, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(),
+					&v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{Name: "lock-pvc", Namespace: nsName, Labels: initial}},
+					k8smetav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(backendStorage.AcquireVMStateLock(created, "holder-uid")).To(Succeed())
+
+				got, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), "lock-pvc", k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got.Labels).To(HaveKeyWithValue(VMStateInUseByLabel, "holder-uid"))
+			},
+				Entry("PVC with no labels", nil),
+				Entry("PVC with existing labels", map[string]string{"foo": "bar"}),
+			)
+
+			It("is a no-op when already held by the same UID", func() {
+				pvc := &v1.PersistentVolumeClaim{ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "lock-pvc",
+					Namespace: nsName,
+					Labels:    map[string]string{VMStateInUseByLabel: "holder-uid"},
+				}}
+				Expect(backendStorage.AcquireVMStateLock(pvc, "holder-uid")).To(Succeed())
+			})
+		})
+
+		Context("CreatePVCForMigrationTarget", func() {
+			addOwnedPVC := func(accessMode v1.PersistentVolumeAccessMode) {
+				created, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(),
+					&v1.PersistentVolumeClaim{
+						ObjectMeta: k8smetav1.ObjectMeta{
+							Name:      "current-pvc",
+							Namespace: nsName,
+							Labels:    map[string]string{VMStateOwnerLabel: vmiUID},
+						},
+						Status: v1.PersistentVolumeClaimStatus{AccessModes: []v1.PersistentVolumeAccessMode{accessMode}},
+					},
+					k8smetav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvcStore.Add(created)).To(Succeed())
+			}
+
+			It("reuses the current PVC when it's RWX", func() {
+				addOwnedPVC(v1.ReadWriteMany)
+
+				pvc, err := backendStorage.CreatePVCForMigrationTarget(newDeclarativeVMI(), "mig")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvc.Name).To(Equal("current-pvc"))
+			})
+
+			It("creates a PVC from the volumeClaimTemplate when the current one is RWO", func() {
+				addOwnedPVC(v1.ReadWriteOnce)
+
+				vmi := newDeclarativeVMI()
+				vmi.Spec.VirtualMachineState.VolumeClaimTemplate = &v1.PersistentVolumeClaimTemplate{
+					Spec: v1.PersistentVolumeClaimSpec{StorageClassName: pointer.P("sc")},
+				}
+
+				pvc, err := backendStorage.CreatePVCForMigrationTarget(vmi, "mig")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvc.Name).NotTo(Equal("current-pvc"))
+				Expect(pvc.GenerateName).To(Equal(PVCPrefix + "-" + vmiName + "-"))
+				Expect(pvc.Labels).To(HaveKeyWithValue(virtv1.MigrationNameLabel, "mig"))
+			})
+
+			It("errors when the current PVC is RWO and no volumeClaimTemplate is set", func() {
+				addOwnedPVC(v1.ReadWriteOnce)
+
+				_, err := backendStorage.CreatePVCForMigrationTarget(newDeclarativeVMI(), "mig")
+				Expect(err).To(HaveOccurred())
+			})
+		})
 	})
 })
