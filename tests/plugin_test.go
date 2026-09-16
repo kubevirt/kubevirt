@@ -82,7 +82,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 		for _, expr := range expressions {
 			hooks = append(hooks, pluginv1alpha1.LauncherHook{
 				Condition: condition,
-				CEL:       &pluginv1alpha1.CELLauncherHook{Expression: expr},
+				CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: expr},
 			})
 		}
 		createPlugin(&pluginv1alpha1.Plugin{
@@ -374,12 +374,14 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							CEL: &pluginv1alpha1.CELLauncherHook{
+								HookPoint:  pluginv1alpha1.LauncherHookGuestDefinition,
 								Expression: `Domain{Devices: DomainDeviceList{Watchdogs: [DomainWatchdog{Model: "i6300esb", Action: "poweroff"}]}}`,
 							},
 						},
 						{
 							Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 								SocketPath:     socketPath,
+								PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
 							},
 						},
 					},
@@ -413,6 +415,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 					LauncherHooks: []pluginv1alpha1.LauncherHook{{
 						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath:     socketPath,
+							PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
 						},
 					}},
 				},
@@ -451,6 +454,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 					LauncherHooks: []pluginv1alpha1.LauncherHook{{
 						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath:     socketPath,
+							PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
 						},
 						FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 					}},
@@ -476,6 +480,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 					LauncherHooks: []pluginv1alpha1.LauncherHook{{
 						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath:     socketPath,
+							PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
 						},
 						FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 					}},
@@ -521,13 +526,13 @@ var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute
 		expectMarkerExists(vmi.Status.NodeName, pluginMarkerDir, "PreVMStart", vmi.Name)
 	})
 
-	It("should execute PreVMStop and PostVMStop hooks", func() {
+	It("should execute OnVMStop and PostVMStop hooks", func() {
 		ds := createPluginDaemonSet(virtClient, pluginName, pluginSocketPath, pluginMarkerDir)
 		DeferCleanup(cleanupPluginDaemonSet, virtClient, ds)
 
 		plugin := createPluginCR(virtClient, pluginName, pluginSocketPath,
 			[]pluginv1alpha1.NodeHookPoint{
-				pluginv1alpha1.NodeHookPreVMStop,
+				pluginv1alpha1.NodeHookOnVMStop,
 				pluginv1alpha1.NodeHookPostVMStop,
 			},
 			pluginv1alpha1.FailureStrategyFail, "")
@@ -541,7 +546,7 @@ var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute
 		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		expectMarkerExists(nodeName, pluginMarkerDir, "PreVMStop", vmi.Name)
+		expectMarkerExists(nodeName, pluginMarkerDir, "OnVMStop", vmi.Name)
 		expectMarkerExists(nodeName, pluginMarkerDir, "PostVMStop", vmi.Name)
 	})
 
