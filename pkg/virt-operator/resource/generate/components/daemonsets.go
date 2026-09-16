@@ -69,12 +69,10 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
-	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
-	image := config.VirtHandlerImage
-	if image == "" {
-		image = fmt.Sprintf("%s/%s%s", config.GetImageRegistry(), imageName, AddVersionSeparatorPrefix(config.GetHandlerVersion()))
-	}
+	image := config.GetHandlerImage()
 	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
+	// lets virt-handler fingerprint its own node with VirtHandlerImageHashLabel
+	env = append(env, corev1.EnvVar{Name: operatorutil.VirtHandlerImageEnvName, Value: image})
 	podTemplateSpec := newPodTemplateSpec(deploymentName, productName, productVersion, productComponent, image, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, env)
 
 	launcherImage := config.VirtLauncherImage
