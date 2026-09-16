@@ -170,13 +170,17 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 	}
 
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, xmlStr, err := plugins.ApplyDomainHooks(pluginList, vmi, wantedSpec,
+		updatedSpec, xmlStr, err := plugins.ApplyGuestDefinitionHooks(pluginList, vmi, wantedSpec,
 			pluginv1alpha1.InvocationContextBoot)
 		if err != nil {
 			return nil, err
 		}
-		updatedSpec.DeepCopyInto(wantedSpec)
-		domainSpec = xmlStr
+		// An empty xmlStr means no guest definition hooks ran (e.g. all plugins only
+		// declared NodeHooks); keep the XML produced by the legacy sidecar hooks above.
+		if xmlStr != "" {
+			updatedSpec.DeepCopyInto(wantedSpec)
+			domainSpec = xmlStr
+		}
 	}
 
 	return SetDomainSpecStr(virConn, vmi, domainSpec)

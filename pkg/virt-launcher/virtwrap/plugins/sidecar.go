@@ -38,11 +38,14 @@ import (
 
 const (
 	pluginSocketBaseDir       = "/var/run/kubevirt-plugin"
-	sidecarReadinessTimeout   = 30 * time.Second
 	sidecarDialTimeoutSeconds = 5
 	domainTypeLibvirt         = "libvirt"
 	defaultSidecarCallTimeout = 30 * time.Second
 )
+
+// sidecarReadinessTimeout is the budget for all sidecars of a single hook pipeline to become
+// ready. It is a variable rather than a constant only so that tests can shorten it.
+var sidecarReadinessTimeout = 30 * time.Second
 
 func callSidecarHook(socketPath, pluginName string, domainXML, vmiJSON []byte, invocationContext string, timeout time.Duration) ([]byte, error) {
 

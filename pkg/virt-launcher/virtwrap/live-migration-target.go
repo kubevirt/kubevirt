@@ -221,10 +221,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, _, err := plugins.ApplyDomainHooks(pluginList, vmi, &dom.Spec,
+		updatedSpec, _, err := plugins.ApplyGuestDefinitionHooks(pluginList, vmi, &dom.Spec,
 			pluginv1alpha1.InvocationContextMigrationTarget)
 		if err != nil {
-			return fmt.Errorf("applying plugin domain hooks failed: %v", err)
+			return fmt.Errorf("applying guest definition hooks failed: %v", err)
 		}
 		updatedSpec.DeepCopyInto(&dom.Spec)
 	}

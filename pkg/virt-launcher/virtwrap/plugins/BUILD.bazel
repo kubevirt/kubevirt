@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "pipeline.go",
+        "select.go",
         "sidecar.go",
         "store.go",
     ],
@@ -20,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/api/plugin/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/google.golang.org/grpc/status:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
@@ -27,8 +29,10 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "pipeline_deadline_test.go",
         "pipeline_test.go",
         "plugins_suite_test.go",
+        "select_test.go",
         "sidecar_test.go",
     ],
     embed = [":go_default_library"],

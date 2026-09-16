@@ -20,11 +20,8 @@
 package plugins
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
-	"slices"
-	"strings"
 	"time"
 
 	libvirtxml "libvirt.org/go/libvirtxml"
@@ -85,7 +82,7 @@ func (s *sidecarHookApplier) Apply(vmi *v1.VirtualMachineInstance, domain *libvi
 	return mutated, nil
 }
 
-func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec, invocationContext pluginv1alpha1.InvocationContext) (*virtwrapApi.DomainSpec, string, error) {
+func ApplyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec, invocationContext pluginv1alpha1.InvocationContext) (*virtwrapApi.DomainSpec, string, error) {
 	if len(plugins) == 0 {
 		return spec, "", nil
 	}
@@ -96,70 +93,54 @@ func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineIns
 	}
 
 	evaluator := celutil.GetEvaluator()
-
-	// Sort plugins alphabetically by name for deterministic ordering across plugins.
-	// Hooks within each plugin preserve their declaration order.
-	sortedPlugins := slices.Clone(plugins)
-	slices.SortStableFunc(sortedPlugins, func(a, b pluginv1alpha1.Plugin) int {
-		return cmp.Compare(a.Name, b.Name)
-	})
-
-	pluginNames := make([]string, len(sortedPlugins))
-	for i, plugin := range sortedPlugins {
-		pluginNames[i] = plugin.Name
+	evalCondition := func(expr string) (bool, error) {
+		return evaluator.EvaluateCondition(expr, vmi, domain)
 	}
-	log.Log.Infof("Evaluating domain hooks from plugins: [%s]", strings.Join(pluginNames, ", "))
 
-	for _, plugin := range sortedPlugins {
-		if plugin.Spec.Condition != "" {
-			matched, err := evaluator.EvaluateCondition(plugin.Spec.Condition, vmi, domain)
-			if err != nil {
-				return nil, "", fmt.Errorf("plugin %s condition evaluation failed: %w", plugin.Name, err)
+	resolvedHooks, err := selectHooks(plugins, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// No plugin contributed a guest definition hook (e.g. a plugin only declares NodeHooks).
+	// Return the spec untouched; an empty XML string signals to the caller that no hooks ran
+	// and it should keep its own domain XML rather than adopting this round-trip.
+	if len(resolvedHooks) == 0 {
+		return spec, "", nil
+	}
+
+	// All sidecars are containers of the same virt-launcher pod and start at roughly the same
+	// time, so readiness is bounded once for the whole pipeline rather than per hook. Otherwise
+	// N sidecars could delay startup by N*sidecarReadinessTimeout and the first hook would be
+	// judged most strictly. This is the readiness budget only; per-hook execution time is
+	// bounded separately by the hook timeout below.
+	sidecarReadinessDeadline := time.Now().Add(sidecarReadinessTimeout)
+
+	for _, resolved := range resolvedHooks {
+		var applier hookApplier
+		switch {
+		case resolved.hook.CEL != nil:
+			applier = &celHookApplier{evaluator: evaluator, expression: resolved.hook.CEL.Expression}
+		case resolved.hook.Sidecar != nil:
+			deadline := sidecarReadinessDeadline
+			timeout := defaultSidecarCallTimeout
+			if resolved.timeout != nil {
+				timeout = resolved.timeout.Duration
 			}
-			if !matched {
-				log.Log.Infof("Skipping plugin %s: condition not met", plugin.Name)
-				continue
-			}
+			applier = &sidecarHookApplier{socketPath: resolved.hook.Sidecar.SocketPath, pluginName: resolved.pluginName, timeout: timeout, deadline: deadline}
+		default:
+			return nil, "", fmt.Errorf("plugin %s hook %d defines neither cel nor sidecar", resolved.pluginName, resolved.index)
 		}
 
-		for hookIdx, hook := range plugin.Spec.LauncherHooks {
-			if hook.Condition != "" {
-				matched, err := evaluator.EvaluateCondition(hook.Condition, vmi, domain)
-				if err != nil {
-					return nil, "", fmt.Errorf("plugin %s hook %d condition evaluation failed: %w", plugin.Name, hookIdx, err)
-				}
-				if !matched {
-					continue
-				}
-			}
-
-			failureStrategy := cmp.Or(hook.FailureStrategy, plugin.Spec.FailureStrategy, pluginv1alpha1.FailureStrategyFail)
-
-			var applier hookApplier
-			switch {
-			case hook.CEL != nil:
-				applier = &celHookApplier{evaluator: evaluator, expression: hook.CEL.Expression}
-			case hook.Sidecar != nil:
-				deadline := time.Now().Add(sidecarReadinessTimeout)
-				timeout := defaultSidecarCallTimeout
-				if hook.Timeout != nil {
-					timeout = hook.Timeout.Duration
-				}
-				applier = &sidecarHookApplier{socketPath: hook.Sidecar.SocketPath, pluginName: plugin.Name, timeout: timeout, deadline: deadline}
-			default:
+		mutated, err := applier.Apply(vmi, domain, string(invocationContext))
+		if err != nil {
+			if resolved.failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
+				log.Log.Warningf("Plugin %s hook %d failed (ignored): %v", resolved.pluginName, resolved.index, err)
 				continue
 			}
-
-			mutated, err := applier.Apply(vmi, domain, string(invocationContext))
-			if err != nil {
-				if failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
-					log.Log.Warningf("Plugin %s hook %d failed (ignored): %v", plugin.Name, hookIdx, err)
-					continue
-				}
-				return nil, "", fmt.Errorf("plugin %s hook %d failed: %w", plugin.Name, hookIdx, err)
-			}
-			domain = mutated
+			return nil, "", fmt.Errorf("plugin %s hook %d failed: %w", resolved.pluginName, resolved.index, err)
 		}
+		domain = mutated
 	}
 
 	xmlStr, err := domain.Marshal()
@@ -172,6 +153,6 @@ func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineIns
 		return nil, "", fmt.Errorf("converting domain back to DomainSpec: %w", err)
 	}
 
-	log.Log.Infof("Successfully applied domain hooks from %d plugin(s)", len(sortedPlugins))
+	log.Log.Infof("Successfully applied %d guest definition hook(s)", len(resolvedHooks))
 	return updatedSpec, xmlStr, nil
 }
