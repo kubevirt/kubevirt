@@ -26,7 +26,6 @@ package virtwrap
 */
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/xml"
 	"errors"
@@ -162,11 +161,6 @@ var agentDataCommandTTLs = map[string]time.Duration{
 	"guest-get-memory-blocks": thirtyMinutes,
 }
 
-type contextStore struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-}
-
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
@@ -213,28 +207,25 @@ type LibvirtDomainManager struct {
 
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
-	// mutex to control access to the guest time context
-	setGuestTimeLock sync.Mutex
 
 	credManager    *accesscredentials.AccessCredentialManager
 	storageManager *storage.StorageManager
 
 	hotplugHostDevicesInProgress chan struct{}
 
-	virtShareDir           string
-	ephemeralDiskDir       string
-	paused                 pausedVMIs
-	agentData              *agentpoller.AsyncAgentStore
-	cloudInitDataStore     *cloudinit.CloudInitData
-	setGuestTimeContextPtr *contextStore
-	efiEnvironment         *efi.EFIEnvironment
-	ovmfPath               string
-	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
-	directIOChecker        converter.DirectIOChecker
-	disksInfo              map[string]*osdisk.DiskInfo
-	guestDiskSizes         map[string]int64
-	domainInfoStats        *stats.DomainJobInfo
-	diskMemoryLimitBytes   int64
+	virtShareDir         string
+	ephemeralDiskDir     string
+	paused               pausedVMIs
+	agentData            *agentpoller.AsyncAgentStore
+	cloudInitDataStore   *cloudinit.CloudInitData
+	efiEnvironment       *efi.EFIEnvironment
+	ovmfPath             string
+	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface
+	directIOChecker      converter.DirectIOChecker
+	disksInfo            map[string]*osdisk.DiskInfo
+	guestDiskSizes       map[string]int64
+	domainInfoStats      *stats.DomainJobInfo
+	diskMemoryLimitBytes int64
 
 	metadataCache             *metadata.Cache
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
@@ -536,7 +527,6 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) {
 				}
 			}()
 
-			ctx := l.getGuestTimeContext()
 			timeout := time.After(60 * time.Second)
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
@@ -544,8 +534,6 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) {
 				select {
 				case <-timeout:
 					log.Log.Object(vmi).Error(failedSyncGuestTime)
-					return
-				case <-ctx.Done():
 					return
 				case <-ticker.C:
 					currTime := time.Now()
@@ -585,20 +573,6 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) {
 			}
 		}()
 	})
-}
-
-func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
-	l.setGuestTimeLock.Lock()
-	defer l.setGuestTimeLock.Unlock()
-
-	// cancel the already running setGuestTime go-routine if such exist
-	if l.setGuestTimeContextPtr != nil {
-		l.setGuestTimeContextPtr.cancel()
-	}
-	// create a new context and store it
-	ctx, cancel := context.WithCancel(context.Background())
-	l.setGuestTimeContextPtr = &contextStore{ctx: ctx, cancel: cancel}
-	return ctx
 }
 
 // PrepareMigrationTarget the target pod environment before the migration is initiated
