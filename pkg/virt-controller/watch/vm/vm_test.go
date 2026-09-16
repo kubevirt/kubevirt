@@ -6101,6 +6101,72 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 
+				migVols := func(src, dst string) []v1.StorageMigratedVolumeInfo {
+					return []v1.StorageMigratedVolumeInfo{{
+						VolumeName:         diskName,
+						SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: src},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: dst},
+					}}
+				}
+				migState := func(src, dst string) *v1.VolumeMigrationState {
+					return &v1.VolumeMigrationState{MigratedVolumes: migVols(src, dst)}
+				}
+				volUpdateState := func(src, dst string) *v1.VolumeUpdateState {
+					return &v1.VolumeUpdateState{VolumeMigrationState: migState(src, dst)}
+				}
+
+				DescribeTable("should handle migratedVolumes propagation from VMI to VM", func(
+					volClaim string,
+					vmiMigratedVols []v1.StorageMigratedVolumeInfo,
+					vmVolumeUpdateState *v1.VolumeUpdateState,
+					expectedVolumeMigrationState *v1.VolumeMigrationState,
+				) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, volClaim))
+					vm := libvmi.NewVirtualMachine(
+						libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, volClaim)),
+						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration),
+					)
+
+					vmi.Status.MigratedVolumes = vmiMigratedVols
+					vm.Status.VolumeUpdateState = vmVolumeUpdateState
+
+					controller.handleVolumeUpdateRequest(vm, vmi)
+
+					if expectedVolumeMigrationState == nil {
+						if vm.Status.VolumeUpdateState == nil {
+							return
+						}
+						Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(BeNil())
+					} else {
+						Expect(vm.Status.VolumeUpdateState).ToNot(BeNil())
+						Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
+					}
+				},
+					Entry("should propagate when VM status update previously failed",
+						"dv1", migVols("dv0", "dv1"), nil, migState("dv0", "dv1"),
+					),
+					Entry("should not update when VM already has matching migratedVolumes",
+						"dv1", migVols("dv0", "dv1"), volUpdateState("dv0", "dv1"), migState("dv0", "dv1"),
+					),
+					Entry("should not update when VMI has no migratedVolumes",
+						"dv1", nil, nil, nil,
+					),
+					Entry("should not propagate stale migratedVolumes from cancelled migration",
+						"dv0", migVols("dv0", "dv1"), nil, nil,
+					),
+					Entry("should overwrite with new migratedVolumes during chained migration",
+						"dv2", migVols("dv1", "dv2"), volUpdateState("dv0", "dv1"), migState("dv1", "dv2"),
+					),
+				)
+
 				DescribeTable("should return an error", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
