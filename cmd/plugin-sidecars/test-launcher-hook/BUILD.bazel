@@ -5,7 +5,7 @@ load("//bazel:image.bzl", "kubevirt_image")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/plugin-sidecars/test-domain-hook",
+    importpath = "kubevirt.io/kubevirt/cmd/plugin-sidecars/test-launcher-hook",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/hooks/plugins/v1alpha1:go_default_library",
@@ -17,21 +17,21 @@ go_library(
 )
 
 go_binary(
-    name = "test-domain-hook-sidecar",
+    name = "test-launcher-hook-sidecar",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
 
 pkg_tar(
-    name = "test-domain-hook-sidecar-tar",
-    srcs = [":test-domain-hook-sidecar"],
+    name = "test-launcher-hook-sidecar-tar",
+    srcs = [":test-launcher-hook-sidecar"],
     package_dir = "/usr/bin",
 )
 
 kubevirt_image(
-    name = "test-domain-hook-sidecar-image",
+    name = "test-launcher-hook-sidecar-image",
     base = "//:passwd-image",
-    entrypoint = ["/usr/bin/test-domain-hook-sidecar"],
-    tars = [":test-domain-hook-sidecar-tar"],
+    entrypoint = ["/usr/bin/test-launcher-hook-sidecar"],
+    tars = [":test-launcher-hook-sidecar-tar"],
     visibility = ["//visibility:public"],
 )

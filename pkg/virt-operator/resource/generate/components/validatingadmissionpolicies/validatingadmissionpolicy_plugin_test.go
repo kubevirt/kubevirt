@@ -100,12 +100,12 @@ func warnPlugin(plugin *pluginv1alpha1.Plugin) error {
 	return evaluatePolicy(vap.NewPluginWarningAdmissionPolicy(), pluginToUnstructured(plugin))
 }
 
-func generateCELDomainPlugin(expression, condition string) *pluginv1alpha1.Plugin {
+func generateCELLauncherPlugin(expression, condition string) *pluginv1alpha1.Plugin {
 	return &pluginv1alpha1.Plugin{
 		Spec: pluginv1alpha1.PluginSpec{
-			DomainHooks: []pluginv1alpha1.DomainHook{
+			LauncherHooks: []pluginv1alpha1.LauncherHook{
 				{
-					CEL:       &pluginv1alpha1.CELDomainHook{Expression: expression},
+					CEL:       &pluginv1alpha1.CELLauncherHook{Expression: expression},
 					Condition: condition,
 				},
 			},
@@ -115,17 +115,17 @@ func generateCELDomainPlugin(expression, condition string) *pluginv1alpha1.Plugi
 
 var _ = Describe("Plugin ValidatingAdmissionPolicy", func() {
 	Context("Validation policy", func() {
-		Context("oneOf: exactly one of cel or sidecar per domain hook", func() {
+		Context("oneOf: exactly one of cel or sidecar per launcher hook", func() {
 			It("should accept CEL-only hook", func() {
-				plugin := generateCELDomainPlugin("x", "")
+				plugin := generateCELLauncherPlugin("x", "")
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should accept sidecar-only hook", func() {
 				plugin := &pluginv1alpha1.Plugin{
 					Spec: pluginv1alpha1.PluginSpec{
-						DomainHooks: []pluginv1alpha1.DomainHook{
-							{Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: "/s"}},
+						LauncherHooks: []pluginv1alpha1.LauncherHook{
+							{Sidecar: &pluginv1alpha1.SidecarLauncherHook{SocketPath: "/s"}},
 						},
 					},
 				}
@@ -135,10 +135,10 @@ var _ = Describe("Plugin ValidatingAdmissionPolicy", func() {
 			It("should reject when both cel and sidecar are set", func() {
 				plugin := &pluginv1alpha1.Plugin{
 					Spec: pluginv1alpha1.PluginSpec{
-						DomainHooks: []pluginv1alpha1.DomainHook{
+						LauncherHooks: []pluginv1alpha1.LauncherHook{
 							{
-								CEL:     &pluginv1alpha1.CELDomainHook{Expression: "x"},
-								Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: "/s"},
+								CEL:     &pluginv1alpha1.CELLauncherHook{Expression: "x"},
+								Sidecar: &pluginv1alpha1.SidecarLauncherHook{SocketPath: "/s"},
 							},
 						},
 					},
@@ -149,39 +149,39 @@ var _ = Describe("Plugin ValidatingAdmissionPolicy", func() {
 			It("should reject when neither cel nor sidecar is set", func() {
 				plugin := &pluginv1alpha1.Plugin{
 					Spec: pluginv1alpha1.PluginSpec{
-						DomainHooks: []pluginv1alpha1.DomainHook{{}},
+						LauncherHooks: []pluginv1alpha1.LauncherHook{{}},
 					},
 				}
 				Expect(admitPlugin(plugin)).To(MatchError(ContainSubstring("exactly one of cel or sidecar")))
 			})
 
-			It("should accept when domainHooks is absent", func() {
+			It("should accept when launcherHooks is absent", func() {
 				plugin := &pluginv1alpha1.Plugin{}
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 		})
 
-		Context("failureStrategy enum on domain hooks", func() {
+		Context("failureStrategy enum on launcher hooks", func() {
 			It("should accept Fail", func() {
-				plugin := generateCELDomainPlugin("x", "")
-				plugin.Spec.DomainHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyFail
+				plugin := generateCELLauncherPlugin("x", "")
+				plugin.Spec.LauncherHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyFail
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should accept Ignore", func() {
-				plugin := generateCELDomainPlugin("x", "")
-				plugin.Spec.DomainHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyIgnore
+				plugin := generateCELLauncherPlugin("x", "")
+				plugin.Spec.LauncherHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyIgnore
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should accept when failureStrategy is absent", func() {
-				plugin := generateCELDomainPlugin("x", "")
+				plugin := generateCELLauncherPlugin("x", "")
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should reject invalid failureStrategy", func() {
-				plugin := generateCELDomainPlugin("x", "")
-				plugin.Spec.DomainHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategy("Crash")
+				plugin := generateCELLauncherPlugin("x", "")
+				plugin.Spec.LauncherHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategy("Crash")
 				Expect(admitPlugin(plugin)).To(MatchError(ContainSubstring("failureStrategy must be either")))
 			})
 		})
@@ -270,24 +270,24 @@ var _ = Describe("Plugin ValidatingAdmissionPolicy", func() {
 
 		Context("failureStrategy enum on plugin", func() {
 			It("should accept Fail", func() {
-				plugin := generateCELDomainPlugin("x", "")
+				plugin := generateCELLauncherPlugin("x", "")
 				plugin.Spec.FailureStrategy = pluginv1alpha1.FailureStrategyFail
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should accept Ignore", func() {
-				plugin := generateCELDomainPlugin("x", "")
+				plugin := generateCELLauncherPlugin("x", "")
 				plugin.Spec.FailureStrategy = pluginv1alpha1.FailureStrategyIgnore
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should accept when failureStrategy is absent", func() {
-				plugin := generateCELDomainPlugin("x", "")
+				plugin := generateCELLauncherPlugin("x", "")
 				Expect(admitPlugin(plugin)).To(Succeed())
 			})
 
 			It("should reject invalid failureStrategy", func() {
-				plugin := generateCELDomainPlugin("x", "")
+				plugin := generateCELLauncherPlugin("x", "")
 				plugin.Spec.FailureStrategy = pluginv1alpha1.FailureStrategy("Crash")
 				Expect(admitPlugin(plugin)).To(MatchError(ContainSubstring("failureStrategy must be either")))
 			})
@@ -295,8 +295,8 @@ var _ = Describe("Plugin ValidatingAdmissionPolicy", func() {
 	})
 
 	Context("Warning policy", func() {
-		It("should not warn when domainHooks is present", func() {
-			plugin := generateCELDomainPlugin("x", "")
+		It("should not warn when launcherHooks is present", func() {
+			plugin := generateCELLauncherPlugin("x", "")
 			Expect(warnPlugin(plugin)).To(Succeed())
 		})
 

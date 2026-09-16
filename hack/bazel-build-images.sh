@@ -40,7 +40,7 @@ other_images_x86_64_aarch64="
     //cmd/sidecars/smbios:example-hook-sidecar-image
     //cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image
     //cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image
-    //cmd/plugin-sidecars/test-domain-hook:test-domain-hook-sidecar-image
+    //cmd/plugin-sidecars/test-launcher-hook:test-launcher-hook-sidecar-image
     //cmd/sidecars/network-passt-binding:network-passt-binding-image
     //cmd/pr-helper:pr-helper-image
     //containerimages:cirros-container-disk-image
