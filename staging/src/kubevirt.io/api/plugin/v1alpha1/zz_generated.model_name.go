@@ -29,13 +29,13 @@ func (in AdmissionReference) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CELDomainHook) OpenAPIModelName() string {
-	return "io.kubevirt.api.plugin.v1alpha1.CELDomainHook"
+func (in CELLauncherHook) OpenAPIModelName() string {
+	return "io.kubevirt.api.plugin.v1alpha1.CELLauncherHook"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in DomainHook) OpenAPIModelName() string {
-	return "io.kubevirt.api.plugin.v1alpha1.DomainHook"
+func (in LauncherHook) OpenAPIModelName() string {
+	return "io.kubevirt.api.plugin.v1alpha1.LauncherHook"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -64,6 +64,6 @@ func (in PluginStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in SidecarDomainHook) OpenAPIModelName() string {
-	return "io.kubevirt.api.plugin.v1alpha1.SidecarDomainHook"
+func (in SidecarLauncherHook) OpenAPIModelName() string {
+	return "io.kubevirt.api.plugin.v1alpha1.SidecarLauncherHook"
 }

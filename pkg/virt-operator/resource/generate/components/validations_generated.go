@@ -4359,28 +4359,51 @@ var CRDsValidation map[string]string = map[string]string{
             Condition is a CEL expression that determines whether this plugin applies to a given VM.
             When set, this acts as a baseline filter for all hooks in the plugin.
             Individual hooks may further narrow the scope with their own Condition fields.
+            Condition expressions are evaluated once per pipeline invocation, against the VMI/domain
+            state as it existed before any hook in that invocation ran. They are not re-evaluated to
+            reflect mutations made by other hooks applied earlier in the same invocation.
           type: string
-        domainHooks:
+        failureStrategy:
           description: |-
-            DomainHooks defines hooks that modify the libvirt domain XML.
+            FailureStrategy specifies the default behavior when the plugin itself is unhealthy
+            (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).
+            Individual hooks may override this with their own FailureStrategy.
+          maxLength: 32
+          type: string
+          x-kubernetes-validations:
+          - message: 'failureStrategy must be one of: Fail, Ignore'
+            rule: self in ['Fail','Ignore']
+        launcherHooks:
+          description: |-
+            LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined
+            points in the VM lifecycle.
             Hooks are applied in declaration order within each plugin.
             Across plugins, hooks are applied in alphabetical order by plugin name.
           items:
             description: |-
-              DomainHook defines a hook that modifies the libvirt domain XML.
+              LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle.
               Exactly one of cel or sidecar must be specified.
             properties:
               cel:
-                description: CEL defines a CEL expression that transforms the domain
-                  XML.
+                description: CEL defines a CEL expression hook.
                 properties:
                   expression:
-                    description: Expression is the CEL expression applied to the domain
-                      XML.
+                    description: Expression is the CEL expression applied at the specified
+                      hook point.
                     minLength: 1
                     type: string
+                  hookPoint:
+                    description: |-
+                      HookPoint specifies which launcher hook point this CEL expression applies to.
+                      GuestDefinition is the only currently supported launcher hook point for CEL.
+                    maxLength: 32
+                    type: string
+                    x-kubernetes-validations:
+                    - message: hook point must be GuestDefinition
+                      rule: self == 'GuestDefinition'
                 required:
                 - expression
+                - hookPoint
                 type: object
               condition:
                 description: Condition is a CEL expression that determines whether
@@ -4389,32 +4412,64 @@ var CRDsValidation map[string]string = map[string]string{
               failureStrategy:
                 description: FailureStrategy specifies how to handle hook failures
                   (Fail or Ignore).
+                maxLength: 32
                 type: string
+                x-kubernetes-validations:
+                - message: 'failureStrategy must be one of: Fail, Ignore'
+                  rule: self in ['Fail','Ignore']
               sidecar:
-                description: Sidecar defines a sidecar-based hook that transforms
-                  the domain XML via a Unix socket.
+                description: Sidecar defines a sidecar-based hook that communicates
+                  via a Unix socket.
                 properties:
+                  permittedHooks:
+                    description: PermittedHooks lists the launcher hook points this
+                      sidecar handles.
+                    items:
+                      description: |-
+                        LauncherHookPoint identifies a point in the VM lifecycle where a launcher hook can run.
+                        Only hook points implemented by virt-launcher are accepted.
+                        MaxLength bounds hook-point names in the API schema and leaves room for future points.
+                      maxLength: 32
+                      type: string
+                      x-kubernetes-validations:
+                      - message: hook point must be GuestDefinition
+                        rule: self == 'GuestDefinition'
+                    maxItems: 32
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
                   socketPath:
-                    description: SocketPath is the path to the Unix socket used to
-                      communicate with the sidecar.
+                    description: |-
+                      SocketPath is the path to the Unix socket used to communicate with the sidecar.
+                      MaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute
+                      platform invariant.
+                    maxLength: 108
                     minLength: 1
                     type: string
                 required:
+                - permittedHooks
                 - socketPath
                 type: object
+                x-kubernetes-validations:
+                - message: 'socketPath must be a clean path: no ''..'' segments, repeated
+                    separators or trailing separator'
+                  rule: '!self.socketPath.contains(''..'') && !self.socketPath.contains(''//'')
+                    && !self.socketPath.endsWith(''/'')'
+                - message: sidecar socketPath must end with .sock
+                  rule: self.socketPath.endsWith('.sock')
               timeout:
                 description: Timeout specifies the maximum duration to wait for the
                   hook to complete.
                 type: string
             type: object
+            x-kubernetes-validations:
+            - message: a launcher hook must define exactly one of cel or sidecar
+              rule: has(self.cel) != has(self.sidecar)
+            - message: timeout must be greater than zero
+              rule: '!has(self.timeout) || duration(self.timeout) > duration(''0s'')'
+          maxItems: 32
           type: array
           x-kubernetes-list-type: atomic
-        failureStrategy:
-          description: |-
-            FailureStrategy specifies the default behavior when the plugin itself is unhealthy
-            (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).
-            Individual hooks may override this with their own FailureStrategy.
-          type: string
         mutatingAdmissionPolicies:
           description: MutatingAdmissionPolicies references MutatingAdmissionPolicy
             objects managed by the plugin.
@@ -4455,7 +4510,7 @@ var CRDsValidation map[string]string = map[string]string{
           items:
             description: |-
               NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.
-              Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations
+              Unlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations
               such as configuring networking, storage preparation, or device management.
               Hooks may fire multiple times for the same lifecycle event due to reconciliation retries.
               Implementations must be idempotent.
@@ -4467,19 +4522,38 @@ var CRDsValidation map[string]string = map[string]string{
               failureStrategy:
                 description: FailureStrategy specifies how to handle hook failures
                   (Fail or Ignore).
+                maxLength: 32
                 type: string
+                x-kubernetes-validations:
+                - message: 'failureStrategy must be one of: Fail, Ignore'
+                  rule: self in ['Fail','Ignore']
               permittedHooks:
                 description: PermittedHooks lists the VM lifecycle events this hook
                   handles.
                 items:
-                  description: NodeHookPoint identifies a VM lifecycle event for node-level
-                    hooks.
+                  description: |-
+                    NodeHookPoint identifies a VM lifecycle event for node-level hooks.
+                    The set is closed and validated at the API boundary. It is append-only across versions:
+                    new hook points may be added, existing ones must never be removed.
+                    MaxLength bounds the CEL cost estimate of the value-set rule; it must stay
+                    at or above the longest member of the set.
+                  maxLength: 32
                   type: string
+                  x-kubernetes-validations:
+                  - message: 'hook point must be one of: PreVMStart, PostVMStart,
+                      OnVMStop, PostVMStop, PreMigrationSource, PreMigrationTarget,
+                      PostMigrationTarget'
+                    rule: self in ['PreVMStart','PostVMStart','OnVMStop','PostVMStop','PreMigrationSource','PreMigrationTarget','PostMigrationTarget']
+                maxItems: 32
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
               socket:
-                description: Socket is the path to the Unix socket for hook communication.
+                description: |-
+                  Socket is the path to the Unix socket for hook communication.
+                  MaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute
+                  platform invariant.
+                maxLength: 108
                 minLength: 1
                 type: string
               timeout:
@@ -4490,6 +4564,14 @@ var CRDsValidation map[string]string = map[string]string{
             - permittedHooks
             - socket
             type: object
+            x-kubernetes-validations:
+            - message: 'socket must be a clean path: no ''..'' segments, repeated
+                separators or trailing separator'
+              rule: '!self.socket.contains(''..'') && !self.socket.contains(''//'')
+                && !self.socket.endsWith(''/'')'
+            - message: timeout must be greater than zero
+              rule: '!has(self.timeout) || duration(self.timeout) > duration(''0s'')'
+          maxItems: 32
           type: array
           x-kubernetes-list-type: atomic
         validatingAdmissionPolicies:
@@ -4531,6 +4613,11 @@ var CRDsValidation map[string]string = map[string]string{
   required:
   - spec
   type: object
+  x-kubernetes-validations:
+  - message: sidecar socketPath must start with /var/run/kubevirt-plugin/<plugin-name>/
+    rule: '!has(self.spec.launcherHooks) || self.spec.launcherHooks.all(lh, !has(lh.sidecar)
+      || lh.sidecar.socketPath.startsWith(''/var/run/kubevirt-plugin/'' + self.metadata.name
+      + ''/''))'
 `,
 	"virtualmachine": `openAPIV3Schema:
   description: |-
