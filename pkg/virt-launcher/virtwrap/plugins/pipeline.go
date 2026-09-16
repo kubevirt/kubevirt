@@ -122,7 +122,7 @@ func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineIns
 			}
 		}
 
-		for hookIdx, hook := range plugin.Spec.DomainHooks {
+		for hookIdx, hook := range plugin.Spec.LauncherHooks {
 			if hook.Condition != "" {
 				matched, err := evaluator.EvaluateCondition(hook.Condition, vmi, domain)
 				if err != nil {

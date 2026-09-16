@@ -440,11 +440,11 @@ image_push(
 )
 
 image_push(
-    name = "push-test-domain-hook-sidecar",
+    name = "push-test-launcher-hook-sidecar",
     testonly = True,
-    image = "//cmd/plugin-sidecars/test-domain-hook:test-domain-hook-sidecar-image",
+    image = "//cmd/plugin-sidecars/test-launcher-hook:test-launcher-hook-sidecar-image",
     registry = "quay.io",
-    repository = "kubevirt/test-domain-hook-sidecar",
+    repository = "kubevirt/test-launcher-hook-sidecar",
 )
 
 image_push(

@@ -171,8 +171,8 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			plugin := &pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook.sock",
 						},
 					}},
@@ -185,8 +185,8 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			plugin := &pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook",
 						},
 					}},
@@ -200,8 +200,8 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			plugin := &pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath: longPath,
 						},
 					}},
@@ -214,8 +214,8 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			plugin := &pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath: "/tmp/evil/hook.sock",
 						},
 					}},
@@ -228,8 +228,8 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			plugin := &pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{}`},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{}`},
 					}},
 				},
 			}
@@ -240,8 +240,8 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 			plugin := &pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
 							SocketPath: "/var/run/kubevirt-plugin/my-plugin/sub/dir/hook.sock",
 						},
 					}},
