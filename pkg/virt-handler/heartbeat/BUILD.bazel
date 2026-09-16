@@ -30,6 +30,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/testutils:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",

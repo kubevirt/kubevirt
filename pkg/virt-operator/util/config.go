@@ -580,6 +580,27 @@ func (c *KubeVirtDeploymentConfig) GetImagePrefix() string {
 	return c.ImagePrefix
 }
 
+// GetHandlerImage returns the configured override, or falls back to the
+// registry/prefix/version convention (see AddVersionSeparatorPrefix).
+func (c *KubeVirtDeploymentConfig) GetHandlerImage() string {
+	if c.VirtHandlerImage != "" {
+		return c.VirtHandlerImage
+	}
+	// mirror components.AddVersionSeparatorPrefix (can't import it here):
+	// shasums are digest references ("@"), tags use ":". The resolved
+	// reference must match what NewHandlerDaemonSet puts in the
+	// VIRT_HANDLER_IMAGE env var, or the version-skew guard hashes
+	// a different string than virt-handler labels the node with.
+	version := c.GetHandlerVersion()
+	switch {
+	case strings.HasPrefix(version, "sha256:"):
+		version = "@" + version
+	case !strings.HasPrefix(version, "{{if"):
+		version = ":" + version
+	}
+	return fmt.Sprintf("%s/%svirt-handler%s", c.GetImageRegistry(), c.GetImagePrefix(), version)
+}
+
 func (c *KubeVirtDeploymentConfig) GetExtraEnv() map[string]string {
 	return c.PassthroughEnvVars
 }

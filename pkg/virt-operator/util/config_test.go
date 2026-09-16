@@ -28,6 +28,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	handlerimage "kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("Operator Config", func() {
@@ -466,4 +468,34 @@ var _ = Describe("Operator Config", func() {
 					version:   "latest",
 				}))
 	})
+
+	It("should keep VirtHandlerImageEnvName in sync with pkg/util's copy", func() {
+		Expect(VirtHandlerImageEnvName).To(Equal(handlerimage.VirtHandlerImageEnvName),
+			"pkg/virt-operator/util.VirtHandlerImageEnvName (%q) and pkg/util.VirtHandlerImageEnvName (%q) "+
+				"have drifted apart; virt-handler would silently stop learning its own image via this env var. "+
+				"Update both constants to match.", VirtHandlerImageEnvName, handlerimage.VirtHandlerImageEnvName)
+	})
+
+	// GetHandlerImage's fallback must produce the exact same reference that
+	// NewHandlerDaemonSet resolves for the VIRT_HANDLER_IMAGE env var (see
+	// AddVersionSeparatorPrefix): digest references use "@", tags use ":".
+	// If they diverge, the migration version-skew guard hashes a different
+	// string than virt-handler labels its node with, and silently no-ops.
+	DescribeTable("GetHandlerImage", func(config *KubeVirtDeploymentConfig, expected string) {
+		Expect(config.GetHandlerImage()).To(Equal(expected))
+	},
+		Entry("sha-pinned config resolves to a digest reference",
+			getFullConfig("registry:5000/kubevirt", "sha256:operator", "sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
+			"registry:5000/kubevirt/virt-handler@sha256:handler"),
+		Entry("tag-pinned config resolves to a tag reference",
+			getConfig("registry:5000/kubevirt", "v1.6.0"),
+			"registry:5000/kubevirt/virt-handler:v1.6.0"),
+		Entry("explicit image override wins over the fallback",
+			&KubeVirtDeploymentConfig{
+				Registry:         "registry:5000/kubevirt",
+				KubeVirtVersion:  "v1.6.0",
+				VirtHandlerImage: "example.com/kubevirt/virt-handler:v9",
+			},
+			"example.com/kubevirt/virt-handler:v9"),
+	)
 })
