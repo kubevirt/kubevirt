@@ -37,11 +37,11 @@ import (
 )
 
 const (
-	pluginSocketBaseDir       = "/var/run/kubevirt-plugin"
-	sidecarReadinessTimeout   = 30 * time.Second
-	sidecarDialTimeoutSeconds = 5
-	domainTypeLibvirt         = "libvirt"
-	defaultSidecarCallTimeout = 30 * time.Second
+	pluginSocketBaseDir            = "/var/run/kubevirt-plugin"
+	sidecarDialTimeoutSeconds      = 5
+	domainTypeLibvirt              = "libvirt"
+	defaultSidecarCallTimeout      = 30 * time.Second
+	defaultSidecarReadinessTimeout = 30 * time.Second
 )
 
 func callSidecarHook(socketPath, pluginName string, domainXML, vmiJSON []byte, invocationContext string, timeout time.Duration) ([]byte, error) {
@@ -93,10 +93,16 @@ func validateSocketPath(socketPath, pluginName string) error {
 	return nil
 }
 
-func waitForSidecarSocket(socketPath string, deadline time.Time) error {
+func waitForSidecarSocket(socketPath string, deadline time.Time, readinessTimeout time.Duration) error {
+	if _, err := os.Stat(socketPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("checking socket %s: %w", socketPath, err)
+	}
+
 	remaining := time.Until(deadline)
 	if remaining <= 0 {
-		return fmt.Errorf("sidecar socket %s not ready after %v", socketPath, sidecarReadinessTimeout)
+		return fmt.Errorf("sidecar socket %s not ready after %v", socketPath, readinessTimeout)
 	}
 	if err := virtwait.PollImmediately(500*time.Millisecond, remaining, func(_ context.Context) (bool, error) {
 		if _, err := os.Stat(socketPath); err == nil {
@@ -107,7 +113,7 @@ func waitForSidecarSocket(socketPath string, deadline time.Time) error {
 			return false, fmt.Errorf("checking socket %s: %w", socketPath, err)
 		}
 	}); err != nil {
-		return fmt.Errorf("sidecar socket %s not ready after %v: %w", socketPath, sidecarReadinessTimeout, err)
+		return fmt.Errorf("sidecar socket %s not ready after %v: %w", socketPath, readinessTimeout, err)
 	}
 	return nil
 }
