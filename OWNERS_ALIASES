@@ -31,7 +31,6 @@ aliases:
     - jean-edouard
     - mhenriks
     - EdDev
-    - xpivarc
     - iholder101
     - 0xFelix
     - lyarwood
@@ -43,7 +42,6 @@ aliases:
   #
   sig-test-reviewers:
     - enp0s3
-    - xpivarc
     - 0xFelix
     - orelmisan
   sig-test-approvers:
@@ -51,7 +49,6 @@ aliases:
     - kbidarkar
     - phoracek
     - enp0s3
-    - xpivarc
     - dhiller
     - 0xFelix
     - orelmisan
@@ -122,7 +119,6 @@ aliases:
     - 0xFelix
     - vladikr
     - enp0s3
-    - xpivarc
     - orelmisan
   sig-compute-reviewers:
     - victortoso
@@ -171,7 +167,6 @@ aliases:
   #
   sig-release-approvers:
     - fossedihelm
-    - xpivarc
   sig-release-reviewers:
     - fossedihelm
     - xpivarc
@@ -183,7 +178,6 @@ aliases:
   sig-buildsystem-approvers:
     - brianmcarey
     - dhiller
-    - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
     - dollierp
