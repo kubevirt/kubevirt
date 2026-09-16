@@ -164,7 +164,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			namespace := testsuite.GetTestNamespace(nil)
 
 			By("Starting server VMI")
-			serverVMI = libvmifact.NewAlpineWithTestTooling(
+			serverVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 					libvmi.WithPasstBinding(),
 					libvmi.WithPorts(
@@ -179,7 +179,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting client VMI")
-			clientVMI = libvmifact.NewAlpineWithTestTooling(
+			clientVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -187,11 +187,15 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				context.Background(), clientVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
+			waitUntilVMIsReady(console.LoginToFedora, serverVMI, clientVMI)
 		})
 
 		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+
+			By("Waiting for VMI IPs")
+			serverVMI = waitForVMIPrimaryIP(serverVMI, ipFamily)
+			clientVMI = waitForVMIPrimaryIP(clientVMI, ipFamily)
 
 			By("Starting a UDP server")
 			vmnetserver.StartPythonUDPServer(serverVMI, udpPort, ipFamily)
@@ -404,6 +408,19 @@ func waitUntilVMIsReady(loginTo console.LoginToFunction, vmis ...*v1.VirtualMach
 			libwait.WithTimeout(vmiReadyTimeout),
 		)
 	}
+}
+
+func waitForVMIPrimaryIP(vmi *v1.VirtualMachineInstance, family k8sv1.IPFamily) *v1.VirtualMachineInstance {
+	var updatedVMI *v1.VirtualMachineInstance
+	Eventually(func(g Gomega) {
+		var err error
+		updatedVMI, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(
+			context.Background(), vmi.Name, metav1.GetOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(updatedVMI.Status.Interfaces).NotTo(BeEmpty())
+		g.Expect(libnet.GetVmiPrimaryIPByFamily(updatedVMI, family)).NotTo(BeEmpty())
+	}, 2*time.Minute, time.Second).Should(Succeed())
+	return updatedVMI
 }
 
 func connectToServerCmd(serverIP string, port int) string {
