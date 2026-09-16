@@ -164,7 +164,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			namespace := testsuite.GetTestNamespace(nil)
 
 			By("Starting server VMI")
-			serverVMI = libvmifact.NewAlpineWithTestTooling(
+			serverVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 					libvmi.WithPasstBinding(),
 					libvmi.WithPorts(
@@ -179,7 +179,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting client VMI")
-			clientVMI = libvmifact.NewAlpineWithTestTooling(
+			clientVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -187,11 +187,15 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				context.Background(), clientVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
+			waitUntilVMIsReady(console.LoginToFedora, serverVMI, clientVMI)
 		})
 
 		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+
+			By("Waiting for VMI IPs")
+			serverIP := waitForVMIPrimaryIP(serverVMI, ipFamily)
+			clientIP := waitForVMIPrimaryIP(clientVMI, ipFamily)
 
 			By("Starting a UDP server")
 			vmnetserver.StartPythonUDPServer(serverVMI, udpPort, ipFamily)
@@ -200,19 +204,16 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			// Due to a passt bug, at least one UDPv6 message has to be sent from a machine before it can receive UDPv6 messages
 			// Tracking bug - https://bugs.passt.top/show_bug.cgi?id=16
 			if ipFamily == k8sv1.IPv6Protocol {
-				clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
 				Expect(libnet.PingFromVMConsole(serverVMI, clientIP)).To(Succeed())
 			}
 
-			serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 			By("ping  a UDP server")
-			clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
 			fmt.Printf("\nclient=%v => server=%v\n\n", clientIP, serverIP)
 			Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 			Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
 		},
 			Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
-			FEntry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
+			Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
 		)
 	})
 
@@ -409,6 +410,20 @@ func waitUntilVMIsReady(loginTo console.LoginToFunction, vmis ...*v1.VirtualMach
 			libwait.WithTimeout(vmiReadyTimeout),
 		)
 	}
+}
+
+func waitForVMIPrimaryIP(vmi *v1.VirtualMachineInstance, family k8sv1.IPFamily) string {
+	var ip string
+	Eventually(func(g Gomega) {
+		updatedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(
+			context.Background(), vmi.Name, metav1.GetOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		*vmi = *updatedVMI
+		g.Expect(vmi.Status.Interfaces).NotTo(BeEmpty())
+		ip = libnet.GetVmiPrimaryIPByFamily(vmi, family)
+		g.Expect(ip).NotTo(BeEmpty())
+	}, 2*time.Minute, time.Second).Should(Succeed())
+	return ip
 }
 
 func connectToServerCmd(serverIP string, port int) string {

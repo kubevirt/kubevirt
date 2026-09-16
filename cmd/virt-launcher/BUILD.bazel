@@ -306,7 +306,7 @@ image_manifest(
             ":qemu-hook-layer",
             ":qemu-kvm-modules-dir-layer",
             ":var-run-symlink-layer",
-	    ":passt-script-layer",
+            ":passt-script-layer",
         ],
     }),
 )
