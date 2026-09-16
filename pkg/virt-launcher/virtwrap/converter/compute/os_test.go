@@ -168,7 +168,7 @@ var _ = Describe("OS Domain Configurator", func() {
 		)
 
 		It("should use firmware auto-selection when enabled", func() {
-			vmi := libvmi.New(withEFIBootloader(true))
+			vmi := libvmi.New(withEFIBootloader(true), libvmi.WithArchitecture("amd64"))
 			var domain api.Domain
 			autoSelectConfig := &compute.EFIConfiguration{
 				SecureLoader:              true,
