@@ -20,9 +20,12 @@
 package virtcontroller
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+
+	corev1 "k8s.io/api/core/v1"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 )
@@ -38,13 +41,9 @@ var (
 	vmRestoreInfo = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmrestore_info",
-			Help: "Information about VirtualMachineRestores. Includes namespace, name " +
-				"(restore name), uid, vm (target VirtualMachine name), and complete " +
-				"(true or false from status.complete). Join to kubevirt_vm_info via namespace " +
-				"and vm (mapped from kubevirt_vm_info name). Series are gone when the Restore " +
-				"object is deleted.",
+			Help: "Information about VirtualMachineRestores.",
 		},
-		[]string{"namespace", "name", "uid", "vm", "complete"},
+		[]string{"namespace", "name", "uid", "vm", "snapshot_name", "complete", "failure"},
 	)
 )
 
@@ -79,11 +78,22 @@ func collectVMRestoreInfo(restore *snapshotv1.VirtualMachineRestore) operatormet
 			restore.Name,
 			string(restore.UID),
 			restore.Spec.Target.Name,
+			restore.Spec.VirtualMachineSnapshotName,
 			strconv.FormatBool(isVMRestoreComplete(restore)),
+			strconv.FormatBool(isVMRestoreFailed(restore)),
 		},
 	}
 }
 
 func isVMRestoreComplete(restore *snapshotv1.VirtualMachineRestore) bool {
 	return restore.Status != nil && restore.Status.Complete != nil && *restore.Status.Complete
+}
+
+func isVMRestoreFailed(restore *snapshotv1.VirtualMachineRestore) bool {
+	if restore.Status == nil {
+		return false
+	}
+	return slices.ContainsFunc(restore.Status.Conditions, func(condition snapshotv1.Condition) bool {
+		return condition.Type == snapshotv1.ConditionFailure && condition.Status == corev1.ConditionTrue
+	})
 }

@@ -277,11 +277,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(err).ToNot(HaveOccurred())
 
 			infoLabels := map[string]string{
-				"namespace": restore.Namespace,
-				"name":      restore.Name,
-				"uid":       string(restore.UID),
-				"vm":        vm.Name,
-				"complete":  "false",
+				"namespace":     restore.Namespace,
+				"name":          restore.Name,
+				"uid":           string(restore.UID),
+				"vm":            vm.Name,
+				"snapshot_name": restore.Spec.VirtualMachineSnapshotName,
+				"complete":      "false",
+				"failure":       "false",
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmrestore_info", 1, infoLabels, 1)
 
