@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "pipeline.go",
+        "select.go",
         "sidecar.go",
         "store.go",
     ],
@@ -27,8 +28,10 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "pipeline_deadline_test.go",
         "pipeline_test.go",
         "plugins_suite_test.go",
+        "select_test.go",
         "sidecar_test.go",
     ],
     embed = [":go_default_library"],
