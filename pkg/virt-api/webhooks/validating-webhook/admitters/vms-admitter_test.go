@@ -1697,6 +1697,82 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 })
 
+var _ = Describe("Validating virtualMachineState immutability", func() {
+	field := k8sfield.NewPath("spec", "template", "spec")
+
+	vmWithState := func(state *v1.VirtualMachineStateSpec) *v1.VirtualMachine {
+		return &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
+						VirtualMachineState: state,
+					},
+				},
+			},
+		}
+	}
+
+	templateWithCapacity := func(class string, capacity string) *k8sv1.PersistentVolumeClaimTemplate {
+		return &k8sv1.PersistentVolumeClaimTemplate{
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				StorageClassName: pointer.P(class),
+				Resources: k8sv1.VolumeResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse(capacity),
+					},
+				},
+			},
+		}
+	}
+
+	It("should allow when neither old nor new have a virtualMachineState", func() {
+		causes := validateVirtualMachineStateImmutability(field, vmWithState(nil), vmWithState(nil))
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject adding a virtualMachineState where the old VM had none", func() {
+		oldVM := vmWithState(nil)
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(causes[0].Field).To(Equal("spec.template.spec.virtualMachineState"))
+	})
+
+	It("should allow a source-adopted VM to add a volumeClaimTemplate", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{
+			Source:              &v1.VirtualMachineStateSource{Name: "x"},
+			VolumeClaimTemplate: templateWithCapacity("class", "1Gi"),
+		})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should allow changing only the storageClassName and storage capacity of the volumeClaimTemplate", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{VolumeClaimTemplate: templateWithCapacity("class-a", "1Gi")})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{VolumeClaimTemplate: templateWithCapacity("class-b", "2Gi")})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject changing the source", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "y"}})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+	})
+
+	It("should reject removing the volumeClaimTemplate", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{VolumeClaimTemplate: templateWithCapacity("class", "1Gi")})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+	})
+})
+
 func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
 	vmBytes, _ := json.Marshal(vm)
 

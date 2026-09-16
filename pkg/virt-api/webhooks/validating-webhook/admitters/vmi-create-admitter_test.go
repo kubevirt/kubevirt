@@ -112,6 +112,71 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	Context("with virtualMachineState", func() {
+		field := k8sfield.NewPath("fake")
+
+		validate := func(state *v1.VirtualMachineStateSpec) []metav1.StatusCause {
+			spec := &v1.VirtualMachineInstanceSpec{VirtualMachineState: state}
+			return validateVirtualMachineState(field, spec, config)
+		}
+
+		It("should accept an unset virtualMachineState", func() {
+			Expect(validate(nil)).To(BeEmpty())
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			causes := validate(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
+			Expect(causes[0].Field).To(Equal("fake.virtualMachineState"))
+		})
+
+		Context("with the feature gate enabled", func() {
+			BeforeEach(func() {
+				enableFeatureGates(featuregate.DeclarativeVMState)
+			})
+
+			It("should reject when neither volumeClaimTemplate nor source is set", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
+				Expect(causes[0].Message).To(Equal("at least one of volumeClaimTemplate or source must be set"))
+			})
+
+			It("should reject a source with an empty name", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{}})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(Equal("source.name must not be empty"))
+			})
+
+			It("should reject a volumeClaimTemplate with metadata.name set", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{
+					VolumeClaimTemplate: &k8sv1.PersistentVolumeClaimTemplate{
+						ObjectMeta: metav1.ObjectMeta{Name: "myname"},
+					},
+				})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring("volumeClaimTemplate.metadata.name must not be set"))
+			})
+
+			It("should reject a volumeClaimTemplate with a non-Filesystem volumeMode", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{
+					VolumeClaimTemplate: &k8sv1.PersistentVolumeClaimTemplate{
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeMode: pointer.P(k8sv1.PersistentVolumeBlock),
+						},
+					},
+				})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(Equal(`volumeClaimTemplate.spec.volumeMode must be "Filesystem"`))
+			})
+
+			It("should accept a valid virtualMachineState", func() {
+				Expect(validate(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})).To(BeEmpty())
+			})
+		})
+	})
+
 	It("when spec validator pass, should allow", func() {
 		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
 		Expect(err).ToNot(HaveOccurred())
