@@ -41,6 +41,7 @@ type ControllersDomainConfigurator struct {
 	useLaunchSecuritySEV      bool
 	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
+	passthroughPCIHole64KiB   uint
 	virtioSerialModel         string
 }
 
@@ -72,8 +73,10 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64Disabled())
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIeRootControllerWithHole64(0))
 		domain.Spec.SysInfo = append(domain.Spec.SysInfo, newSeaBIOSFWCfgWithPCI64Disabled())
+	} else if c.passthroughPCIHole64KiB > 0 {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIeRootControllerWithHole64(c.passthroughPCIHole64KiB))
 	}
 
 	if requiresVirtioSerialController(vmi) {
@@ -122,6 +125,12 @@ func ControllersWithSupportPCIHole64Disabling(support bool) controllersOption {
 	}
 }
 
+func ControllersWithPassthroughPCIHole64KiB(sizeKiB uint) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.passthroughPCIHole64KiB = sizeKiB
+	}
+}
+
 func ControllersWithVirtioSerialModel(model string) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
 		c.virtioSerialModel = model
@@ -151,13 +160,13 @@ func newSCSIController(controllerModel string, controllerDriver *api.ControllerD
 	}
 }
 
-func newPCIControllerWithHole64Disabled() api.Controller {
+func newPCIeRootControllerWithHole64(sizeKiB uint) api.Controller {
 	return api.Controller{
 		Type:  "pci",
 		Index: "0",
 		Model: "pcie-root",
 		PCIHole64: &api.PCIHole64{
-			Value: 0,
+			Value: sizeKiB,
 			Unit:  "KiB",
 		},
 	}
