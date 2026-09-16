@@ -82,6 +82,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migrations_in_running_phase":                           true,
 			"kubevirt_vmi_migration_succeeded":                                   true,
 			"kubevirt_vmi_migration_failed":                                      true,
+			"kubevirt_vmi_migration_info":                                        true,
 			"kubevirt_vmi_migration_data_remaining_bytes":                        true,
 			"kubevirt_vmi_migration_data_processed_bytes":                        true,
 			"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,

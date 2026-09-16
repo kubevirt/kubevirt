@@ -444,6 +444,14 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
+			infoLabels := map[string]string{
+				"name":      vmi.Name,
+				"namespace": vmi.Namespace,
+				"result":    "succeeded",
+				"trigger":   "user",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_info", 1, infoLabels, 1)
+
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
 				context.Background(), vmi.Name, metav1.DeleteOptions{},
@@ -487,6 +495,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.WaitForMetricValueWithLabels(
 				virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1,
 			)
+
+			infoLabels := map[string]string{
+				"name":      vmi.Name,
+				"namespace": vmi.Namespace,
+				"result":    "failed",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_info", 1, infoLabels, 1)
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(

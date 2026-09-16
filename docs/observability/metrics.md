@@ -61,6 +61,7 @@
 | kubevirt_vmi_migration_dirty_memory_rate_bytes | Metric | Gauge | The rate of memory being dirty in the Guest OS. |
 | kubevirt_vmi_migration_end_time_seconds | Metric | Gauge | The time at which the migration ended. |
 | kubevirt_vmi_migration_failed | Metric | Gauge | Indicates if the VMI migration failed. |
+| kubevirt_vmi_migration_info | Metric | Gauge | Information about VirtualMachineInstanceMigrations. Includes name (VMI name), namespace, migration_name (VMIM name), source_node, target_node, phase (VMIM phase in lowercase), trigger (user, evacuation, workload_update), result (succeeded, failed, in_progress), and reason (none, timeout, canceled, unschedulable, failed). |
 | kubevirt_vmi_migration_memory_transfer_rate_bytes | Metric | Gauge | The rate at which the memory is being transferred. |
 | kubevirt_vmi_migration_phase_transition_time_from_creation_seconds | Metric | Histogram | Histogram of VM migration phase transitions duration from creation time in seconds. |
 | kubevirt_vmi_migration_start_time_seconds | Metric | Gauge | The time at which the migration started. |
