@@ -868,6 +868,9 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 	})
 
 	Context("with cross-cluster migration network proxy", Serial, decorators.Multus, decorators.RequiresCrossClusterMigrationProxy, func() {
+		// Enabling DLM + proxy gates and Proxy datapath rolls virt-handler, sync-controller, and other components.
+		const kubevirtConfigRolloutTimeout = 10 * time.Minute
+
 		var (
 			originalKubeVirt *v1.KubeVirt
 			crossClusterNAD  *k8snetworkplumbingwgv1.NetworkAttachmentDefinition
@@ -892,6 +895,12 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			if config.DeveloperConfiguration == nil {
 				config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 			}
+			config.DeveloperConfiguration.DisabledFeatureGates = slices.DeleteFunc(
+				config.DeveloperConfiguration.DisabledFeatureGates,
+				func(fg string) bool {
+					return fg == "DecentralizedLiveMigration" || fg == "CrossClusterMigrationProxy"
+				},
+			)
 			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration") {
 				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration")
 			}
@@ -903,7 +912,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}
 			config.MigrationConfiguration.DecentralizedLiveMigrationDatapath = pointer.P(v1.DecentralizedLiveMigrationDatapathProxy)
 			config.MigrationConfiguration.CrossClusterNetwork = pointer.P(crossClusterNAD.Name)
-			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
+			kvconfig.UpdateKubeVirtConfigValueAndWaitWithTimeout(*config, kubevirtConfigRolloutTimeout)
 			By("Ensuring that synchronization address is properly propagated to the KubeVirt CR")
 			Eventually(func() []string {
 				kv := libkubevirt.GetCurrentKv(virtClient)
@@ -919,7 +928,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		AfterEach(func() {
 			By("Restoring original KubeVirt configuration")
 			if originalKubeVirt != nil {
-				kvconfig.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+				kvconfig.UpdateKubeVirtConfigValueAndWaitWithTimeout(originalKubeVirt.Spec.Configuration, kubevirtConfigRolloutTimeout)
 			}
 
 			By("Deleting cross-cluster network attachment definition")
