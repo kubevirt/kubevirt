@@ -431,7 +431,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 			By("Migrating VMIs")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_pending_phase", 0)
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
@@ -447,6 +447,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			infoLabels := map[string]string{
 				"name":      vmi.Name,
 				"namespace": vmi.Namespace,
+				"uid":       string(migration.UID),
 				"result":    "succeeded",
 				"trigger":   "user",
 			}
@@ -499,6 +500,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			infoLabels := map[string]string{
 				"name":      vmi.Name,
 				"namespace": vmi.Namespace,
+				"uid":       string(migration.UID),
 				"result":    "failed",
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_info", 1, infoLabels, 1)

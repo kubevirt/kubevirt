@@ -108,15 +108,13 @@ var (
 	migrationInfo = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_info",
-			Help: "Information about VirtualMachineInstanceMigrations. Includes name (VMI name), " +
-				"namespace, migration_name (VMIM name), source_node, target_node, phase (VMIM phase in lowercase), " +
-				"trigger (user, evacuation, workload_update), result (succeeded, failed, in_progress), " +
-				"and reason (none, timeout, canceled, unschedulable, failed).",
+			Help: "Information about VirtualMachineInstanceMigrations.",
 		},
 		[]string{
-			"namespace", "name", "migration_name",
+			"namespace", "name", "migration_name", "uid",
 			"source_node", "target_node",
 			"phase", "trigger", "result", "reason",
+			"mode", "priority", "migration_policy", "network_type",
 		},
 	)
 )
@@ -174,11 +172,12 @@ func reportMigrationStats(vmims []*k6tv1.VirtualMachineInstanceMigration) []oper
 }
 
 func collectMigrationInfo(vmim *k6tv1.VirtualMachineInstanceMigration) operatormetrics.CollectorResult {
+	state := vmim.Status.MigrationState
 	sourceNode := none
 	targetNode := none
-	if vmim.Status.MigrationState != nil {
-		sourceNode = vmim.Status.MigrationState.SourceNode
-		targetNode = vmim.Status.MigrationState.TargetNode
+	if state != nil {
+		sourceNode = state.SourceNode
+		targetNode = state.TargetNode
 	}
 
 	result := getMigrationResult(vmim.Status.Phase)
@@ -190,12 +189,17 @@ func collectMigrationInfo(vmim *k6tv1.VirtualMachineInstanceMigration) operatorm
 			vmim.Namespace,
 			vmim.Spec.VMIName,
 			vmim.Name,
+			string(vmim.UID),
 			sourceNode,
 			targetNode,
 			getMigrationPhaseLabel(vmim.Status.Phase),
 			getMigrationTrigger(vmim),
 			result,
 			getMigrationReason(vmim, result),
+			getMigrationMode(state),
+			getMigrationPriority(vmim.Spec.Priority),
+			getMigrationPolicyName(state),
+			getMigrationNetworkType(state),
 		},
 	}
 }
@@ -213,6 +217,16 @@ func getMigrationResult(phase k6tv1.VirtualMachineInstanceMigrationPhase) string
 		return migrationResultSucceeded
 	case k6tv1.MigrationFailed:
 		return migrationResultFailed
+	case k6tv1.MigrationPhaseUnset,
+		k6tv1.MigrationPending,
+		k6tv1.MigrationScheduling,
+		k6tv1.MigrationScheduled,
+		k6tv1.MigrationPreparingTarget,
+		k6tv1.MigrationTargetReady,
+		k6tv1.MigrationRunning,
+		k6tv1.MigrationWaitingForSync,
+		k6tv1.MigrationSynchronizing:
+		return migrationResultInProgress
 	default:
 		return migrationResultInProgress
 	}
@@ -242,6 +256,34 @@ func getMigrationReason(vmim *k6tv1.VirtualMachineInstanceMigration, result stri
 		return migrationReasonTimeout
 	}
 	return migrationReasonFailed
+}
+
+func getMigrationMode(state *k6tv1.VirtualMachineInstanceMigrationState) string {
+	if state == nil || state.Mode == "" {
+		return none
+	}
+	return strings.ToLower(string(state.Mode))
+}
+
+func getMigrationPriority(priority *k6tv1.MigrationPriority) string {
+	if priority == nil || *priority == "" {
+		return none
+	}
+	return string(*priority)
+}
+
+func getMigrationPolicyName(state *k6tv1.VirtualMachineInstanceMigrationState) string {
+	if state == nil || state.MigrationPolicyName == nil || *state.MigrationPolicyName == "" {
+		return none
+	}
+	return *state.MigrationPolicyName
+}
+
+func getMigrationNetworkType(state *k6tv1.VirtualMachineInstanceMigrationState) string {
+	if state == nil || state.MigrationNetworkType == "" {
+		return none
+	}
+	return strings.ToLower(string(state.MigrationNetworkType))
 }
 
 func migrationWasCanceled(vmim *k6tv1.VirtualMachineInstanceMigration) bool {

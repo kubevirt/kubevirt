@@ -28,8 +28,11 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Migration Stats Collector", func() {
@@ -113,6 +116,7 @@ var _ = Describe("Migration Stats Collector", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vmim",
 					Namespace: "test-ns",
+					UID:       types.UID("test-vmim-uid"),
 				},
 				Spec: k6tv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: "test-vmi",
@@ -126,9 +130,10 @@ var _ = Describe("Migration Stats Collector", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Value).To(Equal(1.0))
 			Expect(results[0].Labels).To(Equal([]string{
-				"test-ns", "test-vmi", "test-vmim",
+				"test-ns", "test-vmi", "test-vmim", "test-vmim-uid",
 				"", "",
 				"running", migrationTriggerUser, migrationResultInProgress, migrationReasonNone,
+				"", "", "", "",
 			}))
 		})
 
@@ -149,7 +154,7 @@ var _ = Describe("Migration Stats Collector", func() {
 
 			results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{vmim}))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0].Labels[6]).To(Equal(trigger))
+			Expect(results[0].Labels[7]).To(Equal(trigger))
 		},
 			Entry("user", nil, migrationTriggerUser),
 			Entry("evacuation", map[string]string{k6tv1.EvacuationMigrationAnnotation: "node-1"}, migrationTriggerEvacuation),
@@ -175,7 +180,7 @@ var _ = Describe("Migration Stats Collector", func() {
 			}
 
 			results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{vmim}))
-			Expect(results[0].Labels[6]).To(Equal(migrationTriggerEvacuation))
+			Expect(results[0].Labels[7]).To(Equal(migrationTriggerEvacuation))
 		})
 
 		It("should include source and target nodes and succeeded result", func() {
@@ -183,6 +188,7 @@ var _ = Describe("Migration Stats Collector", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vmim",
 					Namespace: "test-ns",
+					UID:       types.UID("test-vmim-uid"),
 				},
 				Spec: k6tv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: "test-vmi",
@@ -199,18 +205,19 @@ var _ = Describe("Migration Stats Collector", func() {
 			results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{vmim}))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Labels).To(Equal([]string{
-				"test-ns", "test-vmi", "test-vmim",
+				"test-ns", "test-vmi", "test-vmim", "test-vmim-uid",
 				"node-a", "node-b",
 				"succeeded", migrationTriggerUser, migrationResultSucceeded, migrationReasonNone,
+				"", "", "", "",
 			}))
 		})
 
 		DescribeTable("should map failed reason from status", func(vmim *k6tv1.VirtualMachineInstanceMigration, reason string) {
 			results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{vmim}))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0].Labels[5]).To(Equal("failed"))
-			Expect(results[0].Labels[7]).To(Equal(migrationResultFailed))
-			Expect(results[0].Labels[8]).To(Equal(reason))
+			Expect(results[0].Labels[6]).To(Equal("failed"))
+			Expect(results[0].Labels[8]).To(Equal(migrationResultFailed))
+			Expect(results[0].Labels[9]).To(Equal(reason))
 		},
 			Entry("generic failure",
 				failedMigrationInfoVMIM(&k6tv1.VirtualMachineInstanceMigrationState{
@@ -278,9 +285,74 @@ var _ = Describe("Migration Stats Collector", func() {
 			}
 
 			results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{vmim}))
-			Expect(results[0].Labels[7]).To(Equal(migrationResultInProgress))
-			Expect(results[0].Labels[8]).To(Equal(migrationReasonNone))
+			Expect(results[0].Labels[8]).To(Equal(migrationResultInProgress))
+			Expect(results[0].Labels[9]).To(Equal(migrationReasonNone))
 		})
+
+		It("should distinguish VMIMs that reuse a name by uid", func() {
+			first := failedMigrationInfoVMIM(nil, nil)
+			first.UID = "uid-1"
+			second := failedMigrationInfoVMIM(nil, nil)
+			second.UID = "uid-2"
+
+			results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{first, second}))
+			Expect(results).To(HaveLen(2))
+			Expect(results[0].Labels[3]).To(Equal("uid-1"))
+			Expect(results[1].Labels[3]).To(Equal("uid-2"))
+		})
+
+		DescribeTable("should map mode, priority, policy, and network type",
+			func(mutate func(*k6tv1.VirtualMachineInstanceMigration), mode, priority, policy, networkType string) {
+				vmim := &k6tv1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vmim",
+						Namespace: "test-ns",
+						UID:       types.UID("test-vmim-uid"),
+					},
+					Spec: k6tv1.VirtualMachineInstanceMigrationSpec{
+						VMIName: "test-vmi",
+					},
+					Status: k6tv1.VirtualMachineInstanceMigrationStatus{
+						Phase: k6tv1.MigrationRunning,
+					},
+				}
+				mutate(vmim)
+
+				results := migrationInfoResults(reportMigrationStats([]*k6tv1.VirtualMachineInstanceMigration{vmim}))
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Labels[10]).To(Equal(mode))
+				Expect(results[0].Labels[11]).To(Equal(priority))
+				Expect(results[0].Labels[12]).To(Equal(policy))
+				Expect(results[0].Labels[13]).To(Equal(networkType))
+			},
+			Entry("unset", func(*k6tv1.VirtualMachineInstanceMigration) {}, "", "", "", ""),
+			Entry("precopy over pod", func(vmim *k6tv1.VirtualMachineInstanceMigration) {
+				vmim.Spec.Priority = pointer.P(k6tv1.PriorityUserTriggered)
+				vmim.Status.MigrationState = &k6tv1.VirtualMachineInstanceMigrationState{
+					Mode:                 k6tv1.MigrationPreCopy,
+					MigrationPolicyName:  pointer.P("policy-a"),
+					MigrationNetworkType: k6tv1.Pod,
+				}
+			}, "precopy", "user-triggered", "policy-a", "pod"),
+			Entry("postcopy over migration network", func(vmim *k6tv1.VirtualMachineInstanceMigration) {
+				vmim.Spec.Priority = pointer.P(k6tv1.PrioritySystemCritical)
+				vmim.Status.MigrationState = &k6tv1.VirtualMachineInstanceMigrationState{
+					Mode:                 k6tv1.MigrationPostCopy,
+					MigrationNetworkType: k6tv1.Migration,
+				}
+			}, "postcopy", "system-critical", "", "migration"),
+			Entry("paused system-maintenance", func(vmim *k6tv1.VirtualMachineInstanceMigration) {
+				vmim.Spec.Priority = pointer.P(k6tv1.PrioritySystemMaintenance)
+				vmim.Status.MigrationState = &k6tv1.VirtualMachineInstanceMigrationState{
+					Mode: k6tv1.MigrationPaused,
+				}
+			}, "paused", "system-maintenance", "", ""),
+			Entry("empty policy name", func(vmim *k6tv1.VirtualMachineInstanceMigration) {
+				vmim.Status.MigrationState = &k6tv1.VirtualMachineInstanceMigrationState{
+					MigrationPolicyName: pointer.P(""),
+				}
+			}, "", "", "", ""),
+		)
 	})
 })
 
@@ -306,6 +378,7 @@ func failedMigrationInfoVMIM(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-vmim",
 			Namespace: "test-ns",
+			UID:       types.UID("test-vmim-uid"),
 		},
 		Spec: k6tv1.VirtualMachineInstanceMigrationSpec{
 			VMIName: "test-vmi",
