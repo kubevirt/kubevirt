@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -40,7 +39,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -48,7 +46,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -58,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -76,8 +72,6 @@ var testHookSidecar = hooks.HookSidecar{
 }
 
 var _ = Describe("Template", func() {
-	const expectedNetworkResource = "amazing-network-resource.com"
-
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
@@ -154,42 +148,8 @@ var _ = Describe("Template", func() {
 				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			// Set up mock clients
-			networkClient := fakenetworkclient.NewSimpleClientset()
-			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 			k8sClient := k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-			// Sadly, we cannot pass desired attachment objects into
-			// Clientset constructor because UnsafeGuessKindToResource
-			// calculates incorrect object kind (without dashes). Instead
-			// of that, we use tracker Create function to register objects
-			// under explicitly defined schema name
-			gvr := schema.GroupVersionResource{
-				Group:    "k8s.cni.cncf.io",
-				Version:  "v1",
-				Resource: "network-attachment-definitions",
-			}
-			for _, name := range []string{"default", "test1"} {
-				network := &networkv1.NetworkAttachmentDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: "default",
-					},
-				}
-				err := networkClient.Tracker().Create(gvr, network, "default")
-				Expect(err).To(Not(HaveOccurred()))
-			}
-			// create a network in a different namespace
-			network := &networkv1.NetworkAttachmentDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: "other-namespace",
-					Annotations: map[string]string{
-						multus.ResourceNameAnnotation: expectedNetworkResource,
-					},
-				},
-			}
-			err := networkClient.Tracker().Create(gvr, network, "other-namespace")
-			Expect(err).To(Not(HaveOccurred()))
 			return config, kvStore, svc
 		}
 		nonRootUser = util.NonRootUID
