@@ -32,10 +32,6 @@ const (
 	sidecarSubPathPolicyName        = "kubevirt-plugin-sidecar-subpath-policy"
 	sidecarSubPathPolicyBindingName = "kubevirt-plugin-sidecar-subpath-binding"
 	sidecarSubPathAppLabelValue     = "kubevirt-plugin-sidecar-subpath"
-
-	pluginSocketPathPolicyName        = "kubevirt-plugin-socket-path-policy"
-	pluginSocketPathPolicyBindingName = "kubevirt-plugin-socket-path-binding"
-	pluginSocketPathAppLabelValue     = "kubevirt-plugin-socket-path"
 )
 
 func NewSidecarSubPathValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
@@ -140,99 +136,6 @@ func NewSidecarSubPathValidatingAdmissionPolicyBinding() *admissionregistrationv
 								APIGroups:   []string{""},
 								APIVersions: []string{"v1"},
 								Resources:   []string{"pods", "pods/ephemeralcontainers"},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func NewPluginSocketPathValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdmissionPolicy {
-	return &admissionregistrationv1.ValidatingAdmissionPolicy{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ValidatingAdmissionPolicy",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pluginSocketPathPolicyName,
-		},
-		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
-			FailurePolicy: pointer.P(admissionregistrationv1.Fail),
-			MatchConstraints: &admissionregistrationv1.MatchResources{
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-					{
-						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-							Operations: []admissionregistrationv1.OperationType{
-								admissionregistrationv1.Create,
-								admissionregistrationv1.Update,
-							},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{"plugin.kubevirt.io"},
-								APIVersions: []string{"v1alpha1"},
-								Resources:   []string{"plugins"},
-							},
-						},
-					},
-				},
-			},
-			Validations: []admissionregistrationv1.Validation{
-				{
-					Expression: `!has(object.spec.launcherHooks) ||
-	object.spec.launcherHooks.all(lh,
-	    !has(lh.sidecar) || lh.sidecar.socketPath.endsWith(".sock"))`,
-					Message: "sidecar socketPath must end with .sock",
-				},
-				{
-					Expression: `!has(object.spec.launcherHooks) ||
-	object.spec.launcherHooks.all(lh,
-	    !has(lh.sidecar) || size(lh.sidecar.socketPath) <= 108)`,
-					Message: "sidecar socketPath must not exceed 108 characters (Unix socket limit)",
-				},
-				{
-					Expression: `!has(object.spec.launcherHooks) ||
-	object.spec.launcherHooks.all(lh,
-	    !has(lh.sidecar) ||
-	    lh.sidecar.socketPath.startsWith(
-	        "/var/run/kubevirt-plugin/" + object.metadata.name + "/"))`,
-					Message: "sidecar socketPath must start with /var/run/kubevirt-plugin/<plugin-name>/",
-				},
-			},
-		},
-	}
-}
-
-func NewPluginSocketPathValidatingAdmissionPolicyBinding() *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
-	return &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ValidatingAdmissionPolicyBinding",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pluginSocketPathPolicyBindingName,
-			Labels: map[string]string{
-				v1.AppLabel:       pluginSocketPathAppLabelValue,
-				v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
-			},
-		},
-		Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-			PolicyName: pluginSocketPathPolicyName,
-			ValidationActions: []admissionregistrationv1.ValidationAction{
-				admissionregistrationv1.Deny,
-			},
-			MatchResources: &admissionregistrationv1.MatchResources{
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-					{
-						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-							Operations: []admissionregistrationv1.OperationType{
-								admissionregistrationv1.Create,
-								admissionregistrationv1.Update,
-							},
-							Rule: admissionregistrationv1.Rule{
-								APIGroups:   []string{"plugin.kubevirt.io"},
-								APIVersions: []string{"v1alpha1"},
-								Resources:   []string{"plugins"},
 							},
 						},
 					},
