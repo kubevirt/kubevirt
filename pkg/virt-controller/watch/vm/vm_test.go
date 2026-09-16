@@ -419,6 +419,34 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 
 		})
+		It("should keep the mirrored VirtualMachineStateVolume when the VMI status hasn't populated it yet", func() {
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
+			vm.Status.Created = true
+			vm.Status.Ready = true
+			// A previous reconcile already mirrored the state volume onto the VM status.
+			vm.Status.VirtualMachineStateVolume = &v1.VolumeStatus{
+				Name:                      "persistent-state-for-this-vm",
+				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "state-pvc"},
+			}
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			// The VMI is running but hasn't mirrored the state volume onto its status yet.
+			watchtesting.MarkAsReady(vmi)
+			vmi.Status.VirtualMachineStateVolume = nil
+			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			controller.vmiIndexer.Add(vmi)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.VirtualMachineStateVolume).NotTo(BeNil())
+			Expect(vm.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal("state-pvc"))
+		})
+
 		Context("Disk un/hotplug", func() {
 			addVolumeReactor := func(virtFakeClient *fake.Clientset) {
 				virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
@@ -4669,6 +4697,20 @@ var _ = Describe("VirtualMachine", func() {
 						Type:   v1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
 						Reason: virtcontroller.FailedPvcNotFoundReason,
+					},
+				),
+				Entry("ErrorPvcNotFound for a missing VirtualMachineState PVC", v1.VirtualMachineStatusPvcNotFound,
+					v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: virtcontroller.VirtualMachineStatePVCNotFoundReason,
+					},
+				),
+				Entry("ErrorVMStateInUse", v1.VirtualMachineStatusVMStateInUse,
+					v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: virtcontroller.VirtualMachineStateInUseReason,
 					},
 				),
 			)
