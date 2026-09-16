@@ -304,7 +304,7 @@ func init() {
 
 func Execute() {
 	var err error
-	var app = VirtControllerApp{}
+	app := VirtControllerApp{}
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
@@ -481,6 +481,7 @@ func Execute() {
 		Preference:            app.preferenceInformer.GetStore(),
 		ClusterPreference:     app.clusterPreferenceInformer.GetStore(),
 		ControllerRevision:    app.controllerRevisionInformer.GetStore(),
+		VMSnapshot:            app.vmSnapshotInformer.GetStore(),
 	}
 
 	if err := metrics.SetupMetrics(
@@ -1157,10 +1158,9 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 		return
 	}
 
-	clientConfig.RateLimiter =
-		flowcontrol.NewTokenBucketRateLimiter(
-			virtconfig.DefaultVirtControllerQPS,
-			virtconfig.DefaultVirtControllerBurst)
+	clientConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(
+		virtconfig.DefaultVirtControllerQPS,
+		virtconfig.DefaultVirtControllerBurst)
 
 	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
@@ -1176,7 +1176,6 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 			Identity:      vca.host,
 			EventRecorder: vca.newRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultLeaseName),
 		})
-
 	if err != nil {
 		return
 	}

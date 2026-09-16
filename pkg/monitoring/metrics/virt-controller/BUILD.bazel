@@ -11,6 +11,7 @@ go_library(
         "perfscale_metrics.go",
         "vmistats_collector.go",
         "vmsnapshot.go",
+        "vmsnapshotstats_collector.go",
         "vmstats_collector.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller",
@@ -56,6 +57,7 @@ go_test(
         "virt_controller_suite_test.go",
         "vmistats_collector_test.go",
         "vmsnapshot_test.go",
+        "vmsnapshotstats_collector_test.go",
         "vmstats_collector_test.go",
     ],
     embed = [":go_default_library"],
@@ -79,6 +81,7 @@ go_test(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

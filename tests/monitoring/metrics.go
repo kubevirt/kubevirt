@@ -68,7 +68,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
 
 			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
-			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
+			"kubevirt_vmsnapshot_succeeded_timestamp_seconds":   true,
+			"kubevirt_vmsnapshot_info":                          true,
+			"kubevirt_vmsnapshot_create_date_timestamp_seconds": true,
 
 			// needs a machines variable - ignoring since already tested in - tests/infrastructure/prometheus
 			"kubevirt_node_deprecated_machine_types": true,

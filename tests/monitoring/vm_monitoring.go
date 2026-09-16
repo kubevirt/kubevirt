@@ -221,7 +221,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 		})
 
-		It("Snapshot succeeded timestamp metric values should be correct", func() {
+		It("Snapshot info, create-date, and succeeded timestamp metrics should be correct", func() {
 			By("Creating a Virtual Machine")
 			vm := createRunningVM(
 				virtClient, libvmifact.NewGuestless(), v1.RunStrategyAlways, false,
@@ -233,7 +233,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				context.Background(), snapshot, metav1.CreateOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+			succeeded := libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 
 			labels := map[string]string{
 				"name":          snapshot.Spec.Source.Name,
@@ -242,6 +242,37 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(
 				virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0,
+			)
+
+			infoLabels := map[string]string{
+				"namespace":    succeeded.Namespace,
+				"name":         succeeded.Name,
+				"uid":          string(succeeded.UID),
+				"vm":           succeeded.Spec.Source.Name,
+				"phase":        "succeeded",
+				"ready_to_use": "true",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmsnapshot_info", 1, infoLabels, 1)
+
+			createDateLabels := map[string]string{
+				"name":      succeeded.Name,
+				"namespace": succeeded.Namespace,
+			}
+			libmonitoring.WaitForMetricValueWithLabels(
+				virtClient,
+				"kubevirt_vmsnapshot_create_date_timestamp_seconds",
+				float64(succeeded.CreationTimestamp.Unix()),
+				createDateLabels,
+				1,
+			)
+
+			By("Deleting the VirtualMachineSnapshot")
+			Expect(virtClient.VirtualMachineSnapshot(succeeded.Namespace).Delete(
+				context.Background(), succeeded.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmsnapshot_info", -1, infoLabels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(
+				virtClient, "kubevirt_vmsnapshot_create_date_timestamp_seconds", -1, createDateLabels, 1,
 			)
 		})
 	})
