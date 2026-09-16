@@ -57,7 +57,7 @@ var _ = Describe("HandleStandaloneMode", func() {
 
 		Expect(func() {
 			standalone.HandleStandaloneMode(mockDM)
-		}).To(Panic())
+		}).To(PanicWith(MatchError(ContainSubstring("invalid character"))))
 	})
 
 	It("should panic if SyncVMI fails", func() {

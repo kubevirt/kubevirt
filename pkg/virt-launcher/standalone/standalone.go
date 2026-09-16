@@ -38,8 +38,8 @@ func HandleStandaloneMode(domainManager virtwrap.DomainManager) {
 		if err := yaml.Unmarshal([]byte(vmiObjStr), &vmi); err != nil {
 			// Fallback to JSON if YAML fails
 			if jsonErr := json.Unmarshal([]byte(vmiObjStr), &vmi); jsonErr != nil {
-				log.Log.Reason(err).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
-				panic(err)
+				log.Log.Reason(jsonErr).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
+				panic(jsonErr)
 			}
 		}
 
