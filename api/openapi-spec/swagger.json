@@ -16602,6 +16602,10 @@
       "description": "DisableTLS disables both TLS encryption and mutual TLS authentication on the migration proxy when set to true. This removes all cryptographic protection from the migration data stream. When disabled, implement network-level access controls to restrict migration traffic to trusted sources only. Defaults to false.",
       "type": "boolean"
      },
+     "historyLimits": {
+      "description": "HistoryLimits controls how many successful and failed migrations are retained per VMI. When unset, the most recent 5 finalized migrations are retained regardless of outcome.",
+      "$ref": "#/definitions/v1.MigrationHistoryLimits"
+     },
      "matchSELinuxLevelOnMigration": {
       "description": "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
       "type": "boolean"
@@ -16642,6 +16646,28 @@
       "description": "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
       "type": "integer",
       "format": "int64"
+     }
+    }
+   },
+   "v1.MigrationHistoryLimits": {
+    "description": "MigrationHistoryLimits defines how many finalized migrations to retain per VMI by outcome.",
+    "type": "object",
+    "required": [
+     "successful",
+     "failed"
+    ],
+    "properties": {
+     "failed": {
+      "description": "Failed is the number of failed migrations to retain.",
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+     },
+     "successful": {
+      "description": "Successful is the number of successful migrations to retain.",
+      "type": "integer",
+      "format": "int64",
+      "default": 0
      }
     }
    },

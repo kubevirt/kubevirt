@@ -1447,7 +1447,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			if keyMigration.IsFinal() {
-				Expect(migrationsStored.Items).To(HaveLen(defaultFinalizedMigrationGarbageCollectionBuffer))
+				Expect(migrationsStored.Items).To(HaveLen(int(defaultFinalizedMigrationGarbageCollectionBuffer)))
 			} else {
 				Expect(migrationsStored.Items).To(HaveLen(len(phasesToGarbageCollect) * 10))
 			}
@@ -1467,6 +1467,46 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in target ready phase", v1.MigrationTargetReady),
 			Entry("in running phase", v1.MigrationRunning),
 		)
+
+		It("should apply successful and failed migration history limits independently", func() {
+			setConfig(&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{
+					HistoryLimits: &v1.MigrationHistoryLimits{
+						Successful: 0,
+						Failed:     5,
+					},
+				},
+			})
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addVirtualMachineInstance(vmi)
+
+			successfulMigration := newMigration("successful-mig", vmi.Name, v1.MigrationSucceeded)
+			Expect(controller.migrationIndexer.Add(successfulMigration)).To(Succeed())
+			_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), successfulMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			for i := range 6 {
+				failedMigration := newMigration(fmt.Sprintf("failed-mig-%d", i), vmi.Name, v1.MigrationFailed)
+				failedMigration.CreationTimestamp = metav1.Unix(int64(i), 0)
+				Expect(controller.migrationIndexer.Add(failedMigration)).To(Succeed())
+				_, err = virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), failedMigration, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			Expect(controller.garbageCollectFinalizedMigrations(vmi)).To(Succeed())
+
+			migrations, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrations.Items).To(WithTransform(func(migrations []v1.VirtualMachineInstanceMigration) []string {
+				var migrationNames []string
+				for _, migration := range migrations {
+					migrationNames = append(migrationNames, migration.Name)
+				}
+				return migrationNames
+			}, ConsistOf("failed-mig-1", "failed-mig-2", "failed-mig-3", "failed-mig-4", "failed-mig-5")))
+		})
+
 		It("should garbage collect oldest finalized migrations when exceeding buffer", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addVirtualMachineInstance(vmi)

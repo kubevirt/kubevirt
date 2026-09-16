@@ -3604,6 +3604,9 @@ type MigrationConfiguration struct {
 	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
 	// allowed cluster-wide. Defaults to 5
 	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+	// HistoryLimits controls how many successful and failed migrations are retained per VMI.
+	// When unset, the most recent 5 finalized migrations are retained regardless of outcome.
+	HistoryLimits *MigrationHistoryLimits `json:"historyLimits,omitempty"`
 	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
 	// guarantee successful VMI live migrations. Defaults to false
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
@@ -3655,6 +3658,14 @@ type MigrationConfiguration struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// MigrationHistoryLimits defines how many finalized migrations to retain per VMI by outcome.
+type MigrationHistoryLimits struct {
+	// Successful is the number of successful migrations to retain.
+	Successful uint32 `json:"successful"`
+	// Failed is the number of failed migrations to retain.
+	Failed uint32 `json:"failed"`
 }
 
 // DiskVerification holds container disks verification limits
