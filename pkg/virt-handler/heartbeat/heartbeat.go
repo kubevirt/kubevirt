@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,8 @@ type HeartBeat struct {
 	cpuManagerPaths           []string
 	devicePluginPollIntervall time.Duration
 	devicePluginWaitTimeout   time.Duration
+	// imageHash fingerprints the running virt-handler image; empty if unset.
+	imageHash string
 }
 
 func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
@@ -46,6 +49,7 @@ func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager
 		cpuManagerPaths:           []string{cpuManagerPath, cpuManagerOS3Path},
 		devicePluginPollIntervall: 1 * time.Second,
 		devicePluginWaitTimeout:   10 * time.Second,
+		imageHash:                 virtutil.ImageHashLabelValue(os.Getenv(virtutil.VirtHandlerImageEnvName)),
 	}
 }
 
@@ -86,9 +90,13 @@ func (h *HeartBeat) labelNodeUnschedulable() {
 		}
 
 		cpuManagerEnabled := h.clusterConfig.CPUManagerEnabled() && h.isCPUManagerEnabled(h.cpuManagerPaths)
-		data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
-			v1.NodeSchedulable, "false",
-			v1.CPUManager, cpuManagerEnabled,
+		labelsJSON, err := json.Marshal(h.nodeLabels("false", cpuManagerEnabled))
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Can't marshal node labels")
+			return err
+		}
+		data := []byte(fmt.Sprintf(`{"metadata": { "labels": %s, "annotations": {"%s": %s}}}`,
+			labelsJSON,
 			v1.VirtHandlerHeartbeat, string(now),
 		))
 		_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
@@ -125,7 +133,6 @@ func (h *HeartBeat) do() {
 		kubevirtSchedulable = "false"
 	}
 
-	var data []byte
 	// Label the node if cpu manager is running on it
 	// This is a temporary workaround until k8s bug #66525 is resolved
 	cpuManagerEnabled := false
@@ -140,10 +147,18 @@ func (h *HeartBeat) do() {
 	}
 	ksmEnabled, ksmEnabledByUs := handleKSM(node, h.clusterConfig)
 
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s, "%s": "%t"}}}`,
-		v1.NodeSchedulable, kubevirtSchedulable,
-		v1.CPUManager, cpuManagerEnabled,
-		v1.KSMEnabledLabel, ksmEnabled,
+	// this branch still handles KSM here, so add its labels to the
+	// version-skew-guard labels from nodeLabels()
+	labels := h.nodeLabels(kubevirtSchedulable, cpuManagerEnabled)
+	labels[v1.KSMEnabledLabel] = strconv.FormatBool(ksmEnabled)
+	labelsJSON, err := json.Marshal(labels)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Can't marshal node labels")
+		return
+	}
+
+	data := []byte(fmt.Sprintf(`{"metadata": { "labels": %s, "annotations": {"%s": %s, "%s": "%t"}}}`,
+		labelsJSON,
 		v1.VirtHandlerHeartbeat, string(now),
 		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
@@ -162,6 +177,18 @@ func (h *HeartBeat) do() {
 	}
 
 	log.DefaultLogger().V(4).Infof("Heartbeat sent")
+}
+
+// nodeLabels returns the labels virt-handler maintains on its own node.
+func (h *HeartBeat) nodeLabels(schedulable string, cpuManagerEnabled bool) map[string]string {
+	labels := map[string]string{
+		v1.NodeSchedulable: schedulable,
+		v1.CPUManager:      strconv.FormatBool(cpuManagerEnabled),
+	}
+	if h.imageHash != "" {
+		labels[v1.VirtHandlerImageHashLabel] = h.imageHash
+	}
+	return labels
 }
 
 func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
