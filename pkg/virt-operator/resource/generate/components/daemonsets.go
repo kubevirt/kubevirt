@@ -71,6 +71,14 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
+	// lets virt-handler fingerprint its own node with VirtHandlerImageHashLabel.
+	// image can be empty here; resolve it the same way newPodTemplateSpec does,
+	// so the env var always matches the image the container actually runs.
+	resolvedImage := image
+	if resolvedImage == "" {
+		resolvedImage = fmt.Sprintf("%s/%s%s", repository, imageName, AddVersionSeparatorPrefix(version))
+	}
+	*env = append(*env, corev1.EnvVar{Name: operatorutil.VirtHandlerImageEnvName, Value: resolvedImage})
 	podTemplateSpec := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, nil, env)
 
 	if launcherImage == "" {
