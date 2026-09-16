@@ -201,6 +201,19 @@ pkg_tar(
     package_dir = "/",
 )
 
+pkg_tar(
+    name = "passt-script-tar",
+    srcs = [
+        "passt",
+    ],
+    package_dir = "/usr/local/bin",
+)
+
+layer_from_tar(
+    name = "passt-script-layer",
+    src = ":passt-script-tar",
+)
+
 layer_from_tar(
     name = "launcherbase-layer-x86_64",
     src = "//rpm:launcherbase_x86_64",
@@ -293,6 +306,7 @@ image_manifest(
             ":qemu-hook-layer",
             ":qemu-kvm-modules-dir-layer",
             ":var-run-symlink-layer",
+	    ":passt-script-layer",
         ],
     }),
 )
