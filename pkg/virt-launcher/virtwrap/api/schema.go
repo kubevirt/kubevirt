@@ -772,7 +772,7 @@ type ACPIHostDev struct {
 
 // BEGIN Controller -----------------------------
 
-// Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
+// Controller represents libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
 type Controller struct {
 	Type      string            `xml:"type,attr"`
 	Index     string            `xml:"index,attr"`
@@ -998,7 +998,7 @@ type ConsoleSource struct {
 
 // END Serial -----------------------------
 
-// BEGIN Inteface -----------------------------
+// BEGIN Interface -----------------------------
 
 type Interface struct {
 	XMLName             xml.Name               `xml:"interface"`

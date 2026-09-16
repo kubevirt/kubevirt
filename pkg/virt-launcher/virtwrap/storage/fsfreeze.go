@@ -87,7 +87,7 @@ func (m *StorageManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	fsfreezeStatus, err := m.getParsedFSStatus(domainName)
 	if err == nil {
-		// prevent initating fs thaw to prevent rerunning the thaw hook
+		// prevent initiating fs thaw to prevent rerunning the thaw hook
 		if fsfreezeStatus == api.FSThawed {
 			return nil
 		}
