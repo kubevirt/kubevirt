@@ -371,62 +371,60 @@ var _ = Describe("CRDs", func() {
 		),
 	)
 
-	DescribeTable("Expected categories should be present on CRD", func(crdFunc func() (*extv1.CustomResourceDefinition, error), expected ...string) {
+	DescribeTable("Expected categories should be present on CRD", func(crdFunc func() (*extv1.CustomResourceDefinition, error), expected []string) {
 		crd, err := crdFunc()
 		Expect(err).ToNot(HaveOccurred())
+
 		Expect(crd.Spec.Names.Categories).To(HaveLen(len(expected)))
 		for _, category := range expected {
 			Expect(crd.Spec.Names.Categories).To(ContainElement(category))
 		}
-	},
-		Entry("for VirtualMachineInstance", NewVirtualMachineInstanceCrd, "all"),
-		Entry("for VirtualMachine", NewVirtualMachineCrd, "all"),
-		Entry("for VirtualMachineInstancePreset", NewPresetCrd),
-		Entry("for VirtualMachineInstanceReplicaSet", NewReplicaSetCrd, "all"),
-		Entry("for VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd, "all"),
-		Entry("for KubeVirt", NewKubeVirtCrd, "all"),
-		Entry("for VirtualMachinePool", NewVirtualMachinePoolCrd, "all"),
-		Entry("for VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd, "all"),
-		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd, "all"),
-		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd, "all"),
-		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd, "all"),
-		Entry("for VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd, "all"),
-		Entry("for VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd),
-		Entry("for VirtualMachinePreference", NewVirtualMachinePreferenceCrd, "all"),
-		Entry("for VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd),
-		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd, "all"),
-		Entry("for MigrationPolicy", NewMigrationPolicyCrd),
-		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd, "all"),
-		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd, "all"),
-		Entry("for Plugin", NewPluginCrd),
-	)
 
-	It("should not add a CRD served only on deprecated versions to the \"all\" category", func() {
-		for _, crdFunc := range allCrdFuncs() {
-			crd, err := crdFunc()
-			Expect(err).ToNot(HaveOccurred())
-			if !servedOnlyOnDeprecatedVersions(crd) {
-				continue
-			}
+		if servedOnlyOnDeprecatedVersions(crd) {
 			Expect(crd.Spec.Names.Categories).ToNot(ContainElement("all"),
 				"%s is served only on deprecated versions, so listing it under \"all\" makes every "+
 					"\"kubectl get all\" emit its deprecation warning", crd.ObjectMeta.Name)
 		}
-	})
+	},
+		crdCategoriesEntries(),
+	)
 })
 
-func allCrdFuncs() []func() (*extv1.CustomResourceDefinition, error) {
-	return []func() (*extv1.CustomResourceDefinition, error){
-		NewVirtualMachineInstanceCrd, NewVirtualMachineCrd, NewPresetCrd,
-		NewReplicaSetCrd, NewVirtualMachineInstanceMigrationCrd, NewKubeVirtCrd,
-		NewVirtualMachinePoolCrd, NewVirtualMachineSnapshotCrd,
-		NewVirtualMachineSnapshotContentCrd, NewVirtualMachineRestoreCrd,
-		NewVirtualMachineExportCrd, NewVirtualMachineInstancetypeCrd,
-		NewVirtualMachineClusterInstancetypeCrd, NewVirtualMachinePreferenceCrd,
-		NewVirtualMachineClusterPreferenceCrd, NewVirtualMachineCloneCrd,
-		NewMigrationPolicyCrd, NewVirtualMachineBackupCrd,
-		NewVirtualMachineBackupTrackerCrd, NewPluginCrd,
+// crdCategoriesEntries is the single source of truth for the categories every
+// CRD is expected to declare.
+func crdCategoriesEntries() []TableEntry {
+	cases := []struct {
+		name       string
+		crdFunc    func() (*extv1.CustomResourceDefinition, error)
+		categories []string
+	}{
+		{"VirtualMachineInstance", NewVirtualMachineInstanceCrd, []string{"all"}},
+		{"VirtualMachine", NewVirtualMachineCrd, []string{"all"}},
+		{"VirtualMachineInstancePreset", NewPresetCrd, nil},
+		{"VirtualMachineInstanceReplicaSet", NewReplicaSetCrd, []string{"all"}},
+		{"VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd, []string{"all"}},
+		{"KubeVirt", NewKubeVirtCrd, []string{"all"}},
+		{"VirtualMachinePool", NewVirtualMachinePoolCrd, []string{"all"}},
+		{"VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd, []string{"all"}},
+		{"VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd, []string{"all"}},
+		{"VirtualMachineRestore", NewVirtualMachineRestoreCrd, []string{"all"}},
+		{"VirtualMachineExport", NewVirtualMachineExportCrd, []string{"all"}},
+		{"VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd, []string{"all"}},
+		{"VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd, nil},
+		{"VirtualMachinePreference", NewVirtualMachinePreferenceCrd, []string{"all"}},
+		{"VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd, nil},
+		{"VirtualMachineClone", NewVirtualMachineCloneCrd, []string{"all"}},
+		{"MigrationPolicy", NewMigrationPolicyCrd, nil},
+		{"VirtualMachineBackup", NewVirtualMachineBackupCrd, []string{"all"}},
+		{"VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd, []string{"all"}},
+		{"Plugin", NewPluginCrd, nil},
 	}
+
+	entries := make([]TableEntry, 0, len(cases))
+	for _, c := range cases {
+		entries = append(entries, Entry(fmt.Sprintf("for %s", c.name), c.crdFunc, c.categories))
+	}
+	return entries
 }
 
 // servedOnlyOnDeprecatedVersions reports whether every version the API server
