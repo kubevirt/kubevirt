@@ -41,7 +41,7 @@ func (UsbRedirectDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInsta
 	// so we simply create the maximum allowed dictated by v1.UsbClientPassthroughMaxNumberOf
 	redirectDevices := make([]api.RedirectedDevice, v1.UsbClientPassthroughMaxNumberOf)
 
-	for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
+	for i := range v1.UsbClientPassthroughMaxNumberOf {
 		path := fmt.Sprintf("/var/run/kubevirt-private/%s/virt-usbredir-%d", vmi.ObjectMeta.UID, i)
 		redirectDevices[i] = api.RedirectedDevice{
 			Type: "unix",

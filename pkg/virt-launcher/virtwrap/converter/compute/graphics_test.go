@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -76,9 +75,9 @@ var _ = Describe("Graphics Domain Configurator", func() {
 
 			Expect(domain).To(Equal(expectedDomain))
 		},
-			Entry("amd64 when AutoattachGraphicsDevice is true", "amd64", pointer.P(true), newExpectedAMD64VideoDevice()),
-			Entry("arm64 when AutoattachGraphicsDevice is true", "arm64", pointer.P(true), newExpectedARM64VideoDevice()),
-			Entry("s390x when AutoattachGraphicsDevice is true", "s390x", pointer.P(true), newExpectedS390XVideoDevice()),
+			Entry("amd64 when AutoattachGraphicsDevice is true", "amd64", new(true), newExpectedAMD64VideoDevice()),
+			Entry("arm64 when AutoattachGraphicsDevice is true", "arm64", new(true), newExpectedARM64VideoDevice()),
+			Entry("s390x when AutoattachGraphicsDevice is true", "s390x", new(true), newExpectedS390XVideoDevice()),
 			Entry("amd64 when AutoattachGraphicsDevice is nil", "amd64", nil, newExpectedAMD64VideoDevice()),
 			Entry("arm64 when AutoattachGraphicsDevice is nil", "arm64", nil, newExpectedARM64VideoDevice()),
 			Entry("s390x when AutoattachGraphicsDevice is nil", "s390x", nil, newExpectedS390XVideoDevice()),
@@ -112,8 +111,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 							{
 								Model: api.VideoModel{
 									Type:  "virtio",
-									Heads: pointer.P(uint(1)),
-									VRam:  pointer.P(uint(16384)),
+									Heads: new(uint(1)),
+									VRam:  new(uint(16384)),
 								},
 							},
 						},
@@ -153,8 +152,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 							{
 								Model: api.VideoModel{
 									Type:  "vga",
-									Heads: pointer.P(uint(1)),
-									VRam:  pointer.P(uint(16384)),
+									Heads: new(uint(1)),
+									VRam:  new(uint(16384)),
 								},
 							},
 						},
@@ -192,7 +191,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 							{
 								Model: api.VideoModel{
 									Type:  "bochs",
-									Heads: pointer.P(uint(1)),
+									Heads: new(uint(1)),
 								},
 							},
 						},
@@ -218,8 +217,8 @@ func newExpectedAMD64VideoDevice() api.Video {
 	return api.Video{
 		Model: api.VideoModel{
 			Type:  "vga",
-			Heads: pointer.P(uint(1)),
-			VRam:  pointer.P(uint(16384)),
+			Heads: new(uint(1)),
+			VRam:  new(uint(16384)),
 		},
 	}
 }
@@ -228,7 +227,7 @@ func newExpectedARM64VideoDevice() api.Video {
 	return api.Video{
 		Model: api.VideoModel{
 			Type:  v1.VirtIO,
-			Heads: pointer.P(uint(1)),
+			Heads: new(uint(1)),
 		},
 	}
 }
@@ -237,7 +236,7 @@ func newExpectedS390XVideoDevice() api.Video {
 	return api.Video{
 		Model: api.VideoModel{
 			Type:  v1.VirtIO,
-			Heads: pointer.P(uint(1)),
+			Heads: new(uint(1)),
 		},
 	}
 }

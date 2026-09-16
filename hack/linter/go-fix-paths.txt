@@ -1,3 +1,4 @@
 pkg/network
+pkg/virt-launcher/virtwrap/converter/compute
 tests/libnet
 tests/network

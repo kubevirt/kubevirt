@@ -77,7 +77,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			libvmi.New(libvmi.WithClock(v1.Clock{
 				ClockOffset: v1.ClockOffset{
 					UTC: &v1.ClockOffsetUTC{
-						OffsetSeconds: pointer.P(3600),
+						OffsetSeconds: new(3600),
 					},
 				},
 			})),
@@ -92,7 +92,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 					RTC: &v1.RTCTimer{
 						Track:      v1.TrackGuest,
 						TickPolicy: v1.RTCTickPolicyCatchup,
-						Enabled:    pointer.P(true),
+						Enabled:    new(true),
 					},
 				},
 			})),
@@ -107,7 +107,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 				Timer: &v1.Timer{
 					PIT: &v1.PITTimer{
 						TickPolicy: v1.PITTickPolicyDelay,
-						Enabled:    pointer.P(false),
+						Enabled:    new(false),
 					},
 				},
 			})),
@@ -134,7 +134,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 				Timer: &v1.Timer{
 					HPET: &v1.HPETTimer{
 						TickPolicy: v1.HPETTickPolicyDelay,
-						Enabled:    pointer.P(true),
+						Enabled:    new(true),
 					},
 				},
 			})),
@@ -148,7 +148,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 			libvmi.New(libvmi.WithClock(v1.Clock{
 				Timer: &v1.Timer{
 					Hyperv: &v1.HypervTimer{
-						Enabled: pointer.P(true),
+						Enabled: new(true),
 					},
 				},
 			})),
@@ -166,7 +166,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 				Timer: &v1.Timer{
 					RTC:    &v1.RTCTimer{Track: v1.TrackWall, TickPolicy: v1.RTCTickPolicyDelay},
 					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyCatchup},
-					KVM:    &v1.KVMTimer{Enabled: pointer.P(true)},
+					KVM:    &v1.KVMTimer{Enabled: new(true)},
 					HPET:   &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyCatchup},
 					Hyperv: &v1.HypervTimer{},
 				},
