@@ -1447,7 +1447,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			if keyMigration.IsFinal() {
-				Expect(migrationsStored.Items).To(HaveLen(int(defaultFinalizedMigrationGarbageCollectionBuffer)))
+				Expect(migrationsStored.Items).To(HaveLen(defaultFinalizedMigrationGarbageCollectionBuffer))
 			} else {
 				Expect(migrationsStored.Items).To(HaveLen(len(phasesToGarbageCollect) * 10))
 			}

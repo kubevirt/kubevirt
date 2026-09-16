@@ -81,13 +81,14 @@ const (
 
 const vmiPodIndex = "vmiPodIndex"
 
-// This is how many finalized migration objects are retained per VMI when
-// outcome-specific history limits are not configured.
-const defaultFinalizedMigrationGarbageCollectionBuffer uint32 = 5
-
 // This is the timeout used when a target pod is stuck in
 // a pending unschedulable state.
 const defaultUnschedulablePendingTimeoutSeconds = int64(60 * 5)
+
+// This is how many finalized migration objects left in
+// the system before we begin garbage collecting the oldest
+// migration objects
+const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 
 // This catch-all timeout is used when a target pod is stuck in
 // the pending phase for any reason. The theory behind this timeout
