@@ -56,11 +56,11 @@ func callSidecarHook(socketPath, pluginName string, domainXML, vmiJSON []byte, i
 	}
 	defer conn.Close()
 
-	client := pluginsv1alpha1.NewDomainHookServiceClient(conn)
+	client := pluginsv1alpha1.NewLauncherHookServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	resp, err := client.MutateDomain(ctx, &pluginsv1alpha1.MutateDomainRequest{
+	resp, err := client.GuestDefinition(ctx, &pluginsv1alpha1.GuestDefinitionRequest{
 		DomainType: domainTypeLibvirt,
 		Domain:     domainXML,
 		Vmi:        vmiJSON,
@@ -70,9 +70,9 @@ func callSidecarHook(socketPath, pluginName string, domainXML, vmiJSON []byte, i
 	})
 	if err != nil {
 		if st, ok := grpcstatus.FromError(err); ok {
-			return nil, fmt.Errorf("MutateDomain RPC to %s failed with %s: %s", pluginName, st.Code(), st.Message())
+			return nil, fmt.Errorf("GuestDefinition RPC to %s failed with %s: %s", pluginName, st.Code(), st.Message())
 		}
-		return nil, fmt.Errorf("MutateDomain RPC to %s failed: %w", pluginName, err)
+		return nil, fmt.Errorf("GuestDefinition RPC to %s failed: %w", pluginName, err)
 	}
 	return resp.Domain, nil
 }

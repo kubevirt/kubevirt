@@ -72,9 +72,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "modified"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "modified"}`},
 						},
 					},
 				},
@@ -93,10 +93,10 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "conditional"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							Condition: `vmi.Labels["app"] == "nonexistent"`,
-							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "should-not-appear"}`},
+							CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "should-not-appear"}`},
 						},
 					},
 				},
@@ -112,10 +112,10 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "conditional"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							Condition: `vmi.Labels["app"] == "test"`,
-							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "applied"}`},
+							CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "applied"}`},
 						},
 					},
 				},
@@ -136,9 +136,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "noop"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{}`},
 						},
 					},
 				},
@@ -170,9 +170,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "noop"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{}`},
 						},
 					},
 				},
@@ -196,10 +196,10 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "compound"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							Condition: `vmi.Labels["app"] == "test" && vmi.Namespace == "default"`,
-							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "compound-match"}`},
+							CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "compound-match"}`},
 						},
 					},
 				},
@@ -214,10 +214,10 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "compound"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							Condition: `vmi.Labels["app"] == "test" && vmi.Namespace == "wrong-ns"`,
-							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "should-not-appear"}`},
+							CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "should-not-appear"}`},
 						},
 					},
 				},
@@ -234,9 +234,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			pluginBeta := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "beta-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "from-beta"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "from-beta"}`},
 						},
 					},
 				},
@@ -244,9 +244,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			pluginAlpha := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "alpha-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "from-alpha"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "from-alpha"}`},
 						},
 					},
 				},
@@ -265,12 +265,12 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "multi-hook"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "first"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "first"}`},
 						},
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "second"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "second"}`},
 						},
 					},
 				},
@@ -287,9 +287,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			pluginB := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "b-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Description: "from-b"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Description: "from-b"}`},
 						},
 					},
 				},
@@ -297,9 +297,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			pluginA := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "a-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "from-a"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "from-a"}`},
 						},
 					},
 				},
@@ -319,9 +319,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "filtered"},
 				Spec: pluginv1alpha1.PluginSpec{
 					Condition: `vmi.Labels["app"] == "nonexistent"`,
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "should-not-appear"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "should-not-appear"}`},
 						},
 					},
 				},
@@ -338,9 +338,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "matching"},
 				Spec: pluginv1alpha1.PluginSpec{
 					Condition: `vmi.Labels["app"] == "test"`,
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "plugin-matched"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "plugin-matched"}`},
 						},
 					},
 				},
@@ -357,9 +357,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				Spec: pluginv1alpha1.PluginSpec{
 					Condition:       `invalid!!! expression`,
 					FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "irrelevant"}`},
+							CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "irrelevant"}`},
 						},
 					},
 				},
@@ -375,14 +375,14 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "both-conditions"},
 				Spec: pluginv1alpha1.PluginSpec{
 					Condition: `vmi.Labels["app"] == "test"`,
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							Condition: `vmi.Namespace == "wrong"`,
-							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "should-not-appear"}`},
+							CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "should-not-appear"}`},
 						},
 						{
 							Condition: `vmi.Namespace == "default"`,
-							CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "both-passed"}`},
+							CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "both-passed"}`},
 						},
 					},
 				},
@@ -401,10 +401,10 @@ var _ = Describe("Domain Hook Pipeline", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "test-strategy"},
 				Spec: pluginv1alpha1.PluginSpec{
 					FailureStrategy: pluginStrategy,
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
 							FailureStrategy: hookStrategy,
-							CEL:             &pluginv1alpha1.CELDomainHook{Expression: `invalid!!! expression`},
+							CEL:             &pluginv1alpha1.CELLauncherHook{Expression: `invalid!!! expression`},
 						},
 					},
 				},
@@ -430,9 +430,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "sidecar-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: "/tmp/test.sock"},
+							Sidecar: &pluginv1alpha1.SidecarLauncherHook{SocketPath: "/tmp/test.sock"},
 						},
 					},
 				},
@@ -447,9 +447,9 @@ var _ = Describe("Domain Hook Pipeline", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "sidecar-plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							Sidecar:         &pluginv1alpha1.SidecarDomainHook{SocketPath: "/tmp/test.sock"},
+							Sidecar:         &pluginv1alpha1.SidecarLauncherHook{SocketPath: "/tmp/test.sock"},
 							FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 						},
 					},

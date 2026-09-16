@@ -61,12 +61,13 @@ type PluginSpec struct {
 	// +optional
 	FailureStrategy FailureStrategy `json:"failureStrategy,omitempty"`
 
-	// DomainHooks defines hooks that modify the libvirt domain XML.
+	// LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined
+	// points in the VM lifecycle.
 	// Hooks are applied in declaration order within each plugin.
 	// Across plugins, hooks are applied in alphabetical order by plugin name.
 	// +optional
 	// +listType=atomic
-	DomainHooks []DomainHook `json:"domainHooks,omitempty"`
+	LauncherHooks []LauncherHook `json:"launcherHooks,omitempty"`
 
 	// NodeHooks defines hooks that execute during VM lifecycle events.
 	// Hooks are applied in declaration order within each plugin.
@@ -112,15 +113,15 @@ const (
 	InvocationContextMigrationTarget InvocationContext = "MigrationTarget"
 )
 
-// DomainHook defines a hook that modifies the libvirt domain XML.
+// LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle.
 // Exactly one of cel or sidecar must be specified.
-type DomainHook struct {
-	// CEL defines a CEL expression that transforms the domain XML.
+type LauncherHook struct {
+	// CEL defines a CEL expression hook.
 	// +optional
-	CEL *CELDomainHook `json:"cel,omitempty"`
-	// Sidecar defines a sidecar-based hook that transforms the domain XML via a Unix socket.
+	CEL *CELLauncherHook `json:"cel,omitempty"`
+	// Sidecar defines a sidecar-based hook that communicates via a Unix socket.
 	// +optional
-	Sidecar *SidecarDomainHook `json:"sidecar,omitempty"`
+	Sidecar *SidecarLauncherHook `json:"sidecar,omitempty"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
 	// +optional
 	Condition string `json:"condition,omitempty"`
@@ -132,20 +133,20 @@ type DomainHook struct {
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
-type CELDomainHook struct {
+type CELLauncherHook struct {
 	// Expression is the CEL expression applied to the domain XML.
 	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression"`
 }
 
-type SidecarDomainHook struct {
+type SidecarLauncherHook struct {
 	// SocketPath is the path to the Unix socket used to communicate with the sidecar.
 	// +kubebuilder:validation:MinLength=1
 	SocketPath string `json:"socketPath"`
 }
 
 // NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.
-// Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations
+// Unlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations
 // such as configuring networking, storage preparation, or device management.
 // Hooks may fire multiple times for the same lifecycle event due to reconciliation retries.
 // Implementations must be idempotent.

@@ -59,7 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
+var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
 
 	BeforeEach(func() {
 		checks.FailTestIfNoFeatureGate(featuregate.PluginsGate)
@@ -78,16 +78,16 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 	}
 
 	createCelPlugin := func(name, condition string, expressions ...string) {
-		var hooks []pluginv1alpha1.DomainHook
+		var hooks []pluginv1alpha1.LauncherHook
 		for _, expr := range expressions {
-			hooks = append(hooks, pluginv1alpha1.DomainHook{
+			hooks = append(hooks, pluginv1alpha1.LauncherHook{
 				Condition: condition,
-				CEL:       &pluginv1alpha1.CELDomainHook{Expression: expr},
+				CEL:       &pluginv1alpha1.CELLauncherHook{Expression: expr},
 			})
 		}
 		createPlugin(&pluginv1alpha1.Plugin{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec:       pluginv1alpha1.PluginSpec{DomainHooks: hooks},
+			Spec:       pluginv1alpha1.PluginSpec{LauncherHooks: hooks},
 		})
 	}
 
@@ -99,7 +99,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 		}, 30)).To(Succeed())
 	}
 
-	It("should apply a CEL domain hook that adds a watchdog device visible inside the guest", func() {
+	It("should apply a CEL launcher hook that adds a watchdog device visible inside the guest", func() {
 		createCelPlugin("watchdog-plugin", "", `Domain{Devices: DomainDeviceList{Watchdogs: [DomainWatchdog{Model: "i6300esb", Action: "none"}]}}`)
 
 		By("Starting an Alpine VMI without a watchdog in its spec")
@@ -201,7 +201,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 		expectWatchdog(vmi)
 	})
 
-	Context("sidecar domain hooks", func() {
+	Context("sidecar launcher hooks", func() {
 		BeforeEach(func() {
 			enabled, err := util.IsMutatingAdmissionPolicyEnabled(kubevirt.Client())
 			Expect(err).NotTo(HaveOccurred())
@@ -214,7 +214,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			virtClient := kubevirt.Client()
 			testNamespace := testsuite.GetTestNamespace(nil)
 			policyName := fmt.Sprintf("plugin-sidecar-injector-%s", pluginName)
-			sidecarImage := fmt.Sprintf("%s/test-domain-hook-sidecar:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
+			sidecarImage := fmt.Sprintf("%s/test-launcher-hook-sidecar:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
 
 			mapGVR := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "mutatingadmissionpolicies"}
 			bindingGVR := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "mutatingadmissionpolicybindings"}
@@ -353,32 +353,34 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		deploySleepingSidecarInjectorMAP := func(pluginName string) {
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", "--sleep"})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--sleep"})
 		}
 
 		deployErrorSidecarInjectorMAP := func(pluginName string) {
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", "--error", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", socketPath})
 		}
 
-		It("should apply both CEL and sidecar domain hooks", func() {
+		It("should apply both CEL and sidecar launcher hooks", func() {
 			const pluginName = "composition-test"
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
 
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath})
 
-			By("Creating Plugin with CEL watchdog hook and sidecar domain hook")
+			By("Creating Plugin with CEL watchdog hook and sidecar launcher hook")
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{
+							CEL: &pluginv1alpha1.CELLauncherHook{
 								Expression: `Domain{Devices: DomainDeviceList{Watchdogs: [DomainWatchdog{Model: "i6300esb", Action: "poweroff"}]}}`,
 							},
 						},
 						{
-							Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+							Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+								SocketPath:     socketPath,
+							},
 						},
 					},
 				},
@@ -402,14 +404,16 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			const pluginName = "migration-test"
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
 
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath})
 
-			By("Creating Plugin with sidecar domain hook")
+			By("Creating Plugin with sidecar launcher hook")
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+						},
 					}},
 				},
 			})
@@ -444,8 +448,10 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar:         &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+						},
 						FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 					}},
 				},
@@ -467,8 +473,10 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar:         &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+						},
 						FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 					}},
 				},

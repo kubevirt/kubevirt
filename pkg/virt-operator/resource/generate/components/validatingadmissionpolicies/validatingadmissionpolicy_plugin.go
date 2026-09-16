@@ -68,11 +68,11 @@ func NewPluginValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdm
 			},
 			Validations: []admissionregistrationv1.Validation{
 				{
-					Expression: `!has(object.spec.domainHooks) || object.spec.domainHooks.all(dh, has(dh.cel) != has(dh.sidecar))`,
-					Message:    "exactly one of cel or sidecar must be specified for each domain hook",
+					Expression: `!has(object.spec.launcherHooks) || object.spec.launcherHooks.all(lh, has(lh.cel) != has(lh.sidecar))`,
+					Message:    "exactly one of cel or sidecar must be specified for each launcher hook",
 				},
 				{
-					Expression: `!has(object.spec.domainHooks) || object.spec.domainHooks.all(dh, !has(dh.failureStrategy) || dh.failureStrategy in ['Fail', 'Ignore'])`,
+					Expression: `!has(object.spec.launcherHooks) || object.spec.launcherHooks.all(lh, !has(lh.failureStrategy) || lh.failureStrategy in ['Fail', 'Ignore'])`,
 					Message:    "failureStrategy must be either 'Fail' or 'Ignore'",
 				},
 				{
@@ -80,7 +80,7 @@ func NewPluginValidatingAdmissionPolicy() *admissionregistrationv1.ValidatingAdm
 					Message:    "failureStrategy must be either 'Fail' or 'Ignore'",
 				},
 				{
-					Expression: `!has(object.spec.nodeHooks) || object.spec.nodeHooks.all(nh, nh.permittedHooks.all(p, p in ['PreVMStart', 'PostVMStart', 'PreVMStop', 'PostVMStop', 'PreMigrationSource', 'PostMigrationSource', 'PreMigrationTarget', 'PostMigrationTarget']))`,
+					Expression: `!has(object.spec.nodeHooks) || object.spec.nodeHooks.all(nh, nh.permittedHooks.all(p, p in ['PreVMStart', 'PostVMStart', 'OnVMStop', 'PostVMStop', 'PreMigrationSource', 'PostMigrationSource', 'PreMigrationTarget', 'PostMigrationTarget']))`,
 					Message:    "permittedHooks must only contain valid node hook points",
 				},
 				{
@@ -122,8 +122,8 @@ func NewPluginWarningAdmissionPolicy() *admissionregistrationv1.ValidatingAdmiss
 			},
 			Variables: []admissionregistrationv1.Variable{
 				{
-					Name:       "hasDomainHooks",
-					Expression: `has(object.spec.domainHooks) && size(object.spec.domainHooks) > 0`,
+					Name:       "hasLauncherHooks",
+					Expression: `has(object.spec.launcherHooks) && size(object.spec.launcherHooks) > 0`,
 				},
 				{
 					Name:       "hasNodeHooks",
@@ -136,7 +136,7 @@ func NewPluginWarningAdmissionPolicy() *admissionregistrationv1.ValidatingAdmiss
 			},
 			Validations: []admissionregistrationv1.Validation{
 				{
-					Expression: `variables.hasDomainHooks || variables.hasNodeHooks || variables.hasAdmissionRefs`,
+					Expression: `variables.hasLauncherHooks || variables.hasNodeHooks || variables.hasAdmissionRefs`,
 					Message:    "no hooks or admission references are defined; this plugin will have no effect",
 				},
 			},

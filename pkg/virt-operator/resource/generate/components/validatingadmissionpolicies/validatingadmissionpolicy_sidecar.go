@@ -179,22 +179,22 @@ func NewPluginSocketPathValidatingAdmissionPolicy() *admissionregistrationv1.Val
 			},
 			Validations: []admissionregistrationv1.Validation{
 				{
-					Expression: `!has(object.spec.domainHooks) ||
-	object.spec.domainHooks.all(dh,
-	    !has(dh.sidecar) || dh.sidecar.socketPath.endsWith(".sock"))`,
+					Expression: `!has(object.spec.launcherHooks) ||
+	object.spec.launcherHooks.all(lh,
+	    !has(lh.sidecar) || lh.sidecar.socketPath.endsWith(".sock"))`,
 					Message: "sidecar socketPath must end with .sock",
 				},
 				{
-					Expression: `!has(object.spec.domainHooks) ||
-	object.spec.domainHooks.all(dh,
-	    !has(dh.sidecar) || size(dh.sidecar.socketPath) <= 108)`,
+					Expression: `!has(object.spec.launcherHooks) ||
+	object.spec.launcherHooks.all(lh,
+	    !has(lh.sidecar) || size(lh.sidecar.socketPath) <= 108)`,
 					Message: "sidecar socketPath must not exceed 108 characters (Unix socket limit)",
 				},
 				{
-					Expression: `!has(object.spec.domainHooks) ||
-	object.spec.domainHooks.all(dh,
-	    !has(dh.sidecar) ||
-	    dh.sidecar.socketPath.startsWith(
+					Expression: `!has(object.spec.launcherHooks) ||
+	object.spec.launcherHooks.all(lh,
+	    !has(lh.sidecar) ||
+	    lh.sidecar.socketPath.startsWith(
 	        "/var/run/kubevirt-plugin/" + object.metadata.name + "/"))`,
 					Message: "sidecar socketPath must start with /var/run/kubevirt-plugin/<plugin-name>/",
 				},

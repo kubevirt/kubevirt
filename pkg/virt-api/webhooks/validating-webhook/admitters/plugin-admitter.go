@@ -98,8 +98,8 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 			}
 		}
 
-		for i, dh := range p.Spec.DomainHooks {
-			causes = append(causes, validateDomainHookCEL(eval, dh, specPath.Child("domainHooks").Index(i))...)
+		for i, dh := range p.Spec.LauncherHooks {
+			causes = append(causes, validateLauncherHookCEL(eval, dh, specPath.Child("launcherHooks").Index(i))...)
 		}
 
 		nodeEval, err := nodecelutil.NewEvaluator()
@@ -128,12 +128,12 @@ func hasCELExpressions(p *pluginv1alpha1.Plugin) bool {
 	if slices.ContainsFunc(p.Spec.NodeHooks, func(nh pluginv1alpha1.NodeHook) bool { return nh.Condition != "" }) {
 		return true
 	}
-	return slices.ContainsFunc(p.Spec.DomainHooks, func(dh pluginv1alpha1.DomainHook) bool {
+	return slices.ContainsFunc(p.Spec.LauncherHooks, func(dh pluginv1alpha1.LauncherHook) bool {
 		return (dh.CEL != nil && dh.CEL.Expression != "") || dh.Condition != ""
 	})
 }
 
-func validateDomainHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.DomainHook, dhPath *field.Path) []metav1.StatusCause {
+func validateLauncherHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.LauncherHook, dhPath *field.Path) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if dh.CEL != nil && dh.CEL.Expression != "" {
@@ -179,11 +179,11 @@ func validateSidecarSocketPaths(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	specPath := field.NewPath("spec")
 
-	for i, dh := range p.Spec.DomainHooks {
+	for i, dh := range p.Spec.LauncherHooks {
 		if dh.Sidecar == nil {
 			continue
 		}
-		dhPath := specPath.Child("domainHooks").Index(i).Child("sidecar", "socketPath")
+		dhPath := specPath.Child("launcherHooks").Index(i).Child("sidecar", "socketPath")
 		sp := dh.Sidecar.SocketPath
 
 		cleaned := filepath.Clean(sp)
