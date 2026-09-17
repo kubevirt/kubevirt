@@ -38,18 +38,17 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const kubeVirtNamespace = "kubevirt"
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	_, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var (
 		virtClient *kubecli.MockKubevirtClient
 	)
@@ -104,7 +103,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			testutils.AddDataVolumeAPI(crdInformer)
-			causes, err := admitVm(virtClient, admissionv1.Create, config, vm, nil)
+			causes, err := admitVm(virtClient, admissionv1.Create, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 			causes = ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
@@ -151,7 +150,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 
 			testutils.AddDataVolumeAPI(crdInformer)
-			causes, err := admitVm(virtClient, admissionv1.Create, config, vm, nil)
+			causes, err := admitVm(virtClient, admissionv1.Create, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
 		})
@@ -360,7 +359,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			allow := mutateFn(vm)
 
-			causes, err := admitVm(virtClient, admissionv1.Update, config, vm, oldVM)
+			causes, err := admitVm(virtClient, admissionv1.Update, vm, oldVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			if !allow {
@@ -446,7 +445,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			allow := mutateFn(vm)
 
-			causes, err := admitVm(virtClient, admissionv1.Update, config, vm, oldVM)
+			causes, err := admitVm(virtClient, admissionv1.Update, vm, oldVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			if !allow {
@@ -480,7 +479,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 })
 
-func admitVm(virtClient *kubecli.MockKubevirtClient, operation admissionv1.Operation, config *virtconfig.ClusterConfig, vm, oldVm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func admitVm(virtClient *kubecli.MockKubevirtClient, operation admissionv1.Operation, vm, oldVm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	vmBytes, _ := json.Marshal(vm)
 
 	ar := &admissionv1.AdmissionRequest{
@@ -498,5 +497,5 @@ func admitVm(virtClient *kubecli.MockKubevirtClient, operation admissionv1.Opera
 		}
 	}
 
-	return Admit(virtClient, context.Background(), ar, vm, config)
+	return Admit(virtClient, context.Background(), ar, vm)
 }

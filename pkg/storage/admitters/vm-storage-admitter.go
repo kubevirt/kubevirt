@@ -26,25 +26,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type Admitter struct {
-	virtClient    kubecli.KubevirtClient
-	ctx           context.Context
-	ar            *admissionv1.AdmissionRequest
-	vm            *v1.VirtualMachine
-	clusterConfig *virtconfig.ClusterConfig
+	virtClient kubecli.KubevirtClient
+	ctx        context.Context
+	ar         *admissionv1.AdmissionRequest
+	vm         *v1.VirtualMachine
 }
 
-func NewAdmitter(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) *Admitter {
+func NewAdmitter(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) *Admitter {
 	return &Admitter{
-		virtClient:    virtClient,
-		ctx:           ctx,
-		ar:            ar,
-		vm:            vm,
-		clusterConfig: clusterConfig,
+		virtClient: virtClient,
+		ctx:        ctx,
+		ar:         ar,
+		vm:         vm,
 	}
 }
 
@@ -75,12 +71,12 @@ func (a Admitter) Admit() ([]metav1.StatusCause, error) {
 	return causes, nil
 }
 
-func Admit(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) ([]metav1.StatusCause, error) {
-	storageAdmitter := NewAdmitter(virtClient, ctx, ar, vm, clusterConfig)
+func Admit(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+	storageAdmitter := NewAdmitter(virtClient, ctx, ar, vm)
 	return storageAdmitter.Admit()
 }
 
-func AdmitStatus(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) []metav1.StatusCause {
-	storageAdmitter := NewAdmitter(virtClient, ctx, ar, vm, clusterConfig)
+func AdmitStatus(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	storageAdmitter := NewAdmitter(virtClient, ctx, ar, vm)
 	return storageAdmitter.AdmitStatus()
 }
