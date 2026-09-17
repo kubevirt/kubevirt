@@ -34,7 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -130,9 +129,7 @@ func createVMWithPublicKey() (vmi *v1.VirtualMachineInstance, keyFile string) {
 	// VSOCK device is attached, so authorizing the public key is all the guest needs.
 	vmi = libvmifact.NewFedora(
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
-		func(vmi *v1.VirtualMachineInstance) {
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-		},
+		libvmi.WithAutoattachVSOCK(true),
 	)
 	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
 		Create(context.Background(), vmi, metav1.CreateOptions{})
