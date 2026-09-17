@@ -20,7 +20,6 @@
 package admitters
 
 import (
-	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -480,5 +479,5 @@ func admitVm(operation admissionv1.Operation, vm, oldVm *v1.VirtualMachine) ([]m
 		}
 	}
 
-	return Admit(context.Background(), ar, vm)
+	return Admit(ar, vm)
 }
