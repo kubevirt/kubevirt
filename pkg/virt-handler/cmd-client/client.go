@@ -364,7 +364,25 @@ func (c *VirtLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance
 }
 
 func (c *VirtLauncherClient) UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Unfreeze", c.v1client.UnfreezeVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: &cmdv1.VirtualMachineOptions{},
+	}
+
+	// Use extended timeout as Windows VSS can take up to 60 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), extendedTimeout)
+	defer cancel()
+	response, err := c.v1client.UnfreezeVirtualMachine(ctx, request)
+
+	err = handleError(err, "Unfreeze", response)
+	return err
 }
 
 func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
