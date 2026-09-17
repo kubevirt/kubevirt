@@ -988,6 +988,21 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
 		}
 	}
+
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if containerStatus.State.Waiting == nil {
+			continue
+		}
+		if containerStatus.State.Waiting.Reason == controller.CreateContainerErrorReason && strings.HasPrefix(containerStatus.Name, "volume") {
+			return common.NewSyncError(
+				fmt.Errorf("init container %s failed: %s. "+
+					"If the containerDisk image is an OCI artifact (e.g. pushed with ORAS), "+
+					"set the annotation %s: \"true\" on the VMI",
+					containerStatus.Name, containerStatus.State.Waiting.Message,
+					virtv1.ImageVolumeSkipDigestResolutionAnnotation),
+				controller.CreateContainerErrorReason)
+		}
+	}
 	return nil
 }
 
