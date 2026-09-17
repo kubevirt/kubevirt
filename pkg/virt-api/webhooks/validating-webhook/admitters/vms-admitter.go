@@ -152,7 +152,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = storageadmitters.Admit(ctx, ar.Request, &vm)
+	causes, err = storageadmitters.Admit(ar.Request, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -196,7 +196,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes = storageadmitters.AdmitStatus(ctx, ar.Request, vm)
+	causes = storageadmitters.AdmitStatus(ar.Request, vm)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

@@ -20,24 +20,20 @@
 package admitters
 
 import (
-	"context"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
 type Admitter struct {
-	ctx context.Context
-	ar  *admissionv1.AdmissionRequest
-	vm  *v1.VirtualMachine
+	ar *admissionv1.AdmissionRequest
+	vm *v1.VirtualMachine
 }
 
-func NewAdmitter(ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) *Admitter {
+func NewAdmitter(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) *Admitter {
 	return &Admitter{
-		ctx: ctx,
-		ar:  ar,
-		vm:  vm,
+		ar: ar,
+		vm: vm,
 	}
 }
 
@@ -68,12 +64,12 @@ func (a Admitter) Admit() ([]metav1.StatusCause, error) {
 	return causes, nil
 }
 
-func Admit(ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
-	storageAdmitter := NewAdmitter(ctx, ar, vm)
+func Admit(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+	storageAdmitter := NewAdmitter(ar, vm)
 	return storageAdmitter.Admit()
 }
 
-func AdmitStatus(ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
-	storageAdmitter := NewAdmitter(ctx, ar, vm)
+func AdmitStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	storageAdmitter := NewAdmitter(ar, vm)
 	return storageAdmitter.AdmitStatus()
 }
