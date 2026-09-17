@@ -12,9 +12,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
@@ -38,9 +35,9 @@ var _ = Describe("Hinter", func() {
 			NodeWithTSC("node2", 12345, false),
 		)
 		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 123))
-		hinter.clusterConfig = clusterConfigWithTSCFrequency(200)
+		hinter.clusterConfig = stubClusterConfigurer{minimumClusterTSCFrequency: new(int64(200))}
 		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 200))
-		hinter.clusterConfig = clusterConfigWithoutTSCFrequency()
+		hinter.clusterConfig = stubClusterConfigurer{}
 		g.Expect(hinter.LowestTSCFrequencyOnCluster()).To(g.BeNumerically("==", 123))
 	})
 
@@ -91,7 +88,7 @@ var _ = Describe("Hinter", func() {
 func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 
 	return &topologyHinter{
-		clusterConfig: clusterConfigWithoutTSCFrequency(),
+		clusterConfig: stubClusterConfigurer{},
 		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return NodesToObjects(nodes...)
@@ -199,20 +196,10 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 	}
 }
 
-func clusterConfigWithTSCFrequency(freq int64) *virtconfig.ClusterConfig {
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
-		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-			MinimumClusterTSCFrequency: &freq,
-		},
-	})
-	return config
+type stubClusterConfigurer struct {
+	minimumClusterTSCFrequency *int64
 }
 
-func clusterConfigWithoutTSCFrequency() *virtconfig.ClusterConfig {
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
-		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-			MinimumClusterTSCFrequency: nil,
-		},
-	})
-	return config
+func (s stubClusterConfigurer) GetMinimumClusterTSCFrequency() *int64 {
+	return s.minimumClusterTSCFrequency
 }
