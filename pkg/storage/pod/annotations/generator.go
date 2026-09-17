@@ -28,7 +28,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 )
 
-const computeContainerName = "compute"
+const (
+	computeContainerName = "compute"
+	hookTimeout          = "60s"
+)
 
 type kubeVirtCRProvider interface {
 	GetConfigFromKubeVirtCR() *v1.KubeVirt
@@ -49,6 +52,7 @@ func (g Generator) ManagedAnnotationKeys() []string {
 		velero.PreBackupHookTimeoutAnnotation,
 		velero.PostBackupHookContainerAnnotation,
 		velero.PostBackupHookCommandAnnotation,
+		velero.PostBackupHookTimeoutAnnotation,
 	}
 }
 
@@ -72,13 +76,14 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 			vmi.Name,
 			vmi.Namespace,
 		)
-		annotations[velero.PreBackupHookTimeoutAnnotation] = "60s"
+		annotations[velero.PreBackupHookTimeoutAnnotation] = hookTimeout
 		annotations[velero.PostBackupHookContainerAnnotation] = computeContainerName
 		annotations[velero.PostBackupHookCommandAnnotation] = fmt.Sprintf(
 			"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", %q, \"--namespace\", %q]",
 			vmi.Name,
 			vmi.Namespace,
 		)
+		annotations[velero.PostBackupHookTimeoutAnnotation] = hookTimeout
 	}
 
 	return annotations, nil
