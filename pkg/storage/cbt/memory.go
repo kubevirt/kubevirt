@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -37,13 +36,17 @@ const (
 	bufferOverhead    = "20Mi"
 )
 
+type clusterConfigurer interface {
+	IncrementalBackupEnabled() bool
+}
+
 type MemoryCalculator struct {
 	pvcStore              cache.Store
 	backupTrackerInformer cache.SharedIndexInformer
-	clusterConfig         *virtconfig.ClusterConfig
+	clusterConfig         clusterConfigurer
 }
 
-func NewMemoryCalculator(pvcStore cache.Store, backupTrackerInformer cache.SharedIndexInformer, clusterConfig *virtconfig.ClusterConfig) *MemoryCalculator {
+func NewMemoryCalculator(pvcStore cache.Store, backupTrackerInformer cache.SharedIndexInformer, clusterConfig clusterConfigurer) *MemoryCalculator {
 	return &MemoryCalculator{
 		pvcStore:              pvcStore,
 		backupTrackerInformer: backupTrackerInformer,
