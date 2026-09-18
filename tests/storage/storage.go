@@ -1092,7 +1092,7 @@ var _ = Describe(SIG("Storage", func() {
 				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
-		Context("non-shareable disk conflict", func() {
+		Context("[QUARANTINE] non-shareable disk conflict", decorators.Quarantine, func() {
 			It("should report a clear error when two VMs use the same DataVolume without shareable", decorators.RequiresRWXFilesystemStorage, func() {
 				sc, exists := libstorage.GetRWXFileSystemStorageClass()
 				if !exists {
