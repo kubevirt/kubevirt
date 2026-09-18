@@ -72,7 +72,7 @@ func (l *LauncherClientInfoByVMI) Load(vmiUID types.UID) (*LauncherClientInfo, b
 	return l.cast(result), exists
 }
 
-func (*LauncherClientInfoByVMI) cast(result interface{}) *LauncherClientInfo {
+func (*LauncherClientInfoByVMI) cast(result any) *LauncherClientInfo {
 	launcherClientInfo, ok := result.(*LauncherClientInfo)
 	if !ok {
 		panic(fmt.Sprintf("failed casting %+v to *LauncherClientInfo", result))
