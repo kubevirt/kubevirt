@@ -21,151 +21,78 @@ package device_manager
 
 import (
 	"context"
-	"errors"
-	"os"
-	"path"
-	"sync"
 	"time"
 
-	"google.golang.org/grpc"
-	"kubevirt.io/client-go/log"
+	"github.com/fsnotify/fsnotify"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
-type DevicePluginBase struct {
-	devs         []*pluginapi.Device
-	server       *grpc.Server
-	socketPath   string
-	stop         <-chan struct{}
-	health       chan deviceHealth
-	resourceName string
-	done         chan struct{}
-	initialized  bool
-	lock         *sync.Mutex
-	deregistered chan struct{}
-	devicePath   string
-	deviceRoot   string
-	deviceName   string
+const (
+	DeviceNamespace   = "devices.kubevirt.io"
+	connectionTimeout = 5 * time.Second
+)
+
+type devicePluginContract interface {
+	setupMonitoredDevices(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error   // REQUIRED function to set up the devices that are being monitored and update map such that key contains absolute paths to watch, and value contains the device id that path corresponds to.
+	allocateDP(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) // REQUIRED function to allocate the device.
+	setupDevicePlugin() error                                                                    // Optional function to perform additional setup steps that are not covered by the default implementation
+	deviceNameByID(deviceID string) string                                                       // Optional function to convert device id to a human-readable name for logging
+	configurePermissions(absoluteDevicePath *safepath.Path) error                                // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting without error.
+	updateHealth(deviceID string, absoluteDevicePath string, healthy bool) (bool, error)         // Optional function to update the device health before it's sent via custom logic.
+
+	getResourceName() string
+	getDevices() []*pluginapi.Device
+	getDevicePath() string
+	getDeviceRoot() string
+	getSocketPath() string
 }
 
-func (dpi *DevicePluginBase) GetDeviceName() string {
+type DevicePluginBase struct {
+	devs         []*pluginapi.Device
+	socketPath   string
+	resourceName string
+	deviceRoot   string // Absolute base path for where this DP is inside virt-handler (typically intended to be either "/" or util.HostRootMount)
+	devicePath   string // Device path on the host filesystem. When accessed from a virt-handler, it should be combined with deviceRoot.
+}
+
+// Optional, can be overridden
+func (dpi *DevicePluginBase) setupDevicePlugin() error {
+	return nil
+}
+
+// Optional, can be overridden
+func (dpi *DevicePluginBase) deviceNameByID(deviceID string) string {
+	return "device plugin (" + deviceID + ")"
+}
+
+// Optional, can be overridden
+func (dpi *DevicePluginBase) configurePermissions(_ *safepath.Path) error {
+	return nil
+}
+
+// Optional, can be overridden
+func (dpi *DevicePluginBase) updateHealth(_ string, _ string, healthy bool) (bool, error) {
+	return healthy, nil
+}
+
+func (dpi *DevicePluginBase) getResourceName() string {
 	return dpi.resourceName
 }
 
-func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-
-	done := false
-	for {
-		select {
-		case devHealth := <-dpi.health:
-			for _, dev := range dpi.devs {
-				// If the devHealth.DevId is empty, it was not set by the device plugin, so we update all devices
-				if devHealth.DevId == dev.ID || devHealth.DevId == "" {
-					dev.Health = devHealth.Health
-				}
-			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.stop:
-			done = true
-		case <-dpi.done:
-			done = true
-		}
-		if done {
-			break
-		}
-	}
-	emptyList := []*pluginapi.Device{}
-	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
-	}
-	close(dpi.deregistered)
-	return nil
+func (dpi *DevicePluginBase) getDevices() []*pluginapi.Device {
+	return dpi.devs
 }
 
-func (dpi *DevicePluginBase) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-	res := &pluginapi.PreStartContainerResponse{}
-	return res, nil
+func (dpi *DevicePluginBase) getDevicePath() string {
+	return dpi.devicePath
 }
 
-func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
-	}
-	return options, nil
+func (dpi *DevicePluginBase) getDeviceRoot() string {
+	return dpi.deviceRoot
 }
 
-func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
-	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
-	response := pluginapi.AllocateResponse{}
-	containerResponse := new(pluginapi.ContainerAllocateResponse)
-
-	dev := new(pluginapi.DeviceSpec)
-	dev.HostPath = dpi.devicePath
-	dev.ContainerPath = dpi.devicePath
-	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
-
-	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
-
-	return &response, nil
-}
-
-func (dpi *DevicePluginBase) stopDevicePlugin() error {
-	defer func() {
-		if !IsChanClosed(dpi.done) {
-			close(dpi.done)
-		}
-	}()
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	select {
-	case <-dpi.deregistered:
-	case <-ticker.C:
-	}
-
-	dpi.server.Stop()
-	dpi.setInitialized(false)
-	return dpi.cleanup()
-}
-
-func (dpi *DevicePluginBase) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
-}
-
-func (dpi *DevicePluginBase) GetInitialized() bool {
-	dpi.lock.Lock()
-	defer dpi.lock.Unlock()
-	return dpi.initialized
-}
-
-func (dpi *DevicePluginBase) setInitialized(initialized bool) {
-	dpi.lock.Lock()
-	dpi.initialized = initialized
-	dpi.lock.Unlock()
-}
-
-func (dpi *DevicePluginBase) register() error {
-	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: dpi.resourceName,
-	}
-
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
+func (dpi *DevicePluginBase) getSocketPath() string {
+	return dpi.socketPath
 }
