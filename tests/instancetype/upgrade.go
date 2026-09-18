@@ -24,7 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	utils "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/gvk"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -46,7 +46,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	}
 
 	generateLegacyCRName := func(obj runtime.Object) string {
-		obj, err := utils.GenerateKubeVirtGroupVersionKind(obj)
+		obj, err := gvk.GenerateKubeVirtGroupVersionKind(obj)
 		Expect(err).ToNot(HaveOccurred())
 		metaObj, ok := obj.(metav1.Object)
 		Expect(ok).To(BeTrue())

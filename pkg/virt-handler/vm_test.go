@@ -68,6 +68,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -2598,7 +2599,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		Context("check migration support when using Host Devices", func() {
-			envName := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
+			envName := envvar.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
 
 			BeforeEach(func() {
 				_ = os.Setenv(envName, "0000:81:01.0")
@@ -2626,16 +2627,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			Context("with GPU", func() {
 				BeforeEach(func() {
-					envName := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
+					envName := envvar.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
 					_ = os.Setenv(envName, "0000:81:01.0")
-					envName2 := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "nvidia.com/gpu")
+					envName2 := envvar.ResourceNameToEnvVar(v1.PCIResourcePrefix, "nvidia.com/gpu")
 					_ = os.Setenv(envName2, "0000:81:02.0")
 				})
 
 				AfterEach(func() {
-					envName := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
+					envName := envvar.ResourceNameToEnvVar(v1.PCIResourcePrefix, "dev1")
 					_ = os.Unsetenv(envName)
-					envName2 := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, "nvidia.com/gpu")
+					envName2 := envvar.ResourceNameToEnvVar(v1.PCIResourcePrefix, "nvidia.com/gpu")
 					_ = os.Unsetenv(envName2)
 				})
 

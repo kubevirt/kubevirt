@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/envvar"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -68,8 +69,8 @@ var _ = Describe("QemuCmd Domain Configurator", func() {
 	)
 
 	DescribeTable("SeaBios debug pipe arguments", func(verboseLogEnabled bool, envValue string, expectedQEMUCmd *api.Commandline) {
-		os.Setenv(util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, envValue)
-		DeferCleanup(os.Unsetenv, util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
+		os.Setenv(envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, envValue)
+		DeferCleanup(os.Unsetenv, envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
 
 		vmi := libvmi.New()
 		var domain api.Domain
@@ -109,8 +110,8 @@ var _ = Describe("QemuCmd Domain Configurator", func() {
 	)
 
 	It("should configure both ignition and verbose logging arguments", func() {
-		os.Setenv(util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(util.EXT_LOG_VERBOSITY_THRESHOLD+1))
-		DeferCleanup(os.Unsetenv, util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
+		os.Setenv(envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(util.EXT_LOG_VERBOSITY_THRESHOLD+1))
+		DeferCleanup(os.Unsetenv, envvar.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
 
 		vmi := libvmi.New(
 			libvmi.WithName(vmiName),

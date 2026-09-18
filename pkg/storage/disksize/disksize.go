@@ -17,22 +17,24 @@
  *
  */
 
-package device
+package disksize
 
-import (
-	"os"
+import "kubevirt.io/client-go/log"
 
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/util/envvar"
-)
-
-func USBDevicesFound(vmiHostDevices []v1.HostDevice) bool {
-	for _, device := range vmiHostDevices {
-		env := envvar.ResourceNameToEnvVar(v1.USBResourcePrefix, device.DeviceName)
-		if _, ok := os.LookupEnv(env); ok {
-			return true
+// AlignImageSizeTo1MiB rounds down size to the nearest multiple of 1 MiB.
+// The caller is responsible for ensuring the rounded-down size is not 0.
+func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
+	remainder := size % (1024 * 1024)
+	if remainder == 0 {
+		return size
+	}
+	newSize := size - remainder
+	if logger != nil {
+		if newSize == 0 {
+			logger.Errorf("disks must be at least 1MiB, %d bytes is too small", size)
+		} else {
+			logger.V(4).Infof("disk size is not 1MiB-aligned. Adjusting from %d down to %d.", size, newSize)
 		}
 	}
-	return false
+	return newSize
 }

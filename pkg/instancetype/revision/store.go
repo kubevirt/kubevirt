@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/gvk"
 )
 
 func (h *revisionHandler) Store(vm *virtv1.VirtualMachine) error {
@@ -245,7 +245,7 @@ func GenerateName(vmName, resourceName, resourceVersion string, resourceUID type
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
-	obj, err := util.GenerateKubeVirtGroupVersionKind(object)
+	obj, err := gvk.GenerateKubeVirtGroupVersionKind(object)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/util/tls",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -38,7 +37,6 @@ go_test(
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
