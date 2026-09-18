@@ -37,7 +37,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -154,7 +153,6 @@ pciHostDevices:
 
 		By("adding a host device to the cluster config")
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 			PciHostDevices: []v1.PciHostDevice{
 				{
