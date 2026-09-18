@@ -15202,6 +15202,15 @@
       "description": "Settings to set the kernel for booting.",
       "$ref": "#/definitions/v1.KernelBoot"
      },
+     "oemStrings": {
+      "description": "OEM Strings to be set in the SMBIOS",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "serial": {
       "description": "The system-serial-number in SMBIOS",
       "type": "string"
@@ -17467,7 +17476,13 @@
     }
    },
    "v1.SEVSNP": {
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "initDataRef": {
+      "description": "Name of the InitData CR that carries the launch-time values for this VMI. When set, virt-handler blocks VM startup until a committed InitData CR with this name exists in the VMI namespace.",
+      "type": "string"
+     }
+    }
    },
    "v1.SEVSecretOptions": {
     "description": "SEVSecretOptions is used to provide a secret for a running guest.",
@@ -17783,7 +17798,13 @@
     }
    },
    "v1.TDX": {
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "initDataRef": {
+      "description": "Name of the InitData CR that carries the launch-time values for this VMI. When set, virt-handler blocks VM startup until a committed InitData CR with this name exists in the VMI namespace.",
+      "type": "string"
+     }
+    }
    },
    "v1.TDXAttestationConfiguration": {
     "description": "QGSConfiguration holds QGS configuration",

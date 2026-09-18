@@ -48,6 +48,7 @@ const (
 	// Beta: v1.9.0
 	WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
 	WorkloadEncryptionTDX = "WorkloadEncryptionTDX"
+	InjectInitData             = "InjectInitData"
 	VSOCKGate             = "VSOCK"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
@@ -283,6 +284,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: InjectInitData, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
