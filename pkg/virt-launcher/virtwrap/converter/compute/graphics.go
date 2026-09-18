@@ -24,8 +24,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -80,8 +78,8 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 		video := api.Video{
 			Model: api.VideoModel{
 				Type:  vmi.Spec.Domain.Devices.Video.Type,
-				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
-				Heads: pointer.P(graphicsDeviceDefaultHeads),
+				VRam:  new(graphicsDeviceDefaultVRAM),
+				Heads: new(graphicsDeviceDefaultHeads),
 			},
 		}
 		domain.Spec.Devices.Video = []api.Video{video}
@@ -105,7 +103,7 @@ func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMac
 			{
 				Model: api.VideoModel{
 					Type:  "bochs",
-					Heads: pointer.P(graphicsDeviceDefaultHeads),
+					Heads: new(graphicsDeviceDefaultHeads),
 				},
 			},
 		}
@@ -114,8 +112,8 @@ func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMac
 			{
 				Model: api.VideoModel{
 					Type:  "vga",
-					Heads: pointer.P(graphicsDeviceDefaultHeads),
-					VRam:  pointer.P(graphicsDeviceDefaultVRAM),
+					Heads: new(graphicsDeviceDefaultHeads),
+					VRam:  new(graphicsDeviceDefaultVRAM),
 				},
 			},
 		}
@@ -128,7 +126,7 @@ func (g GraphicsDomainConfigurator) configureARM64VideoDevice(domain *api.Domain
 		{
 			Model: api.VideoModel{
 				Type:  v1.VirtIO,
-				Heads: pointer.P(graphicsDeviceDefaultHeads),
+				Heads: new(graphicsDeviceDefaultHeads),
 			},
 		},
 	}
@@ -138,7 +136,7 @@ func (g GraphicsDomainConfigurator) configureS390XVideoDevice(domain *api.Domain
 	domain.Spec.Devices.Video = []api.Video{{
 		Model: api.VideoModel{
 			Type:  v1.VirtIO,
-			Heads: pointer.P(graphicsDeviceDefaultHeads),
+			Heads: new(graphicsDeviceDefaultHeads),
 		},
 	}}
 }
