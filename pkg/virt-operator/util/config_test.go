@@ -29,6 +29,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	handlerimage "kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("Operator Config", func() {
@@ -423,5 +425,12 @@ var _ = Describe("Operator Config", func() {
 					imageName: "blablabla",
 					version:   "latest",
 				}))
+	})
+
+	It("should keep VirtHandlerImageEnvName in sync with pkg/util's copy", func() {
+		Expect(VirtHandlerImageEnvName).To(Equal(handlerimage.VirtHandlerImageEnvName),
+			"pkg/virt-operator/util.VirtHandlerImageEnvName (%q) and pkg/util.VirtHandlerImageEnvName (%q) "+
+				"have drifted apart; virt-handler would silently stop learning its own image via this env var. "+
+				"Update both constants to match.", VirtHandlerImageEnvName, handlerimage.VirtHandlerImageEnvName)
 	})
 })

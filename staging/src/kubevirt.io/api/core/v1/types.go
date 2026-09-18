@@ -1201,6 +1201,8 @@ const (
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 	// This label indicates what launcher image a VMI is currently running with.
 	OutdatedLauncherImageLabel string = "kubevirt.io/outdatedLauncherImage"
+	// This label indicates the virt-handler image fingerprint running on this node. Used on Node.
+	VirtHandlerImageHashLabel string = "kubevirt.io/virt-handler-image-hash"
 	// Namespace recommended by Kubernetes for commonly recognized labels
 	AppLabelPrefix = "app.kubernetes.io"
 	// This label is commonly used by 3rd party management tools to identify

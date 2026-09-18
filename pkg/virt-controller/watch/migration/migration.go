@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -66,6 +67,7 @@ import (
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 )
@@ -935,6 +937,46 @@ func createDecentralizedMigrationPodAntiAffinity(templatePod *k8sv1.Pod, vmi *vi
 	)
 }
 
+// addRequiredNodeAffinityTerm ANDs req onto pod's required node affinity.
+func addRequiredNodeAffinityTerm(pod *k8sv1.Pod, req k8sv1.NodeSelectorRequirement) {
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	nodeAffinity := pod.Spec.Affinity.NodeAffinity
+	if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+	}
+	nodeSelector := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if len(nodeSelector.NodeSelectorTerms) == 0 {
+		nodeSelector.NodeSelectorTerms = []k8sv1.NodeSelectorTerm{{}}
+	}
+	// NodeSelectorTerms are ORed, so req must be ANDed onto every term.
+	for i := range nodeSelector.NodeSelectorTerms {
+		nodeSelector.NodeSelectorTerms[i].MatchExpressions = append(nodeSelector.NodeSelectorTerms[i].MatchExpressions, req)
+	}
+}
+
+// desiredVirtHandlerImageHash returns the fingerprint of the virt-handler
+// image the KubeVirt CR is currently rolling out to, or "" if unknown.
+//
+// Uses TargetDeploymentConfig, not ObservedDeploymentConfig: the latter
+// only updates once the rollout fully completes, which would make this a
+// no-op for the whole upgrade window it needs to cover.
+func (c *Controller) desiredVirtHandlerImageHash() (string, error) {
+	kv := c.clusterConfig.GetConfigFromKubeVirtCR()
+	if kv == nil || kv.Status.TargetDeploymentConfig == "" {
+		return "", nil
+	}
+	var deploymentConfig operatorutil.KubeVirtDeploymentConfig
+	if err := json.Unmarshal([]byte(kv.Status.TargetDeploymentConfig), &deploymentConfig); err != nil {
+		return "", fmt.Errorf("failed to unmarshal target deployment config: %v", err)
+	}
+	return util.ImageHashLabelValue(deploymentConfig.GetHandlerImage()), nil
+}
+
 func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 	if !c.pvcExpectations.SatisfiedExpectations(controller.MigrationKey(migration)) {
 		// Give time to the PVC informer to update itself
@@ -1001,6 +1043,29 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 		vendorLabelKey = getCPUVendorLabelKey(sourceLabels)
 		if vendorLabelKey != "" {
 			templatePod.Spec.NodeSelector[vendorLabelKey] = "true"
+		}
+	}
+
+	// Don't migrate off a node running the desired virt-handler image onto
+	// one that isn't: virt-handlers on either side of a rollout may follow
+	// different migration rules. The reverse direction stays unrestricted.
+	if !migration.IsDecentralizedTarget() {
+		desiredHandlerHash, err := c.desiredVirtHandlerImageHash()
+		if err != nil {
+			return err
+		}
+		if desiredHandlerHash != "" {
+			sourceNode, err := c.getNodeForVMI(vmi)
+			if err != nil {
+				return err
+			}
+			if sourceNode.Labels[virtv1.VirtHandlerImageHashLabel] == desiredHandlerHash {
+				addRequiredNodeAffinityTerm(templatePod, k8sv1.NodeSelectorRequirement{
+					Key:      virtv1.VirtHandlerImageHashLabel,
+					Operator: k8sv1.NodeSelectorOpIn,
+					Values:   []string{desiredHandlerHash},
+				})
+			}
 		}
 	}
 
