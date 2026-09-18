@@ -3639,7 +3639,14 @@ var _ = Describe("Manager", func() {
 	Context("on GetAgentData", func() {
 		const devicesCmd = `{"execute":"guest-get-devices"}`
 
+		var rebootCallback libvirt.DomainEventGenericCallback
+
 		newVMStatsCollectorManager := func() DomainManager {
+			mockLibvirt.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).DoAndReturn(
+				func(callback libvirt.DomainEventGenericCallback) error {
+					rebootCallback = callback
+					return nil
+				})
 			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, testDomainName, true, false, false, nil)
 			Expect(err).ToNot(HaveOccurred())
 			return manager
@@ -3682,6 +3689,44 @@ var _ = Describe("Manager", func() {
 			manager := newVMStatsCollectorManager()
 			_, err := manager.GetAgentData("guest-get-unknown")
 			Expect(err).To(MatchError(ContainSubstring("cache not found")))
+		})
+
+		It("should re-issue all agent commands after a domain reboot", func() {
+			const (
+				before = "-before"
+				after  = "-after"
+			)
+			manager := newVMStatsCollectorManager()
+
+			expectAgentCommand := func(cmd, data string) {
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+cmd+`"}`, testDomainName).Return(data, nil).Times(1)
+			}
+			expectAgentData := func(cmd, data string) {
+				actual, err := manager.GetAgentData(cmd)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, actual).To(Equal(data))
+			}
+
+			for cmd := range agentDataCommandTTLs {
+				expectAgentCommand(cmd, cmd+before)
+				expectAgentData(cmd, cmd+before)
+				// No new expectation, so issuing the agent command again within the TTL fails the test.
+				expectAgentData(cmd, cmd+before)
+			}
+
+			Expect(rebootCallback).ToNot(BeNil())
+			rebootCallback(nil, nil)
+
+			for cmd := range agentDataCommandTTLs {
+				expectAgentCommand(cmd, cmd+after)
+				expectAgentData(cmd, cmd+after)
+			}
+		})
+
+		It("should fail to create the manager if the reboot event callback cannot be registered", func() {
+			mockLibvirt.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).Return(fmt.Errorf("register failed"))
+			_, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, testDomainName, true, false, false, nil)
+			Expect(err).To(MatchError(ContainSubstring("failed to register reboot event callback")))
 		})
 	})
 

@@ -188,6 +188,20 @@ func (mr *MockConnectionMockRecorder) DomainEventMigrationIterationRegister(call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventMigrationIterationRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventMigrationIterationRegister), callback)
 }
 
+// DomainEventRebootRegister mocks base method.
+func (m *MockConnection) DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainEventRebootRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainEventRebootRegister indicates an expected call of DomainEventRebootRegister.
+func (mr *MockConnectionMockRecorder) DomainEventRebootRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventRebootRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventRebootRegister), callback)
+}
+
 // GetAllDomainStats mocks base method.
 func (m *MockConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
 	m.ctrl.T.Helper()
