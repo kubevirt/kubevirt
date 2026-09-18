@@ -1076,7 +1076,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				for idx := 1; idx < len(nodes.Items); idx++ {
 					labels := nodes.Items[idx].GetLabels()
 					for label, val := range labels {
-						if label == "cpumanager" && val == "true" {
+						if label == "kubevirt.io/cpumanager" && val == "true" {
 							cpuManagerEnabled = true
 						}
 					}
