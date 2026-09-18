@@ -156,7 +156,6 @@ rpm-deps-cs10:
 rpm-deps-all:
 	$(MAKE) rpm-deps-cs9
 	$(MAKE) rpm-deps-cs10
-	hack/rpm-deps-aliases.sh
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
