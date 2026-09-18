@@ -2360,32 +2360,21 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, func() {
+	Context("OCI export", decorators.RequiresOCIExport, decorators.RequiresTemplate, func() {
 		const (
 			reasonDigestsComputed = "DigestsComputed"
 		)
 
-		var (
-			fgDisabled bool
-			sc         string
-		)
+		var sc string
 
-		BeforeAll(func() {
+		BeforeEach(func() {
+			checks.FailTestIfNoFeatureGate(featuregate.OCIExport)
+			checks.FailTestIfNoFeatureGate(featuregate.Template)
+
 			var exists bool
 			sc, exists = libstorage.GetRWOBlockStorageClass()
 			if !exists {
 				Fail("Fail test when RWO Block storage is not present")
-			}
-
-			fgDisabled = !checks.HasFeature(featuregate.OCIExport)
-			if fgDisabled {
-				kvconfig.EnableFeatureGate(featuregate.OCIExport)
-			}
-		})
-
-		AfterAll(func() {
-			if fgDisabled {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
 			}
 		})
 
@@ -2472,25 +2461,7 @@ var _ = Describe(SIG("Export", func() {
 			verifyOCITarDownload(export, token, vm.Namespace)
 		})
 
-		It("should not include OCI manifest link when feature gate is disabled", func() {
-			if checks.HasFeature(featuregate.OCIExport) {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
-				defer kvconfig.EnableFeatureGate(featuregate.OCIExport)
-			}
-
-			vm := createStoppedVM()
-			export, _ := createReadyVMExport(vm)
-
-			ociUrl := getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.OCI)
-			Expect(ociUrl).To(BeEmpty(), "OCI manifest URL should not be present when feature gate is disabled")
-		})
-
 		It("should export VirtualMachineTemplate as OCI artifact", func() {
-			if !checks.HasFeature(featuregate.Template) {
-				kvconfig.EnableFeatureGate(featuregate.Template)
-				defer kvconfig.DisableFeatureGate(featuregate.Template)
-			}
-
 			By("Creating a stopped VM with DataVolume")
 			vm := createStoppedVM()
 

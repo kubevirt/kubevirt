@@ -98,6 +98,10 @@ var (
 	RequiresPersistentReservation = Label("RequiresPersistentReservation")
 	// RequiresPlugins requires the Plugins feature gate to be enabled on the kubevirt level
 	RequiresPlugins = Label("RequiresPlugins")
+	// RequiresOCIExport requires the OCIExport feature gate to be enabled on the kubevirt level
+	RequiresOCIExport = Label("RequiresOCIExport")
+	// RequiresTemplate requires the Template feature gate to be enabled on the kubevirt level
+	RequiresTemplate = Label("RequiresTemplate")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
