@@ -189,16 +189,6 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, mountRoot *safepa
 			vmiDeviceRules = append(vmiDeviceRules, rule)
 		}
 	}
-	if vmi.Spec.Domain.Devices.Rng != nil {
-		rule, err := newAllowedDeviceRule(mountRoot, "/dev/urandom", getDeviceRwmPermissions())
-		if err != nil {
-			return nil, err
-		}
-		if rule != nil {
-			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", rule)
-			vmiDeviceRules = append(vmiDeviceRules, rule)
-		}
-	}
 	if util.IsAutoAttachVSOCK(vmi) {
 		rule, err := newAllowedDeviceRule(mountRoot, "/dev/vhost-vsock", getDeviceRwmPermissions())
 		if err != nil {
@@ -332,6 +322,19 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 			Type:        devices.CharDevice,
 			Major:       10,
 			Minor:       238,
+			Permissions: permissions,
+			Allow:       toAllow,
+		},
+		{ // /dev/urandom (OCI runtime spec default device)
+			// Required unconditionally: QEMU/virtqemud (via GnuTLS)
+			// depends on /dev/urandom for entropy. On architectures
+			// without a hardware entropy fallback (e.g. s390x, which
+			// lacks RDRAND), revoking access crashes virtqemud after
+			// a cgroup device list rebuild triggered by hotplug or
+			// migration.
+			Type:        devices.CharDevice,
+			Major:       1,
+			Minor:       9,
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
