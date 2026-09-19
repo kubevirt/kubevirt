@@ -238,16 +238,19 @@ func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 			// these are handled in the root deployment config already
 			continue
 		}
-		if name == "ImagePullSecrets" {
-			value, err := json.Marshal(v.Field(i).Interface())
+		field := v.Field(i)
+		var value string
+		switch field.Type().Kind() {
+		case reflect.String:
+			value = field.String()
+		default:
+			bytes, err := json.Marshal(field.Interface())
 			if err != nil {
-				fmt.Printf("Cannot encode ImagePullsecrets to JSON %v", err)
-			} else {
-				kvMap[name] = string(value)
+				fmt.Printf("Cannot encode %s to JSON %v", name, err)
+				continue
 			}
-			continue
+			value = string(bytes)
 		}
-		value := v.Field(i).String()
 		kvMap[name] = value
 	}
 	return kvMap
