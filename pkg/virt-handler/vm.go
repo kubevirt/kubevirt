@@ -1543,7 +1543,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 func (c *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if c.pluginExecutor != nil {
-		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStop, vmi, c.host); err != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookOnVMStop, vmi, c.host); err != nil {
 			return err
 		}
 	}
@@ -1554,7 +1554,7 @@ func (c *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstan
 
 func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if c.pluginExecutor != nil {
-		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStop, vmi, c.host); err != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookOnVMStop, vmi, c.host); err != nil {
 			return err
 		}
 	}
