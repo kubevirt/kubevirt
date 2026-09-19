@@ -47,6 +47,7 @@ const (
 	// Alpha: v0.49.0
 	// Beta: v1.9.0
 	WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
+	WorkloadEncryptionCCA = "WorkloadEncryptionCCA"
 	WorkloadEncryptionTDX = "WorkloadEncryptionTDX"
 
 	// Owner: sig-compute / @0xFelix
@@ -289,6 +290,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionCCA, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
