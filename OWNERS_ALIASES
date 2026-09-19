@@ -128,6 +128,12 @@ aliases:
     - dasionov
     - orelmisan
 
+  # SIG Compute cgroup sub project
+  # Owns cgroup related packages.
+  sig-compute-cgroup-approvers:
+    - akalenyu
+    - iholder101
+
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute
   sig-compute-instancetype-approvers:
