@@ -11,6 +11,11 @@ rm -f vendor/libguestfs.org/libnbd/BUILD.bazel
 # preventing gazelle from generating BUILD files for this directory
 rm -f vendor/cel.dev/expr/BUILD.bazel
 rm -f vendor/cel.dev/expr/WORKSPACE vendor/cel.dev/expr/WORKSPACE.bzlmod vendor/cel.dev/expr/MODULE.bazel
+# grpc-gateway ships upstream BUILD files; go work vendor copies them with
+# repo-root labels (//utilities, @org_golang_*) that break kubevirt gazelle.
+rm -f vendor/github.com/grpc-ecosystem/grpc-gateway/v2/runtime/BUILD.bazel
+rm -f vendor/github.com/grpc-ecosystem/grpc-gateway/v2/utilities/BUILD.bazel
+rm -f vendor/github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule/BUILD.bazel
 
 # generate BUILD files
 bazel run \
