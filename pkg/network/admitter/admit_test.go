@@ -36,18 +36,15 @@ import (
 
 var _ = Describe("Validating VMI network spec", func() {
 	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  value,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
-			}),
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithBridgeBinding(),
+				libvmi.WithState(value))),
+			libvmi.WithNetwork(libvmi.MultusNetwork("foo", "net")),
 		)
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	},
 		Entry("is empty", v1.InterfaceState("")),
@@ -57,18 +54,18 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	It("network interface state value is invalid", func() {
-		vm := libvmi.New(
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithMasqueradeBinding(),
+				libvmi.WithState("foo"),
+			)),
 			libvmi.WithNetwork(&v1.Network{
 				Name:          "foo",
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  v1.InterfaceState("foo"),
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-			}),
 		)
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -78,18 +75,15 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	DescribeTable("network interface state ", func(state v1.InterfaceState, messageRegex types.GomegaMatcher) {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  state,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
-			}),
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithSRIOVBinding(),
+				libvmi.WithState(state),
+			)),
+			libvmi.WithNetwork(libvmi.MultusNetwork("foo", "net")),
 		)
-		statusCause := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{}).Validate()
+		statusCause := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{}).Validate()
 		Expect(statusCause).To(HaveLen(1))
 		Expect(statusCause[0]).To(MatchAllFields(Fields{
 			"Type":    Equal(metav1.CauseType("FieldValueInvalid")),
@@ -103,20 +97,20 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	It("network interface state value of absent is not supported on the default network", func() {
-		vm := libvmi.New(
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithBridgeBinding(),
+				libvmi.WithState(v1.InterfaceStateAbsent),
+			)),
 			libvmi.WithNetwork(&v1.Network{
 				Name:          "foo",
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  v1.InterfaceStateAbsent,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
