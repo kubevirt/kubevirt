@@ -349,6 +349,103 @@ var _ = Describe("VirtualMachineInstance", func() {
 			diskutils.MockDefaultOwnershipManager()
 		})
 
+		setFeatureGates := func(featureGates ...string) {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: featureGates,
+				},
+			})
+			controller.clusterConfig = config
+		}
+
+		It("should not add guest terminated condition when the feature gate is disabled", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.TerminationEvent = &api.TerminationEvent{
+				Reason:    api.TerminationReasonGuestShutdown,
+				Timestamp: metav1.Now(),
+			}
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateGuestTerminatedCondition(vmi, domain, condManager)
+
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceGuestTerminated)).To(BeFalse())
+		})
+
+		It("should remove guest terminated condition when the feature gate is disabled", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:   v1.VirtualMachineInstanceGuestTerminated,
+				Status: k8sv1.ConditionTrue,
+				Reason: string(api.TerminationReasonGuestShutdown),
+			}}
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateGuestTerminatedCondition(vmi, domain, condManager)
+
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceGuestTerminated)).To(BeFalse())
+		})
+
+		It("should add guest terminated false condition when the feature gate is enabled and domain is active", func() {
+			setFeatureGates(featuregate.GuestTerminationGate)
+			vmi := api2.NewMinimalVMI("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateGuestTerminatedCondition(vmi, domain, condManager)
+
+			condition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceGuestTerminated)
+			Expect(condition).ToNot(BeNil())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.GuestNotTerminatedReason))
+		})
+
+		It("should add guest terminated true condition for a normalized termination event when the feature gate is enabled", func() {
+			setFeatureGates(featuregate.GuestTerminationGate)
+			vmi := api2.NewMinimalVMI("testvmi")
+			terminationTime := metav1.NewTime(time.Date(2026, 5, 27, 10, 11, 12, 0, time.UTC))
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.TerminationEvent = &api.TerminationEvent{
+				Reason:    api.TerminationReasonGuestShutdown,
+				Timestamp: terminationTime,
+			}
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateGuestTerminatedCondition(vmi, domain, condManager)
+
+			condition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceGuestTerminated)
+			Expect(condition).ToNot(BeNil())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition.Reason).To(Equal(string(api.TerminationReasonGuestShutdown)))
+			Expect(condition.LastTransitionTime).To(Equal(terminationTime))
+			Expect(recorder.Events).To(Receive(ContainSubstring("Normal GuestShutdown Guest requested shutdown of the virtual machine")))
+		})
+
+		It("should keep guest terminated condition when no new normalized termination event exists", func() {
+			setFeatureGates(featuregate.GuestTerminationGate)
+			terminationTime := metav1.NewTime(time.Date(2026, 5, 27, 10, 11, 12, 0, time.UTC))
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:               v1.VirtualMachineInstanceGuestTerminated,
+				Status:             k8sv1.ConditionTrue,
+				Reason:             string(api.TerminationReasonGuestShutdown),
+				LastTransitionTime: terminationTime,
+			}}
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateGuestTerminatedCondition(vmi, domain, condManager)
+
+			condition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceGuestTerminated)
+			Expect(condition).ToNot(BeNil())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition.Reason).To(Equal(string(api.TerminationReasonGuestShutdown)))
+			Expect(condition.LastTransitionTime).To(Equal(terminationTime))
+		})
+
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			addDomain(domain)
