@@ -74,7 +74,7 @@ var _ = Describe("NetDialer", func() {
 		dialer := netDial{
 			request: request,
 		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus(nil))
+		_, statusErr := dialer.Dial(makeVMIWithInterfaceStatus(nil))
 		Expect(statusErr.Status().Message).To(Equal("no network interfaces are present"))
 	})
 
@@ -83,7 +83,7 @@ var _ = Describe("NetDialer", func() {
 		dialer := netDial{
 			request: request,
 		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
+		_, statusErr := dialer.Dial(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
 			{
 				IP: "192.168.0.1",
 			},
@@ -124,7 +124,7 @@ var _ = Describe("NetDialer", func() {
 			return fullURL, nil
 		})
 
-		conn, statusErr := dialer.DialUnderlying(vmi)
+		conn, statusErr := dialer.Dial(vmi)
 		Expect(statusErr).To(MatchError(ContainSubstring(errMsg)))
 		Expect(conn).To(BeNil())
 	})
@@ -139,7 +139,7 @@ var _ = Describe("NetDialer", func() {
 		dialer := netDial{
 			request: request,
 		}
-		conn, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
+		conn, statusErr := dialer.Dial(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
 			{
 				IP: tcpAddr.IP.String(),
 			},
