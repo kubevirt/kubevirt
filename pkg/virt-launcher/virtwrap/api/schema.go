@@ -229,7 +229,7 @@ type DomainSpec struct {
 	MaxMemory      *MaxMemory      `xml:"maxMemory,omitempty"`
 	MemoryBacking  *MemoryBacking  `xml:"memoryBacking,omitempty"`
 	OS             OS              `xml:"os"`
-	SysInfo        *SysInfo        `xml:"sysinfo,omitempty"`
+	SysInfo        []SysInfo       `xml:"sysinfo,omitempty" json:"sysinfoList,omitempty"`
 	Devices        Devices         `xml:"devices"`
 	Clock          *Clock          `xml:"clock,omitempty"`
 	Resource       *Resource       `xml:"resource,omitempty"`
@@ -1232,12 +1232,17 @@ type BIOS struct {
 	UseSerial string `xml:"useserial,attr,omitempty"`
 }
 
+// SysInfo is one <sysinfo> block: smbios sub-elements for Type "smbios",
+// Entries for Type "fwcfg". DomainSpec.SysInfo uses a distinct JSON key so that
+// events from pre-upgrade virt-launchers, which encoded it as a single object,
+// still unmarshal.
 type SysInfo struct {
 	Type      string  `xml:"type,attr"`
 	System    []Entry `xml:"system>entry"`
 	BIOS      []Entry `xml:"bios>entry"`
 	BaseBoard []Entry `xml:"baseBoard>entry"`
 	Chassis   []Entry `xml:"chassis>entry"`
+	Entries   []Entry `xml:"entry"`
 }
 
 type Entry struct {

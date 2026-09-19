@@ -79,7 +79,7 @@ var _ = Describe("SysInfo Domain Configurator", func() {
 
 			expectedDomain := api.Domain{
 				Spec: api.DomainSpec{
-					SysInfo: &expected,
+					SysInfo: []api.SysInfo{expected},
 				},
 			}
 
