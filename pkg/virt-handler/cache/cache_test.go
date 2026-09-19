@@ -87,6 +87,43 @@ var _ = Describe("Domain informer", func() {
 			Expect(exists).To(BeFalse())
 		})
 
+		It("Should find ghost record by socket when the stored path is not normalized", func() {
+			const unnormalized = "//pods/1234-uid/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", unnormalized, "1234-1")).To(Succeed())
+
+			// the domain watcher looks records up with the exact string it read
+			// back out of the store, so this lookup has to resolve
+			record, exists := ghostRecordStore.findBySocket(unnormalized)
+			Expect(exists).To(BeTrue())
+			Expect(record.Name).To(Equal("test1"))
+
+			// the normalized spelling points at the same file and must resolve too
+			record, exists = ghostRecordStore.findBySocket(filepath.Clean(unnormalized))
+			Expect(exists).To(BeTrue())
+			Expect(record.Name).To(Equal("test1"))
+		})
+
+		It("Should not reject re-adding a ghost record whose socket path differs only by normalization", func() {
+			const normalized = "/pods/1234-uid/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+			const unnormalized = "/" + normalized
+
+			// written by a version that normalizes the socket path
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", normalized, "1234-1")).To(Succeed())
+			// rediscovered by a version that does not
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", unnormalized, "1234-1")).To(Succeed())
+		})
+
+		It("Should still reject adding a ghost record with a genuinely different socket path", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1",
+				"/pods/uid-a/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", "1234-1")).To(Succeed())
+
+			err := ghostRecordStore.Add("test1-namespace", "test1",
+				"/pods/uid-b/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", "1234-1")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("differing socket file location"))
+		})
+
 		It("Should initialize cache from disk", func() {
 			err := ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())
