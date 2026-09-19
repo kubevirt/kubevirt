@@ -20,21 +20,26 @@
 package rest
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -45,11 +50,12 @@ import (
 
 var _ = Describe("PortForward Subresource api", func() {
 	var (
-		recorder   *httptest.ResponseRecorder
-		request    *restful.Request
-		response   *restful.Response
-		virtClient *kubevirtfake.Clientset
-		app        *SubresourceAPIApp
+		recorder       *httptest.ResponseRecorder
+		request        *restful.Request
+		response       *restful.Response
+		mockVirtClient *kubecli.MockKubevirtClient
+		virtClient     *kubevirtfake.Clientset
+		app            *SubresourceAPIApp
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -80,13 +86,13 @@ var _ = Describe("PortForward Subresource api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctrl := gomock.NewController(GinkgoT())
 
-		mockVirtClient := kubecli.NewMockKubevirtClient(ctrl)
+		mockVirtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient = kubevirtfake.NewSimpleClientset()
 
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(mockVirtClient, nil, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	It("should fail with no 'name' path param", func() {
@@ -126,5 +132,65 @@ var _ = Describe("PortForward Subresource api", func() {
 
 		app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 		ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
+	})
+
+	It("should dial the launcher pod IP resolved from the indexer", func() {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).ToNot(HaveOccurred())
+		defer ln.Close()
+		tcpAddr := ln.Addr().(*net.TCPAddr)
+
+		// Nothing listens on the interface IP; the listener is only reachable via the pod IP.
+		vmi := &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Name: testVMIName, Namespace: metav1.NamespaceDefault, UID: "1234"},
+			Spec:       v1.VirtualMachineInstanceSpec{Networks: []v1.Network{*v1.DefaultPodNetwork()}},
+			Status: v1.VirtualMachineInstanceStatus{
+				Phase:      v1.Running,
+				NodeName:   "node1",
+				Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{Name: v1.DefaultPodNetwork().Name, IP: "::1"}},
+			},
+		}
+		_, err = virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		pod := &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "virt-launcher-" + testVMIName,
+				Namespace:       metav1.NamespaceDefault,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
+			},
+			Spec:   k8sv1.PodSpec{NodeName: "node1"},
+			Status: k8sv1.PodStatus{PodIP: tcpAddr.IP.String()},
+		}
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		Expect(indexer.Add(pod)).To(Succeed())
+
+		app = NewSubresourceAPIApp(mockVirtClient, nil, indexer, 0, nil, config)
+
+		ws := new(restful.WebService)
+		ws.Route(ws.GET("/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}").
+			To(app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)))
+		container := restful.NewContainer()
+		container.Add(ws)
+		srv := httptest.NewServer(container)
+		defer srv.Close()
+
+		accepted := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+			close(accepted)
+		}()
+
+		url := fmt.Sprintf("ws%s/namespaces/%s/virtualmachineinstances/%s/portforward/%d",
+			strings.TrimPrefix(srv.URL, "http"), metav1.NamespaceDefault, testVMIName, tcpAddr.Port)
+		clientConn, _, err := websocket.DefaultDialer.Dial(url, nil)
+		Expect(err).ToNot(HaveOccurred())
+		defer clientConn.Close()
+		Eventually(accepted).Should(BeClosed())
 	})
 })
