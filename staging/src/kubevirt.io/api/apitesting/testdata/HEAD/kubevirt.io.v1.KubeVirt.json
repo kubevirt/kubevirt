@@ -125,6 +125,10 @@
         "nodeDrainTaintKey": "nodeDrainTaintKeyValue",
         "parallelOutboundMigrationsPerNode": 4294967263,
         "parallelMigrationsPerCluster": 4294967268,
+        "historyLimits": {
+          "successful": 4294967286,
+          "failed": 4294967290
+        },
         "allowAutoConverge": true,
         "bandwidthPerMigration": "0",
         "completionTimeoutPerGiB": -23,

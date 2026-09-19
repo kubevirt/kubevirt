@@ -1085,6 +1085,7 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"nodeDrainTaintKey":                 "NodeDrainTaintKey defines the taint key that indicates a node should be drained.\nNote: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
 		"parallelOutboundMigrationsPerNode": "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations\nallowed per node. Defaults to 2",
 		"parallelMigrationsPerCluster":      "ParallelMigrationsPerCluster is the total number of concurrent live migrations\nallowed cluster-wide. Defaults to 5",
+		"historyLimits":                     "HistoryLimits controls how many successful and failed migrations are retained per VMI.\nWhen unset, the most recent 5 finalized migrations are retained regardless of outcome.",
 		"allowAutoConverge":                 "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
 		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
 		"completionTimeoutPerGiB":           "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf the timeout is reached, the migration will be either paused, switched\nto post-copy or cancelled depending on other settings. Defaults to 150",
@@ -1097,6 +1098,14 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"disableTLS":                        "DisableTLS disables both TLS encryption and mutual TLS authentication\non the migration proxy when set to true. This removes all cryptographic\nprotection from the migration data stream.\nWhen disabled, implement network-level access controls to restrict\nmigration traffic to trusted sources only.\nDefaults to false.",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
 		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+	}
+}
+
+func (MigrationHistoryLimits) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "MigrationHistoryLimits defines how many finalized migrations to retain per VMI by outcome.",
+		"successful": "Successful is the number of successful migrations to retain.",
+		"failed":     "Failed is the number of failed migrations to retain.",
 	}
 }
 
