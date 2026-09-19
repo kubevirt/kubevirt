@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
 	expect "github.com/google/goexpect"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -164,7 +166,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			namespace := testsuite.GetTestNamespace(nil)
 
 			By("Starting server VMI")
-			serverVMI = libvmifact.NewAlpineWithTestTooling(
+			serverVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
 					libvmi.WithPasstBinding(),
 					libvmi.WithPorts(
@@ -179,7 +181,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting client VMI")
-			clientVMI = libvmifact.NewAlpineWithTestTooling(
+			clientVMI = libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -187,7 +189,16 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				context.Background(), clientVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
+			Eventually(matcher.ThisVMI(serverVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(clientVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(serverVMI.GetNamespace()).Get(context.Background(), serverVMI.GetName(), metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(clientVMI.GetNamespace()).Get(context.Background(), clientVMI.GetName(), metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(console.LoginToFedora(serverVMI)).To(Succeed())
+			Expect(console.LoginToFedora(clientVMI)).To(Succeed())
 		})
 
 		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
@@ -275,12 +286,12 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
 		})
 
-		It("connectivity should be preserved for ipv4", func() {
-			libnet.SkipWhenClusterNotSupportIPFamily(k8sv1.IPv4Protocol)
+		DescribeTable("connectivity should be preserved", func(ipFamily k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			By("Verify the VMIs can ping each other")
-			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
-			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, k8sv1.IPv4Protocol)
+			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
 
@@ -304,14 +315,19 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				migrateVMI, err = vmiClient.Get(
 					context.Background(), migrateVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
-				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
+				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
 			By("Verify the VMIs can ping each other after migration")
-			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
-			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
-		})
+			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed(),
+				fmt.Sprintf("ping from migrated VM (%s) to static VM (%s) failed", migrateVMI.Name, anotherVMI.Name))
+			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed(),
+				fmt.Sprintf("ping from static VM (%s) to migrated VM (%s) failed", anotherVMI.Name, migrateVMI.Name))
+		},
+			Entry("[IPv4]", k8sv1.IPv4Protocol),
+			Entry("[IPv6]", k8sv1.IPv6Protocol),
+		)
 	})
 }),
 )
