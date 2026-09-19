@@ -196,6 +196,7 @@ aliases:
   # Responsible for the development and enhancement of
   # KubeVirt control plane.
   sig-control-plane-approvers:
+    - lyarwood
     - xpivarc
   sig-control-plane-reviewers:
     - akalenyu
