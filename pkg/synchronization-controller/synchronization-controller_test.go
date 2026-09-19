@@ -28,12 +28,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
@@ -42,6 +44,8 @@ import (
 	clientgoapi "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates"
@@ -407,6 +411,31 @@ var _ = Describe("VMI status synchronization controller", func() {
 	})
 
 	Context("addMigrationStateFieldPatches", func() {
+		// Guards against silently dropping MigrationState fields due to a missing
+		// patchMigrationStateField call in addMigrationStateFieldPatches. WithAllFieldsSet
+		// populates every field; applying the generated JSON patch to an empty VMI must
+		// reproduce the desired state.
+		It("covers all MigrationState fields", func() {
+			want := testutils.WithAllFieldsSet(reflect.TypeOf(virtv1.VirtualMachineInstanceMigrationState{})).(*virtv1.VirtualMachineInstanceMigrationState)
+			origVMI := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+
+			patchSet := patch.New()
+			addMigrationStateFieldPatches(patchSet, origVMI.Status.MigrationState, want)
+			payload, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			gotVMI, err := applyJSONPatchToVMI(origVMI, payload)
+			Expect(err).ToNot(HaveOccurred())
+			got := gotVMI.Status.MigrationState
+			if !apiequality.Semantic.DeepEqual(got, want) {
+				Expect(got).To(Equal(want))
+			}
+		})
+
 		It("should generate add operations for fields changing from zero to non-zero", func() {
 			origMS := &virtv1.VirtualMachineInstanceMigrationState{}
 			newMS := &virtv1.VirtualMachineInstanceMigrationState{
@@ -2595,4 +2624,28 @@ func verifyVolumes(result []virtv1.StorageMigratedVolumeInfo, expectedLen int, v
 			verifyVolume(result[i], verifyOpts...)
 		}
 	}
+}
+
+func applyJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, patchBytes []byte) (*virtv1.VirtualMachineInstance, error) {
+	old, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := jsonpatch.DecodePatch(patchBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	modified, err := p.Apply(old)
+	if err != nil {
+		return nil, err
+	}
+
+	result := vmi.DeepCopy()
+	if err := json.Unmarshal(modified, result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
