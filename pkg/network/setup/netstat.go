@@ -21,14 +21,11 @@ package network
 
 import (
 	"fmt"
-	"net"
-	"net/netip"
 	"slices"
 	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
-	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -114,7 +111,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	// Guest Agent information will add and conditionally override data gathered from the cache.
-	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces, vmiInterfacesSpecByName)
+	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
 	if primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks); primaryNetwork != nil {
 		interfacesStatus = restorePrimaryIfaceStatus(interfacesStatus, vmi.Status.Interfaces, primaryNetwork.Name)
@@ -326,21 +323,12 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 func ifacesStatusFromGuestAgent(
 	vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
 	guestAgentInterfaces []api.InterfaceStatus,
-	vmiInterfacesSpecByName map[string]v1.Interface,
 ) []v1.VirtualMachineInstanceNetworkInterface {
 	const guestOnlyInterfaceLimit = 10
 	var guestOnlyInterfaceCount int
 
 	for _, guestAgentInterface := range guestAgentInterfaces {
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
-			vmiIfaceSpec := vmiInterfacesSpecByName[vmiIfaceStatus.Name]
-
-			// When using masquerade binding, guest-defined Link-Local Addresses (LLAs) are unreachable from the pod network.
-			// These addresses remain internal to the guest and are outside the scope of KubeVirt's NAT translation rules.
-			if vmiIfaceSpec.Masquerade != nil {
-				guestAgentInterface.IPs = filterOutLinkLocalAddresses(guestAgentInterface.IPs)
-			}
-
 			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
 			if !isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface) {
 				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
@@ -370,37 +358,17 @@ func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.Inte
 
 func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
 	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
-	// IP data from the Guest Agent overrides previous iface status information in the following cases:
-	// - No status IPs existed before, i.e. GA data is adding new information.
-	// - Status IPs exist, however, GA information does not include any IP.
-	// In other words, if IP data already existed in the status, GA IP data will not override it.
-	// However, in case GA does not include IP data, it will clear IP status data (guest is not reachable by any IP).
-	ifaceStatusIPv4, ifaceStatusIPv6 := splitIPByFamiliy(ifaceStatus.IPs)
-	guestAgentIfaceIPv4, guestAgentIfaceIPv6 := splitIPByFamiliy(guestAgentIface.IPs)
-	if len(ifaceStatusIPv4) == 0 || len(guestAgentIfaceIPv4) == 0 {
-		ifaceStatusIPv4 = guestAgentIfaceIPv4
+
+	// Pod-cache IPs (set during network setup from the pod interface) are authoritative.
+	// Only use guest-agent IPs when no pod-cache IPs exist (e.g. guest-only interfaces).
+	if len(ifaceStatus.IPs) > 0 {
+		return
 	}
-	if len(ifaceStatusIPv6) == 0 || len(guestAgentIfaceIPv6) == 0 {
-		ifaceStatusIPv6 = guestAgentIfaceIPv6
-	}
-	ifaceStatus.IP = ""
-	ifaceStatus.IPs = nil
-	if len(ifaceStatusIPv4) > 0 {
-		ifaceStatus.IPs = append(ifaceStatus.IPs, ifaceStatusIPv4...)
-	}
-	if len(ifaceStatusIPv6) > 0 {
-		ifaceStatus.IPs = append(ifaceStatus.IPs, ifaceStatusIPv6...)
-	}
+
+	ifaceStatus.IPs = guestAgentIface.IPs
 	if len(ifaceStatus.IPs) > 0 {
 		ifaceStatus.IP = ifaceStatus.IPs[0]
 	}
-}
-
-func filterOutLinkLocalAddresses(ipv6Addresses []string) []string {
-	return slices.DeleteFunc(ipv6Addresses, func(s string) bool {
-		addr, err := netip.ParseAddr(s)
-		return err != nil || addr.IsLinkLocalUnicast()
-	})
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
@@ -421,22 +389,4 @@ func filterHostDevicesByAlias(hostDevices []api.HostDevice, prefix string) []api
 		}
 	}
 	return filteredHostDevices
-}
-
-func splitIPByFamiliy(ips []string) ([]string, []string) {
-	var IPv4Addresses []string
-	var IPv6Addresses []string
-
-	for _, ipRaw := range ips {
-		ip := net.ParseIP(ipRaw)
-		switch {
-		case ip == nil:
-			continue
-		case netutils.IsIPv4(ip):
-			IPv4Addresses = append(IPv4Addresses, ipRaw)
-		case netutils.IsIPv6(ip):
-			IPv6Addresses = append(IPv6Addresses, ipRaw)
-		}
-	}
-	return IPv4Addresses, IPv6Addresses
 }
