@@ -54,9 +54,34 @@ var _ = Describe("Panic Device Domain Configurator", func() {
 
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
+				OnCrash: api.DomainOnCrashPreserveRunning,
 				Devices: api.Devices{
 					PanicDevices: []api.PanicDevice{
 						{Model: &hypervModel},
+						{Model: &isaModel},
+						{Model: &pvpanicModel},
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("Should not set OnCrash when no hyperv panic device is specified in VMI", func() {
+		isaModel := v1.Isa
+		pvpanicModel := v1.Pvpanic
+		vmi := libvmi.New(
+			libvmi.WithPanicDevice(isaModel),
+			libvmi.WithPanicDevice(pvpanicModel),
+		)
+		var domain api.Domain
+
+		Expect(compute.PanicDevicesDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					PanicDevices: []api.PanicDevice{
 						{Model: &isaModel},
 						{Model: &pvpanicModel},
 					},
