@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"regexp"
+	"strconv"
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -46,6 +47,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	"kubevirt.io/kubevirt/pkg/service"
 )
 
@@ -63,6 +66,8 @@ const (
 	backendResponseHeaderTimeout = 30 * time.Second
 	serverIdleTimeout            = 60 * time.Second
 	serverReadHeaderTimeout      = 10 * time.Second
+
+	proxyRateLimitedBody = "rate limited"
 )
 
 type exportProxyApp struct {
@@ -104,11 +109,16 @@ func (app *exportProxyApp) Run() {
 
 	app.initReverseProxy()
 
+	if err := exportproxymetrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.proxyHandler)
-	mux.HandleFunc("/healthz", app.healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", app.healthzHandler)
+	mux.HandleFunc("/readyz", app.readyzHandler)
+	mux.HandleFunc("/api/", app.proxyHandler)
 
 	server := &http.Server{
 		Addr:              app.Address(),
@@ -130,6 +140,10 @@ func (app *exportProxyApp) healthzHandler(w http.ResponseWriter, r *http.Request
 	io.WriteString(w, "OK")
 }
 
+func (app *exportProxyApp) readyzHandler(w http.ResponseWriter, r *http.Request) {
+	exportproxymetrics.WriteReadyzResponse(w)
+}
+
 var proxyPathMatcher = regexp.MustCompile(`^/api/` + apiGroup + "/" + "(" + apiVersions + ")" + `/namespaces/([^/]+)/` + exportResourceName + `/([^/]+)/(.*)$`)
 
 func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -139,26 +153,37 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	key := fmt.Sprintf("%s/%s", match[2], match[3])
-	obj, exists, err := app.exportStore.GetByKey(key)
+	namespace := match[2]
+	exportName := match[3]
+	backendPath := "/" + match[4]
+
+	serviceName, ready, err := app.resolveServiceName(namespace, exportName)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	export := obj.(*exportv1.VirtualMachineExport)
-	if export.Status == nil || export.Status.Phase != exportv1.Ready {
+	if !ready {
+		if serviceName == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	backendHost := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[2])
-	backendPath := "/" + match[4]
+	// Admit only after the export exists and is ready so invalid paths do not
+	// consume transfer slots or inflate active-transfer metrics used by HPA.
+	activeTransfer, ok := exportproxymetrics.TryRecordTransferStarted()
+	if !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+		w.Header().Set("Connection", "close")
+		w.WriteHeader(http.StatusTooManyRequests)
+		io.WriteString(w, proxyRateLimitedBody)
+		return
+	}
+	defer activeTransfer.Finish()
+
+	backendHost := fmt.Sprintf("%s.%s.svc:443", serviceName, namespace)
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy
 	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
@@ -181,9 +206,15 @@ func (app *exportProxyApp) initReverseProxy() {
 		ResponseHeaderTimeout: backendResponseHeaderTimeout,
 	}
 	app.reverseProxy = &httputil.ReverseProxy{
-		Transport:     transport,
-		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
+		Transport:      transport,
+		FlushInterval:  -1, // flush immediately; avoids proxy-side buffering of large export streams
+		ModifyResponse: app.modifyProxyResponse,
 	}
+}
+
+func (app *exportProxyApp) modifyProxyResponse(resp *http.Response) error {
+	resp.Body = exportproxymetrics.NewCountingReadCloser(resp.Body)
+	return nil
 }
 
 func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -248,6 +279,26 @@ func (app *exportProxyApp) verifyBackendConnection(cs tls.ConnectionState) error
 		return fmt.Errorf("could not verify backend certificate: %w", err)
 	}
 	return nil
+}
+
+func (app *exportProxyApp) resolveServiceName(namespace, exportName string) (serviceName string, ready bool, err error) {
+	key := fmt.Sprintf("%s/%s", namespace, exportName)
+	obj, exists, err := app.exportStore.GetByKey(key)
+	if err != nil {
+		return "", false, err
+	}
+	if !exists {
+		return "", false, nil
+	}
+
+	export := obj.(*exportv1.VirtualMachineExport)
+	if export.Status == nil || export.Status.Phase != exportv1.Ready {
+		if export.Status == nil {
+			return "", false, nil
+		}
+		return export.Status.ServiceName, false, nil
+	}
+	return export.Status.ServiceName, true, nil
 }
 
 func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) error {
