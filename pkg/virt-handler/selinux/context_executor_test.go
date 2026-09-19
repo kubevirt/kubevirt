@@ -90,10 +90,16 @@ var _ = Describe("SELinux context executor", func() {
 				EXPECT().
 				FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid)).
 				Return(desiredLabel, nil)
+			// isSELinuxEnabled() now additionally verifies that our own process
+			// label can be read, so FileLabel(os.Getpid()) is called 3 times:
+			//  1) capability check inside newContextExecutor's isSELinuxEnabled()
+			//  2) originalLabel read inside newContextExecutor
+			//  3) capability check inside Execute()'s isSELinuxEnabled()
 			executor.
 				EXPECT().
 				FileLabel(fmt.Sprintf("/proc/%d/attr/current", os.Getpid())).
-				Return(originalLabel, nil)
+				Return(originalLabel, nil).
+				Times(3)
 			executor.
 				EXPECT().
 				LockOSThread()
@@ -116,6 +122,35 @@ var _ = Describe("SELinux context executor", func() {
 			Expect(ce.desiredLabel).To(Equal(desiredLabel))
 			Expect(ce.originalLabel).To(Equal(originalLabel))
 			Expect(ce.pid).To(Equal(pid))
+			err = ce.Execute()
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("with SELinux detected but not functional", func() {
+		// Simulate a partially-enabled custom kernel: selinuxfs is mounted and
+		// virt-chroot getenforce reports SELinux enabled, but the SELinux LSM is
+		// not actually active, so reading /proc/<pid>/attr/current returns
+		// EOPNOTSUPP. isSELinuxEnabled() must then degrade to false and skip
+		// context switching, avoiding the fatal getLabelForPID error on boot.
+		BeforeEach(func() {
+			executor.
+				EXPECT().
+				NewSELinux().
+				Return(&SELinuxImpl{}, true, nil).
+				Times(2)
+			executor.
+				EXPECT().
+				FileLabel(gomock.Any()).
+				Return("", fmt.Errorf("operation not supported")).
+				AnyTimes()
+		})
+
+		It("should degrade to non-SELinux execution", func() {
+			ce, err := newContextExecutor(pid, &exec.Cmd{}, executor)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ce.desiredLabel).To(BeEmpty())
+			Expect(ce.originalLabel).To(BeEmpty())
 			err = ce.Execute()
 			Expect(err).ToNot(HaveOccurred())
 		})
