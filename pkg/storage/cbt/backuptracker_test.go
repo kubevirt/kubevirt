@@ -194,10 +194,121 @@ var _ = Describe("VMBackupController", func() {
 		})
 	})
 
+	Context("handleTrackerDeletion", func() {
+		var (
+			ctrl           *VMBackupController
+			backupInformer cache.SharedIndexInformer
+		)
+
+		BeforeEach(func() {
+			backupInformer, _ = testutils.NewFakeInformerWithIndexersFor(
+				&backupv1.VirtualMachineBackup{},
+				controller.GetVirtualMachineBackupInformerIndexers(),
+			)
+
+			ctrl = &VMBackupController{
+				client:         virtClient,
+				backupInformer: backupInformer,
+			}
+		})
+
+		It("should remove finalizer when no backups exist", func() {
+			tracker := createTracker("tracker1", "test-vmi", true, false)
+			tracker.DeletionTimestamp = new(metav1.Now())
+			tracker.Finalizers = []string{backupv1.VirtualMachineBackupTrackerFinalizer}
+			_, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Create(
+				context.Background(), tracker, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
+				Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+
+			err = ctrl.handleTrackerDeletion(tracker)
+			Expect(err).ToNot(HaveOccurred())
+
+			updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
+				context.Background(), "tracker1", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Finalizers).To(BeEmpty())
+		})
+
+		DescribeTable("should remove finalizer only when all backups are terminal",
+			func(backup *backupv1.VirtualMachineBackup, shouldRemove bool) {
+				tracker := createTracker("tracker1", "test-vmi", true, false)
+				tracker.DeletionTimestamp = new(metav1.Now())
+				tracker.Finalizers = []string{backupv1.VirtualMachineBackupTrackerFinalizer}
+				_, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Create(
+					context.Background(), tracker, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(backupInformer.GetStore().Add(backup)).To(Succeed())
+
+				if shouldRemove {
+					virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
+						Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+				}
+
+				err = ctrl.handleTrackerDeletion(tracker)
+				if shouldRemove {
+					Expect(err).ToNot(HaveOccurred())
+				} else {
+					Expect(err).To(HaveOccurred())
+				}
+
+				updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
+					context.Background(), "tracker1", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if shouldRemove {
+					Expect(updated.Finalizers).To(BeEmpty())
+				} else {
+					Expect(updated.Finalizers).To(ContainElement(backupv1.VirtualMachineBackupTrackerFinalizer))
+				}
+			},
+			Entry("active backup blocks removal",
+				&backupv1.VirtualMachineBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "active-backup",
+						Namespace: testNamespace,
+					},
+					Spec: backupv1.VirtualMachineBackupSpec{
+						Source: corev1.TypedLocalObjectReference{
+							APIGroup: new(backupv1.SchemeGroupVersion.Group),
+							Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+							Name:     "tracker1",
+						},
+					},
+				}, false),
+			Entry("completed backup allows removal",
+				&backupv1.VirtualMachineBackup{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "completed-backup",
+						Namespace: testNamespace,
+					},
+					Spec: backupv1.VirtualMachineBackupSpec{
+						Source: corev1.TypedLocalObjectReference{
+							APIGroup: new(backupv1.SchemeGroupVersion.Group),
+							Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+							Name:     "tracker1",
+						},
+					},
+					Status: &backupv1.VirtualMachineBackupStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(backupv1.ConditionComplete),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				}, true),
+		)
+	})
+
 	Context("executeTracker", func() {
 		var (
 			ctrl            *VMBackupController
 			trackerInformer cache.SharedIndexInformer
+			backupInformer  cache.SharedIndexInformer
 			vmiInformer     cache.SharedIndexInformer
 			recorder        *record.FakeRecorder
 			vmiInterface    *kubecli.MockVirtualMachineInstanceInterface
@@ -208,6 +319,10 @@ var _ = Describe("VMBackupController", func() {
 				&backupv1.VirtualMachineBackupTracker{},
 				controller.GetVirtualMachineBackupTrackerInformerIndexers(),
 			)
+			backupInformer, _ = testutils.NewFakeInformerWithIndexersFor(
+				&backupv1.VirtualMachineBackup{},
+				controller.GetVirtualMachineBackupInformerIndexers(),
+			)
 			vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -216,6 +331,7 @@ var _ = Describe("VMBackupController", func() {
 			ctrl = &VMBackupController{
 				client:                virtClient,
 				backupTrackerInformer: trackerInformer,
+				backupInformer:        backupInformer,
 				vmiStore:              vmiInformer.GetStore(),
 				recorder:              recorder,
 			}
@@ -227,7 +343,6 @@ var _ = Describe("VMBackupController", func() {
 		})
 
 		It("should return nil when tracker no longer needs redefinition", func() {
-			// Tracker without redefinition flag set
 			tracker := createTracker("tracker1", "test-vmi", false, false)
 			Expect(trackerInformer.GetStore().Add(tracker)).To(Succeed())
 
