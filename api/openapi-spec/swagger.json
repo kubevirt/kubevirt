@@ -12495,6 +12495,25 @@
      }
     }
    },
+   "io.k8s.api.core.v1.PersistentVolumeClaimTemplate": {
+    "description": "PersistentVolumeClaimTemplate is used to produce PersistentVolumeClaim objects as part of an EphemeralVolumeSource.",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "metadata": {
+      "description": "May contain labels and annotations that will be copied into the PVC when creating it. No other fields are allowed and will be rejected during validation.",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "The specification for the PersistentVolumeClaim. The entire content is copied unchanged into the PVC that gets created from this template. The same fields as in a PersistentVolumeClaim are also valid here.",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimSpec"
+     }
+    }
+   },
    "io.k8s.api.core.v1.PersistentVolumeClaimVolumeSource": {
     "description": "PersistentVolumeClaimVolumeSource references the user's PVC in the same namespace. This volume finds the bound PV and mounts that volume for the pod. A PersistentVolumeClaimVolumeSource is, essentially, a wrapper around another type of volume that is owned by someone else (the system).",
     "type": "object",
@@ -19826,6 +19845,10 @@
       ],
       "x-kubernetes-list-type": "map"
      },
+     "virtualMachineState": {
+      "description": "VirtualMachineState references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). When set, it takes precedence over the implicit VirtualMachineState PVC creation that happens when persistent TPM/EFI or CBT is enabled, and any enabled TPM or EFI feature is treated as persistent.",
+      "$ref": "#/definitions/v1.VirtualMachineStateSpec"
+     },
      "volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vmi.",
       "type": "array",
@@ -19974,6 +19997,10 @@
      "virtualMachineRevisionName": {
       "description": "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing an online vm snapshot",
       "type": "string"
+     },
+     "virtualMachineStateVolume": {
+      "description": "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+      "$ref": "#/definitions/v1.VolumeStatus"
      },
      "volumeStatus": {
       "description": "VolumeStatus contains the statuses of all the volumes",
@@ -20163,6 +20190,34 @@
      }
     }
    },
+   "v1.VirtualMachineStateSource": {
+    "description": "VirtualMachineStateSource references an existing PVC to adopt as the starting VirtualMachineState.",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name of the source PVC.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.VirtualMachineStateSpec": {
+    "description": "VirtualMachineStateSpec references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). At least one of VolumeClaimTemplate or Source must be set.",
+    "type": "object",
+    "properties": {
+     "source": {
+      "description": "Source is an existing PVC to adopt as the starting VirtualMachineState. The controller does not take ownership of a PVC referenced this way.",
+      "$ref": "#/definitions/v1.VirtualMachineStateSource"
+     },
+     "volumeClaimTemplate": {
+      "description": "VolumeClaimTemplate is the template the controller uses to create PVCs it owns. It is used for the initial PVC when Source is unset, and for every new PVC the controller creates later for operations like live migration. The controller owns the PVC name via GenerateName, so volumeClaimTemplate.metadata.name must not be set. The referenced volume mode must be Filesystem.",
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimTemplate"
+     }
+    }
+   },
    "v1.VirtualMachineStatus": {
     "description": "VirtualMachineStatus represents the status returned by the controller to describe how the VirtualMachine is doing",
     "type": "object",
@@ -20237,6 +20292,10 @@
        "default": {},
        "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
       }
+     },
+     "virtualMachineStateVolume": {
+      "description": "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+      "$ref": "#/definitions/v1.VolumeStatus"
      },
      "volumeRequests": {
       "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",

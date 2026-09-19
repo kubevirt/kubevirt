@@ -2482,6 +2482,12 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	created := vmi != nil
 	vm.Status.Created = created
 
+	// Mirror the live VirtualMachineState PVC onto the VM status for discoverability. While the VMI
+	// exists its status is authoritative; when it is gone we keep the last known reference.
+	if vmi != nil && vmi.Status.VirtualMachineStateVolume != nil {
+		vm.Status.VirtualMachineStateVolume = vmi.Status.VirtualMachineStateVolume.DeepCopy()
+	}
+
 	ready := false
 	if created {
 		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
@@ -2554,6 +2560,7 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
 		{virtv1.VirtualMachineStatusPvcNotFound, c.isVirtualMachineStatusPvcNotFound},
+		{virtv1.VirtualMachineStatusVMStateInUse, c.isVirtualMachineStatusVMStateInUse},
 		{virtv1.VirtualMachineStatusDataVolumeError, c.isVirtualMachineStatusDataVolumeError},
 		{virtv1.VirtualMachineStatusUnschedulable, c.isVirtualMachineStatusUnschedulable},
 		{virtv1.VirtualMachineStatusProvisioning, c.isVirtualMachineStatusProvisioning},
@@ -2700,10 +2707,22 @@ func (c *Controller) isVirtualMachineStatusImagePullBackOff(vm *virtv1.VirtualMa
 
 // isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "FailedPvcNotFound".
 func (c *Controller) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	cm := controller.NewVirtualMachineInstanceConditionManager()
+	return cm.HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceSynchronized,
+		k8score.ConditionFalse,
+		controller.FailedPvcNotFoundReason) ||
+		cm.HasConditionWithStatusAndReason(vmi,
+			virtv1.VirtualMachineInstanceSynchronized,
+			k8score.ConditionFalse,
+			controller.VirtualMachineStatePVCNotFoundReason)
+}
+
+func (c *Controller) isVirtualMachineStatusVMStateInUse(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
 		virtv1.VirtualMachineInstanceSynchronized,
 		k8score.ConditionFalse,
-		controller.FailedPvcNotFoundReason)
+		controller.VirtualMachineStateInUseReason)
 }
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"

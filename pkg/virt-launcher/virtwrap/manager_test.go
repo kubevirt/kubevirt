@@ -46,6 +46,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/log"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -5106,5 +5107,378 @@ var _ = Describe("findDiskFileInImageVolume", func() {
 		_, err := findDiskFileInImageVolume(filepath.Join(baseDir, "nonexistent"))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed to read image volume directory"))
+	})
+})
+
+var _ = Describe("VMState layout normalization", func() {
+	const legacyUUID = "12345678-1234-1234-1234-123456789abc"
+
+	var root string
+
+	BeforeEach(func() {
+		root = GinkgoT().TempDir()
+	})
+
+	Context("readVMStateLayoutVersion", func() {
+		It("should return 0 when the layout marker is absent", func() {
+			version, err := readVMStateLayoutVersion(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(version).To(Equal(0))
+		})
+
+		It("should return the recorded version for a valid marker", func() {
+			metaDir := filepath.Join(root, util.VMStateDirMeta)
+			Expect(os.MkdirAll(metaDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(metaDir, util.VMStateFileLayout), []byte(" 7\n"), 0644)).To(Succeed())
+
+			version, err := readVMStateLayoutVersion(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(version).To(Equal(7))
+		})
+
+		It("should error on non-integer marker content", func() {
+			metaDir := filepath.Join(root, util.VMStateDirMeta)
+			Expect(os.MkdirAll(metaDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(metaDir, util.VMStateFileLayout), []byte("not-a-number"), 0644)).To(Succeed())
+
+			_, err := readVMStateLayoutVersion(root)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("writeVMStateLayoutVersion", func() {
+		It("should create meta/ and write a version that reads back", func() {
+			Expect(writeVMStateLayoutVersion(root, 3)).To(Succeed())
+
+			version, err := readVMStateLayoutVersion(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(version).To(Equal(3))
+		})
+	})
+
+	Context("findLegacyTPMUUIDDirs", func() {
+		It("should return nil when the swtpm directory is missing", func() {
+			dirs, err := findLegacyTPMUUIDDirs(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dirs).To(BeNil())
+		})
+
+		It("should return only UUID-shaped subdirectories, ignoring others", func() {
+			swtpmDir := filepath.Join(root, util.VMStateDirSwtpmLegacy)
+			Expect(os.MkdirAll(filepath.Join(swtpmDir, legacyUUID), 0755)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(swtpmDir, "lost+found"), 0755)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Join(swtpmDir, "not-a-uuid"), 0755)).To(Succeed())
+
+			dirs, err := findLegacyTPMUUIDDirs(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dirs).To(ConsistOf(legacyUUID))
+		})
+	})
+
+	Context("findLegacyNVRAMVarsFile", func() {
+		It("should return an empty string when no VARS file exists", func() {
+			path, err := findLegacyNVRAMVarsFile(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path).To(BeEmpty())
+		})
+
+		It("should return the absolute path of a matching VARS file", func() {
+			nvramDir := filepath.Join(root, util.VMStateDirNVRAMLegacy)
+			Expect(os.MkdirAll(nvramDir, 0755)).To(Succeed())
+			varsPath := filepath.Join(nvramDir, "myvm_VARS.fd")
+			Expect(os.WriteFile(varsPath, []byte("vars"), 0644)).To(Succeed())
+
+			path, err := findLegacyNVRAMVarsFile(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path).To(Equal(varsPath))
+		})
+	})
+
+	Context("pathExists", func() {
+		It("should report true for an existing directory", func() {
+			exists, err := pathExists(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+
+		It("should report false for a missing path", func() {
+			exists, err := pathExists(filepath.Join(root, "nonexistent"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+	})
+
+	Context("ensureVMStateSymlink", func() {
+		var target string
+
+		BeforeEach(func() {
+			target = filepath.Join(root, "target")
+			Expect(os.MkdirAll(target, 0755)).To(Succeed())
+		})
+
+		It("should create a symlink pointing at the target", func() {
+			link := filepath.Join(root, "link")
+			Expect(ensureVMStateSymlink(target, link)).To(Succeed())
+
+			resolved, err := os.Readlink(link)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resolved).To(Equal(target))
+		})
+
+		It("should be idempotent when the link already exists", func() {
+			link := filepath.Join(root, "link")
+			Expect(ensureVMStateSymlink(target, link)).To(Succeed())
+			Expect(ensureVMStateSymlink(target, link)).To(Succeed())
+
+			resolved, err := os.Readlink(link)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resolved).To(Equal(target))
+		})
+
+		It("should replace an empty directory at the link path", func() {
+			link := filepath.Join(root, "link")
+			Expect(os.MkdirAll(link, 0755)).To(Succeed())
+
+			Expect(ensureVMStateSymlink(target, link)).To(Succeed())
+
+			resolved, err := os.Readlink(link)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resolved).To(Equal(target))
+		})
+
+		It("should refuse to replace a non-empty directory at the link path", func() {
+			link := filepath.Join(root, "link")
+			Expect(os.MkdirAll(link, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(link, "keep"), []byte("data"), 0644)).To(Succeed())
+
+			err := ensureVMStateSymlink(target, link)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("refusing to replace non-empty directory"))
+		})
+	})
+
+	Context("normalizeLegacyTPM", func() {
+		var logger *log.FilteredLogger
+
+		BeforeEach(func() {
+			logger = log.Log
+		})
+
+		It("should migrate a single legacy TPM directory to canonical tpm/", func() {
+			legacyDir := filepath.Join(root, util.VMStateDirSwtpmLegacy, legacyUUID)
+			Expect(os.MkdirAll(legacyDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(legacyDir, "marker"), []byte("tpmstate"), 0644)).To(Succeed())
+
+			Expect((&LibvirtDomainManager{}).normalizeLegacyTPM(logger, root)).To(Succeed())
+
+			tpmDir := filepath.Join(root, util.VMStateDirTPM)
+			Expect(pathExists(tpmDir)).To(BeTrue())
+			data, err := os.ReadFile(filepath.Join(tpmDir, "marker"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(data)).To(Equal("tpmstate"))
+			Expect(pathExists(legacyDir)).To(BeFalse())
+		})
+
+		It("should skip and leave legacy dirs untouched when tpm/ already exists", func() {
+			Expect(os.MkdirAll(filepath.Join(root, util.VMStateDirTPM), 0755)).To(Succeed())
+			legacyDir := filepath.Join(root, util.VMStateDirSwtpmLegacy, legacyUUID)
+			Expect(os.MkdirAll(legacyDir, 0755)).To(Succeed())
+
+			Expect((&LibvirtDomainManager{}).normalizeLegacyTPM(logger, root)).To(Succeed())
+
+			Expect(pathExists(legacyDir)).To(BeTrue())
+		})
+
+		It("should not migrate when multiple legacy UUID directories are present", func() {
+			otherUUID := "abcdef12-3456-7890-abcd-ef1234567890"
+			legacyDir1 := filepath.Join(root, util.VMStateDirSwtpmLegacy, legacyUUID)
+			legacyDir2 := filepath.Join(root, util.VMStateDirSwtpmLegacy, otherUUID)
+			Expect(os.MkdirAll(legacyDir1, 0755)).To(Succeed())
+			Expect(os.MkdirAll(legacyDir2, 0755)).To(Succeed())
+
+			Expect((&LibvirtDomainManager{}).normalizeLegacyTPM(logger, root)).To(Succeed())
+
+			Expect(pathExists(filepath.Join(root, util.VMStateDirTPM))).To(BeFalse())
+			Expect(pathExists(legacyDir1)).To(BeTrue())
+			Expect(pathExists(legacyDir2)).To(BeTrue())
+		})
+
+		It("should recover a staged tpm.migrating directory after a crash", func() {
+			migrating := filepath.Join(root, util.VMStateDirTPM+".migrating")
+			Expect(os.MkdirAll(migrating, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(migrating, "marker"), []byte("staged"), 0644)).To(Succeed())
+
+			Expect((&LibvirtDomainManager{}).normalizeLegacyTPM(logger, root)).To(Succeed())
+
+			tpmDir := filepath.Join(root, util.VMStateDirTPM)
+			data, err := os.ReadFile(filepath.Join(tpmDir, "marker"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(data)).To(Equal("staged"))
+		})
+	})
+
+	Context("normalizeLegacyEFI", func() {
+		var logger *log.FilteredLogger
+
+		BeforeEach(func() {
+			logger = log.Log
+		})
+
+		It("should migrate a legacy nvram VARS file to canonical efi/efi_vars.fd", func() {
+			nvramDir := filepath.Join(root, util.VMStateDirNVRAMLegacy)
+			Expect(os.MkdirAll(nvramDir, 0755)).To(Succeed())
+			legacyVars := filepath.Join(nvramDir, "myvm_VARS.fd")
+			Expect(os.WriteFile(legacyVars, []byte("efistate"), 0644)).To(Succeed())
+
+			Expect(normalizeLegacyEFI(logger, root)).To(Succeed())
+
+			data, err := os.ReadFile(filepath.Join(root, util.VMStateDirEFI, util.VMStateEFIVarsFile))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(data)).To(Equal("efistate"))
+			Expect(pathExists(legacyVars)).To(BeFalse())
+		})
+
+		It("should skip and leave the legacy file when canonical efi_vars.fd already exists", func() {
+			efiDir := filepath.Join(root, util.VMStateDirEFI)
+			Expect(os.MkdirAll(efiDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(efiDir, util.VMStateEFIVarsFile), []byte("canonical"), 0644)).To(Succeed())
+			nvramDir := filepath.Join(root, util.VMStateDirNVRAMLegacy)
+			Expect(os.MkdirAll(nvramDir, 0755)).To(Succeed())
+			legacyVars := filepath.Join(nvramDir, "myvm_VARS.fd")
+			Expect(os.WriteFile(legacyVars, []byte("legacy"), 0644)).To(Succeed())
+
+			Expect(normalizeLegacyEFI(logger, root)).To(Succeed())
+
+			data, err := os.ReadFile(filepath.Join(efiDir, util.VMStateEFIVarsFile))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(data)).To(Equal("canonical"))
+			Expect(pathExists(legacyVars)).To(BeTrue())
+		})
+
+		It("should be a no-op when there is no legacy VARS file", func() {
+			Expect(normalizeLegacyEFI(logger, root)).To(Succeed())
+			Expect(pathExists(filepath.Join(root, util.VMStateDirEFI, util.VMStateEFIVarsFile))).To(BeFalse())
+		})
+	})
+
+	Context("normalizeLegacyVMStateLayoutAt", func() {
+		var logger *log.FilteredLogger
+
+		BeforeEach(func() {
+			logger = log.Log
+		})
+
+		It("should migrate legacy TPM and EFI state and stamp the layout version", func() {
+			legacyTPM := filepath.Join(root, util.VMStateDirSwtpmLegacy, legacyUUID)
+			Expect(os.MkdirAll(legacyTPM, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(legacyTPM, "marker"), []byte("tpmstate"), 0644)).To(Succeed())
+			nvramDir := filepath.Join(root, util.VMStateDirNVRAMLegacy)
+			Expect(os.MkdirAll(nvramDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(nvramDir, "myvm_VARS.fd"), []byte("efistate"), 0644)).To(Succeed())
+
+			Expect((&LibvirtDomainManager{}).normalizeLegacyVMStateLayoutAt(logger, root)).To(Succeed())
+
+			tpmMarker, err := os.ReadFile(filepath.Join(root, util.VMStateDirTPM, "marker"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(tpmMarker)).To(Equal("tpmstate"))
+			efiVars, err := os.ReadFile(filepath.Join(root, util.VMStateDirEFI, util.VMStateEFIVarsFile))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(efiVars)).To(Equal("efistate"))
+
+			version, err := readVMStateLayoutVersion(root)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(version).To(Equal(util.VMStateLayoutVersion))
+		})
+
+		It("should skip normalization when the PVC is already at the current version", func() {
+			Expect(writeVMStateLayoutVersion(root, util.VMStateLayoutVersion)).To(Succeed())
+			legacyTPM := filepath.Join(root, util.VMStateDirSwtpmLegacy, legacyUUID)
+			Expect(os.MkdirAll(legacyTPM, 0755)).To(Succeed())
+
+			Expect((&LibvirtDomainManager{}).normalizeLegacyVMStateLayoutAt(logger, root)).To(Succeed())
+
+			// Legacy state is left in place because normalization was skipped.
+			Expect(pathExists(filepath.Join(root, util.VMStateDirTPM))).To(BeFalse())
+			Expect(pathExists(legacyTPM)).To(BeTrue())
+		})
+	})
+
+	Context("prepareVMStateLayoutAt", func() {
+		const firmwareUUID = "abcd1234-0000-0000-0000-abcdef012345"
+
+		var (
+			logger     *log.FilteredLogger
+			swtpmRoot  string
+			localcaDir string
+			localca    string
+		)
+
+		BeforeEach(func() {
+			logger = log.Log
+			swtpmRoot = filepath.Join(GinkgoT().TempDir(), "swtpm")
+			localcaDir = GinkgoT().TempDir()
+			localca = filepath.Join(localcaDir, "swtpm-localca")
+		})
+
+		newVMI := func(persistentTPM bool) *v1.VirtualMachineInstance {
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{UUID: types.UID(firmwareUUID)}
+			if persistentTPM {
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{}
+			}
+			return vmi
+		}
+
+		It("should pin the domain UUID and symlink swtpm state and local-CA into the mount for a persistent TPM", func() {
+			vmi := newVMI(true)
+			domain := &api.Domain{}
+
+			Expect((&LibvirtDomainManager{}).prepareVMStateLayoutAt(logger, vmi, domain, root, swtpmRoot, localca)).To(Succeed())
+
+			Expect(domain.Spec.UUID).To(Equal(firmwareUUID))
+
+			for _, dir := range []string{util.VMStateDirTPM, util.VMStateDirSwtpmLocalca, util.VMStateDirEFI, util.VMStateDirCBT, util.VMStateDirMeta} {
+				Expect(pathExists(filepath.Join(root, dir))).To(BeTrue(), "expected canonical dir %q", dir)
+			}
+
+			tpmLink, err := os.Readlink(filepath.Join(swtpmRoot, firmwareUUID))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tpmLink).To(Equal(filepath.Join(root, util.VMStateDirTPM)))
+
+			localcaLink, err := os.Readlink(localca)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(localcaLink).To(Equal(filepath.Join(root, util.VMStateDirSwtpmLocalca)))
+		})
+
+		It("should be idempotent when the symlinks already point at the canonical paths", func() {
+			vmi := newVMI(true)
+
+			Expect((&LibvirtDomainManager{}).prepareVMStateLayoutAt(logger, vmi, &api.Domain{}, root, swtpmRoot, localca)).To(Succeed())
+			Expect((&LibvirtDomainManager{}).prepareVMStateLayoutAt(logger, vmi, &api.Domain{}, root, swtpmRoot, localca)).To(Succeed())
+
+			tpmLink, err := os.Readlink(filepath.Join(swtpmRoot, firmwareUUID))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tpmLink).To(Equal(filepath.Join(root, util.VMStateDirTPM)))
+		})
+
+		It("should create the canonical dirs without any symlink when there is no persistent TPM", func() {
+			vmi := newVMI(false)
+			domain := &api.Domain{}
+
+			Expect((&LibvirtDomainManager{}).prepareVMStateLayoutAt(logger, vmi, domain, root, swtpmRoot, localca)).To(Succeed())
+
+			Expect(pathExists(filepath.Join(root, util.VMStateDirTPM))).To(BeTrue())
+			Expect(pathExists(swtpmRoot)).To(BeFalse())
+			Expect(pathExists(localca)).To(BeFalse())
+		})
+
+		It("should error when a persistent TPM has no resolvable domain UUID", func() {
+			vmi := newVMI(true)
+			vmi.Spec.Domain.Firmware = nil
+
+			err := (&LibvirtDomainManager{}).prepareVMStateLayoutAt(logger, vmi, &api.Domain{}, root, swtpmRoot, localca)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })

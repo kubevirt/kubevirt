@@ -1374,6 +1374,16 @@ func (in VirtualMachineStateChangeRequest) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualMachineStateSource) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.VirtualMachineStateSource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualMachineStateSpec) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.VirtualMachineStateSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualMachineStatus) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.VirtualMachineStatus"
 }
