@@ -52,6 +52,7 @@ func ValidateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		causes = append(causes, validatePciAddress(field, idx, disk)...)
 		causes = append(causes, validateBootOrderValue(field, idx, disk)...)
 		causes = append(causes, validateBusSupport(field, idx, disk)...)
+		causes = append(causes, validateSerialDevice(field, idx, disk)...)
 		causes = append(causes, validateSerialNumValue(field, idx, disk)...)
 		causes = append(causes, validateSerialNumLength(field, idx, disk)...)
 		causes = append(causes, validateCacheMode(field, idx, disk)...)
@@ -225,6 +226,18 @@ func validateBusSupport(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.St
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus),
 			Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
+		})
+	}
+	return causes
+}
+
+func validateSerialDevice(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.Serial != "" && getDiskBus(disk) == v1.DiskBusSCSI && getDiskType(disk) == "lun" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Serial definition is not supported for LUN disks",
+			Field:   field.Index(idx).Child("serial").String(),
 		})
 	}
 	return causes
