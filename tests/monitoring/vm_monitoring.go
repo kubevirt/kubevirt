@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -55,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -401,15 +404,162 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			for i := 0; i < expectedVMCount; i++ {
 				vmi := libvmifact.NewGuestless()
 				vm := libvmi.NewVirtualMachine(vmi)
-				_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				_, createErr := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
 					context.Background(), vm, metav1.CreateOptions{},
 				)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(createErr).ToNot(HaveOccurred())
 			}
 
 			nsLabels := map[string]string{"namespace": testsuite.GetTestNamespace(nil)}
 			libmonitoring.WaitForMetricValueWithLabels(
 				virtClient, "namespace:kubevirt_vm:sum", expectedVMCount, nsLabels, 1,
+			)
+		})
+	})
+
+	Context("Block I/O latency histogram lifecycle", Serial, func() {
+		It("should restore a removed histogram after a VM restart", func() {
+			vm := createRunningVM(
+				virtClient, libvmifact.NewAlpine(), v1.RunStrategyAlways, true,
+			)
+
+			vmi, getErr := virtClient.VirtualMachineInstance(vm.Namespace).Get(
+				context.Background(), vm.Name, metav1.GetOptions{},
+			)
+			Expect(getErr).ToNot(HaveOccurred())
+
+			sourceLabels := blockLatencyHistogramLabels(vmi, "disk0", "read")
+			waitForBlockLatencyHistogram(virtClient, sourceLabels)
+			removeBlockLatencyHistograms(vmi, "disk0")
+			waitForBlockLatencyHistogramToDisappear(virtClient, sourceLabels)
+			expectBlockLatencyHistograms(vmi, "disk0", false)
+
+			By("Restarting the VM after removing its latency histograms")
+			vm = libvmops.StopVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(
+				context.Background(), vm.Name, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			waitForBlockLatencyHistogram(
+				virtClient, blockLatencyHistogramLabels(vmi, "disk0", "read"),
+			)
+		})
+
+		It("should restore a removed histogram after a disk is detached and reattached", decorators.StorageReq, func() {
+			const (
+				volumeName         = "latency-hotplug-disk"
+				randomSuffixLength = 5
+			)
+
+			vmi := libvmops.RunVMIAndExpectLaunch(
+				libvmifact.NewAlpine(), flags.StartupTimeoutSecondsHuge(),
+			)
+			dv := libstorage.CreateBlankFSDataVolume(
+				"latency-hotplug-"+rand.String(randomSuffixLength), vmi.Namespace, "512Mi", nil,
+			)
+
+			addVolumeOptions := &v1.AddVolumeOptions{
+				Name: volumeName,
+				Disk: &v1.Disk{
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+					},
+				},
+				VolumeSource: &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{Name: dv.Name},
+				},
+			}
+
+			By("Hotplugging a data volume")
+			Eventually(func() error {
+				return virtClient.VirtualMachineInstance(vmi.Namespace).AddVolume(
+					context.Background(), vmi.Name, addVolumeOptions,
+				)
+			}, 10*time.Second, time.Second).Should(Succeed())
+			libstorage.VerifyVolumeStatus(
+				virtClient, vmi, v1.VolumeReady, "", true, volumeName,
+			)
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(
+				context.Background(), vmi.Name, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			waitForBlockLatencyHistogram(
+				virtClient, blockLatencyHistogramLabels(vmi, volumeName, "read"),
+			)
+
+			hotplugLabels := blockLatencyHistogramLabels(vmi, volumeName, "read")
+			removeBlockLatencyHistograms(vmi, volumeName)
+			waitForBlockLatencyHistogramToDisappear(virtClient, hotplugLabels)
+			expectBlockLatencyHistograms(vmi, volumeName, false)
+
+			By("Detaching the disk whose histograms were removed")
+			Eventually(func() error {
+				return virtClient.VirtualMachineInstance(vmi.Namespace).RemoveVolume(
+					context.Background(), vmi.Name, &v1.RemoveVolumeOptions{Name: volumeName},
+				)
+			}, 10*time.Second, time.Second).Should(Succeed())
+			Eventually(func() bool {
+				currentVMI, getErr := virtClient.VirtualMachineInstance(vmi.Namespace).Get(
+					context.Background(), vmi.Name, metav1.GetOptions{},
+				)
+				if getErr != nil {
+					return false
+				}
+				for _, volumeStatus := range currentVMI.Status.VolumeStatus {
+					if volumeStatus.Name == volumeName {
+						return false
+					}
+				}
+				return true
+			}, 3*time.Minute, 2*time.Second).Should(BeTrue())
+
+			By("Reattaching the disk and waiting for fresh histograms")
+			Eventually(func() error {
+				return virtClient.VirtualMachineInstance(vmi.Namespace).AddVolume(
+					context.Background(), vmi.Name, addVolumeOptions,
+				)
+			}, 10*time.Second, time.Second).Should(Succeed())
+			libstorage.VerifyVolumeStatus(
+				virtClient, vmi, v1.VolumeReady, "", true, volumeName,
+			)
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(
+				context.Background(), vmi.Name, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			waitForBlockLatencyHistogram(
+				virtClient, blockLatencyHistogramLabels(vmi, volumeName, "read"),
+			)
+		})
+
+		It("should restore a removed histogram on the target after live migration", decorators.RequiresTwoSchedulableNodes, func() {
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			waitForBlockLatencyHistogram(
+				virtClient, blockLatencyHistogramLabels(vmi, "disk0", "read"),
+			)
+			sourceLabels := blockLatencyHistogramLabels(vmi, "disk0", "read")
+			removeBlockLatencyHistograms(vmi, "disk0")
+			waitForBlockLatencyHistogramToDisappear(virtClient, sourceLabels)
+			expectBlockLatencyHistograms(vmi, "disk0", false)
+			sourceNode := vmi.Status.NodeName
+
+			By("Migrating the VMI")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(
+				virtClient, migration,
+			)
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(
+				context.Background(), vmi.Name, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.NodeName).ToNot(Equal(sourceNode))
+			waitForBlockLatencyHistogram(
+				virtClient, blockLatencyHistogramLabels(vmi, "disk0", "read"),
 			)
 		})
 	})
@@ -720,6 +870,136 @@ func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerVal
 	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">", formerValue))
 
 	return metricValue
+}
+
+func blockLatencyHistogramLabels(
+	vmi *v1.VirtualMachineInstance,
+	drive string,
+	operation string,
+) map[string]string {
+	return map[string]string{
+		"node":      vmi.Status.NodeName,
+		"namespace": vmi.Namespace,
+		"name":      vmi.Name,
+		"drive":     drive,
+		"operation": operation,
+	}
+}
+
+func waitForBlockLatencyHistogram(
+	virtClient kubecli.KubevirtClient,
+	labels map[string]string,
+) {
+	By("Waiting for a coherent block I/O latency histogram")
+	EventuallyWithOffset(1, func() error {
+		count, err := libmonitoring.GetMetricValueWithLabels(
+			virtClient, "kubevirt_vmi_storage_io_latency_seconds_count", labels,
+		)
+		if err != nil {
+			return err
+		}
+
+		bucketLabels := make(map[string]string, len(labels)+1)
+		for key, value := range labels {
+			bucketLabels[key] = value
+		}
+		bucketLabels["le"] = "+Inf"
+
+		infiniteBucket, err := libmonitoring.GetMetricValueWithLabels(
+			virtClient, "kubevirt_vmi_storage_io_latency_seconds_bucket", bucketLabels,
+		)
+		if err != nil {
+			return err
+		}
+		if count != infiniteBucket {
+			return fmt.Errorf(
+				"histogram count %f does not match +Inf bucket %f", count, infiniteBucket,
+			)
+		}
+
+		_, err = libmonitoring.GetMetricValueWithLabels(
+			virtClient, "kubevirt_vmi_storage_io_latency_seconds_sum", labels,
+		)
+		return err
+	}, 3*time.Minute, 5*time.Second).Should(Succeed())
+}
+
+func waitForBlockLatencyHistogramToDisappear(
+	virtClient kubecli.KubevirtClient,
+	labels map[string]string,
+) {
+	By("Waiting for the block I/O latency histogram to disappear")
+	EventuallyWithOffset(1, func() bool {
+		_, err := libmonitoring.GetMetricValueWithLabels(
+			virtClient, "kubevirt_vmi_storage_io_latency_seconds_count", labels,
+		)
+		return err != nil
+	}, 3*time.Minute, 5*time.Second).Should(BeTrue())
+}
+
+func removeBlockLatencyHistograms(vmi *v1.VirtualMachineInstance, drive string) {
+	By(fmt.Sprintf("Removing block I/O latency histograms from drive %s", drive))
+	domain := getRunningDomain(vmi)
+	disk := findDomainDisk(domain, drive)
+	ExpectWithOffset(1, disk).ToNot(BeNil(), "drive %s was not found in the domain XML", drive)
+	ExpectWithOffset(1, disk.Driver).ToNot(BeNil())
+	ExpectWithOffset(1, disk.Driver.Statistics).ToNot(BeNil())
+	ExpectWithOffset(1, disk.Driver.Statistics.LatencyHistogram).ToNot(BeEmpty())
+
+	disk.Driver.Statistics.LatencyHistogram = nil
+	if len(disk.Driver.Statistics.Statistic) == 0 {
+		disk.Driver.Statistics = nil
+	}
+	diskXML, err := disk.Marshal()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	const diskXMLPath = "/tmp/disk-without-latency-histograms.xml"
+	libpod.RunCommandOnVmiPod(vmi, []string{
+		"/bin/bash",
+		"-c",
+		`trap 'rm -f "$2"' EXIT; printf "%s" "$1" > "$2" && virsh update-device 1 "$2" --live`,
+		"remove-latency-histograms",
+		diskXML,
+		diskXMLPath,
+	})
+
+	expectBlockLatencyHistograms(vmi, drive, false)
+}
+
+func expectBlockLatencyHistograms(
+	vmi *v1.VirtualMachineInstance,
+	drive string,
+	expected bool,
+) {
+	disk := findDomainDisk(getRunningDomain(vmi), drive)
+	ExpectWithOffset(1, disk).ToNot(BeNil(), "drive %s was not found in the domain XML", drive)
+
+	hasHistograms := disk.Driver != nil &&
+		disk.Driver.Statistics != nil &&
+		len(disk.Driver.Statistics.LatencyHistogram) > 0
+	ExpectWithOffset(1, hasHistograms).To(Equal(expected))
+}
+
+func getRunningDomain(vmi *v1.VirtualMachineInstance) *libvirtxml.Domain {
+	domainXML := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
+	domain := &libvirtxml.Domain{}
+	ExpectWithOffset(1, domain.Unmarshal(domainXML)).To(Succeed())
+	return domain
+}
+
+func findDomainDisk(domain *libvirtxml.Domain, drive string) *libvirtxml.DomainDisk {
+	if domain.Devices == nil {
+		return nil
+	}
+
+	for i := range domain.Devices.Disks {
+		disk := &domain.Devices.Disks[i]
+		if disk.Alias != nil && strings.TrimPrefix(disk.Alias.Name, "ua-") == drive {
+			return disk
+		}
+	}
+
+	return nil
 }
 
 func createRunningVM(

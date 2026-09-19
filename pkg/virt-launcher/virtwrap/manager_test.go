@@ -82,6 +82,27 @@ const (
 	testNamespace = "testnamespace"
 )
 
+func expectedLatencyHistogramStatistics() *api.DiskDriverStatistics {
+	bins := []api.DiskDriverLatencyHistBin{
+		{Start: 0},
+		{Start: 1_000_000},
+		{Start: 10_000_000},
+		{Start: 50_000_000},
+		{Start: 100_000_000},
+		{Start: 500_000_000},
+		{Start: 1_000_000_000},
+		{Start: 2_000_000_000},
+	}
+
+	return &api.DiskDriverStatistics{
+		LatencyHistograms: []api.DiskDriverLatencyHistogram{
+			{Type: "read", Bins: bins},
+			{Type: "write", Bins: bins},
+			{Type: "flush", Bins: bins},
+		},
+	}
+}
+
 var (
 	clusterConfig *virtconfig.ClusterConfig
 
@@ -953,6 +974,7 @@ var _ = Describe("Manager", func() {
 					Type:        "raw",
 					ErrorPolicy: "stop",
 					Discard:     "unmap",
+					Statistics:  expectedLatencyHistogramStatistics(),
 				},
 				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
@@ -1057,6 +1079,7 @@ var _ = Describe("Manager", func() {
 					Type:        "raw",
 					ErrorPolicy: "stop",
 					Discard:     "unmap",
+					Statistics:  expectedLatencyHistogramStatistics(),
 				},
 				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
