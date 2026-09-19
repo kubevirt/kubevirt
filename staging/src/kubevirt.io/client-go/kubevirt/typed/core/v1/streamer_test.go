@@ -21,6 +21,9 @@ package v1
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
@@ -28,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -111,6 +115,135 @@ var _ = Describe("wsStreamer", func() {
 		Expect(func() { _ = conn.Close() }).ToNot(Panic())
 	})
 })
+
+var _ = Describe("AsyncSubresourceHelperContext", func() {
+	It("should fail when the context is already cancelled", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: "http://127.0.0.1"}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).To(MatchError(context.Canceled))
+	})
+
+	It("should fail a stalled handshake when the context deadline expires", func() {
+		server := newHangingUpgradeServer()
+		defer server.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+
+		start := time.Now()
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+	})
+
+	It("should report the context deadline when the socket times out before context cancellation", func() {
+		server := newHangingUpgradeServer()
+		defer server.Close()
+
+		// Keep Err() nil and Done() open to reproduce the socket deadline
+		// firing before the context's cancellation timer runs.
+		ctx := deadlineOnlyContext{
+			Context:  context.Background(),
+			deadline: time.Now().Add(200 * time.Millisecond),
+		}
+
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		var asyncErr *AsyncSubresourceError
+		Expect(errors.As(err, &asyncErr)).To(BeTrue())
+	})
+
+	It("should preserve handshake errors before the context deadline", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "console is not ready", http.StatusBadRequest)
+		}))
+		defer server.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "console", nil)
+		var asyncErr *AsyncSubresourceError
+		Expect(errors.As(err, &asyncErr)).To(BeTrue())
+		Expect(asyncErr.GetStatusCode()).To(Equal(http.StatusBadRequest))
+	})
+
+	It("should still open a stream when the context has not expired", func() {
+		server := newEchoWebsocketServer()
+		defer server.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		stream, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stream.AsConn().Close()).To(Succeed())
+	})
+})
+
+var _ = Describe("releaseHandshake", func() {
+	It("should close a websocket that completes after the caller stopped waiting", func() {
+		server := newEchoWebsocketServer()
+		defer server.Close()
+
+		ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		done := make(chan struct{})
+		aws := &AsyncWSRoundTripper{
+			Connection: make(chan *websocket.Conn, 1),
+			Done:       done,
+		}
+		aws.Connection <- ws
+		releaseHandshake(aws, make(chan error), done)
+
+		Eventually(done).Should(BeClosed())
+		Expect(ws.WriteMessage(websocket.TextMessage, []byte("x"))).ToNot(Succeed())
+	})
+
+	It("should return when the handshake fails after the caller stopped waiting", func() {
+		done := make(chan struct{})
+		aws := &AsyncWSRoundTripper{
+			Connection: make(chan *websocket.Conn),
+			Done:       done,
+		}
+		errChan := make(chan error, 1)
+		errChan <- fmt.Errorf("handshake failed")
+
+		releaseHandshake(aws, errChan, done)
+		Consistently(done, 100*time.Millisecond).ShouldNot(BeClosed())
+	})
+})
+
+type deadlineOnlyContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c deadlineOnlyContext) Deadline() (time.Time, bool) {
+	return c.deadline, true
+}
+
+// newHangingUpgradeServer accepts the TCP connection and never writes a
+// websocket 101, reproducing a stalled handshake.
+func newHangingUpgradeServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer GinkgoRecover()
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		buf := make([]byte, 1)
+		_, _ = conn.Read(buf)
+	}))
+}
 
 // newEchoWebsocketServer upgrades every request to a websocket and holds
 // it open until the client hangs up.
