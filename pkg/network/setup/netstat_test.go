@@ -351,6 +351,55 @@ var _ = Describe("netstat", func() {
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 		})
 
+		It("should preserve pod IP when guest-agent reports a duplicate-MAC bridge (issue #18760)", func() {
+			const (
+				primaryMAC       = "52:54:00:00:BE:EF"
+				primaryPodIPv4   = "10.244.1.120"
+				primaryPodIPv6   = "fd10:244:1::120"
+				primaryGaIPv4    = "10.0.2.2"
+				primaryGaIPv6    = "fd00::2"
+				primaryIfaceName = "enp6s0"
+
+				dupMACBridgeName = "br0"
+			)
+
+			Expect(
+				setup.addNetworkInterface(
+					newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+					newVMISpecPodNetwork(primaryNetworkName),
+					newDomainSpecIface(primaryNetworkName, primaryMAC),
+					primaryPodIPv4, primaryPodIPv6,
+				),
+			).To(Succeed())
+
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface(nil, primaryMAC, dupMACBridgeName),
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
+			)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:          primaryNetworkName,
+					InterfaceName: primaryIfaceName,
+					IP:            primaryPodIPv4,
+					IPs:           []string{primaryPodIPv4, primaryPodIPv6},
+					MAC:           primaryMAC,
+					InfoSource:    netvmispec.InfoSourceDomainAndGA,
+					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
+				},
+				{
+					InterfaceName: dupMACBridgeName,
+					MAC:           primaryMAC,
+					InfoSource:    netvmispec.InfoSourceGuestAgent,
+				},
+			}), "pod IP must be preserved; a bridge sharing the masquerade NIC's MAC must not clear it")
+
+			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
+		})
+
 		It("run status and given interface with IPv4 and no IPv6 on the pod, vice versa from the guest-agent", func() {
 			Expect(
 				setup.addNetworkInterface(
