@@ -138,7 +138,7 @@ func validateFilters(filters []string, fieldName string) (causes []metav1.Status
 	const wildcardChar = "*"
 
 	for _, filter := range filters {
-		if len(filter) == 1 {
+		if len(filter) <= 1 {
 			if filter == negationChar {
 				addCause("a negation character is not a valid filter")
 			}
