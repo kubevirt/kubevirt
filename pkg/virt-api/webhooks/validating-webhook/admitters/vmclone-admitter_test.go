@@ -62,18 +62,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vm *v1.VirtualMachine
 
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
-					},
-				},
-			},
-		})
-	}
-
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
@@ -202,8 +190,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			}
 			return true, contents, nil
 		})
-
-		enableFeatureGate("Snapshot")
 	})
 
 	AfterEach(func() {

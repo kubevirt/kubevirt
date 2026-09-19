@@ -69,9 +69,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should allow when VirtTemplateDeployment enabled with Template feature gate",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.Template},
-					},
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 						Enabled: pointer.P(true),
 					},

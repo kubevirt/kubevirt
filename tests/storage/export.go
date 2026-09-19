@@ -2486,11 +2486,6 @@ var _ = Describe(SIG("Export", func() {
 		})
 
 		It("should export VirtualMachineTemplate as OCI artifact", func() {
-			if !checks.HasFeature(featuregate.Template) {
-				kvconfig.EnableFeatureGate(featuregate.Template)
-				defer kvconfig.DisableFeatureGate(featuregate.Template)
-			}
-
 			By("Creating a stopped VM with DataVolume")
 			vm := createStoppedVM()
 

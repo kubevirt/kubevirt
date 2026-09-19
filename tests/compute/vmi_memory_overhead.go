@@ -34,25 +34,21 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-// TODO: remove the Serial once VmiMemoryOverheadReport is enabled by default
-var _ = Describe(SIG("VMI Memory Overhead Reporting", decorators.RequiresTwoSchedulableNodes, Serial, func() {
+var _ = Describe(SIG("VMI Memory Overhead Reporting", decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		kvconfig.EnableFeatureGate(featuregate.VmiMemoryOverheadReport)
 	})
 
 	DescribeTable("memory overhead after CPU hotplug and migration", func(migrationShouldFail bool) {
