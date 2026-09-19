@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["stack.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/go.uber.org/zap/internal/stacktrace",
+    importpath = "go.uber.org/zap/internal/stacktrace",
+    visibility = ["//vendor/go.uber.org/zap:__subpackages__"],
+    deps = [
+        "//vendor/go.uber.org/zap/buffer:go_default_library",
+        "//vendor/go.uber.org/zap/internal/bufferpool:go_default_library",
+        "//vendor/go.uber.org/zap/internal/pool:go_default_library",
+    ],
+)

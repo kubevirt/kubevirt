@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["decode.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/dynamic-resource-allocation/devicemetadata",
+    importpath = "k8s.io/dynamic-resource-allocation/devicemetadata",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/api/metadata:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/api/metadata/install:go_default_library",
+    ],
+)
