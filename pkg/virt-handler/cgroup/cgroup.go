@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"kubevirt.io/client-go/log"
 
@@ -50,6 +51,18 @@ import (
 // the library and introduce new functionalities that are specific to KubeVirt's use.
 type Manager interface {
 	Set(r *cgroups.Resources) error
+
+	// AllowDevice adds a device to the eBPF device map, allowing access with
+	// the given permissions. deviceType is 'b' (block) or 'c' (char).
+	AllowDevice(deviceType string, major, minor int64, permissions string) error
+
+	// RemoveDevice removes a device from the eBPF device map. This does not
+	// explicitly deny the device — it only removes a previously added dynamic
+	// entry, reverting to the base program's decision for that device.
+	RemoveDevice(deviceType string, major, minor int64) error
+
+	// ListDevices returns all devices currently in the eBPF device map.
+	ListDevices() ([]cgroupconsts.DeviceMapEntry, error)
 
 	// GetBasePathToHostSubsystem returns the path to the specified subsystem
 	// from the host's viewpoint.
@@ -93,11 +106,15 @@ func managerPath(taskPath string) string {
 	return retPath
 }
 
+// splicedCgroups tracks cgroup paths that have already had their eBPF device
+// map spliced, avoiding redundant virt-chroot forks on every sync loop.
+var splicedCgroups sync.Map
+
 // newManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
-func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, err error) {
-	const isRootless = false
+func newManagerFromPid(pid int, deviceRules []*devices.Rule, spliceDeviceMap bool) (manager Manager, err error) {
 	var version CgroupVersion
+	var slicePath string
 
 	procCgroupBasePath := filepath.Join(cgroupconsts.ProcMountPoint, strconv.Itoa(pid), cgroupconsts.CgroupStr)
 	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
@@ -110,14 +127,13 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 		Resources: &cgroups.Resources{
 			Devices: deviceRules,
 		},
-		Rootless: isRootless,
 	}
 
 	if cgroups.IsCgroup2UnifiedMode() {
 		version = V2
-		slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
+		slicePath = filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
 		slicePath = managerPath(slicePath)
-		manager, err = newV2Manager(config, slicePath)
+		manager, err = newV2Manager(config, slicePath, spliceDeviceMap)
 	} else {
 		version = V1
 		for subsystem, path := range controllerPaths {
@@ -133,17 +149,37 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 
 	if err != nil {
 		log.Log.Errorf("error occurred while initialized a new cgroup %s manager: %v", version, err)
-	} else {
-		log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+		return manager, err
+	}
+	log.Log.V(5).Infof("initialized cgroup %s manager. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+
+	if v2mgr, ok := manager.(*v2Manager); ok && v2mgr.spliceDeviceMap {
+		// Splice the eBPF device map into the cgroup's device filter once per
+		// cgroup path. The splice itself (via virt-chroot) is idempotent, but
+		// we skip re-running it to avoid forking a process on every sync loop.
+		if _, already := splicedCgroups.LoadOrStore(slicePath, true); !already {
+			cgroupPaths := []string{slicePath}
+			if targetDir, parentPath := filepath.Base(slicePath), path.Dir(slicePath); targetDir == "container" && strings.HasSuffix(parentPath, ".scope") {
+				cgroupPaths = append(cgroupPaths, parentPath)
+			}
+			if err := execVirtChrootSpliceDeviceMap(cgroupPaths, pid); err != nil {
+				splicedCgroups.Delete(slicePath)
+				return nil, fmt.Errorf("failed to splice eBPF device map: %w", err)
+			}
+		}
 	}
 
-	return manager, err
+	return manager, nil
 }
 
-func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool) (Manager, error) {
+func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool, spliceDeviceMap bool) (Manager, error) {
 	isolationRes, err := detectVMIsolation(vmi)
 	if err != nil {
 		return nil, err
+	}
+
+	if spliceDeviceMap {
+		return newManagerFromPid(isolationRes.Pid(), nil, true)
 	}
 
 	mountRoot, err := isolationRes.MountRoot()
@@ -155,8 +191,7 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDev
 	if err != nil {
 		return nil, err
 	}
-
-	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
+	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules, false)
 }
 
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
