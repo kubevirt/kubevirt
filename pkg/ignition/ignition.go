@@ -28,7 +28,6 @@ import (
 	"kubevirt.io/client-go/precond"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var ignitionLocalDir = "/var/run/libvirt/ignition-dir"
@@ -41,8 +40,11 @@ func GetIgnitionSource(vmi *v1.VirtualMachineInstance) string {
 }
 
 func SetLocalDirectory(dir string) error {
-	err := util.MkdirAllWithNosec(dir)
+	err := os.MkdirAll(dir, 0700)
 	if err != nil {
+		return fmt.Errorf("Unable to initialize Ignition local cache directory (%s): %w", dir, err)
+	}
+	if err := chownQemu(dir); err != nil {
 		return fmt.Errorf("Unable to initialize Ignition local cache directory (%s): %w", dir, err)
 	}
 
@@ -66,9 +68,12 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 	precond.MustNotBeNil(vmi.Annotations[v1.IgnitionAnnotation])
 
 	domainBasePath := GetDomainBasePath(vmi.Name, namespace)
-	err := util.MkdirAllWithNosec(domainBasePath)
+	err := os.MkdirAll(domainBasePath, 0700)
 	if err != nil {
 		log.Log.Reason(err).Errorf("unable to create Ignition base path %s", domainBasePath)
+		return err
+	}
+	if err := chownQemu(domainBasePath); err != nil {
 		return err
 	}
 
@@ -78,17 +83,21 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 	if err != nil {
 		return err
 	}
-
-	// When virt-launcher runs as root the file is created owned by root, but
-	// it must be readable by the qemu user that runs the VM.
-	// drop this when the Root feature gate is dropped.
-	const qemuUid, qemuGid = 107, 107
-	if os.Geteuid() == 0 {
-		if err := os.Chown(ignitionFile, qemuUid, qemuGid); err != nil {
-			return err
-		}
+	if err := chownQemu(ignitionFile); err != nil {
+		return err
 	}
 
 	log.Log.V(2).Infof("generated Ignition file %s", ignitionFile)
 	return nil
+}
+
+// chownQemu makes path readable by the qemu user that runs the VM, for the
+// case where virt-launcher runs as root and creates it owned by root.
+// drop this when the Root feature gate is dropped.
+func chownQemu(path string) error {
+	const qemuUid, qemuGid = 107, 107
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, qemuUid, qemuGid)
 }
