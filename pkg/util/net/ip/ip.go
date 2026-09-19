@@ -33,11 +33,6 @@ const (
 	IPv4Loopback = "127.0.0.1"
 )
 
-// GetLoopbackAddress returns IPv4 / IPv6 loopback address (according sysctl disable_ipv6)
-var GetLoopbackAddress = func() string {
-	return getLoopbackAddress(isIPv6Disabled(disableIPv6Path))
-}
-
 // GetIPZeroAddress returns INADDR_ANY or INADDR6_ANY (according sysctl disable_ipv6)
 func GetIPZeroAddress() string {
 	return getIPZeroAddress(isIPv6Disabled(disableIPv6Path))
@@ -49,14 +44,6 @@ func getIPZeroAddress(ipv6Disabled bool) string {
 	}
 
 	return net.IPv6zero.String()
-}
-
-func getLoopbackAddress(ipv6Disabled bool) string {
-	if ipv6Disabled {
-		return IPv4Loopback
-	}
-
-	return net.IPv6loopback.String()
 }
 
 // IsLoopbackAddress checks if the address is IPv4 / IPv6 loopback address

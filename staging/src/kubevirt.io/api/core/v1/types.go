@@ -1311,9 +1311,6 @@ const (
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 
-	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
-	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
-
 	// MigrationUnschedulablePodTimeoutSecondsAnnotation represents a custom timeout period used for unschedulable target pods
 	// This exists for functional testing
 	MigrationUnschedulablePodTimeoutSecondsAnnotation string = "kubevirt.io/migrationUnschedulablePodTimeoutSeconds"
