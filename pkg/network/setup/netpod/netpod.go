@@ -703,7 +703,7 @@ func (n NetPod) clearCache(nets []v1.Network) error {
 		// the PodInterface cache should be the last one to be cleaned.
 		// It should be cleaned as the last step of the cleanup, since it is the indicator the cleanup should be done/not over yet.
 		if len(unplugErrors) == 0 {
-			err = cache.DeletePodInterfaceCache(n.cacheCreator, n.vmiUID, net.Name)
+			err = cache.DeletePodInterfaceCache(n.cacheCreator, n.podPID, net.Name)
 			if err != nil {
 				unplugErrors = append(unplugErrors, err)
 			}
