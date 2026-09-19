@@ -20,6 +20,8 @@
 package collector
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -35,6 +37,11 @@ const (
 	// "a bit more" than timeout, heuristic again
 	StatsMaxAge = CollectionTimeout + 2*time.Second
 
+	// DefaultMaxConcurrentSources caps how many virt-launcher sockets may be
+	// scraped in parallel. Unbounded fan-out starves virt-handler (including
+	// /healthz) when many VMIs share a node.
+	DefaultMaxConcurrentSources = 10
+
 	logVerbosityInfo  = 3
 	logVerbosityDebug = 4
 )
@@ -46,10 +53,12 @@ type Collector interface {
 }
 
 type ConcurrentCollector struct {
-	lock             sync.Mutex
-	clientsPerKey    map[string]int
-	maxClientsPerKey int
-	socketMapper     func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
+	lock                 sync.Mutex
+	clientsPerKey        map[string]int
+	maxClientsPerKey     int
+	maxConcurrentSources int
+	scrapeSlots          chan struct{}
+	socketMapper         func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
 }
 
 func NewConcurrentCollector(maxRequestsPerKey int) Collector {
@@ -57,10 +66,28 @@ func NewConcurrentCollector(maxRequestsPerKey int) Collector {
 }
 
 func NewConcurrentCollectorWithMapper(maxRequestsPerKey int, mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap) Collector {
+	return NewConcurrentCollectorWithLimits(maxRequestsPerKey, DefaultMaxConcurrentSources, mapper)
+}
+
+// NewConcurrentCollectorWithLimits creates a collector that:
+//   - skips a socket key already at maxRequestsPerKey in-flight scrapes
+//   - never runs more than maxConcurrentSources scrapes at once
+func NewConcurrentCollectorWithLimits(
+	maxRequestsPerKey, maxConcurrentSources int,
+	mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap,
+) Collector {
+	if maxRequestsPerKey < 1 {
+		panic(fmt.Sprintf("maxRequestsPerKey must be >= 1, got %d", maxRequestsPerKey))
+	}
+	if maxConcurrentSources < 1 {
+		panic(fmt.Sprintf("maxConcurrentSources must be >= 1, got %d", maxConcurrentSources))
+	}
 	return &ConcurrentCollector{
-		clientsPerKey:    make(map[string]int),
-		maxClientsPerKey: maxRequestsPerKey,
-		socketMapper:     mapper,
+		clientsPerKey:        make(map[string]int),
+		maxClientsPerKey:     maxRequestsPerKey,
+		maxConcurrentSources: maxConcurrentSources,
+		scrapeSlots:          make(chan struct{}, maxConcurrentSources),
+		socketMapper:         mapper,
 	}
 }
 
@@ -68,7 +95,12 @@ func (cc *ConcurrentCollector) Collect(
 	vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration,
 ) ([]string, bool) {
 	socketToVMIs := cc.socketMapper(vmis)
-	log.Log.V(logVerbosityInfo).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
+	log.Log.V(logVerbosityInfo).Infof("Collecting VM metrics from %d sources (max concurrent %d)",
+		len(socketToVMIs), cc.maxConcurrentSources)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	var busyScrapers sync.WaitGroup
 
 	var skipped []string
@@ -82,7 +114,7 @@ func (cc *ConcurrentCollector) Collect(
 
 		log.Log.V(logVerbosityDebug).Infof("Source %s responsive, scraping", key)
 		busyScrapers.Add(1)
-		go cc.collectFromSource(scraper, &busyScrapers, key, vmi)
+		go cc.collectFromSource(ctx, scraper, &busyScrapers, key, vmi)
 	}
 
 	completed := true
@@ -94,7 +126,7 @@ func (cc *ConcurrentCollector) Collect(
 	select {
 	case <-c:
 		log.Log.V(logVerbosityInfo).Infof("Collection successful")
-	case <-time.After(timeout):
+	case <-ctx.Done():
 		log.Log.Warning("Collection timeout")
 		completed = false
 	}
@@ -106,10 +138,21 @@ func (cc *ConcurrentCollector) Collect(
 }
 
 func (cc *ConcurrentCollector) collectFromSource(
+	ctx context.Context,
 	scraper MetricsScraper, wg *sync.WaitGroup, socket string, vmi *k6tv1.VirtualMachineInstance,
 ) {
 	defer wg.Done()
 	defer cc.releaseKey(socket)
+
+	// Bounded acquire: if Collect timed out (or previous hung scrapes still
+	// hold every scrapeSlots slot), skip instead of blocking forever.
+	select {
+	case cc.scrapeSlots <- struct{}{}:
+		defer func() { <-cc.scrapeSlots }()
+	case <-ctx.Done():
+		log.Log.Warningf("Timed out waiting for scrape slot for source %s, skipped", socket)
+		return
+	}
 
 	log.Log.V(logVerbosityDebug).Infof("Getting stats from source %s", socket)
 	scraper.Scrape(socket, vmi)

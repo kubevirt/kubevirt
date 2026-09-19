@@ -58,14 +58,16 @@ type resourceMetrics interface {
 }
 
 type collectorSettings struct {
-	maxRequestsInFlight int
-	vmiInformer         cache.SharedIndexInformer
+	vmiInformer cache.SharedIndexInformer
+	// Shared across domain-stats and dirty-rate scrapes so concurrent socket
+	// dials stay bounded process-wide for Prometheus collection.
+	concCollector collector.Collector
 }
 
 func SetupDomainStatsCollector(maxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) {
 	settings = &collectorSettings{
-		maxRequestsInFlight: maxRequestsInFlight,
-		vmiInformer:         vmiInformer,
+		vmiInformer:   vmiInformer,
+		concCollector: collector.NewConcurrentCollector(maxRequestsInFlight),
 	}
 }
 
@@ -92,8 +94,7 @@ func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	concCollector := collector.NewConcurrentCollector(settings.maxRequestsInFlight)
-	return execDomainStatsCollector(concCollector, vmis)
+	return execDomainStatsCollector(settings.concCollector, vmis)
 }
 
 func execDomainStatsCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
