@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -44,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -53,6 +55,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
@@ -385,13 +388,38 @@ func getConfigFromEnvWithEnvVarManager(envVarManager operatorutil.EnvVarManager)
 	return nil, fmt.Errorf("no config provided")
 }
 
+var (
+	monitorRetryInterval = 5 * time.Second
+	monitorRetryTimeout  = 1 * time.Minute
+)
+
+func getMonitorNamespaceWithRetry(clientset k8coresv1.CoreV1Interface, potentialMonitorNamespaces []string, monitorServiceAccount string) (string, error) {
+	var namespace string
+	err := virtwait.PollImmediately(monitorRetryInterval, monitorRetryTimeout, func(_ context.Context) (bool, error) {
+		ns, err := getMonitorNamespace(clientset, potentialMonitorNamespaces, monitorServiceAccount)
+		if err != nil {
+			return false, err
+		}
+		if ns != "" {
+			namespace = ns
+			return true, nil
+		}
+		log.Log.Infof("monitoring ServiceAccount %s not found yet, retrying", monitorServiceAccount)
+		return false, nil
+	})
+	if err != nil && !wait.Interrupted(err) {
+		return "", err
+	}
+	return namespace, nil
+}
+
 func DumpInstallStrategyToConfigMap(clientset kubernetes.Interface, operatorNamespace string) error {
 	config, err := GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
 
-	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
+	monitorNamespace, err := getMonitorNamespaceWithRetry(clientset.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
 	if err != nil {
 		return err
 	}
