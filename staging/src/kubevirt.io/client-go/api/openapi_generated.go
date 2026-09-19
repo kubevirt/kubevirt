@@ -344,8 +344,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		runtime.Unknown{}.OpenAPIModelName():                                                              schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
 		intstr.IntOrString{}.OpenAPIModelName():                                                           schema_apimachinery_pkg_util_intstr_IntOrString(ref),
 		v1alpha1.BackupCheckpoint{}.OpenAPIModelName():                                                    schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref),
+		v1alpha1.BackupLink{}.OpenAPIModelName():                                                          schema_kubevirtio_api_backup_v1alpha1_BackupLink(ref),
+		v1alpha1.BackupLinks{}.OpenAPIModelName():                                                         schema_kubevirtio_api_backup_v1alpha1_BackupLinks(ref),
 		v1alpha1.BackupOptions{}.OpenAPIModelName():                                                       schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref),
 		v1alpha1.BackupVolumeInfo{}.OpenAPIModelName():                                                    schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref),
+		v1alpha1.BackupVolumeLink{}.OpenAPIModelName():                                                    schema_kubevirtio_api_backup_v1alpha1_BackupVolumeLink(ref),
 		v1alpha1.VirtualMachineBackup{}.OpenAPIModelName():                                                schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackup(ref),
 		v1alpha1.VirtualMachineBackupList{}.OpenAPIModelName():                                            schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupList(ref),
 		v1alpha1.VirtualMachineBackupSpec{}.OpenAPIModelName():                                            schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref),
@@ -17582,6 +17585,79 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref common.Reference
 	}
 }
 
+func schema_kubevirtio_api_backup_v1alpha1_BackupLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLink contains a CA certificate and per-volume endpoints for one network path",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cert is the CA certificate bundle for TLS verification",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"volumeName",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Volumes lists the data and map endpoints for each backed-up volume",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.BackupVolumeLink{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"cert"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.BackupVolumeLink{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1alpha1_BackupLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"internal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Internal contains endpoints reachable from within the cluster",
+							Ref:         ref(v1alpha1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Description: "External contains endpoints reachable from outside the cluster",
+							Ref:         ref(v1alpha1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.BackupLink{}.OpenAPIModelName()},
+	}
+}
+
 func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17683,22 +17759,46 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 							Format:      "",
 						},
 					},
+				},
+				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName identifies the volume these endpoints belong to",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"dataEndpoint": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DataEndpoint is the URL of the endpoint for read for pull mode",
+							Description: "DataEndpoint is the URL for reading backup data",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mapEndpoint": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MapEndpoint is the URL of the endpoint for map for pull mode",
+							Description: "MapEndpoint is the URL for reading the changed block map",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"volumeName"},
+				Required: []string{"volumeName", "dataEndpoint", "mapEndpoint"},
 			},
 		},
 	}
@@ -17911,13 +18011,6 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							Format:      "",
 						},
 					},
-					"endpointCert": {
-						SchemaProps: spec.SchemaProps{
-							Description: "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"includedVolumes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -17944,11 +18037,17 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							Format:      "",
 						},
 					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
+							Ref:         ref(v1alpha1.BackupLinks{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			metav1.Condition{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
+			metav1.Condition{}.OpenAPIModelName(), v1alpha1.BackupLinks{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
 	}
 }
 
