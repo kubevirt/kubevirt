@@ -101,3 +101,9 @@ func withPortForward(portForward []api.InterfacePortForward) builderOption {
 		iface.PortForward = portForward
 	}
 }
+
+func withMTU(size string) builderOption {
+	return func(iface *api.Interface) {
+		iface.MTU = &api.MTU{Size: size}
+	}
+}

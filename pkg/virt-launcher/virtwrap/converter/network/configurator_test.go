@@ -183,6 +183,31 @@ var _ = Describe("Network Domain Configurator", func() {
 		),
 	)
 
+	It("should configure MTU when specified on the interface", func() {
+		ifaceWithMTU := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding(), libvmi.WithMTU(1500))
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(ifaceWithMTU),
+			libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
+		)
+
+		configurator := network.NewDomainConfigurator(
+			network.WithDomainAttachmentByInterfaceName(map[string]string{network1Name: string(v1.Tap)}),
+			network.WithUseLaunchSecuritySEV(false),
+			network.WithUseLaunchSecurityPV(false),
+			network.WithROMTuningSupport(false),
+			network.WithVirtioModel(virtioModel),
+		)
+
+		var domain api.Domain
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := newDomainWithIfaces([]api.Interface{
+			newDomainInterface(network1Name, virtioModel, withTypeEthernet(), withMTU("1500")),
+		})
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
 	DescribeTable("multi-queue", func(model string, expectedInterface api.Interface) {
 		ifaceWithModel := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding(), libvmi.WithModel(model))
 
@@ -265,5 +290,11 @@ func withVHostDriver(queues uint) option {
 func withLinkState(state string) option {
 	return func(iface *api.Interface) {
 		iface.LinkState = &api.LinkState{State: state}
+	}
+}
+
+func withMTU(size string) option {
+	return func(iface *api.Interface) {
+		iface.MTU = &api.MTU{Size: size}
 	}
 }
