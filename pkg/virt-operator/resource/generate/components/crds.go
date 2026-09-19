@@ -704,8 +704,8 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
-		{Name: "Type", Type: "string", JSONPath: ".status.type"},
 		{Name: "CheckpointName", Type: "string", JSONPath: ".status.checkpointName"},
+		{Name: "StartTime", Type: "date", JSONPath: ".status.startTimestamp"},
 	})
 	if err != nil {
 		return nil, err

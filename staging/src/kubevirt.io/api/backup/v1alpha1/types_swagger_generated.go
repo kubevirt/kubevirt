@@ -8,13 +8,12 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 		"volumeName":   "VolumeName is the volume name from VMI spec",
 		"dataEndpoint": "DataEndpoint is the URL of the endpoint for read for pull mode",
 		"mapEndpoint":  "MapEndpoint is the URL of the endpoint for map for pull mode",
+		"type":         "Type is how the volume was backed up, either Full or Incremental\n+optional\n+kubebuilder:validation:Enum=Full;Incremental",
 	}
 }
 
 func (BackupCheckpoint) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"volumes": "Volumes lists volumes included in the backup\n+optional\n+listType=atomic",
-	}
+	return map[string]string{}
 }
 
 func (BackupOptions) SwaggerDoc() map[string]string {
@@ -81,7 +80,7 @@ func (VirtualMachineBackupSpec) SwaggerDoc() map[string]string {
 func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
-		"type":            "+optional\nType indicates if the backup was full or incremental",
+		"startTimestamp":  "+optional\nStartTimestamp is the timestamp when the backup started",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
 		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
