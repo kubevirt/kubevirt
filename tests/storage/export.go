@@ -498,9 +498,81 @@ var _ = Describe(SIG("Export", func() {
 	type storageClassFunction func() (string, bool)
 	type caBundleGenerator func(string, string, *exportv1.VirtualMachineExport) *k8sv1.ConfigMap
 	type urlGenerator func(exportv1.ExportVolumeFormat, string, string, string, *exportv1.VirtualMachineExport) (string, string)
+	type curlRequest struct {
+		url             string
+		accept          string
+		outputPath      string
+		followRedirects bool
+	}
+	type curlExecutor func(*k8sv1.Pod, *exportv1.VirtualMachineExport, curlRequest) string
+
+	executeCurlWithRetry := func(pod *k8sv1.Pod, request curlRequest, refreshCABundle func() error) string {
+		command := []string{"curl"}
+		if request.followRedirects {
+			command = append(command, "-L")
+		}
+		if request.accept != "" {
+			command = append(command, "--header", fmt.Sprintf("Accept:%s", request.accept))
+		}
+		command = append(command, "--cacert", filepath.Join(caCertPath, caBundleKey), request.url)
+		if request.outputPath != "" {
+			command = append(command, "--output", request.outputPath)
+		}
+
+		var out, stderr string
+		var err error
+		// Eventual consistency will bail us out if the export CA rotates mid-test
+		// and takes some time to reload in the download pod.
+		Eventually(func() error {
+			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
+			if err == nil {
+				return nil
+			}
+
+			if refreshErr := refreshCABundle(); refreshErr != nil {
+				return refreshErr
+			}
+
+			return err
+		}, 5*time.Minute, time.Second).Should(Succeed(), func() string {
+			return fmt.Sprintf("curl command should succeed; out: %s stderr: %s\n", out, stderr)
+		})
+		return out
+	}
+
+	executeCurlWithInternalCARefresh := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, request curlRequest) string {
+		var knownCert string
+		return executeCurlWithRetry(pod, request, func() error {
+			latestExport, err := virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			status := latestExport.Status
+			if status == nil || status.Links == nil || status.Links.Internal == nil {
+				return fmt.Errorf("internal export links are not available yet")
+			}
+			if knownCert != latestExport.Status.Links.Internal.Cert {
+				By("Regenerating the internal CA bundle so the download pod will pick up the new certificates")
+				createCaConfigMap("export-cacerts", pod.Namespace, latestExport.Status.Links.Internal.Cert)
+				knownCert = latestExport.Status.Links.Internal.Cert
+			}
+			return nil
+		})
+	}
+
+	executeCurlWithProxyCARefresh := func(pod *k8sv1.Pod, _ *exportv1.VirtualMachineExport, request curlRequest) string {
+		var regenOnce sync.Once
+		return executeCurlWithRetry(pod, request, func() error {
+			regenOnce.Do(func() {
+				By("Regenerating the proxy CA bundle so the download pod will pick up the new certificates")
+				createCaConfigMapProxy("export-cacerts", pod.Namespace, nil)
+			})
+			return nil
+		})
+	}
 
 	DescribeTable("should make a PVC export available", decorators.StorageCritical, func(populateFunction populateFunction, verifyFunction verifyFunction,
-		storageClassFunction storageClassFunction, caBundleGenerator caBundleGenerator, urlGenerator urlGenerator,
+		storageClassFunction storageClassFunction, caBundleGenerator caBundleGenerator, executeCurl curlExecutor, urlGenerator urlGenerator,
 		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
 		sc, exists := storageClassFunction()
 		if !exists {
@@ -563,48 +635,28 @@ var _ = Describe(SIG("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		command := []string{
-			"curl",
-			"-L",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			downloadUrl,
-			"--output",
-			fileAndPathName,
-		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
 		Eventually(ThisPod(downloadPod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
-		var out, stderr string
-		// Eventual consistency will bail us out in the unlikely event that the proxy certs rotate mid test
-		// And take some time to reload in the download pod
-		var regenOnce sync.Once
-		Eventually(func() error {
-			out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-			if err != nil {
-				regenOnce.Do(func() {
-					By("Regenerating the CA bundle so download pod will pick up the new certs")
-					caBundleGenerator("export-cacerts", targetPvc.Namespace, export)
-				})
-			}
-			return err
-		}, 5*time.Minute, 1*time.Second).Should(Succeed(), func() string {
-			return fmt.Sprintf("download command should succeed; out: %s stderr: %s\n", out, stderr)
+		executeCurl(downloadPod, export, curlRequest{
+			url:             downloadUrl,
+			outputPath:      fileAndPathName,
+			followRedirects: true,
 		})
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
 	},
 		// "internal" tests
-		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, executeCurlWithInternalCARefresh, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, executeCurlWithInternalCARefresh, urlGeneratorInternal, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, executeCurlWithInternalCARefresh, urlGeneratorInternal, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, executeCurlWithInternalCARefresh, urlGeneratorInternal, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW kubevirt content type block", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, executeCurlWithInternalCARefresh, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 		// "proxy" tests
-		Entry("with RAW kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW gzipped kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive content type PROXY", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, executeCurlWithProxyCARefresh, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW gzipped kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, executeCurlWithProxyCARefresh, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive content type PROXY", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, executeCurlWithProxyCARefresh, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, executeCurlWithProxyCARefresh, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
+		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, executeCurlWithProxyCARefresh, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
 	It("should make sure PVC export is Ready when source pod is Completed", func() {
@@ -741,18 +793,11 @@ var _ = Describe(SIG("Export", func() {
 
 		fileAndPathName := filepath.Join(dataPath, fileName)
 
-		command := []string{
-			"curl",
-			"-L",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			downloadUrl,
-			"--output",
-			fileAndPathName,
-		}
-
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		executeCurlWithInternalCARefresh(downloadPod, export, curlRequest{
+			url:             downloadUrl,
+			outputPath:      fileAndPathName,
+			followRedirects: true,
+		})
 
 		// Verify contents of the downloaded archive
 		By("Verifying the contents of the downloaded archive")
@@ -1867,21 +1912,14 @@ var _ = Describe(SIG("Export", func() {
 	checkWithYamlOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *v1.VirtualMachine) {
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
-		command := []string{
-			"curl",
-			"--header",
-			"Accept:application/yaml",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			url,
-		}
-
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		out := executeCurlWithInternalCARefresh(pod, export, curlRequest{
+			url:    url,
+			accept: "application/yaml",
+		})
 		split := strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(3))
 		resCM := &k8sv1.ConfigMap{}
-		err = yaml.Unmarshal([]byte(split[0]), resCM)
+		err := yaml.Unmarshal([]byte(split[0]), resCM)
 		Expect(err).ToNot(HaveOccurred())
 		resVM := &v1.VirtualMachine{}
 		err = yaml.Unmarshal([]byte(split[1]), resVM)
@@ -1896,16 +1934,10 @@ var _ = Describe(SIG("Export", func() {
 		resVM = cleanMacAddresses(resVM)
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
-		command = []string{
-			"curl",
-			"--header",
-			"Accept:application/yaml",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			url,
-		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		out = executeCurlWithInternalCARefresh(pod, export, curlRequest{
+			url:    url,
+			accept: "application/yaml",
+		})
 		split = strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(2))
 		resSecret := &k8sv1.Secret{}
@@ -1927,17 +1959,11 @@ var _ = Describe(SIG("Export", func() {
 	checkWithJsonOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *v1.VirtualMachine) {
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
-		command := []string{
-			"curl",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			url,
-		}
-
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		out := executeCurlWithInternalCARefresh(pod, export, curlRequest{
+			url: url,
+		})
 		list := &k8sv1.List{}
-		err = json.Unmarshal([]byte(out), list)
+		err := json.Unmarshal([]byte(out), list)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(list.Items).To(HaveLen(2))
 
@@ -1959,16 +1985,10 @@ var _ = Describe(SIG("Export", func() {
 		resVM = cleanMacAddresses(resVM)
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
-		command = []string{
-			"curl",
-			"--header",
-			"Accept:application/yaml",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			url,
-		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		out = executeCurlWithInternalCARefresh(pod, export, curlRequest{
+			url:    url,
+			accept: "application/yaml",
+		})
 		resSecret := &k8sv1.Secret{}
 		err = yaml.Unmarshal([]byte(out), resSecret)
 		Expect(err).ToNot(HaveOccurred())
@@ -2169,17 +2189,10 @@ var _ = Describe(SIG("Export", func() {
 		Expect(err).ToNot(HaveOccurred())
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
-		command := []string{
-			"curl",
-			"--header",
-			"Accept:application/yaml",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			url,
-		}
-
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		out := executeCurlWithInternalCARefresh(pod, export, curlRequest{
+			url:    url,
+			accept: "application/yaml",
+		})
 		split := strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(5))
 		resCM := &k8sv1.ConfigMap{}
@@ -2216,16 +2229,10 @@ var _ = Describe(SIG("Export", func() {
 
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
-		command = []string{
-			"curl",
-			"--header",
-			"Accept:application/yaml",
-			"--cacert",
-			filepath.Join(caCertPath, caBundleKey),
-			url,
-		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		out = executeCurlWithInternalCARefresh(pod, export, curlRequest{
+			url:    url,
+			accept: "application/yaml",
+		})
 		split = strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(2))
 		resSecret := &k8sv1.Secret{}
