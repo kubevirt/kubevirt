@@ -108,7 +108,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			},
 		}
 
-		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9185, "")
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -126,9 +126,9 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 	Context("getLocalSynchronizationAddress", func() {
 		DescribeTable("should produce an address parseable by net.SplitHostPort", func(ip string, port int, expectedHost, expectedPort string) {
-			ctrl := &SynchronizationController{ip: ip, bindPort: port}
+			controller = &SynchronizationController{ip: ip, bindPort: port}
 
-			addr, err := ctrl.getLocalSynchronizationAddress()
+			addr, err := controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 
 			host, p, err := net.SplitHostPort(addr)
@@ -137,10 +137,47 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(p).To(Equal(expectedPort))
 		},
 			Entry("IPv4 address", "10.0.0.1", 9185, "10.0.0.1", "9185"),
+
 			Entry("IPv6 address", "fd02:0:0:1::cb", 9185, "fd02:0:0:1::cb", "9185"),
 			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
 			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
 		)
+	})
+
+	Context("migration proxy initialization", func() {
+		It("should leave the tunnel uninitialized when Proxy is disabled", func() {
+			// Uses the suite BeforeEach controller, created with a nil ProxyInitConfig.
+			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
+
+		It("should initialize the tunnel on the pod IP when Proxy is enabled without required NADs", func() {
+			controller = &SynchronizationController{
+				tunnelManager: NewMigrationTunnelManager(nil, nil),
+				bindPort:      9185,
+				ip:            "127.0.0.1",
+			}
+			err := controller.initMigrationProxy("127.0.0.1", "0.0.0.0", 9185, &ProxyInitConfig{Enabled: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.IsTunnelInitialized()).To(BeTrue())
+			Expect(controller.tunnelManager.MigrationIP()).To(Equal("127.0.0.1"))
+			Expect(controller.tunnelManager.CrossClusterIP()).To(Equal("127.0.0.1"))
+			Expect(controller.bindAddress).To(Equal("127.0.0.1"))
+		})
+
+		It("should fail to create the controller when a required cross-cluster interface is missing", func() {
+			controller = &SynchronizationController{
+				tunnelManager: NewMigrationTunnelManager(nil, nil),
+				bindPort:      9185,
+				ip:            "127.0.0.1",
+			}
+			err := controller.initMigrationProxy("127.0.0.1", "0.0.0.0", 9185, &ProxyInitConfig{
+				Enabled:                      true,
+				RequireCrossClusterInterface: true,
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("peer sync address"))
+			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
 	})
 
 	Context("grpc SyncSourceMigrationStatus", func() {
@@ -796,18 +833,24 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Context("handleSourceState", func() {
 			It("should not do anything if source doesn't have source migration", func() {
 				// no source migration
-				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				err := controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				// no migration at all
 				sourceVMI.Status.MigrationState = nil
-				err = controller.handleSourceState(sourceVMI, sourceMigration)
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should not do anything if source sync addres is not set", func() {
+			It("should set source SyncAddress and return when there is no outbound connection", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{}
-				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(sourceVMI.Namespace).Update(context.TODO(), sourceVMI, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(sourceVMI.Namespace).Get(context.TODO(), sourceVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVMI.Status.MigrationState.SourceState.SyncAddress).ToNot(BeNil())
+				Expect(*updatedVMI.Status.MigrationState.SourceState.SyncAddress).To(Equal(localTCPConn.Addr().String()))
 			})
 
 			It("should error and fail to update target VMI if target VMI doesn't exist", func() {
@@ -825,7 +868,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				err = controller.vmiInformer.GetStore().Delete(targetVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.handleSourceState(sourceVMI, sourceMigration)
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
@@ -843,7 +886,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
-				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				err := controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			})
@@ -852,18 +895,26 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Context("handleTargetState", func() {
 			It("should not do anything if target doesn't have target migration", func() {
 				// no source migration
-				err := controller.handleTargetState(targetVMI, targetMigration)
+				err := controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				// no migration at all
 				targetVMI.Status.MigrationState = nil
-				err = controller.handleTargetState(targetVMI, targetMigration)
+				err = controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should not do anything if target sync addres is not set", func() {
+			It("should set target sync address if not set", func() {
 				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
-				err := controller.handleTargetState(targetVMI, targetMigration)
+				// Update the VMI in fake client to match what's in the informer
+				_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(targetVMI.Namespace).Update(context.TODO(), targetVMI, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
+				Expect(err).ToNot(HaveOccurred())
+				// Verify that the target sync address was set
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(targetVMI.Namespace).Get(context.TODO(), targetVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVMI.Status.MigrationState.TargetState.SyncAddress).ToNot(BeNil())
+				Expect(*updatedVMI.Status.MigrationState.TargetState.SyncAddress).To(Equal(localTCPConn.Addr().String()))
 			})
 
 			It("should error and fail to update target VMI if source VMI doesn't exist", func() {
@@ -881,7 +932,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				err = controller.vmiInformer.GetStore().Delete(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.handleTargetState(targetVMI, targetMigration)
+				err = controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
@@ -899,7 +950,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
-				err := controller.handleTargetState(targetVMI, targetMigration)
+				err := controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				verifySource(controller, sourceVMI, localTCPConn.Addr().String())
 			})
@@ -975,7 +1026,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 				sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.execute(sourceKey)
+				err = controller.execute(context.Background(), sourceKey)
 				Expect(err).ToNot(HaveOccurred())
 
 				verifyTargetAbortCompletion()
@@ -991,7 +1042,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 				sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.execute(sourceKey)
+				err = controller.execute(context.Background(), sourceKey)
 				Expect(err).ToNot(HaveOccurred())
 
 				verifyTargetAbortCompletion()
@@ -1030,11 +1081,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(targetKey)
+			err = controller.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			verifySource(controller, sourceVMI, localTCPConn.Addr().String())
@@ -1054,7 +1105,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		BeforeEach(func() {
 			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186, "")
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			remoteTCPConn, err := remoteController.createTcpListener()
@@ -1145,13 +1196,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			By("calling execute on the source")
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("calling execute on the target")
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("verifying the result")
@@ -1173,7 +1224,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
 
 			By("calling execute on the source")
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("verifying the result")
@@ -1197,7 +1248,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("calling execute on the target")
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1427,7 +1478,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
