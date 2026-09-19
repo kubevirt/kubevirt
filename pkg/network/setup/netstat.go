@@ -335,13 +335,14 @@ func ifacesStatusFromGuestAgent(
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
 			vmiIfaceSpec := vmiInterfacesSpecByName[vmiIfaceStatus.Name]
 
+			isMasquerade := vmiIfaceSpec.Masquerade != nil
 			// When using masquerade binding, guest-defined Link-Local Addresses (LLAs) are unreachable from the pod network.
 			// These addresses remain internal to the guest and are outside the scope of KubeVirt's NAT translation rules.
-			if vmiIfaceSpec.Masquerade != nil {
+			if isMasquerade {
 				guestAgentInterface.IPs = filterOutLinkLocalAddresses(guestAgentInterface.IPs)
 			}
 
-			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
+			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface, isMasquerade)
 			if !isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface) {
 				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
 			}
@@ -368,7 +369,7 @@ func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.Inte
 	return guestAgentInterface.InterfaceName == ""
 }
 
-func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
+func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus, isMasquerade bool) {
 	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
 	// IP data from the Guest Agent overrides previous iface status information in the following cases:
 	// - No status IPs existed before, i.e. GA data is adding new information.
@@ -377,8 +378,10 @@ func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstan
 	// However, in case GA does not include IP data, it will clear IP status data (guest is not reachable by any IP).
 	ifaceStatusIPv4, ifaceStatusIPv6 := splitIPByFamiliy(ifaceStatus.IPs)
 	guestAgentIfaceIPv4, guestAgentIfaceIPv6 := splitIPByFamiliy(guestAgentIface.IPs)
-	if len(ifaceStatusIPv4) == 0 || len(guestAgentIfaceIPv4) == 0 {
-		ifaceStatusIPv4 = guestAgentIfaceIPv4
+	if !isMasquerade {
+		if len(ifaceStatusIPv4) == 0 || len(guestAgentIfaceIPv4) == 0 {
+			ifaceStatusIPv4 = guestAgentIfaceIPv4
+		}
 	}
 	if len(ifaceStatusIPv6) == 0 || len(guestAgentIfaceIPv6) == 0 {
 		ifaceStatusIPv6 = guestAgentIfaceIPv6
