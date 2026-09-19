@@ -77,7 +77,7 @@ function build_func_tests_image() {
 # Use this environment variable to specify additional tags for the go build in hack/build-go.sh.
 # To specify tags in the bazel build modify/overwrite the build target in .bazelrc instead.
 if [ -z "$KUBEVIRT_GO_BUILD_TAGS" ]; then
-    KUBEVIRT_GO_BUILD_TAGS="selinux"
+    KUBEVIRT_GO_BUILD_TAGS="selinux,kubevirt_mock"
 else
     KUBEVIRT_GO_BUILD_TAGS="selinux,${KUBEVIRT_GO_BUILD_TAGS}"
 fi
