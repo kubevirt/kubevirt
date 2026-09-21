@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 type agentDataField struct {
@@ -37,22 +38,22 @@ type agentDataField struct {
 }
 
 var agentDataFields = []agentDataField{
-	{"guest-get-load", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetLoad != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetLoad = resp }},
-	{"guest-get-cpustats", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetCpuStats != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetCpuStats = resp }},
-	{"guest-get-diskstats", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDiskStats != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDiskStats = resp }},
-	{"guest-get-fsinfo", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetFsInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetFsInfo = resp }},
-	{"guest-get-time", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetTime != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetTime = resp }},
-	{"guest-get-vcpus", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetVcpus != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetVcpus = resp }},
-	{"guest-get-memory-block-info", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetMemoryBlockInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetMemoryBlockInfo = resp }},
-	{"guest-get-users", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetUsers != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetUsers = resp }},
-	{"guest-get-osinfo", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetOsInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetOsInfo = resp }},
-	{"guest-get-disks", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDisks != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDisks = resp }},
-	{"guest-get-host-name", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetHostName != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetHostName = resp }},
-	{"guest-get-timezone", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetTimezone != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetTimezone = resp }},
-	{"guest-network-get-route", func(r *cmdv1.VMStatsRequest) bool { return r.GuestNetworkGetRoute != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestNetworkGetRoute = resp }},
-	{"guest-network-get-interfaces", func(r *cmdv1.VMStatsRequest) bool { return r.GuestNetworkGetInterfaces != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestNetworkGetInterfaces = resp }},
-	{"guest-get-memory-blocks", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetMemoryBlocks != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetMemoryBlocks = resp }},
-	{"guest-get-devices", func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDevices != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDevices = resp }},
+	{stats.GuestGetLoadKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetLoad != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetLoad = resp }},
+	{stats.GuestGetCPUStatsKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetCpuStats != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetCpuStats = resp }},
+	{stats.GuestGetDiskStatsKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDiskStats != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDiskStats = resp }},
+	{stats.GuestGetFsInfoKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetFsInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetFsInfo = resp }},
+	{stats.GuestGetTimeKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetTime != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetTime = resp }},
+	{stats.GuestGetVcpusKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetVcpus != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetVcpus = resp }},
+	{stats.GuestGetMemoryBlockInfoKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetMemoryBlockInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetMemoryBlockInfo = resp }},
+	{stats.GuestGetUsersKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetUsers != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetUsers = resp }},
+	{stats.GuestGetOsInfoKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetOsInfo != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetOsInfo = resp }},
+	{stats.GuestGetDisksKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDisks != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDisks = resp }},
+	{stats.GuestGetHostNameKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetHostName != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetHostName = resp }},
+	{stats.GuestGetTimezoneKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetTimezone != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetTimezone = resp }},
+	{stats.GuestNetworkGetRouteKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestNetworkGetRoute != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestNetworkGetRoute = resp }},
+	{stats.GuestNetworkGetInterfacesKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestNetworkGetInterfaces != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestNetworkGetInterfaces = resp }},
+	{stats.GuestGetMemoryBlocksKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetMemoryBlocks != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetMemoryBlocks = resp }},
+	{stats.GuestGetDevicesKey, func(r *cmdv1.VMStatsRequest) bool { return r.GuestGetDevices != nil }, func(r *cmdv1.VMStatsResponse, resp *cmdv1.Response) { r.GuestGetDevices = resp }},
 }
 
 func AgentDataCommandKeys() []string {
@@ -127,11 +128,10 @@ func (l *Launcher) GetVMStats(ctx context.Context, request *cmdv1.VMStatsRequest
 	}
 
 	if len(errs) > 0 {
-		response.Response.Success = false
-		response.Response.Message = strings.Join(errs, "; ")
+		log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=%d: %s", time.Since(start), len(errs), strings.Join(errs, "; "))
+	} else {
+		log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=0", time.Since(start))
 	}
-
-	log.Log.V(2).Infof("GetVMStats completed: total=%s, errors=%d", time.Since(start), len(errs))
 
 	return response, nil
 }
