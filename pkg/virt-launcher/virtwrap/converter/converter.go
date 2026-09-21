@@ -138,6 +138,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewIOMMUFDConfigurator(c.IOMMUFDEnabled),
 	}
 
+	if architecture == "ppc64le" {
+		configurators = append(configurators, compute.PPC64LEMachineDomainConfigurator{})
+	}
+
 	switch c.HypervisorName {
 	case v1.HyperVDirectHypervisorName:
 		configurators = append(configurators, mshv.NewMshvDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))

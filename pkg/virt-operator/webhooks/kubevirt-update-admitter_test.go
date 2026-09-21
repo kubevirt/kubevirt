@@ -729,28 +729,19 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been deprecated since v1.8.0"),
 		)
 
-		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {
+		It("should not warn when archConfig is set for ppc64le", func() {
 			kv := v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
-						ArchitectureConfiguration: archConfig,
+						ArchitectureConfiguration: &v1.ArchConfiguration{Ppc64le: &v1.ArchSpecificConfiguration{}},
 					},
 				},
 			}
 
 			response := admit(kv)
 			Expect(response).NotTo(BeNil())
-
-			if shouldWarn {
-				Expect(response.Warnings).NotTo(BeEmpty())
-				Expect(response.Warnings).To(ContainElement("spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."))
-			} else {
-				Expect(response.Warnings).To(BeEmpty())
-			}
-		},
-			Entry("should warn when archConfig is set for ppc64le", true, &v1.ArchConfiguration{Ppc64le: &v1.ArchSpecificConfiguration{}}),
-			Entry("should not warn when archConfig is not set for ppc64le", false, &v1.ArchConfiguration{}),
-		)
+			Expect(response.Warnings).To(BeEmpty())
+		})
 	})
 
 	Context("Feature Gate Validation", func() {

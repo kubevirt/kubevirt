@@ -1354,6 +1354,26 @@ var _ = Describe("Converter", func() {
 			}))
 		})
 
+		DescribeTable("should only disable the pseries large decrementer on ppc64le", func(arch string, expected bool) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c.Architecture = archconverter.NewConverter(arch)
+			domain := vmiToDomain(vmi, c)
+
+			if expected {
+				Expect(domain.Spec.QEMUCmd).ToNot(BeNil())
+				Expect(domain.Spec.QEMUCmd.QEMUArg).To(ContainElements(api.Arg{Value: "-machine"}, api.Arg{Value: "cap-large-decr=off"}))
+				return
+			}
+			if domain.Spec.QEMUCmd != nil {
+				Expect(domain.Spec.QEMUCmd.QEMUArg).ToNot(ContainElement(api.Arg{Value: "cap-large-decr=off"}))
+			}
+		},
+			Entry("enabled on ppc64le", "ppc64le", true),
+			Entry("not applied on amd64", amd64, false),
+			Entry("not applied on arm64", arm64, false),
+			Entry("not applied on s390x", s390x, false),
+		)
+
 		It("should select explicitly chosen network model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
@@ -1988,6 +2008,22 @@ var _ = Describe("Converter", func() {
 			MultiArchEntry("and add the graphics and video device if it is not set", nil, 1),
 			MultiArchEntry("and add the graphics and video device if it is set to true", pointer.P(true), 1),
 			MultiArchEntry("and not add the graphics and video device if it is set to false", pointer.P(false), 0),
+		)
+
+		DescribeTable("should default the video model to virtio on ppc64le", func(autoAttach *bool, devices int) {
+			vmi := libvmi.New(libvmi.WithUID("1234"))
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = autoAttach
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{AllowEmulation: true, HypervisorDeviceAvailable: true, Architecture: archconverter.NewConverter("ppc64le")})
+
+			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
+			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
+			if devices > 0 {
+				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+			}
+		},
+			Entry("when AutoattachGraphicsDevice is not set", nil, 1),
+			Entry("when AutoattachGraphicsDevice is true", pointer.P(true), 1),
+			Entry("without video and graphics when AutoattachGraphicsDevice is false", pointer.P(false), 0),
 		)
 
 		DescribeTable("should check video device", func(arch string) {
