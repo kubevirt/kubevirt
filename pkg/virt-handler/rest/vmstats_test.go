@@ -449,6 +449,33 @@ var _ = Describe("VMStatsScraper", func() {
 		Expect(results["default/test-vm"].Error).To(Equal("no stats request configured for VMI"))
 	})
 
+	It("should keep the collected stats when only some commands failed", func() {
+		partialStats := &stats.VMStats{
+			DomainStats:  stats.DomainStats{Name: "default_test-vm"},
+			GuestGetLoad: "load-data",
+			Errors:       map[string]string{"guest-get-devices": "guest agent command failed"},
+		}
+
+		mockClient.EXPECT().GetVMStats(gomock.Any()).Return(partialStats, nil)
+		mockClient.EXPECT().Close()
+
+		requests := map[string]*cmdv1.VMStatsRequest{
+			"default/test-vm": {DomainStats: &cmdv1.DomainStatsRequest{}},
+		}
+		scraper := NewVMStatsScraper(1, func(socketFile string) (cmdclient.LauncherClient, error) {
+			return mockClient, nil
+		}, requests)
+
+		scraper.Scrape("/some/socket", newVMI("default", "test-vm"))
+		scraper.Complete()
+
+		result := scraper.GetValues()["default/test-vm"]
+		Expect(result.Error).To(BeEmpty())
+		Expect(result.Stats.DomainStats.Name).To(Equal("default_test-vm"))
+		Expect(result.Stats.GuestGetLoad).To(Equal("load-data"))
+		Expect(result.Stats.Errors).To(HaveKey("guest-get-devices"))
+	})
+
 	It("should report error when gRPC call fails", func() {
 		mockClient.EXPECT().GetVMStats(gomock.Any()).Return(nil, fmt.Errorf("gRPC connection failed"))
 		mockClient.EXPECT().Close()
