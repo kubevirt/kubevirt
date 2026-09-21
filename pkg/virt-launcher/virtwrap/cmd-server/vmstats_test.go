@@ -85,7 +85,7 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.DomainStats.Response.Success).To(BeFalse())
 			Expect(response.DomainStats.Response.Message).To(ContainSubstring("stats error"))
 		})
@@ -115,7 +115,7 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.DirtyRateStats.Response.Success).To(BeFalse())
 			Expect(response.DirtyRateStats.Response.Message).To(ContainSubstring("dirty rate error"))
 		})
@@ -155,7 +155,7 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.GuestGetLoad.Success).To(BeTrue())
 			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
 			Expect(response.GuestGetTime.Success).To(BeFalse())
@@ -187,7 +187,7 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.GuestGetFsInfo.Success).To(BeFalse())
 			Expect(response.GuestGetFsInfo.Message).To(ContainSubstring("agent not responding"))
 			Expect(response.GuestGetLoad.Success).To(BeTrue())
@@ -282,9 +282,9 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.Response.Message).To(ContainSubstring("stats error"))
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.DomainStats.Response.Success).To(BeFalse())
+			Expect(response.DomainStats.Response.Message).To(ContainSubstring("stats error"))
 			Expect(response.DirtyRateStats.Response.Success).To(BeTrue())
 			Expect(response.DirtyRateStats.DirtyRateMbs).To(Equal(int64(100)))
 			Expect(response.GuestAgentVersion.Message).To(Equal("5.2"))
@@ -309,17 +309,17 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.Response.Message).To(ContainSubstring("dirty rate error"))
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.DomainStats.Response.Success).To(BeTrue())
 			Expect(response.DomainStats.DomainStats).ToNot(BeEmpty())
 			Expect(response.DirtyRateStats.Response.Success).To(BeFalse())
+			Expect(response.DirtyRateStats.Response.Message).To(ContainSubstring("dirty rate error"))
 			Expect(response.GuestAgentVersion.Message).To(Equal("5.2"))
 			Expect(response.GuestGetLoad.Success).To(BeTrue())
 			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
 		})
 
-		It("should collect multiple errors when both DomainStats and DirtyRate fail", func() {
+		It("should report both errors per sub-command when DomainStats and DirtyRate fail", func() {
 			domainManager.EXPECT().GetDomainStats().Return(nil, errors.New("stats error"))
 			domainManager.EXPECT().GetDomainDirtyRateStats(gomock.Any()).Return(nil, errors.New("dirty rate error"))
 			domainManager.EXPECT().GetGuestAgentVersion().Return("5.2")
@@ -333,11 +333,11 @@ var _ = Describe("GetVMStats", func() {
 			response, err := server.GetVMStats(context.TODO(), request)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(response.Response.Success).To(BeFalse())
-			Expect(response.Response.Message).To(ContainSubstring("stats error"))
-			Expect(response.Response.Message).To(ContainSubstring("dirty rate error"))
+			Expect(response.Response.Success).To(BeTrue())
 			Expect(response.DomainStats.Response.Success).To(BeFalse())
+			Expect(response.DomainStats.Response.Message).To(ContainSubstring("stats error"))
 			Expect(response.DirtyRateStats.Response.Success).To(BeFalse())
+			Expect(response.DirtyRateStats.Response.Message).To(ContainSubstring("dirty rate error"))
 			Expect(response.GuestAgentVersion.Message).To(Equal("5.2"))
 			Expect(response.GuestGetLoad.Success).To(BeTrue())
 			Expect(response.GuestGetLoad.Message).To(Equal("load-data"))
