@@ -579,7 +579,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				expectedIP := cloudinit.DefaultIPv6Address
 
 				By("checking that guest receives the expected IPv6 address")
-				Expect(console.RunCommand(vmi, fmt.Sprintf("ip -6 addr show dev eth0 | grep -q '%s'; echo $?\n", expectedIP), 15*time.Second)).To(Succeed())
+Expect(console.RunCommand(vmi, fmt.Sprintf("ip -6 addr show dev eth0 | grep -q '%s'", expectedIP), 15*time.Second)).To(Succeed())
 
 				By("checking that default IPv6 route is automatically configured via masquerade gateway")
 				Expect(console.RunCommand(vmi, fmt.Sprintf("ip -6 route show default | grep -q 'default via %s'; echo $?\n", gatewayIP), 15*time.Second)).To(Succeed())
