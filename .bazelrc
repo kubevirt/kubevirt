@@ -5,6 +5,14 @@ try-import .bazeldnf/sandbox.bazelrc
 # Set common values for all builds (run, test and coverage inherit from build)
 build --stamp --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
 
+# rules_rust process_wrapper is linked by gcc looking up `ld` on PATH in the
+# exec configuration. Do not set target action_env: this is host-only.
+build --host_action_env=PATH=/usr/bin:/bin
+# Rust target and exec compiler actions also invoke gcc, which locates ld via
+# PATH. Keep this scoped to rules_rust rather than changing workspace actions.
+build --@rules_rust//rust/settings:extra_rustc_env=PATH=/usr/bin:/bin
+build --@rules_rust//rust/settings:extra_exec_rustc_env=PATH=/usr/bin:/bin
+
 # Bazel has a rule of precedence so we can specify / overwrite architecture specific commands if needed
 build:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
 run:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo

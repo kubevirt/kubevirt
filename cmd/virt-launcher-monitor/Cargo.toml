@@ -1,0 +1,10 @@
+[package]
+name = "virt-launcher-monitor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+caps = "0.5"
+nix = { version = "0.29", features = ["signal", "process"] }
+pico-args = "0.5"
+ureq = { version = "2.12", default-features = false }

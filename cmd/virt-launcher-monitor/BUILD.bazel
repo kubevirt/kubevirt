@@ -1,19 +1,19 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 
-go_library(
-    name = "go_default_library",
-    srcs = ["virt-launcher-monitor.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/virt-launcher-monitor",
-    visibility = ["//visibility:private"],
+rust_binary(
+    name = "virt-launcher-monitor",
+    edition = "2021",
+    srcs = ["src/main.rs"],
+    visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/golang.org/x/sys/unix:go_default_library",
+        "@crate_index//:caps",
+        "@crate_index//:nix",
+        "@crate_index//:pico-args",
+        "@crate_index//:ureq",
     ],
 )
 
-go_binary(
-    name = "virt-launcher-monitor",
-    embed = [":go_default_library"],
-    visibility = ["//visibility:public"],
+rust_test(
+    name = "virt-launcher-monitor-tests",
+    crate = ":virt-launcher-monitor",
 )
