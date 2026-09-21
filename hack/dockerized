@@ -21,7 +21,7 @@ kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_
 
 # CentOS Stream 10 builder images
 default_kubevirt_cs10_builder_image="quay.io/kubevirt/builder-cs10:${kubevirt_cs10_builder_version}"
-kubevirt_cs10_cross_compile_image="quay.io/kubevirt/builder-cs10-cross:${kubevirt_cs10_builder_version}"
+kubevirt_cs10_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_cs10_builder_version}"
 
 # Select builder based on KUBEVIRT_CENTOS_STREAM_VERSION
 # If KUBEVIRT_BUILDER_IMAGE is already set, use it directly (user override)

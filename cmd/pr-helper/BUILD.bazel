@@ -47,6 +47,11 @@ layer_from_tar(
     src = "//rpm:pr-helper_aarch64",
 )
 
+layer_from_tar(
+    name = "pr-helper-rpm-layer-ppc64le",
+    src = "//rpm:pr-helper_ppc64le",
+)
+
 image_manifest(
     name = "version-container",
     base = "//:passwd-image",
@@ -55,6 +60,12 @@ image_manifest(
             ":multipath-layer",
             ":entrypoint-layer",
             ":pr-helper-rpm-layer-aarch64",
+            ":get-version-layer",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":multipath-layer",
+            ":entrypoint-layer",
+            ":pr-helper-rpm-layer-ppc64le",
             ":get-version-layer",
         ],
         "//conditions:default": [

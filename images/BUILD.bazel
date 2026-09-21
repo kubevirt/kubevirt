@@ -20,6 +20,11 @@ layer_from_tar(
 )
 
 layer_from_tar(
+    name = "testimage-layer-ppc64le",
+    src = "//rpm:testimage_ppc64le",
+)
+
+layer_from_tar(
     name = "passwd-layer",
     src = ":passwd-tar",
 )
@@ -33,6 +38,10 @@ image_manifest(
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":testimage-layer-s390x",
+            ":passwd-layer",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":testimage-layer-ppc64le",
             ":passwd-layer",
         ],
         "//conditions:default": [
