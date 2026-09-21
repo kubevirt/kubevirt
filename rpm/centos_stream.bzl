@@ -26,6 +26,10 @@ def centos_stream_config_settings():
         name = "linux_s390x",
         constraint_values = ["@platforms//cpu:s390x", "@platforms//os:linux"],
     )
+    native.config_setting(
+        name = "linux_ppc64le",
+        constraint_values = ["@platforms//cpu:ppc64le", "@platforms//os:linux"],
+    )
 
     # Compound config_setting_groups for platform + centos_stream combinations
     # x86_64 + CS versions
@@ -56,6 +60,16 @@ def centos_stream_config_settings():
     selects.config_setting_group(
         name = "s390x_cs10",
         match_all = [":linux_s390x", ":is_cs10"],
+    )
+
+    # ppc64le + CS versions
+    selects.config_setting_group(
+        name = "ppc64le_cs9",
+        match_all = [":linux_ppc64le", ":is_cs9"],
+    )
+    selects.config_setting_group(
+        name = "ppc64le_cs10",
+        match_all = [":linux_ppc64le", ":is_cs10"],
     )
 
 def centos_stream_alias(name, cs9_target, cs10_target, visibility = None):
