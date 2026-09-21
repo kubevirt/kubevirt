@@ -3570,3 +3570,31 @@ type stubNetworkAnnotationsGenerator struct {
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
 	return s.annotations
 }
+
+var _ = Describe("host cpu model node selector", func() {
+	It("should be built from the host-model labels a ppc64le node publishes", func() {
+		nodeLabels := map[string]string{
+			v1.HostModelCPULabel + "POWER10":         "true",
+			v1.CPUModelLabel + "POWER10":             "true",
+			v1.CPUModelLabel + "POWER11":             "true",
+			v1.CPUModelVendorLabel + "IBM":           "true",
+			v1.SupportedMachineTypeLabel + "pseries": "true",
+		}
+
+		selectors, key, err := getHostCpuModelFromMap(nodeLabels)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(key).To(Equal(v1.SupportedHostModelMigrationCPU + "POWER10"))
+		Expect(selectors).To(HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"POWER10", "true"))
+	})
+
+	It("should fail when a node has no host-model label", func() {
+		nodeLabels := map[string]string{
+			v1.SupportedMachineTypeLabel + "pseries": "true",
+		}
+
+		_, _, err := getHostCpuModelFromMap(nodeLabels)
+
+		Expect(err).To(MatchError(ContainSubstring("unable to locate host cpu model")))
+	})
+})
