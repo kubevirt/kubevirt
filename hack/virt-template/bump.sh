@@ -30,7 +30,7 @@ function image_digest() {
 version=$(latest_version)
 yaml_checksum=$(checksum "${version}" "install-virt-operator.yaml")
 
-# Get image digests for all architectures
+# Get image digests for all architectures (upstream quay.io/kubevirt)
 apiserver_amd64=$(image_digest "virt-template-apiserver" "${version}" "amd64")
 apiserver_arm64=$(image_digest "virt-template-apiserver" "${version}" "arm64")
 apiserver_s390x=$(image_digest "virt-template-apiserver" "${version}" "s390x")
@@ -38,6 +38,14 @@ apiserver_s390x=$(image_digest "virt-template-apiserver" "${version}" "s390x")
 controller_amd64=$(image_digest "virt-template-controller" "${version}" "amd64")
 controller_arm64=$(image_digest "virt-template-controller" "${version}" "arm64")
 controller_s390x=$(image_digest "virt-template-controller" "${version}" "s390x")
+
+# Get ppc64le digests from pkenchap registry (built separately for ppc64le)
+PPCIMAGE_REGISTRY="${PPCIMAGE_REGISTRY:-quay.io}"
+PPCIMAGE_ORG="${PPCIMAGE_ORG:-pkenchap}"
+apiserver_ppc64le=$(skopeo inspect --raw "docker://${PPCIMAGE_REGISTRY}/${PPCIMAGE_ORG}/virt-template-apiserver:${version}" |
+    jq -r ".manifests[] | select(.platform.architecture == \"ppc64le\") | .digest")
+controller_ppc64le=$(skopeo inspect --raw "docker://${PPCIMAGE_REGISTRY}/${PPCIMAGE_ORG}/virt-template-controller:${version}" |
+    jq -r ".manifests[] | select(.platform.architecture == \"ppc64le\") | .digest")
 
 # Update default.sh with version and yaml checksum
 sed -i "/^[[:blank:]]*virt_template_version[[:blank:]]*=/s/=.*/=\${VIRT_TEMPLATE_VERSION:-\"${version}\"}/" "$(dirname "$0")/default.sh"
@@ -48,9 +56,11 @@ deps_file="$(dirname "$0")/../../images/virt-template/deps.bzl"
 sed -i "s|^VIRT_TEMPLATE_APISERVER_DIGEST_AMD64 = .*|VIRT_TEMPLATE_APISERVER_DIGEST_AMD64 = \"${apiserver_amd64}\"|" "${deps_file}"
 sed -i "s|^VIRT_TEMPLATE_APISERVER_DIGEST_ARM64 = .*|VIRT_TEMPLATE_APISERVER_DIGEST_ARM64 = \"${apiserver_arm64}\"|" "${deps_file}"
 sed -i "s|^VIRT_TEMPLATE_APISERVER_DIGEST_S390X = .*|VIRT_TEMPLATE_APISERVER_DIGEST_S390X = \"${apiserver_s390x}\"|" "${deps_file}"
+sed -i "s|^VIRT_TEMPLATE_APISERVER_DIGEST_PPC64LE = .*|VIRT_TEMPLATE_APISERVER_DIGEST_PPC64LE = \"${apiserver_ppc64le}\"|" "${deps_file}"
 
 sed -i "s|^VIRT_TEMPLATE_CONTROLLER_DIGEST_AMD64 = .*|VIRT_TEMPLATE_CONTROLLER_DIGEST_AMD64 = \"${controller_amd64}\"|" "${deps_file}"
 sed -i "s|^VIRT_TEMPLATE_CONTROLLER_DIGEST_ARM64 = .*|VIRT_TEMPLATE_CONTROLLER_DIGEST_ARM64 = \"${controller_arm64}\"|" "${deps_file}"
 sed -i "s|^VIRT_TEMPLATE_CONTROLLER_DIGEST_S390X = .*|VIRT_TEMPLATE_CONTROLLER_DIGEST_S390X = \"${controller_s390x}\"|" "${deps_file}"
+sed -i "s|^VIRT_TEMPLATE_CONTROLLER_DIGEST_PPC64LE = .*|VIRT_TEMPLATE_CONTROLLER_DIGEST_PPC64LE = \"${controller_ppc64le}\"|" "${deps_file}"
 
 "$(dirname "$0")/sync.sh"
