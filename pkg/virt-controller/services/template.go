@@ -350,6 +350,10 @@ func (t *TemplateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false, memoryOverhead)
 }
 
+func (t *TemplateService) isPPC64() bool {
+	return t.clusterConfig.GetClusterCPUArch() == "ppc64le"
+}
+
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	timeout := rand.Intn(qemuTimeoutJitterRange) + qemuTimeoutBaseSeconds
 
@@ -907,6 +911,9 @@ func (t *TemplateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineIns
 	if vmitrait.IsNonRoot(vmiSpec) {
 		cpInitContainerOpts = append(cpInitContainerOpts, WithNonRoot(userId))
 	}
+	if t.isPPC64() {
+		cpInitContainerOpts = append(cpInitContainerOpts, WithPrivileged())
+	}
 
 	cpInitContainerOpts = append(cpInitContainerOpts, extraOpts...)
 
@@ -925,6 +932,9 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	if vmitrait.IsNonRoot(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
+	}
+	if t.isPPC64() {
+		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
 	}
 	if vmi.Spec.ReadinessProbe != nil {
 		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))

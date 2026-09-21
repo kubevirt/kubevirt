@@ -217,6 +217,11 @@ layer_from_tar(
 )
 
 layer_from_tar(
+    name = "launcherbase-layer-ppc64le",
+    src = "//rpm:launcherbase_ppc64le",
+)
+
+layer_from_tar(
     name = "get-version-layer",
     src = ":get-version-tar",
 )
@@ -260,6 +265,7 @@ image_manifest(
     name = "version-container",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "//rpm:linux_ppc64le": "@go_image_base_ppc64le",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
@@ -271,6 +277,17 @@ image_manifest(
             ":passwd-layer",
             ":nsswitch-layer",
             ":qemu-hook-layer",
+            ":qemu-kvm-modules-dir-layer",
+            ":var-run-symlink-layer",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":launcherbase-layer-ppc64le",
+            ":get-version-layer",
+            ":libvirt-config-layer",
+            ":passwd-layer",
+            ":nsswitch-layer",
+            ":qemu-hook-layer",
+            ":libvirt-hook-client-layer",
             ":qemu-kvm-modules-dir-layer",
             ":var-run-symlink-layer",
         ],

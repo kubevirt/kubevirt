@@ -1,0 +1,49 @@
+ARG BUILDER_IMAGE
+FROM "${BUILDER_IMAGE}"
+
+# Install cross-compilers for all non-x86_64 target architectures.
+# epel-release provides gcc-aarch64-linux-gnu and gcc-powerpc64le-linux-gnu
+# on CentOS Stream 10 (amd64 host).
+RUN dnf install -y epel-release && \
+    dnf install -y --setopt=install_weak_deps=False \
+        gcc-aarch64-linux-gnu \
+        gcc-s390x-linux-gnu \
+        gcc-powerpc64le-linux-gnu && \
+    dnf clean -y all
+
+# Install target sysroots (glibc headers + static libs) for each cross-target.
+# --forcearch installs the foreign-arch RPMs into an isolated sysroot directory
+# so the cross-compiler can find the correct headers and libraries.
+RUN dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/aarch64-linux-gnu/sys-root \
+                   --forcearch aarch64 \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/s390x-linux-gnu/sys-root \
+                   --forcearch s390x \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/powerpc64le-linux-gnu/sys-root \
+                   --forcearch ppc64le \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf clean -y all
+
+# The Bazel CS10 toolchain configs hardcode GCC version 14 for include
+# paths (e.g. /usr/lib/gcc/powerpc64le-linux-gnu/14/include).
+# EPEL may install a different version. Create a "14" symlink pointing
+# to whatever version was actually installed so Bazel can find the headers.
+# Also create the equivalent symlink for s390x and aarch64.
+RUN for triple in powerpc64le-linux-gnu s390x-linux-gnu aarch64-linux-gnu; do \
+        actual=$(ls /usr/lib/gcc/${triple}/ 2>/dev/null | sort -V | tail -1); \
+        echo "Cross GCC ${triple}: ${actual}"; \
+        if [ -n "${actual}" ] && [ "${actual}" != "14" ]; then \
+            ln -sf /usr/lib/gcc/${triple}/${actual} \
+                   /usr/lib/gcc/${triple}/14; \
+        fi; \
+    done
