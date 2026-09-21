@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	amd64 = "amd64"
-	arm64 = "arm64"
-	s390x = "s390x"
+	amd64   = "amd64"
+	arm64   = "arm64"
+	s390x   = "s390x"
+	ppc64le = "ppc64le"
 )
 
 type Converter interface {
@@ -52,6 +53,8 @@ func NewConverter(arch string) Converter {
 		return converterS390X{}
 	case amd64:
 		return converterAMD64{}
+	case ppc64le:
+		return converterPPC64{}
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
 		return converterAMD64{}
