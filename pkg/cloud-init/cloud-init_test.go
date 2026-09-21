@@ -37,6 +37,10 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"sigs.k8s.io/yaml"
+
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -609,6 +613,286 @@ var _ = Describe("CloudInit", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = GenerateLocalData(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("masquerade default IPv6 network configuration", func() {
+			var (
+				capturedNetworkConfig string
+				origHasIPv6Func       HasIPv6GlobalUnicastAddressFunc
+			)
+
+			newMasqueradeVMI := func(mac string, ipv6CIDR string) *v1.VirtualMachineInstance {
+				return &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "fake-domain",
+						Namespace: "fake-namespace",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Interfaces: []v1.Interface{
+									{
+										Name:       "default",
+										MacAddress: mac,
+										InterfaceBindingMethod: v1.InterfaceBindingMethod{
+											Masquerade: &v1.InterfaceMasquerade{},
+										},
+									},
+								},
+							},
+						},
+						Networks: []v1.Network{
+							{
+								Name: "default",
+								NetworkSource: v1.NetworkSource{
+									Pod: &v1.PodNetwork{
+										VMIPv6NetworkCIDR: ipv6CIDR,
+									},
+								},
+							},
+						},
+					},
+				}
+			}
+
+			BeforeEach(func() {
+				capturedNetworkConfig = ""
+				isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
+					netConfigPath := filepath.Join(inDir, "network-config")
+					if content, err := os.ReadFile(netConfigPath); err == nil {
+						capturedNetworkConfig = string(content)
+					}
+					configDrivePath := filepath.Join(inDir, "openstack/latest/network_data.json")
+					if content, err := os.ReadFile(configDrivePath); err == nil {
+						capturedNetworkConfig = string(content)
+					}
+					_, err := os.Create(isoOutFile)
+					return err
+				}
+				origHasIPv6Func = hasIPv6GlobalUnicastAddress
+				SetHasIPv6GlobalUnicastAddressFunction(func(interfaceName string) bool {
+					return true
+				})
+			})
+
+			AfterEach(func() {
+				SetHasIPv6GlobalUnicastAddressFunction(origHasIPv6Func)
+			})
+
+			It("should generate default IPv6 address and default route when IPv6 masquerade has empty networkData", func() {
+				const mac = "52:54:00:12:34:56"
+				vmi := newMasqueradeVMI(mac, "")
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).ToNot(BeEmpty())
+
+				expectedGw, expectedVM, err := link.GenerateMasqueradeGatewayAndVmIPAddrs(&vmi.Spec.Networks[0], netdriver.IPv6)
+				Expect(err).NotTo(HaveOccurred())
+
+				var parsedConfig cloudInitNetworkConfigV2
+				err = yaml.Unmarshal([]byte(capturedNetworkConfig), &parsedConfig)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parsedConfig.Version).To(Equal(2))
+
+				eth0, exists := parsedConfig.Ethernets["eth0"]
+				Expect(exists).To(BeTrue())
+				Expect(eth0.Match).ToNot(BeNil())
+				Expect(eth0.Match.MACAddress).To(Equal(mac))
+				Expect(eth0.SetName).To(Equal("eth0"))
+				Expect(eth0.DHCP4).To(BeTrue())
+				Expect(eth0.Addresses).To(ContainElement(expectedVM.String()))
+				Expect(eth0.Routes).To(ContainElement(cloudInitRouteV2{
+					To:  "::/0",
+					Via: expectedGw.IP.String(),
+				}))
+			})
+
+			It("should preserve exact custom user NetworkData", func() {
+				vmi := newMasqueradeVMI("52:54:00:12:34:56", "")
+				customNetworkData := "version: 2\nethernets:\n  eth0:\n    dhcp4: false\n"
+				cloudInitData := &CloudInitData{
+					DataSource:  DataSourceNoCloud,
+					UserData:    "#cloud-config\n",
+					NetworkData: customNetworkData,
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(Equal(customNetworkData))
+			})
+
+			It("should not generate automatic network configuration when NetworkDataSecretRef is present", func() {
+				vmi := newMasqueradeVMI("52:54:00:12:34:56", "")
+				vmi.Spec.Volumes = []v1.Volume{
+					{
+						Name: "cloudinit",
+						VolumeSource: v1.VolumeSource{
+							CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+								NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "mysecret"},
+							},
+						},
+					},
+				}
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(BeEmpty())
+			})
+
+			It("should not generate automatic network configuration when NetworkDataBase64 is present", func() {
+				vmi := newMasqueradeVMI("52:54:00:12:34:56", "")
+				vmi.Spec.Volumes = []v1.Volume{
+					{
+						Name: "cloudinit",
+						VolumeSource: v1.VolumeSource{
+							CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+								NetworkDataBase64: "c29tZS1kYXRh",
+							},
+						},
+					},
+				}
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(BeEmpty())
+			})
+
+			It("should not generate IPv6 configuration for IPv4-only masquerade", func() {
+				SetHasIPv6GlobalUnicastAddressFunction(func(interfaceName string) bool {
+					return false
+				})
+				vmi := newMasqueradeVMI("52:54:00:12:34:56", "")
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(BeEmpty())
+			})
+
+			It("should not generate NoCloud YAML when DataSource is ConfigDrive", func() {
+				vmi := newMasqueradeVMI("52:54:00:12:34:56", "")
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceConfigDrive,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(BeEmpty())
+			})
+
+			It("should not generate configuration when interface MAC address is unknown", func() {
+				vmi := newMasqueradeVMI("", "")
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(BeEmpty())
+			})
+
+			It("should generate custom IPv6 address and gateway route when VMIPv6NetworkCIDR is customized", func() {
+				const (
+					mac        = "52:54:00:12:34:56"
+					customCIDR = "2001:db8:beef::/64"
+				)
+				vmi := newMasqueradeVMI(mac, customCIDR)
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).ToNot(BeEmpty())
+
+				expectedGw, expectedVM, err := link.GenerateMasqueradeGatewayAndVmIPAddrs(&vmi.Spec.Networks[0], netdriver.IPv6)
+				Expect(err).NotTo(HaveOccurred())
+
+				var parsedConfig cloudInitNetworkConfigV2
+				err = yaml.Unmarshal([]byte(capturedNetworkConfig), &parsedConfig)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parsedConfig.Version).To(Equal(2))
+
+				eth0, exists := parsedConfig.Ethernets["eth0"]
+				Expect(exists).To(BeTrue())
+				Expect(eth0.Match).ToNot(BeNil())
+				Expect(eth0.Match.MACAddress).To(Equal(mac))
+				Expect(eth0.SetName).To(Equal("eth0"))
+				Expect(eth0.DHCP4).To(BeTrue())
+				Expect(eth0.Addresses).To(ContainElement(expectedVM.String()))
+				Expect(eth0.Routes).To(ContainElement(cloudInitRouteV2{
+					To:  "::/0",
+					Via: expectedGw.IP.String(),
+				}))
+				Expect(expectedVM.String()).To(ContainSubstring("2001:db8:beef::"))
+				Expect(eth0.Addresses[0]).ToNot(ContainSubstring("fd10:0:2::"))
+			})
+
+			It("should not generate masquerade network configuration for non-masquerade interfaces", func() {
+				vmi := &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "fake-domain",
+						Namespace: "fake-namespace",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Interfaces: []v1.Interface{
+									{
+										Name:       "default",
+										MacAddress: "52:54:00:12:34:56",
+										InterfaceBindingMethod: v1.InterfaceBindingMethod{
+											Bridge: &v1.InterfaceBridge{},
+										},
+									},
+									{
+										Name:       "sriov",
+										MacAddress: "52:54:00:12:34:57",
+										InterfaceBindingMethod: v1.InterfaceBindingMethod{
+											SRIOV: &v1.InterfaceSRIOV{},
+										},
+									},
+								},
+							},
+						},
+						Networks: []v1.Network{
+							{
+								Name: "default",
+								NetworkSource: v1.NetworkSource{
+									Pod: &v1.PodNetwork{},
+								},
+							},
+						},
+					},
+				}
+				cloudInitData := &CloudInitData{
+					DataSource: DataSourceNoCloud,
+					UserData:   "#cloud-config\n",
+				}
+
+				err := GenerateLocalData(vmi, "fake-instancetype", cloudInitData)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(capturedNetworkConfig).To(BeEmpty())
+			})
 		})
 	})
 
