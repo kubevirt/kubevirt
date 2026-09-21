@@ -547,9 +547,15 @@ func (l *LibvirtConnection) installWatchdog(checkInterval time.Duration) {
 	}()
 }
 
-func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
+func (l *LibvirtConnection) reconnectIfNecessary() error {
 	l.reconnectLock.Lock()
 	defer l.reconnectLock.Unlock()
+
+	return l.reconnectIfNecessaryLocked()
+}
+
+// reconnectIfNecessaryLocked expects reconnectLock to be held.
+func (l *LibvirtConnection) reconnectIfNecessaryLocked() (err error) {
 	// TODO add a reconnect backoff, and immediately return an error in these cases
 	// We need this to avoid swamping libvirt with reconnect tries
 	if l.alive {
@@ -621,6 +627,11 @@ func (l *LibvirtConnection) checkConnectionLost(err error) {
 	l.reconnectLock.Lock()
 	defer l.reconnectLock.Unlock()
 
+	l.checkConnectionLostLocked(err)
+}
+
+// checkConnectionLostLocked expects reconnectLock to be held.
+func (l *LibvirtConnection) checkConnectionLostLocked(err error) {
 	if errors.IsOk(err) {
 		return
 	}
