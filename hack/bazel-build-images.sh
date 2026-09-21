@@ -24,53 +24,74 @@ source hack/bootstrap.sh
 source hack/config.sh
 
 # vars are uninteresting for the build step, they are interesting for the push step only
+# Core images for all architectures
 other_images_default="
     //cmd/sidecars:sidecar-shim-image
     //cmd/libguestfs:libguestfs-tools-image
     //cmd/test-helpers:test-helpers-image
     //cmd/example-node-hook-plugin:example-node-hook-plugin-image
     //containerimages:alpine-container-disk-image
-    //containerimages:alpine-with-test-tooling
-    //containerimages:fedora-with-test-tooling
     //images/disks-images-provider:disks-images-provider-image
     //images/vm-killer:vm-killer-image
 "
 
-other_images_x86_64_aarch64="
+# Test-tooling images: x86_64, aarch64, s390x only (no upstream ppc64le base)
+other_images_test_tooling="
+    //containerimages:alpine-with-test-tooling
+    //containerimages:fedora-with-test-tooling
+"
+
+# Images for all non-s390x architectures (x86_64, aarch64, ppc64le)
+other_images_non_s390x="
     //cmd/sidecars/smbios:example-hook-sidecar-image
     //cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image
     //cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image
     //cmd/plugin-sidecars/test-domain-hook:test-domain-hook-sidecar-image
     //cmd/sidecars/network-passt-binding:network-passt-binding-image
     //cmd/pr-helper:pr-helper-image
+    //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
+    //images/winrmcli:winrmcli-image
+    //tests:conformance_image
+"
+
+# Images for x86_64 + aarch64 only (no ppc64le, no s390x)
+other_images_x86_64_aarch64="
     //containerimages:cirros-container-disk-image
     //containerimages:cirros-custom-container-disk-image
     //containerimages:virtio-container-disk-image
-    //images/winrmcli:winrmcli-image
-    //tests:conformance_image
 "
 
 other_images_x86_64_only="
     //containerimages:fedora-realtime
     //containerimages:alpine-ext-kernel-boot-demo-container
-    //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
 "
 
 case ${ARCHITECTURE} in
+"ppc64le" | "crossbuild-ppc64le")
+    other_images="
+        $other_images_default
+        $other_images_non_s390x
+    "
+    ;;
 "s390x" | "crossbuild-s390x")
     other_images="
         $other_images_default
+        $other_images_test_tooling
     "
     ;;
 "aarch64" | "crossbuild-aarch64")
     other_images="
         $other_images_default
+        $other_images_test_tooling
+        $other_images_non_s390x
         $other_images_x86_64_aarch64
     "
     ;;
 *)
     other_images="
         $other_images_default
+        $other_images_test_tooling
+        $other_images_non_s390x
         $other_images_x86_64_aarch64
         $other_images_x86_64_only
     "

@@ -55,6 +55,11 @@ layer_from_tar(
     src = "//rpm:sidecar-shim_s390x",
 )
 
+layer_from_tar(
+    name = "sidecar-shim-rpm-layer-ppc64le",
+    src = "//rpm:sidecar-shim_ppc64le",
+)
+
 image_manifest(
     name = "sidecar-shim-image",
     base = "//:passwd-image",
@@ -62,6 +67,10 @@ image_manifest(
     layers = select({
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":sidecar-shim-rpm-layer-s390x",
+            ":sidecar-shim-layer",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":sidecar-shim-rpm-layer-ppc64le",
             ":sidecar-shim-layer",
         ],
         "@io_bazel_rules_go//go/platform:linux_arm64": [
