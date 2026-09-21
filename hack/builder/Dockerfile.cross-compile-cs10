@@ -34,13 +34,16 @@ RUN dnf install -y --setopt=install_weak_deps=False \
         glibc-static && \
     dnf clean -y all
 
-# The Bazel ppc64le toolchain config hardcodes GCC version 14 for the
-# include path /usr/lib/gcc/powerpc64le-linux-gnu/14/include.
-# Verify the actual installed GCC version and create a compat symlink
-# (v12) pointing to it so older toolchain configs still resolve.
-RUN actual=$(ls /usr/lib/gcc/powerpc64le-linux-gnu/ 2>/dev/null | sort -V | tail -1) && \
-    echo "Cross GCC version: ${actual}" && \
-    if [ -n "${actual}" ] && [ "${actual}" != "12" ]; then \
-        ln -sf /usr/lib/gcc/powerpc64le-linux-gnu/${actual} \
-               /usr/lib/gcc/powerpc64le-linux-gnu/12; \
-    fi
+# The Bazel CS10 toolchain configs hardcode GCC version 14 for include
+# paths (e.g. /usr/lib/gcc/powerpc64le-linux-gnu/14/include).
+# EPEL may install a different version. Create a "14" symlink pointing
+# to whatever version was actually installed so Bazel can find the headers.
+# Also create the equivalent symlink for s390x and aarch64.
+RUN for triple in powerpc64le-linux-gnu s390x-linux-gnu aarch64-linux-gnu; do \
+        actual=$(ls /usr/lib/gcc/${triple}/ 2>/dev/null | sort -V | tail -1); \
+        echo "Cross GCC ${triple}: ${actual}"; \
+        if [ -n "${actual}" ] && [ "${actual}" != "14" ]; then \
+            ln -sf /usr/lib/gcc/${triple}/${actual} \
+                   /usr/lib/gcc/${triple}/14; \
+        fi; \
+    done

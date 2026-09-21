@@ -10590,6 +10590,14 @@ rpm(
 )
 
 rpm(
+    name = "libvirt-client-0__12.4.0-1.el10.ppc64le",
+    sha256 = "042f5f6e55a87f9d7954d79088b8e1234f1981a92d71e644a932dd4d20d9532e",
+    urls = [
+        "https://mirror.stream.centos.org/10-stream/AppStream/ppc64le/os/Packages/libvirt-client-12.4.0-1.el10.ppc64le.rpm",
+    ],
+)
+
+rpm(
     name = "libvirt-client-0__11.10.0-19.el9.s390x",
     sha256 = "cb20973c3bc71893c4ec03d13aabb87c2f7e333deb70a69edcafba3971ba1303",
     urls = [
@@ -12937,7 +12945,15 @@ rpm(
 )
 
 rpm(
-=======
+    name = "passt-0__0__caret__20260728.gf8df3f1-1.el10.aarch64",
+    sha256 = "1129e86fdc28f428eed119d74fd9b072989e46689155fec4e4a88a5e2b2937a1",
+    urls = [
+        "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/passt-0%5E20260728.gf8df3f1-1.el10.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/1129e86fdc28f428eed119d74fd9b072989e46689155fec4e4a88a5e2b2937a1",
+    ],
+)
+
+rpm(
     name = "passt-0__0__caret__20260611.ga9c61ff-1.el10.aarch64",
     sha256 = "553173929764fc739b4927eb59c78146759866a23056e495769e7fdfa8e40359",
     urls = [
