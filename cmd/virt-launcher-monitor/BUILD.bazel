@@ -2,8 +2,8 @@ load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 
 rust_binary(
     name = "virt-launcher-monitor",
-    edition = "2021",
     srcs = ["src/main.rs"],
+    edition = "2021",
     visibility = ["//visibility:public"],
     deps = [
         "@crate_index//:caps",
