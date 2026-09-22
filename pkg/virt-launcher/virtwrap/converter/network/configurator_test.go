@@ -26,7 +26,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 )
@@ -258,7 +257,7 @@ func withTypeEthernet() option {
 
 func withVHostDriver(queues uint) option {
 	return func(iface *api.Interface) {
-		iface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: pointer.P(queues)}
+		iface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: new(queues)}
 	}
 }
 
