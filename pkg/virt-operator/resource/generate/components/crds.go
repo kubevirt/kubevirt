@@ -75,6 +75,31 @@ var (
 	PLUGIN                           = "plugins." + plugin.GroupName
 )
 
+// NewInstallStrategyCRDs generates the CRDs installed by virt-operator.
+// The KubeVirt CRD is installed separately and is not included here.
+func NewInstallStrategyCRDs() ([]*extv1.CustomResourceDefinition, error) {
+	generators := []func() (*extv1.CustomResourceDefinition, error){
+		NewVirtualMachineInstanceCrd, NewPresetCrd, NewReplicaSetCrd,
+		NewVirtualMachineCrd, NewVirtualMachineInstanceMigrationCrd,
+		NewVirtualMachineSnapshotCrd, NewVirtualMachineSnapshotContentCrd,
+		NewVirtualMachineRestoreCrd, NewVirtualMachineInstancetypeCrd,
+		NewVirtualMachineClusterInstancetypeCrd, NewVirtualMachinePoolCrd,
+		NewMigrationPolicyCrd, NewVirtualMachinePreferenceCrd,
+		NewVirtualMachineClusterPreferenceCrd, NewVirtualMachineExportCrd,
+		NewVirtualMachineCloneCrd, NewVirtualMachineBackupCrd,
+		NewVirtualMachineBackupTrackerCrd, NewPluginCrd,
+	}
+	crds := make([]*extv1.CustomResourceDefinition, 0, len(generators))
+	for _, generate := range generators {
+		crd, err := generate()
+		if err != nil {
+			return nil, err
+		}
+		crds = append(crds, crd)
+	}
+	return crds, nil
+}
+
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
 	for _, field := range fields {
 		switch v := field.(type) {
