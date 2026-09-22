@@ -1,5 +1,6 @@
 pkg/network
 pkg/virt-launcher/virtwrap/converter/compute
+tests/integration
 tests/libnet
 tests/network
 pkg/virt-handler/cache

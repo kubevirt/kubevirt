@@ -89,6 +89,7 @@ tests/framework/cleanup
 tests/framework/kubevirt
 tests/framework/matcher/helper
 tests/infrastructure
+tests/integration
 tests/instancetype
 tests/launchsecurity
 tests/libconfigmap
