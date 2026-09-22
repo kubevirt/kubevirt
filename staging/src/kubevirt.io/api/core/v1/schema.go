@@ -460,10 +460,45 @@ type MemoryStatus struct {
 	MemoryOverhead *resource.Quantity `json:"memoryOverhead,omitempty"`
 }
 
+// HugepagesMode specifies how hugepages are provided for the VirtualMachineInstance.
+// +kubebuilder:validation:Enum=static;transparent
+type HugepagesMode string
+
+const (
+	// HugepagesModeStatic uses pre-allocated static hugepages on the node (default).
+	HugepagesModeStatic HugepagesMode = "static"
+	// HugepagesModeTransparent backs guest memory with Transparent Huge Pages via MADV_COLLAPSE.
+	HugepagesModeTransparent HugepagesMode = "transparent"
+)
+
+// HugepagesPolicy specifies the THP collapse policy when mode is transparent.
+// +kubebuilder:validation:Enum=bestEffort;guaranteed
+type HugepagesPolicy string
+
+const (
+	// HugepagesPolicyBestEffort runs MADV_COLLAPSE opportunistically; the VMI runs regardless of coverage (default).
+	HugepagesPolicyBestEffort HugepagesPolicy = "bestEffort"
+	// HugepagesPolicyGuaranteed fails the VMI if THP coverage is below 95%.
+	HugepagesPolicyGuaranteed HugepagesPolicy = "guaranteed"
+)
+
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
+// +kubebuilder:validation:XValidation:rule="!has(self.policy) || self.policy == '' || (has(self.mode) && self.mode == 'transparent')",message="hugepages policy is only valid when mode is transparent"
 type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
 	PageSize string `json:"pageSize,omitempty"`
+	// Mode specifies how hugepages are provided.
+	// static - (Default) use pre-allocated static hugepages on the node.
+	// transparent - back guest memory with Transparent Huge Pages via MADV_COLLAPSE.
+	// Requires the THPMemoryBacking feature gate when set to transparent.
+	// +optional
+	Mode *HugepagesMode `json:"mode,omitempty"`
+	// Policy specifies the THP collapse policy when Mode is transparent.
+	// bestEffort - (Default) opportunistic collapse; VMI runs regardless of coverage.
+	// guaranteed - fail the VMI if THP coverage is below 95%.
+	// Only valid when Mode is transparent.
+	// +optional
+	Policy *HugepagesPolicy `json:"policy,omitempty"`
 }
 
 type ReservedOverhead struct {

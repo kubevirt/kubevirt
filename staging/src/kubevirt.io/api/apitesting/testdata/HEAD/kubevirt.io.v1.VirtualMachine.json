@@ -138,7 +138,9 @@
           },
           "memory": {
             "hugepages": {
-              "pageSize": "pageSizeValue"
+              "pageSize": "pageSizeValue",
+              "mode": "modeValue",
+              "policy": "policyValue"
             },
             "guest": "0",
             "maxGuest": "0",

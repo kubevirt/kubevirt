@@ -22180,6 +22180,20 @@ func schema_kubevirtio_api_core_v1_Hugepages(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode specifies how hugepages are provided. static - (Default) use pre-allocated static hugepages on the node. transparent - back guest memory with Transparent Huge Pages via MADV_COLLAPSE. Requires the THPMemoryBacking feature gate when set to transparent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Policy specifies the THP collapse policy when Mode is transparent. bestEffort - (Default) opportunistic collapse; VMI runs regardless of coverage. guaranteed - fail the VMI if THP coverage is below 95%. Only valid when Mode is transparent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
