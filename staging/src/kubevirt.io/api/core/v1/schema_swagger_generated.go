@@ -228,8 +228,10 @@ func (MemoryStatus) SwaggerDoc() map[string]string {
 
 func (Hugepages) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
+		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+kubebuilder:validation:XValidation:rule=\"!has(self.policy) || size(self.policy) == 0 || (has(self.mode) && self.mode == 'transparent')\",message=\"hugepages policy is only valid when mode is transparent\"",
 		"pageSize": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
+		"mode":     "Mode specifies how hugepages are provided.\nstatic - (Default) use pre-allocated static hugepages on the node.\ntransparent - back guest memory with Transparent Huge Pages via MADV_COLLAPSE.\nRequires the THPMemoryBacking feature gate when set to transparent.\n+optional",
+		"policy":   "Policy specifies the THP collapse policy when Mode is transparent.\nbestEffort - (Default) opportunistic collapse; VMI runs regardless of coverage.\nguaranteed - fail the VMI if THP coverage is below 95%.\nOnly valid when Mode is transparent.\n+optional",
 	}
 }
 
