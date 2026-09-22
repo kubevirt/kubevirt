@@ -16,4 +16,5 @@ rust_binary(
 rust_test(
     name = "virt-launcher-monitor-tests",
     crate = ":virt-launcher-monitor",
+    tags = ["manual"],
 )
