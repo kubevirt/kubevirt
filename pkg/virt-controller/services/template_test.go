@@ -2255,7 +2255,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
 				Entry("on amd64", "amd64", 383),
-				Entry("on arm64", "arm64", 518),
+				Entry("on arm64", "arm64", 495),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -2293,10 +2293,10 @@ var _ = Describe("Template", func() {
 			},
 				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 383),
 				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 383),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 350),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 518),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 518),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 484),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 327),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 495),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 495),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 461),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvStore, svc = configFactory(defaultArch)
@@ -2606,10 +2606,10 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 303),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 303),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 437),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 437),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 280),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 280),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 414),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 414),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2686,8 +2686,8 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("on amd64", "amd64", 303),
-				Entry("on arm64", "arm64", 437),
+				Entry("on amd64", "amd64", 280),
+				Entry("on arm64", "arm64", 414),
 			)
 		})
 

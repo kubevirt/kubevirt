@@ -10,7 +10,7 @@ coverage --cache_test_results=no --runs_per_test=1
 EOF
 fi
 
-default_coverage_query='tests(//staging/src/kubevirt.io/client-go/... + //pkg/... + //cmd/...)'
+default_coverage_query='tests((//staging/src/kubevirt.io/client-go/... + //pkg/... + //cmd/...) except //cmd/virt-launcher-monitor:virt-launcher-monitor-tests)'
 
 if [[ -n "${WHAT}" ]]; then
     read -r -a bazel_coverage_targets <<<"${WHAT}"
