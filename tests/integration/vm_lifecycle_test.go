@@ -1,0 +1,53 @@
+package integration_test
+
+import (
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/integration/framework"
+)
+
+var _ = Describe("VM Lifecycle", func() {
+	var f *framework.Framework
+
+	BeforeEach(func() {
+		f = framework.New()
+		f.Start()
+		DeferCleanup(f.Stop)
+	})
+
+	It("should create a VMI and pod when a VM is created with RunStrategyAlways", func(ctx SpecContext) {
+		vm := libvmi.NewVirtualMachine(
+			libvmi.New(libvmi.WithMemoryRequest("128Mi")),
+			libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+		)
+
+		var err error
+		vm, err = f.VirtClient().VirtualMachine("default").Create(ctx, vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for the VM controller to create a VMI")
+		Eventually(matcher.ThisVMIWith("default", vm.Name), 10*time.Second, 100*time.Millisecond).Should(matcher.Exist())
+
+		By("waiting for the VMI controller to create a virt-launcher pod")
+		Eventually(func() int {
+			pods, err := f.VirtClient().CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+				LabelSelector: "kubevirt.io=virt-launcher",
+			})
+			if err != nil {
+				return 0
+			}
+			return len(pods.Items)
+		}, 10*time.Second, 100*time.Millisecond).Should(Equal(1))
+
+		By("waiting for the VMI to reach Scheduled phase after pod simulator makes pod Ready")
+		Eventually(matcher.ThisVMIWith("default", vm.Name), 10*time.Second, 100*time.Millisecond).Should(matcher.BeInPhase(virtv1.Scheduled))
+	})
+})
