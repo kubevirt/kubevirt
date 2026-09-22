@@ -2454,6 +2454,16 @@ var _ = Describe("Template", func() {
 					By("Setting huge page memory")
 					vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}
 				}
+				setTransparentHugePagesWithGuest := func(vmi *v1.VirtualMachineInstance) {
+					By("Setting transparent hugepages with guest memory")
+					vmi.Spec.Domain.Memory = &v1.Memory{
+						Guest: pointer.P(resource.MustParse("1Gi")),
+						Hugepages: &v1.Hugepages{
+							PageSize: "2Mi",
+							Mode:     pointer.P(v1.HugepagesModeTransparent),
+						},
+					}
+				}
 
 				DescribeTable("should honor memoryOvercommit when set in the CR", func(expectOvercommit overcommitExpectation, memorySetters ...memorySetterFunc) {
 					config, kvStore, svc = configFactory(defaultArch)
@@ -2513,6 +2523,7 @@ var _ = Describe("Template", func() {
 					Entry("memory limits only - not expect overcommit", notExpectOvercommit, setMemoryLimits),
 					Entry("guest memory only - expect overcommit", expectOvercommit, setGuestMemory),
 					Entry("hugepages memory only - not expect overcommit", notExpectOvercommit, setHugePagesMemory),
+					Entry("transparent hugepages with guest - not expect overcommit", notExpectOvercommit, setTransparentHugePagesWithGuest),
 
 					// Pairs of memory setters
 					Entry("memory requests and limits - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits),
@@ -2611,6 +2622,39 @@ var _ = Describe("Template", func() {
 				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 437),
 				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 437),
 			)
+
+			It("should use regular memory for transparent hugepages", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
+
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithMemoryRequest("64M"),
+					libvmi.WithMemoryLimit("64M"),
+					libvmi.WithHugepages("2Mi"),
+					libvmi.WithHugepagesMode(v1.HugepagesModeTransparent),
+				)
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
+				expectedMemory.Add(hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(
+					vmi, defaultArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
+				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(expectedMemory.Value()))
+
+				Expect(pod.Spec.Containers[0].Resources.Requests).NotTo(HaveKey(k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + "2Mi")))
+				Expect(pod.Spec.Containers[0].Resources.Limits).NotTo(HaveKey(k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + "2Mi")))
+				Expect(pod.Spec.Volumes).NotTo(ContainElement(
+					HaveField("VolumeSource.EmptyDir.Medium", Equal(k8sv1.StorageMediumHugePages)),
+				))
+				Expect(pod.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(
+					HaveField("MountPath", HavePrefix("/dev/hugepages")),
+				))
+			})
+
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
 				disableFeatureGate(featuregate.ImageVolume)
