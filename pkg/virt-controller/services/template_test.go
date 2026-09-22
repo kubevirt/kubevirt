@@ -2178,8 +2178,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1303943013", "2303943013"),
-				Entry("on arm64", "arm64", "1438160741", "2438160741"),
+				Entry("on amd64", "amd64", "1280874341", "2280874341"),
+				Entry("on arm64", "arm64", "1415092069", "2415092069"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvStore, svc = configFactory(arch)
@@ -2215,8 +2215,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2303943013"),
-				Entry("on arm64", "arm64", "2438160741"),
+				Entry("on amd64", "amd64", "2280874341"),
+				Entry("on arm64", "arm64", "2415092069"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2254,7 +2254,7 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 383),
+				Entry("on amd64", "amd64", 360),
 				Entry("on arm64", "arm64", 495),
 			)
 
@@ -2291,8 +2291,8 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 383),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 383),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 360),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 360),
 				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 327),
 				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 495),
 				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 495),
