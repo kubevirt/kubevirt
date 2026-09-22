@@ -1948,7 +1948,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
 
-		It("should not allow cpu overcommit", func() {
+		It("should reject VMI creation if Guaranteed QoS cannot be set", func() {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceCPU:    resource.MustParse("4"),
 				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
@@ -1957,9 +1957,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
 				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			cause := resp.Result.Details.Causes[0]
+			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(cause.Field).To(Equal("spec.domain.cpu.dedicatedCpuPlacement"))
+			Expect(cause.Message).To(ContainSubstring("must be equal when DedicatedCPUPlacement is true"))
 		})
 
 		It("should reject specs with inconsistent memory specification", func() {
