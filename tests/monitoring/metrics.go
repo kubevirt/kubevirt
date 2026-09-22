@@ -121,13 +121,19 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err := libmonitoring.RegisterAllMetrics()
 			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
-			for _, metric := range operatormetrics.ListMetrics() {
-				if excludedMetrics[metric.GetOpts().Name] {
-					continue
-				}
+			// Allow collectors and Prometheus to catch up, checking a fresh snapshot on each attempt.
+			Eventually(func(g Gomega) {
+				currentMetrics := fetchPrometheusKubevirtMetrics(virtClient)
 
-				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)))
-			}
+				for _, metric := range operatormetrics.ListMetrics() {
+					if excludedMetrics[metric.GetOpts().Name] {
+						continue
+					}
+
+					g.Expect(currentMetrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)),
+						"Missing metric: %s", metric.GetOpts().Name)
+				}
+			}, 3*time.Minute, 10*time.Second).Should(Succeed())
 		})
 
 		It("should contain VNIC metrics", func() {
