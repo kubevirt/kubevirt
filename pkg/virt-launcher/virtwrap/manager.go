@@ -1428,11 +1428,12 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		if err != nil {
 			return nil, err
 		}
-		if len(gpuDevices) > 1 && gpuDevices[0].Type == api.HostDeviceMDev {
-			return nil, fmt.Errorf("vGPU live migration currently only supports a single vGPU, found %d for vmi %s", len(gpuDevices), vmi.Name)
-		} else if len(gpuDevices) == 1 && gpuDevices[0].Type == api.HostDeviceMDev {
-			c.GPUHostDevices = gpuDevices
+		for _, gpuDev := range gpuDevices {
+			if gpuDev.Type != api.HostDeviceMDev {
+				return nil, fmt.Errorf("vmi %s is a migration target but has non-migratable GPU devices", vmi.Name)
+			}
 		}
+		c.GPUHostDevices = gpuDevices
 	}
 
 	// Receive IOMMUFD file descriptor from the device plugin if available.

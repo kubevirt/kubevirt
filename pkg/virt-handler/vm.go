@@ -1182,16 +1182,20 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	}, isBlockMigration
 }
 
-func isMdevGPU(gpu v1.GPU, config *v1.KubeVirtConfiguration) bool {
+func areAllMdevGPUs(gpus []v1.GPU, config *v1.KubeVirtConfiguration) bool {
 	if config.PermittedHostDevices == nil {
 		return false
 	}
+	mdevSet := make(map[string]struct{})
 	for _, mdev := range config.PermittedHostDevices.MediatedDevices {
-		if mdev.ResourceName == gpu.DeviceName {
-			return true
+		mdevSet[mdev.ResourceName] = struct{}{}
+	}
+	for _, gpu := range gpus {
+		if _, ok := mdevSet[gpu.DeviceName]; !ok {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (string, bool) {
@@ -1200,15 +1204,11 @@ func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, conf
 		return "VMI specifies non-migratable generic PCI host device", true
 	}
 
-	if len(vmi.Spec.Domain.Devices.GPUs) > 1 {
-		return "VMI specifies too many GPUs", true
-	}
-
-	if len(vmi.Spec.Domain.Devices.GPUs) == 1 && !config.VGPULiveMigrationEnabled() {
+	if len(vmi.Spec.Domain.Devices.GPUs) >= 1 && !config.VGPULiveMigrationEnabled() {
 		return "VMI specifies a GPU but feature gate " + featuregate.VGPULiveMigration + " is not enabled", true
 	}
 
-	if len(vmi.Spec.Domain.Devices.GPUs) == 1 && !isMdevGPU(vmi.Spec.Domain.Devices.GPUs[0], config.GetConfig()) {
+	if len(vmi.Spec.Domain.Devices.GPUs) >= 1 && !areAllMdevGPUs(vmi.Spec.Domain.Devices.GPUs, config.GetConfig()) {
 		return "VMI specifies non-migratable GPU device", true
 	}
 
