@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/precond"
 
 	drautil "kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/hugepages"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -989,7 +990,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		volumeOpts = append(volumeOpts, withPluginSocketVolume())
 	}
 
-	if hasHugePages(vmi) {
+	if hasStaticHugePages(vmi) {
 		volumeOpts = append(volumeOpts, withHugepages())
 	}
 
@@ -1661,8 +1662,8 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(emptyMemoryRequest, WithMemoryRequests(vmi, t.clusterConfig.GetMemoryOvercommit())),
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
-			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
-			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
+			NewVMIResourceRule(hasStaticHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
+			NewVMIResourceRule(not(hasStaticHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
 			NewVMIResourceRule(isGPUVMIDevicePlugins, WithGPUsDevicePlugins(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
@@ -1769,8 +1770,12 @@ func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServi
 	}
 }
 
-func hasHugePages(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
+func hasStaticHugePages(vmi *v1.VirtualMachineInstance) bool {
+	// Transparent hugepages use regular anonymous memory on the pod, not
+	// hugepages-* resources or HugePages EmptyDir volumes.
+	return vmi.Spec.Domain.Memory != nil &&
+		vmi.Spec.Domain.Memory.Hugepages != nil &&
+		!hugepages.IsTransparent(vmi.Spec.Domain.Memory.Hugepages)
 }
 
 // isGPUVMIDevicePlugins checks if a VMI has any GPUs configured for device plugins
