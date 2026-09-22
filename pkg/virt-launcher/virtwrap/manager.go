@@ -1062,7 +1062,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated) //nolint:staticcheck
+		ds := disksource.Resolve(domain.Spec.Devices.Disks[i])
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated(ds.BackendPath())) //nolint:staticcheck
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1608,13 +1609,14 @@ func (l *LibvirtDomainManager) syncDisks(
 		if !allowAttach {
 			continue
 		}
-		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+		volumeName := attachDisk.Alias.GetName()
+		logger.V(1).Infof("Attaching disk %s, target %s", volumeName, attachDisk.Target.Device)
 		// set drivers cache mode
 		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
 		if err != nil {
 			return err
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated) //nolint:staticcheck
+		converter.SetOptimalIOMode(&attachDisk, isPVCPreallocated(volumeName, vmi))
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
