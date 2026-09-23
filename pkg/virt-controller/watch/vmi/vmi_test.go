@@ -3681,21 +3681,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}, []*k8sv1.Pod{}, BeTrue()),
 			Entry("no volume, single attachmentPod", []*virtv1.Volume{}, makePods(0), BeTrue()),
-			Entry("matching volume, single attachmentPod", []*virtv1.Volume{
-				{
-					Name: "volume0",
-				},
-			}, makePods(0), BeFalse()),
+			Entry("matching volume, single attachmentPod", makeVolumes(0), makePods(0), BeFalse()),
 			Entry("mismatched volume, single attachmentPod", []*virtv1.Volume{
 				{
 					Name: "invalid",
 				},
 			}, makePods(0), BeTrue()),
-			Entry("matching volume, multiple attachmentPods", []*virtv1.Volume{
-				{
-					Name: "volume0",
-				},
-			}, []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, BeTrue()),
+			Entry("matching volume, multiple attachmentPods", makeVolumes(0), []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, BeTrue()),
 		)
 
 		DescribeTable("Should find active and old pods", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, expectedActive *k8sv1.Pod, expectedOld []*k8sv1.Pod) {
@@ -3705,26 +3697,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		},
 			Entry("nil volumes, nil attachmentPods", nil, nil, nil, nil),
 			Entry("empty volumes, empty attachmentPods", []*virtv1.Volume{}, []*k8sv1.Pod{}, nil, []*k8sv1.Pod{}),
-			Entry("matching volume, single attachmentPod", []*virtv1.Volume{
-				{
-					Name: "volume0",
-				},
-			}, makePods(0), makePods(0)[0], []*k8sv1.Pod{}),
-			Entry("matching volume, nil attachmentPods since marked for deletion", []*virtv1.Volume{
-				{
-					Name: "volume0",
-				},
-			}, makePodsWithDeletion(0), nil, []*k8sv1.Pod{}),
-			Entry("matching volume, multiple attachmentPods, first pod matches", []*virtv1.Volume{
-				{
-					Name: "volume0",
-				},
-			}, []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(0)[0], makePods(1)),
-			Entry("matching volume, multiple attachmentPods, second pod matches", []*virtv1.Volume{
-				{
-					Name: "volume1",
-				},
-			}, []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(1)[0], makePods(0)),
+			Entry("matching volume, single attachmentPod", makeVolumes(0), makePods(0), makePods(0)[0], []*k8sv1.Pod{}),
+			Entry("matching volume, nil attachmentPods since marked for deletion", makeVolumes(0), makePodsWithDeletion(0), nil, []*k8sv1.Pod{}),
+			Entry("matching volume, multiple attachmentPods, first pod matches", makeVolumes(0), []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(0)[0], makePods(1)),
+			Entry("matching volume, multiple attachmentPods, second pod matches", makeVolumes(1), []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(1)[0], makePods(0)),
 		)
 
 		It("Should get default filesystem overhead if there are multiple CDI instances", func() {
@@ -3863,6 +3839,160 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				HaveField("HotplugVolume.AttachPodUID", BeEmpty()),
 			)))
 			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+		})
+
+		Context("with a volume already in an attachment pod", func() {
+			hotplugDataVolume := func(name string) virtv1.Volume {
+				return virtv1.Volume{
+					Name: name,
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{Name: name, Hotpluggable: true},
+					},
+				}
+			}
+			hotplugPVC := func(name string) virtv1.Volume {
+				return virtv1.Volume{
+					Name: name,
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: name},
+							Hotpluggable:                      true,
+						},
+					},
+				}
+			}
+			readyPodServing := func(virtlauncherPod *k8sv1.Pod, name, uid string, volumeNames ...string) *k8sv1.Pod {
+				pod := newPodForVirtlauncher(virtlauncherPod, name, uid, k8sv1.PodRunning)
+				pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Ready: true}}
+				for _, volumeName := range volumeNames {
+					pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+						Name: volumeName,
+						VolumeSource: k8sv1.VolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeName},
+						},
+					})
+				}
+				return pod
+			}
+			addBoundPVC := func(name string) {
+				pvc := newPvc(k8sv1.NamespaceDefault, name)
+				pvc.Status.Phase = k8sv1.ClaimBound
+				Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
+			}
+
+			It("Should not count an old attachment pod serving another claim under the same name", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.Volumes = []virtv1.Volume{hotplugDataVolume("data")}
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				oldAttachmentPod := readyPodServing(virtlauncherPod, "hp-volume-old", "old-attachment-pod-uid", "data")
+				oldAttachmentPod.Spec.Volumes[len(oldAttachmentPod.Spec.Volumes)-1].PersistentVolumeClaim.ClaimName = "old-pvc"
+				Expect(controller.podIndexer.Add(oldAttachmentPod)).To(Succeed())
+
+				Expect(controller.pvcIndexer.Add(newHotplugPVC("data", k8sv1.NamespaceDefault, k8sv1.ClaimBound))).To(Succeed())
+				Expect(controller.dataVolumeIndexer.Add(newDv(k8sv1.NamespaceDefault, "data", cdiv1.ImportInProgress))).To(Succeed())
+
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "data"),
+					HaveField("HotplugVolume.AttachPodName", BeEmpty()),
+					HaveField("HotplugVolume.AttachPodUID", BeEmpty()),
+				)))
+			})
+
+			It("Should keep the source attachment pod of a volume being migrated to another claim", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.SelinuxContext = "none"
+				vmi.Spec.Volumes = []virtv1.Volume{hotplugPVC("data")}
+				vmi.Status.MigratedVolumes = []virtv1.StorageMigratedVolumeInfo{{
+					VolumeName:         "data",
+					SourcePVCInfo:      &virtv1.PersistentVolumeClaimInfo{ClaimName: "src-pvc"},
+					DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: "data"},
+				}}
+				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{{
+					Name:          "data",
+					Phase:         virtv1.VolumeReady,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{AttachPodName: "hp-volume-source", AttachPodUID: "source-attachment-pod-uid"},
+				}}
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				sourceAttachmentPod := readyPodServing(virtlauncherPod, "hp-volume-source", "source-attachment-pod-uid", "data")
+				sourceAttachmentPod.Spec.Volumes[len(sourceAttachmentPod.Spec.Volumes)-1].PersistentVolumeClaim.ClaimName = "src-pvc"
+				addVirtualMachine(vmi)
+				addPod(virtlauncherPod)
+				addPod(sourceAttachmentPod)
+				addBoundPVC("data")
+
+				hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
+				Expect(controller.handleHotplugVolumes(hotplugVolumes, []*k8sv1.Pod{sourceAttachmentPod}, vmi, virtlauncherPod, nil)).To(Succeed())
+				pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).ToNot(ContainElement(HaveField("GenerateName", "hp-volume-")))
+
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "data"),
+					HaveField("Phase", virtv1.VolumeReady),
+					HaveField("HotplugVolume.AttachPodUID", types.UID("source-attachment-pod-uid")),
+				)))
+			})
+
+			It("Should keep it attached after its DataVolume is deleted", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.Volumes = []virtv1.Volume{hotplugDataVolume("served"), hotplugPVC("ready")}
+				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{{
+					Name:          "served",
+					Phase:         virtv1.VolumeReady,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{AttachPodName: "hp-volume", AttachPodUID: "attachment-pod-uid"},
+				}}
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				attachmentPod := readyPodServing(virtlauncherPod, "hp-volume", "attachment-pod-uid", "served", "ready")
+				Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
+
+				Expect(controller.pvcIndexer.Add(newHotplugPVC("served", k8sv1.NamespaceDefault, k8sv1.ClaimBound))).To(Succeed())
+				addBoundPVC("ready")
+
+				hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
+				Expect(controller.handleHotplugVolumes(hotplugVolumes, []*k8sv1.Pod{attachmentPod}, vmi, virtlauncherPod, nil)).To(Succeed())
+
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "served"),
+					HaveField("Phase", virtv1.VolumeReady),
+					HaveField("HotplugVolume.AttachPodUID", types.UID("attachment-pod-uid")),
+				)))
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "ready"),
+					HaveField("Phase", virtv1.HotplugVolumeAttachedToNode),
+					HaveField("HotplugVolume.AttachPodUID", types.UID("attachment-pod-uid")),
+				)))
+				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			})
+
+			It("Should not count a WaitForFirstConsumer trigger pod as serving it", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.Volumes = []virtv1.Volume{hotplugDataVolume("wffc"), hotplugPVC("ready")}
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				triggerPod := readyPodServing(virtlauncherPod, "hp-volume-trigger", "trigger-pod-uid", "wffc")
+				triggerPod.Annotations = map[string]string{virtv1.EphemeralProvisioningObject: "true"}
+				attachmentPod := readyPodServing(virtlauncherPod, "hp-volume", "attachment-pod-uid", "ready")
+				Expect(controller.podIndexer.Add(triggerPod)).To(Succeed())
+				Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
+
+				Expect(controller.pvcIndexer.Add(newHotplugPVC("wffc", k8sv1.NamespaceDefault, k8sv1.ClaimPending))).To(Succeed())
+				Expect(controller.dataVolumeIndexer.Add(newDv(k8sv1.NamespaceDefault, "wffc", cdiv1.WaitForFirstConsumer))).To(Succeed())
+				addBoundPVC("ready")
+
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "wffc"),
+					HaveField("HotplugVolume.AttachPodUID", BeEmpty()),
+				)))
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "ready"),
+					HaveField("Phase", virtv1.HotplugVolumeAttachedToNode),
+					HaveField("HotplugVolume.AttachPodUID", types.UID("attachment-pod-uid")),
+				)))
+				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			})
 		})
 
 		It("Should set error for utility volume with block mode PVC", func() {
