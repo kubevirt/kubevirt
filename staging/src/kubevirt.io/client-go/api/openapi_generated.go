@@ -21220,6 +21220,13 @@ func schema_kubevirtio_api_core_v1_EFI(ref common.ReferenceCallback) common.Open
 							Format:      "",
 						},
 					},
+					"enrolledKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set to false, the firmware starts in Setup Mode with no Secure Boot keys pre-enrolled, so the guest can enroll its own. Only valid with SecureBoot enabled and requires the FirmwareAutoSelection feature gate. Defaults to true",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"persistent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If set to true, Persistent will persist the EFI NVRAM across reboots. Defaults to false",
