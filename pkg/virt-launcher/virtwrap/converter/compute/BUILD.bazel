@@ -36,6 +36,7 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
+        "//pkg/hugepages:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
