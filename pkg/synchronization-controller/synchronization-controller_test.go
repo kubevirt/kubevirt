@@ -1641,6 +1641,63 @@ var _ = Describe("VMI status synchronization controller", func() {
 		})
 	})
 
+	Context("copyLegacyTargetFields", func() {
+		It("should set Completed when EndTimestamp is synced without Completed", func() {
+			// Target ackMigrationCompletion sets EndTimestamp before finalizeMigration
+			// sets Completed. Syncing that partial state must not strand the source.
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+			remoteState := &virtv1.VirtualMachineInstanceMigrationState{
+				EndTimestamp: &endTimestamp,
+				Completed:    false,
+				Failed:       false,
+				TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						Node: "node02",
+						Pod:  "target-pod",
+					},
+					DomainDetected: true,
+				},
+			}
+
+			copyLegacyTargetFields(vmi, remoteState, false)
+
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(&endTimestamp))
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+			Expect(vmi.Status.MigrationState.TargetNode).To(Equal("node02"))
+			Expect(vmi.Status.MigrationState.TargetPod).To(Equal("target-pod"))
+		})
+
+		It("should preserve Failed and set Completed when EndTimestamp is present on a failed migration", func() {
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+			remoteState := &virtv1.VirtualMachineInstanceMigrationState{
+				EndTimestamp: &endTimestamp,
+				Completed:    false,
+				Failed:       true,
+				TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						Node: "node02",
+					},
+				},
+			}
+
+			copyLegacyTargetFields(vmi, remoteState, false)
+
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+		})
+	})
+
 	It("should return nil, nil if invalid resource type passed into index function", func() {
 		res, err := indexByActiveVmiName("invalid")
 		Expect(res).To(BeNil())

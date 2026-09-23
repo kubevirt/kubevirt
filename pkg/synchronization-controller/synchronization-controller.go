@@ -1944,7 +1944,13 @@ func copyLegacyTargetFields(vmi *virtv1.VirtualMachineInstance, migrationState *
 	}
 	vmi.Status.MigrationState.TargetPod = targetState.Pod
 	copyCommonLegacyFields(vmi.Status.MigrationState, migrationState)
-	vmi.Status.MigrationState.Completed = migrationState.Completed
+	// On the target, ackMigrationCompletion sets EndTimestamp before
+	// finalizeMigration sets Completed. If that partial state is synced to the
+	// source and the sync link then closes (target VMIM becomes final), the
+	// source is left with EndTimestamp and Completed=false forever, so the
+	// source VMIM never leaves Running. Any EndTimestamp means the guest
+	// migration finished (success or failure); treat it as completed for DLM sync.
+	vmi.Status.MigrationState.Completed = migrationState.Completed || migrationState.EndTimestamp != nil
 	vmi.Status.MigrationState.Failed = migrationState.Failed
 }
 

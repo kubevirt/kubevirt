@@ -920,6 +920,88 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			Expect(controller.updateStatus(vmi, domain)).To(Succeed())
 			Expect(vmi.Status.Phase).To(Equal(v1.Succeeded))
 		})
+
+		It("sets Completed and Succeeded when EndTimestamp arrives without Completed", func() {
+			// Target ackMigrationCompletion publishes EndTimestamp before
+			// finalizeMigration sets Completed; sync can deliver that partial
+			// state to the source.
+			syncAddress := "10.0.0.1:9185"
+			now := metav1.Now()
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   "othernode",
+				SourceNode:   host,
+				Completed:    false,
+				EndTimestamp: &now,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:         host,
+						SyncAddress:  &syncAddress,
+						MigrationUID: "source-migration-uid",
+					},
+				},
+				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:         "othernode",
+						SyncAddress:  &syncAddress,
+						MigrationUID: "target-migration-uid",
+					},
+					DomainDetected:       true,
+					DomainReadyTimestamp: &now,
+				},
+			}
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+
+			Expect(controller.updateStatus(vmi, domain)).To(Succeed())
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.Phase).To(Equal(v1.Succeeded))
+		})
+
+		It("does not mark Succeeded when EndTimestamp is present but Failed", func() {
+			syncAddress := "10.0.0.1:9185"
+			now := metav1.Now()
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   "othernode",
+				SourceNode:   host,
+				Completed:    true,
+				Failed:       true,
+				EndTimestamp: &now,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:         host,
+						SyncAddress:  &syncAddress,
+						MigrationUID: "source-migration-uid",
+					},
+				},
+				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:         "othernode",
+						SyncAddress:  &syncAddress,
+						MigrationUID: "target-migration-uid",
+					},
+					DomainDetected:       true,
+					DomainReadyTimestamp: &now,
+				},
+			}
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+
+			Expect(controller.updateStatus(vmi, domain)).To(Succeed())
+			Expect(vmi.Status.Phase).ToNot(Equal(v1.Succeeded))
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+		})
 	})
 })
 
