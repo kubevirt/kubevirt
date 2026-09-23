@@ -264,18 +264,20 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
+	// Report these once the other volumes are handled, so one volume cannot hold them all back.
+	var readinessErrs, populationErrs []error
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
 		ready, wffc, err := c.hotplugVolumeReadiness(vmi, volume, hotplugAttachmentPods, dataVolumes)
 		if err != nil {
-			return common.NewSyncError(err, controller.PVCNotReadyReason)
+			readinessErrs = append(readinessErrs, err)
+			continue
 		}
 		if wffc {
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
 			logger.V(1).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
-			syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
-			if syncError != nil {
-				return syncError
+			if syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod); syncError != nil {
+				populationErrs = append(populationErrs, syncError)
 			}
 			continue
 		}
@@ -306,6 +308,14 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	}
 	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
 		return err
+	}
+	// A trigger pod that could not be created is the more actionable of the two, so it names the
+	// reason when both happened.
+	if len(populationErrs) > 0 {
+		return common.NewSyncError(errors.Join(slices.Concat(populationErrs, readinessErrs)...), controller.FailedCreatePodReason)
+	}
+	if len(readinessErrs) > 0 {
+		return common.NewSyncError(errors.Join(readinessErrs...), controller.PVCNotReadyReason)
 	}
 
 	return nil
