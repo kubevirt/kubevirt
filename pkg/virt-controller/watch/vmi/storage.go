@@ -28,6 +28,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -161,7 +162,7 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 }
 
 // updateVolumeStatus updates the VMI's VolumeStatus based on pod and volume state.
-func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) error {
+func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) error {
 	oldStatus := vmi.Status.DeepCopy().VolumeStatus
 	oldStatusMap := make(map[string]virtv1.VolumeStatus)
 	for _, status := range oldStatus {
@@ -179,7 +180,20 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return err
 	}
 
-	attachmentPod, _ := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+	// Attachment pods only hold ready volumes, so a volume that is not ready yet must not keep the
+	// others from matching theirs.
+	readyHotplugVolumes := c.readyHotplugVolumes(vmi, hotplugVolumes, dataVolumes)
+	attachmentPod, _ := getActiveAndOldAttachmentPods(readyHotplugVolumes, attachmentPods)
+	readyHotplugVolumeNames := sets.New[string]()
+	for _, volume := range readyHotplugVolumes {
+		readyHotplugVolumeNames.Insert(volume.Name)
+	}
+	attachmentPodFor := func(volumeName string) *k8sv1.Pod {
+		if readyHotplugVolumeNames.Has(volumeName) {
+			return attachmentPod
+		}
+		return nil
+	}
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
@@ -211,6 +225,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 
 		//if hotplugVolume, ok := hotplugVolumesMap[volume.Name]; ok {
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
+			attachmentPod := attachmentPodFor(volume.Name)
 			if status.HotplugVolume == nil {
 				status.HotplugVolume = &virtv1.HotplugVolumeStatus{}
 			}

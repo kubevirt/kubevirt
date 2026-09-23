@@ -22,6 +22,7 @@ package vmi
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -132,14 +133,28 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 	return true
 }
 
+func (c *Controller) hotplugVolumeReadiness(vmi *v1.VirtualMachineInstance, volume *v1.Volume, dataVolumes []*cdiv1.DataVolume) (ready bool, wffc bool, err error) {
+	return storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
+}
+
+func (c *Controller) readyHotplugVolumes(vmi *v1.VirtualMachineInstance, hotplugVolumes []*v1.Volume, dataVolumes []*cdiv1.DataVolume) []*v1.Volume {
+	return slices.DeleteFunc(slices.Clone(hotplugVolumes), func(volume *v1.Volume) bool {
+		ready, _, err := c.hotplugVolumeReadiness(vmi, volume, dataVolumes)
+		if err != nil {
+			log.Log.Object(vmi).V(3).Infof("Not matching an attachment pod to volume %s, cannot determine its readiness: %v", volume.Name, err)
+			return true
+		}
+		return !ready
+	})
+}
+
 func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
-		var err error
-		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
+		ready, wffc, err := c.hotplugVolumeReadiness(vmi, volume, dataVolumes)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
