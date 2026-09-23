@@ -22,6 +22,7 @@ package compute
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/hugepages"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
@@ -37,6 +38,7 @@ func NewMemoryBackingConfigurator(isMemfdSupported bool) MemoryBackingConfigurat
 
 func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	hasHugepages := vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
+	hasTransparentHugepages := hasHugepages && hugepages.IsTransparent(vmi.Spec.Domain.Memory.Hugepages)
 	needsSharedAccess := vmitrait.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi)
 	disableMergeableMemory := isMergeableMemoryDisabled(vmi)
 
@@ -45,7 +47,12 @@ func (c MemoryBackingConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	mb := &api.MemoryBacking{}
-	if hasHugepages {
+	if hasTransparentHugepages {
+		// Transparent hugepages use regular memory with mlock + MADV_COLLAPSE,
+		// not static hugepages.
+		mb.Locked = &api.Locked{}
+		mb.Allocation = &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate}
+	} else if hasHugepages {
 		mb.HugePages = &api.HugePages{}
 	}
 	if needsSharedAccess {
@@ -67,7 +74,8 @@ func isMergeableMemoryDisabled(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func isMemfdRequired(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil &&
+		!hugepages.IsTransparent(vmi.Spec.Domain.Memory.Hugepages) {
 		if vmi.Annotations[v1.MemfdMemoryBackend] != "false" {
 			return true
 		}

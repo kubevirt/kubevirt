@@ -1442,6 +1442,24 @@ var _ = Describe("Converter", func() {
 			Entry("without memfd on s390x", s390x, false),
 		)
 
+		It("should convert transparent hugepages to locked immediate memory", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{
+					PageSize: "2Mi",
+					Mode:     pointer.P(v1.HugepagesModeTransparent),
+				},
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+			Expect(domainSpec.MemoryBacking).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.HugePages).To(BeNil())
+			Expect(domainSpec.MemoryBacking.Locked).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Allocation).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Allocation.Mode).To(Equal(api.MemoryAllocationModeImmediate))
+			Expect(domainSpec.MemoryBacking.Source).To(BeNil())
+		})
+
 		It("should not add RNG when not present", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.Devices.Rng).To(BeNil())
