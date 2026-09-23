@@ -133,13 +133,29 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 	return true
 }
 
-func (c *Controller) hotplugVolumeReadiness(vmi *v1.VirtualMachineInstance, volume *v1.Volume, dataVolumes []*cdiv1.DataVolume) (ready bool, wffc bool, err error) {
+func (c *Controller) hotplugVolumeReadiness(vmi *v1.VirtualMachineInstance, volume *v1.Volume, attachmentPods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (ready bool, wffc bool, err error) {
+	if servedByAttachmentPod(volume, attachmentPods) {
+		return true, false, nil
+	}
 	return storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 }
 
-func (c *Controller) readyHotplugVolumes(vmi *v1.VirtualMachineInstance, hotplugVolumes []*v1.Volume, dataVolumes []*cdiv1.DataVolume) []*v1.Volume {
+func servedByAttachmentPod(volume *v1.Volume, attachmentPods []*k8sv1.Pod) bool {
+	claimName := storagetypes.PVCNameFromVirtVolume(volume)
+	servesVolume := func(podVolume k8sv1.Volume) bool {
+		return podVolume.Name == volume.Name &&
+			podVolume.PersistentVolumeClaim != nil &&
+			podVolume.PersistentVolumeClaim.ClaimName == claimName
+	}
+	return slices.ContainsFunc(attachmentPods, func(pod *k8sv1.Pod) bool {
+		// WaitForFirstConsumer trigger pods only bind the claim and serve nothing.
+		return pod.DeletionTimestamp == nil && !isPodFinal(pod) && !isTempPod(pod) && slices.ContainsFunc(pod.Spec.Volumes, servesVolume)
+	})
+}
+
+func (c *Controller) readyHotplugVolumes(vmi *v1.VirtualMachineInstance, hotplugVolumes []*v1.Volume, attachmentPods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) []*v1.Volume {
 	return slices.DeleteFunc(slices.Clone(hotplugVolumes), func(volume *v1.Volume) bool {
-		ready, _, err := c.hotplugVolumeReadiness(vmi, volume, dataVolumes)
+		ready, _, err := c.hotplugVolumeReadiness(vmi, volume, attachmentPods, dataVolumes)
 		if err != nil {
 			log.Log.Object(vmi).V(3).Infof("Not matching an attachment pod to volume %s, cannot determine its readiness: %v", volume.Name, err)
 			return true
@@ -154,7 +170,7 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	readyHotplugVolumes := make([]*v1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
-		ready, wffc, err := c.hotplugVolumeReadiness(vmi, volume, dataVolumes)
+		ready, wffc, err := c.hotplugVolumeReadiness(vmi, volume, hotplugAttachmentPods, dataVolumes)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
@@ -259,34 +275,14 @@ func findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Po
 }
 
 func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*v1.Volume) (*k8sv1.Pod, error) {
-	logger := log.Log.Object(vmi)
-
 	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtlauncherPod.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
 	}
-	for volumeName, pvc := range volumeNamesPVCMap {
-		//Verify the PVC is ready to be used.
-		populated, err := cdiv1.IsSucceededOrPendingPopulation(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
-			dv, exists, _ := c.dataVolumeIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
-			if !exists {
-				return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
-			}
-			return dv.(*cdiv1.DataVolume), nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		if !populated {
-			logger.Infof("Unable to hotplug, claim %s found, but not ready", pvc.Name)
-			delete(volumeNamesPVCMap, volumeName)
-		}
+	if len(volumeNamesPVCMap) == 0 {
+		return nil, nil
 	}
-
-	if len(volumeNamesPVCMap) > 0 {
-		return c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
-	}
-	return nil, err
+	return c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
 }
 
 func (c *Controller) createAttachmentPopulateTriggerPodTemplate(volume *v1.Volume, virtlauncherPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
