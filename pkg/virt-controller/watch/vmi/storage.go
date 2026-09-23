@@ -249,7 +249,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 
 	// Attachment pods only hold ready volumes, so a volume that is not ready yet must not keep the
 	// others from matching theirs.
-	readyHotplugVolumes := c.readyHotplugVolumes(vmi, hotplugVolumes, dataVolumes)
+	readyHotplugVolumes := c.readyHotplugVolumes(vmi, hotplugVolumes, attachmentPods, dataVolumes)
 	attachmentPod, _ := getActiveAndOldAttachmentPods(readyHotplugVolumes, attachmentPods)
 	readyHotplugVolumeNames := sets.New[string]()
 	for _, volume := range readyHotplugVolumes {
