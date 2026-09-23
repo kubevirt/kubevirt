@@ -59,7 +59,7 @@ type Notifier struct {
 	totalTimeout    time.Duration
 }
 
-type libvirtEvent struct {
+type LibvirtEvent struct {
 	Domain     string
 	Event      *libvirt.DomainEventLifecycle
 	AgentEvent *libvirt.DomainEventAgentLifecycle
@@ -235,10 +235,6 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	return nil
 }
 
-func newWatchEventError(err error) watch.Event {
-	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
-}
-
 type eventCaller struct {
 	domainStatus             api.LifeCycle
 	domainStatusChangeReason api.StateChangeReason
@@ -258,7 +254,7 @@ func (e *eventCaller) updateStatus(status *api.DomainStatus) {
 	e.domainStatusChangeReason = status.Reason
 }
 
-func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
+func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent LibvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
 
@@ -397,9 +393,8 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
+	eventChan chan LibvirtEvent,
 ) error {
-
-	eventChan := make(chan libvirtEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
 
@@ -446,11 +441,14 @@ func (n *Notifier) StartDomainNotifier(
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
-				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
+				eventCaller.eventCallback(domainConn, domainCache, LibvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 			case <-reconnectChan:
-				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
-
+				log.Log.Infof("Libvirt reconnected, domain %s. Event callbacks re-registered, triggering immediate reconciliation.", domainName)
+				if domainCache != nil {
+					eventCaller.eventCallback(domainConn, domainCache, LibvirtEvent{}, n, deleteNotificationSent,
+						interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				}
 			case <-metadataCache.Listen():
 				// Metadata cache updates should be processed only *after* at least one
 				// libvirt event arrived (which creates the first domainCache).
@@ -462,7 +460,7 @@ func (n *Notifier) StartDomainNotifier(
 					eventCaller.eventCallback(
 						domainConn,
 						domainCache,
-						libvirtEvent{},
+						LibvirtEvent{},
 						n,
 						deleteNotificationSent,
 						interfaceStatuses,
@@ -484,7 +482,7 @@ func (n *Notifier) StartDomainNotifier(
 			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 		select {
-		case eventChan <- libvirtEvent{Event: event, Domain: name}:
+		case eventChan <- LibvirtEvent{Event: event, Domain: name}:
 		default:
 			log.Log.Infof(libvirtEventChannelFull)
 		}
@@ -497,7 +495,7 @@ func (n *Notifier) StartDomainNotifier(
 			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 		select {
-		case eventChan <- libvirtEvent{Domain: name}:
+		case eventChan <- LibvirtEvent{Domain: name}:
 		default:
 			log.Log.Infof(libvirtEventChannelFull)
 		}
@@ -511,7 +509,7 @@ func (n *Notifier) StartDomainNotifier(
 		}
 
 		select {
-		case eventChan <- libvirtEvent{Domain: name}:
+		case eventChan <- LibvirtEvent{Domain: name}:
 		default:
 			log.Log.Infof(libvirtEventChannelFull)
 		}
@@ -525,7 +523,7 @@ func (n *Notifier) StartDomainNotifier(
 		}
 
 		select {
-		case eventChan <- libvirtEvent{Domain: name}:
+		case eventChan <- LibvirtEvent{Domain: name}:
 		default:
 			log.Log.Infof(libvirtEventChannelFull)
 		}
@@ -560,7 +558,7 @@ func (n *Notifier) StartDomainNotifier(
 			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
 		}
 		select {
-		case eventChan <- libvirtEvent{AgentEvent: event, Domain: name}:
+		case eventChan <- LibvirtEvent{AgentEvent: event, Domain: name}:
 		default:
 			log.Log.Infof(libvirtEventChannelFull)
 		}
