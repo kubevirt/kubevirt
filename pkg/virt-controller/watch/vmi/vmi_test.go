@@ -1571,7 +1571,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Namespace: vmi.Namespace,
 				},
 				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Pending,
+					Phase: cdiv1.Succeeded,
 				},
 			}
 			Expect(controller.dataVolumeIndexer.Add(dv)).To(Succeed())
@@ -3593,7 +3593,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 			}
 
-			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
+			err := controller.updateVolumeStatus(vmi, virtlauncherPod, nil)
 			testutils.ExpectEvents(recorder, expectedEvents...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(equality.Semantic.DeepEqual(expectedStatus, vmi.Status.VolumeStatus)).To(BeTrue(), "status: %v, expected: %v", vmi.Status.VolumeStatus, expectedStatus)
@@ -3813,6 +3813,58 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", virtv1.Percent("0.8")),
 		)
 
+		It("Should keep the attachment pod of a ready volume while another volume is still populating", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{
+				{
+					Name: "importing",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{Name: "importing-dv", Hotpluggable: true},
+					},
+				},
+				{
+					Name: "ready",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "ready-pvc"},
+							Hotpluggable:                      true,
+						},
+					},
+				},
+			}
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			attachmentPod := newPodForVirtlauncher(virtlauncherPod, "hp-volume-ready", "attachment-pod-uid", k8sv1.PodRunning)
+			attachmentPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Ready: true}}
+			attachmentPod.Spec.Volumes = append(attachmentPod.Spec.Volumes, k8sv1.Volume{
+				Name: "ready",
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "ready-pvc"},
+				},
+			})
+			Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
+
+			Expect(controller.pvcIndexer.Add(newHotplugPVC("importing-dv", k8sv1.NamespaceDefault, k8sv1.ClaimBound))).To(Succeed())
+			Expect(controller.dataVolumeIndexer.Add(newDv(k8sv1.NamespaceDefault, "importing-dv", cdiv1.ImportInProgress))).To(Succeed())
+			readyPVC := newPvc(k8sv1.NamespaceDefault, "ready-pvc")
+			readyPVC.Status.Phase = k8sv1.ClaimBound
+			Expect(controller.pvcIndexer.Add(readyPVC)).To(Succeed())
+
+			Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+
+			Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+				HaveField("Name", "ready"),
+				HaveField("Phase", virtv1.HotplugVolumeAttachedToNode),
+				HaveField("HotplugVolume.AttachPodName", "hp-volume-ready"),
+				HaveField("HotplugVolume.AttachPodUID", types.UID("attachment-pod-uid")),
+			)))
+			Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+				HaveField("Name", "importing"),
+				HaveField("HotplugVolume.AttachPodUID", BeEmpty()),
+			)))
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+		})
+
 		It("Should set error for utility volume with block mode PVC", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
@@ -3844,7 +3896,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.pvcIndexer.Add(blockPVC)).To(Succeed())
 
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
+			err := controller.updateVolumeStatus(vmi, virtlauncherPod, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
@@ -3884,7 +3936,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.pvcIndexer.Add(filesystemPVC)).To(Succeed())
 
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
+			err := controller.updateVolumeStatus(vmi, virtlauncherPod, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
@@ -3923,7 +3975,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			Expect(controller.updateVolumeStatus(vmi, virtlauncherPod)).To(Succeed())
+			Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
 
 			// The legacy entry must be carried forward under the new static name,
 			// so that UpdateVolumeStatus can update it in-place on the same reconcile.
