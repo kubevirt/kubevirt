@@ -22,6 +22,7 @@ package vmi
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -221,24 +222,37 @@ func (c *Controller) isUtilityVolumeWithBlockPVC(vmi *v1.VirtualMachineInstance,
 	return storagetypes.IsPVCBlock(pvc.Spec.VolumeMode), nil
 }
 
+func (c *Controller) hotplugVolumeReadiness(vmi *v1.VirtualMachineInstance, volume *v1.Volume, dataVolumes []*cdiv1.DataVolume) (ready bool, wffc bool, err error) {
+	isUtilityVolumeWithBlockPVC, err := c.isUtilityVolumeWithBlockPVC(vmi, volume)
+	if err != nil {
+		return false, false, err
+	}
+	if isUtilityVolumeWithBlockPVC {
+		return false, false, nil
+	}
+	return storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
+}
+
+func (c *Controller) readyHotplugVolumes(vmi *v1.VirtualMachineInstance, hotplugVolumes []*v1.Volume, dataVolumes []*cdiv1.DataVolume) []*v1.Volume {
+	return slices.DeleteFunc(slices.Clone(hotplugVolumes), func(volume *v1.Volume) bool {
+		ready, _, err := c.hotplugVolumeReadiness(vmi, volume, dataVolumes)
+		if err != nil {
+			log.Log.Object(vmi).V(3).Infof("Not matching an attachment pod to volume %s, cannot determine its readiness: %v", volume.Name, err)
+			return true
+		}
+		return !ready
+	})
+}
+
 func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
-		isUtilityVolumeWithBlockPVC, err := c.isUtilityVolumeWithBlockPVC(vmi, volume)
+		ready, wffc, err := c.hotplugVolumeReadiness(vmi, volume, dataVolumes)
 		if err != nil {
 			return common.NewSyncError(err, controller.PVCNotReadyReason)
-		}
-		if isUtilityVolumeWithBlockPVC {
-			logger.V(3).Infof("Skipping utility volume %s: configured with block volume mode PVC, utility volumes require filesystem volume mode", volume.Name)
-			continue
-		}
-
-		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
-		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
 		if wffc {
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
