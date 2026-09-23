@@ -32,12 +32,6 @@ done
     go mod tidy
 )
 
-(
-    cd staging/src/kubevirt.io/client-go/examples/listvms
-    if [ "${_sync_only}" == "false" ]; then go get $@ ./...; fi
-    go mod tidy
-)
-
 go mod tidy
 go work vendor
 go work sync
