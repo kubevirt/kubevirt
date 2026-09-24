@@ -189,6 +189,11 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
 
+func (config *ClusterConfig) OfflineIncrementalBackupEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.OfflineIncrementalBackupGate) &&
+		config.IncrementalBackupEnabled()
+}
+
 func (config *ClusterConfig) RebootPolicyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.RebootPolicy)
 }

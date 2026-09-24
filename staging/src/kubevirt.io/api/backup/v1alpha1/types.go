@@ -276,6 +276,10 @@ type VirtualMachineBackupStatus struct {
 	// for pull-mode backups, each with a CA certificate and per-volume URLs.
 	// Contains per-volume data and map endpoint URLs for each network path.
 	Links *BackupLinks `json:"links,omitempty"`
+	// +optional
+	// Offline is set to true when the backup was taken while the VM was stopped
+	// (no running VMI), using persisted QCOW2 dirty bitmaps served by qemu-nbd.
+	Offline *bool `json:"offline,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
