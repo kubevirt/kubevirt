@@ -189,6 +189,9 @@ spec:
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
+      historyLimits:
+        failed: 4294967290
+        successful: 4294967286
       matchSELinuxLevelOnMigration: true
       maxDowntimeMs: 18446744073709551603
       network: networkValue

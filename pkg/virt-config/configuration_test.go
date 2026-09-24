@@ -388,7 +388,24 @@ var _ = Describe("test configuration", func() {
 		result := clusterConfig.GetMigrationConfiguration()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 5))
+		Expect(result.HistoryLimits).To(BeNil())
 		Expect(result.BandwidthPerMigration.String()).To(Equal("0"))
+	})
+
+	It("Should preserve explicitly configured migration history limits", func() {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			MigrationConfiguration: &v1.MigrationConfiguration{
+				HistoryLimits: &v1.MigrationHistoryLimits{
+					Successful: 0,
+					Failed:     5,
+				},
+			},
+		})
+
+		result := clusterConfig.GetMigrationConfiguration()
+		Expect(result.HistoryLimits).ToNot(BeNil())
+		Expect(result.HistoryLimits.Successful).To(BeZero())
+		Expect(result.HistoryLimits.Failed).To(Equal(uint32(5)))
 	})
 
 	It("Should update the config if a newer version is available", func() {

@@ -502,6 +502,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.MemoryStatus{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_MemoryStatus(ref),
 		corev1.MigrateOptions{}.OpenAPIModelName():                                                        schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		corev1.MigrationConfiguration{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
+		corev1.MigrationHistoryLimits{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_MigrationHistoryLimits(ref),
 		corev1.MultusNetwork{}.OpenAPIModelName():                                                         schema_kubevirtio_api_core_v1_MultusNetwork(ref),
 		corev1.NUMA{}.OpenAPIModelName():                                                                  schema_kubevirtio_api_core_v1_NUMA(ref),
 		corev1.NUMAGuestMappingPassthrough{}.OpenAPIModelName():                                           schema_kubevirtio_api_core_v1_NUMAGuestMappingPassthrough(ref),
@@ -24307,6 +24308,12 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "int64",
 						},
 					},
+					"historyLimits": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HistoryLimits controls how many successful and failed migrations are retained per VMI. When unset, the most recent 5 finalized migrations are retained regardless of outcome.",
+							Ref:         ref(corev1.MigrationHistoryLimits{}.OpenAPIModelName()),
+						},
+					},
 					"allowAutoConverge": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
@@ -24394,7 +24401,37 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			resource.Quantity{}.OpenAPIModelName()},
+			resource.Quantity{}.OpenAPIModelName(), corev1.MigrationHistoryLimits{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_MigrationHistoryLimits(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MigrationHistoryLimits defines how many finalized migrations to retain per VMI by outcome.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"successful": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Successful is the number of successful migrations to retain.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"failed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Failed is the number of failed migrations to retain.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"successful", "failed"},
+			},
+		},
 	}
 }
 

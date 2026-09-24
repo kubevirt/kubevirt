@@ -1656,6 +1656,48 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(migrations.Items).To(HaveLen(5))
 			})
 
+			Context("with outcome-specific migration history limits", Serial, func() {
+				It("should clean up successful migrations when their history limit is zero", func() {
+					originalConfig := getCurrentKvConfig(virtClient)
+					config := originalConfig.DeepCopy()
+					config.MigrationConfiguration.HistoryLimits = &v1.MigrationHistoryLimits{
+						Successful: 0,
+						Failed:     5,
+					}
+					kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
+					DeferCleanup(func() {
+						kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
+					})
+
+					vmi := libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithMemoryRequest("1Gi"),
+					)
+
+					By("Starting the VirtualMachineInstance")
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+					By("Running a successful migration")
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigration(virtClient, migration)
+					Eventually(func() bool {
+						currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						if err != nil || currentVMI.Status.MigrationState == nil {
+							return false
+						}
+						migrationState := currentVMI.Status.MigrationState
+						return migrationState.MigrationUID == migration.UID && migrationState.Completed && !migrationState.Failed
+					}, 340*time.Second, time.Second).Should(BeTrue())
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+					By("Expecting the successful migration object to be deleted")
+					Eventually(func() error {
+						_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+						return err
+					}, 30*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+				})
+			})
+
 			It("[test_id:6979]Target pod should exit after failed migration", func() {
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
