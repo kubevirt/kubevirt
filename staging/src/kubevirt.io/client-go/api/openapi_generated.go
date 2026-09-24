@@ -699,14 +699,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		migrationsv1alpha1.MigrationPolicyStatus{}.OpenAPIModelName():                                     schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyStatus(ref),
 		migrationsv1alpha1.Selectors{}.OpenAPIModelName():                                                 schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref),
 		pluginv1alpha1.AdmissionReference{}.OpenAPIModelName():                                            schema_kubevirtio_api_plugin_v1alpha1_AdmissionReference(ref),
-		pluginv1alpha1.CELDomainHook{}.OpenAPIModelName():                                                 schema_kubevirtio_api_plugin_v1alpha1_CELDomainHook(ref),
-		pluginv1alpha1.DomainHook{}.OpenAPIModelName():                                                    schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref),
+		pluginv1alpha1.CELLauncherHook{}.OpenAPIModelName():                                               schema_kubevirtio_api_plugin_v1alpha1_CELLauncherHook(ref),
+		pluginv1alpha1.LauncherHook{}.OpenAPIModelName():                                                  schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref),
 		pluginv1alpha1.NodeHook{}.OpenAPIModelName():                                                      schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref),
 		pluginv1alpha1.Plugin{}.OpenAPIModelName():                                                        schema_kubevirtio_api_plugin_v1alpha1_Plugin(ref),
 		pluginv1alpha1.PluginList{}.OpenAPIModelName():                                                    schema_kubevirtio_api_plugin_v1alpha1_PluginList(ref),
 		pluginv1alpha1.PluginSpec{}.OpenAPIModelName():                                                    schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref),
 		pluginv1alpha1.PluginStatus{}.OpenAPIModelName():                                                  schema_kubevirtio_api_plugin_v1alpha1_PluginStatus(ref),
-		pluginv1alpha1.SidecarDomainHook{}.OpenAPIModelName():                                             schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref),
+		pluginv1alpha1.SidecarLauncherHook{}.OpenAPIModelName():                                           schema_kubevirtio_api_plugin_v1alpha1_SidecarLauncherHook(ref),
 		poolv1alpha1.VirtualMachineOpportunisticUpdateStrategy{}.OpenAPIModelName():                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachineOpportunisticUpdateStrategy(ref),
 		poolv1alpha1.VirtualMachinePool{}.OpenAPIModelName():                                              schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
 		poolv1alpha1.VirtualMachinePoolAutohealingStrategy{}.OpenAPIModelName():                           schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolAutohealingStrategy(ref),
@@ -33602,44 +33602,53 @@ func schema_kubevirtio_api_plugin_v1alpha1_AdmissionReference(ref common.Referen
 	}
 }
 
-func schema_kubevirtio_api_plugin_v1alpha1_CELDomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_plugin_v1alpha1_CELLauncherHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"hookPoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HookPoint specifies which launcher hook point this CEL expression applies to. GuestDefinition is the only currently supported launcher hook point for CEL.\n\nPossible enum values:\n - `\"GuestDefinition\"`",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"GuestDefinition"},
+						},
+					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Expression is the CEL expression applied to the domain XML.",
+							Description: "Expression is the CEL expression applied at the specified hook point.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"expression"},
+				Required: []string{"hookPoint", "expression"},
 			},
 		},
 	}
 }
 
-func schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DomainHook defines a hook that modifies the libvirt domain XML. Exactly one of cel or sidecar must be specified.",
+				Description: "LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle. Exactly one of cel or sidecar must be specified.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"cel": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CEL defines a CEL expression that transforms the domain XML.",
-							Ref:         ref(pluginv1alpha1.CELDomainHook{}.OpenAPIModelName()),
+							Description: "CEL defines a CEL expression hook.",
+							Ref:         ref(pluginv1alpha1.CELLauncherHook{}.OpenAPIModelName()),
 						},
 					},
 					"sidecar": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Sidecar defines a sidecar-based hook that transforms the domain XML via a Unix socket.",
-							Ref:         ref(pluginv1alpha1.SidecarDomainHook{}.OpenAPIModelName()),
+							Description: "Sidecar defines a sidecar-based hook that communicates via a Unix socket.",
+							Ref:         ref(pluginv1alpha1.SidecarLauncherHook{}.OpenAPIModelName()),
 						},
 					},
 					"condition": {
@@ -33667,7 +33676,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			metav1.Duration{}.OpenAPIModelName(), pluginv1alpha1.CELDomainHook{}.OpenAPIModelName(), pluginv1alpha1.SidecarDomainHook{}.OpenAPIModelName()},
+			metav1.Duration{}.OpenAPIModelName(), pluginv1alpha1.CELLauncherHook{}.OpenAPIModelName(), pluginv1alpha1.SidecarLauncherHook{}.OpenAPIModelName()},
 	}
 }
 
@@ -33675,12 +33684,12 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management. Hooks may fire multiple times for the same lifecycle event due to reconciliation retries. Implementations must be idempotent.",
+				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management. Hooks may fire multiple times for the same lifecycle event due to reconciliation retries. Implementations must be idempotent.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"socket": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Socket is the path to the Unix socket for hook communication.",
+							Description: "Socket is the path to the Unix socket for hook communication. MaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute platform invariant.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -33701,7 +33710,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
-										Enum:    []interface{}{"PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart", "PreVMStop"},
+										Enum:    []interface{}{"OnVMStop", "PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart"},
 									},
 								},
 							},
@@ -33848,7 +33857,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields.",
+							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields. Condition expressions are evaluated once per pipeline invocation, against the VMI/domain state as it existed before any hook in that invocation ran. They are not re-evaluated to reflect mutations made by other hooks applied earlier in the same invocation.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -33861,20 +33870,20 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 							Enum:        []interface{}{"Fail", "Ignore"},
 						},
 					},
-					"domainHooks": {
+					"launcherHooks": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "DomainHooks defines hooks that modify the libvirt domain XML. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name.",
+							Description: "LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined points in the VM lifecycle. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(pluginv1alpha1.DomainHook{}.OpenAPIModelName()),
+										Ref:     ref(pluginv1alpha1.LauncherHook{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -33979,7 +33988,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			pluginv1alpha1.AdmissionReference{}.OpenAPIModelName(), pluginv1alpha1.DomainHook{}.OpenAPIModelName(), pluginv1alpha1.NodeHook{}.OpenAPIModelName()},
+			pluginv1alpha1.AdmissionReference{}.OpenAPIModelName(), pluginv1alpha1.LauncherHook{}.OpenAPIModelName(), pluginv1alpha1.NodeHook{}.OpenAPIModelName()},
 	}
 }
 
@@ -33993,7 +34002,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginStatus(ref common.ReferenceCall
 	}
 }
 
-func schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_plugin_v1alpha1_SidecarLauncherHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -34001,14 +34010,35 @@ func schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"socketPath": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SocketPath is the path to the Unix socket used to communicate with the sidecar.",
+							Description: "SocketPath is the path to the Unix socket used to communicate with the sidecar. MaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute platform invariant.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
+					"permittedHooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "PermittedHooks lists the launcher hook points this sidecar handles.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+										Enum:    []interface{}{"GuestDefinition"},
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"socketPath"},
+				Required: []string{"socketPath", "permittedHooks"},
 			},
 		},
 	}

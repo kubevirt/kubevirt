@@ -62,15 +62,32 @@ var _ = Describe("Sidecar hooks", func() {
 			socketPath := filepath.Join(socketDir, "hook.sock")
 			Expect(os.WriteFile(socketPath, nil, 0600)).To(Succeed())
 
-			deadline := time.Now().Add(5 * time.Second)
-			Expect(waitForSidecarSocket(socketPath, deadline)).To(Succeed())
+			readinessTimeout := 2 * time.Second
+			deadline := time.Now().Add(-1 * time.Second)
+			Expect(waitForSidecarSocket(socketPath, deadline, readinessTimeout)).To(Succeed())
 		})
 
 		It("should return error when deadline passes and socket does not exist", func() {
 			deadline := time.Now().Add(-1 * time.Second)
-			err := waitForSidecarSocket("/var/run/kubevirt-plugin/test-plugin/nonexistent.sock", deadline)
+			readinessTimeout := 200 * time.Millisecond
+			err := waitForSidecarSocket("/var/run/kubevirt-plugin/test-plugin/nonexistent.sock", deadline, readinessTimeout)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not ready"))
+			Expect(err.Error()).To(ContainSubstring(readinessTimeout.String()))
+		})
+
+		It("should report errors while checking the socket path", func() {
+			socketDir := filepath.Join(pluginSocketBaseDir, "test-plugin")
+			Expect(os.MkdirAll(socketDir, 0755)).To(Succeed())
+			defer os.RemoveAll(pluginSocketBaseDir)
+
+			notDirectory := filepath.Join(socketDir, "not-a-directory")
+			Expect(os.WriteFile(notDirectory, nil, 0600)).To(Succeed())
+
+			deadline := time.Now().Add(-1 * time.Second)
+			err := waitForSidecarSocket(filepath.Join(notDirectory, "hook.sock"), deadline, 200*time.Millisecond)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("checking socket"))
 		})
 
 		It("should wait for socket to appear before deadline", func() {
@@ -80,12 +97,13 @@ var _ = Describe("Sidecar hooks", func() {
 
 			socketPath := filepath.Join(socketDir, "hook.sock")
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(100 * time.Millisecond)
 				Expect(os.WriteFile(socketPath, nil, 0600)).To(Succeed())
 			}()
 
-			deadline := time.Now().Add(5 * time.Second)
-			Expect(waitForSidecarSocket(socketPath, deadline)).To(Succeed())
+			readinessTimeout := 2 * time.Second
+			deadline := time.Now().Add(readinessTimeout)
+			Expect(waitForSidecarSocket(socketPath, deadline, readinessTimeout)).To(Succeed())
 		})
 	})
 

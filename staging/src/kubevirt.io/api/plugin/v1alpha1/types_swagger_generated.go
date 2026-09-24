@@ -4,7 +4,7 @@ package v1alpha1
 
 func (Plugin) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "Plugin defines a KubeVirt extension that can modify VM domain XML,\nhook into VM lifecycle events, and reference admission objects.",
+		"":       "Plugin defines a KubeVirt extension that can modify VM domain XML,\nhook into VM lifecycle events, and reference admission objects.\n+kubebuilder:validation:XValidation:rule=\"!has(self.spec.launcherHooks) || self.spec.launcherHooks.all(lh, !has(lh.sidecar) || lh.sidecar.socketPath.startsWith('/var/run/kubevirt-plugin/' + self.metadata.name + '/'))\",message=\"sidecar socketPath must start with /var/run/kubevirt-plugin/<plugin-name>/\"",
 		"spec":   "Spec defines the plugin's hooks and admission references.",
 		"status": "Status reflects the observed state of the plugin.\n+optional",
 	}
@@ -19,10 +19,10 @@ func (PluginList) SwaggerDoc() map[string]string {
 
 func (PluginSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"condition":                   "Condition is a CEL expression that determines whether this plugin applies to a given VM.\nWhen set, this acts as a baseline filter for all hooks in the plugin.\nIndividual hooks may further narrow the scope with their own Condition fields.\n+optional",
+		"condition":                   "Condition is a CEL expression that determines whether this plugin applies to a given VM.\nWhen set, this acts as a baseline filter for all hooks in the plugin.\nIndividual hooks may further narrow the scope with their own Condition fields.\nCondition expressions are evaluated once per pipeline invocation, against the VMI/domain\nstate as it existed before any hook in that invocation ran. They are not re-evaluated to\nreflect mutations made by other hooks applied earlier in the same invocation.\n+optional",
 		"failureStrategy":             "FailureStrategy specifies the default behavior when the plugin itself is unhealthy\n(e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).\nIndividual hooks may override this with their own FailureStrategy.\n+optional",
-		"domainHooks":                 "DomainHooks defines hooks that modify the libvirt domain XML.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic",
-		"nodeHooks":                   "NodeHooks defines hooks that execute during VM lifecycle events.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic",
+		"launcherHooks":               "LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined\npoints in the VM lifecycle.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic\n+kubebuilder:validation:MaxItems=32",
+		"nodeHooks":                   "NodeHooks defines hooks that execute during VM lifecycle events.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic\n+kubebuilder:validation:MaxItems=32",
 		"mutatingAdmissionPolicies":   "MutatingAdmissionPolicies references MutatingAdmissionPolicy objects managed by the plugin.\n+optional\n+listType=atomic",
 		"validatingAdmissionPolicies": "ValidatingAdmissionPolicies references ValidatingAdmissionPolicy objects managed by the plugin.\n+optional\n+listType=atomic",
 		"mutatingAdmissionWebhooks":   "MutatingAdmissionWebhooks references MutatingWebhookConfiguration objects managed by the plugin.\n+optional\n+listType=atomic",
@@ -30,34 +30,37 @@ func (PluginSpec) SwaggerDoc() map[string]string {
 	}
 }
 
-func (DomainHook) SwaggerDoc() map[string]string {
+func (LauncherHook) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "DomainHook defines a hook that modifies the libvirt domain XML.\nExactly one of cel or sidecar must be specified.",
-		"cel":             "CEL defines a CEL expression that transforms the domain XML.\n+optional",
-		"sidecar":         "Sidecar defines a sidecar-based hook that transforms the domain XML via a Unix socket.\n+optional",
+		"":                "LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle.\nExactly one of cel or sidecar must be specified.\n+kubebuilder:validation:XValidation:rule=\"has(self.cel) != has(self.sidecar)\",message=\"a launcher hook must define exactly one of cel or sidecar\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.timeout) || duration(self.timeout) > duration('0s')\",message=\"timeout must be greater than zero\"",
+		"cel":             "CEL defines a CEL expression hook.\n+optional",
+		"sidecar":         "Sidecar defines a sidecar-based hook that communicates via a Unix socket.\n+optional",
 		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\n+optional",
 		"failureStrategy": "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n+optional",
 		"timeout":         "Timeout specifies the maximum duration to wait for the hook to complete.\n+optional",
 	}
 }
 
-func (CELDomainHook) SwaggerDoc() map[string]string {
+func (CELLauncherHook) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"expression": "Expression is the CEL expression applied to the domain XML.\n+kubebuilder:validation:MinLength=1",
+		"hookPoint":  "HookPoint specifies which launcher hook point this CEL expression applies to.\nGuestDefinition is the only currently supported launcher hook point for CEL.",
+		"expression": "Expression is the CEL expression applied at the specified hook point.\n+kubebuilder:validation:MinLength=1",
 	}
 }
 
-func (SidecarDomainHook) SwaggerDoc() map[string]string {
+func (SidecarLauncherHook) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"socketPath": "SocketPath is the path to the Unix socket used to communicate with the sidecar.\n+kubebuilder:validation:MinLength=1",
+		"":               "+kubebuilder:validation:XValidation:rule=\"!self.socketPath.contains('..') && !self.socketPath.contains('//') && !self.socketPath.endsWith('/')\",message=\"socketPath must be a clean path: no '..' segments, repeated separators or trailing separator\"\n+kubebuilder:validation:XValidation:rule=\"self.socketPath.endsWith('.sock')\",message=\"sidecar socketPath must end with .sock\"",
+		"socketPath":     "SocketPath is the path to the Unix socket used to communicate with the sidecar.\nMaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute\nplatform invariant.\n+kubebuilder:validation:MinLength=1\n+kubebuilder:validation:MaxLength=108",
+		"permittedHooks": "PermittedHooks lists the launcher hook points this sidecar handles.\n+kubebuilder:validation:MinItems=1\n+kubebuilder:validation:MaxItems=32\n+listType=set",
 	}
 }
 
 func (NodeHook) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.\nUnlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations\nsuch as configuring networking, storage preparation, or device management.\nHooks may fire multiple times for the same lifecycle event due to reconciliation retries.\nImplementations must be idempotent.",
-		"socket":          "Socket is the path to the Unix socket for hook communication.\n+kubebuilder:validation:MinLength=1",
-		"permittedHooks":  "PermittedHooks lists the VM lifecycle events this hook handles.\n+kubebuilder:validation:MinItems=1\n+listType=atomic",
+		"":                "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.\nUnlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations\nsuch as configuring networking, storage preparation, or device management.\nHooks may fire multiple times for the same lifecycle event due to reconciliation retries.\nImplementations must be idempotent.\n+kubebuilder:validation:XValidation:rule=\"!self.socket.contains('..') && !self.socket.contains('//') && !self.socket.endsWith('/')\",message=\"socket must be a clean path: no '..' segments, repeated separators or trailing separator\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.timeout) || duration(self.timeout) > duration('0s')\",message=\"timeout must be greater than zero\"",
+		"socket":          "Socket is the path to the Unix socket for hook communication.\nMaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute\nplatform invariant.\n+kubebuilder:validation:MinLength=1\n+kubebuilder:validation:MaxLength=108",
+		"permittedHooks":  "PermittedHooks lists the VM lifecycle events this hook handles.\n+kubebuilder:validation:MinItems=1\n+kubebuilder:validation:MaxItems=32\n+listType=atomic",
 		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\n+optional",
 		"failureStrategy": "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n+optional",
 		"timeout":         "Timeout specifies the maximum duration to wait for the hook to complete.\n+optional",

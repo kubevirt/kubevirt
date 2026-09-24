@@ -43,7 +43,7 @@ type server struct {
 	cpuVendor string
 }
 
-func (s *server) MutateDomain(_ context.Context, req *pluginsv1alpha1.MutateDomainRequest) (*pluginsv1alpha1.MutateDomainResponse, error) {
+func (s *server) GuestDefinition(_ context.Context, req *pluginsv1alpha1.GuestDefinitionRequest) (*pluginsv1alpha1.GuestDefinitionResponse, error) {
 	domain := &libvirtxml.Domain{}
 	if err := domain.Unmarshal(string(req.Domain)); err != nil {
 		return nil, fmt.Errorf("unmarshal domain: %w", err)
@@ -79,12 +79,12 @@ func (s *server) MutateDomain(_ context.Context, req *pluginsv1alpha1.MutateDoma
 	if err != nil {
 		return nil, fmt.Errorf("marshal domain: %w", err)
 	}
-	return &pluginsv1alpha1.MutateDomainResponse{Domain: []byte(xml)}, nil
+	return &pluginsv1alpha1.GuestDefinitionResponse{Domain: []byte(xml)}, nil
 }
 
 type errorServer struct{}
 
-func (s *errorServer) MutateDomain(_ context.Context, _ *pluginsv1alpha1.MutateDomainRequest) (*pluginsv1alpha1.MutateDomainResponse, error) {
+func (s *errorServer) GuestDefinition(_ context.Context, _ *pluginsv1alpha1.GuestDefinitionRequest) (*pluginsv1alpha1.GuestDefinitionResponse, error) {
 	return nil, status.Errorf(codes.Internal, "intentional test error")
 }
 
@@ -108,7 +108,7 @@ func detectCPUVendor() string {
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("usage: test-domain-hook-sidecar <socket-path> | --sleep | --error <socket-path>")
+		log.Fatal("usage: test-launcher-hook-sidecar <socket-path> | --sleep | --error <socket-path>")
 	}
 	if os.Args[1] == "--sleep" {
 		log.Println("Sleep mode: blocking forever without creating socket")
@@ -119,7 +119,7 @@ func main() {
 	var socketPath string
 	if errorMode {
 		if len(os.Args) < 3 {
-			log.Fatal("usage: test-domain-hook-sidecar --error <socket-path>")
+			log.Fatal("usage: test-launcher-hook-sidecar --error <socket-path>")
 		}
 		socketPath = os.Args[2]
 	} else {
@@ -138,9 +138,9 @@ func main() {
 
 	s := grpc.NewServer()
 	if errorMode {
-		pluginsv1alpha1.RegisterDomainHookServiceServer(s, &errorServer{})
+		pluginsv1alpha1.RegisterLauncherHookServiceServer(s, &errorServer{})
 	} else {
-		pluginsv1alpha1.RegisterDomainHookServiceServer(s, &server{cpuVendor: detectCPUVendor()})
+		pluginsv1alpha1.RegisterLauncherHookServiceServer(s, &server{cpuVendor: detectCPUVendor()})
 	}
 
 	sigCh := make(chan os.Signal, 1)

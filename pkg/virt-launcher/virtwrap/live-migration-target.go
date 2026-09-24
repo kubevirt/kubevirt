@@ -212,12 +212,9 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, _, err := plugins.ApplyDomainHooks(pluginList, vmi, &dom.Spec,
-			pluginv1alpha1.InvocationContextMigrationTarget)
-		if err != nil {
-			return fmt.Errorf("applying plugin domain hooks failed: %v", err)
+		if err := applyGuestDefinitionHooksToDomainSpec(pluginList, vmi, &dom.Spec, pluginv1alpha1.InvocationContextMigrationTarget); err != nil {
+			return fmt.Errorf("applying guest definition hooks failed: %v", err)
 		}
-		updatedSpec.DeepCopyInto(&dom.Spec)
 	}
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
@@ -253,6 +250,17 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		l.paused.add(vmi.UID)
 	}
 
+	return nil
+}
+
+func applyGuestDefinitionHooksToDomainSpec(pluginList []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *api.DomainSpec, invocationContext pluginv1alpha1.InvocationContext) error {
+	updatedSpec, xmlStr, err := plugins.ApplyGuestDefinitionHooks(pluginList, vmi, spec, invocationContext)
+	if err != nil {
+		return err
+	}
+	if guestDefinitionChanged := xmlStr != ""; guestDefinitionChanged {
+		updatedSpec.DeepCopyInto(spec)
+	}
 	return nil
 }
 

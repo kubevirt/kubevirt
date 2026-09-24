@@ -30,6 +30,7 @@ import (
 
 // Plugin defines a KubeVirt extension that can modify VM domain XML,
 // hook into VM lifecycle events, and reference admission objects.
+// +kubebuilder:validation:XValidation:rule="!has(self.spec.launcherHooks) || self.spec.launcherHooks.all(lh, !has(lh.sidecar) || lh.sidecar.socketPath.startsWith('/var/run/kubevirt-plugin/' + self.metadata.name + '/'))",message="sidecar socketPath must start with /var/run/kubevirt-plugin/<plugin-name>/"
 type Plugin struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -52,6 +53,9 @@ type PluginSpec struct {
 	// Condition is a CEL expression that determines whether this plugin applies to a given VM.
 	// When set, this acts as a baseline filter for all hooks in the plugin.
 	// Individual hooks may further narrow the scope with their own Condition fields.
+	// Condition expressions are evaluated once per pipeline invocation, against the VMI/domain
+	// state as it existed before any hook in that invocation ran. They are not re-evaluated to
+	// reflect mutations made by other hooks applied earlier in the same invocation.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 
@@ -61,18 +65,21 @@ type PluginSpec struct {
 	// +optional
 	FailureStrategy FailureStrategy `json:"failureStrategy,omitempty"`
 
-	// DomainHooks defines hooks that modify the libvirt domain XML.
+	// LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined
+	// points in the VM lifecycle.
 	// Hooks are applied in declaration order within each plugin.
 	// Across plugins, hooks are applied in alphabetical order by plugin name.
 	// +optional
 	// +listType=atomic
-	DomainHooks []DomainHook `json:"domainHooks,omitempty"`
+	// +kubebuilder:validation:MaxItems=32
+	LauncherHooks []LauncherHook `json:"launcherHooks,omitempty"`
 
 	// NodeHooks defines hooks that execute during VM lifecycle events.
 	// Hooks are applied in declaration order within each plugin.
 	// Across plugins, hooks are applied in alphabetical order by plugin name.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
 	NodeHooks []NodeHook `json:"nodeHooks,omitempty"`
 
 	// MutatingAdmissionPolicies references MutatingAdmissionPolicy objects managed by the plugin.
@@ -94,7 +101,11 @@ type PluginSpec struct {
 }
 
 // FailureStrategy specifies how hook failures are handled. Defaults to Fail if not specified.
+// MaxLength bounds the CEL cost estimate of the value-set rule; it must stay
+// at or above the longest member of the set.
 // +enum
+// +kubebuilder:validation:MaxLength=32
+// +kubebuilder:validation:XValidation:rule="self in ['Fail','Ignore']",message="failureStrategy must be one of: Fail, Ignore"
 type FailureStrategy string
 
 const (
@@ -112,15 +123,17 @@ const (
 	InvocationContextMigrationTarget InvocationContext = "MigrationTarget"
 )
 
-// DomainHook defines a hook that modifies the libvirt domain XML.
+// LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle.
 // Exactly one of cel or sidecar must be specified.
-type DomainHook struct {
-	// CEL defines a CEL expression that transforms the domain XML.
+// +kubebuilder:validation:XValidation:rule="has(self.cel) != has(self.sidecar)",message="a launcher hook must define exactly one of cel or sidecar"
+// +kubebuilder:validation:XValidation:rule="!has(self.timeout) || duration(self.timeout) > duration('0s')",message="timeout must be greater than zero"
+type LauncherHook struct {
+	// CEL defines a CEL expression hook.
 	// +optional
-	CEL *CELDomainHook `json:"cel,omitempty"`
-	// Sidecar defines a sidecar-based hook that transforms the domain XML via a Unix socket.
+	CEL *CELLauncherHook `json:"cel,omitempty"`
+	// Sidecar defines a sidecar-based hook that communicates via a Unix socket.
 	// +optional
-	Sidecar *SidecarDomainHook `json:"sidecar,omitempty"`
+	Sidecar *SidecarLauncherHook `json:"sidecar,omitempty"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
 	// +optional
 	Condition string `json:"condition,omitempty"`
@@ -132,29 +145,60 @@ type DomainHook struct {
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
-type CELDomainHook struct {
-	// Expression is the CEL expression applied to the domain XML.
+// LauncherHookPoint identifies a point in the VM lifecycle where a launcher hook can run.
+// Only hook points implemented by virt-launcher are accepted.
+// MaxLength bounds hook-point names in the API schema and leaves room for future points.
+// +enum
+// +kubebuilder:validation:MaxLength=32
+// +kubebuilder:validation:XValidation:rule="self == 'GuestDefinition'",message="hook point must be GuestDefinition"
+type LauncherHookPoint string
+
+const (
+	LauncherHookGuestDefinition LauncherHookPoint = "GuestDefinition"
+)
+
+type CELLauncherHook struct {
+	// HookPoint specifies which launcher hook point this CEL expression applies to.
+	// GuestDefinition is the only currently supported launcher hook point for CEL.
+	HookPoint LauncherHookPoint `json:"hookPoint"`
+	// Expression is the CEL expression applied at the specified hook point.
 	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression"`
 }
 
-type SidecarDomainHook struct {
+// +kubebuilder:validation:XValidation:rule="!self.socketPath.contains('..') && !self.socketPath.contains('//') && !self.socketPath.endsWith('/')",message="socketPath must be a clean path: no '..' segments, repeated separators or trailing separator"
+// +kubebuilder:validation:XValidation:rule="self.socketPath.endsWith('.sock')",message="sidecar socketPath must end with .sock"
+type SidecarLauncherHook struct {
 	// SocketPath is the path to the Unix socket used to communicate with the sidecar.
+	// MaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute
+	// platform invariant.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=108
 	SocketPath string `json:"socketPath"`
+	// PermittedHooks lists the launcher hook points this sidecar handles.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=set
+	PermittedHooks []LauncherHookPoint `json:"permittedHooks"`
 }
 
 // NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.
-// Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations
+// Unlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations
 // such as configuring networking, storage preparation, or device management.
 // Hooks may fire multiple times for the same lifecycle event due to reconciliation retries.
 // Implementations must be idempotent.
+// +kubebuilder:validation:XValidation:rule="!self.socket.contains('..') && !self.socket.contains('//') && !self.socket.endsWith('/')",message="socket must be a clean path: no '..' segments, repeated separators or trailing separator"
+// +kubebuilder:validation:XValidation:rule="!has(self.timeout) || duration(self.timeout) > duration('0s')",message="timeout must be greater than zero"
 type NodeHook struct {
 	// Socket is the path to the Unix socket for hook communication.
+	// MaxLength is bounded by the sockaddr_un sun_path limit (108 bytes), an absolute
+	// platform invariant.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=108
 	Socket string `json:"socket"`
 	// PermittedHooks lists the VM lifecycle events this hook handles.
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
 	// +listType=atomic
 	PermittedHooks []NodeHookPoint `json:"permittedHooks"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
@@ -169,13 +213,19 @@ type NodeHook struct {
 }
 
 // NodeHookPoint identifies a VM lifecycle event for node-level hooks.
+// The set is closed and validated at the API boundary. It is append-only across versions:
+// new hook points may be added, existing ones must never be removed.
+// MaxLength bounds the CEL cost estimate of the value-set rule; it must stay
+// at or above the longest member of the set.
 // +enum
+// +kubebuilder:validation:MaxLength=32
+// +kubebuilder:validation:XValidation:rule="self in ['PreVMStart','PostVMStart','OnVMStop','PostVMStop','PreMigrationSource','PreMigrationTarget','PostMigrationTarget']",message="hook point must be one of: PreVMStart, PostVMStart, OnVMStop, PostVMStop, PreMigrationSource, PreMigrationTarget, PostMigrationTarget"
 type NodeHookPoint string
 
 const (
 	NodeHookPreVMStart          NodeHookPoint = "PreVMStart"
 	NodeHookPostVMStart         NodeHookPoint = "PostVMStart"
-	NodeHookPreVMStop           NodeHookPoint = "PreVMStop"
+	NodeHookOnVMStop            NodeHookPoint = "OnVMStop"
 	NodeHookPostVMStop          NodeHookPoint = "PostVMStop"
 	NodeHookPreMigrationSource  NodeHookPoint = "PreMigrationSource"
 	NodeHookPreMigrationTarget  NodeHookPoint = "PreMigrationTarget"
