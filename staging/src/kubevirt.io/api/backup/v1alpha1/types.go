@@ -180,6 +180,14 @@ type VirtualMachineBackup struct {
 	Status *VirtualMachineBackupStatus `json:"status,omitempty"`
 }
 
+func (b *VirtualMachineBackup) IsOffline() bool {
+	return b.Status != nil && b.Status.Offline != nil && *b.Status.Offline
+}
+
+func (b *VirtualMachineBackup) IsPushMode() bool {
+	return b.Spec.Mode == nil || *b.Spec.Mode == PushMode
+}
+
 // VirtualMachineBackupList is a list of VirtualMachineBackup resources
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineBackupList struct {
@@ -265,6 +273,10 @@ type VirtualMachineBackupStatus struct {
 	// for pull-mode backups, each with a CA certificate and per-volume URLs.
 	// Contains per-volume data and map endpoint URLs for each network path.
 	Links *BackupLinks `json:"links,omitempty"`
+	// +optional
+	// Offline is set to true when the backup was taken while the VM was stopped
+	// (no running VMI), using persisted QCOW2 dirty bitmaps served by qemu-nbd.
+	Offline *bool `json:"offline,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
@@ -294,6 +306,8 @@ const (
 	ReasonCompleted            = "Completed"
 	ReasonCompletedWithWarning = "CompletedWithWarning"
 	ReasonFailed               = "Failed"
+	ReasonEmptyIncremental     = "EmptyIncremental"
+	ReasonVMDeleted            = "VMDeleted"
 	ReasonQuiesceSucceeded     = "QuiesceSucceeded"
 	ReasonQuiesceFailed        = "QuiesceFailed"
 	ReasonQuiesceSkipped       = "QuiesceSkipped"
