@@ -32,8 +32,8 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	storagevmispec "kubevirt.io/kubevirt/pkg/storage/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -198,10 +198,10 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	SetDefaultGuestCPUTopology(clusterConfig, spec)
 	setDefaultPullPoliciesOnContainerDisks(spec)
 	setDefaultEvictionStrategy(clusterConfig, spec)
-	if err := vmispec.SetDefaultNetworkInterface(clusterConfig, spec); err != nil {
+	if err := netvmispec.SetDefaultNetworkInterface(clusterConfig, spec); err != nil {
 		return err
 	}
-	util.SetDefaultVolumeDisk(spec)
+	storagevmispec.SetDefaultVolumeDisk(spec)
 	return nil
 }
 

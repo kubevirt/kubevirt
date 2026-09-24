@@ -36,8 +36,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	kutil "kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -85,7 +85,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	pvcSize := pvc.Spec.Resources.Requests.Storage()
 	scaledPvcSize := resource.NewScaledQuantity(pvcSize.ScaledValue(resource.Kilo), resource.Kilo)
 
-	expectedMemoryDumpSize := kutil.CalcExpectedMemoryDumpSize(vmi)
+	expectedMemoryDumpSize := memorydump.CalcExpectedSize(vmi)
 	cdiConfig, err := app.fetchCDIConfig()
 	if err != nil {
 		return err
