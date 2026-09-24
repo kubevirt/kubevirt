@@ -327,12 +327,15 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 		volume.VolumeSource.DataVolume != nil
 }
 
+// CBTOverlaySubDir is the backend-storage PVC subdirectory holding CBT overlays.
+const CBTOverlaySubDir = "cbt"
+
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
 	// Declarative VMState mounts the whole PVC, so cbt/ is referenced directly, no symlink needed.
 	if util.HasDeclarativeVMState(vmi) {
 		return filepath.Join(util.VMStatePVCMountPath, util.VMStateDirCBT)
 	}
-	return filepath.Join(qemuStatePath(vmi), CBTDirName)
+	return filepath.Join(qemuStatePath(vmi), CBTOverlaySubDir)
 }
 
 func PathForBackupNBD(vmi *v1.VirtualMachineInstance) string {
@@ -356,4 +359,9 @@ func qemuStatePath(vmi *v1.VirtualMachineInstance) string {
 func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
 	cbtPath := PathForCBT(vmi)
 	return filepath.Join(cbtPath, volumeName+".qcow2")
+}
+
+// GetQCOW2OverlayPVCPath is like GetQCOW2OverlayPath, but relative to the PVC root.
+func GetQCOW2OverlayPVCPath(volumeName string) string {
+	return filepath.Join(CBTOverlaySubDir, volumeName+".qcow2")
 }

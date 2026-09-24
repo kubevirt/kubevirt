@@ -308,6 +308,26 @@ func (ctrl *VMExportController) getBackupTracker(namespace, name string) (*backu
 	return obj.(*backupv1.VirtualMachineBackupTracker).DeepCopy(), true, nil
 }
 
+// latestTrackerCheckpointsForVM returns the latest checkpoint of every tracker on
+// this VM, not just the one this backup is using, since a VM can have more than one.
+func (ctrl *VMExportController) latestTrackerCheckpointsForVM(namespace, vmName string) ([]string, error) {
+	objs, err := ctrl.VMBackupTrackerInformer.GetIndexer().ByIndex("vmi", controller.NamespacedKey(namespace, vmName))
+	if err != nil {
+		return nil, fmt.Errorf("error listing backup trackers for VM %s/%s: %w", namespace, vmName, err)
+	}
+	var checkpoints []string
+	for _, obj := range objs {
+		tracker, ok := obj.(*backupv1.VirtualMachineBackupTracker)
+		if !ok {
+			continue
+		}
+		if tracker.Status != nil && tracker.Status.LatestCheckpoint != nil && tracker.Status.LatestCheckpoint.Name != "" {
+			checkpoints = append(checkpoints, tracker.Status.LatestCheckpoint.Name)
+		}
+	}
+	return checkpoints, nil
+}
+
 // getBackupSourceVMI resolves the VMI of the backup's source, handling both
 // direct VM sources and VirtualMachineBackupTracker sources.
 func (ctrl *VMExportController) getBackupSourceVMI(vmBackup *backupv1.VirtualMachineBackup) (*virtv1.VirtualMachineInstance, error) {
