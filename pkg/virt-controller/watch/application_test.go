@@ -160,6 +160,8 @@ var _ = Describe("Application", func() {
 			cdiInformer,
 			cdiConfigInformer,
 			kvInformer,
+			backupInformer,
+			backupTrackerInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 			nil,
