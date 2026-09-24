@@ -9,6 +9,7 @@ go_library(
         "//pkg/monitoring/rules:go_default_library",
         "//tests/libmonitoring:go_default_library",
         "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/docs:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
     ],
 )
 

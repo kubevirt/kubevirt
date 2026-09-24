@@ -87,7 +87,6 @@
 | kubevirt_vmi_status_addresses | Metric | Gauge | The addresses of a VirtualMachineInstance. This metric provides the address of an available network interface associated with the VMI in the 'address' label, and about the type of address, such as internal IP, in the 'type' label. |
 | kubevirt_vmi_storage_flush_requests_total | Metric | Counter | Total storage flush requests. |
 | kubevirt_vmi_storage_flush_times_seconds_total | Metric | Counter | Total time spent on cache flushing. |
-| kubevirt_vmi_storage_io_latency_seconds | Metric | Histogram | I/O latency distribution for block devices. |
 | kubevirt_vmi_storage_iops_read_total | Metric | Counter | Total number of I/O read operations. |
 | kubevirt_vmi_storage_iops_write_total | Metric | Counter | Total number of I/O write operations. |
 | kubevirt_vmi_storage_read_times_seconds_total | Metric | Counter | Total time spent on read operations. |

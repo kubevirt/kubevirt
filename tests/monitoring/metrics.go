@@ -120,7 +120,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err := libmonitoring.RegisterAllMetrics()
 			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
-			for _, metric := range libmonitoring.ListMetrics() {
+			for _, metric := range operatormetrics.ListMetrics() {
 				if excludedMetrics[metric.GetOpts().Name] {
 					continue
 				}

@@ -81,16 +81,6 @@ func (vmiReport *VirtualMachineInstanceReport) newCollectorResult(
 func (vmiReport *VirtualMachineInstanceReport) newCollectorResultWithLabels(
 	metric operatormetrics.Metric, value float64, additionalLabels map[string]string,
 ) operatormetrics.CollectorResult {
-	return operatormetrics.CollectorResult{
-		Metric:      metric,
-		ConstLabels: vmiReport.metricLabels(additionalLabels),
-		Value:       value,
-	}
-}
-
-func (vmiReport *VirtualMachineInstanceReport) metricLabels(
-	additionalLabels map[string]string,
-) map[string]string {
 	vmiLabels := map[string]string{
 		"node":      vmiReport.vmi.Status.NodeName,
 		"namespace": vmiReport.vmi.Namespace,
@@ -105,5 +95,9 @@ func (vmiReport *VirtualMachineInstanceReport) metricLabels(
 		vmiLabels[k] = v
 	}
 
-	return vmiLabels
+	return operatormetrics.CollectorResult{
+		Metric:      metric,
+		ConstLabels: vmiLabels,
+		Value:       value,
+	}
 }

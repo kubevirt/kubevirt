@@ -10,6 +10,7 @@ go_library(
         "//tests/libmonitoring:go_default_library",
         "//vendor/github.com/kubevirt/monitoring/pkg/metrics/parser:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
     ],
 )
 
