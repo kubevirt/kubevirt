@@ -50,6 +50,7 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -94,12 +95,14 @@ type VMBackupController struct {
 	vmiStore              cache.Store
 	pvcStore              cache.Store
 	vmExportStore         cache.Store
+	podIndexer            cache.Indexer
 	recorder              record.EventRecorder
 	backupQueue           workqueue.TypedRateLimitingInterface[string]
 	trackerQueue          workqueue.TypedRateLimitingInterface[string]
 	hasSynced             func() bool
 	caCertManager         certificate.Manager
 	exportCaManager       kvtls.ClientCAManager
+	clusterConfig         *virtconfig.ClusterConfig
 }
 
 func NewVMBackupController(client kubecli.KubevirtClient,
@@ -110,8 +113,10 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 	pvcInformer cache.SharedIndexInformer,
 	vmExportInformer cache.SharedIndexInformer,
 	cmInformer cache.SharedIndexInformer,
+	podInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	kubevirtNamespace string,
+	clusterConfig *virtconfig.ClusterConfig,
 ) (*VMBackupController, error) {
 	c := &VMBackupController{
 		backupQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -128,15 +133,17 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 		vmiStore:              vmiInformer.GetStore(),
 		pvcStore:              pvcInformer.GetStore(),
 		vmExportStore:         vmExportInformer.GetStore(),
+		podIndexer:            podInformer.GetIndexer(),
 		recorder:              recorder,
 		client:                client,
 		exportCaManager:       kvtls.NewCAManager(cmInformer.GetStore(), kubevirtNamespace, "kubevirt-export-ca"),
+		clusterConfig:         clusterConfig,
 	}
 
 	initCert(c)
 
 	c.hasSynced = func() bool {
-		return backupInformer.HasSynced() && backupTrackerInformer.HasSynced() && vmInformer.HasSynced() && vmiInformer.HasSynced() && pvcInformer.HasSynced() && vmExportInformer.HasSynced()
+		return backupInformer.HasSynced() && backupTrackerInformer.HasSynced() && vmInformer.HasSynced() && vmiInformer.HasSynced() && pvcInformer.HasSynced() && vmExportInformer.HasSynced() && podInformer.HasSynced()
 	}
 
 	_, err := backupInformer.AddEventHandler(
@@ -473,6 +480,11 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 	}
 
 	backupStatus := getBackupStatus(vmi)
+
+	if ctrl.shouldReconcileOffline(backup, vmiExists, backupStatus) {
+		return ctrl.reconcileOffline(backup, backupTracker, sourceName, backupDeleting)
+	}
+
 	switch {
 	case backupStatus != nil && backupStatus.Completed:
 		return ctrl.reconcileCompleted(backup, vmi, backupTracker, backupStatus)
@@ -976,6 +988,10 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
 	}
 
+	return ctrl.patchTrackerCheckpoint(namespace, tracker, newCheckpoint)
+}
+
+func (ctrl *VMBackupController) patchTrackerCheckpoint(namespace string, tracker *backupv1.VirtualMachineBackupTracker, newCheckpoint backupv1.BackupCheckpoint) error {
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
 		LatestCheckpoint: &newCheckpoint,
 	}
@@ -1055,6 +1071,11 @@ func isBackupFailed(backup *backupv1.VirtualMachineBackup) bool {
 
 func IsBackupTerminal(backup *backupv1.VirtualMachineBackup) bool {
 	return isBackupComplete(backup) || isBackupFailed(backup)
+}
+
+func isBackupExportReady(backup *backupv1.VirtualMachineBackup) bool {
+	cond := meta.FindStatusCondition(backupConditions(backup), string(backupv1.ConditionProgressing))
+	return cond != nil && cond.Reason == backupv1.ReasonExportReady
 }
 
 func isBackupDeleting(backup *backupv1.VirtualMachineBackup) bool {
