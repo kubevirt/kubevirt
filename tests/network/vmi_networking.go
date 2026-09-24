@@ -93,11 +93,11 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
 				inboundVMIWithMultiQueueSingleCPU = vmiWithMultiQueue()
 
-				outboundVMI = runVMI(outboundVMI)
+				outboundVMI = runVMI(outboundVMI, console.LoginToAlpine, v1.RunStrategyAlways)
 			})
 
 			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				vmi := runVMI(*vmiRef)
+				vmi := runVMI(*vmiRef, console.LoginToAlpine, v1.RunStrategyAlways)
 				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0
@@ -172,9 +172,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		})
 
 		It("clients should be able to reach VM workload, with propagated IP from a pod", func() {
-			inboundVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpineWithTestTooling(), metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToAlpine)
+			inboundVMI = runVMI(libvmifact.NewAlpineWithTestTooling(), console.LoginToAlpine, v1.RunStrategyAlways)
+
 			const testPort = 1500
 			vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToAlpine)
 
@@ -183,7 +182,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			By("start connectivity job on the same node as the VM")
 			localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
 			localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
-			localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
+			localNodeTCPJob, err := virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("start connectivity job on different node")
@@ -226,10 +225,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)
 
-			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			vmi = runVMI(vmi, console.LoginToAlpine, v1.RunStrategyAlways)
 
 			By("verifying vendors for respective PCI devices")
 			const (
@@ -240,7 +236,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				redhatVendorID = "0x1af4"
 			)
 
-			err = console.SafeExpectBatch(vmi, []expect.Batcher{
+			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000PciAddress)},
@@ -253,17 +249,12 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	})
 
 	It("[test_id:1774]should not configure any external interfaces when a VMI has no networks and auto attachment is disabled", decorators.WgS390x, func() {
-		vmi := libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false))
-
-		var err error
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		vmi := runVMI(libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false)), console.LoginToAlpine, v1.RunStrategyAlways)
 
 		Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
 
 		By("checking that loopback is the only guest interface")
-		err = console.SafeExpectBatch(vmi, []expect.Batcher{
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: ""},
 			&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
@@ -275,20 +266,20 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	It("VMI with an interface that has ACPI Index set", func() {
 		const acpiIndex = 101
 		const pciAddress = "0000:01:00.0"
-		iface := *v1.DefaultMasqueradeNetworkInterface()
-		iface.ACPIIndex = acpiIndex
-		iface.PciAddress = pciAddress
-		testVMI := libvmifact.NewAlpine(
-			libvmi.WithInterface(iface),
+
+		vmi := libvmifact.NewAlpine(
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+				libvmi.WithMasqueradeBinding(),
+				libvmi.WithPciAddress(pciAddress),
+				libvmi.WithACPIIndex(acpiIndex),
+			),
+			),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
-		var err error
-		testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 
-		libwait.WaitUntilVMIReady(testVMI, console.LoginToAlpine)
+		vmi = runVMI(vmi, console.LoginToAlpine, v1.RunStrategyAlways)
 
-		err = console.SafeExpectBatch(testVMI, []expect.Batcher{
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: ""},
 			&expect.BSnd{S: "ls /sys/bus/pci/devices/" + pciAddress + "/virtio0/net\n"},
@@ -303,36 +294,32 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		It("[test_id:1777]should disable learning on pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 			By("checking learning flag")
-			learningDisabledVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			vmi := runVMI(libvmifact.NewAlpine(), console.LoginToAlpine, v1.RunStrategyAlways)
 
-			libwait.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
-			checkLearningState(learningDisabledVMI, "0")
+			checkLearningState(vmi, "0")
 		})
 	})
 
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", decorators.WgS390x, func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
 			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
 			// The leading zero is intentional.
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
 			const NTPServerWithLeadingZeros = "0127.0.0.3"
 
-			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
 				NTPServers:     []string{"127.0.0.1", "127.0.0.2", NTPServerWithLeadingZeros},
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			dhcpVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dhcpVMI)).Create(context.Background(), dhcpVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dhcpVMI = libwait.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
+			vmi = runVMI(vmi, console.LoginToFedora, v1.RunStrategyAlways)
 
-			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
+			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
@@ -356,23 +343,23 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	Context("VirtualMachineInstance with custom dns", func() {
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			dnsVMI := libvmifact.NewAlpineWithTestTooling()
 
-			dnsVMI.Spec.DNSPolicy = "None"
+			vmi := libvmifact.NewAlpineWithTestTooling()
+			vmi.Spec.DNSPolicy = "None"
 
 			// This IPv4 address tests backwards compatibility of the "DNSConfig.Nameservers" field.
 			// The leading zero is intentional.
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
 			const DNSNameserverWithLeadingZeros = "01.1.1.1"
-			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
+			vmi.Spec.DNSConfig = &k8sv1.PodDNSConfig{
 				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
 				Searches:    []string{"example.com"},
 			}
-			dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToAlpine)
+
+			vmi = runVMI(vmi, console.LoginToAlpine, v1.RunStrategyAlways)
+
 			const catResolvConf = "cat /etc/resolv.conf\n"
-			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
+			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: catResolvConf},
@@ -453,19 +440,11 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			DescribeTable("ipv4", func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv4()
 
-				var err error
-				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), clientVMI, metav1.CreateOptions{},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
+				clientVMI = runVMI(clientVMI, console.LoginToAlpine, v1.RunStrategyAlways)
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
-				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), serverVMI, metav1.CreateOptions{},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
+				serverVMI = runVMI(serverVMI, console.LoginToAlpine, v1.RunStrategyAlways)
+
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
@@ -505,11 +484,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					dns = flags.ConnectivityCheckDNS
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), conformanceVMI(), metav1.CreateOptions{},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+				vmi := runVMI(conformanceVMI(), console.LoginToAlpine, v1.RunStrategyAlways)
 
 				By("Checking ping (IPv4)")
 				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
@@ -521,17 +496,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+				clientVMI = runVMI(clientVMI, console.LoginToFedora, v1.RunStrategyAlways)
 
 				serverVMI, err := newFedoraMasqueradeIPv6VMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
-				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
+				serverVMI = runVMI(serverVMI, console.LoginToFedora, v1.RunStrategyAlways)
 
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
@@ -559,9 +530,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = runVMI(vmi, console.LoginToFedora, v1.RunStrategyAlways)
 
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
 				Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
@@ -705,7 +674,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					cloudinit.WithEthernet("eth0",
 						cloudinit.WithDHCP4Enabled(),
 						cloudinit.WithDHCP6Enabled(),
-						cloudinit.WithAddresses(""), // This is a workaround o make fedora client to configure local IPv6
+						cloudinit.WithAddresses(""), // This is a workaround to make fedora client to configure local IPv6
 					),
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -717,18 +686,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				By("Wait for VMI to be ready")
+				vmi = runVMI(vmi, console.LoginToFedora, v1.RunStrategyAlways)
 
 				By("Create another VMI")
 				anotherVmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
-				anotherVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Wait for VMIs to be ready")
-				anotherVmi = libwait.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
-
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				By("Wait for another VMI to be ready")
+				anotherVmi = runVMI(anotherVmi, console.LoginToAlpine, v1.RunStrategyAlways)
 			})
 
 			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
@@ -854,13 +818,21 @@ func vmiHasCustomMacAddress(vmi *v1.VirtualMachineInstance) bool {
 		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress != ""
 }
 
-func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+func runVMI(vmi *v1.VirtualMachineInstance, loginFn console.LoginToFunction, strategy v1.VirtualMachineRunStrategy) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
+	ns := testsuite.GetTestNamespace(nil)
+	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(strategy))
 
-	var err error
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+
 	Expect(err).ToNot(HaveOccurred())
-	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+	Eventually(func() error {
+		vmi, err = virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		return err
+	}, 60*time.Second, 1*time.Second).Should(Succeed())
+
+	vmi = libwait.WaitUntilVMIReady(vmi, loginFn)
 	return vmi
 }
 
