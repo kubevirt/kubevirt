@@ -20876,6 +20876,10 @@
       "description": "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
       "$ref": "#/definitions/v1alpha1.BackupLinks"
      },
+     "offline": {
+      "description": "Offline is set to true when the backup was taken while the VM was stopped (no running VMI), using persisted QCOW2 dirty bitmaps served by qemu-nbd.",
+      "type": "boolean"
+     },
      "type": {
       "description": "Type indicates if the backup was full or incremental",
       "type": "string"

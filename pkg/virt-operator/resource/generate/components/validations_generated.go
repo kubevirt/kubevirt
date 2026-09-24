@@ -11015,6 +11015,11 @@ var CRDsValidation map[string]string = map[string]string{
               - cert
               type: object
           type: object
+        offline:
+          description: |-
+            Offline is set to true when the backup was taken while the VM was stopped
+            (no running VMI), using persisted QCOW2 dirty bitmaps served by qemu-nbd.
+          type: boolean
         type:
           description: Type indicates if the backup was full or incremental
           type: string
