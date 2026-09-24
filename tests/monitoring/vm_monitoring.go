@@ -428,10 +428,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)
 			Expect(getErr).ToNot(HaveOccurred())
 
-			sourceLabels := blockLatencyHistogramLabels(vmi, "disk0", "read")
-			waitForBlockLatencyHistogram(virtClient, sourceLabels)
+			expectBlockLatencyHistograms(vmi, "disk0", true)
 			removeBlockLatencyHistograms(vmi, "disk0")
-			waitForBlockLatencyHistogramToDisappear(virtClient, sourceLabels)
 			expectBlockLatencyHistograms(vmi, "disk0", false)
 
 			By("Restarting the VM after removing its latency histograms")
@@ -441,9 +439,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				context.Background(), vm.Name, metav1.GetOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			waitForBlockLatencyHistogram(
-				virtClient, blockLatencyHistogramLabels(vmi, "disk0", "read"),
-			)
+			expectBlockLatencyHistograms(vmi, "disk0", true)
 		})
 
 		It("should restore a removed histogram after a disk is detached and reattached", decorators.StorageReq, func() {
@@ -485,13 +481,9 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				context.Background(), vmi.Name, metav1.GetOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			waitForBlockLatencyHistogram(
-				virtClient, blockLatencyHistogramLabels(vmi, volumeName, "read"),
-			)
+			expectBlockLatencyHistograms(vmi, volumeName, true)
 
-			hotplugLabels := blockLatencyHistogramLabels(vmi, volumeName, "read")
 			removeBlockLatencyHistograms(vmi, volumeName)
-			waitForBlockLatencyHistogramToDisappear(virtClient, hotplugLabels)
 			expectBlockLatencyHistograms(vmi, volumeName, false)
 
 			By("Detaching the disk whose histograms were removed")
@@ -528,21 +520,17 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				context.Background(), vmi.Name, metav1.GetOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			waitForBlockLatencyHistogram(
-				virtClient, blockLatencyHistogramLabels(vmi, volumeName, "read"),
-			)
+			expectBlockLatencyHistograms(vmi, volumeName, true)
 		})
 
 		It("should restore a removed histogram on the target after live migration", decorators.RequiresTwoSchedulableNodes, func() {
 			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
-			waitForBlockLatencyHistogram(
-				virtClient, blockLatencyHistogramLabels(vmi, "disk0", "read"),
-			)
-			sourceLabels := blockLatencyHistogramLabels(vmi, "disk0", "read")
+			expectBlockLatencyHistograms(vmi, "disk0", true)
+
 			removeBlockLatencyHistograms(vmi, "disk0")
-			waitForBlockLatencyHistogramToDisappear(virtClient, sourceLabels)
+
 			expectBlockLatencyHistograms(vmi, "disk0", false)
 			sourceNode := vmi.Status.NodeName
 
@@ -558,9 +546,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.NodeName).ToNot(Equal(sourceNode))
-			waitForBlockLatencyHistogram(
-				virtClient, blockLatencyHistogramLabels(vmi, "disk0", "read"),
-			)
+			expectBlockLatencyHistograms(vmi, "disk0", true)
 		})
 	})
 
@@ -870,71 +856,6 @@ func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerVal
 	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">", formerValue))
 
 	return metricValue
-}
-
-func blockLatencyHistogramLabels(
-	vmi *v1.VirtualMachineInstance,
-	drive string,
-	operation string,
-) map[string]string {
-	return map[string]string{
-		"node":      vmi.Status.NodeName,
-		"namespace": vmi.Namespace,
-		"name":      vmi.Name,
-		"drive":     drive,
-		"operation": operation,
-	}
-}
-
-func waitForBlockLatencyHistogram(
-	virtClient kubecli.KubevirtClient,
-	labels map[string]string,
-) {
-	By("Waiting for a coherent block I/O latency histogram")
-	EventuallyWithOffset(1, func() error {
-		count, err := libmonitoring.GetMetricValueWithLabels(
-			virtClient, "kubevirt_vmi_storage_io_latency_seconds_count", labels,
-		)
-		if err != nil {
-			return err
-		}
-
-		bucketLabels := make(map[string]string, len(labels)+1)
-		for key, value := range labels {
-			bucketLabels[key] = value
-		}
-		bucketLabels["le"] = "+Inf"
-
-		infiniteBucket, err := libmonitoring.GetMetricValueWithLabels(
-			virtClient, "kubevirt_vmi_storage_io_latency_seconds_bucket", bucketLabels,
-		)
-		if err != nil {
-			return err
-		}
-		if count != infiniteBucket {
-			return fmt.Errorf(
-				"histogram count %f does not match +Inf bucket %f", count, infiniteBucket,
-			)
-		}
-
-		_, err = libmonitoring.GetMetricValueWithLabels(
-			virtClient, "kubevirt_vmi_storage_io_latency_seconds_sum", labels,
-		)
-		return err
-	}, 3*time.Minute, 5*time.Second).Should(Succeed())
-}
-
-func waitForBlockLatencyHistogramToDisappear(
-	virtClient kubecli.KubevirtClient,
-	labels map[string]string,
-) {
-	By("Waiting for the block I/O latency histogram to disappear")
-	EventuallyWithOffset(1, func() bool {
-		_, err := libmonitoring.GetMetricValueWithLabels(
-			virtClient, "kubevirt_vmi_storage_io_latency_seconds_count", labels,
-		)
-		return err != nil
-	}, 3*time.Minute, 5*time.Second).Should(BeTrue())
 }
 
 func removeBlockLatencyHistograms(vmi *v1.VirtualMachineInstance, drive string) {

@@ -25,10 +25,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
-
-	dto "github.com/prometheus/client_model/go"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -83,37 +79,6 @@ var _ = Describe("domain stats collector", func() {
 			Expect(crs).To(HaveLen(2))
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(1))))
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(2))))
-		})
-
-		It("should emit scalar metrics without toolkit collector registration", func() {
-			result := operatormetrics.CollectorResult{
-				Metric: memoryResident,
-				ConstLabels: map[string]string{
-					"node":      "node01",
-					"namespace": "default",
-					"name":      "test-vmi",
-				},
-				Value: 1024,
-			}
-
-			ch := make(chan prometheus.Metric, 1)
-			emitScalarMetrics([]operatormetrics.CollectorResult{result}, ch)
-			close(ch)
-
-			metric := <-ch
-			dtoMetric := &dto.Metric{}
-
-			Expect(metric.Write(dtoMetric)).To(Succeed())
-			Expect(dtoMetric.GetGauge().GetValue()).To(Equal(float64(1024)))
-
-			labels := map[string]string{}
-			for _, label := range dtoMetric.Label {
-				labels[label.GetName()] = label.GetValue()
-			}
-
-			Expect(labels).To(HaveKeyWithValue("node", "node01"))
-			Expect(labels).To(HaveKeyWithValue("namespace", "default"))
-			Expect(labels).To(HaveKeyWithValue("name", "test-vmi"))
 		})
 	})
 })

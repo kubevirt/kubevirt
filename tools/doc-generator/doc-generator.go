@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 
@@ -16,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	metricsList := libmonitoring.ListMetrics()
+	metricsList := operatormetrics.ListMetrics()
 	rulesList := rules.ListRecordingRules()
 
 	docsString := docs.BuildMetricsDocs(title, metricsList, rulesList)
