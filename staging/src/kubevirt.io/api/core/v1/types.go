@@ -747,6 +747,10 @@ const (
 
 	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
 	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
+
+	// VirtualMachineInstanceBackupInProgress indicates an offline backup is
+	// progressing for this VM and virt-launcher creation is being held off.
+	VirtualMachineInstanceBackupInProgress VirtualMachineInstanceConditionType = "BackupInProgress"
 )
 
 // These are valid reasons for VMI conditions.
