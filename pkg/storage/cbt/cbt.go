@@ -319,16 +319,24 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 		volume.VolumeSource.HostDisk != nil
 }
 
+// CBTOverlaySubDir is the backend-storage PVC subdirectory holding CBT overlays.
+const CBTOverlaySubDir = "cbt"
+
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
-	cbtPath := "/var/lib/libvirt/qemu/cbt"
+	base := "/var/lib/libvirt/qemu"
 	if vmitrait.IsNonRoot(vmi) {
-		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")
+		base = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu")
 	}
 
-	return cbtPath
+	return filepath.Join(base, CBTOverlaySubDir)
 }
 
 func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
 	cbtPath := PathForCBT(vmi)
 	return filepath.Join(cbtPath, volumeName+".qcow2")
+}
+
+// GetQCOW2OverlayPVCPath is like GetQCOW2OverlayPath, but relative to the PVC root.
+func GetQCOW2OverlayPVCPath(volumeName string) string {
+	return filepath.Join(CBTOverlaySubDir, volumeName+".qcow2")
 }

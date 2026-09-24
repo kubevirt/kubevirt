@@ -87,6 +87,8 @@ const (
 	podPendingReason          = "PodPending"
 	podReadyReason            = "PodReady"
 	podCompletedReason        = "PodCompleted"
+	podFailedReason           = "PodFailed"
+	EmptyIncrementalReason    = "EmptyIncremental"
 	vmNotFoundReason          = "VMNotFound"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
 	noVolumeVMReason          = "VMNoVolumes"
@@ -760,6 +762,13 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if vmBackup.Status == nil || vmBackup.Status.Type == "" {
 			return 0, fmt.Errorf("backup status empty")
 		}
+		if isOfflineBackup(vmBackup) {
+			source, err := ctrl.getOfflineBackupSource(vmExport, vmBackup)
+			if err != nil {
+				return 0, err
+			}
+			return ctrl.handleSource(vmExport, source)
+		}
 		caCert, exists, err := ctrl.backupCA()
 		if err != nil || !exists {
 			return 0, fmt.Errorf("could not obtain VirtualMachineBackup tunnel CA: %w", err)
@@ -813,7 +822,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 		}
 
 		if source.IsSourceAvailable() {
-			if err := ctrl.checkPod(vmExport, pod); err != nil {
+			if err := ctrl.checkPod(vmExport, pod, source); err != nil {
 				return nil, err
 			}
 		} else {
@@ -835,19 +844,42 @@ func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMach
 	return nil
 }
 
-func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
+func isEmptyIncrementalPod(pod *corev1.Pod) bool {
+	if pod.Status.Phase != corev1.PodFailed {
+		return false
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Terminated != nil && cs.State.Terminated.Message == EmptyIncrementalReason {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, source exportSource) error {
 	if pod.DeletionTimestamp != nil {
 		return nil
 	}
 
-	if ttlExpiration := getExpirationTime(vmExport); !time.Now().Before(ttlExpiration) {
-		if err := ctrl.Client.VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
-			return err
+	// The TTL is for pull mode. Offline push just runs to completion.
+	offlinePush := false
+	if offline, ok := source.(*OfflineVMBackupSource); ok && offline.isPush() {
+		offlinePush = true
+	}
+	if !offlinePush {
+		if ttlExpiration := getExpirationTime(vmExport); !time.Now().Before(ttlExpiration) {
+			if err := ctrl.Client.VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
 	}
 
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		// Keep the terminal pod so the backup controller can observe the outcome.
+		if _, ok := source.(*OfflineVMBackupSource); ok {
+			return nil
+		}
 		// The server died or completed, delete the pod.
 		return ctrl.deleteExporterPod(vmExport, pod, exporterPodFailedOrCompletedEvent, fmt.Sprintf("Exporter pod %s/%s is in phase %s", pod.Namespace, pod.Name, pod.Status.Phase))
 	}
@@ -1582,6 +1614,13 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		} else if exporterPod.Status.Phase == corev1.PodSucceeded {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podCompletedReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Terminated
+		} else if _, ok := source.(*OfflineVMBackupSource); ok && isEmptyIncrementalPod(exporterPod) {
+			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, EmptyIncrementalReason, ""))
+			vmExportCopy.Status.Phase = exportv1.Pending
+		} else if _, ok := source.(*OfflineVMBackupSource); ok && exporterPod.Status.Phase == corev1.PodFailed {
+			// No Failed phase exists in the export API, so this surfaces via the Ready reason instead.
+			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podFailedReason, ""))
+			vmExportCopy.Status.Phase = exportv1.Pending
 		} else if exporterPod.Status.Phase == corev1.PodPending {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podPendingReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Pending
