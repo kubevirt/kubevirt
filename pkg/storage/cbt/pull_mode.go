@@ -168,14 +168,19 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 			},
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
-			TokenSecretRef: &backup.Spec.TokenSecretRef,
-			TTLDuration:    getPullBackupRemainingTTL(backup),
+			TTLDuration: getPullBackupRemainingTTL(backup),
 			Source: corev1.TypedLocalObjectReference{
 				APIGroup: pointer.P(backupv1.VirtualMachineBackupGroupVersionKind.Group),
 				Kind:     backupv1.VirtualMachineBackupGroupVersionKind.Kind,
 				Name:     backup.Name,
 			},
 		},
+	}
+
+	// Leave the ref nil when there is no token so the export controller generates
+	// a default secret. A non-nil pointer to "" would not trigger that.
+	if backup.Spec.TokenSecretRef != "" {
+		vmExport.Spec.TokenSecretRef = &backup.Spec.TokenSecretRef
 	}
 
 	_, err := ctrl.client.VirtualMachineExport(backup.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
