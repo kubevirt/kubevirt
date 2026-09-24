@@ -324,6 +324,9 @@ var _ = Describe("Backup Controller", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		podInformer, _ := testutils.NewFakeInformerFor(&corev1.Pod{})
+
 		controller = &VMBackupController{
 			client:                virtClient,
 			backupInformer:        backupInformer,
@@ -332,6 +335,8 @@ var _ = Describe("Backup Controller", func() {
 			vmiStore:              vmiInformer.GetStore(),
 			pvcStore:              pvcInformer.GetStore(),
 			vmExportStore:         vmExportInformer.GetStore(),
+			podIndexer:            podInformer.GetIndexer(),
+			clusterConfig:         clusterConfig,
 			recorder:              recorder,
 			backupQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
 				workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -1877,6 +1882,22 @@ var _ = Describe("Backup Controller", func() {
 			vmExport = createBackupVMExport(backup)
 			vmi = createInitializedVMI()
 			controller.vmiStore.Add(vmi)
+		})
+
+		It("creates the export with a nil TokenSecretRef when the backup specifies none", func() {
+			Expect(controller.createBackupExport(backup)).To(Succeed())
+			created, err := kubevirtClient.ExportV1().VirtualMachineExports(testNamespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(created.Spec.TokenSecretRef).To(BeNil())
+		})
+
+		It("creates the export with the backup's TokenSecretRef when set", func() {
+			backup.Spec.TokenSecretRef = "my-secret"
+			Expect(controller.createBackupExport(backup)).To(Succeed())
+			created, err := kubevirtClient.ExportV1().VirtualMachineExports(testNamespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(created.Spec.TokenSecretRef).ToNot(BeNil())
+			Expect(*created.Spec.TokenSecretRef).To(Equal("my-secret"))
 		})
 
 		It("should return false for a new backup", func() {
