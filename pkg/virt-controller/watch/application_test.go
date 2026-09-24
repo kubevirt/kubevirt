@@ -121,6 +121,7 @@ var _ = Describe("Application", func() {
 		vmExportInformer, _ := testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		configMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		routeConfigMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		externalCAConfigMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
@@ -256,6 +257,7 @@ var _ = Describe("Application", func() {
 			ServiceInformer:             exportServiceInformer,
 			ConfigMapInformer:           configMapInformer,
 			RouteConfigMapInformer:      routeConfigMapInformer,
+			ExternalCAConfigMapInformer: externalCAConfigMapInformer,
 			Recorder:                    recorder,
 			SecretInformer:              secretInformer,
 			VMSnapshotInformer:          vmSnapshotInformer,

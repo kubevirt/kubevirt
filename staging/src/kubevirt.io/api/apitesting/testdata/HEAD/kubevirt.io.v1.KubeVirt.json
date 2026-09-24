@@ -428,7 +428,10 @@
           }
         }
       },
-      "roleAggregationStrategy": "roleAggregationStrategyValue"
+      "roleAggregationStrategy": "roleAggregationStrategyValue",
+      "exportConfiguration": {
+        "externalCertificationStrategy": "externalCertificationStrategyValue"
+      }
     },
     "infra": {
       "nodePlacement": {
