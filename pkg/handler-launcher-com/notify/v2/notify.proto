@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package kubevirt.notify.v2;
+option go_package = "v2";
+
+service Notify {
+  rpc DomainEvents(EmptyRequest) returns (stream DomainEvent) {}
+  rpc KubernetesEvents(EmptyRequest) returns (stream KubernetesEvent) {}
+}
+
+message EmptyRequest {}
+
+message DomainEvent {
+  bytes domain = 1;
+  string eventType = 2;
+}
+
+message KubernetesEvent{
+  string type = 1;
+  string reason = 2;
+  string message = 3;
+}
