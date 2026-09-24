@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -200,4 +201,12 @@ func (f *fakeFrameworkInformerFactory) DummyCDI() cache.SharedIndexInformer {
 
 func (f *fakeFrameworkInformerFactory) DummyCDIConfig() cache.SharedIndexInformer {
 	return f.informer(&cdiv1.CDIConfig{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineBackup() cache.SharedIndexInformer {
+	return f.informer(&backupv1.VirtualMachineBackup{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineBackupTracker() cache.SharedIndexInformer {
+	return f.informer(&backupv1.VirtualMachineBackupTracker{})
 }

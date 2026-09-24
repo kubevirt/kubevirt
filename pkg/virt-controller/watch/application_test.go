@@ -160,6 +160,8 @@ var _ = Describe("Application", func() {
 			cdiInformer,
 			cdiConfigInformer,
 			kvInformer,
+			backupInformer,
+			backupTrackerInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 			nil,
@@ -296,8 +298,10 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			vmExportInformer,
 			configMapInformer,
+			podInformer,
 			recorder,
 			"",
+			config,
 		)
 
 		app.readyChan = make(chan bool)
