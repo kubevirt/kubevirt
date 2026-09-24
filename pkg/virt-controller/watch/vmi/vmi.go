@@ -67,6 +67,8 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
+	vmBackupInformer cache.SharedIndexInformer,
+	vmBackupTrackerInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
@@ -87,6 +89,8 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		podIndexer:                        podInformer.GetIndexer(),
 		pvcIndexer:                        pvcInformer.GetIndexer(),
 		migrationIndexer:                  migrationInformer.GetIndexer(),
+		vmBackupStore:                     vmBackupInformer.GetStore(),
+		vmBackupTrackerStore:              vmBackupTrackerInformer.GetStore(),
 		recorder:                          recorder,
 		clientset:                         clientset,
 		podExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -112,7 +116,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
 			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
-			kubeVirtInformer.HasSynced()
+			kubeVirtInformer.HasSynced() && vmBackupInformer.HasSynced() && vmBackupTrackerInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -152,6 +156,15 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 
 	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateKubeVirt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = vmBackupInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addVMBackup,
+		UpdateFunc: func(_, newObj any) { c.addVMBackup(newObj) },
+		DeleteFunc: c.addVMBackup,
 	})
 	if err != nil {
 		return nil, err
@@ -223,6 +236,8 @@ type Controller struct {
 	podIndexer                        cache.Indexer
 	pvcIndexer                        cache.Indexer
 	migrationIndexer                  cache.Indexer
+	vmBackupStore                     cache.Store
+	vmBackupTrackerStore              cache.Store
 	topologyHinter                    topology.Hinter
 	recorder                          record.EventRecorder
 	podExpectations                   *controller.UIDTrackingControllerExpectations
