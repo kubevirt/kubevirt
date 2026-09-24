@@ -457,7 +457,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 				Name:      volumeName,
 				ReadOnly:  false,
 				MountPath: cbt.PathForCBT(vmi),
-				SubPath:   "cbt",
+				SubPath:   cbt.CBTOverlaySubDir,
 			})
 		}
 

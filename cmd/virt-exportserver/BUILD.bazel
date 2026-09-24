@@ -14,6 +14,7 @@ go_library(
         "//pkg/service:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/export/virt-exportserver:go_default_library",
+        "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
 )
@@ -21,7 +22,6 @@ go_library(
 go_binary(
     name = "virt-exportserver",
     embed = [":go_default_library"],
-    static = "on",
     visibility = ["//visibility:public"],
     x_defs = version_x_defs(),
 )
