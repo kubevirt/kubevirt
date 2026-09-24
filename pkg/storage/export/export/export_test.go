@@ -526,6 +526,51 @@ var _ = Describe("Export controller", func() {
 		}
 	}
 
+	Context("checkPod terminal-phase handling", func() {
+		var vmExport *exportv1.VirtualMachineExport
+
+		BeforeEach(func() {
+			vmExport = createPVCVMExport()
+			vmExport.CreationTimestamp = metav1.Now() // keep the export TTL from firing
+		})
+
+		succeededPod := func() *k8sv1.Pod {
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "exporter", Namespace: testNamespace},
+				Status:     k8sv1.PodStatus{Phase: k8sv1.PodSucceeded},
+			}
+			_, err := k8sClient.CoreV1().Pods(testNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pod
+		}
+
+		podExists := func(name string) bool {
+			_, err := k8sClient.CoreV1().Pods(testNamespace).Get(context.Background(), name, metav1.GetOptions{})
+			return !errors.IsNotFound(err)
+		}
+
+		pushSource := func() *OfflineVMBackupSource {
+			backup := &backupv1.VirtualMachineBackup{
+				ObjectMeta: metav1.ObjectMeta{Name: "backup", Namespace: testNamespace},
+				Spec:       backupv1.VirtualMachineBackupSpec{Mode: pointer.P(backupv1.PushMode)},
+				Status:     &backupv1.VirtualMachineBackupStatus{Offline: pointer.P(true)},
+			}
+			return NewOfflineVMBackupSource(backup, "testvm", nil, nil, nil, "")
+		}
+
+		It("keeps a succeeded offline-push exporter pod (one-shot job) for the backup controller to observe", func() {
+			pod := succeededPod()
+			Expect(controller.checkPod(vmExport, pod, pushSource())).To(Succeed())
+			Expect(podExists(pod.Name)).To(BeTrue())
+		})
+
+		It("deletes a succeeded pod for a recyclable (non-push) source", func() {
+			pod := succeededPod()
+			Expect(controller.checkPod(vmExport, pod, NewPVCSource(nil))).To(Succeed())
+			Expect(podExists(pod.Name)).To(BeFalse())
+		})
+	})
+
 	It("should add vmexport to queue if matching PVC is added", func() {
 		vmExport := createPVCVMExport()
 		pvc := &k8sv1.PersistentVolumeClaim{
