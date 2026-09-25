@@ -3134,7 +3134,6 @@ rpm(
     sha256 = "52b70824119063f34cb8a35a69a46d44384aa10c5af1c58091f63407f0585fad",
     urls = [
         "http://mirror.stream.centos.org/10-stream/AppStream/aarch64/os/Packages/fips-provider-next-1.5.2-6.el10.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/52b70824119063f34cb8a35a69a46d44384aa10c5af1c58091f63407f0585fad",
     ],
 )
 
@@ -3949,47 +3948,42 @@ rpm(
 )
 
 rpm(
-    name = "glibc-langpack-dz-0__2.34-277.el9.s390x",
-    sha256 = "0fc6685d89491778bc52dcb27fc80ae7caa84d270683352bc17998a0468a2a9f",
+    name = "glibc-langpack-el-0__2.34-277.el9.aarch64",
+    sha256 = "df6ac9d20fa44ccc2d8a91b5b2bb139aa8b3825e1f2349371c01040fefeec54e",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-dz-2.34-277.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/0fc6685d89491778bc52dcb27fc80ae7caa84d270683352bc17998a0468a2a9f",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-el-2.34-277.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "glibc-langpack-es-0__2.34-277.el9.x86_64",
-    sha256 = "447f0cf52f9b26a1ecbc623143ca47f7b3b627afae1a19c5105896d1f24131ea",
+    name = "glibc-langpack-es-0__2.34-277.el9.s390x",
+    sha256 = "7a96b0290901d99cc5caa8e9db4dbfdeb616d3225658c201a1ff277ca83c1987",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-es-2.34-277.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/447f0cf52f9b26a1ecbc623143ca47f7b3b627afae1a19c5105896d1f24131ea",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-es-2.34-277.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "glibc-langpack-et-0__2.34-277.el9.aarch64",
-    sha256 = "0dcc5d72ecb125ba02b12d7d8832de7aca8980728c6b34a6b266da55c2c5a52e",
+    name = "glibc-langpack-es-0__2.39-141.el10.aarch64",
+    sha256 = "aa29dbeaf9405e3374e31fb93f7bbf63af8d4ac9f8b8772810678b92f7ca75f1",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-et-2.34-277.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/0dcc5d72ecb125ba02b12d7d8832de7aca8980728c6b34a6b266da55c2c5a52e",
+        "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-langpack-es-2.39-141.el10.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "glibc-langpack-fa-0__2.39-141.el10.aarch64",
-    sha256 = "329669f422f4de89901b2598075628606dea334a52c95635f599df9389d511e7",
+    name = "glibc-langpack-es-0__2.39-141.el10.s390x",
+    sha256 = "346df1ca26650c45d44e8da3cc383b3b700c626c3aa18d78ea85491d1e07d86f",
     urls = [
-        "http://mirror.stream.centos.org/10-stream/BaseOS/aarch64/os/Packages/glibc-langpack-fa-2.39-141.el10.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/329669f422f4de89901b2598075628606dea334a52c95635f599df9389d511e7",
+        "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-langpack-es-2.39-141.el10.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "glibc-langpack-ff-0__2.39-141.el10.s390x",
-    sha256 = "a8ff0d3daf4e4eb84a1c88fd7c92890b880c99273fedb38db230156456a8ccf6",
+    name = "glibc-langpack-et-0__2.34-277.el9.x86_64",
+    sha256 = "96c918cc8e7bfdaad05a936d78b9837cbcb083750f89e8f96ce994dc09a5dd85",
     urls = [
-        "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-langpack-ff-2.39-141.el10.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/a8ff0d3daf4e4eb84a1c88fd7c92890b880c99273fedb38db230156456a8ccf6",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-et-2.34-277.el9.x86_64.rpm",
     ],
 )
 
@@ -13954,11 +13948,10 @@ rpm(
 )
 
 rpm(
-    name = "seabios-0__1.16.3-5.el10.x86_64",
-    sha256 = "ad1d031b21e250bfa29dffb7c6e18aac8ef1e1b2323c2ae0f96c2873af7d5992",
+    name = "seabios-0__1.17.0-1.el10.x86_64",
+    sha256 = "18044b16fa0f0256167f42ba6ab1f8b5ac338747e150d3c9aead064cd28255c9",
     urls = [
-        "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/seabios-1.16.3-5.el10.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/ad1d031b21e250bfa29dffb7c6e18aac8ef1e1b2323c2ae0f96c2873af7d5992",
+        "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/seabios-1.17.0-1.el10.x86_64.rpm",
     ],
 )
 
@@ -13972,11 +13965,10 @@ rpm(
 )
 
 rpm(
-    name = "seabios-bin-0__1.16.3-5.el10.x86_64",
-    sha256 = "8f0b1c87026c9050db60f7bf31412223d37347c976ee182c745e755d62b4aa16",
+    name = "seabios-bin-0__1.17.0-1.el10.x86_64",
+    sha256 = "5edf7ad5039c74faab0fe3bc7f9741db6153c6f9ebe3367d20701d4e659d930d",
     urls = [
-        "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/seabios-bin-1.16.3-5.el10.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/8f0b1c87026c9050db60f7bf31412223d37347c976ee182c745e755d62b4aa16",
+        "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/seabios-bin-1.17.0-1.el10.noarch.rpm",
     ],
 )
 
@@ -13990,11 +13982,10 @@ rpm(
 )
 
 rpm(
-    name = "seavgabios-bin-0__1.16.3-5.el10.x86_64",
-    sha256 = "300f98d8a80ef90efed959333ce5e1fe13925e071be56ac04bc1bd00e7146299",
+    name = "seavgabios-bin-0__1.17.0-1.el10.x86_64",
+    sha256 = "5ed6563e3d13189aa28fe86d0fef8540d61539aa44dd2d5558ca068e79df4ea2",
     urls = [
-        "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/seavgabios-bin-1.16.3-5.el10.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/300f98d8a80ef90efed959333ce5e1fe13925e071be56ac04bc1bd00e7146299",
+        "http://mirror.stream.centos.org/10-stream/AppStream/x86_64/os/Packages/seavgabios-bin-1.17.0-1.el10.noarch.rpm",
     ],
 )
 
