@@ -2606,10 +2606,10 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 280),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 280),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 414),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 414),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 281),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 281),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 415),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 415),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2686,8 +2686,8 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("on amd64", "amd64", 280),
-				Entry("on arm64", "arm64", 414),
+				Entry("on amd64", "amd64", 281),
+				Entry("on arm64", "arm64", 415),
 			)
 		})
 
