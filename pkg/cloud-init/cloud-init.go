@@ -32,12 +32,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
@@ -468,6 +471,23 @@ func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
 	cloudInitIsoFunc = isoFunc
 }
 
+type HasIPv6GlobalUnicastAddressFunc func(interfaceName string) bool
+
+var hasIPv6GlobalUnicastAddress HasIPv6GlobalUnicastAddressFunc = defaultHasIPv6GlobalUnicastAddress
+
+func defaultHasIPv6GlobalUnicastAddress(interfaceName string) bool {
+	handler := &netdriver.NetworkUtilsHandler{}
+	hasIP, err := handler.HasIPv6GlobalUnicastAddress(interfaceName)
+	if err != nil {
+		return false
+	}
+	return hasIP
+}
+
+func SetHasIPv6GlobalUnicastAddressFunction(f HasIPv6GlobalUnicastAddressFunc) {
+	hasIPv6GlobalUnicastAddress = f
+}
+
 func SetLocalDirectory(dir string) error {
 	err := util.MkdirAllWithNosec(dir)
 	if err != nil {
@@ -624,15 +644,17 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		return err
 	}
 
-	if data.UserData == "" && data.NetworkData == "" {
-		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
-	}
-	userData := []byte(data.UserData)
-
 	var networkData []byte
 	if data.NetworkData != "" {
 		networkData = []byte(data.NetworkData)
+	} else if defaultNetData := generateDefaultMasqueradeNetworkData(vmi, data); defaultNetData != "" {
+		networkData = []byte(defaultNetData)
 	}
+
+	if data.UserData == "" && len(networkData) == 0 {
+		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
+	}
+	userData := []byte(data.UserData)
 
 	err = diskutils.RemoveFilesIfExist(userFile, metaFile, networkFile, isoStaging)
 	if err != nil {
@@ -681,4 +703,120 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
 	return nil
+}
+
+type cloudInitNetworkConfigV2 struct {
+	Version   int                                    `json:"version"`
+	Ethernets map[string]cloudInitNetworkInterfaceV2 `json:"ethernets"`
+}
+
+type cloudInitNetworkInterfaceV2 struct {
+	Match     *cloudInitMatchV2  `json:"match,omitempty"`
+	SetName   string             `json:"set-name,omitempty"`
+	DHCP4     bool               `json:"dhcp4"`
+	Addresses []string           `json:"addresses,omitempty"`
+	Routes    []cloudInitRouteV2 `json:"routes,omitempty"`
+}
+
+type cloudInitMatchV2 struct {
+	MACAddress string `json:"macaddress"`
+}
+
+type cloudInitRouteV2 struct {
+	To  string `json:"to"`
+	Via string `json:"via"`
+}
+
+func generateDefaultMasqueradeNetworkData(vmi *v1.VirtualMachineInstance, data *CloudInitData) string {
+	if vmi == nil || data == nil || data.DataSource != DataSourceNoCloud || data.NetworkData != "" {
+		return ""
+	}
+
+	for _, volume := range vmi.Spec.Volumes {
+		if data.VolumeName != "" && volume.Name != data.VolumeName {
+			continue
+		}
+		if volume.CloudInitNoCloud != nil {
+			if volume.CloudInitNoCloud.NetworkData != "" ||
+				volume.CloudInitNoCloud.NetworkDataBase64 != "" ||
+				volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				return ""
+			}
+		}
+	}
+
+	var masqIface *v1.Interface
+	for i := range vmi.Spec.Domain.Devices.Interfaces {
+		if vmi.Spec.Domain.Devices.Interfaces[i].Masquerade != nil {
+			masqIface = &vmi.Spec.Domain.Devices.Interfaces[i]
+			break
+		}
+	}
+	if masqIface == nil {
+		return ""
+	}
+
+	var podNetwork *v1.Network
+	for i := range vmi.Spec.Networks {
+		if vmi.Spec.Networks[i].Name == masqIface.Name && vmi.Spec.Networks[i].Pod != nil {
+			podNetwork = &vmi.Spec.Networks[i]
+			break
+		}
+	}
+	if podNetwork == nil {
+		return ""
+	}
+
+	ipv6Enabled := podNetwork.Pod.VMIPv6NetworkCIDR != "" || hasIPv6GlobalUnicastAddress("eth0")
+	if !ipv6Enabled {
+		return ""
+	}
+
+	gatewayAddr, vmAddr, err := link.GenerateMasqueradeGatewayAndVmIPAddrs(podNetwork, netdriver.IPv6)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to generate masquerade IPv6 addresses for cloud-init")
+		return ""
+	}
+
+	macAddress := masqIface.MacAddress
+	if macAddress == "" {
+		for _, statusIface := range vmi.Status.Interfaces {
+			if statusIface.Name == masqIface.Name && statusIface.MAC != "" {
+				macAddress = statusIface.MAC
+				break
+			}
+		}
+	}
+	if macAddress == "" {
+		return ""
+	}
+
+	ifaceConfig := cloudInitNetworkInterfaceV2{
+		Match: &cloudInitMatchV2{
+			MACAddress: macAddress,
+		},
+		SetName:   "eth0",
+		DHCP4:     true,
+		Addresses: []string{vmAddr.String()},
+		Routes: []cloudInitRouteV2{
+			{
+				To:  "::/0",
+				Via: gatewayAddr.IP.String(),
+			},
+		},
+	}
+
+	config := cloudInitNetworkConfigV2{
+		Version: 2,
+		Ethernets: map[string]cloudInitNetworkInterfaceV2{
+			"eth0": ifaceConfig,
+		},
+	}
+
+	yamlBytes, err := yaml.Marshal(config)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to marshal cloud-init network configuration")
+		return ""
+	}
+	return string(yamlBytes)
 }
