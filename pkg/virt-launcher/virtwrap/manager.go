@@ -109,6 +109,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/probe"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage/diskdriver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -2943,7 +2944,7 @@ func (l *LibvirtDomainManager) syncGuestAgentProbePaused(vmi *v1.VirtualMachineI
 	paused, _ := strconv.ParseBool(vmi.Annotations[v1.PauseGuestAgentProbesAnnotation])
 	wasPaused := l.guestAgentProbePaused.Swap(paused)
 	if paused != wasPaused {
-		log.Log.Object(vmi).Infof("Guest agent probe pause state changed: paused=%t", paused)
+		log.Log.Object(vmi).Infof(probe.GuestAgentProbePauseStateChangedLogFmt, paused)
 	}
 }
 
