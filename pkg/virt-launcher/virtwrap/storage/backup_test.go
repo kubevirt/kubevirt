@@ -258,12 +258,10 @@ var _ = Describe("Backup", func() {
 			It("should freeze, start backup, and thaw", func() {
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"thawed"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"frozen"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
@@ -271,6 +269,9 @@ var _ = Describe("Backup", func() {
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).To(Equal(api.FSThawed))
 
 				// Verify backup metadata was initialized
 				backupMetadata, exists := metadataCache.Backup.Load()
@@ -288,16 +289,20 @@ var _ = Describe("Backup", func() {
 			It("should continue backup with QuiesceStatus=Failed", func() {
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"thawed"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(fmt.Errorf("freeze error"))
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"thawed"}`, nil)
+				mockDomain.EXPECT().Free().Return(nil)
+				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).ToNot(Equal(api.FSFrozen))
 
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -309,12 +314,10 @@ var _ = Describe("Backup", func() {
 			It("should record thaw failure in metadata", func() {
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"thawed"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"frozen"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(fmt.Errorf("thaw error"))
 				mockDomain.EXPECT().Free().Return(nil)
@@ -322,6 +325,9 @@ var _ = Describe("Backup", func() {
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).To(Equal(api.FSThawed))
 
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -335,12 +341,10 @@ var _ = Describe("Backup", func() {
 
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"thawed"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("backup begin failed"))
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"frozen"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
@@ -349,6 +353,9 @@ var _ = Describe("Backup", func() {
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("backup begin failed"))
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).To(Equal(api.FSThawed))
 
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -368,6 +375,9 @@ var _ = Describe("Backup", func() {
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).ToNot(Equal(api.FSFrozen))
 			})
 		})
 	})
