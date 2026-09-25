@@ -819,13 +819,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
 				// NOTE: using kubectl to post yaml directly
-				_, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "create", "-f", vmYaml.yamlFile, "--cache-dir", oldClientCacheDir)
-				Expect(err).ToNot(HaveOccurred(), stderr)
+				createResourceWithWebhookRetry(testsuite.GetTestNamespace(nil), vmYaml.yamlFile, oldClientCacheDir)
 
 				for _, vmSnapshot := range vmYaml.vmSnapshots {
 					By(fmt.Sprintf("Creating VM snapshot %s for vm %s", vmSnapshot.vmSnapshotName, vmYaml.vmName))
-					_, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "create", "-f", vmSnapshot.yamlFile, "--cache-dir", oldClientCacheDir)
-					Expect(err).ToNot(HaveOccurred(), stderr)
+					createResourceWithWebhookRetry(testsuite.GetTestNamespace(nil), vmSnapshot.yamlFile, oldClientCacheDir)
 				}
 
 				By("Starting VM")
@@ -975,8 +973,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 				By(fmt.Sprintf("Ensure vm %s can be restored from vmsnapshots", vmYaml.vmName))
 				for _, snapshot := range vmYaml.vmSnapshots {
-					_, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
-					Expect(err).ToNot(HaveOccurred(), stderr)
+					createResourceWithWebhookRetry(testsuite.GetTestNamespace(nil), snapshot.restoreYamlFile, newClientCacheDir)
 					Eventually(func() bool {
 						r, err := virtClient.VirtualMachineRestore(testsuite.GetTestNamespace(nil)).Get(context.Background(), snapshot.restoreName, metav1.GetOptions{})
 						if err != nil {
@@ -2808,6 +2805,28 @@ func parseDeployment(name string) (*appsv1.Deployment, string, string, string, s
 	return deployment, image, registry, imageName, version
 }
 
+// createResourceWithWebhookRetry runs `kubectl create -f file` and retries if
+// the call fails only because the virt-api admission webhook wasn't yet
+// reachable. Right after a fresh KubeVirt install/update, virt-api pods can
+// report Ready before the Service's Endpoints have fully propagated to every
+// node, which can make the very first admission-webhook call time out with
+// "context deadline exceeded" for a few seconds even though infra readiness
+// has already been confirmed. A rejected/timed-out admission call never
+// persists the object, so retrying here is always safe.
+// See https://github.com/kubevirt/kubevirt/issues/18722
+func createResourceWithWebhookRetry(namespace, file, cacheDir string) {
+	GinkgoHelper()
+	Eventually(func() error {
+		_, stderr, err := clientcmd.RunCommand(namespace, "kubectl", "create", "-f", file, "--cache-dir", cacheDir)
+		if err != nil && !isWebhookTimeoutError(stderr) {
+			// Not the race we tolerate here - fail immediately with full
+			// context instead of burning the whole retry budget.
+			Expect(err).ToNot(HaveOccurred(), stderr)
+		}
+		return err
+	}, 60*time.Second, 2*time.Second).Should(Succeed())
+}
+
 func createRunningVMIs(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
 	newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
 	for i, vmi := range vmis {
@@ -2968,6 +2987,14 @@ func generateSnapshotsForVersion(vmYaml *vmYamlDefinition, version string, workD
 	})
 
 	return vmSnapshots, nil
+}
+
+// isWebhookTimeoutError reports whether stderr indicates the failure was
+// caused by an admission webhook call timing out, as opposed to a genuine
+// admission rejection or an unrelated kubectl error.
+func isWebhookTimeoutError(stderr string) bool {
+	return strings.Contains(stderr, "failed calling webhook") &&
+		strings.Contains(stderr, "context deadline exceeded")
 }
 
 func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
