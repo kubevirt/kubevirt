@@ -86,6 +86,8 @@ var (
 			"evictable", "outdated",
 			// Pod info
 			"vmi_pod",
+			// Related VM name; empty when the VMI is not owned by a VirtualMachine
+			"vm",
 		},
 	)
 
@@ -214,9 +216,18 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 			strconv.FormatBool(isVMEvictable(vmi)),
 			strconv.FormatBool(isVMIOutdated(vmi)),
 			vmiPod,
+			relatedVirtualMachineName(vmi),
 		},
 		Value: 1.0,
 	}
+}
+
+func relatedVirtualMachineName(vmi *k6tv1.VirtualMachineInstance) string {
+	owner := v1.GetControllerOf(vmi)
+	if owner == nil || owner.Kind != k6tv1.VirtualMachineGroupVersionKind.Kind {
+		return none
+	}
+	return owner.Name
 }
 
 func getVMIPhase(vmi *k6tv1.VirtualMachineInstance) string {

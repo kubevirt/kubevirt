@@ -142,7 +142,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(18))
+				Expect(cr.Labels).To(HaveLen(19))
 
 				Expect(cr.Labels[4]).To(Equal(getVMIPhase(vmis[i])))
 				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
@@ -150,6 +150,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr.Labels[6]).To(Equal(workload))
 				Expect(cr.Labels[7]).To(Equal(flavor))
 				Expect(cr.Labels[17]).To(Equal(getVMIPod(vmis[i])))
+				Expect(cr.GetLabelValue("vm")).To(Equal(""))
 			}
 		})
 
@@ -169,6 +170,19 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(uid).To(Equal(string(vmi.UID)))
 		})
 
+		DescribeTable("should set vm from the owning VirtualMachine only", func(vmi *k6tv1.VirtualMachineInstance, expectedVM string) {
+			cr := collectVMIInfo(vmi)
+			Expect(cr.GetLabelValue("vm")).To(Equal(expectedVM))
+		},
+			Entry("standalone VMI has no vm label value", &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "standalone-vmi", Namespace: "test-ns"},
+				Status:     k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+			}, ""),
+			Entry("VMI owned by a VirtualMachine uses the owner name", vmiOwnedByVM("vmi-from-vm", "owner-vm"), "owner-vm"),
+			Entry("VMI owned by a ReplicaSet has no vm label value", vmiOwnedByReplicaSet("vmi-from-rs", "test-rs"), ""),
+			Entry("non-controller VirtualMachine owner is ignored", vmiWithNonControllerVMOwner("vmi-weak-owner", "weak-vm"), ""),
+		)
+
 		It("should update the vmi_pod label correctly after migration", func() {
 			setupMigrationPods()
 			vmi := createMigrationVMI("target-node", "virt-launcher-targetpod", true, false)
@@ -178,7 +192,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[17]).To(Equal("virt-launcher-targetpod"))
 		})
 
@@ -191,7 +205,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[17]).To(Equal("virt-launcher-originalpod"))
 		})
 
@@ -221,7 +235,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no instance type expect empty string", k6tv1.InstancetypeAnnotation, "", ""),
@@ -258,7 +272,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[9]).To(Equal(expected))
 		},
 			Entry("with no preference expect empty string", k6tv1.PreferenceAnnotation, "", ""),
@@ -834,5 +848,53 @@ func newPodMetaForInformer(name, namespace, createdByUID string) metav1.ObjectMe
 		Name:      name,
 		Namespace: namespace,
 		Labels:    map[string]string{"kubevirt.io/created-by": createdByUID},
+	}
+}
+
+func vmiOwnedByVM(vmiName, vmName string) *k6tv1.VirtualMachineInstance {
+	vm := &k6tv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: vmName, UID: "owner-vm-uid"},
+	}
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            vmiName,
+			Namespace:       "test-ns",
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, k6tv1.VirtualMachineGroupVersionKind)},
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+	}
+}
+
+func vmiOwnedByReplicaSet(vmiName, replicaSetName string) *k6tv1.VirtualMachineInstance {
+	replicaSet := &k6tv1.VirtualMachineInstanceReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{Name: replicaSetName, UID: "rs-uid"},
+	}
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmiName,
+			Namespace: "test-ns",
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(replicaSet, k6tv1.VirtualMachineInstanceReplicaSetGroupVersionKind),
+			},
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+	}
+}
+
+func vmiWithNonControllerVMOwner(vmiName, vmName string) *k6tv1.VirtualMachineInstance {
+	controller := false
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmiName,
+			Namespace: "test-ns",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: k6tv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:       k6tv1.VirtualMachineGroupVersionKind.Kind,
+				Name:       vmName,
+				UID:        "weak-vm-uid",
+				Controller: &controller,
+			}},
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
 	}
 }

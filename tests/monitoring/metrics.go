@@ -318,6 +318,7 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	labels := map[string]string{
 		"namespace": vm.Namespace,
 		"name":      vm.Name,
+		"vm":        vm.Name,
 	}
 	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 
