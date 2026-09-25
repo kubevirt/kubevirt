@@ -322,6 +322,13 @@ image_push(
 )
 
 image_push(
+    name = "push-network-vhostuserdra-binding",
+    image = "//cmd/sidecars/network-vhostuserdra-binding:network-vhostuserdra-binding-image",
+    registry = "quay.io",
+    repository = "kubevirt/network-vhostuserdra-binding",
+)
+
+image_push(
     name = "push-example-hook-sidecar",
     image = "//cmd/sidecars/smbios:example-hook-sidecar-image",
     registry = "quay.io",
