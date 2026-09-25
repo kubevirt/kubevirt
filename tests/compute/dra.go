@@ -30,16 +30,21 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -214,6 +219,36 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 
 		By("Waiting for the VMI to reach Running")
 		waitForVMIToBeRunning(createdVMI)
+	})
+})
+
+var _ = Describe("[sig-compute]CPU DRA", Serial, decorators.SigCompute, func() {
+	Context("with the CPUsWithDRA feature gate disabled", func() {
+		BeforeEach(func() {
+			kvconfig.DisableFeatureGate(featuregate.CPUsWithDRAGate)
+			DeferCleanup(kvconfig.EnableFeatureGate, featuregate.CPUsWithDRAGate)
+		})
+
+		It("should keep pinning dedicated CPUs through kubelet's CPU manager", func() {
+			vmi := createCPUDRAVMI(libvmi.WithCPUCount(2, 1, 1))
+			pod := waitForVirtLauncherPod(vmi)
+
+			By("checking the pod is still scheduled onto a CPU manager node with integral CPUs")
+			Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+			computeContainer := libpod.LookupComputeContainer(pod)
+			Expect(computeContainer).ToNot(BeNil())
+			cpuRequest, found := computeContainer.Resources.Requests[k8sv1.ResourceCPU]
+			Expect(found).To(BeTrue(), "dedicated CPUs should still be requested from kubelet")
+			Expect(cpuRequest.Value()).To(Equal(int64(2)))
+
+			By("checking no CPU claim was synthesized")
+			Expect(pod.Spec.ResourceClaims).ToNot(ContainElement(HaveField("Name", dra.CPUClaimRefName)))
+			_, err := kubevirt.Client().ResourceV1().ResourceClaims(vmi.Namespace).Get(
+				context.Background(), dra.CPUResourceClaimName(vmi.Name), metav1.GetOptions{},
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
 	})
 })
 
@@ -559,4 +594,27 @@ func waitForResourceClaimsToBeCreated(count int) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(claims.Items).To(HaveLen(count))
 	}, timeout, pollingInterval).Should(Succeed())
+}
+
+func createCPUDRAVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	opts = append([]libvmi.Option{
+		libvmi.WithMemoryRequest("128Mi"),
+		libvmi.WithDedicatedCPUPlacement(),
+	}, opts...)
+
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+		context.Background(), libvmifact.NewAlpine(opts...), metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	return vmi
+}
+
+func waitForVirtLauncherPod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+	var pod *k8sv1.Pod
+	Eventually(func() error {
+		var err error
+		pod, err = libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		return err
+	}, timeout, pollingInterval).Should(Succeed())
+	return pod
 }
