@@ -15,6 +15,7 @@ go_library(
     deps = [
         "//pkg/filewatcher:go_default_library",
         "//pkg/os/disk:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/volumepath:go_default_library",
         "//pkg/tpm:go_default_library",
@@ -24,6 +25,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
         "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
