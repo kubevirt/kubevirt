@@ -29,6 +29,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 )
 
+var AutoThreadPoolMax = 8
+
 func HasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
@@ -98,12 +100,9 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 	}
 }
 
-func BuildSupplementalPoolIOThreads(vmi *v1.VirtualMachineInstance) *api.DiskIOThreads {
-	if vmi.Spec.Domain.IOThreadsPolicy == nil || *vmi.Spec.Domain.IOThreadsPolicy != v1.IOThreadsPolicySupplementalPool {
-		return nil
-	}
+func BuildIOThreadPool(threadPoolSize int) *api.DiskIOThreads {
 	iothreads := &api.DiskIOThreads{}
-	for id := 1; id <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); id++ {
+	for id := 1; id <= threadPoolSize; id++ {
 		iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
 	}
 	return iothreads
