@@ -42,6 +42,8 @@ use pico_args::Arguments;
 
 const LAUNCHER: &str = "/usr/bin/virt-launcher";
 const DEFAULT_CONTAINER_DISK_DIR: &str = "/var/run/kubevirt/container-disks";
+const VIRT_PRIVATE_DIR: &str = "/var/run/kubevirt-private";
+const SERIAL_PORT: u8 = 0;
 const ENVOY_READY_URL: &str = "http://localhost:15021/healthz/ready";
 const ENVOY_QUIT_URL: &str = "http://localhost:15020/quitquitquit";
 const LOG_LINE_LIMIT: usize = 512 * 1024;
@@ -54,6 +56,7 @@ struct MonitorArgs {
     launcher_args: Vec<OsString>,
     container_disk_dir: PathBuf,
     keep_after_failure: bool,
+    uid: String,
 }
 
 extern "C" fn handle_signal(signal: i32) {
@@ -86,7 +89,10 @@ fn filter_launcher_args(args: &[OsString]) -> Vec<OsString> {
 
 fn parse_arguments(raw_args: Vec<OsString>) -> MonitorArgs {
     let mut parser = Arguments::from_vec(raw_args.clone());
-    let _uid: Option<String> = parser.opt_value_from_str("--uid").unwrap_or(None);
+    let uid = parser
+        .opt_value_from_str::<_, String>("--uid")
+        .unwrap_or(None)
+        .unwrap_or_default();
     let container_disk_dir = parser
         .opt_value_from_str::<_, String>("--container-disk-dir")
         .unwrap_or(None)
@@ -101,6 +107,7 @@ fn parse_arguments(raw_args: Vec<OsString>) -> MonitorArgs {
         launcher_args: filter_launcher_args(&raw_args),
         container_disk_dir,
         keep_after_failure,
+        uid,
     }
 }
 
@@ -113,6 +120,8 @@ fn main() {
         eprintln!("virt-launcher-monitor: failed to install signal handlers: {error}");
         std::process::exit(1);
     }
+
+    start_serial_console_term_file(&monitor_args.uid);
 
     let exit_code = match run_launcher(&monitor_args.launcher_args) {
         Ok(code) => code,
@@ -130,6 +139,7 @@ fn main() {
     }
     terminate_istio_proxy();
     cleanup_container_disks(&monitor_args.container_disk_dir);
+    remove_serial_console_term_file(Path::new(VIRT_PRIVATE_DIR), &monitor_args.uid);
     reap_children();
 
     if monitor_args.keep_after_failure && (monitor_error || exit_code != 0) {
@@ -353,6 +363,69 @@ fn pid_exists(pid: Pid) -> bool {
     kill(pid, None).is_ok()
 }
 
+fn serial_term_path(private_dir: &Path, uid: &str, suffix: &str) -> PathBuf {
+    private_dir
+        .join(uid)
+        .join(format!("virt-serial{SERIAL_PORT}-log-sigTerm{suffix}"))
+}
+
+fn create_serial_console_term_file(private_dir: &Path, uid: &str, suffix: &str) -> io::Result<bool> {
+    if uid.is_empty() {
+        return Ok(false);
+    }
+    let path = serial_term_path(private_dir, uid, suffix);
+    if path.exists() {
+        return Ok(false);
+    }
+    File::create(&path)?;
+    eprintln!(
+        "virt-launcher-monitor: serial console term file created: {}",
+        path.display()
+    );
+    Ok(true)
+}
+
+fn start_serial_console_term_file(uid: &str) {
+    if uid.is_empty() {
+        return;
+    }
+    let uid = uid.to_string();
+    thread::spawn(move || {
+        let private_dir = Path::new(VIRT_PRIVATE_DIR);
+        for _ in 0..100 {
+            match create_serial_console_term_file(private_dir, &uid, "") {
+                Ok(true) => return,
+                Ok(false) if serial_term_path(private_dir, &uid, "").exists() => return,
+                _ => thread::sleep(Duration::from_millis(100)),
+            }
+        }
+        eprintln!("virt-launcher-monitor: could not create serial console term file");
+    });
+}
+
+fn remove_serial_console_term_file(private_dir: &Path, uid: &str) {
+    if uid.is_empty() {
+        return;
+    }
+    let path = serial_term_path(private_dir, uid, "");
+    match fs::remove_file(&path) {
+        Ok(()) => eprintln!(
+            "virt-launcher-monitor: serial console term file deleted: {}",
+            path.display()
+        ),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => eprintln!(
+            "virt-launcher-monitor: could not delete serial console term file {}: {error}",
+            path.display()
+        ),
+    }
+    if let Err(error) = create_serial_console_term_file(private_dir, uid, "-done") {
+        eprintln!(
+            "virt-launcher-monitor: could not create serial console term-done file: {error}"
+        );
+    }
+}
+
 fn cleanup_container_disks(directory: &Path) {
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
@@ -397,13 +470,13 @@ fn terminate_istio_proxy() {
         .build();
 
     let mut envoy_present = false;
-    for attempt in 0..=4 {
+    for attempt in 0..4 {
         match agent.get(ENVOY_READY_URL).call() {
             Ok(response) => {
                 envoy_present = response.header("server") == Some("envoy");
                 break;
             }
-            Err(error) if attempt < 4 && is_retryable_transport(&error) => {
+            Err(error) if attempt < 3 && is_retryable_transport(&error) => {
                 thread::sleep(retry_delay(attempt));
             }
             Err(_) => break,
@@ -413,7 +486,7 @@ fn terminate_istio_proxy() {
         return;
     }
 
-    for attempt in 0..=4 {
+    for attempt in 0..4 {
         match agent.post(ENVOY_QUIT_URL).call() {
             Ok(response) if response.status() == 200 => return,
             Ok(response) if response.status() == 503 => {}
@@ -424,18 +497,18 @@ fn terminate_istio_proxy() {
                 );
                 return;
             }
-            Err(ureq::Error::Status(503, _)) if attempt < 4 => {}
+            Err(ureq::Error::Status(503, _)) if attempt < 3 => {}
             Err(ureq::Error::Status(503, _)) => {
                 eprintln!("virt-launcher-monitor: Istio quit request returned HTTP 503");
                 return;
             }
-            Err(error) if attempt < 4 && is_retryable_transport(&error) => {}
+            Err(error) if attempt < 3 && is_retryable_transport(&error) => {}
             Err(error) => {
                 eprintln!("virt-launcher-monitor: Istio quit request failed: {error}");
                 return;
             }
         }
-        if attempt < 4 {
+        if attempt < 3 {
             thread::sleep(retry_delay(attempt));
         }
     }
@@ -485,7 +558,53 @@ mod tests {
         ]);
         assert!(parsed.keep_after_failure);
         assert_eq!(parsed.container_disk_dir, PathBuf::from("/tmp/disks"));
+        assert!(parsed.uid.is_empty());
         assert!(!parse_arguments(Vec::new()).keep_after_failure);
+    }
+
+    #[test]
+    fn parses_uid() {
+        let parsed = parse_arguments(vec![
+            OsString::from("--uid"),
+            OsString::from("vmi-uid"),
+        ]);
+        assert_eq!(parsed.uid, "vmi-uid");
+    }
+
+    #[test]
+    fn serial_term_paths_match_go_monitor() {
+        let private_dir = Path::new("/var/run/kubevirt-private");
+        assert_eq!(
+            serial_term_path(private_dir, "vmi-uid", ""),
+            PathBuf::from("/var/run/kubevirt-private/vmi-uid/virt-serial0-log-sigTerm")
+        );
+        assert_eq!(
+            serial_term_path(private_dir, "vmi-uid", "-done"),
+            PathBuf::from("/var/run/kubevirt-private/vmi-uid/virt-serial0-log-sigTerm-done")
+        );
+    }
+
+    #[test]
+    fn create_and_remove_serial_console_term_files() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before epoch")
+            .as_nanos();
+        let private_dir = std::env::temp_dir().join(format!("virt-launcher-monitor-term-{unique}"));
+        let uid_dir = private_dir.join("vmi-uid");
+        fs::create_dir_all(&uid_dir).expect("create uid directory");
+        let _guard = TempDirGuard(private_dir.clone());
+
+        assert!(create_serial_console_term_file(&private_dir, "vmi-uid", "")
+            .expect("create term file"));
+        let term_path = serial_term_path(&private_dir, "vmi-uid", "");
+        assert!(term_path.exists());
+        assert!(!create_serial_console_term_file(&private_dir, "vmi-uid", "")
+            .expect("existing term file"));
+
+        remove_serial_console_term_file(&private_dir, "vmi-uid");
+        assert!(!term_path.exists());
+        assert!(serial_term_path(&private_dir, "vmi-uid", "-done").exists());
     }
 
     #[test]
