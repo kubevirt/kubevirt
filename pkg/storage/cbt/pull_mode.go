@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -113,6 +114,14 @@ func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBa
 	return ctrl.populateExportLinks(backup, vmExport)
 }
 
+// exportServerAddrForService returns the address the backup tunnel should dial
+// and the TLS server name. ClusterIP export Services use port 443 (kube-proxy
+// remaps to the exporter); headless Services use 8443.
+func exportServerAddrForService(serviceName, namespace string, svc *corev1.Service) (addr, serverName string) {
+	host := fmt.Sprintf("%s.%s.svc", serviceName, namespace)
+	return fmt.Sprintf("%s:%d", host, storagetypes.ExportServiceDialPort(svc)), fmt.Sprintf("%s.cluster.local", host)
+}
+
 func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmExport *exportv1.VirtualMachineExport) error {
 	ca, err := ctrl.exportCaManager.GetCurrentRaw()
 	if err != nil {
@@ -122,8 +131,11 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 	if err != nil {
 		return err
 	}
-	exportAddr := fmt.Sprintf("%s.%s.svc", vmExport.Status.ServiceName, vmExport.Namespace)
-	serverName := fmt.Sprintf("%s.cluster.local", exportAddr)
+	svc, err := ctrl.client.CoreV1().Services(vmExport.Namespace).Get(context.Background(), vmExport.Status.ServiceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get export service %s/%s: %w", vmExport.Namespace, vmExport.Status.ServiceName, err)
+	}
+	exportAddr, serverName := exportServerAddrForService(vmExport.Status.ServiceName, vmExport.Namespace, svc)
 	backupOptions := &backupv1.BackupOptions{
 		BackupName:       backup.Name,
 		Cmd:              backupv1.Export,
