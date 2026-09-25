@@ -39,6 +39,7 @@ type DomainConfigurator struct {
 	domainAttachmentByInterfaceName map[string]string
 	useLaunchSecuritySEV            bool
 	useLaunchSecurityPV             bool
+	useLaunchSecurityCCA            bool
 	isROMTuningSupported            bool
 	virtioModel                     string
 }
@@ -118,7 +119,7 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 
 	switch {
 	case d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap):
-		builderOptions = append(builderOptions, d.tapBindingOptions(iface, useLaunchSecurity)...)
+		builderOptions = append(builderOptions, d.tapBindingOptions(iface, useLaunchSecurity || d.useLaunchSecurityCCA)...)
 
 	case iface.PasstBinding != nil:
 		passtOpts, err := d.passtBindingOptions(iface, vmi)
@@ -180,6 +181,12 @@ func WithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) option {
 func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) option {
 	return func(d *DomainConfigurator) {
 		d.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
+func WithUseLaunchSecurityCCA(useLaunchSecurityCCA bool) option {
+	return func(d *DomainConfigurator) {
+		d.useLaunchSecurityCCA = useLaunchSecurityCCA
 	}
 }
 
