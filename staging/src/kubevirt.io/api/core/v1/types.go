@@ -4002,6 +4002,9 @@ type ClusterProfilerResults struct {
 	Continue         string                    `json:"continue,omitempty"`
 }
 
+// DefaultClusterProfilerLabelSelector is used when ClusterProfilerRequest.LabelSelector is empty.
+const DefaultClusterProfilerLabelSelector = AppLabel + " in (virt-api, virt-controller, virt-handler, virt-operator)"
+
 type ClusterProfilerRequest struct {
 	LabelSelector string `json:"labelSelector,omitempty"`
 	Continue      string `json:"continue,omitempty"`
