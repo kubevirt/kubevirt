@@ -2917,6 +2917,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Status": Equal(status),
 			}))
+			Expect(vm.Status.Ready).To(Equal(status == k8sv1.ConditionTrue))
 
 		},
 			Entry("VMI Ready condition is True", watchtesting.MarkAsReady, k8sv1.ConditionTrue),
@@ -3956,8 +3957,14 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
 			})
 
-			DescribeTable("should set a Stopped status when VMI exists but stopped", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
+			DescribeTable("should set Stopped and not ready when a terminal VMI still reports ready", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time, reason string) {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Status.Ready = true
+				virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineReady,
+					Status: k8sv1.ConditionTrue,
+				})
+				watchtesting.MarkAsReady(vmi)
 
 				vmi.Status.Phase = phase
 				vmi.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstancePhaseTransitionTimestamp{
@@ -3983,6 +3990,13 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
+				Expect(vm.Status.Ready).To(BeFalse())
+				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineReady)
+				Expect(cond).ToNot(BeNil())
+				Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Status": Equal(k8sv1.ConditionFalse),
+					"Reason": Equal(reason),
+				}))
 
 				// If the VMI is not already marked to be deleted (deletion timestamp is set), it should be deleted
 				if deletionTimestamp == nil {
@@ -3992,10 +4006,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			},
 
-				Entry("in Succeeded state", v1.Succeeded, nil),
-				Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, &metav1.Time{Time: time.Now()}),
-				Entry("in Failed state", v1.Failed, nil),
-				Entry("in Failed state with a deletionTimestamp", v1.Failed, &metav1.Time{Time: time.Now()}),
+				Entry("in Succeeded state", v1.Succeeded, nil, "VMISucceeded"),
+				Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, &metav1.Time{Time: time.Now()}, "VMISucceeded"),
+				Entry("in Failed state", v1.Failed, nil, "VMIFailed"),
+				Entry("in Failed state with a deletionTimestamp", v1.Failed, &metav1.Time{Time: time.Now()}, "VMIFailed"),
 			)
 
 			It("Should set a Starting status when running=true and VMI doesn't exist", func() {
@@ -7355,6 +7369,59 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineReady))
 			Expect(vm.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
 		})
+
+		DescribeTable("should adopt a terminal VMI's false Ready condition", func(phase v1.VirtualMachineInstancePhase, initialStatus k8sv1.ConditionStatus, fallbackReason string) {
+			vmi.Status.Phase = phase
+			readyCond := v1.VirtualMachineInstanceCondition{
+				Type:               v1.VirtualMachineInstanceReady,
+				Status:             k8sv1.ConditionFalse,
+				Reason:             v1.PodTerminatingReason,
+				Message:            "virt-launcher pod is terminating",
+				LastProbeTime:      metav1.NewTime(time.Now().Add(-time.Minute)),
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Minute)),
+			}
+			if initialStatus == k8sv1.ConditionFalse {
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{readyCond}
+			} else if initialStatus != "" {
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+					Type:   v1.VirtualMachineInstanceReady,
+					Status: initialStatus,
+				}}
+			}
+
+			syncConditions(vm, vmi, nil)
+			conditionManager := virtcontroller.NewVirtualMachineConditionManager()
+			cond := conditionManager.GetCondition(vm, v1.VirtualMachineReady)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+			if initialStatus != k8sv1.ConditionFalse {
+				Expect(cond.Reason).To(Equal(fallbackReason))
+			} else {
+				Expect(cond.Reason).To(Equal(readyCond.Reason))
+			}
+
+			// Once the VMI reports not ready, copy its condition instead of retaining
+			// the synthetic reason used while its readiness was stale or missing.
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{readyCond}
+			syncConditions(vm, vmi, nil)
+			Expect(conditionManager.GetCondition(vm, v1.VirtualMachineReady)).To(Equal(&v1.VirtualMachineCondition{
+				Type:               v1.VirtualMachineReady,
+				Status:             readyCond.Status,
+				Reason:             readyCond.Reason,
+				Message:            readyCond.Message,
+				LastProbeTime:      readyCond.LastProbeTime,
+				LastTransitionTime: readyCond.LastTransitionTime,
+			}))
+		},
+			Entry("Succeeded with True readiness", v1.Succeeded, k8sv1.ConditionTrue, "VMISucceeded"),
+			Entry("Succeeded with Unknown readiness", v1.Succeeded, k8sv1.ConditionUnknown, "VMISucceeded"),
+			Entry("Succeeded with missing readiness", v1.Succeeded, k8sv1.ConditionStatus(""), "VMISucceeded"),
+			Entry("Succeeded with False readiness", v1.Succeeded, k8sv1.ConditionFalse, "VMISucceeded"),
+			Entry("Failed with True readiness", v1.Failed, k8sv1.ConditionTrue, "VMIFailed"),
+			Entry("Failed with Unknown readiness", v1.Failed, k8sv1.ConditionUnknown, "VMIFailed"),
+			Entry("Failed with missing readiness", v1.Failed, k8sv1.ConditionStatus(""), "VMIFailed"),
+			Entry("Failed with False readiness", v1.Failed, k8sv1.ConditionFalse, "VMIFailed"),
+		)
 
 		It("should sync appropriate conditions and ignore others", func() {
 			fromCondList := []v1.VirtualMachineConditionType{
