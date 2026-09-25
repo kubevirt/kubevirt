@@ -199,6 +199,15 @@ func validateBusSupport(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.St
 				Field:   field.Index(idx).Child("cdrom", "bus").String(),
 			})
 		}
+		// special case. QEMU does not support SCSI passthrough (device=lun) on the virtio-blk bus.
+		// The hotplug path already rejects this combination.
+		if diskType == "lun" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Bus type %s is invalid for LUN device", bus),
+				Field:   field.Index(idx).Child("lun", "bus").String(),
+			})
+		}
 	case v1.DiskBusSATA:
 		// sata disks (in contrast to sata cdroms) don't support readOnly
 		if disk.Disk != nil && disk.Disk.ReadOnly {
