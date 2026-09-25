@@ -1,4 +1,4 @@
-//go:build !((linux && amd64) || (linux && arm64) || (linux && s390x) || (linux && ppc64le))
+//go:build ppc64le
 
 /*
  * This file is part of the KubeVirt project
@@ -19,13 +19,9 @@
  *
  */
 
-package common
+package nodelabeller
 
-import "errors"
-
-// ErrUnsupportedRTScheduling indicates real-time scheduling is unavailable on the current platform.
-var ErrUnsupportedRTScheduling = errors.New("real-time scheduling not supported on this platform")
-
-func SchedSetScheduler(pid int, policy policy, param SchedParam) error {
-	return ErrUnsupportedRTScheduling
+func getCapLabels() []string {
+	exposedCaps := []string{}
+	return exposedCaps
 }
