@@ -832,7 +832,8 @@ status:
       quiesceStatus: quiesceStatusValue
       startTimestamp: "1986-01-01T01:01:01Z"
       volumes:
-      - volumeName: volumeNameValue
+      - type: typeValue
+        volumeName: volumeNameValue
     state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
