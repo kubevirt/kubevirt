@@ -22,6 +22,7 @@ package vmi
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -221,31 +222,62 @@ func (c *Controller) isUtilityVolumeWithBlockPVC(vmi *v1.VirtualMachineInstance,
 	return storagetypes.IsPVCBlock(pvc.Spec.VolumeMode), nil
 }
 
+func (c *Controller) hotplugVolumeReadiness(vmi *v1.VirtualMachineInstance, volume *v1.Volume, attachmentPods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (ready bool, wffc bool, err error) {
+	if servedByAttachmentPod(volume, attachmentPods) {
+		return true, false, nil
+	}
+	isUtilityVolumeWithBlockPVC, err := c.isUtilityVolumeWithBlockPVC(vmi, volume)
+	if err != nil {
+		return false, false, err
+	}
+	if isUtilityVolumeWithBlockPVC {
+		return false, false, nil
+	}
+	return storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
+}
+
+func servedByAttachmentPod(volume *v1.Volume, attachmentPods []*k8sv1.Pod) bool {
+	claimName := storagetypes.PVCNameFromVirtVolume(volume)
+	servesVolume := func(podVolume k8sv1.Volume) bool {
+		return podVolume.Name == volume.Name &&
+			podVolume.PersistentVolumeClaim != nil &&
+			podVolume.PersistentVolumeClaim.ClaimName == claimName
+	}
+	return slices.ContainsFunc(attachmentPods, func(pod *k8sv1.Pod) bool {
+		// WaitForFirstConsumer trigger pods only bind the claim and serve nothing.
+		return pod.DeletionTimestamp == nil && !isTempPod(pod) && slices.ContainsFunc(pod.Spec.Volumes, servesVolume)
+	})
+}
+
+func (c *Controller) readyHotplugVolumes(vmi *v1.VirtualMachineInstance, hotplugVolumes []*v1.Volume, attachmentPods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) []*v1.Volume {
+	return slices.DeleteFunc(slices.Clone(hotplugVolumes), func(volume *v1.Volume) bool {
+		ready, _, err := c.hotplugVolumeReadiness(vmi, volume, attachmentPods, dataVolumes)
+		if err != nil {
+			log.Log.Object(vmi).V(3).Infof("Not matching an attachment pod to volume %s, cannot determine its readiness: %v", volume.Name, err)
+			return true
+		}
+		return !ready
+	})
+}
+
 func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
+	// Report these once the other volumes are handled, so one volume cannot hold them all back.
+	var readinessErrs, populationErrs []error
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
-		isUtilityVolumeWithBlockPVC, err := c.isUtilityVolumeWithBlockPVC(vmi, volume)
+		ready, wffc, err := c.hotplugVolumeReadiness(vmi, volume, hotplugAttachmentPods, dataVolumes)
 		if err != nil {
-			return common.NewSyncError(err, controller.PVCNotReadyReason)
-		}
-		if isUtilityVolumeWithBlockPVC {
-			logger.V(3).Infof("Skipping utility volume %s: configured with block volume mode PVC, utility volumes require filesystem volume mode", volume.Name)
+			readinessErrs = append(readinessErrs, err)
 			continue
-		}
-
-		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
-		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
 		if wffc {
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
 			logger.V(1).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
-			syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
-			if syncError != nil {
-				return syncError
+			if syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod); syncError != nil {
+				populationErrs = append(populationErrs, syncError)
 			}
 			continue
 		}
@@ -276,6 +308,14 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	}
 	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
 		return err
+	}
+	// A trigger pod that could not be created is the more actionable of the two, so it names the
+	// reason when both happened.
+	if len(populationErrs) > 0 {
+		return common.NewSyncError(errors.Join(slices.Concat(populationErrs, readinessErrs)...), controller.FailedCreatePodReason)
+	}
+	if len(readinessErrs) > 0 {
+		return common.NewSyncError(errors.Join(readinessErrs...), controller.PVCNotReadyReason)
 	}
 
 	return nil
