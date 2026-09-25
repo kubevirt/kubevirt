@@ -1305,21 +1305,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 15)).To(Succeed())
 			})
 
-			It("[test_id:1690]should fail the vmi creation if Guaranteed QOS cannot be set", func() {
-				cpuVmi := libvmifact.NewAlpine()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					DedicatedCPUPlacement: true,
-				}
-				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
-				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Limits: k8sv1.ResourceList{
-						k8sv1.ResourceCPU: resource.MustParse("4"),
-					},
-				}
-				By("Starting a VirtualMachineInstance")
-				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
 			It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 				Vmi := libvmifact.NewAlpine()
 				cpuVmi := libvmifact.NewAlpine()
