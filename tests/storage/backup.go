@@ -741,7 +741,16 @@ var _ = Describe(SIG("Backup", func() {
 			"Second checkpoint should have a different name")
 	})
 
-	It("Should handle backup failure due to insufficient target PVC size", func() {
+	It("Should handle backup failure due to insufficient target PVC size", decorators.RequiresBlockStorage, func() {
+		// The backup target PVC must be a filesystem PVC but asserting the "No space left on
+		// device" failure requires a provisioner that actually enforces the requested capacity.
+		// We back the filesystem target with a block storage class, which enforces the size,
+		// and gate the test on RequiresBlockStorage so lanes without block storage (e.g. HPP) skip it.
+		blockSC, foundSC := libstorage.GetBlockStorageClass(corev1.ReadWriteOnce)
+		if !foundSC {
+			Fail(`Block storage is not present. You can skip by "RequiresBlockStorage" label`)
+		}
+
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -768,7 +777,7 @@ var _ = Describe(SIG("Backup", func() {
 				libdv.StorageWithFilesystemVolumeMode(),
 				libdv.StorageWithAccessMode(corev1.ReadWriteOnce),
 				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
-				libdv.StorageWithStorageClass(libstorage.Config.StorageClassCSI),
+				libdv.StorageWithStorageClass(blockSC),
 			),
 		)
 		smallFSDv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(smallFSDv.Namespace).Create(context.Background(), smallFSDv, metav1.CreateOptions{})
