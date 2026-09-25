@@ -67,7 +67,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -938,7 +937,7 @@ func deserializeStrings(in string) ([]string, error) {
 }
 
 func (app *virtAPIApp) readRequestHeader() error {
-	authConfigMap, err := app.k8sClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(context.Background(), util.ExtensionAPIServerAuthenticationConfigMap, metav1.GetOptions{})
+	authConfigMap, err := app.k8sClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(context.Background(), kvtls.ExtensionAPIServerAuthenticationConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -946,7 +945,7 @@ func (app *virtAPIApp) readRequestHeader() error {
 	// The request-header CA is mandatory. It can be retrieved from the configmap as we do here, or it must be provided
 	// via flag on start of this apiserver. Since we don't do the latter, the former is mandatory for us
 	// see https://github.com/kubernetes-incubator/apiserver-builder-alpha/blob/master/docs/concepts/auth.md#requestheader-authentication
-	_, ok := authConfigMap.Data[util.RequestHeaderClientCAFileKey]
+	_, ok := authConfigMap.Data[kvtls.RequestHeaderClientCAFileKey]
 	if !ok {
 		return fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}

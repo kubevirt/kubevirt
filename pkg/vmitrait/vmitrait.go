@@ -23,6 +23,40 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
+	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
+		if fs.Virtiofs != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func RequiresMemoryOverheadReservation(v *v1.VirtualMachineInstance) bool {
+	return v.Spec.Domain.Memory != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
+}
+
+func RequiresLockingMemory(v *v1.VirtualMachineInstance) bool {
+	return v.Spec.Domain.Memory != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
+		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired
+}
+
+func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
+}
+
+func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
+	vmiFirmware := vmi.Spec.Domain.Firmware
+	if (vmiFirmware == nil) || (vmiFirmware.KernelBoot == nil) || (vmiFirmware.KernelBoot.Container == nil) {
+		return false
+	}
+	return true
+}
+
 func IsNonRoot(vmi *v1.VirtualMachineInstance) bool {
 	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]
 	nonRoot := vmi.Status.RuntimeUser != 0
