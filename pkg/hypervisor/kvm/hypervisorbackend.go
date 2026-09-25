@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	VirtLauncherMonitorOverhead = "3Mi"   // The `ps` RSS limit for the Rust virt-launcher-monitor
+	VirtLauncherMonitorOverhead = "4Mi"   // The `ps` RSS limit for the Rust virt-launcher-monitor
 	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
 	VirtlogdOverhead            = "25Mi"  // The `ps` RSS for virtlogd
 	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud

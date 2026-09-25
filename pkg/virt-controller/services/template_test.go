@@ -2178,8 +2178,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1280874341", "2280874341"),
-				Entry("on arm64", "arm64", "1415092069", "2415092069"),
+				Entry("on amd64", "amd64", "1281922917", "2281922917"),
+				Entry("on arm64", "arm64", "1416140645", "2416140645"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvStore, svc = configFactory(arch)
@@ -2215,8 +2215,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2280874341"),
-				Entry("on arm64", "arm64", "2415092069"),
+				Entry("on amd64", "amd64", "2281922917"),
+				Entry("on arm64", "arm64", "2416140645"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2254,8 +2254,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 360),
-				Entry("on arm64", "arm64", 495),
+				Entry("on amd64", "amd64", 361),
+				Entry("on arm64", "arm64", 496),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -2291,12 +2291,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 360),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 360),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 327),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 495),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 495),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 461),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 361),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 361),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 328),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 496),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 496),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 462),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvStore, svc = configFactory(defaultArch)
