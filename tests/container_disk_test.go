@@ -36,6 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
@@ -197,10 +198,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Checking the writable Image Octal mode")
 				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("640"), "Octal Mode of writable Image should be 640")
 
+				readonlyImagePath := containerdisk.GetDiskTargetPathFromLauncherView(vmi.Spec.Domain.Devices.Disks[0].Name)
+
 				readonlyImageOctalMode, err := exec.ExecuteCommandOnPod(
 					pod,
 					"compute",
-					[]string{"/usr/bin/bash", "-c", "stat -c %a /var/run/kubevirt/container-disks/disk_0.img"},
+					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("stat -c %%a %s", readonlyImagePath)},
 				)
 				Expect(err).ToNot(HaveOccurred())
 
