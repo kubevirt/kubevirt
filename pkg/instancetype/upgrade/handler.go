@@ -154,6 +154,13 @@ func (u *upgrader) upgradeControllerRevision(
 		return nil, err
 	}
 
+	if version, ok := original.Labels[instancetypeapi.ControllerRevisionObjectCommonInstancetypesVersionLabel]; ok {
+		if newCR.Labels == nil {
+			newCR.Labels = make(map[string]string)
+		}
+		newCR.Labels[instancetypeapi.ControllerRevisionObjectCommonInstancetypesVersionLabel] = version
+	}
+
 	// Recreate the CR with the now upgraded runtime.Object
 	newCR, err = u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
 	if err != nil {
