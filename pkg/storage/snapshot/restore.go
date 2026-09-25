@@ -87,6 +87,13 @@ const (
 	waitEventuallyMessage = "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"
 	stopTargetMessage     = "Automatically stopping restore target for restore operation"
 
+	// virtAPIVMNotRunningMsg matches the conflict error message returned by virt-api when Stop()
+	// is requested for a VM that is not running (pkg/virt-api/rest/subresource.go: vmNotRunning).
+	virtAPIVMNotRunningMsg = "VM is not running"
+	// virtAPIHaltedManualStopMsg matches the conflict error message returned by virt-api when Stop()
+	// is requested for an already-halted VM without a shorter grace period (pkg/virt-api/rest/lifecycle.go).
+	virtAPIHaltedManualStopMsg = "only supports manual stop requests with a shorter graceperiod"
+
 	vmiExistsEventMessage        = "Restore target VMI still exists, please stop the restore target to proceed with restore"
 	targetNotReadyFailureMessage = "Restore target VMI must be powered off before restore operation"
 
@@ -101,6 +108,7 @@ var (
 
 type restoreTarget interface {
 	Stop() error
+	Stopping() (bool, error)
 	Ready() (bool, error)
 	Reconcile() (bool, error)
 	Own(obj metav1.Object)
@@ -434,18 +442,38 @@ func (ctrl *VMRestoreController) handleVMRestoreTargetNotReady(vmRestore *snapsh
 }
 
 func (ctrl *VMRestoreController) stopTarget(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	stopping, err := target.Stopping()
+	if err != nil {
+		return err
+	}
+	if isRestoreStoppingRecorded(vmRestore) && stopping {
+		return nil
+	}
+
 	vmRestoreCpy := vmRestore.DeepCopy()
 	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeWarning, restoreVMNotReadyEvent, stopTargetMessage)
 	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, stopTargetMessage))
 	updateRestoreCondition(vmRestoreCpy, newReadyCondition(corev1.ConditionFalse, stopTargetMessage))
 
 	// Stop the restore target
-	err := target.Stop()
+	err = target.Stop()
 	if err != nil {
 		return ctrl.doUpdateError(vmRestoreCpy, err)
 	}
 
 	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
+}
+
+func isRestoreStoppingRecorded(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	if vmRestore.Status == nil {
+		return false
+	}
+	for _, c := range vmRestore.Status.Conditions {
+		if c.Type == snapshotv1.ConditionProgressing && c.Status == corev1.ConditionFalse && c.Reason == stopTargetMessage {
+			return true
+		}
+	}
+	return false
 }
 
 func vmRestoreTargetReadyGracePeriodExceeded(vmRestore *snapshotv1.VirtualMachineRestore) bool {
@@ -653,7 +681,124 @@ func (t *vmRestoreTarget) Stop() error {
 	}
 
 	log.Log.Infof("Stopping VM before restore [%s/%s]", t.vm.Namespace, t.vm.Name)
-	return t.controller.Client.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
+	err := t.controller.Client.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
+	if t.isVMAlreadyStoppedOrStoppingError(err) {
+		log.Log.Object(t.vmRestore).V(3).Infof("VM %s/%s stop returned conflict, target is already stopping or stopped: %v", t.vm.Namespace, t.vm.Name, err)
+		return nil
+	}
+	return err
+}
+
+func (t *vmRestoreTarget) isVMAlreadyStoppedOrStoppingError(err error) bool {
+	if err == nil || !k8serrors.IsConflict(err) {
+		return false
+	}
+	errMsg := err.Error()
+	if strings.Contains(errMsg, virtAPIHaltedManualStopMsg) {
+		return true
+	}
+	if strings.Contains(errMsg, virtAPIVMNotRunningMsg) {
+		vmi, exists, getErr := t.getVMI()
+		if getErr != nil {
+			log.Log.Object(t.vmRestore).Reason(getErr).Error("failed to get VMI while checking stop error")
+			return false
+		}
+		// If the VMI still exists and is in a final phase (Succeeded or Failed),
+		// Stop() cannot make progress and the target will not become ready.
+		// Surface the error instead of treating it as benign.
+		if exists && vmi != nil && vmi.IsFinal() {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (t *vmRestoreTarget) getVMI() (*kubevirtv1.VirtualMachineInstance, bool, error) {
+	if !t.Exists() {
+		return nil, false, nil
+	}
+
+	vmiKey, err := controller.KeyFunc(t.vm)
+	if err != nil {
+		return nil, false, err
+	}
+
+	obj, exists, err := t.controller.VMIInformer.GetStore().GetByKey(vmiKey)
+	if err != nil || !exists {
+		return nil, exists, err
+	}
+
+	vmi, ok := obj.(*kubevirtv1.VirtualMachineInstance)
+	if !ok {
+		return nil, false, fmt.Errorf("expected *VirtualMachineInstance, got %T", obj)
+	}
+
+	return vmi, true, nil
+}
+
+func (t *vmRestoreTarget) getVM() (*kubevirtv1.VirtualMachine, error) {
+	if !t.Exists() {
+		return nil, nil
+	}
+	latestVM, err := t.controller.getVM(t.vm.Namespace, t.vm.Name)
+	if err != nil || latestVM == nil {
+		return t.vm, nil
+	}
+	return latestVM, nil
+}
+
+func (t *vmRestoreTarget) Stopping() (bool, error) {
+	if !t.Exists() {
+		return false, nil
+	}
+
+	vmi, exists, err := t.getVMI()
+	if err != nil {
+		return false, err
+	}
+	if !exists || vmi == nil {
+		return false, nil
+	}
+
+	vm, err := t.getVM()
+	if err != nil {
+		return false, err
+	}
+
+	return isVMTargetStopping(vm, vmi), nil
+}
+
+func isVMTargetStopping(vm *kubevirtv1.VirtualMachine, vmi *kubevirtv1.VirtualMachineInstance) bool {
+	if vm == nil || vmi == nil || vmi.IsFinal() {
+		return false
+	}
+	if vmi.IsMarkedForDeletion() {
+		return true
+	}
+	if vm.Status.PrintableStatus == kubevirtv1.VirtualMachineStatusStopping {
+		return true
+	}
+	if hasStopRequestForVMI(vm, vmi) {
+		return true
+	}
+	runStrategy, err := vm.RunStrategy()
+	if err == nil && runStrategy == kubevirtv1.RunStrategyHalted {
+		return true
+	}
+	return false
+}
+
+func hasStopRequestForVMI(vm *kubevirtv1.VirtualMachine, vmi *kubevirtv1.VirtualMachineInstance) bool {
+	if vm == nil {
+		return false
+	}
+	for _, req := range vm.Status.StateChangeRequests {
+		if req.Action == kubevirtv1.StopRequest && (req.UID == nil || (vmi != nil && *req.UID == vmi.UID)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {
@@ -663,12 +808,7 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 
 	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
 
-	vmiKey, err := controller.KeyFunc(t.vm)
-	if err != nil {
-		return false, err
-	}
-
-	_, exists, err := t.controller.VMIInformer.GetStore().GetByKey(vmiKey)
+	_, exists, err := t.getVMI()
 
 	return !exists, err
 }
