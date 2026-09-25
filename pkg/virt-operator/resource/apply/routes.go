@@ -74,7 +74,11 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return nil
 	}
 
-	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &route.ObjectMeta, route.Spec)...).GeneratePayload()
+	routeMeta := route.ObjectMeta.DeepCopy()
+	// EnsureObjectMeta preserves additional annotations while reconciling
+	// operator-owned metadata on the cached Route
+	routeMeta.Annotations = cachedRoute.Annotations
+	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, routeMeta, route.Spec)...).GeneratePayload()
 	if err != nil {
 		return err
 	}

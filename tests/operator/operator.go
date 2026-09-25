@@ -2398,6 +2398,76 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			verifyAggregateLabels(kubevirt.Client(), "true")
 		})
 	})
+
+	Context("virt-exportproxy Route", decorators.OpenShift, func() {
+		const (
+			externalRouteAnnotation      = "haproxy.router.openshift.io/timeout"
+			externalRouteAnnotationValue = "60m"
+		)
+
+		It("should preserve additional annotations across reconciliation", func() {
+			routes := virtClient.RouteClient().
+				Routes(flags.KubeVirtInstallNamespace)
+
+			route, err := routes.Get(
+				context.Background(),
+				components.VirtExportProxyName,
+				metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedCABundle := route.Spec.TLS.DestinationCACertificate
+
+			DeferCleanup(func() {
+				route, err := routes.Get(
+					context.Background(),
+					components.VirtExportProxyName,
+					metav1.GetOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				delete(route.Annotations, externalRouteAnnotation)
+				route.Spec.TLS.DestinationCACertificate = expectedCABundle
+
+				_, err = routes.Update(
+					context.Background(),
+					route,
+					metav1.UpdateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			if route.Annotations == nil {
+				route.Annotations = map[string]string{}
+			}
+
+			route.Annotations[externalRouteAnnotation] = externalRouteAnnotationValue
+
+			// Force Route reconciliation by simulating a stale CA bundle.
+			route.Spec.TLS.DestinationCACertificate = "stale-ca"
+
+			_, err = routes.Update(
+				context.Background(),
+				route,
+				metav1.UpdateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				route, err := routes.Get(
+					context.Background(),
+					components.VirtExportProxyName,
+					metav1.GetOptions{},
+				)
+				if err != nil {
+					return false
+				}
+
+				return route.Spec.TLS.DestinationCACertificate == expectedCABundle &&
+					route.Annotations[externalRouteAnnotation] == externalRouteAnnotationValue
+			}, 60*time.Second, time.Second).Should(BeTrue())
+		})
+	})
 })
 
 func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResourceDefinition) []byte {
