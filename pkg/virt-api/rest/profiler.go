@@ -84,11 +84,15 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 		podList     *k8sv1.PodList
 	)
 
-	if selector, err := labels.Parse(cpRequest.LabelSelector); err != nil {
-		return nil, "", err
-	} else {
-		listOptions.LabelSelector = selector.String()
+	labelSelector := cpRequest.LabelSelector
+	if labelSelector == "" {
+		labelSelector = v1.DefaultClusterProfilerLabelSelector
 	}
+	selector, err := labels.Parse(labelSelector)
+	if err != nil {
+		return nil, "", err
+	}
+	listOptions.LabelSelector = selector.String()
 
 	listOptions.Continue = cpRequest.Continue
 	listOptions.Limit = cpRequest.PageSize
@@ -245,7 +249,16 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 	}
 
 	if len(pods) == 0 {
-		response.WriteHeaderAndJson(http.StatusNoContent, v1.ClusterProfilerResults{}, restful.MIME_JSON)
+		results := v1.ClusterProfilerResults{
+			ComponentResults: map[string]v1.ProfilerResult{},
+			Continue:         cont,
+		}
+		// Preserve Continue so clients can page past pods that are not profilable.
+		status := http.StatusNoContent
+		if cont != "" {
+			status = http.StatusOK
+		}
+		response.WriteHeaderAndJson(status, results, restful.MIME_JSON)
 		return
 	}
 
