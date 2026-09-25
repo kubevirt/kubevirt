@@ -28,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
+	"github.com/onsi/ginkgo/v2/types"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -67,6 +68,7 @@ import (
 var afterSuiteReporters = []Reporter{}
 var k8sReporter *reporter.KubernetesReporter
 var etcdProfiler *reporter.EtcdProfiler
+var postCleanupReporter *reporter.KubernetesReporter
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
@@ -104,6 +106,10 @@ func TestTests(t *testing.T) {
 		}
 		etcdProfiler = reporter.NewEtcdProfiler(etcdArtifactsDir)
 	}
+
+	postCleanupPath := filepath.Join(artifactsPath, "cleanup_failures")
+	postCleanupReporter = reporter.NewKubernetesReporter(postCleanupPath, maxFails, alwaysCollect)
+	postCleanupReporter.Cleanup()
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
@@ -190,6 +196,7 @@ var _ = ReportAfterSuite("TestTests", func(report Report) {
 
 var _ = ReportBeforeSuite(func(report Report) {
 	k8sReporter.ConfigurePerSpecReporting(report)
+	postCleanupReporter.ConfigurePerSpecReporting(report)
 })
 
 var _ = BeforeEach(func() {
@@ -217,6 +224,35 @@ var _ = JustAfterEach(func() {
 		etcdProfiler.RecordSpec(CurrentSpecReport())
 	}
 })
+
+var _ = ReportAfterEach(func(specReport SpecReport) {
+	if flags.DeployFakeKWOKNodesFlag {
+		return
+	}
+	if !specReport.Failed() {
+		return
+	}
+	if hasTeardownFailure(specReport) {
+		postCleanupReporter.ReportSpec(specReport)
+	}
+})
+
+func isTeardownNodeType(nt types.NodeType) bool {
+	return nt == types.NodeTypeAfterEach || nt == types.NodeTypeCleanupAfterEach ||
+		nt == types.NodeTypeAfterAll || nt == types.NodeTypeCleanupAfterAll
+}
+
+func hasTeardownFailure(specReport SpecReport) bool {
+	if isTeardownNodeType(specReport.Failure.FailureNodeType) {
+		return true
+	}
+	for _, af := range specReport.AdditionalFailures {
+		if isTeardownNodeType(af.Failure.FailureNodeType) {
+			return true
+		}
+	}
+	return false
+}
 
 func testCleanup() {
 	GinkgoWriter.Println("Global test cleanup started.")
