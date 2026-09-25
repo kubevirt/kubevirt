@@ -49,6 +49,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
@@ -168,6 +169,16 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
 			return common.NewSyncError(fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation"), pod
+		}
+
+		// Only the pod that runs the VM references this claim, so the temporary pod rendered above
+		// never gets one, and neither does a migration target, which cannot share the claim with
+		// the source pod.
+		if !isWaitForFirstConsumer && drautil.CPUsFromDRA(vmi, c.clusterConfig.CPUDRAEnabled()) {
+			if err := drautil.CreateCPUResourceClaim(vmi, c.clientset); err != nil {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating CPU ResourceClaim: %v", err)
+				return common.NewSyncError(fmt.Errorf("failed to create CPU ResourceClaim: %v", err), controller.FailedCreatePodReason), pod
+			}
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)

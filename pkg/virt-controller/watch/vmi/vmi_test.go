@@ -62,12 +62,14 @@ import (
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -273,6 +275,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().ResourceV1().Return(kubeClient.ResourceV1()).AnyTimes()
 	})
 
 	AfterEach(func() {
@@ -365,6 +368,83 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(shutdown).To(BeFalse())
 			Expect(key).To(Equal(vmiKey))
 			mockQueue.Done(key)
+		})
+	})
+
+	Context("CPU DRA", func() {
+		dvVolumeSource := virtv1.VolumeSource{
+			DataVolume: &virtv1.DataVolumeSource{
+				Name: "test1",
+			},
+		}
+
+		enableCPUDRAGate := func() {
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+			kvCR.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.CPUsWithDRAGate}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+		}
+
+		newDedicatedCPUVMI := func() *virtv1.VirtualMachineInstance {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Domain.CPU = &virtv1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+			return vmi
+		}
+
+		getCPUResourceClaim := func(vmi *virtv1.VirtualMachineInstance) error {
+			_, err := kubeClient.ResourceV1().ResourceClaims(vmi.Namespace).Get(
+				context.Background(), dra.CPUResourceClaimName(vmi.Name), metav1.GetOptions{})
+			return err
+		}
+
+		It("should create the CPU ResourceClaim for the pod that runs the VM", func() {
+			enableCPUDRAGate()
+
+			vmi := newDedicatedCPUVMI()
+			addVirtualMachine(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			Expect(getCPUResourceClaim(vmi)).To(Succeed())
+			expectMatchingPodCreation(vmi, WithTransform(
+				func(pod *k8sv1.Pod) []k8sv1.PodResourceClaim { return pod.Spec.ResourceClaims },
+				ContainElement(k8sv1.PodResourceClaim{
+					Name:              dra.CPUClaimRefName,
+					ResourceClaimName: pointer.P(dra.CPUResourceClaimName(vmi.Name)),
+				})))
+		})
+
+		It("should not create the CPU ResourceClaim for a WaitForFirstConsumer temporary pod", func() {
+			enableCPUDRAGate()
+
+			vmi := newDedicatedCPUVMI()
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
+			})
+
+			dataVolume := newDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+			dvPVC := newPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
+			dvPVC.Status.Phase = k8sv1.ClaimPending
+
+			addDataVolumePVC(dvPVC)
+			addVirtualMachine(vmi)
+			addDataVolume(dataVolume)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			Expect(getCPUResourceClaim(vmi)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+		})
+
+		It("should not create the CPU ResourceClaim while the CPU DRA gate is off", func() {
+			vmi := newDedicatedCPUVMI()
+			addVirtualMachine(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			Expect(getCPUResourceClaim(vmi)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 		})
 	})
 

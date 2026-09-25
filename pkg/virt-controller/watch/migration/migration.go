@@ -644,6 +644,13 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target attachment pod %s/%s shutdown during migration", attachmentPod.Namespace, attachmentPod.Name)
+	} else if errors.Is(syncError, services.ErrCPUsFromDRANotMigratable) {
+		err := c.failMigration(migrationCopy)
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because %v", services.ErrCPUsFromDRANotMigratable)
+		log.Log.Object(migration).Reason(syncError).Error("Migration failed because the VMI's CPUs are provisioned through DRA")
 	} else {
 		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
 		if err != nil {
@@ -944,7 +951,7 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 
 	templatePod, err := c.templateService.RenderMigrationManifest(vmi, migration, sourcePod)
 	if err != nil {
-		return fmt.Errorf("failed to render launch manifest: %v", err)
+		return fmt.Errorf("failed to render launch manifest: %w", err)
 	}
 
 	if migration.IsDecentralizedTarget() {

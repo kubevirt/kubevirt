@@ -567,3 +567,7 @@ func (c *ClusterConfig) PersistentReservationEnabled() bool {
 
 	return slices.Contains(c.GetConfig().DeveloperConfiguration.FeatureGates, featuregate.PersistentReservation)
 }
+
+func (c *ClusterConfig) CPUDRAEnabled() bool {
+	return c.CPUsWithDRAGateEnabled()
+}
