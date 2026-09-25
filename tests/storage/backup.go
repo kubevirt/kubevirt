@@ -55,7 +55,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
-	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
+	exportserverapis "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver/apis"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -70,6 +70,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -1827,7 +1828,7 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 		return nil
 	}, 3*time.Minute, 2*time.Second).Should(Succeed(), "Failed to curl map endpoint after retries")
 
-	var mapResp exportServer.ExportMapResponse
+	var mapResp exportserverapis.ExportMapResponse
 	err = json.Unmarshal([]byte(out), &mapResp)
 	Expect(err).ToNot(HaveOccurred(), "Failed to unmarshal Map endpoint JSON response: %s", out)
 
@@ -2005,4 +2006,292 @@ func withCloudInitNoCloudDummy() libvmi.VMOption {
 			},
 		})
 	}
+}
+
+var _ = Describe(SIG("Offline Backup", func() {
+	var (
+		err        error
+		virtClient kubecli.KubevirtClient
+		vm         *v1.VirtualMachine
+	)
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	It("Offline push mode Full Backup with source VirtualMachine", func() {
+		vm = createRunningCBTVMForOfflineBackup(virtClient)
+
+		targetPVC := libstorage.CreateFSPVC("target-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Stopping the VM so the backup runs offline")
+		vm = libvmops.StopVirtualMachine(vm)
+
+		By("Creating the offline full push backup")
+		vmbackup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, targetPVC.Name)
+		vmbackup.Spec.Mode = pointer.P(backupv1.PushMode)
+		vmbackup, err = virtClient.VirtualMachineBackup(vmbackup.Namespace).Create(context.Background(), vmbackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmbackup = waitBackupSucceeded(virtClient, vm.Namespace, vmbackup.Name)
+		expectOfflineBackup(vmbackup)
+		Expect(vmbackup.Status.Type).To(Equal(backupv1.Full))
+
+		By("Verifying full backup size matches disk size")
+		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
+		verifyBackupTargetPVCOutput(virtClient, targetPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
+	})
+
+	It("Offline push mode Full and Incremental Backup with BackupTracker", func() {
+		const (
+			testDataSizeMB    = 50
+			testDataSizeBytes = testDataSizeMB * 1024 * 1024
+		)
+
+		vm = createRunningCBTVMForOfflineBackup(virtClient, withCloudInitNoCloudDummy())
+
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Stopping the VM so the backup runs offline")
+		vm = libvmops.StopVirtualMachine(vm)
+
+		By("Creating first offline full push backup with tracker reference")
+		fullBackup := createOfflineBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, backupv1.PushMode, "")
+		fullBackup = waitBackupSucceeded(virtClient, vm.Namespace, fullBackup.Name)
+		expectOfflineBackup(fullBackup)
+		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
+		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included volume")
+
+		By("Verifying full backup size matches disk size")
+		verifyBackupTargetPVCOutput(virtClient, fullBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
+
+		By("Verifying BackupTracker advanced with the first checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		firstCheckpoint := tracker.Status.LatestCheckpoint
+		Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
+		Expect(firstCheckpoint.Name).To(Equal(*fullBackup.Status.CheckpointName))
+
+		By("Starting the VM to write new data, then stopping it again")
+		vm = writeDataWhileRunning(virtClient, vm, testDataSizeMB)
+
+		By("Creating second offline incremental push backup with same tracker reference")
+		incrementalBackup := createOfflineBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, backupv1.PushMode, "")
+		incrementalBackup = waitBackupSucceeded(virtClient, vm.Namespace, incrementalBackup.Name)
+		expectOfflineBackup(incrementalBackup)
+		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental), "Second backup should be Incremental")
+		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included volume")
+
+		By("Verifying BackupTracker advanced with the new checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil())
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(*incrementalBackup.Status.CheckpointName))
+		Expect(tracker.Status.LatestCheckpoint.Name).ToNot(Equal(firstCheckpoint.Name), "Second checkpoint should have a different name")
+
+		By("Verifying incremental backup size matches the amount of data written")
+		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
+	})
+
+	It("Offline push mode fails a second incremental with no changes since the base checkpoint", func() {
+		vm = createRunningCBTVMForOfflineBackup(virtClient)
+
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		emptyBackupPVC := libstorage.CreateFSPVC("empty-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Stopping the VM so the backup runs offline")
+		vm = libvmops.StopVirtualMachine(vm)
+
+		By("Creating the offline full push backup")
+		fullBackup := createOfflineBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, backupv1.PushMode, "")
+		fullBackup = waitBackupSucceeded(virtClient, vm.Namespace, fullBackup.Name)
+		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full))
+
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		checkpointAfterFull := tracker.Status.LatestCheckpoint
+		Expect(checkpointAfterFull).ToNot(BeNil())
+
+		By("Creating a second offline incremental without starting the VM in between")
+		emptyBackup := createOfflineBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, emptyBackupPVC.Name, tracker.Name, backupv1.PushMode, "")
+		emptyBackup = waitBackupFailed(virtClient, vm.Namespace, emptyBackup.Name)
+
+		By("Verifying it failed as an empty incremental")
+		Expect(emptyBackup.Status.Type).To(Equal(backupv1.Incremental))
+		failed := meta.FindStatusCondition(emptyBackup.Status.Conditions, string(backupv1.ConditionFailed))
+		Expect(failed).ToNot(BeNil())
+		Expect(failed.Reason).To(Equal(backupv1.ReasonEmptyIncremental))
+
+		By("Verifying the BackupTracker did not advance")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(checkpointAfterFull.Name))
+	})
+
+	It("Offline pull mode Full and Incremental Backup with endpoint verification", func() {
+		const testDataSizeMB = 50
+
+		vm = createRunningCBTVMForOfflineBackup(virtClient, withCloudInitNoCloudDummy())
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		tokenValue, tokenSecret := createBackupTokenSecret(virtClient, vm.Namespace)
+
+		By("Creating scratch PVC for the offline pull backup")
+		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Stopping the VM so the backup runs offline")
+		vm = libvmops.StopVirtualMachine(vm)
+
+		By("Creating offline full pull backup")
+		fullBackup := createOfflineBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name, backupv1.PullMode, tokenSecret.Name)
+		fullBackup = waitBackupExportReady(virtClient, fullBackup.Namespace, fullBackup.Name)
+		expectOfflineBackup(fullBackup)
+		verifyPullEndpoints(virtClient, fullBackup, backupv1.Full, tokenValue)
+
+		By("Deleting the full backup to finalize and advance the checkpoint")
+		deleteVMBackup(virtClient, vm.Namespace, fullBackup.Name)
+
+		By("Verifying BackupTracker advanced after the pull backup was deleted")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup deletion")
+
+		By("Starting the VM to write new data, then stopping it again")
+		vm = writeDataWhileRunning(virtClient, vm, testDataSizeMB)
+
+		By("Creating offline incremental pull backup")
+		incBackup := createOfflineBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name, backupv1.PullMode, tokenSecret.Name)
+		incBackup = waitBackupExportReady(virtClient, incBackup.Namespace, incBackup.Name)
+		expectOfflineBackup(incBackup)
+		Expect(incBackup.Status.Type).To(Equal(backupv1.Incremental))
+		verifyPullEndpoints(virtClient, incBackup, backupv1.Incremental, tokenValue)
+
+		By("Deleting the incremental backup to finalize")
+		deleteVMBackup(virtClient, vm.Namespace, incBackup.Name)
+	})
+
+	It("holds VM start while an offline backup is in progress", func() {
+		vm = createRunningCBTVMForOfflineBackup(virtClient)
+
+		tokenValue, tokenSecret := createBackupTokenSecret(virtClient, vm.Namespace)
+
+		By("Creating scratch PVC for the offline pull backup")
+		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Stopping the VM so the backup runs offline")
+		vm = libvmops.StopVirtualMachine(vm)
+
+		By("Creating an offline pull backup that stays ready until deleted")
+		vmbackup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, scratchPVC.Name)
+		vmbackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		vmbackup.Spec.TokenSecretRef = tokenSecret.Name
+		vmbackup, err = virtClient.VirtualMachineBackup(vmbackup.Namespace).Create(context.Background(), vmbackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		vmbackup = waitBackupExportReady(virtClient, vmbackup.Namespace, vmbackup.Name)
+		expectOfflineBackup(vmbackup)
+		verifyPullEndpoints(virtClient, vmbackup, backupv1.Full, tokenValue)
+
+		By("Starting the VM while the offline backup is in progress")
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verifying the VMI is created but held with the BackupInProgress condition")
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 60*time.Second, 2*time.Second).Should(
+			matcher.HaveConditionTrue(v1.VirtualMachineInstanceBackupInProgress))
+
+		By("Verifying virt-launcher creation stays held (VMI does not reach Running)")
+		Consistently(func() v1.VirtualMachineInstancePhase {
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return vmi.Status.Phase
+		}, 30*time.Second, 5*time.Second).ShouldNot(Equal(v1.Running), "virt-launcher must not start while an offline backup is in progress")
+
+		By("Deleting the offline backup to release the hold")
+		deleteVMBackup(virtClient, vm.Namespace, vmbackup.Name)
+
+		By("Verifying the VM now starts and becomes ready")
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 5*time.Minute, 2*time.Second).Should(matcher.BeInPhase(v1.Running))
+	})
+}))
+
+func createRunningCBTVMForOfflineBackup(virtClient kubecli.KubevirtClient, extraOpts ...libvmi.VMOption) *v1.VirtualMachine {
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+		libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libdv.WithStorage(
+			libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+		),
+	)
+	opts := append([]libvmi.VMOption{
+		libvmi.WithLabels(cbt.CBTLabel),
+		libvmi.WithRunStrategy(v1.RunStrategyAlways),
+	}, extraOpts...)
+	vm := libstorage.RenderVMWithDataVolumeTemplate(dv, opts...)
+
+	By(fmt.Sprintf("Creating VM %s", vm.Name))
+	vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(
+		matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+	libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+	return vm
+}
+
+func writeDataWhileRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, sizeMB int) *v1.VirtualMachine {
+	vm = libvmops.StartVirtualMachine(vm)
+	EventuallyWithOffset(1, matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(
+		matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+	libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+	ExpectWithOffset(1, console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", sizeMB), 2*time.Minute)).ToNot(HaveOccurred())
+
+	return libvmops.StopVirtualMachine(vm)
+}
+
+func createOfflineBackupWithTracker(virtClient kubecli.KubevirtClient, name, namespace, pvcName, trackerName string, mode backupv1.BackupMode, tokenSecretRef string) *backupv1.VirtualMachineBackup {
+	vmbackup := newBackupWithTracker(name, namespace, pvcName, trackerName)
+	vmbackup.Spec.Mode = pointer.P(mode)
+	if tokenSecretRef != "" {
+		vmbackup.Spec.TokenSecretRef = tokenSecretRef
+	}
+	vmbackup, err := virtClient.VirtualMachineBackup(namespace).Create(context.Background(), vmbackup, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return vmbackup
+}
+
+func createBackupTokenSecret(virtClient kubecli.KubevirtClient, namespace string) (string, *corev1.Secret) {
+	tokenValue := "backup-token-" + rand.String(5)
+	tokenSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "backup-secret-" + rand.String(5),
+			Namespace: namespace,
+		},
+		StringData: map[string]string{
+			"token": tokenValue,
+		},
+	}
+	tokenSecret, err := virtClient.CoreV1().Secrets(namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return tokenValue, tokenSecret
+}
+
+func expectOfflineBackup(vmbackup *backupv1.VirtualMachineBackup) {
+	ExpectWithOffset(1, vmbackup.Status).ToNot(BeNil())
+	ExpectWithOffset(1, vmbackup.Status.Offline).ToNot(BeNil(), "backup should be routed through the offline data plane")
+	ExpectWithOffset(1, *vmbackup.Status.Offline).To(BeTrue(), "backup should be routed through the offline data plane")
 }
