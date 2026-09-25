@@ -42,6 +42,22 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"architecture":                  "Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components",
 		"resourceClaims":                "ResourceClaims define which ResourceClaims must be allocated\nand reserved before the VMI, hence virt-launcher pod is allowed to start. The resources\nwill be made available to the domain which consumes them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,\nor NetworkDevicesWithDRA is enabled.\nThis feature is in alpha.\n\n+listType=map\n+listMapKey=name\n+optional",
 		"utilityVolumes":                "List of utility volumes that can be mounted to the vmi virt-launcher pod\nwithout having a matching disk in the domain.\nUsed to collect data for various operational workflows.\n+kubebuilder:validation:MaxItems:=256\n+listType=map\n+listMapKey=name\n+optional",
+		"virtualMachineState":           "VirtualMachineState references or templates the PVC that backs the\nVirtualMachineState (persistent UEFI, TPM and CBT state).\nWhen set, it takes precedence over the implicit VirtualMachineState PVC\ncreation that happens when persistent TPM/EFI or CBT is enabled, and any\nenabled TPM or EFI feature is treated as persistent.\n+optional",
+	}
+}
+
+func (VirtualMachineStateSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                    "VirtualMachineStateSpec references or templates the PVC that backs the\nVirtualMachineState (persistent UEFI, TPM and CBT state).\nAt least one of VolumeClaimTemplate or Source must be set.",
+		"volumeClaimTemplate": "VolumeClaimTemplate is the template the controller uses to create PVCs it\nowns. It is used for the initial PVC when Source is unset, and for every\nnew PVC the controller creates later for operations like live migration.\nThe controller owns the PVC name via GenerateName, so\nvolumeClaimTemplate.metadata.name must not be set. The referenced volume\nmode must be Filesystem.\n+optional",
+		"source":              "Source is an existing PVC to adopt as the starting VirtualMachineState.\nThe controller does not take ownership of a PVC referenced this way.\n+optional",
+	}
+}
+
+func (VirtualMachineStateSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "VirtualMachineStateSource references an existing PVC to adopt as the starting\nVirtualMachineState.",
+		"name": "Name of the source PVC.",
 	}
 }
 
@@ -95,6 +111,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
 		"changedBlockTracking":          "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"virtualMachineStateVolume":     "VirtualMachineStateVolume tracks the live VirtualMachineState PVC\n(persistent UEFI, TPM and CBT state). It is the source of truth for the\nPVC name, which may differ from the referenced source after a migration.\nIt is populated for both the declarative and the implicit paths.\n+nullable\n+optional",
 	}
 }
 
@@ -460,25 +477,26 @@ func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
-		"snapshotInProgress":     "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
-		"restoreInProgress":      "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
-		"created":                "Created indicates if the virtual machine is created in the cluster",
-		"ready":                  "Ready indicates if the virtual machine is running and ready",
-		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",
-		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
-		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
-		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
-		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
-		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
-		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
-		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
-		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
-		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
-		"volumeUpdateState":      "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
-		"changedBlockTracking":   "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
-		"instancetypeRef":        "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
-		"preferenceRef":          "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+		"":                          "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"snapshotInProgress":        "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+		"restoreInProgress":         "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+		"created":                   "Created indicates if the virtual machine is created in the cluster",
+		"ready":                     "Ready indicates if the virtual machine is running and ready",
+		"printableStatus":           "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",
+		"conditions":                "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+		"stateChangeRequests":       "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+		"volumeRequests":            "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
+		"volumeSnapshotStatuses":    "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
+		"startFailure":              "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
+		"memoryDumpRequest":         "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"observedGeneration":        "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
+		"desiredGeneration":         "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"runStrategy":               "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
+		"volumeUpdateState":         "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
+		"changedBlockTracking":      "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"instancetypeRef":           "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
+		"preferenceRef":             "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+		"virtualMachineStateVolume": "VirtualMachineStateVolume tracks the live VirtualMachineState PVC\n(persistent UEFI, TPM and CBT state). It is the source of truth for the\nPVC name, which may differ from the referenced source after a migration.\nIt is populated for both the declarative and the implicit paths.\n+nullable\n+optional",
 	}
 }
 

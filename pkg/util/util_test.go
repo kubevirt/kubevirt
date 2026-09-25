@@ -20,6 +20,8 @@
 package util
 
 import (
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -161,3 +163,24 @@ var _ = DescribeTable("memory lock limit requirements",
 		true,
 	),
 )
+
+var _ = Describe("HasDeclarativeVMState", func() {
+	DescribeTable("should report whether the VMI opts into the declarative virtualMachineState API",
+		func(state *v1.VirtualMachineStateSpec, expected bool) {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					VirtualMachineState: state,
+				},
+			}
+			Expect(HasDeclarativeVMState(vmi)).To(Equal(expected))
+		},
+		Entry("VirtualMachineState is set", &v1.VirtualMachineStateSpec{}, true),
+		Entry("VirtualMachineState is nil", nil, false),
+	)
+})
+
+var _ = Describe("VMState canonical paths", func() {
+	It("VMStateCanonicalEFIVarsPath returns the canonical EFI vars file", func() {
+		Expect(VMStateCanonicalEFIVarsPath()).To(Equal(filepath.Join(VMStatePVCMountPath, VMStateDirEFI, VMStateEFIVarsFile)))
+	})
+})

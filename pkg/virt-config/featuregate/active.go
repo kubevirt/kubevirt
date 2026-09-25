@@ -285,6 +285,16 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-storage / @alromeros
+	// Alpha: v1.10.0
+	//
+	// DeclarativeVMState enables the declarative virtualMachineState API field,
+	// which references or templates the PVC that backs the VirtualMachineState
+	// (persistent UEFI, TPM and CBT state). The gate controls API admission only:
+	// VMs already created with the field keep using the declarative path even if
+	// the gate is later disabled.
+	DeclarativeVMState = "DeclarativeVMState"
 )
 
 func init() {
@@ -332,4 +342,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 }

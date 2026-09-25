@@ -20,6 +20,8 @@
 package cbt_test
 
 import (
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -38,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -572,5 +575,13 @@ var _ = Describe("CBT", func() {
 			Entry("EmptyDisk", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{Capacity: resource.MustParse("1Gi")}}, false),
 			Entry("CloudInit", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "test"}}, false),
 		)
+	})
+
+	Context("PathForCBT", func() {
+		It("should return the canonical VMState PVC path when the declarative virtualMachineState API is used", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{}
+			Expect(cbt.PathForCBT(vmi)).To(Equal(filepath.Join(util.VMStatePVCMountPath, util.VMStateDirCBT)))
+		})
 	})
 })

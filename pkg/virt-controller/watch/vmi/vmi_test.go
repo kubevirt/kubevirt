@@ -5569,6 +5569,57 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			),
 		)
 	})
+
+	Context("VMState in-use lock holder liveness", func() {
+		const holderUID = "holder-uid"
+
+		newHolderVMI := func() *virtv1.VirtualMachineInstance {
+			vmi := newPendingVirtualMachine("vmstate-holder")
+			vmi.UID = holderUID
+			vmi.Status.Phase = virtv1.Running
+			return vmi
+		}
+
+		It("should report the holder as running for a matching non-final VMI without a deletion timestamp", func() {
+			vmi := newHolderVMI()
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			Expect(controller.isVMStateHolderRunning(vmi.Namespace, holderUID)).To(BeTrue())
+		})
+
+		It("should not report the holder as running for a matching final VMI", func() {
+			vmi := newHolderVMI()
+			vmi.Status.Phase = virtv1.Succeeded
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			Expect(controller.isVMStateHolderRunning(vmi.Namespace, holderUID)).To(BeFalse())
+		})
+
+		It("should not report the holder as running for a matching VMI with a deletion timestamp", func() {
+			vmi := newHolderVMI()
+			now := metav1.Now()
+			vmi.DeletionTimestamp = &now
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			Expect(controller.isVMStateHolderRunning(vmi.Namespace, holderUID)).To(BeFalse())
+		})
+
+		It("should not report the holder as running when no VMI has the holder UID", func() {
+			vmi := newHolderVMI()
+			vmi.UID = "some-other-uid"
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			Expect(controller.isVMStateHolderRunning(vmi.Namespace, holderUID)).To(BeFalse())
+		})
+
+		It("should not report the holder as running when the matching VMI is in a different namespace", func() {
+			vmi := newHolderVMI()
+			vmi.Namespace = "other-namespace"
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+			Expect(controller.isVMStateHolderRunning(k8sv1.NamespaceDefault, holderUID)).To(BeFalse())
+		})
+	})
 })
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {

@@ -212,6 +212,27 @@ var _ = Describe("OS Domain Configurator", func() {
 			Expect(domain.Spec.OS.BootLoader).To(BeNil())
 			Expect(domain.Spec.OS.NVRam).To(BeNil())
 		})
+
+		DescribeTable("should select the NVRAM path based on the declarative virtualMachineState API", func(option libvmi.Option, expectedNVRam func(*v1.VirtualMachineInstance) string) {
+			vmi := libvmi.New(withEFIBootloader(true), option)
+			var domain api.Domain
+			autoSelectConfig := &compute.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+
+			Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, autoSelectConfig).Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.OS.NVRam).ToNot(BeNil())
+			Expect(domain.Spec.OS.NVRam.NVRam).To(Equal(expectedNVRam(vmi)))
+		},
+			Entry("declarative VMState uses the canonical EFI vars path", withVMState(), func(*v1.VirtualMachineInstance) string {
+				return util.VMStateCanonicalEFIVarsPath()
+			}),
+			Entry("implicit VMState uses the per-VM NVRAM path", func(*v1.VirtualMachineInstance) {}, func(vmi *v1.VirtualMachineInstance) string {
+				return filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd")
+			}),
+		)
 	})
 
 	Context("ACPI configuration", func() {
@@ -314,6 +335,12 @@ func withEFIBootloader(secureBoot bool) libvmi.Option {
 		vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{
 			SecureBoot: new(secureBoot),
 		}
+	}
+}
+
+func withVMState() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{}
 	}
 }
 
