@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -225,6 +226,184 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(containers[0].Resources.Claims).To(BeEmpty())
+			})
+		})
+
+		Context("CPU DRA resource claims", func() {
+			const (
+				computeContainerName = "compute"
+				vmiName              = "testvmi"
+			)
+
+			newVMIWithDedicatedCPU := func(name string, sockets uint32) *v1.VirtualMachineInstance {
+				return libvmi.New(
+					libvmi.WithName(name),
+					libvmi.WithNamespace("default"),
+					libvmi.WithDedicatedCPUPlacement(),
+					libvmi.WithCPUCount(2, 1, sockets),
+				)
+			}
+
+			It("should add CPU DRA claim to compute container resources when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: dra.CPUClaimRefName},
+				}))
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					},
+				}))
+			})
+
+			It("should reference the CPU DRA claim once for a multi socket guest", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 2))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: dra.CPUClaimRefName},
+				}))
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					},
+				}))
+			})
+
+			It("should not add CPU DRA claim to compute container resources when feature gate is disabled", func() {
+				config, _, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(BeEmpty())
+			})
+
+			It("should not restrict the pod to CPU manager nodes when the CPUs come from DRA", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).ToNot(HaveKey(v1.CPUManager))
+			})
+
+			It("should keep restricting the pod to CPU manager nodes when the VMI needs NUMA passthrough", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				vmi := newVMIWithDedicatedCPU(vmiName, 1)
+				vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+				Expect(pod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+			})
+
+			It("should keep a temporary pod free of the CPU DRA claim on both sides", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				// A container claiming a name the pod spec does not declare is rejected on create.
+				Expect(pod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+				Expect(pod.Spec.ResourceClaims).To(BeEmpty())
+			})
+
+			It("should restrict a temporary pod to CPU manager nodes, since its CPUs are pinned by kubelet", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+			})
+
+			Context("migration target", func() {
+				var migration *v1.VirtualMachineInstanceMigration
+
+				BeforeEach(func() {
+					migration = &v1.VirtualMachineInstanceMigration{
+						ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+					}
+				})
+
+				It("should refuse to render a target for a source pod holding the CPU DRA claim", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(sourcePod.Spec.ResourceClaims).To(ContainElement(k8sv1.PodResourceClaim{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					}))
+
+					_, err = svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).To(MatchError(ErrCPUsFromDRANotMigratable))
+				})
+
+				It("should refuse the target even once the CPU DRA gate is turned back off", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					config, kvStore, svc = configFactory(defaultArch)
+					_, err = svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).To(MatchError(ErrCPUsFromDRANotMigratable))
+				})
+
+				It("should render a target for a dedicated CPU VMI whose source pod uses the CPU manager", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(sourcePod.Spec.ResourceClaims).To(BeEmpty())
+
+					targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(targetPod.Spec.ResourceClaims).To(BeEmpty())
+					Expect(targetPod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+				})
+
+				It("should put the target on the CPU manager path when the gate is on but the source pod predates it", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(sourcePod.Spec.ResourceClaims).To(BeEmpty())
+
+					// The gate goes on only after the VMI already booted on the CPU manager path.
+					config, kvStore, svc = configFactory(defaultArch)
+					enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+					targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(targetPod.Spec.ResourceClaims).To(BeEmpty())
+					Expect(targetPod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+					Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+				})
 			})
 		})
 
