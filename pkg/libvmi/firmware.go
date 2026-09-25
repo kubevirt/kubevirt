@@ -50,6 +50,22 @@ func WithUefi(secureBoot bool) Option {
 	}
 }
 
+// WithEnrolledKeys sets whether the Secure Boot NVRAM starts with keys pre-enrolled.
+func WithEnrolledKeys(enrolledKeys bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys = pointer.P(enrolledKeys)
+	}
+}
+
 func WithKernelBootContainer(imageName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Firmware = &v1.Firmware{

@@ -261,6 +261,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
+	causes = append(causes, validateEFIEnrolledKeys(field.Child("domain"), &spec.Domain, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
 	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
@@ -1534,6 +1535,41 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 		})
 	}
 
+	return causes
+}
+
+func validateEFIEnrolledKeys(field *k8sfield.Path, spec *v1.DomainSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	if !efiBootEnabled(spec.Firmware) || spec.Firmware.Bootloader.EFI.EnrolledKeys == nil {
+		return nil
+	}
+	field = field.Child("firmware", "bootloader", "efi", "enrolledKeys")
+
+	if !secureBootEnabled(spec.Firmware) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s is only valid when SecureBoot is enabled", field.String()),
+			Field:   field.String(),
+		}}
+	}
+	if *spec.Firmware.Bootloader.EFI.EnrolledKeys {
+		return nil
+	}
+
+	var causes []metav1.StatusCause
+	if !config.FirmwareAutoSelectionEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.FirmwareAutoSelection),
+			Field:   field.String(),
+		})
+	}
+	if spec.LaunchSecurity != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s cannot be false when launchSecurity is set", field.String()),
+			Field:   field.String(),
+		})
+	}
 	return causes
 }
 

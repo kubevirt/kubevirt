@@ -117,7 +117,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.FirmwareInfo = &api.FirmwareInfo{
 			Features: []api.FirmwareFeature{
 				{Enabled: "yes", Name: FirmwareFeatureSecureBoot},
-				{Enabled: "yes", Name: FirmwareFeatureEnrolledKeys},
+				{Enabled: boolToYesNo(vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys, true), Name: FirmwareFeatureEnrolledKeys},
 			},
 		}
 		domain.Spec.OS.BootLoader = nil

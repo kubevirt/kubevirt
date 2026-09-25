@@ -2966,6 +2966,64 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
+	Context("with EFI enrolledKeys", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot:   pointer.P(true),
+						EnrolledKeys: pointer.P(false),
+					},
+				},
+			}
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{Enabled: pointer.P(true)},
+			}
+			enableFeatureGates(featuregate.FirmwareAutoSelection)
+		})
+
+		AfterEach(func() {
+			disableFeatureGates()
+		})
+
+		It("should accept enrolledKeys false with SecureBoot and the feature gate", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject enrolledKeys false without the feature gate", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.efi.enrolledKeys"))
+			Expect(causes[0].Message).To(ContainSubstring("FirmwareAutoSelection feature gate is not enabled"))
+		})
+
+		DescribeTable("should reject enrolledKeys without SecureBoot", func(enrolledKeys bool) {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(false)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys = pointer.P(enrolledKeys)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("only valid when SecureBoot is enabled"))
+		},
+			Entry("set to true", true),
+			Entry("set to false", false),
+		)
+
+		It("should reject enrolledKeys false with launchSecurity", func() {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{TDX: &v1.TDX{}}
+			vmi.Spec.Domain.Features = nil
+			vmi.Spec.Architecture = "amd64"
+			enableFeatureGates(featuregate.FirmwareAutoSelection, featuregate.WorkloadEncryptionTDX)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("cannot be false when launchSecurity is set"))
+		})
+	})
+
 	Context("with Secure Execution LaunchSecurity", func() {
 		var vmi *v1.VirtualMachineInstance
 
