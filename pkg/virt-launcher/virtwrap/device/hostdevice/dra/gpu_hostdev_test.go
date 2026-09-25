@@ -192,6 +192,71 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			Expect(dev.Source.Address).ToNot(BeNil())
 			Expect(dev.Source.Address.UUID).To(Equal(uuid))
 		})
+
+		It("should set ramfb when RamFB is present but Enabled is nil", func() {
+			uuid := "123e4567-e89b-12d3-a456-426614174001"
+
+			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DeviceMetadata",
+					APIVersion: metadata.APIVersionV1Alpha1,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "claim1",
+				},
+				Requests: []metadata.DeviceMetadataRequest{{
+					Name: "req1",
+					Devices: []metadata.Device{{
+						Driver: "gpu.example.com",
+						Pool:   "gpu-pool",
+						Name:   "device1",
+						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+						},
+					}},
+				}},
+			})
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
+						Name:              "claim1",
+						ResourceClaimName: ptr.To("claim1"),
+					}},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							GPUs: []v1.GPU{{
+								Name: "vgpu1",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   "claim1",
+									RequestName: "req1",
+								},
+								VirtualGPUOptions: &v1.VGPUOptions{
+									Display: &v1.VGPUDisplayOptions{
+										Enabled: ptr.To(true),
+										// RamFB present, Enabled unset: defaults to true.
+										RamFB: &v1.FeatureState{},
+									},
+								},
+							}},
+						},
+					},
+				},
+			}
+
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevices).To(HaveLen(1))
+
+			dev := hostDevices[0]
+			Expect(dev.Type).To(Equal(api.HostDeviceMDev))
+			Expect(dev.Display).To(Equal("on"))
+			Expect(dev.RamFB).To(Equal("on"))
+		})
 	})
 
 	Context("when the device has both pciBusID and mdevUUID", func() {
