@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -116,21 +117,12 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 	}
 }
 
-// Helper function to extract IO thread CPU count from VMI
-func getIOThreadsCount(vmi *v1.VirtualMachineInstance) int64 {
-	if vmi == nil || vmi.Spec.Domain.IOThreads == nil ||
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
-		return 0
-	}
-	return int64(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
-}
-
 func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		cpu := vmi.Spec.Domain.CPU
 		vcpus := calcVCPUs(cpu)
-		ioThreadCPUs := getIOThreadsCount(vmi) // Get IO thread count
-		totalCPUs := vcpus + ioThreadCPUs      // Include IO threads
+		ioThreadCPUs := hardware.GetIOThreadsCount(vmi)
+		totalCPUs := vcpus + ioThreadCPUs // Include IO threads
 		if totalCPUs != 0 && cpuAllocationRatio > 0 {
 			val := float64(totalCPUs) / float64(cpuAllocationRatio)
 			vcpusStr := fmt.Sprintf("%g", val)
@@ -156,6 +148,14 @@ func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
 		}
 		copyResources(res.Limits, r.calculatedLimits)
 		copyResources(res.Requests, r.calculatedRequests)
+	}
+}
+
+func WithCPUsDRA(vmi *v1.VirtualMachineInstance) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		r.resourceClaims = append(r.resourceClaims, k8sv1.ResourceClaim{
+			Name: dra.CPUClaimRefName,
+		})
 	}
 }
 
@@ -317,11 +317,11 @@ func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) Resource
 	}
 }
 
-func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]string, additionalCPUs uint32) ResourceRendererOption {
+func WithCPUPinning(vmi *v1.VirtualMachineInstance) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		cpu := vmi.Spec.Domain.CPU
 		vcpus := hardware.GetNumberOfVCPUs(cpu)
-		ioThreadCPUs := getIOThreadsCount(vmi)
+		ioThreadCPUs := hardware.GetIOThreadsCount(vmi)
 		if vcpus != 0 {
 			totalCPUs := vcpus + ioThreadCPUs
 			renderer.vmLimits[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI)
@@ -339,13 +339,8 @@ func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]strin
 		}
 
 		if cpu.IsolateEmulatorThread {
-			emulatorThreadCPUs := resource.NewQuantity(1, resource.BinarySI)
 			limits := renderer.vmLimits[k8sv1.ResourceCPU]
-			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
-			if emulatorThreadCompleteToEvenParityAnnotationExists &&
-				(limits.Value()+int64(additionalCPUs))%2 == 0 {
-				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
-			}
+			emulatorThreadCPUs := resource.NewQuantity(hardware.GetEmulatorThreadHostCPUs(vmi, limits.Value()), resource.BinarySI)
 			limits.Add(*emulatorThreadCPUs)
 			renderer.vmLimits[k8sv1.ResourceCPU] = limits
 			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {

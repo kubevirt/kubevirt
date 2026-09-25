@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -183,6 +184,9 @@ var _ = Describe("Resource pod spec renderer", func() {
 					libvmi.WithSupplementalPoolThreadCount(ioThreads),
 					libvmi.WithIsolateEmulatorThread(),
 				)
+				if annotations != nil {
+					vmi.Annotations = annotations
+				}
 
 				vmLimits := kubev1.ResourceList{}
 				vmRequests := kubev1.ResourceList{}
@@ -194,7 +198,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 				rr := NewResourceRenderer(
 					vmLimits,
 					vmRequests,
-					WithCPUPinning(vmi, annotations, 0),
+					WithCPUPinning(vmi),
 				)
 
 				expectedQuantity := resource.NewQuantity(expectedCPUs, resource.BinarySI)
@@ -227,7 +231,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			)
 			rr = NewResourceRenderer(
 				nil, nil,
-				WithCPUPinning(vmi, nil, 0),
+				WithCPUPinning(vmi),
 			)
 			Expect(rr.Limits()).Should(HaveKeyWithValue(
 				kubev1.ResourceCPU,
@@ -447,6 +451,33 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims).To(HaveLen(1))
 			Expect(claims[0].Name).To(Equal("net-claim"))
 			Expect(claims[0].Request).To(Equal("net-request"))
+		})
+
+		It("should add CPU DRA claim to container resources", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
+
+			rr = NewResourceRenderer(nil, nil, WithCPUsDRA(vmi))
+
+			Expect(rr.Claims()).To(Equal([]kubev1.ResourceClaim{
+				{Name: dra.CPUClaimRefName},
+			}))
+		})
+
+		It("should reference the CPU DRA claim once for a guest", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithCPUCount(2, 1, 3),
+			)
+
+			rr = NewResourceRenderer(nil, nil, WithCPUsDRA(vmi))
+
+			Expect(rr.Claims()).To(Equal([]kubev1.ResourceClaim{
+				{Name: dra.CPUClaimRefName},
+			}))
 		})
 
 		It("Unified functions should not interfere with other renderer options", func() {

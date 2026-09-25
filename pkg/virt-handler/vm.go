@@ -54,6 +54,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
@@ -1154,6 +1155,10 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(reason, v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
+	if c.cpusFromDRA(vmi) {
+		return newNonMigratableCondition(cpuDRANotMigratableMessage, v1.VirtualMachineInstanceReasonCPUDRANotMigratable), isBlockMigration
+	}
+
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
 	} else if util.IsTDXVMI(vmi) {
@@ -1192,6 +1197,17 @@ func isMdevGPU(gpu v1.GPU, config *v1.KubeVirtConfiguration) bool {
 		}
 	}
 	return false
+}
+
+// CPU DRA is not supported for live migration yet.
+const cpuDRANotMigratableMessage = "VMI CPUs are provisioned through DRA"
+
+// cpusFromDRA reports whether this VMI holds a synthesized CPU ResourceClaim. Such a VMI cannot be
+// live migrated: the claim is named after the VMI, so the target pod references the one the source
+// pod already holds, and its allocation carries the node selector of the node it was allocated on.
+// That pins the target to the source node, which is the one node a migration has to leave.
+func (c *VirtualMachineController) cpusFromDRA(vmi *v1.VirtualMachineInstance) bool {
+	return c.clusterConfig.CPUDRAEnabled() && drautil.ShouldSynthesizeCPUResourceClaim(vmi)
 }
 
 func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (string, bool) {
@@ -1271,6 +1287,10 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, c.clusterConfig)
 	if ok {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, reason)
+	}
+
+	if c.cpusFromDRA(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUDRANotMigratable, cpuDRANotMigratableMessage)
 	}
 
 	if util.IsSEVVMI(vmi) {

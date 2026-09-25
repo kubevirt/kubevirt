@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -613,5 +614,30 @@ var _ = Describe("Hardware utils test", func() {
 			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress, testPCIAddressNUMA1}, domainSpec)
 			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddressNUMA1: 1}))
 		})
+	})
+})
+
+var _ = Describe("Dedicated host CPU accounting", func() {
+	It("SupplementalDedicatedHostCPUs matches guest vCPUs plus IO and emulator", func() {
+		vmi := libvmi.New(
+			libvmi.WithDedicatedCPUPlacement(),
+			libvmi.WithCPUCount(4, 1, 1),
+			libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+			libvmi.WithSupplementalPoolThreadCount(2),
+			libvmi.WithIsolateEmulatorThread(),
+		)
+		Expect(GetSupplementalDedicatedHostCPUs(vmi, 4)).To(Equal(int64(3)))
+	})
+
+	It("EmulatorThreadHostCPUs uses even parity with supplemental pool policy", func() {
+		vmi := libvmi.New(
+			libvmi.WithDedicatedCPUPlacement(),
+			libvmi.WithCPUCount(6, 1, 1),
+			libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+			libvmi.WithSupplementalPoolThreadCount(2),
+			libvmi.WithIsolateEmulatorThread(),
+		)
+		vmi.Annotations = map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}
+		Expect(GetEmulatorThreadHostCPUs(vmi, 8)).To(Equal(int64(2)))
 	})
 })

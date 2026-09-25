@@ -792,7 +792,7 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Field: guestMappingPassthroughField.String(),
 			})
 		}
-		if config.CPUsWithDRAGateEnabled() && spec.Domain.CPU.DedicatedCPUPlacement {
+		if config.CPUDRAEnabled() && spec.Domain.CPU.DedicatedCPUPlacement {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s is not supported when CPUsWithDRA is enabled",

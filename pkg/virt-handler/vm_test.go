@@ -2807,6 +2807,34 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable))
 		})
 
+		It("should not be allowed to live-migrate if the VMI takes its CPUs from DRA", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CPUsWithDRAGate},
+				},
+			})
+			controller.clusterConfig = config
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonCPUDRANotMigratable))
+		})
+
+		It("should be allowed to live-migrate a dedicated CPU VMI while the CPU DRA gate is off", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
 		It("should not be allowed to live-migrate if the VMI uses TDX", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
