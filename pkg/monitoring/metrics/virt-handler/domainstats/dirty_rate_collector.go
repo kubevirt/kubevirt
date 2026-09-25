@@ -44,8 +44,7 @@ func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	concCollector := collector.NewConcurrentCollector(settings.maxRequestsInFlight)
-	return execDomainDirtyRateStatsCollector(concCollector, vmis)
+	return execDomainDirtyRateStatsCollector(settings.concCollector, vmis)
 }
 
 func execDomainDirtyRateStatsCollector(
