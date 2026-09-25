@@ -377,6 +377,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("wildcard only", "*"),
 			Entry("wildcard in the end", "mykey/something*"),
 			Entry("negation in the beginning", "!mykey/something"),
+			Entry("empty filter", ""),
 		)
 	})
 
