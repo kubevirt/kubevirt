@@ -69,12 +69,6 @@ func WithBridgeBinding() InterfaceOption {
 	}
 }
 
-// InterfaceDeviceWithMasqueradeBindingPortRanges returns an Interface named "default" with masquerade
-// binding and the given port ranges.
-func InterfaceDeviceWithMasqueradeBindingPortRanges(portRanges ...kvirtv1.PortRange) kvirtv1.Interface {
-	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPortRanges(portRanges...))
-}
-
 // WithSRIOVBinding sets the SRIOV binding method.
 func WithSRIOVBinding() InterfaceOption {
 	return func(iface *kvirtv1.Interface) {

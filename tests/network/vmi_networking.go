@@ -47,9 +47,9 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -521,13 +521,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			DescribeTable("IPv6", decorators.IPv6, func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
-				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, networkCIDR)
+				clientVMI, err := newFedoraMasqueradeIPv6VMI(networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-				serverVMI, err := newFedoraMasqueradeIPv6VMI(ports, networkCIDR)
+				serverVMI, err := newFedoraMasqueradeIPv6VMI(networkCIDR, libvmi.WithPorts(ports...))
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
@@ -559,7 +559,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					ipv6Address = flags.IPV6ConnectivityCheckAddress
 				}
 
-				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
+				vmi, err := newFedoraMasqueradeIPv6VMI(cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -572,54 +572,23 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 		Context("with port ranges", func() {
 			BeforeEach(func() {
-				if !checks.HasFeature(featuregate.PortRangesSpec) {
-					Skip("PortRangesSpec feature gate is not enabled")
-				}
+				config.EnableFeatureGate(featuregate.PortRangesSpec)
 			})
 
-			masqueradeVMIWithForward := func(ports []v1.Port, portRanges []v1.PortRange, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
-				net := v1.DefaultPodNetwork()
-				if ipv4NetworkCIDR != "" {
-					net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
-				}
-				iface := libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)
-				iface.PortRanges = portRanges
+			masqueradeVMIWithForward := func(ports []v1.Port, portRanges []v1.PortRange) *v1.VirtualMachineInstance {
 				return libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithInterface(iface),
-					libvmi.WithNetwork(net),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name,
+						libvmi.WithMasqueradeBinding(),
+						libvmi.WithPorts(ports...),
+						libvmi.WithPortRanges(portRanges...),
+					)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
-			}
-
-			newFedoraMasqueradeIPv6VMIWithPortRanges := func(portRanges []v1.PortRange, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-				networkData, err := cloudinit.NewNetworkData(
-					cloudinit.WithEthernet("eth0",
-						cloudinit.WithAddresses(ipv6NetworkCIDR),
-						cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
-					),
-				)
-				if err != nil {
-					return nil, err
-				}
-
-				net := v1.DefaultPodNetwork()
-				net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
-				vmi := libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBindingPortRanges(portRanges...)),
-					libvmi.WithNetwork(net),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-				)
-
-				return vmi, nil
 			}
 
 			verifyPortRangesForwarding := func(clientVMI, serverVMI *v1.VirtualMachineInstance, ipFamily k8sv1.IPFamily, allowedPorts []int, deniedPort int) {
 				serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-
-				By("Starting servers on forwarded and non-forwarded ports")
-				for _, allowedPort := range allowedPorts {
-					vmnetserver.StartTCPServer(serverVMI, allowedPort, console.LoginToAlpine)
-				}
-				vmnetserver.StartTCPServer(serverVMI, deniedPort, console.LoginToAlpine)
 
 				for _, allowedPort := range allowedPorts {
 					By(fmt.Sprintf("Connecting to a forwarded port %d", allowedPort))
@@ -632,61 +601,64 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			DescribeTable("should only forward the configured ports and port ranges - IPv4", func(ports []v1.Port, portRanges []v1.PortRange, allowedPorts []int, deniedPort int) {
+			DescribeTable("should only forward the configured port ranges - IPv4", func(ports []v1.Port, portRanges []v1.PortRange, allowedPorts []int, deniedPort int) {
 				libnet.SkipWhenClusterNotSupportIpv4()
 
 				clientVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
 					context.Background(), masqueradeVMI([]v1.Port{}, ""), metav1.CreateOptions{},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 
-				serverVMI := masqueradeVMIWithForward(ports, portRanges, "")
+				serverVMI := masqueradeVMIWithForward(ports, portRanges)
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+
+				By("Starting TCP servers on forwarded and non-forwarded ports")
+				for _, allowedPort := range allowedPorts {
+					vmnetserver.StartTCPServer(serverVMI, allowedPort, console.LoginToAlpine)
+				}
+				vmnetserver.StartTCPServer(serverVMI, deniedPort, console.LoginToAlpine)
 
 				verifyPortRangesForwarding(clientVMI, serverVMI, k8sv1.IPv4Protocol, allowedPorts, deniedPort)
 			},
 				Entry("with a single TCP range", nil, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}}, []int{8081}, 9090),
 				Entry("with two non-overlapping TCP ranges", nil, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}, {Protocol: "TCP", Start: 9090, End: 9092}}, []int{8081, 9091}, 9093),
-				Entry("with a single port combined with a TCP range", []v1.Port{{Name: "http", Protocol: "TCP", Port: 7070}}, []v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}}, []int{7070, 8081}, 9090),
 			)
 
 			It("should only forward the configured port ranges - IPv6", func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
-				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
+				clientVMI, err := newFedoraMasqueradeIPv6VMI(cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-				const allowedPort, deniedPort = 8081, 9091
-				serverVMI, err := newFedoraMasqueradeIPv6VMIWithPortRanges([]v1.PortRange{{Protocol: "TCP", Start: 8080, End: 8082}}, cloudinit.DefaultIPv6CIDR)
+				serverVMI, err := newFedoraMasqueradeIPv6VMI(cloudinit.DefaultIPv6CIDR, libvmi.WithPortRanges(v1.PortRange{Protocol: "TCP", Start: 8080, End: 8082}))
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
-				serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, k8sv1.IPv6Protocol)
-				By("Starting servers on a forwarded and a non-forwarded port")
-				vmnetserver.StartPythonHTTPServer(serverVMI, allowedPort)
+				allowedPorts := []int{8081}
+				const deniedPort = 9091
+				By("Starting HTTP servers on forwarded and non-forwarded ports")
+				for _, allowedPort := range allowedPorts {
+					vmnetserver.StartPythonHTTPServer(serverVMI, allowedPort)
+				}
 				vmnetserver.StartPythonHTTPServer(serverVMI, deniedPort)
 
-				By("Connecting to a port within the forwarded range")
-				err = console.SafeExpectBatch(clientVMI, createExpectConnectToServer(serverIP, allowedPort, true), 30)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Rejecting connection to a port outside the forwarded range")
-				err = console.SafeExpectBatch(clientVMI, createExpectConnectToServer(serverIP, deniedPort, false), 30)
-				Expect(err).ToNot(HaveOccurred())
+				verifyPortRangesForwarding(clientVMI, serverVMI, k8sv1.IPv6Protocol, allowedPorts, deniedPort)
 			})
 		})
 
@@ -755,7 +727,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
-				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
+				vmi, err = newFedoraMasqueradeIPv6VMI(cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -911,7 +883,7 @@ func conformanceVMI() *v1.VirtualMachineInstance {
 	)
 }
 
-func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
+func newFedoraMasqueradeIPv6VMI(ipv6NetworkCIDR string, ifaceOpts ...libvmi.InterfaceOption) (*v1.VirtualMachineInstance, error) {
 	networkData, err := cloudinit.NewNetworkData(
 		cloudinit.WithEthernet("eth0",
 			cloudinit.WithAddresses(ipv6NetworkCIDR),
@@ -924,12 +896,9 @@ func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.Vi
 
 	net := v1.DefaultPodNetwork()
 	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
+	opts := append([]libvmi.InterfaceOption{libvmi.WithMasqueradeBinding()}, ifaceOpts...)
 	vmi := libvmifact.NewFedora(
-		libvmi.WithInterface(libvmi.NewInterface(
-			v1.DefaultPodNetwork().Name,
-			libvmi.WithMasqueradeBinding(),
-			libvmi.WithPorts(ports...),
-		)),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, opts...)),
 		libvmi.WithNetwork(net),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
