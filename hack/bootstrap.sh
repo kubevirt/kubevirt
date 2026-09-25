@@ -75,6 +75,6 @@ function kubevirt::bootstrap::sha256() {
     )
 }
 
-if [ "${KUBEVIRT_NO_BAZEL}" != "true" ] && [ "${KUBEVIRT_SKIP_BOOTSTRAP}" != "true" ]; then
+if [ "${KUBEVIRT_NO_BAZEL}" != "true" ] && [ "${KUBEVIRT_SKIP_BOOTSTRAP:-}" != "true" ] && [ "${KUBEVIRT_BOOTSTRAPPING:-false}" != "true" ]; then
     kubevirt::bootstrap::regenerate ${HOST_ARCHITECTURE}
 fi
