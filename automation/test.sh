@@ -68,7 +68,7 @@ fi
 # as with sig-compute-serial lane all sig-compute periodic lanes need to
 # have the Plugins feature gate enabled as well, since the Serial tests are not
 # split out from the sig-compute as in presubmit jobs
-if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute$ ]]; then
+if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute(-root)?$ ]]; then
   add_feature_gate "Plugins"
 fi
 
@@ -134,6 +134,10 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NFS_CSI=true
     export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
     source hack/config-default.sh
+    ;;
+  *sig-compute-root*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-root/}
+    add_feature_gate "Plugins"
     ;;
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
