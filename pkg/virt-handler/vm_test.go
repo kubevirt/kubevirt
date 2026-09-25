@@ -37,6 +37,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
@@ -97,6 +99,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
 	var virtClient *kubecli.MockKubevirtClient
 	var virtfakeClient *kubevirtfake.Clientset
+	var k8sfakeClient *fake.Clientset
 
 	var controller *VirtualMachineController
 	var mockQueue *testutils.MockWorkQueue[string]
@@ -157,7 +160,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		k8sfakeClient := fake.NewSimpleClientset()
+		k8sfakeClient = fake.NewSimpleClientset()
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -2805,6 +2808,108 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable))
+		})
+
+		createAllocatedCPUClaim := func(vmi *v1.VirtualMachineInstance, reservedForActivePod bool) {
+			vmi.UID = uuid.NewUUID()
+			activePodUID := uuid.NewUUID()
+			vmi.Status.ActivePods = map[types.UID]string{activePodUID: host}
+			reservedPodUID := activePodUID
+			if !reservedForActivePod {
+				reservedPodUID = uuid.NewUUID()
+			}
+			_, err := k8sfakeClient.ResourceV1().ResourceClaims(vmi.Namespace).Create(
+				context.Background(),
+				&resourcev1.ResourceClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            drautil.CPUResourceClaimName(vmi.Name),
+						Namespace:       vmi.Namespace,
+						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
+					},
+					Status: resourcev1.ResourceClaimStatus{
+						Allocation: &resourcev1.AllocationResult{},
+						ReservedFor: []resourcev1.ResourceClaimConsumerReference{
+							{
+								Resource: "pods",
+								Name:     "virt-launcher-testvmi",
+								UID:      reservedPodUID,
+							},
+						},
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		It("should not be allowed to live-migrate if the VMI has an allocated CPU ResourceClaim", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+			createAllocatedCPUClaim(vmi, true)
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CPUsWithDRAGate},
+				},
+			})
+			controller.clusterConfig = config
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonCPUDRANotMigratable))
+		})
+
+		It("should remain non-migratable when the CPU DRA gate is disabled after allocation", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+			createAllocatedCPUClaim(vmi, true)
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonCPUDRANotMigratable))
+			storageCondition := controller.calculateLiveStorageMigrationCondition(vmi)
+			Expect(storageCondition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(storageCondition.Message).To(ContainSubstring(cpuDRANotMigratableMessage))
+		})
+
+		It("should remain migratable when the CPU claim is reserved for another pod", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+			createAllocatedCPUClaim(vmi, false)
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
+		It("should be allowed to live-migrate a dedicated CPU VMI while the CPU DRA gate is off", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
+		It("should remain migratable when the CPU DRA gate is enabled without an allocated claim", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CPUsWithDRAGate},
+				},
+			})
+			controller.clusterConfig = config
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(controller.calculateLiveStorageMigrationCondition(vmi).Status).To(Equal(k8sv1.ConditionTrue))
 		})
 
 		It("should not be allowed to live-migrate if the VMI uses TDX", func() {
