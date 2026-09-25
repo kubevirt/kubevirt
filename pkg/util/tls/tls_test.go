@@ -488,6 +488,7 @@ var _ = Describe("TLS", func() {
 
 			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(config.CipherSuites).To(BeNil())
+			Expect(config.CurvePreferences).To(BeNil())
 		})
 
 		It("should apply custom TLS configuration from KubeVirt", func() {
@@ -504,6 +505,94 @@ var _ = Describe("TLS", func() {
 
 			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS13)))
 			Expect(config.CipherSuites).To(Equal(kvtls.CipherSuiteIds([]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"})))
+		})
+	})
+
+	Describe("CurvePreferenceIds", func() {
+		It("should return nil for empty input", func() {
+			Expect(kvtls.CurvePreferenceIds(nil)).To(BeNil())
+			Expect(kvtls.CurvePreferenceIds([]string{})).To(BeNil())
+		})
+
+		It("should map all recognised group names to correct CurveID values", func() {
+			ids := kvtls.CurvePreferenceIds([]string{
+				"X25519", "secp256r1", "secp384r1", "secp521r1",
+				"X25519MLKEM768", "SecP256r1MLKEM768", "SecP384r1MLKEM1024",
+			})
+			Expect(ids).To(Equal([]tls.CurveID{
+				tls.X25519, tls.CurveP256, tls.CurveP384, tls.CurveP521,
+				tls.X25519MLKEM768, tls.SecP256r1MLKEM768, tls.SecP384r1MLKEM1024,
+			}))
+		})
+
+		It("should skip unrecognised group names and preserve order", func() {
+			ids := kvtls.CurvePreferenceIds([]string{"X25519", "unknownGroup", "secp256r1"})
+			Expect(ids).To(Equal([]tls.CurveID{tls.X25519, tls.CurveP256}))
+		})
+
+		It("should return nil when all names are unrecognised", func() {
+			Expect(kvtls.CurvePreferenceIds([]string{"foo", "bar"})).To(BeNil())
+		})
+	})
+
+	Describe("InjectTLSConfigIntoDeployment with groups", func() {
+		const (
+			containerName = "test-container"
+			tlsGroupsArg  = "--tls-groups"
+		)
+
+		var deployment *appsv1.Deployment
+
+		BeforeEach(func() {
+			deployment = &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: k8sv1.PodTemplateSpec{
+						Spec: k8sv1.PodSpec{
+							Containers: []k8sv1.Container{
+								{
+									Name: containerName,
+									Args: []string{"--existing-arg"},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should inject --tls-groups when feature gate is enabled", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"TLSGroupPreferences"},
+						},
+						TLSConfiguration: &v1.TLSConfiguration{
+							Groups: []string{"X25519", "secp256r1"},
+						},
+					},
+				},
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+			args := deployment.Spec.Template.Spec.Containers[0].Args
+			Expect(args).To(ContainElements(tlsGroupsArg, "X25519,secp256r1"))
+		})
+
+		It("should not inject --tls-groups when groups are empty", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"TLSGroupPreferences"},
+						},
+						TLSConfiguration: &v1.TLSConfiguration{
+							Groups: []string{},
+						},
+					},
+				},
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+			Expect(deployment.Spec.Template.Spec.Containers[0].Args).NotTo(ContainElement(tlsGroupsArg))
 		})
 	})
 })
