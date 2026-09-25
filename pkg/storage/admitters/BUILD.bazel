@@ -66,6 +66,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/storage/admitters",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/util/hardware:go_default_library",
