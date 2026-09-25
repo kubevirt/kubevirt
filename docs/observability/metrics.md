@@ -163,7 +163,9 @@
 | vm:kubevirt_vmsnapshot_restored_bytes:sum | Recording rule | Gauge | Returns the amount of space in bytes restored from the source virtual machine. |
 | vmi:kubevirt_vmi_gpu_fb_free:sum | Recording rule | Gauge | Framebuffer memory free (in bytes) of the GPU passed through to a virtual machine instance. |
 | vmi:kubevirt_vmi_gpu_fb_used:sum | Recording rule | Gauge | Framebuffer memory used (in bytes) of the GPU passed through to a virtual machine instance. |
-| vmi:kubevirt_vmi_gpu_mem_copy_util:sum | Recording rule | Gauge | Memory utilization (ratio, 0-1) of the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_gr_engine_active_ratio:sum | Recording rule | Gauge | Ratio (0-1) of the time the graphics engine was active on the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_mem_copy_utilization_ratio:sum | Recording rule | Gauge | Memory utilization (0-1) of the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_utilization_ratio:sum | Recording rule | Gauge | Utilization (0-1) of the time the GPU passed through to a virtual machine instance was busy. |
 | vmi:kubevirt_vmi_guest_queue_length:sum | Recording rule | Gauge | Guest queue length. |
 | vmi:kubevirt_vmi_memory_available_bytes:sum | Recording rule | Gauge | Sum of available memory bytes per VMI (aggregated by name, namespace). |
 | vmi:kubevirt_vmi_memory_headroom_ratio:sum | Recording rule | Gauge | Usable memory to available memory ratio per VMI (aggregated by name, namespace). |
