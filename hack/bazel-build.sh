@@ -46,8 +46,7 @@ bazel build \
     //tools/perfscale-audit/... \
     //tools/perfscale-load-generator/... \
     //tools/cluster-profiler/... \
-    "${cmd_binary_targets[@]}" \
-    //staging/src/kubevirt.io/client-go/examples/...
+    "${cmd_binary_targets[@]}"
 
 # Copy dump binary to a reachable place outside of the build container
 bazel run \

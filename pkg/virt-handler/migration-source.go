@@ -279,9 +279,16 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 		// Decentralized migrations have no shared VMI controller to advance phase;
 		// the source marks Succeeded once the target has the domain and migration completed.
-		if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
-			c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
-			vmi.Status.Phase = v1.Succeeded
+		// EndTimestamp can arrive from sync before Completed (target finalizeMigration lag);
+		// treat a non-failed EndTimestamp as completed so the source VMIM can finish.
+		if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil {
+			if vmi.Status.MigrationState.EndTimestamp != nil && !vmi.Status.MigrationState.Failed {
+				vmi.Status.MigrationState.Completed = true
+			}
+			if vmi.Status.MigrationState.Completed && !vmi.Status.MigrationState.Failed {
+				c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
+				vmi.Status.Phase = v1.Succeeded
+			}
 		}
 	}
 
@@ -452,6 +459,15 @@ func (c *MigrationSourceController) execute(key string) error {
 	// post migration clean up
 	if isMigrationDone(vmi.Status.MigrationState) {
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
+		// Completed/EndTimestamp can be synced onto the source VMI before this
+		// controller observes the migrated domain. Still run sync so updateStatus
+		// can mark a decentralized source VMI as Succeeded. Limit to the source
+		// node — every virt-handler watches the VMI, but only this host has the domain.
+		if vmi.IsDecentralizedMigration() &&
+			vmi.Status.Phase != v1.Succeeded &&
+			vmi.Status.MigrationState.SourceNode == c.host {
+			return c.sync(vmi.DeepCopy(), domain)
+		}
 		return nil
 	}
 

@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	k8score "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -309,4 +310,13 @@ func patchMemoryDumpPVCAnnotation(client kubecli.KubevirtClient, vm *v1.VirtualM
 	}
 
 	return nil
+}
+
+func CalcExpectedSize(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	const memoryDumpOverhead = 100 * 1024 * 1024
+	domain := vmi.Spec.Domain
+	vmiMemoryReq := domain.Resources.Requests.Memory()
+	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
+	expectedPvcSize.Add(*vmiMemoryReq)
+	return expectedPvcSize
 }

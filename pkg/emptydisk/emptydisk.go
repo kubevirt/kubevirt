@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -49,7 +50,7 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 			// qemu-img takes the size in bytes or in Kibibytes/Mebibytes/...; lets take bytes
 			intSize := volume.EmptyDisk.Capacity.ToDec().ScaledValue(0)
 			// round down the size to the nearest 1MiB multiple
-			intSize = util.AlignImageSizeTo1MiB(intSize, logger.With("volume", volume.Name))
+			intSize = disksize.AlignImageSizeTo1MiB(intSize, logger.With("volume", volume.Name))
 			if intSize == 0 {
 				return fmt.Errorf("the size for volume %s is too low", volume.Name)
 			}

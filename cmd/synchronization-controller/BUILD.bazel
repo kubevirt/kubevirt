@@ -12,6 +12,7 @@ go_library(
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/healthz:go_default_library",
+        "//pkg/monitoring/metrics/virt-synchronization-controller:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/synchronization-controller:go_default_library",
         "//pkg/util/ratelimiter:go_default_library",

@@ -1412,6 +1412,90 @@ var _ = Describe("Apply Apps", func() {
 				Expect(args).NotTo(ContainElement(tlsMinVersionArg))
 			})
 		})
+
+		It("should use SynchronizationPlacement without infra control-plane affinity", func() {
+			syncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			// Generation must not bake in control-plane placement.
+			syncDeployment := components.NewSynchronizationControllerDeployment(syncConfig, "", "", "")
+			Expect(syncDeployment).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.NodeSelector).To(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+
+			kv.Spec.SynchronizationPlacement = &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"node-role.kubernetes.io/worker": "",
+					},
+				},
+			}
+			kv.Spec.Infra = nil
+
+			injectDeploymentPlacement(kv, syncDeployment)
+			Expect(syncDeployment.Spec.Template.Spec.NodeSelector).To(HaveKey("node-role.kubernetes.io/worker"))
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+			for _, tol := range syncDeployment.Spec.Template.Spec.Tolerations {
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/control-plane"))
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/master"))
+			}
+		})
+
+		It("should use Infra placement without default control-plane affinity when SynchronizationPlacement is unset", func() {
+			syncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			// Generation must not bake in control-plane placement; otherwise Infra
+			// worker selectors would stack on required control-plane affinity.
+			syncDeployment := components.NewSynchronizationControllerDeployment(syncConfig, "", "", "")
+			Expect(syncDeployment).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+
+			kv.Spec.SynchronizationPlacement = nil
+			kv.Spec.Infra = &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"node-role.kubernetes.io/worker": "",
+					},
+				},
+			}
+
+			injectDeploymentPlacement(kv, syncDeployment)
+			Expect(syncDeployment.Spec.Template.Spec.NodeSelector).To(HaveKey("node-role.kubernetes.io/worker"))
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+			for _, tol := range syncDeployment.Spec.Template.Spec.Tolerations {
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/control-plane"))
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/master"))
+			}
+		})
+
+		It("should apply default control-plane placement when SynchronizationPlacement and Infra are unset", func() {
+			syncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			syncDeployment := components.NewSynchronizationControllerDeployment(syncConfig, "", "", "")
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+
+			kv.Spec.SynchronizationPlacement = nil
+			kv.Spec.Infra = nil
+
+			injectDeploymentPlacement(kv, syncDeployment)
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+		})
 	})
 })
 
