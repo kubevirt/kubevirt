@@ -868,6 +868,7 @@ spec:
           - list
           - watch
           - get
+          - create
         - apiGroups:
           - kubevirt.io
           resources:

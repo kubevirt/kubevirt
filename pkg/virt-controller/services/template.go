@@ -382,6 +382,12 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 
+	// A temporary pod only stands in for the VM long enough to bind a WaitForFirstConsumer volume,
+	// so it neither gets a CPU ResourceClaim nor references one. Every consumer below reads this
+	// one value, since a pod whose containers claim a name its spec does not declare is rejected.
+	cpusFromDRA := !tempPod && t.clusterConfig.CPUDRAEnabled() && drautil.ShouldSynthesizeCPUResourceClaim(vmi)
+	cpuClaimErrCh := startCPUResourceClaimCreate(vmi, cpusFromDRA, t.virtClient)
+
 	var userId int64 = util.RootUser
 
 	nonRoot := vmitrait.IsNonRoot(vmi)
@@ -409,7 +415,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		})
 	}
 
-	resourceRenderer, err := t.newResourceRenderer(vmi, memoryOverhead)
+	resourceRenderer, err := t.newResourceRenderer(vmi, memoryOverhead, cpusFromDRA)
 	if err != nil {
 		return nil, err
 	}
@@ -684,6 +690,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 
 	}
+
+	if err := waitForCPUResourceClaimCreate(cpuClaimErrCh); err != nil {
+		return nil, err
+	}
+
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -701,7 +712,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
-			NodeSelector:                  t.newNodeSelectorRenderer(vmi).Render(),
+			NodeSelector:                  t.newNodeSelectorRenderer(vmi, cpusFromDRA).Render(),
 			Volumes:                       volumeRenderer.Volumes(),
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
@@ -711,7 +722,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
-			ResourceClaims:                drautil.ToPodResourceClaims(vmi.Spec.ResourceClaims),
+			ResourceClaims:                drautil.PodResourceClaimsForVMI(vmi, cpusFromDRA),
 		},
 	}
 
@@ -766,9 +777,31 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	return &pod, nil
 }
 
-func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
+func startCPUResourceClaimCreate(vmi *v1.VirtualMachineInstance, cpusFromDRA bool, virtClient kubecli.KubevirtClient) chan error {
+	if !cpusFromDRA {
+		return nil
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- drautil.CreateCPUResourceClaim(vmi, virtClient)
+	}()
+	return errCh
+}
+
+func waitForCPUResourceClaimCreate(errCh chan error) error {
+	if errCh == nil {
+		return nil
+	}
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("failed to create CPU ResourceClaim: %v", err)
+	}
+	return nil
+}
+
+func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance, cpusFromDRA bool) *NodeSelectorRenderer {
 	var opts []NodeSelectorRendererOption
-	if vmi.IsCPUDedicated() {
+	if vmi.IsCPUDedicated() && !cpusFromDRA {
 		opts = append(opts, WithDedicatedCPU())
 	}
 	if t.clusterConfig.HypervStrictCheckEnabled() {
@@ -998,7 +1031,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	return volumeRenderer, nil
 }
 
-func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) (*ResourceRenderer, error) {
+func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity, cpusFromDRA bool) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
 	hypervisorResource := ConstructHypervisorResourceName(t.launcherHypervisorResources)
 	baseOptions := []ResourceRendererOption{
@@ -1010,7 +1043,7 @@ func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, me
 		return nil, err
 	}
 
-	options := append(baseOptions, t.VMIResourcePredicates(vmi, memoryOverhead).Apply()...)
+	options := append(baseOptions, t.VMIResourcePredicates(vmi, memoryOverhead, cpusFromDRA).Apply()...)
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
 
@@ -1616,21 +1649,14 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 	return false
 }
 
-func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) VMIResourcePredicates {
+func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity, cpusFromDRA bool) VMIResourcePredicates {
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
-	additionalCPUs := uint32(0)
-	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
-		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
-		vmi.Spec.Domain.IOThreads != nil &&
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
-		additionalCPUs = *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount
-	}
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
 			// Run overcommit first to avoid overcommitting overhead memory
 			NewVMIResourceRule(emptyMemoryRequest, WithMemoryRequests(vmi.Spec.Domain.Memory, t.clusterConfig.GetMemoryOvercommit())),
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
@@ -1646,6 +1672,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
 				return t.clusterConfig.NetworkDevicesWithDRAGateEnabled() && vmispec.HasDRANetwork(vmi.Spec.Networks)
 			}, WithNetworksDRA(vmi.Spec.Networks)),
+			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool { return cpusFromDRA }, WithCPUsDRA(vmi)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),

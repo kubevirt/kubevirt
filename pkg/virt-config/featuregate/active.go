@@ -101,6 +101,12 @@ const (
 	// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 	HostDevicesWithDRAGate = "HostDevicesWithDRA"
 
+	// Owner: @sreeja1725
+	// Alpha: v1.10.0
+	//
+	// CPUsWithDRAGate allows users to create VMIs with DRA provisioned CPUs
+	CPUsWithDRAGate = "CPUsWithDRA"
+
 	// Owner: @mresvanis
 	// Alpha: v1.6.0
 	//
@@ -306,6 +312,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: CPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Beta})

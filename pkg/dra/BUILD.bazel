@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "cpu_resource_claim.go",
         "resource_claims.go",
         "utils.go",
     ],
@@ -10,15 +11,23 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/dra/metadata:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
+        "cpu_resource_claim_test.go",
         "dra_suite_test.go",
         "resource_claims_test.go",
         "utils_test.go",
@@ -27,6 +36,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/dra/metadata:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

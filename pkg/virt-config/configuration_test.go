@@ -742,6 +742,21 @@ var _ = Describe("test configuration", func() {
 		Entry("is enabled it should result in cluster profiler being enabled", &v1.DeveloperConfiguration{ClusterProfiler: true}, true),
 	)
 
+	DescribeTable("when the CPUsWithDRA feature gate", func(devConfig *v1.DeveloperConfiguration, isEnabled bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: devConfig,
+		})
+
+		Expect(clusterConfig.CPUDRAEnabled()).To(Equal(isEnabled))
+	},
+		Entry("is unset it should result in CPU DRA being disabled",
+			&v1.DeveloperConfiguration{}, false),
+		Entry("is set it should result in CPU DRA being enabled",
+			&v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.CPUsWithDRAGate},
+			}, true),
+	)
+
 	DescribeTable("when PersistentReservation config", func(config *v1.KubeVirtConfiguration, isEnabled bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(config)
 
