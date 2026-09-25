@@ -519,6 +519,19 @@ func (c *KubeVirtDeploymentConfig) GetImagePrefix() string {
 	return c.ImagePrefix
 }
 
+// GetHandlerImage returns the configured override, or falls back to the
+// registry/prefix/version convention (see AddVersionSeparatorPrefix).
+func (c *KubeVirtDeploymentConfig) GetHandlerImage() string {
+	if c.VirtHandlerImage != "" {
+		return c.VirtHandlerImage
+	}
+	version := c.GetHandlerVersion()
+	if !strings.HasPrefix(version, "{{if") {
+		version = ":" + version
+	}
+	return fmt.Sprintf("%s/%svirt-handler%s", c.GetImageRegistry(), c.GetImagePrefix(), version)
+}
+
 func (c *KubeVirtDeploymentConfig) GetExtraEnv() map[string]string {
 	return c.PassthroughEnvVars
 }
