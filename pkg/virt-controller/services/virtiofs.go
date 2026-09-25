@@ -11,10 +11,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) []k8sv1.Container {
+func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, config ClusterConfigProvider) []k8sv1.Container {
 	passthroughFSVolumes := make(map[string]struct{})
 	for i := range vmi.Spec.Domain.Devices.Filesystems {
 		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
