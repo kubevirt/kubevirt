@@ -29,14 +29,28 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubevirt"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+type interfacePreferenceApplier interface {
+	ApplyInterfacePreferences(vm *v1.VirtualMachine, vmiSpec *v1.VirtualMachineInstanceSpec) error
+}
+
 type VMController struct {
-	clientset kubevirt.Interface
+	clientset                  kubevirt.Interface
+	interfacePreferenceApplier interfacePreferenceApplier
+}
+
+type VMControllerOption func(*VMController)
+
+func WithInterfacePreferenceApplier(applier interfacePreferenceApplier) VMControllerOption {
+	return func(c *VMController) {
+		c.interfacePreferenceApplier = applier
+	}
 }
 
 type syncError struct {
@@ -60,10 +74,14 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMController(clientset kubevirt.Interface) *VMController {
-	return &VMController{
+func NewVMController(clientset kubevirt.Interface, opts ...VMControllerOption) *VMController {
+	c := &VMController{
 		clientset: clientset,
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
@@ -81,7 +99,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
 
-		updatedVMI := syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
+		updatedVMI := v.syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
 
 		if err := v.vmiInterfacesPatch(&updatedVMI.Spec, vmi); err != nil {
 			return vm, &syncError{
@@ -106,14 +124,14 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	return vmCopy, nil
 }
 
-func syncVMIInterfaces(
+func (v *VMController) syncVMIInterfaces(
 	vm *v1.VirtualMachine,
 	vmi *v1.VirtualMachineInstance,
 	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
 ) *v1.VirtualMachineInstance {
 	vmiCopy := vmi.DeepCopy()
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
-	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
+	updatedVmiSpec := v.applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
 	vmiCopy.Spec = *updatedVmiSpec
 
 	ifaces, networks := clearDetachedIfacesFromVMI(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
@@ -148,7 +166,7 @@ func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceS
 	return err
 }
 
-func applyDynamicIfaceRequestOnVMI(
+func (v *VMController) applyDynamicIfaceRequestOnVMI(
 	vm *v1.VirtualMachine,
 	vmi *v1.VirtualMachineInstance,
 	hasOrdinalIfaces bool,
@@ -171,6 +189,11 @@ func applyDynamicIfaceRequestOnVMI(
 		case shouldHotplugIface:
 			vmiSpecCopy.Networks = append(vmiSpecCopy.Networks, vmIndexedNetworks[vmIface.Name])
 			vmiSpecCopy.Domain.Devices.Interfaces = append(vmiSpecCopy.Domain.Devices.Interfaces, vmIface)
+			if v.interfacePreferenceApplier != nil {
+				if err := v.interfacePreferenceApplier.ApplyInterfacePreferences(vm, vmiSpecCopy); err != nil {
+					log.Log.Object(vm).Warningf("Failed to apply interface preferences during hotplug: %v", err)
+				}
+			}
 
 		case shouldUpdateExistingIfaceState:
 			if !(hasOrdinalIfaces && vmIface.State == v1.InterfaceStateAbsent) {

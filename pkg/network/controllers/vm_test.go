@@ -54,6 +54,7 @@ var _ = Describe("VM Network Controller", func() {
 		updatedNADName1   = "new-nad1"
 		updatedNADName2   = "new-nad2"
 	)
+
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 		c := controllers.NewVMController(fake.NewSimpleClientset())
 		originalVM := vm.DeepCopy()
@@ -175,6 +176,78 @@ var _ = Describe("VM Network Controller", func() {
 			State: v1.InterfaceStateLinkUp,
 		}),
 	)
+
+	It("sync applies interface preferences to hotplugged interfaces", func() {
+		const expectedModel = "virtio"
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset,
+			controllers.WithInterfacePreferenceApplier(
+				&stubInterfacePreferenceApplier{model: expectedModel},
+			),
+		)
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(
+				libvmi.NewInterface(
+					defaultNetName,
+					libvmi.WithMasqueradeBinding(),
+					libvmi.WithModel(expectedModel),
+				),
+			),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		vm = plugNetworkInterface(vm, libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()))
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(HaveLen(2))
+
+		for _, iface := range updatedVMI.Spec.Domain.Devices.Interfaces {
+			Expect(iface.Model).To(Equal(expectedModel), "interface %q should have model from preferences", iface.Name)
+		}
+	})
+
+	It("sync does not fail when interface preference applier returns an error", func() {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset,
+			controllers.WithInterfacePreferenceApplier(
+				&errorInterfacePreferenceApplier{err: errors.New("preference not found")},
+			),
+		)
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		vm = plugNetworkInterface(vm, libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()))
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(HaveLen(2),
+			"hotplug should succeed even when preference applier fails")
+	})
 
 	It("sync does not hotplug a new absent interface", func() {
 		clientset := fake.NewSimpleClientset()
@@ -838,4 +911,25 @@ func unplugNetworkInterface(vm *v1.VirtualMachine, netName string) *v1.VirtualMa
 
 func newEmptyVM() *v1.VirtualMachine {
 	return &v1.VirtualMachine{Spec: v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{}}}
+}
+
+type stubInterfacePreferenceApplier struct {
+	model string
+}
+
+func (s *stubInterfacePreferenceApplier) ApplyInterfacePreferences(_ *v1.VirtualMachine, vmiSpec *v1.VirtualMachineInstanceSpec) error {
+	for i := range vmiSpec.Domain.Devices.Interfaces {
+		if vmiSpec.Domain.Devices.Interfaces[i].Model == "" {
+			vmiSpec.Domain.Devices.Interfaces[i].Model = s.model
+		}
+	}
+	return nil
+}
+
+type errorInterfacePreferenceApplier struct {
+	err error
+}
+
+func (s *errorInterfacePreferenceApplier) ApplyInterfacePreferences(_ *v1.VirtualMachine, _ *v1.VirtualMachineInstanceSpec) error {
+	return s.err
 }
