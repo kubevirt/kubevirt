@@ -33,9 +33,9 @@ go_test(
         "render_suite_test.go",
         "render_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
