@@ -23,7 +23,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -40,10 +39,6 @@ import (
 )
 
 const (
-	envoyMergedPrometheusTelemetryPort = 15020
-	envoyHealthCheckPort               = 15021
-	httpRequestTimeout                 = 2 * time.Second
-
 	passtLogFile = "/var/run/kubevirt/passt.log" // #nosec G101
 )
 
@@ -96,7 +91,6 @@ func main() {
 // in case of crashes
 func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 	defer cleanupContainerDiskDirectory(containerDiskDir)
-	defer terminateIstioProxy()
 	args := removeArg(os.Args[1:], "--keep-after-failure")
 
 	cmd := exec.Command("/usr/bin/virt-launcher", args...)
@@ -229,98 +223,6 @@ func RemoveContents(dir string) error {
 		}
 	}
 	return nil
-}
-
-type isRetriable func(error) bool
-type function func() error
-
-func retryOnError(shouldRetry isRetriable, f function) error {
-	var lastErr error
-	retries := 4
-	sleep := 10 * time.Millisecond
-
-	backOff := func() time.Duration {
-		const factor = 5
-		sleep *= time.Duration(factor)
-		return sleep
-	}
-
-	for retries > 0 {
-		err := f()
-		if err != nil {
-			if !shouldRetry(err) {
-				return err
-			}
-			lastErr = err
-		} else {
-			return nil
-		}
-		time.Sleep(backOff())
-		retries--
-	}
-
-	return lastErr
-}
-
-func terminateIstioProxy() {
-	httpClient := &http.Client{Timeout: httpRequestTimeout}
-	if istioProxyPresent(httpClient) {
-		serviceUnavailable := fmt.Errorf("service unavailable")
-		isRetriable := func(err error) bool {
-			var errno syscall.Errno
-			if errors.As(err, &errno) {
-				return errno == syscall.ECONNRESET || errno == syscall.ECONNREFUSED
-			}
-			return serviceUnavailable == err
-
-		}
-		err := retryOnError(isRetriable, func() error {
-			resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", envoyMergedPrometheusTelemetryPort), "", nil)
-			if err != nil {
-				log.Log.Reason(err).Error("failed to request istio-proxy termination, retrying...")
-				return err
-			}
-
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				log.Log.Errorf("status code received: %d", resp.StatusCode)
-				if resp.StatusCode == http.StatusServiceUnavailable {
-					return serviceUnavailable
-				}
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			log.Log.Reason(err).Error("all attempts to terminate istio-proxy failed")
-		}
-	}
-}
-
-func istioProxyPresent(httpClient *http.Client) bool {
-	isRetriable := func(err error) bool {
-		var errno syscall.Errno
-		if errors.As(err, &errno) {
-			return errno == syscall.ECONNRESET || errno == syscall.ECONNREFUSED
-		}
-
-		return false
-	}
-	err := retryOnError(isRetriable, func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", envoyHealthCheckPort))
-		if err != nil {
-			log.Log.Reason(err).V(4).Info("error when checking for istio-proxy presence")
-			return err
-		}
-
-		defer resp.Body.Close()
-		if resp.Header.Get("server") == "envoy" {
-			return nil
-		}
-		return fmt.Errorf("received response from non-istio health server: %s", resp.Header.Get("server"))
-	})
-	return err == nil
 }
 
 func findPid(commandNamePrefix string) (int, error) {
