@@ -69,11 +69,11 @@ if [ $# -eq 0 ]; then
             test_ldflags="-X kubevirt.io/client-go/version.gitVersion=v0.0.0-test"
 
             # Run cmd and pkg tests together for better parallelism.
-            # container-disk-v2alpha is excluded because it is written in C.
+            # C packages are excluded because they are not Go.
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race \
                 -ldflags "${test_ldflags}" \
                 -skip FuzzAdmitter -timeout 15m \
-                $(go list -e ./cmd/... ./pkg/... | grep -v container-disk-v2alpha)
+                $(go list -e ./cmd/... ./pkg/... | grep -v container-disk-v2alpha | grep -v virt-launcher-monitor)
         )
     elif [ "${target}" = "clean" ]; then
         # Remove -mod=vendor
@@ -116,6 +116,16 @@ if [ "${target}" = "install" ]; then
             gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
         fi
     )
+    (
+        if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"virt-launcher-monitor"* ]]; then
+            mkdir -p ${CMD_OUT_DIR}/virt-launcher-monitor
+            echo "building static binary virt-launcher-monitor"
+            gcc -static -O2 -Wall -o ${CMD_OUT_DIR}/virt-launcher-monitor/virt-launcher-monitor \
+                ${KUBEVIRT_DIR}/cmd/virt-launcher-monitor/main.c
+            kubevirt::version::get_version_vars
+            echo "$KUBEVIRT_GIT_VERSION" >${CMD_OUT_DIR}/virt-launcher-monitor/.version
+        fi
+    )
 fi
 
 for arg in $args; do
@@ -134,6 +144,9 @@ for arg in $args; do
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
         BIN_NAME=$(basename $arg)
+        if [ "${BIN_NAME}" = "virt-launcher-monitor" ]; then
+            continue
+        fi
         ARCH_BASENAME=${BIN_NAME}-${KUBEVIRT_VERSION}
         mkdir -p ${CMD_OUT_DIR}/${BIN_NAME}
         (

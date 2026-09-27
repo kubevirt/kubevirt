@@ -2254,8 +2254,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 383),
-				Entry("on arm64", "arm64", 518),
+				Entry("on amd64", "amd64", 359),
+				Entry("on arm64", "arm64", 494),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -2291,12 +2291,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 383),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 383),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 350),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 518),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 518),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 484),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 359),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 359),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 326),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 494),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 494),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 460),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvStore, svc = configFactory(defaultArch)
