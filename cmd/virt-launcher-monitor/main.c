@@ -19,6 +19,7 @@
 
 #define _GNU_SOURCE
 
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -37,7 +38,6 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <arpa/inet.h>
 
 #define DEFAULT_LAUNCHER "/usr/bin/virt-launcher"
 #define DEFAULT_CONTAINER_DISK_DIR "/var/run/kubevirt/container-disks"
@@ -50,36 +50,38 @@
 
 #define LOG(fmt, ...) fprintf(stderr, "virt-launcher-monitor: " fmt "\n", ##__VA_ARGS__)
 
-static volatile sig_atomic_t launcher_exit_code = -1;
+static volatile sig_atomic_t got_chld;
 static volatile sig_atomic_t shutdown_requested;
 static volatile sig_atomic_t termination_sent;
+static volatile sig_atomic_t launcher_exit_code = -1;
 static pid_t launcher_pid;
 
 static void handle_signal(int signo)
 {
 	if (signo == SIGCHLD) {
-		int status;
-		pid_t pid;
-
-		while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-			if (pid != launcher_pid) {
-				continue;
-			}
-			if (WIFEXITED(status)) {
-				launcher_exit_code = WEXITSTATUS(status);
-			} else if (WIFSIGNALED(status)) {
-				launcher_exit_code = 128 + WTERMSIG(status);
-			} else {
-				launcher_exit_code = 1;
-			}
-		}
+		got_chld = 1;
 		return;
 	}
-
 	shutdown_requested = 1;
 }
 
-static int install_signal_handlers(void)
+static int install_termination_handlers(void)
+{
+	struct sigaction action;
+
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = handle_signal;
+	sigemptyset(&action.sa_mask);
+
+	if (sigaction(SIGINT, &action, NULL) < 0 ||
+	    sigaction(SIGTERM, &action, NULL) < 0 ||
+	    sigaction(SIGQUIT, &action, NULL) < 0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int install_sigchld_handler(void)
 {
 	struct sigaction action;
 
@@ -88,13 +90,7 @@ static int install_signal_handlers(void)
 	sigemptyset(&action.sa_mask);
 	action.sa_flags = SA_NOCLDSTOP;
 
-	if (sigaction(SIGINT, &action, NULL) < 0 ||
-	    sigaction(SIGTERM, &action, NULL) < 0 ||
-	    sigaction(SIGQUIT, &action, NULL) < 0 ||
-	    sigaction(SIGCHLD, &action, NULL) < 0) {
-		return -1;
-	}
-	return 0;
+	return sigaction(SIGCHLD, &action, NULL);
 }
 
 static int raise_net_bind_capability(void)
@@ -146,17 +142,20 @@ static const char *container_disk_dir_from_args(int argc, char **argv)
 
 static bool keep_after_failure_from_args(int argc, char **argv)
 {
+	bool keep = false;
 	int i;
 
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--keep-after-failure") == 0) {
-			return true;
+			keep = true;
+			continue;
 		}
-		if (strcmp(argv[i], "--keep-after-failure=true") == 0) {
-			return true;
+		if (strncmp(argv[i], "--keep-after-failure=", 21) == 0) {
+			const char *value = argv[i] + 21;
+			keep = strcmp(value, "false") != 0 && strcmp(value, "0") != 0;
 		}
 	}
-	return false;
+	return keep;
 }
 
 static int filter_launcher_args(int argc, char **argv, char **out)
@@ -182,6 +181,29 @@ static void sleep_ms(int ms)
 	};
 
 	while (nanosleep(&ts, &ts) < 0 && errno == EINTR) {
+	}
+}
+
+static void record_launcher_status(int status)
+{
+	if (WIFEXITED(status)) {
+		launcher_exit_code = WEXITSTATUS(status);
+	} else if (WIFSIGNALED(status)) {
+		launcher_exit_code = 128 + WTERMSIG(status);
+	} else {
+		launcher_exit_code = 1;
+	}
+}
+
+static void reap_children(void)
+{
+	int status;
+	pid_t pid;
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		if (pid == launcher_pid) {
+			record_launcher_status(status);
+		}
 	}
 }
 
@@ -316,7 +338,9 @@ static void dump_launcher_logs(void)
 
 	dir = opendir(QEMU_LOG_DIR);
 	if (dir == NULL) {
-		LOG("failed to read qemu log directory");
+		if (errno != ENOENT) {
+			LOG("failed to read qemu log directory: %s", strerror(errno));
+		}
 		return;
 	}
 	while ((entry = readdir(dir)) != NULL) {
@@ -512,6 +536,7 @@ static int run_launcher(int argc, char **argv)
 {
 	char *child_argv[argc + 1];
 	const char *launcher = getenv("VIRT_LAUNCHER");
+	sigset_t block_chld, old_mask;
 	pid_t pid;
 
 	if (launcher == NULL || launcher[0] == '\0') {
@@ -521,14 +546,30 @@ static int run_launcher(int argc, char **argv)
 	filter_launcher_args(argc, argv, child_argv);
 	child_argv[0] = (char *)launcher;
 
+	sigemptyset(&block_chld);
+	sigaddset(&block_chld, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &block_chld, &old_mask) < 0) {
+		LOG("failed to block SIGCHLD: %s", strerror(errno));
+		return 1;
+	}
+
 	pid = fork();
 	if (pid < 0) {
-		LOG("failed to run %s: %s", launcher, strerror(errno));
+		int err = errno;
+		sigprocmask(SIG_SETMASK, &old_mask, NULL);
+		LOG("failed to run %s: %s", launcher, strerror(err));
 		return 1;
 	}
 	if (pid == 0) {
-		if (raise_net_bind_capability() < 0) {
+		sigprocmask(SIG_SETMASK, &old_mask, NULL);
+		/*
+		 * Tests set VIRT_LAUNCHER to a fake binary that has no
+		 * file capabilities. Production always execs the default
+		 * path and must fail closed if ambient caps cannot be set.
+		 */
+		if (getenv("VIRT_LAUNCHER") == NULL && raise_net_bind_capability() < 0) {
 			LOG("failed to raise CAP_NET_BIND_SERVICE: %s", strerror(errno));
+			_exit(1);
 		}
 		execv(launcher, child_argv);
 		LOG("failed to exec %s: %s", launcher, strerror(errno));
@@ -536,6 +577,16 @@ static int run_launcher(int argc, char **argv)
 	}
 
 	launcher_pid = pid;
+	if (install_sigchld_handler() < 0) {
+		sigprocmask(SIG_SETMASK, &old_mask, NULL);
+		LOG("failed to install SIGCHLD handler: %s", strerror(errno));
+		return 1;
+	}
+	if (sigprocmask(SIG_SETMASK, &old_mask, NULL) < 0) {
+		LOG("failed to unblock SIGCHLD: %s", strerror(errno));
+		return 1;
+	}
+
 	while (launcher_exit_code < 0) {
 		if (shutdown_requested && !termination_sent) {
 			LOG("signalling virt-launcher to shut down");
@@ -545,7 +596,13 @@ static int run_launcher(int argc, char **argv)
 			}
 			termination_sent = 1;
 		}
+		if (got_chld) {
+			got_chld = 0;
+			reap_children();
+			continue;
+		}
 		sleep_ms(10);
+		reap_children();
 	}
 	return launcher_exit_code;
 }
@@ -557,7 +614,7 @@ int main(int argc, char **argv)
 	int exit_code;
 	int monitor_error = 0;
 
-	if (install_signal_handlers() < 0) {
+	if (install_termination_handlers() < 0) {
 		LOG("failed to install signal handlers: %s", strerror(errno));
 		return 1;
 	}
@@ -571,8 +628,8 @@ int main(int argc, char **argv)
 	if (cleanup_qemu() < 0) {
 		monitor_error = 1;
 	}
-	terminate_istio_proxy();
 	cleanup_container_disks(disk_dir);
+	terminate_istio_proxy();
 
 	if (keep && (monitor_error || exit_code != 0)) {
 		LOG("keeping virt-launcher container alive since --keep-after-failure is set to true");
