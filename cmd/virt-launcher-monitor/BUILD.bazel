@@ -22,7 +22,7 @@ go_test(
         "--virt-launcher-monitor-binary",
         "$(location //cmd/virt-launcher-monitor:virt-launcher-monitor)",
     ],
-    data = ["//cmd/virt-launcher-monitor:virt-launcher-monitor"],
+    data = ["//cmd/virt-launcher-monitor"],
     race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
