@@ -52,7 +52,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	k8ssnapshotfake "kubevirt.io/client-go/externalsnapshotter/fake"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -416,9 +416,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			vmSnapshotClient = kubevirtfake.NewSimpleClientset()
 			virtClient.EXPECT().VirtualMachineSnapshot(testNamespace).
-				Return(vmSnapshotClient.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
+				Return(vmSnapshotClient.SnapshotV1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
 			virtClient.EXPECT().VirtualMachineSnapshotContent(testNamespace).
-				Return(vmSnapshotClient.SnapshotV1beta1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
+				Return(vmSnapshotClient.SnapshotV1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
 
 			k8sSnapshotClient = k8ssnapshotfake.NewSimpleClientset()
 			virtClient.EXPECT().KubernetesSnapshotClient().Return(k8sSnapshotClient).AnyTimes()
