@@ -31,7 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -7482,10 +7482,10 @@ var _ = Describe("VirtualMachine", func() {
 						}},
 					},
 				}
-				_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Create(context.TODO(), content, metav1.CreateOptions{})
+				_, err := virtFakeClient.SnapshotV1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Create(context.TODO(), content, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				virtClient.EXPECT().VirtualMachineSnapshotContent(metav1.NamespaceDefault).
-					Return(virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).AnyTimes()
+					Return(virtFakeClient.SnapshotV1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).AnyTimes()
 
 				scratch = newPVC(scratchName, scratchUID)
 				scratch.Finalizers = []string{storagetypes.OverlayProtectionFinalizer}
@@ -7542,7 +7542,7 @@ var _ = Describe("VirtualMachine", func() {
 			It("should recover a VM whose disks are left to defaulting", func() {
 				vm.Spec.Template.Spec.Domain.Devices.Disks = nil
 				content.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.Disks = nil
-				_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Update(context.TODO(), content, metav1.UpdateOptions{})
+				_, err := virtFakeClient.SnapshotV1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Update(context.TODO(), content, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				addPVC(scratch)
 				recoverOverlays()
@@ -7557,7 +7557,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("should start normally next to the scratch volume of another VM", func() {
 				content.Spec.Source.VirtualMachine.UID = "another-vm-uid"
-				_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Update(context.TODO(), content, metav1.UpdateOptions{})
+				_, err := virtFakeClient.SnapshotV1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Update(context.TODO(), content, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				addPVC(scratch)
 
@@ -7599,7 +7599,7 @@ var _ = Describe("VirtualMachine", func() {
 					addPVC(other)
 					otherContent := content.DeepCopy()
 					otherContent.Name, otherContent.UID = "other-content", "other-content-uid"
-					_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Create(context.TODO(), otherContent, metav1.CreateOptions{})
+					_, err := virtFakeClient.SnapshotV1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Create(context.TODO(), otherContent, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}),
 				Entry("when recovery is required for another reason", func() {

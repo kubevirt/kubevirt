@@ -19,7 +19,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
-	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -262,18 +262,18 @@ var _ = Describe("CRDs", func() {
 			"2", "4", "5", timestamp,
 		),
 		Entry("for VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd,
-			snapshotv1beta1.VirtualMachineSnapshot{
-				Spec: snapshotv1beta1.VirtualMachineSnapshotSpec{
+			snapshotv1.VirtualMachineSnapshot{
+				Spec: snapshotv1.VirtualMachineSnapshotSpec{
 					Source: k8sv1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
 						Name: "test-vm",
 					},
 				},
-				Status: &snapshotv1beta1.VirtualMachineSnapshotStatus{
-					Phase:        snapshotv1beta1.InProgress,
+				Status: &snapshotv1.VirtualMachineSnapshotStatus{
+					Phase:        snapshotv1.InProgress,
 					ReadyToUse:   pointer.P(false),
 					CreationTime: pointer.P(createTime()),
-					Error: &snapshotv1beta1.Error{
+					Error: &snapshotv1.Error{
 						Message: pointer.P("test-error"),
 					},
 				},
@@ -281,11 +281,11 @@ var _ = Describe("CRDs", func() {
 			"VirtualMachine", "test-vm", "InProgress", "false", timestamp, "test-error",
 		),
 		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd,
-			snapshotv1beta1.VirtualMachineSnapshotContent{
-				Status: &snapshotv1beta1.VirtualMachineSnapshotContentStatus{
+			snapshotv1.VirtualMachineSnapshotContent{
+				Status: &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse:   pointer.P(false),
 					CreationTime: pointer.P(createTime()),
-					Error: &snapshotv1beta1.Error{
+					Error: &snapshotv1.Error{
 						Message: pointer.P("test-error"),
 					},
 				},
@@ -293,14 +293,14 @@ var _ = Describe("CRDs", func() {
 			"false", timestamp, "test-error",
 		),
 		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd,
-			snapshotv1beta1.VirtualMachineRestore{
-				Spec: snapshotv1beta1.VirtualMachineRestoreSpec{
+			snapshotv1.VirtualMachineRestore{
+				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: k8sv1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
 						Name: "test-vm",
 					},
 				},
-				Status: &snapshotv1beta1.VirtualMachineRestoreStatus{
+				Status: &snapshotv1.VirtualMachineRestoreStatus{
 					Complete:    pointer.P(false),
 					RestoreTime: pointer.P(createTime()),
 				},
