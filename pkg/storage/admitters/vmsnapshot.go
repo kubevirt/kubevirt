@@ -39,6 +39,7 @@ import (
 
 type vmSnapshotConfigChecker interface {
 	SnapshotEnabled() bool
+	ExternalVMSnapshotEnabled() bool
 }
 
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
@@ -77,6 +78,12 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
+		if vmSnapshot.Spec.SnapshotMode != nil &&
+			*vmSnapshot.Spec.SnapshotMode == snapshotv1.SnapshotModeExternal &&
+			!admitter.config.ExternalVMSnapshotEnabled() {
+			return webhookutils.ToAdmissionResponseError(fmt.Errorf("ExternalVMSnapshot feature gate not enabled"))
+		}
+
 		sourceField := k8sfield.NewPath("spec", "source")
 
 		if vmSnapshot.Spec.Source.APIGroup == nil {
