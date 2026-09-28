@@ -365,6 +365,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					conditionManager.RemoveCondition(vmiCopy, condition.Type)
 				}
 				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+			} else if !tempPodExists {
+				// Remove the synthetic condition once the missing PVC appears.
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 			}
 		}
 	case vmi.IsScheduling():

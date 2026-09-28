@@ -1392,6 +1392,46 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				}),
 		)
 
+		It("should remove the Unschedulable condition added for a missing PVC once the PVC appears", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "test",
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				}},
+			}}
+			addVirtualMachine(vmi)
+
+			// The VMI is synced before CDI creates the PVC for the DataVolume.
+			sanityExecute()
+			testutils.ExpectEvent(recorder, kvcontroller.FailedPvcNotFoundReason)
+			synced, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			getType := func(c virtv1.VirtualMachineInstanceCondition) string { return string(c.Type) }
+			Expect(synced.Status.Conditions).To(ContainElement(WithTransform(getType, Equal(string(k8sv1.PodScheduled)))))
+
+			// CDI creates the PVC while the import is still running.
+			dv := newDv(vmi.Namespace, "test-dv", cdiv1.ImportInProgress)
+			pvc := newPvcWithOwner(vmi.Namespace, "test-dv", dv.Name, pointer.P(true))
+			pvc.Status.Phase = k8sv1.ClaimBound
+			addDataVolume(dv)
+			addDataVolumePVC(pvc)
+
+			Expect(controller.vmiIndexer.Update(synced)).To(Succeed())
+			key, err := kvcontroller.KeyFunc(synced)
+			Expect(err).ToNot(HaveOccurred())
+			mockQueue.Add(key)
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			sanityExecute()
+
+			synced, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(synced.Status.Phase).To(Equal(virtv1.Pending))
+			Expect(synced.Status.Conditions).ToNot(ContainElement(WithTransform(getType, Equal(string(virtv1.VirtualMachineInstanceSynchronized)))))
+			Expect(synced.Status.Conditions).ToNot(ContainElement(WithTransform(getType, Equal(string(k8sv1.PodScheduled)))))
+		})
+
 		DescribeTable("should move the vmi to scheduling state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {
 			vmi := newPendingVirtualMachine("testvmi")
 			pod := newPodForVirtualMachine(vmi, phase)
