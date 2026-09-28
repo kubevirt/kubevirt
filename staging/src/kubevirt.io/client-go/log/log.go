@@ -344,9 +344,8 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		return
 	}
 
-	fragments := strings.SplitN(line, ": ", 5)
-	if len(fragments) < 4 {
-		now := time.Now()
+	logRawLine := func() {
+		now := time.Now().UTC()
 		logger.logger.Log(
 			"level", "info",
 			"timestamp", now.Format(logTimestampFormat),
@@ -354,20 +353,34 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 			"subcomponent", "libvirt",
 			"msg", line,
 		)
+	}
+
+	fragments := strings.SplitN(line, ": ", 5)
+	if len(fragments) < 5 {
+		logRawLine()
+		return
+	}
+
+	thread := strings.TrimSpace(fragments[1])
+	if _, err := strconv.Atoi(thread); err != nil {
+		logRawLine()
 		return
 	}
 	severity := strings.ToLower(strings.TrimSpace(fragments[2]))
-
-	if severity == "debug" {
+	switch severity {
+	case "debug":
 		severity = "info"
+	case "info", "warning", "error":
+	default:
+		logRawLine()
+		return
 	}
 
 	t, err := time.Parse(libvirtTimestampFormat, strings.TrimSpace(fragments[0]))
 	if err != nil {
-		fmt.Println(err)
+		logRawLine()
 		return
 	}
-	thread := strings.TrimSpace(fragments[1])
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
