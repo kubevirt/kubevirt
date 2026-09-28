@@ -39,6 +39,8 @@ import (
 
 type vmSnapshotConfigChecker interface {
 	SnapshotEnabled() bool
+	ExternalVMSnapshotEnabled() bool
+	UtilityVolumesEnabled() bool
 }
 
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
@@ -53,6 +55,10 @@ func NewVMSnapshotAdmitter(config vmSnapshotConfigChecker, client kubecli.Kubevi
 		config: config,
 		Client: client,
 	}
+}
+
+func externalMode(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Spec.SnapshotMode != nil && *vmSnapshot.Spec.SnapshotMode == snapshotv1.SnapshotModeExternal
 }
 
 // Admit validates an AdmissionReview
@@ -77,6 +83,16 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
+		if externalMode(vmSnapshot) {
+			if !admitter.config.ExternalVMSnapshotEnabled() {
+				return webhookutils.ToAdmissionResponseError(fmt.Errorf("ExternalVMSnapshot feature gate not enabled"))
+			}
+			// The overlays are kept on a utility volume
+			if !admitter.config.UtilityVolumesEnabled() {
+				return webhookutils.ToAdmissionResponseError(fmt.Errorf("ExternalVMSnapshot requires the UtilityVolumes feature gate"))
+			}
+		}
+
 		sourceField := k8sfield.NewPath("spec", "source")
 
 		if vmSnapshot.Spec.Source.APIGroup == nil {
