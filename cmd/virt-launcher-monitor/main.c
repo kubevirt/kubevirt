@@ -24,7 +24,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/capability.h>
+#include <limits.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -37,6 +39,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #define DEFAULT_LAUNCHER "/usr/bin/virt-launcher"
@@ -50,16 +53,54 @@
 
 #define LOG(fmt, ...) fprintf(stderr, "virt-launcher-monitor: " fmt "\n", ##__VA_ARGS__)
 
-static volatile sig_atomic_t got_chld;
 static volatile sig_atomic_t shutdown_requested;
 static volatile sig_atomic_t termination_sent;
 static volatile sig_atomic_t launcher_exit_code = -1;
-static pid_t launcher_pid;
+static volatile sig_atomic_t launcher_pid;
+static volatile sig_atomic_t wait_error;
+
+static void record_launcher_status(int status)
+{
+	if (WIFEXITED(status)) {
+		launcher_exit_code = WEXITSTATUS(status);
+	} else if (WIFSIGNALED(status)) {
+		launcher_exit_code = 128 + WTERMSIG(status);
+	} else {
+		launcher_exit_code = 1;
+	}
+}
+
+/* waitpid is async-signal-safe. Reap every adopted child for the full lifetime
+ * of PID 1, including children which become orphaned during cleanup. */
+static void reap_children(void)
+{
+	int saved_errno = errno;
+	int status;
+	pid_t pid;
+
+	for (;;) {
+		pid = waitpid(-1, &status, WNOHANG);
+		if (pid > 0) {
+			if (pid == launcher_pid) {
+				record_launcher_status(status);
+			}
+			continue;
+		}
+		if (pid < 0 && errno == EINTR) {
+			continue;
+		}
+		if (pid < 0 && (errno != ECHILD || launcher_exit_code < 0)) {
+			wait_error = 1;
+		}
+		break;
+	}
+	errno = saved_errno;
+}
 
 static void handle_signal(int signo)
 {
 	if (signo == SIGCHLD) {
-		got_chld = 1;
+		reap_children();
 		return;
 	}
 	shutdown_requested = 1;
@@ -93,6 +134,7 @@ static int install_sigchld_handler(void)
 	return sigaction(SIGCHLD, &action, NULL);
 }
 
+#ifndef VIRT_LAUNCHER_MONITOR_TESTING
 static int raise_net_bind_capability(void)
 {
 	struct __user_cap_header_struct header = {
@@ -118,26 +160,49 @@ static int raise_net_bind_capability(void)
 	}
 	return 0;
 }
+#endif
 
 static bool is_keep_after_failure_arg(const char *arg)
 {
-	return strcmp(arg, "--keep-after-failure") == 0 ||
-	       strncmp(arg, "--keep-after-failure=", 21) == 0;
+	return strcmp(arg, "--keep-after-failure") == 0;
 }
 
 static const char *container_disk_dir_from_args(int argc, char **argv)
 {
+	const char *directory = DEFAULT_CONTAINER_DISK_DIR;
 	int i;
 
 	for (i = 1; i < argc; i++) {
-		if (strncmp(argv[i], "--container-disk-dir=", 21) == 0) {
-			return argv[i] + 21;
+		if (strcmp(argv[i], "--") == 0) {
+			break;
 		}
-		if (strcmp(argv[i], "--container-disk-dir") == 0 && i + 1 < argc) {
-			return argv[i + 1];
+		if (strncmp(argv[i], "--container-disk-dir=", 21) == 0) {
+			directory = argv[i] + 21;
+			continue;
+		}
+		if (strcmp(argv[i], "--container-disk-dir") == 0 && i + 1 < argc &&
+		    strcmp(argv[i + 1], "--") != 0) {
+			directory = argv[++i];
 		}
 	}
-	return DEFAULT_CONTAINER_DISK_DIR;
+	return directory;
+}
+
+static bool parse_bool(const char *value, bool *parsed)
+{
+	if (strcmp(value, "1") == 0 || strcmp(value, "t") == 0 ||
+	    strcmp(value, "T") == 0 || strcmp(value, "TRUE") == 0 ||
+	    strcmp(value, "true") == 0 || strcmp(value, "True") == 0) {
+		*parsed = true;
+		return true;
+	}
+	if (strcmp(value, "0") == 0 || strcmp(value, "f") == 0 ||
+	    strcmp(value, "F") == 0 || strcmp(value, "FALSE") == 0 ||
+	    strcmp(value, "false") == 0 || strcmp(value, "False") == 0) {
+		*parsed = false;
+		return true;
+	}
+	return false;
 }
 
 static bool keep_after_failure_from_args(int argc, char **argv)
@@ -146,13 +211,16 @@ static bool keep_after_failure_from_args(int argc, char **argv)
 	int i;
 
 	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--") == 0) {
+			break;
+		}
 		if (strcmp(argv[i], "--keep-after-failure") == 0) {
 			keep = true;
-			continue;
-		}
-		if (strncmp(argv[i], "--keep-after-failure=", 21) == 0) {
-			const char *value = argv[i] + 21;
-			keep = strcmp(value, "false") != 0 && strcmp(value, "0") != 0;
+		} else if (strncmp(argv[i], "--keep-after-failure=", 21) == 0) {
+			bool parsed;
+			if (parse_bool(argv[i] + 21, &parsed)) {
+				keep = parsed;
+			}
 		}
 	}
 	return keep;
@@ -181,29 +249,6 @@ static void sleep_ms(int ms)
 	};
 
 	while (nanosleep(&ts, &ts) < 0 && errno == EINTR) {
-	}
-}
-
-static void record_launcher_status(int status)
-{
-	if (WIFEXITED(status)) {
-		launcher_exit_code = WEXITSTATUS(status);
-	} else if (WIFSIGNALED(status)) {
-		launcher_exit_code = 128 + WTERMSIG(status);
-	} else {
-		launcher_exit_code = 1;
-	}
-}
-
-static void reap_children(void)
-{
-	int status;
-	pid_t pid;
-
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		if (pid == launcher_pid) {
-			record_launcher_status(status);
-		}
 	}
 }
 
@@ -283,7 +328,7 @@ static int cleanup_qemu(void)
 	}
 
 	LOG("Killing QEMU gracefully.");
-	if (kill(pid, SIGTERM) < 0) {
+	if (kill(pid, SIGTERM) < 0 && errno != ESRCH) {
 		LOG("failed to signal QEMU: %s", strerror(errno));
 		return -1;
 	}
@@ -299,12 +344,30 @@ static int cleanup_qemu(void)
 	return -1;
 }
 
+static void emit_log_line(const char *path, const char *line, size_t length, bool truncated)
+{
+	if (length > 0 && line[length - 1] == '\r') {
+		length--;
+	}
+	fputs("virt-launcher-monitor: ", stderr);
+	fwrite(path, 1, strlen(path), stderr);
+	fputs(": ", stderr);
+	fwrite(line, 1, length, stderr);
+	if (truncated) {
+		fputs(" [line truncated]", stderr);
+	}
+	fputc('\n', stderr);
+}
+
+/* Stream logs with fixed bounded storage; getline may allocate an unbounded
+ * buffer before a long line can be truncated. */
 static void dump_log_file(const char *path)
 {
 	FILE *file = fopen(path, "r");
-	char *line = NULL;
-	size_t cap = 0;
-	ssize_t n;
+	char *line;
+	size_t length = 0;
+	bool truncated = false;
+	int ch;
 
 	if (file == NULL) {
 		if (errno != ENOENT) {
@@ -312,20 +375,35 @@ static void dump_log_file(const char *path)
 		}
 		return;
 	}
+	line = malloc(LOG_LINE_LIMIT);
+	if (line == NULL) {
+		LOG("failed to allocate log line buffer for %s", path);
+		fclose(file);
+		return;
+	}
 
 	LOG("dump log file: %s", path);
-	while ((n = getline(&line, &cap, file)) >= 0) {
-		if (n > LOG_LINE_LIMIT) {
-			line[LOG_LINE_LIMIT] = '\0';
-			LOG("%s: %s [line truncated]", path, line);
-		} else if (n > 0 && line[n - 1] == '\n') {
-			line[n - 1] = '\0';
-			LOG("%s: %s", path, line);
+	while ((ch = fgetc(file)) != EOF) {
+		if (ch == '\n') {
+			emit_log_line(path, line, length, truncated);
+			length = 0;
+			truncated = false;
+			continue;
+		}
+		if (length < LOG_LINE_LIMIT) {
+			line[length++] = (char)ch;
 		} else {
-			LOG("%s: %s", path, line);
+			truncated = true;
 		}
 	}
+	if (length > 0 || truncated) {
+		emit_log_line(path, line, length, truncated);
+	}
 	free(line);
+	if (ferror(file)) {
+		int read_error = errno == 0 ? EIO : errno;
+		LOG("failed to read file %s: %s", path, strerror(read_error));
+	}
 	fclose(file);
 }
 
@@ -343,13 +421,27 @@ static void dump_launcher_logs(void)
 		}
 		return;
 	}
-	while ((entry = readdir(dir)) != NULL) {
+	for (;;) {
 		char path[512];
+		int n;
 
-		if (entry->d_name[0] == '.') {
+		errno = 0;
+		entry = readdir(dir);
+		if (entry == NULL) {
+			if (errno != 0) {
+				LOG("failed to read qemu log directory: %s", strerror(errno));
+			}
+			break;
+		}
+
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
 			continue;
 		}
-		snprintf(path, sizeof(path), "%s/%s", QEMU_LOG_DIR, entry->d_name);
+		n = snprintf(path, sizeof(path), "%s/%s", QEMU_LOG_DIR, entry->d_name);
+		if (n < 0 || (size_t)n >= sizeof(path)) {
+			LOG("qemu log path is too long: %s", entry->d_name);
+			continue;
+		}
 		dump_log_file(path);
 	}
 	closedir(dir);
@@ -359,20 +451,41 @@ static void cleanup_container_disks(const char *directory)
 {
 	DIR *dir = opendir(directory);
 	struct dirent *entry;
+	int directory_fd;
 
 	if (dir == NULL) {
+		if (errno != ENOENT) {
+			LOG("failed to open container disk directory %s: %s", directory, strerror(errno));
+		}
 		return;
 	}
-	while ((entry = readdir(dir)) != NULL) {
-		size_t len = strlen(entry->d_name);
-		char path[512];
+	directory_fd = dirfd(dir);
+	if (directory_fd < 0) {
+		LOG("failed to access container disk directory %s: %s", directory, strerror(errno));
+		closedir(dir);
+		return;
+	}
+	for (;;) {
+		size_t len;
+		int saved_errno;
+
+		errno = 0;
+		entry = readdir(dir);
+		if (entry == NULL) {
+			if (errno != 0) {
+				LOG("failed to read container disk directory %s: %s", directory, strerror(errno));
+			}
+			break;
+		}
+		len = strlen(entry->d_name);
 
 		if (len < 5 || strcmp(entry->d_name + len - 5, ".sock") != 0) {
 			continue;
 		}
-		snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
-		if (unlink(path) < 0 && errno != ENOENT) {
-			LOG("failed to remove %s: %s", path, strerror(errno));
+		if (unlinkat(directory_fd, entry->d_name, 0) < 0 && errno != ENOENT) {
+			saved_errno = errno;
+			LOG("failed to remove %s/%s: %s", directory, entry->d_name,
+			    strerror(saved_errno));
 		}
 	}
 	closedir(dir);
@@ -383,37 +496,76 @@ static int retry_delay_ms(int attempt)
 	int delay = 10;
 	int i;
 
-	for (i = 0; i <= attempt; i++) {
+	for (i = 0; i < attempt; i++) {
 		delay *= 5;
 	}
 	return delay;
+}
+
+static int64_t monotonic_milliseconds(void)
+{
+	struct timespec now;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
+		return -1;
+	}
+	return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+static int wait_for_socket(int fd, short events, int64_t deadline)
+{
+	for (;;) {
+		struct pollfd poll_fd = { .fd = fd, .events = events };
+		int64_t now = monotonic_milliseconds();
+		int64_t remaining;
+		int result;
+
+		if (now < 0) {
+			return -errno;
+		}
+		remaining = deadline - now;
+		if (remaining <= 0) {
+			return -ETIMEDOUT;
+		}
+		result = poll(&poll_fd, 1, remaining > INT_MAX ? INT_MAX : (int)remaining);
+		if (result > 0) {
+			return 0;
+		}
+		if (result == 0) {
+			return -ETIMEDOUT;
+		}
+		if (errno != EINTR) {
+			return -errno;
+		}
+	}
 }
 
 static int http_request(int port, const char *request, int *status, char *server, size_t server_len)
 {
 	int fd;
 	struct sockaddr_in addr;
-	struct timeval timeout = { .tv_sec = HTTP_TIMEOUT_SEC, .tv_usec = 0 };
 	char buf[2048];
 	size_t off = 0;
 	ssize_t n;
-	char *line, *saveptr, *hdr;
-	int got_status = 0;
+	char *line, *saveptr, *hdr, *header_end;
+	int64_t deadline;
+	size_t request_len = strlen(request);
+	size_t request_off = 0;
+	int err;
 
 	*status = 0;
 	if (server_len > 0) {
 		server[0] = '\0';
 	}
 
-	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-	if (fd < 0) {
+	deadline = monotonic_milliseconds();
+	if (deadline < 0) {
 		return -errno;
 	}
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0 ||
-	    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
-		int err = -errno;
-		close(fd);
-		return err;
+	deadline += HTTP_TIMEOUT_SEC * 1000;
+	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+	if (fd < 0) {
+		return -errno;
 	}
 
 	memset(&addr, 0, sizeof(addr));
@@ -421,21 +573,68 @@ static int http_request(int port, const char *request, int *status, char *server
 	addr.sin_port = htons((uint16_t)port);
 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		int err = -errno;
-		close(fd);
-		return err;
+		if (errno != EINPROGRESS && errno != EINTR) {
+			err = -errno;
+			close(fd);
+			return err;
+		}
+		err = wait_for_socket(fd, POLLOUT, deadline);
+		if (err < 0) {
+			close(fd);
+			return err;
+		}
+		{
+			int socket_error = 0;
+			socklen_t error_len = sizeof(socket_error);
+			if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &socket_error, &error_len) < 0) {
+				err = -errno;
+				close(fd);
+				return err;
+			}
+			if (socket_error != 0) {
+				close(fd);
+				return -socket_error;
+			}
+		}
 	}
 
-	if (write(fd, request, strlen(request)) < 0) {
-		int err = -errno;
+	while (request_off < request_len) {
+		n = send(fd, request + request_off, request_len - request_off, MSG_NOSIGNAL);
+		if (n > 0) {
+			request_off += (size_t)n;
+			continue;
+		}
+		if (n < 0 && errno == EINTR) {
+			continue;
+		}
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			err = wait_for_socket(fd, POLLOUT, deadline);
+			if (err == 0) {
+				continue;
+			}
+			close(fd);
+			return err;
+		}
+		err = n < 0 ? -errno : -EPIPE;
 		close(fd);
 		return err;
 	}
 
 	while (off < sizeof(buf) - 1) {
-		n = read(fd, buf + off, sizeof(buf) - 1 - off);
+		n = recv(fd, buf + off, sizeof(buf) - 1 - off, 0);
+		if (n < 0 && errno == EINTR) {
+			continue;
+		}
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			err = wait_for_socket(fd, POLLIN, deadline);
+			if (err == 0) {
+				continue;
+			}
+			close(fd);
+			return err;
+		}
 		if (n < 0) {
-			int err = -errno;
+			err = -errno;
 			close(fd);
 			return err;
 		}
@@ -450,12 +649,19 @@ static int http_request(int port, const char *request, int *status, char *server
 	}
 	close(fd);
 	buf[off] = '\0';
+	header_end = strstr(buf, "\r\n\r\n");
+	if (header_end == NULL) {
+		header_end = strstr(buf, "\n\n");
+	}
+	if (header_end == NULL) {
+		return -EPROTO;
+	}
+	*header_end = '\0';
 
 	line = strtok_r(buf, "\r\n", &saveptr);
 	if (line == NULL || sscanf(line, "HTTP/%*s %d", status) != 1) {
 		return -EPROTO;
 	}
-	got_status = 1;
 	while ((hdr = strtok_r(NULL, "\r\n", &saveptr)) != NULL) {
 		if (strncasecmp(hdr, "Server:", 7) == 0) {
 			const char *value = hdr + 7;
@@ -464,17 +670,25 @@ static int http_request(int port, const char *request, int *status, char *server
 				value++;
 			}
 			if (server_len > 0) {
-				snprintf(server, server_len, "%s", value);
+				size_t value_len = strlen(value);
+				while (value_len > 0 && (value[value_len - 1] == ' ' || value[value_len - 1] == '\t')) {
+					value_len--;
+				}
+				if (value_len >= server_len) {
+					value_len = server_len - 1;
+				}
+				memcpy(server, value, value_len);
+				server[value_len] = '\0';
 			}
 		}
 	}
-	return got_status ? 0 : -EPROTO;
+	return 0;
 }
 
 static bool is_retryable(int err)
 {
 	err = err < 0 ? -err : err;
-	return err == ECONNREFUSED || err == ECONNRESET || err == ETIMEDOUT || err == EAGAIN;
+	return err == ECONNREFUSED || err == ECONNRESET;
 }
 
 static bool istio_proxy_present(void)
@@ -482,7 +696,7 @@ static bool istio_proxy_present(void)
 	const char *req = "GET /healthz/ready HTTP/1.0\r\nHost: localhost\r\n\r\n";
 	int attempt;
 
-	for (attempt = 0; attempt < 4; attempt++) {
+	for (attempt = 0; attempt < 5; attempt++) {
 		int status = 0;
 		char server[128];
 		int err = http_request(ENVOY_READY_PORT, req, &status, server, sizeof(server));
@@ -490,7 +704,7 @@ static bool istio_proxy_present(void)
 		if (err == 0 && strcasecmp(server, "envoy") == 0) {
 			return true;
 		}
-		if (err < 0 && attempt < 3 && is_retryable(err)) {
+		if (err < 0 && attempt < 4 && is_retryable(err)) {
 			sleep_ms(retry_delay_ms(attempt));
 			continue;
 		}
@@ -508,19 +722,22 @@ static void terminate_istio_proxy(void)
 		return;
 	}
 
-	for (attempt = 0; attempt < 4; attempt++) {
+	for (attempt = 0; attempt < 5; attempt++) {
 		int status = 0;
 		char server[8];
 		int err = http_request(ENVOY_QUIT_PORT, req, &status, server, sizeof(server));
+		bool retryable = (err == 0 && status == 503) || (err < 0 && is_retryable(err));
 
 		if (err == 0 && status == 200) {
 			return;
 		}
-		if ((err == 0 && status == 503) || (err < 0 && is_retryable(err))) {
-			if (attempt < 3) {
+		if (retryable) {
+			if (attempt < 4) {
 				sleep_ms(retry_delay_ms(attempt));
 				continue;
 			}
+			LOG("all attempts to terminate istio-proxy failed");
+			return;
 		}
 		if (err == 0) {
 			LOG("Istio quit request returned HTTP %d", status);
@@ -529,18 +746,74 @@ static void terminate_istio_proxy(void)
 		LOG("Istio quit request failed: %s", strerror(err < 0 ? -err : err));
 		return;
 	}
-	LOG("all attempts to terminate istio-proxy failed");
+}
+
+struct child_setup_error {
+	int stage;
+	int error;
+};
+
+enum child_setup_stage {
+	CHILD_SIGNAL_MASK = 1,
+	CHILD_CAPABILITY = 2,
+	CHILD_EXEC = 3,
+};
+
+static void child_report_error(int fd, int stage, int error)
+{
+	struct child_setup_error report = { .stage = stage, .error = error };
+	const char *data = (const char *)&report;
+	size_t remaining = sizeof(report);
+
+	while (remaining > 0) {
+		ssize_t written = write(fd, data, remaining);
+		if (written > 0) {
+			data += written;
+			remaining -= (size_t)written;
+		} else if (written < 0 && errno == EINTR) {
+			continue;
+		} else {
+			break;
+		}
+	}
+	_exit(stage == CHILD_EXEC ? 127 : 1);
+}
+
+static const char *child_setup_stage_name(int stage)
+{
+	switch (stage) {
+	case CHILD_SIGNAL_MASK:
+		return "restore signal mask";
+	case CHILD_CAPABILITY:
+		return "raise CAP_NET_BIND_SERVICE";
+	case CHILD_EXEC:
+		return "exec virt-launcher";
+	default:
+		return "prepare virt-launcher";
+	}
 }
 
 static int run_launcher(int argc, char **argv)
 {
 	char *child_argv[argc + 1];
-	const char *launcher = getenv("VIRT_LAUNCHER");
-	sigset_t block_chld, old_mask;
+	const char *launcher = DEFAULT_LAUNCHER;
+	sigset_t block_chld, old_mask, run_mask;
+	int exec_error_pipe[2];
 	pid_t pid;
+	struct child_setup_error child_error;
+	size_t error_bytes = 0;
+	int read_error = 0;
 
-	if (launcher == NULL || launcher[0] == '\0') {
-		launcher = DEFAULT_LAUNCHER;
+#ifdef VIRT_LAUNCHER_MONITOR_TESTING
+	const char *test_launcher = getenv("VIRT_LAUNCHER");
+	if (test_launcher != NULL && test_launcher[0] != '\0') {
+		launcher = test_launcher;
+	}
+#endif
+
+	if (pipe2(exec_error_pipe, O_CLOEXEC) < 0) {
+		LOG("failed to create launcher exec status pipe: %s", strerror(errno));
+		return 1;
 	}
 
 	filter_launcher_args(argc, argv, child_argv);
@@ -550,6 +823,16 @@ static int run_launcher(int argc, char **argv)
 	sigaddset(&block_chld, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &block_chld, &old_mask) < 0) {
 		LOG("failed to block SIGCHLD: %s", strerror(errno));
+		close(exec_error_pipe[0]);
+		close(exec_error_pipe[1]);
+		return 1;
+	}
+	if (install_sigchld_handler() < 0) {
+		int err = errno;
+		sigprocmask(SIG_SETMASK, &old_mask, NULL);
+		close(exec_error_pipe[0]);
+		close(exec_error_pipe[1]);
+		LOG("failed to install SIGCHLD handler: %s", strerror(err));
 		return 1;
 	}
 
@@ -557,37 +840,83 @@ static int run_launcher(int argc, char **argv)
 	if (pid < 0) {
 		int err = errno;
 		sigprocmask(SIG_SETMASK, &old_mask, NULL);
+		close(exec_error_pipe[0]);
+		close(exec_error_pipe[1]);
 		LOG("failed to run %s: %s", launcher, strerror(err));
 		return 1;
 	}
 	if (pid == 0) {
-		sigprocmask(SIG_SETMASK, &old_mask, NULL);
-		/*
-		 * Tests set VIRT_LAUNCHER to a fake binary that has no
-		 * file capabilities. Production always execs the default
-		 * path and must fail closed if ambient caps cannot be set.
-		 */
-		if (getenv("VIRT_LAUNCHER") == NULL && raise_net_bind_capability() < 0) {
-			LOG("failed to raise CAP_NET_BIND_SERVICE: %s", strerror(errno));
-			_exit(1);
+		close(exec_error_pipe[0]);
+		if (sigprocmask(SIG_SETMASK, &old_mask, NULL) < 0) {
+			child_report_error(exec_error_pipe[1], CHILD_SIGNAL_MASK, errno);
 		}
+#ifndef VIRT_LAUNCHER_MONITOR_TESTING
+		if (raise_net_bind_capability() < 0) {
+			child_report_error(exec_error_pipe[1], CHILD_CAPABILITY, errno);
+		}
+#endif
 		execv(launcher, child_argv);
-		LOG("failed to exec %s: %s", launcher, strerror(errno));
-		_exit(127);
+		child_report_error(exec_error_pipe[1], CHILD_EXEC, errno);
 	}
 
 	launcher_pid = pid;
-	if (install_sigchld_handler() < 0) {
-		sigprocmask(SIG_SETMASK, &old_mask, NULL);
-		LOG("failed to install SIGCHLD handler: %s", strerror(errno));
-		return 1;
-	}
-	if (sigprocmask(SIG_SETMASK, &old_mask, NULL) < 0) {
-		LOG("failed to unblock SIGCHLD: %s", strerror(errno));
+	close(exec_error_pipe[1]);
+	run_mask = old_mask;
+	sigdelset(&run_mask, SIGCHLD);
+	if (sigprocmask(SIG_SETMASK, &run_mask, NULL) < 0) {
+		int err = errno;
+		int status;
+		pid_t waited;
+
+		LOG("failed to unblock SIGCHLD: %s", strerror(err));
+		kill(pid, SIGTERM);
+		close(exec_error_pipe[0]);
+		do {
+			waited = waitpid(pid, &status, 0);
+		} while (waited < 0 && errno == EINTR);
+		if (waited == pid) {
+			record_launcher_status(status);
+		} else {
+			wait_error = 1;
+		}
 		return 1;
 	}
 
+	while (!read_error && error_bytes < sizeof(child_error)) {
+		ssize_t n = read(exec_error_pipe[0], (char *)&child_error + error_bytes,
+				 sizeof(child_error) - error_bytes);
+		if (n > 0) {
+			error_bytes += (size_t)n;
+			continue;
+		}
+		if (n == 0) {
+			break;
+		}
+		if (errno == EINTR) {
+			continue;
+		}
+		read_error = errno;
+		break;
+	}
+	close(exec_error_pipe[0]);
+	if (read_error != 0) {
+		LOG("failed to read launcher exec status: %s", strerror(read_error));
+		kill(pid, SIGTERM);
+	} else if (error_bytes != 0) {
+		if (error_bytes != sizeof(child_error)) {
+			LOG("received an incomplete launcher exec status");
+		} else {
+			LOG("failed to %s: %s", child_setup_stage_name(child_error.stage),
+			    strerror(child_error.error));
+		}
+		read_error = EIO;
+	}
+
 	while (launcher_exit_code < 0) {
+		if (wait_error) {
+			kill(launcher_pid, SIGTERM);
+			return 1;
+		}
 		if (shutdown_requested && !termination_sent) {
 			LOG("signalling virt-launcher to shut down");
 			if (kill(launcher_pid, SIGTERM) < 0) {
@@ -596,13 +925,10 @@ static int run_launcher(int argc, char **argv)
 			}
 			termination_sent = 1;
 		}
-		if (got_chld) {
-			got_chld = 0;
-			reap_children();
-			continue;
-		}
 		sleep_ms(10);
-		reap_children();
+	}
+	if (read_error != 0 || wait_error) {
+		return 1;
 	}
 	return launcher_exit_code;
 }
@@ -614,6 +940,15 @@ int main(int argc, char **argv)
 	int exit_code;
 	int monitor_error = 0;
 
+#ifdef VIRT_LAUNCHER_MONITOR_TESTING
+	/* Bazel's Go test process is not PID 1; emulate PID-1 orphan adoption so
+	 * the integration test can verify that the monitor reaps descendants. */
+	if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0) {
+		LOG("failed to enable test child subreaper: %s", strerror(errno));
+		return 1;
+	}
+#endif
+
 	if (install_termination_handlers() < 0) {
 		LOG("failed to install signal handlers: %s", strerror(errno));
 		return 1;
@@ -622,6 +957,10 @@ int main(int argc, char **argv)
 	exit_code = run_launcher(argc, argv);
 	if (exit_code != 0) {
 		LOG("dirty virt-launcher shutdown: exit-code %d", exit_code);
+	}
+	if (wait_error) {
+		LOG("waitpid failed while reaping child processes");
+		monitor_error = 1;
 	}
 
 	dump_launcher_logs();
