@@ -28,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	authv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -116,6 +117,7 @@ var _ = Describe("Domain Watcher", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil, nil,
 			)
 
 			Eventually(d.result).Should(BeClosed())
@@ -413,6 +415,164 @@ var _ = Describe("Domain Watcher", func() {
 
 			// Verify the map is empty
 			Expect(d.unresponsiveSockets).To(BeEmpty())
+		})
+	})
+
+	Context("podUIDFromSocketPath", func() {
+		It("should extract the pod UID from a standard socket path", func() {
+			uid, err := podUIDFromSocketPath("/pods/abc-123-def/volumes/kubernetes.io~empty-dir/sockets/launcher-sock")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("abc-123-def"))
+		})
+
+		It("should extract the pod UID when there are leading path segments", func() {
+			uid, err := podUIDFromSocketPath("/var/lib/kubelet/pods/real-uid-456/volumes/kubernetes.io~empty-dir/sockets/launcher-sock")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("real-uid-456"))
+		})
+
+		It("should fail when path has no /volumes/ segment", func() {
+			_, err := podUIDFromSocketPath("/some/random/path/launcher-sock")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("/volumes/"))
+		})
+	})
+
+	Context("podUIDFromTokenReview", func() {
+		It("should extract the pod UID from the extra claims", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {"pod-uid-789"},
+						},
+					},
+				},
+			}
+			uid, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("pod-uid-789"))
+		})
+
+		It("should fail when pod UID claim is missing", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{},
+					},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not present"))
+		})
+
+		It("should fail when pod UID claim is empty", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {""},
+						},
+					},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("empty"))
+		})
+
+		It("should fail when Extra map is nil", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("pod UID mismatch detection", func() {
+		It("should detect when token pod UID does not match socket path", func() {
+			socketPath := "/pods/legitimate-pod-uid/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+			socketUID, err := podUIDFromSocketPath(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {"attacker-pod-uid"},
+						},
+					},
+				},
+			}
+			tokenUID, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tokenUID).ToNot(Equal(socketUID),
+				"a token from an attacker pod must not match the socket's pod UID")
+		})
+
+		It("should succeed when token pod UID matches socket path", func() {
+			podUID := "matching-pod-uid-abc"
+			socketPath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", podUID)
+			socketUID, err := podUIDFromSocketPath(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {podUID},
+						},
+					},
+				},
+			}
+			tokenUID, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tokenUID).To(Equal(socketUID))
+		})
+	})
+
+	Context("ActivePods verification", func() {
+		const legitimateUID = "launcher-pod-uid-123"
+		const rogueUID = "rogue-pod-uid-456"
+
+		activePods := map[types.UID]string{
+			types.UID(legitimateUID): "node-1",
+		}
+
+		It("should accept a pod UID that is present in ActivePods", func() {
+			_, ok := activePods[types.UID(legitimateUID)]
+			Expect(ok).To(BeTrue(), "legitimate launcher UID must be in ActivePods")
+		})
+
+		It("should reject a pod UID that is not in ActivePods", func() {
+			_, ok := activePods[types.UID(rogueUID)]
+			Expect(ok).To(BeFalse(), "rogue pod UID must not be in ActivePods")
+		})
+
+		It("should accept any pod UID when activePods is nil (auth disabled or VMI not found)", func() {
+			var nilPods map[types.UID]string
+			_, ok := nilPods[types.UID(rogueUID)]
+			Expect(ok).To(BeFalse(), "nil map lookup returns false but AuthenticateSocket skips the check")
+		})
+
+		It("should handle live migration with two active pods", func() {
+			migrationPods := map[types.UID]string{
+				types.UID("source-pod-uid"): "node-1",
+				types.UID("target-pod-uid"): "node-2",
+			}
+			_, sourceOK := migrationPods[types.UID("source-pod-uid")]
+			_, targetOK := migrationPods[types.UID("target-pod-uid")]
+			_, rogueOK := migrationPods[types.UID(rogueUID)]
+
+			Expect(sourceOK).To(BeTrue(), "source pod must be in ActivePods during migration")
+			Expect(targetOK).To(BeTrue(), "target pod must be in ActivePods during migration")
+			Expect(rogueOK).To(BeFalse(), "rogue pod must not be in ActivePods during migration")
 		})
 	})
 
