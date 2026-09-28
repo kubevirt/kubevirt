@@ -36,6 +36,7 @@ type imagePullPolicyGetter interface {
 
 type VolumeRenderer struct {
 	useImageVolumes       bool
+	launcherSocketAuth    bool
 	launcherImage         string
 	imageIDs              map[string]string
 	imagePullPolicyGetter imagePullPolicyGetter
@@ -49,9 +50,10 @@ type VolumeRenderer struct {
 	volumeDevices         []k8sv1.VolumeDevice
 }
 
-func NewVolumeRenderer(imagePullPolicyGetter imagePullPolicyGetter, imageVolumeFeatureGateEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
+func NewVolumeRenderer(imagePullPolicyGetter imagePullPolicyGetter, imageVolumeFeatureGateEnabled bool, launcherSocketAuthEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
 	volumeRenderer := &VolumeRenderer{
 		useImageVolumes:       imageVolumeFeatureGateEnabled,
+		launcherSocketAuth:    launcherSocketAuthEnabled,
 		launcherImage:         launcherImage,
 		imageIDs:              imageIDs,
 		imagePullPolicyGetter: imagePullPolicyGetter,
@@ -75,7 +77,9 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 		mountPath("ephemeral-disks", vr.ephemeralDiskDir),
 		mountPath("libvirt-runtime", "/var/run/libvirt"),
 		mountPath("sockets", filepath.Join(vr.virtShareDir, "sockets")),
-		readOnlyMountPath(cmdAuthTokenVolumeName, cmdAuthTokenMountPath),
+	}
+	if vr.launcherSocketAuth {
+		volumeMounts = append(volumeMounts, readOnlyMountPath(cmdAuthTokenVolumeName, cmdAuthTokenMountPath))
 	}
 	if !vr.useImageVolumes {
 		volumeMounts = append(volumeMounts, mountPathWithPropagation(containerDisks, vr.containerDiskDir, k8sv1.MountPropagationHostToContainer))
@@ -91,7 +95,9 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		emptyDirVolume(virtBinDir),
 		emptyDirVolume("libvirt-runtime"),
 		emptyDirVolume("ephemeral-disks"),
-		cmdAuthTokenVolume(),
+	}
+	if vr.launcherSocketAuth {
+		volumes = append(volumes, cmdAuthTokenVolume())
 	}
 	if !vr.useImageVolumes {
 		volumes = append(volumes, emptyDirVolume(containerDisks))

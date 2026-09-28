@@ -984,6 +984,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	volumeRenderer, err := NewVolumeRenderer(
 		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
+		t.clusterConfig.LauncherSocketAuthenticationEnabled(),
 		t.launcherImage,
 		imageIDs,
 		namespace,
