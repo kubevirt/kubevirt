@@ -24,11 +24,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/capability.h>
-#include <limits.h>
 #include <netinet/in.h>
-#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,10 +35,10 @@
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
-#include <stdint.h>
 #include <unistd.h>
 
 #define DEFAULT_LAUNCHER "/usr/bin/virt-launcher"
@@ -512,50 +511,37 @@ static int64_t monotonic_milliseconds(void)
 	return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
-static int wait_for_socket(int fd, short events, int64_t deadline)
+static int set_http_timeout(int fd, int option, int64_t deadline)
 {
-	for (;;) {
-		struct pollfd poll_fd = { .fd = fd, .events = events };
-		int64_t now = monotonic_milliseconds();
-		int64_t remaining;
-		int result;
+	int64_t now = monotonic_milliseconds();
+	int64_t remaining;
+	struct timeval timeout;
 
-		if (now < 0) {
-			return -errno;
-		}
-		remaining = deadline - now;
-		if (remaining <= 0) {
-			return -ETIMEDOUT;
-		}
-		result = poll(&poll_fd, 1, remaining > INT_MAX ? INT_MAX : (int)remaining);
-		if (result > 0) {
-			return 0;
-		}
-		if (result == 0) {
-			return -ETIMEDOUT;
-		}
-		if (errno != EINTR) {
-			return -errno;
-		}
+	if (now < 0) {
+		return -errno;
 	}
+	remaining = deadline - now;
+	if (remaining <= 0) {
+		return -ETIMEDOUT;
+	}
+	timeout.tv_sec = remaining / 1000;
+	timeout.tv_usec = (remaining % 1000) * 1000;
+	return setsockopt(fd, SOL_SOCKET, option, &timeout, sizeof(timeout)) < 0 ? -errno : 0;
 }
 
-static int http_request(int port, const char *request, int *status, char *server, size_t server_len)
+static int http_request(int port, const char *request, int *status, bool *envoy_server)
 {
-	int fd;
+	int fd, err;
 	struct sockaddr_in addr;
 	char buf[2048];
-	size_t off = 0;
+	size_t off = 0, request_len = strlen(request), request_off = 0;
 	ssize_t n;
 	char *line, *saveptr, *hdr, *header_end;
 	int64_t deadline;
-	size_t request_len = strlen(request);
-	size_t request_off = 0;
-	int err;
 
 	*status = 0;
-	if (server_len > 0) {
-		server[0] = '\0';
+	if (envoy_server != NULL) {
+		*envoy_server = false;
 	}
 
 	deadline = monotonic_milliseconds();
@@ -563,42 +549,39 @@ static int http_request(int port, const char *request, int *status, char *server
 		return -errno;
 	}
 	deadline += HTTP_TIMEOUT_SEC * 1000;
-	fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-	if (fd < 0) {
-		return -errno;
-	}
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons((uint16_t)port);
 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		if (errno != EINPROGRESS && errno != EINTR) {
-			err = -errno;
-			close(fd);
-			return err;
+	/* On Linux, SO_SNDTIMEO also bounds connect. Retry EINTR on a new
+	 * socket because the interrupted connection's state is unspecified. */
+	for (;;) {
+		fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+		if (fd < 0) {
+			return -errno;
 		}
-		err = wait_for_socket(fd, POLLOUT, deadline);
+		err = set_http_timeout(fd, SO_SNDTIMEO, deadline);
 		if (err < 0) {
 			close(fd);
 			return err;
 		}
-		{
-			int socket_error = 0;
-			socklen_t error_len = sizeof(socket_error);
-			if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &socket_error, &error_len) < 0) {
-				err = -errno;
-				close(fd);
-				return err;
-			}
-			if (socket_error != 0) {
-				close(fd);
-				return -socket_error;
-			}
+		if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+			break;
 		}
+		err = -errno;
+		close(fd);
+		if (err == -EINTR) {
+			continue;
+		}
+		return err == -EINPROGRESS ? -ETIMEDOUT : err;
 	}
 
 	while (request_off < request_len) {
+		err = set_http_timeout(fd, SO_SNDTIMEO, deadline);
+		if (err < 0) {
+			goto done;
+		}
 		n = send(fd, request + request_off, request_len - request_off, MSG_NOSIGNAL);
 		if (n > 0) {
 			request_off += (size_t)n;
@@ -607,36 +590,22 @@ static int http_request(int port, const char *request, int *status, char *server
 		if (n < 0 && errno == EINTR) {
 			continue;
 		}
-		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-			err = wait_for_socket(fd, POLLOUT, deadline);
-			if (err == 0) {
-				continue;
-			}
-			close(fd);
-			return err;
-		}
-		err = n < 0 ? -errno : -EPIPE;
-		close(fd);
-		return err;
+		err = n == 0 ? -EPIPE : (errno == EAGAIN || errno == EWOULDBLOCK ? -ETIMEDOUT : -errno);
+		goto done;
 	}
 
 	while (off < sizeof(buf) - 1) {
+		err = set_http_timeout(fd, SO_RCVTIMEO, deadline);
+		if (err < 0) {
+			goto done;
+		}
 		n = recv(fd, buf + off, sizeof(buf) - 1 - off, 0);
 		if (n < 0 && errno == EINTR) {
 			continue;
 		}
-		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-			err = wait_for_socket(fd, POLLIN, deadline);
-			if (err == 0) {
-				continue;
-			}
-			close(fd);
-			return err;
-		}
 		if (n < 0) {
-			err = -errno;
-			close(fd);
-			return err;
+			err = errno == EAGAIN || errno == EWOULDBLOCK ? -ETIMEDOUT : -errno;
+			goto done;
 		}
 		if (n == 0) {
 			break;
@@ -647,42 +616,41 @@ static int http_request(int port, const char *request, int *status, char *server
 			break;
 		}
 	}
-	close(fd);
 	buf[off] = '\0';
 	header_end = strstr(buf, "\r\n\r\n");
 	if (header_end == NULL) {
 		header_end = strstr(buf, "\n\n");
 	}
 	if (header_end == NULL) {
-		return -EPROTO;
+		err = -EPROTO;
+		goto done;
 	}
 	*header_end = '\0';
 
 	line = strtok_r(buf, "\r\n", &saveptr);
 	if (line == NULL || sscanf(line, "HTTP/%*s %d", status) != 1) {
-		return -EPROTO;
+		err = -EPROTO;
+		goto done;
 	}
-	while ((hdr = strtok_r(NULL, "\r\n", &saveptr)) != NULL) {
+	while (envoy_server != NULL && (hdr = strtok_r(NULL, "\r\n", &saveptr)) != NULL) {
 		if (strncasecmp(hdr, "Server:", 7) == 0) {
-			const char *value = hdr + 7;
+			char *value = hdr + 7;
+			char *end;
 
 			while (*value == ' ' || *value == '\t') {
 				value++;
 			}
-			if (server_len > 0) {
-				size_t value_len = strlen(value);
-				while (value_len > 0 && (value[value_len - 1] == ' ' || value[value_len - 1] == '\t')) {
-					value_len--;
-				}
-				if (value_len >= server_len) {
-					value_len = server_len - 1;
-				}
-				memcpy(server, value, value_len);
-				server[value_len] = '\0';
+			end = value + strlen(value);
+			while (end > value && (end[-1] == ' ' || end[-1] == '\t')) {
+				end--;
 			}
+			*envoy_server = end - value == 5 && strncasecmp(value, "envoy", 5) == 0;
 		}
 	}
-	return 0;
+	err = 0;
+done:
+	close(fd);
+	return err;
 }
 
 static bool is_retryable(int err)
@@ -698,10 +666,10 @@ static bool istio_proxy_present(void)
 
 	for (attempt = 0; attempt < 5; attempt++) {
 		int status = 0;
-		char server[128];
-		int err = http_request(ENVOY_READY_PORT, req, &status, server, sizeof(server));
+		bool envoy_server;
+		int err = http_request(ENVOY_READY_PORT, req, &status, &envoy_server);
 
-		if (err == 0 && strcasecmp(server, "envoy") == 0) {
+		if (err == 0 && envoy_server) {
 			return true;
 		}
 		if (err < 0 && attempt < 4 && is_retryable(err)) {
@@ -724,8 +692,7 @@ static void terminate_istio_proxy(void)
 
 	for (attempt = 0; attempt < 5; attempt++) {
 		int status = 0;
-		char server[8];
-		int err = http_request(ENVOY_QUIT_PORT, req, &status, server, sizeof(server));
+		int err = http_request(ENVOY_QUIT_PORT, req, &status, NULL);
 		bool retryable = (err == 0 && status == 503) || (err < 0 && is_retryable(err));
 
 		if (err == 0 && status == 200) {
