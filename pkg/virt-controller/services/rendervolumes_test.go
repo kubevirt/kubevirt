@@ -462,6 +462,7 @@ func vmiDiskPath(volumeName string) string {
 }
 
 func defaultVolumes() []k8sv1.Volume {
+	expirationSeconds := int64(3600)
 	return []k8sv1.Volume{
 		{
 			Name:         "private",
@@ -482,11 +483,29 @@ func defaultVolumes() []k8sv1.Volume {
 			Name:         "ephemeral-disks",
 			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
 		}, {
+			Name: "cmd-auth-token",
+			VolumeSource: k8sv1.VolumeSource{
+				Projected: &k8sv1.ProjectedVolumeSource{
+					DefaultMode: ptrInt32(0440),
+					Sources: []k8sv1.VolumeProjection{
+						{
+							ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+								Audience:          "kubevirt.io/cmd-auth",
+								ExpirationSeconds: &expirationSeconds,
+								Path:              "cmd-auth-token",
+							},
+						},
+					},
+				},
+			},
+		}, {
 			Name:         "container-disks",
 			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
 		},
 	}
 }
+
+func ptrInt32(v int32) *int32 { return &v }
 
 func defaultVolumeMounts() []k8sv1.VolumeMount {
 	hostToContainerPropagation := k8sv1.MountPropagationHostToContainer
@@ -498,6 +517,7 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
 		{Name: "container-disks", MountPath: "cdisk1", MountPropagation: &hostToContainerPropagation},
 		{Name: "libvirt-runtime", MountPath: "/var/run/libvirt"},
 		{Name: "sockets", MountPath: "dir1/sockets"},
+		{Name: "cmd-auth-token", MountPath: "/var/run/secrets/tokens", ReadOnly: true},
 	}
 }
 
