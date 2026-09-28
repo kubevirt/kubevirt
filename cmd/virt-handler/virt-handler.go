@@ -291,11 +291,6 @@ func (app *virtHandlerApp) Run() {
 	// is completely torn down.
 	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
-	// Wire Domain controller with launcher authentication. Passing the k8s
-	// client enables TokenReview-based authentication of virt-launcher
-	// sockets during resync.
-	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore, app.k8sClient)
-
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
@@ -313,6 +308,13 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.installKubevirtSeccompProfile)
+
+	// Wire launcher authentication when the feature gate is enabled.
+	var authClient kubernetes.Interface
+	if app.clusterConfig.LauncherSocketAuthenticationEnabled() {
+		authClient = app.k8sClient
+	}
+	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore, authClient)
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -390,7 +392,7 @@ func (app *virtHandlerApp) Run() {
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore, app.k8sClient)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore, authClient)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat(app.clusterConfig)
