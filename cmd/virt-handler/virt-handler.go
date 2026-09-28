@@ -274,8 +274,10 @@ func (app *virtHandlerApp) Run() {
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 	pluginInformer := factory.Plugin()
 
-	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	// Wire Domain controller with launcher authentication. Passing the k8s
+	// client enables TokenReview-based authentication of virt-launcher
+	// sockets during resync.
+	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, app.k8sClient)
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
@@ -386,7 +388,7 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector, app.k8sClient)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat(app.clusterConfig)
