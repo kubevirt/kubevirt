@@ -229,6 +229,7 @@ static int filter_launcher_args(int argc, char **argv, char **out)
 {
 	int i, n = 0;
 
+	/* Match Go's removeArg: only the bare flag is removed. */
 	out[n++] = argv[0];
 	for (i = 1; i < argc; i++) {
 		if (is_keep_after_failure_arg(argv[i])) {
