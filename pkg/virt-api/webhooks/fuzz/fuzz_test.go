@@ -199,7 +199,6 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				featuregate.HypervStrictCheckGate,
 				featuregate.SidecarGate,
 				featuregate.HostDevicesGate,
-				featuregate.SnapshotGate,
 				featuregate.HotplugVolumesGate,
 				featuregate.HostDiskGate,
 				featuregate.MacvtapGate,

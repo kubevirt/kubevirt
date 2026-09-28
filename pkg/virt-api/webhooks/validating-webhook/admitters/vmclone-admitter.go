@@ -43,20 +43,13 @@ const (
 	virtualMachineSnapshotKind = "VirtualMachineSnapshot"
 )
 
-type clusterConfigurer interface {
-	SnapshotEnabled() bool
-}
-
 // VirtualMachineCloneAdmitter validates VirtualMachineClones
 type VirtualMachineCloneAdmitter struct {
-	config clusterConfigurer
 }
 
 // NewVMCloneAdmitter creates a VM Clone Admitter
-func NewVMCloneAdmitter(config clusterConfigurer) *VirtualMachineCloneAdmitter {
-	return &VirtualMachineCloneAdmitter{
-		config: config,
-	}
+func NewVMCloneAdmitter() *VirtualMachineCloneAdmitter {
+	return &VirtualMachineCloneAdmitter{}
 }
 
 // Admit validates an AdmissionReview
@@ -66,10 +59,6 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 	}
 	if ar.Request.Resource.Resource != clonebase.ResourceVMClonePlural {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clonebase.ResourceVMClonePlural))
-	}
-
-	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate is not enabled"))
 	}
 
 	vmClone := &clone.VirtualMachineClone{}
