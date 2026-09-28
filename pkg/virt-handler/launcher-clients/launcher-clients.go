@@ -20,11 +20,13 @@
 package launcher_clients
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	"golang.org/x/sync/singleflight"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -61,12 +63,14 @@ type launcherClientsManager struct {
 	podIsolationDetector isolation.PodIsolationDetector
 	notifyManager        notifyManager
 	ghostRecordStore     *virtcache.GhostRecordStore
+	authClient           kubernetes.Interface
 }
 
 func NewLauncherClientsManager(
 	podIsolationDetector isolation.PodIsolationDetector,
 	notifyManager notifyManager,
 	ghostRecordStore *virtcache.GhostRecordStore,
+	authClient kubernetes.Interface,
 ) *launcherClientsManager {
 
 	l := &launcherClientsManager{
@@ -74,6 +78,7 @@ func NewLauncherClientsManager(
 		podIsolationDetector: podIsolationDetector,
 		notifyManager:        notifyManager,
 		ghostRecordStore:     ghostRecordStore,
+		authClient:           authClient,
 	}
 
 	return l
@@ -143,6 +148,10 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 				return nil, markIrrecoverable(err)
 			}
 			return nil, err
+		}
+
+		if err := virtcache.AuthenticateSocket(context.Background(), l.authClient, socketFile, vmi.Status.ActivePods); err != nil {
+			return nil, fmt.Errorf("launcher socket authentication failed for %s/%s: %w", vmi.Namespace, vmi.Name, err)
 		}
 
 		err = l.ghostRecordStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
