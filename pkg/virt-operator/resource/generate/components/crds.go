@@ -46,7 +46,6 @@ import (
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -462,14 +461,6 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 		Group: snapshotv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
-				Subresources: &extv1.CustomResourceSubresources{
-					Status: &extv1.CustomResourceSubresourceStatus{},
-				},
-			},
-			{
 				Name:               snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:             true,
 				Storage:            false,
@@ -528,14 +519,6 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 		Group: snapshotv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
-				Subresources: &extv1.CustomResourceSubresources{
-					Status: &extv1.CustomResourceSubresourceStatus{},
-				},
-			},
-			{
 				Name:               snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:             true,
 				Storage:            false,
@@ -590,14 +573,6 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
 		Group: snapshotv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
-			{
-				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
-				Subresources: &extv1.CustomResourceSubresources{
-					Status: &extv1.CustomResourceSubresourceStatus{},
-				},
-			},
 			{
 				Name:               snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:             true,
