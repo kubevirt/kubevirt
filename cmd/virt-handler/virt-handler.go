@@ -275,13 +275,6 @@ func (app *virtHandlerApp) Run() {
 	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 	pluginInformer := factory.Plugin()
 
-	// Wire Domain controller with launcher authentication.
-	// Passing the k8s client enables TokenReview-based authentication
-	// of virt-launcher sockets during resync. An empty SA name means
-	// only token validity is checked (not a specific ServiceAccount),
-	// since virt-launchers may use different SAs across namespaces.
-	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, app.k8sClient, "")
-
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
 	err = util.MkdirAllWithNosec(checkpointPath)
@@ -315,6 +308,13 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.installKubevirtSeccompProfile)
+
+	// Wire launcher authentication when the feature gate is enabled.
+	var authClient kubernetes.Interface
+	if app.clusterConfig.LauncherSocketAuthenticationEnabled() {
+		authClient = app.k8sClient
+	}
+	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, authClient)
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -391,7 +391,7 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector, app.k8sClient)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector, authClient)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat()
