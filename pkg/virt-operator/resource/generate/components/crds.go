@@ -470,9 +470,11 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 				},
 			},
 			{
-				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
+				Name:               snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("snapshot.kubevirt.io/v1beta1 VirtualMachineSnapshot is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
@@ -534,9 +536,11 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 				},
 			},
 			{
-				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
+				Name:               snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("snapshot.kubevirt.io/v1beta1 VirtualMachineSnapshotContent is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
@@ -595,9 +599,11 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 				},
 			},
 			{
-				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
+				Name:               snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("snapshot.kubevirt.io/v1beta1 VirtualMachineRestore is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
