@@ -1604,7 +1604,17 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 	}
 	// Look up all the disks to attach
-	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
+	attachDisks := getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks)
+	// Drop attach errors of disks that got attached or are no longer requested
+	pendingAttach := make(map[string]struct{}, len(attachDisks))
+	for _, attachDisk := range attachDisks {
+		pendingAttach[attachDisk.Alias.GetName()] = struct{}{}
+	}
+	l.metadataCache.DiskAttachErrors.Retain(func(volumeName string) bool {
+		_, pending := pendingAttach[volumeName]
+		return pending
+	})
+	for _, attachDisk := range attachDisks {
 		ds := disksource.Resolve(attachDisk)
 		allowAttach, err := checkIfDiskReadyToUse(ds.BackendPath())
 		if err != nil {
@@ -1629,6 +1639,7 @@ func (l *LibvirtDomainManager) syncDisks(
 		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
+			l.metadataCache.DiskAttachErrors.Set(attachDisk.Alias.GetName(), err.Error())
 			return err
 		}
 	}
@@ -2328,6 +2339,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 		}
 		spec.Metadata.KubeVirt = metadata.LoadKubevirtMetadata(l.metadataCache)
 		domain.Spec = *spec
+		domain.Status.Disks = l.metadataCache.DiskAttachErrors.Load()
 		status, reason, err := dom.GetState()
 		if err != nil {
 			if domainerrors.IsNotFound(err) {

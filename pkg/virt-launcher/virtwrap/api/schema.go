@@ -125,6 +125,7 @@ type DomainStatus struct {
 	Status         LifeCycle
 	Reason         StateChangeReason
 	Interfaces     []InterfaceStatus
+	Disks          []DiskStatus
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
 	GuestPanicInfo *GuestPanicInfo
@@ -165,6 +166,14 @@ type InterfaceStatus struct {
 	Ip            string
 	IPs           []string
 	InterfaceName string
+}
+
+// DiskStatus reports per-disk state that is not part of the domain spec
+type DiskStatus struct {
+	// Name is the name of the volume backing the disk
+	Name string
+	// AttachError is the error returned by the hypervisor on the last failed hotplug attempt
+	AttachError string
 }
 
 type SEVNodeParameters struct {

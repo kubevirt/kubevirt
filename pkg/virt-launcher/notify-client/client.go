@@ -385,6 +385,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			spec.Metadata.KubeVirt = kubevirtMetadata
 			domain.Spec = *spec
 		}
+		domain.Status.Disks = metadataCache.DiskAttachErrors.Load()
 
 		e.printStatus(&domain.Status)
 		e.updateStatus(&domain.Status)
