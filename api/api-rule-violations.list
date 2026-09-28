@@ -149,7 +149,6 @@ API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,FirmwarePre
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,VirtualMachineInstancetypeSpec,GPUs
 API rule violation: names_match,kubevirt.io/api/migrations/v1alpha1,MigrationPolicySpec,ExperimentalMigrationOptions
 API rule violation: names_match,kubevirt.io/api/snapshot/v1,VolumeRestore,PersistentVolumeClaimName
-API rule violation: names_match,kubevirt.io/api/snapshot/v1alpha1,VolumeRestore,PersistentVolumeClaimName
 API rule violation: names_match,kubevirt.io/api/snapshot/v1beta1,VolumeRestore,PersistentVolumeClaimName
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,CDISpec,Workloads
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSourceImageIO,DiskID
@@ -164,9 +163,6 @@ API rule violation: streaming_list_type_json_tags,kubevirt.io/api/export/v1beta1
 API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1,VirtualMachineRestoreList,ListMeta
 API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1,VirtualMachineSnapshotContentList,ListMeta
 API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1,VirtualMachineSnapshotList,ListMeta
-API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreList,ListMeta
-API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineSnapshotContentList,ListMeta
-API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineSnapshotList,ListMeta
 API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1beta1,VirtualMachineRestoreList,ListMeta
 API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1beta1,VirtualMachineSnapshotContentList,ListMeta
 API rule violation: streaming_list_type_json_tags,kubevirt.io/api/snapshot/v1beta1,VirtualMachineSnapshotList,ListMeta
