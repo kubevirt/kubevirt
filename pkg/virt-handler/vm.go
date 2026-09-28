@@ -387,6 +387,12 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
+	if vmiExists {
+		if handled, err := c.reconcileGhostRecordConflict(vmi); handled {
+			return err
+		}
+	}
+
 	if domainExists &&
 		(domainMigrated(domain) || domain.DeletionTimestamp != nil) {
 		c.logger.Object(vmi).V(4).Info("detected orphan vmi")
@@ -430,6 +436,55 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 	return err
 
+}
+
+// reconcileGhostRecordConflict resolves a ghost record left by an older
+// incarnation of this VMI (same namespace/name, different UID). When the old
+// virt-launcher vanished before cleanup, no live domain remains to trigger the
+// stale-domain branch in execute(), and GhostRecordStore.Add would reject the
+// new UID on every sync. handled is true when execute must stop for this key.
+func (c *VirtualMachineController) reconcileGhostRecordConflict(vmi *v1.VirtualMachineInstance) (handled bool, err error) {
+	record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
+	if !exists || record.UID == vmi.UID {
+		return false, nil
+	}
+
+	// Check the recorded socket directly: IsLauncherClientUnresponsive cannot
+	// locate the socket of a reference VMI without ActivePods and would report
+	// it dead. IsSocketUnresponsive never dials: it reports dead only when the
+	// socket or its directory is gone, or when the domain watcher's
+	// unresponsive marker is present (or cannot be looked up), so a transient
+	// connection failure never condemns the old incarnation.
+	if !cmdclient.IsSocketUnresponsive(record.SocketFile) {
+		if !c.isVMIOwnedByNode(vmi) {
+			// This node will not start the VMI, so there is nothing to block.
+			return false, nil
+		}
+		// Final or deleting VMIs are blocked too: their cleanup in sync()
+		// removes the ghost record by name, which would delete the record of an
+		// older incarnation that may still be alive.
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
+			"Waiting for older VMI incarnation %s to terminate before starting %s", record.UID, vmi.UID)
+		return true, fmt.Errorf("vmi %s/%s with uid %s is blocked by the ghost record of uid %s whose launcher socket %s is still present",
+			vmi.Namespace, vmi.Name, vmi.UID, record.UID, record.SocketFile)
+	}
+
+	oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
+	oldVMI.UID = record.UID
+	c.logger.Object(oldVMI).Infof("Detected stale ghost record with socket %s blocking vmi uid %s, cleaning up", record.SocketFile, vmi.UID)
+	if err := c.processVmCleanup(oldVMI); err != nil {
+		return true, err
+	}
+
+	// processVmCleanup normally removes the record already; delete by UID so a
+	// record registered meanwhile by the new incarnation is never touched.
+	err = virtcache.GhostRecordGlobalStore.DeleteIfUID(vmi.Namespace, vmi.Name, record.UID)
+	if err != nil && !goerror.Is(err, virtcache.ErrGhostRecordUIDMismatch) {
+		return true, err
+	}
+
+	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
+	return true, nil
 }
 
 type vmiIrrecoverableError struct {
