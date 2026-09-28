@@ -291,8 +291,10 @@ func (app *virtHandlerApp) Run() {
 	// is completely torn down.
 	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
-	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
+	// Wire Domain controller with launcher authentication. Passing the k8s
+	// client enables TokenReview-based authentication of virt-launcher
+	// sockets during resync.
+	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore, app.k8sClient)
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
@@ -388,7 +390,7 @@ func (app *virtHandlerApp) Run() {
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore, app.k8sClient)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat(app.clusterConfig)
