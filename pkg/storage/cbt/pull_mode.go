@@ -115,11 +115,17 @@ func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBa
 }
 
 // exportServerAddrForService returns the address the backup tunnel should dial
-// and the TLS server name. ClusterIP export Services use port 443 (kube-proxy
-// remaps to the exporter); headless Services use 8443.
+// and the TLS server name. The dial address is ExportServiceHost (host:port,
+// 443 for ClusterIP and 8443 for headless). serverName stays host-only so the
+// cert CN check does not see a port in the name.
 func exportServerAddrForService(serviceName, namespace string, svc *corev1.Service) (addr, serverName string) {
 	host := fmt.Sprintf("%s.%s.svc", serviceName, namespace)
-	return fmt.Sprintf("%s:%d", host, storagetypes.ExportServiceDialPort(svc)), fmt.Sprintf("%s.cluster.local", host)
+	serverName = fmt.Sprintf("%s.cluster.local", host)
+	if svc == nil {
+		// ExportServiceHost requires a Service object; treat nil like headless.
+		return fmt.Sprintf("%s:%d", host, storagetypes.ExportServiceDialPort(nil)), serverName
+	}
+	return storagetypes.ExportServiceHost(svc), serverName
 }
 
 func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmExport *exportv1.VirtualMachineExport) error {

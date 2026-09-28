@@ -1776,8 +1776,14 @@ var _ = Describe("Backup Controller", func() {
 				Expect(addr).To(Equal(fmt.Sprintf("virt-export-test-backup.%s.svc:%d", testNamespace, expectedPort)))
 				Expect(serverName).To(Equal(fmt.Sprintf("virt-export-test-backup.%s.svc.cluster.local", testNamespace)))
 			},
-			Entry("headless Service", &corev1.Service{Spec: corev1.ServiceSpec{ClusterIP: corev1.ClusterIPNone}}, int32(storagetypes.ExportServerPort)),
-			Entry("ClusterIP Service", &corev1.Service{Spec: corev1.ServiceSpec{ClusterIP: "172.30.1.10"}}, int32(storagetypes.ExportClusterIPServicePort)),
+			Entry("headless Service", &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "virt-export-test-backup", Namespace: testNamespace},
+				Spec:       corev1.ServiceSpec{ClusterIP: corev1.ClusterIPNone},
+			}, int32(storagetypes.ExportServerPort)),
+			Entry("ClusterIP Service", &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "virt-export-test-backup", Namespace: testNamespace},
+				Spec:       corev1.ServiceSpec{ClusterIP: "172.30.1.10"},
+			}, int32(storagetypes.ExportClusterIPServicePort)),
 			Entry("nil Service", nil, int32(storagetypes.ExportServerPort)),
 		)
 
