@@ -101,6 +101,32 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
+		DescribeTable("should admit snapshotMode according to the ExternalVMSnapshot feature gate", func(mode snapshotv1.SnapshotMode, externalEnabled, utilityEnabled bool, rejection string) {
+			snapshot := &snapshotv1.VirtualMachineSnapshot{
+				Spec: snapshotv1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+					SnapshotMode: pointer.P(mode),
+				},
+			}
+
+			config := stubVMSnapshotConfigChecker{snapshotEnabled: true, externalVMSnapshotEnabled: externalEnabled, utilityVolumesEnabled: utilityEnabled}
+			ar := createSnapshotAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(Equal(rejection == ""))
+			if rejection != "" {
+				Expect(resp.Result.Message).Should(Equal(rejection))
+			}
+		},
+			Entry("reject External when the gate is disabled", snapshotv1.SnapshotModeExternal, false, true, "ExternalVMSnapshot feature gate not enabled"),
+			Entry("reject External without the UtilityVolumes gate", snapshotv1.SnapshotModeExternal, true, false, "ExternalVMSnapshot requires the UtilityVolumes feature gate"),
+			Entry("allow External when both gates are enabled", snapshotv1.SnapshotModeExternal, true, true, ""),
+			Entry("allow Direct when the gates are disabled", snapshotv1.SnapshotModeDirect, false, false, ""),
+		)
+
 		It("should reject spec update", func() {
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{
@@ -339,7 +365,17 @@ func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.Vir
 }
 
 type stubVMSnapshotConfigChecker struct {
-	snapshotEnabled bool
+	snapshotEnabled           bool
+	externalVMSnapshotEnabled bool
+	utilityVolumesEnabled     bool
 }
 
 func (s stubVMSnapshotConfigChecker) SnapshotEnabled() bool { return s.snapshotEnabled }
+
+func (s stubVMSnapshotConfigChecker) ExternalVMSnapshotEnabled() bool {
+	return s.externalVMSnapshotEnabled
+}
+
+func (s stubVMSnapshotConfigChecker) UtilityVolumesEnabled() bool {
+	return s.utilityVolumesEnabled
+}
