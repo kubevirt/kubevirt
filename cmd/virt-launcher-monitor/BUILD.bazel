@@ -6,10 +6,26 @@ cc_binary(
     copts = [
         "-Wall",
     ],
+    # The workspace goveralls merger expects Go profiles, not GCC/LCOV data.
+    features = ["-coverage"],
     linkopts = [
         "-static",
     ],
     visibility = ["//visibility:public"],
+)
+
+cc_binary(
+    name = "virt-launcher-monitor-test-binary",
+    testonly = True,
+    srcs = ["main.c"],
+    copts = [
+        "-Wall",
+        "-DVIRT_LAUNCHER_MONITOR_TESTING",
+    ],
+    features = ["-coverage"],
+    linkopts = [
+        "-static",
+    ],
 )
 
 go_test(
@@ -20,9 +36,9 @@ go_test(
     ],
     args = [
         "--virt-launcher-monitor-binary",
-        "$(location //cmd/virt-launcher-monitor:virt-launcher-monitor)",
+        "$(location //cmd/virt-launcher-monitor:virt-launcher-monitor-test-binary)",
     ],
-    data = ["//cmd/virt-launcher-monitor"],
+    data = [":virt-launcher-monitor-test-binary"],
     race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
