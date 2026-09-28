@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,6 +243,17 @@ type domainListWatch struct {
 func (domainListWatch) IsWatchListSemanticsUnSupported() bool { return true }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
+	return NewSharedInformerWithAuth(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod, nil, "")
+}
+
+// NewSharedInformerWithAuth creates a domain SharedInformer that
+// authenticates virt-launcher sockets during resync using projected SA
+// tokens and the TokenReview API.
+// authClient may be nil to skip authentication (backwards compatible).
+// launcherSAName is the expected "namespace:sa-name" prefix, e.g.
+// "kubevirt:default" would expect usernames like
+// "system:serviceaccount:kubevirt:default".
+func NewSharedInformerWithAuth(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration, authClient kubernetes.Interface, launcherSAName string) cache.SharedInformer {
 	consecutiveFails := new(int)
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
@@ -249,7 +261,7 @@ func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record
 	lw := domainListWatch{&cache.ListWatch{
 		ListWithContextFunc: List,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
+			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails, authClient, launcherSAName), nil
 		},
 	}}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
