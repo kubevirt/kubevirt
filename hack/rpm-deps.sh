@@ -227,6 +227,7 @@ libguestfstools_extra="
 exportserverbase_main="
   tar
   libnbd-${LIBNBD_VERSION}
+  qemu-img-${QEMU_VERSION}
 "
 
 pr_helper="
