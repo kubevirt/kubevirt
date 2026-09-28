@@ -38,7 +38,7 @@ import (
 	pluginv1alpha1 "kubevirt.io/client-go/kubevirt/typed/plugin/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 	poolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
-	snapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1"
 	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 )
 
@@ -55,8 +55,8 @@ type Interface interface {
 	PluginV1alpha1() pluginv1alpha1.PluginV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
 	PoolV1beta1() poolv1beta1.PoolV1beta1Interface
-	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
 	SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface
+	SnapshotV1() snapshotv1.SnapshotV1Interface
 }
 
 // Clientset contains the clients for groups.
@@ -73,8 +73,8 @@ type Clientset struct {
 	pluginV1alpha1      *pluginv1alpha1.PluginV1alpha1Client
 	poolV1alpha1        *poolv1alpha1.PoolV1alpha1Client
 	poolV1beta1         *poolv1beta1.PoolV1beta1Client
-	snapshotV1alpha1    *snapshotv1alpha1.SnapshotV1alpha1Client
 	snapshotV1beta1     *snapshotv1beta1.SnapshotV1beta1Client
+	snapshotV1          *snapshotv1.SnapshotV1Client
 }
 
 // BackupV1alpha1 retrieves the BackupV1alpha1Client
@@ -132,14 +132,14 @@ func (c *Clientset) PoolV1beta1() poolv1beta1.PoolV1beta1Interface {
 	return c.poolV1beta1
 }
 
-// SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
-func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
-	return c.snapshotV1alpha1
-}
-
 // SnapshotV1beta1 retrieves the SnapshotV1beta1Client
 func (c *Clientset) SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface {
 	return c.snapshotV1beta1
+}
+
+// SnapshotV1 retrieves the SnapshotV1Client
+func (c *Clientset) SnapshotV1() snapshotv1.SnapshotV1Interface {
+	return c.snapshotV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -230,11 +230,11 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.snapshotV1alpha1, err = snapshotv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.snapshotV1beta1, err = snapshotv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
-	cs.snapshotV1beta1, err = snapshotv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.snapshotV1, err = snapshotv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -270,8 +270,8 @@ func New(c rest.Interface) *Clientset {
 	cs.pluginV1alpha1 = pluginv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
 	cs.poolV1beta1 = poolv1beta1.New(c)
-	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
 	cs.snapshotV1beta1 = snapshotv1beta1.New(c)
+	cs.snapshotV1 = snapshotv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

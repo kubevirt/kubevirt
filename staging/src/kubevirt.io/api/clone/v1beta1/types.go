@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 )
 
 // VirtualMachineClone is a CRD that clones one VM into another.
@@ -116,15 +116,15 @@ const (
 
 // ToVolumeRestorePolicy converts a VolumeNamePolicy to the corresponding VolumeRestorePolicy
 // for use with the snapshot/restore implementation.
-func (p VolumeNamePolicy) ToVolumeRestorePolicy() snapshotv1beta1.VolumeRestorePolicy {
+func (p VolumeNamePolicy) ToVolumeRestorePolicy() snapshotv1.VolumeRestorePolicy {
 	switch p {
 	case VolumeNamePolicyRandomizeNames:
-		return snapshotv1beta1.VolumeRestorePolicyRandomizeNames
+		return snapshotv1.VolumeRestorePolicyRandomizeNames
 	case VolumeNamePolicyPrefixTargetName:
-		return snapshotv1beta1.VolumeRestorePolicyPrefixTargetName
+		return snapshotv1.VolumeRestorePolicyPrefixTargetName
 	default:
 		// Default to RandomizeNames for safety
-		return snapshotv1beta1.VolumeRestorePolicyRandomizeNames
+		return snapshotv1.VolumeRestorePolicyRandomizeNames
 	}
 }
 
