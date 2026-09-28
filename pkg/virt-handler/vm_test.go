@@ -3654,6 +3654,170 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 	})
 
+	Context("ghost record left by an older VMI incarnation", func() {
+		// kubevirt#7032: the old virt-launcher vanished before cleanup, so no live
+		// domain remains to trigger the stale-domain branch in execute(), while
+		// the ghost record for the old UID persists and blocks the new UID.
+		var staleUID types.UID
+		var staleSocket string
+
+		BeforeEach(func() {
+			staleUID = uuid.NewUUID()
+			staleSocket = cmdclient.SocketFilePathOnHost(string(uuid.NewUUID()))
+			// Keep the fallback sync path quiet (AddAfter only), so a run without
+			// the reconciliation fails on the assertions below.
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: false}
+		})
+
+		plantStaleRecord := func() {
+			Expect(virtcache.GhostRecordGlobalStore.Add(metav1.NamespaceDefault, "testvmi", staleSocket, staleUID)).To(Succeed())
+		}
+
+		createLiveStaleSocket := func() {
+			Expect(os.MkdirAll(filepath.Dir(staleSocket), 0755)).To(Succeed())
+			f, err := os.Create(staleSocket)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+		}
+
+		DescribeTable("cleans up a dead older incarnation so the new VMI can register", func(prepare func()) {
+			plantStaleRecord()
+			prepare()
+
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			createVMI(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse(),
+				"the ghost record of the dead incarnation must be removed")
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed(),
+				"the new incarnation must be able to register its ghost record")
+		},
+			Entry("when the launcher socket directory is gone and no domain is cached", func() {}),
+			Entry("when the launcher socket directory is gone and the cached domain is marked deleted", func() {
+				domain := api.NewMinimalDomainWithUUID("testvmi", staleUID)
+				now := metav1.Now()
+				domain.DeletionTimestamp = &now
+				addDomain(domain)
+			}),
+			Entry("when the domain watcher marked the launcher socket unresponsive", func() {
+				createLiveStaleSocket()
+				Expect(cmdclient.MarkSocketUnresponsive(staleSocket)).To(Succeed())
+			}),
+		)
+
+		It("cleans up a dead older incarnation even when the new VMI is owned by another node", func() {
+			plantStaleRecord()
+
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(vmiTestUUID),
+				libvmi.WithMemoryRequest("8192Ki"),
+				libvmi.WithLabel(v1.NodeNameLabel, "othernode"),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(v1.Running),
+					libvmistatus.WithNodeName("othernode"),
+				)),
+			)
+			createVMI(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse(),
+				"a dead older incarnation's record must be removed even if this node will not run the new VMI")
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
+		It("keeps the older incarnation's ghost record and retries when cleanup fails", func() {
+			plantStaleRecord()
+
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			createVMI(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(fmt.Errorf("unmount failed"))
+
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue(),
+				"the record must survive so the next attempt still sees the stale incarnation")
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+		})
+
+		It("blocks the new VMI while the older incarnation's launcher socket is still present", func() {
+			plantStaleRecord()
+			createLiveStaleSocket()
+
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			createVMI(vmi)
+
+			sanityExecute()
+
+			record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
+			Expect(exists).To(BeTrue())
+			Expect(record.UID).To(Equal(staleUID), "a possibly-live older incarnation must keep its ghost record")
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+		})
+
+		It("does not block or report a conflict for a VMI owned by another node", func() {
+			plantStaleRecord()
+			createLiveStaleSocket()
+
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(vmiTestUUID),
+				libvmi.WithMemoryRequest("8192Ki"),
+				libvmi.WithLabel(v1.NodeNameLabel, "othernode"),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(v1.Running),
+					libvmistatus.WithNodeName("othernode"),
+				)),
+			)
+			createVMI(vmi)
+
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			// AfterEach fails the spec if a VMIIncarnationConflict event was recorded.
+		})
+
+		DescribeTable("keeps blocking a final or deleting new VMI while the older incarnation's launcher socket is still present", func(finish func(*v1.VirtualMachineInstance)) {
+			plantStaleRecord()
+			createLiveStaleSocket()
+
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			finish(vmi)
+			createVMI(vmi)
+
+			sanityExecute()
+
+			record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
+			Expect(exists).To(BeTrue())
+			Expect(record.UID).To(Equal(staleUID),
+				"the new VMI's cleanup removes ghost records by name and would delete a possibly-live older incarnation's record")
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+		},
+			Entry("when the new VMI is final", func(vmi *v1.VirtualMachineInstance) {
+				vmi.Status.Phase = v1.Failed
+			}),
+			Entry("when the new VMI is being deleted", func(vmi *v1.VirtualMachineInstance) {
+				now := metav1.Now()
+				vmi.DeletionTimestamp = &now
+			}),
+		)
+	})
+
 	Context("updateBackupStatus", func() {
 		startTime := metav1.Now()
 		endTime := metav1.NewTime(startTime.Add(5 * time.Minute))

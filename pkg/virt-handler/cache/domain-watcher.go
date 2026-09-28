@@ -255,7 +255,7 @@ func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.result
 }
 
-func listSockets(ghostRecords []ghostRecord) []string {
+func listSockets(ghostRecords []GhostRecord) []string {
 	var sockets []string
 
 	for _, record := range ghostRecords {
