@@ -172,10 +172,13 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 
 	log.Log.Infof("resyncing virt-launcher domains")
 	for _, socket := range socketFiles {
-		activePods := d.activePodsForSocket(socket)
-		if err := AuthenticateSocket(ctx, d.authClient, socket, activePods); err != nil {
-			log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during resync, skipping", socket)
-			continue
+		// Skipped entirely when the feature gate is off, so that resolving
+		// ActivePods costs nothing on the default path.
+		if d.authClient != nil {
+			if err := AuthenticateSocket(ctx, d.authClient, socket, d.activePodsForSocket(socket)); err != nil {
+				log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during resync, skipping", socket)
+				continue
+			}
 		}
 
 		client, err := cmdclient.NewClient(socket)
