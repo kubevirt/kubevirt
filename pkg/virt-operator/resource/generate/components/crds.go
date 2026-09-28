@@ -46,6 +46,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
@@ -66,8 +67,8 @@ var (
 	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
 	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
 	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1beta1.SchemeGroupVersion.Group
-	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1beta1.SchemeGroupVersion.Group
-	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1beta1.SchemeGroupVersion.Group
+	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
+	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
@@ -484,7 +485,7 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 
 	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOT
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: snapshotv1beta1.SchemeGroupVersion.Group,
+		Group: snapshotv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
@@ -496,6 +497,14 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{
@@ -540,7 +549,7 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 
 	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOTCONTENT
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: snapshotv1beta1.SchemeGroupVersion.Group,
+		Group: snapshotv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
@@ -552,6 +561,14 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{
@@ -591,9 +608,9 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachinerestores." + snapshotv1beta1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = "virtualmachinerestores." + snapshotv1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: snapshotv1beta1.SchemeGroupVersion.Group,
+		Group: snapshotv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
@@ -605,6 +622,14 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{
