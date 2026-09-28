@@ -20,13 +20,19 @@
 package log
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	goflag "flag"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
+
+	kitlog "github.com/go-kit/log"
 
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -512,4 +518,137 @@ func TestInfofVerbosity(t *testing.T) {
 	assert(t, !logCalled, "V(3).Infof() should not log when verbosity level is 2, even after Level(WARNING)")
 
 	tearDown()
+}
+
+func TestLogLibvirtLogLine(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want map[string]string
+	}{
+		{
+			name: "structured libvirt error with source position",
+			line: "2018-10-04 09:20:33.702+0000: 38: error : virCommandWait:2600 : child process failed: exit status 1",
+			want: map[string]string{
+				"level": "error", "timestamp": "2018-10-04T09:20:33.702000Z", "component": "test",
+				"subcomponent": "libvirt", "thread": "38", "pos": "virCommandWait:2600",
+				"msg": "child process failed: exit status 1",
+			},
+		},
+		{
+			name: "structured libvirt warning without source position",
+			line: "2018-10-04 09:20:33.702+0000: 38: warning : message part one: part two",
+			want: map[string]string{
+				"level": "warning", "timestamp": "2018-10-04T09:20:33.702000Z", "component": "test",
+				"subcomponent": "libvirt", "thread": "38", "msg": "message part one: part two",
+			},
+		},
+		{
+			name: "structured libvirt debug maps to info",
+			line: "2018-10-04 09:20:33.702+0000: 38: debug : virCommandWait:2600 : child process started",
+			want: map[string]string{
+				"level": "info", "timestamp": "2018-10-04T09:20:33.702000Z", "component": "test",
+				"subcomponent": "libvirt", "thread": "38", "pos": "virCommandWait:2600",
+				"msg": "child process started",
+			},
+		},
+		{
+			name: "empty line",
+			line: "  \t  ",
+		},
+		{
+			name: "plain stderr line",
+			line: "libvirt daemon starting",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt", "msg": "libvirt daemon starting",
+			},
+		},
+		{
+			name: "QEMU line containing several colons",
+			line: "2024-06-13T13:45:01.519999Z qemu-kvm: -device virtio-mem-pci: not enough space: currently 0x0 in use: failed",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt",
+				"msg": "2024-06-13T13:45:01.519999Z qemu-kvm: -device virtio-mem-pci: not enough space: currently 0x0 in use: failed",
+			},
+		},
+		{
+			name: "GLib process line containing several colons",
+			line: "(process:28): GLib-WARNING **: unable to initialize: details: more details",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt",
+				"msg": "(process:28): GLib-WARNING **: unable to initialize: details: more details",
+			},
+		},
+		{
+			name: "malformed timestamp in an otherwise structured line",
+			line: "not-a-timestamp: 38: error : virCommandWait:2600 : child process failed",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt",
+				"msg": "not-a-timestamp: 38: error : virCommandWait:2600 : child process failed",
+			},
+		},
+		{
+			name: "non-numeric libvirt thread",
+			line: "2018-10-04 09:20:33.702+0000: worker: error : virCommandWait:2600 : child process failed",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt",
+				"msg": "2018-10-04 09:20:33.702+0000: worker: error : virCommandWait:2600 : child process failed",
+			},
+		},
+		{
+			name: "unrecognized libvirt severity",
+			line: "2018-10-04 09:20:33.702+0000: 38: notice : virCommandWait:2600 : child process started",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt",
+				"msg": "2018-10-04 09:20:33.702+0000: 38: notice : virCommandWait:2600 : child process started",
+			},
+		},
+		{
+			name: "structured libvirt error without source position",
+			line: "2018-10-04 09:20:33.702+0000: 38: error : internal error something broke",
+			want: map[string]string{
+				"level": "error", "timestamp": "2018-10-04T09:20:33.702000Z", "component": "test",
+				"subcomponent": "libvirt", "thread": "38", "msg": "internal error something broke",
+			},
+		},
+		{
+			name: "incomplete structured line",
+			line: "2018-10-04 09:20:33.702+0000: 38: error ",
+			want: map[string]string{
+				"level": "info", "component": "test", "subcomponent": "libvirt",
+				"msg": "2018-10-04 09:20:33.702+0000: 38: error ",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output bytes.Buffer
+			logger := MakeLogger(kitlog.NewJSONLogger(&output))
+			logger.component = "test"
+
+			LogLibvirtLogLine(logger, tt.line)
+
+			if tt.want == nil {
+				if output.Len() != 0 {
+					t.Fatalf("expected no log entry, got %q", output.String())
+				}
+				return
+			}
+
+			var got map[string]string
+			if err := json.Unmarshal(output.Bytes(), &got); err != nil {
+				t.Fatalf("expected one JSON log entry, got %q: %v", output.String(), err)
+			}
+			if _, fixedTimestamp := tt.want["timestamp"]; !fixedTimestamp {
+				if _, err := time.Parse(time.RFC3339Nano, got["timestamp"]); err != nil {
+					t.Errorf("invalid fallback timestamp %q: %v", got["timestamp"], err)
+				}
+				delete(got, "timestamp")
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("log entry mismatch:\n got: %#v\nwant: %#v", got, tt.want)
+			}
+		})
+	}
 }
