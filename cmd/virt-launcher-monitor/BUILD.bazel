@@ -10,6 +10,9 @@ cc_binary(
     ],
     # The workspace goveralls merger expects Go profiles, not GCC/LCOV data.
     features = ["-coverage"],
+    linkopts = [
+        "-static",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -24,6 +27,9 @@ cc_binary(
         "-DVIRT_LAUNCHER_MONITOR_TESTING",
     ],
     features = ["-coverage"],
+    linkopts = [
+        "-static",
+    ],
 )
 
 go_test(
