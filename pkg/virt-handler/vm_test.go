@@ -3654,6 +3654,53 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 	})
 
+	Context("orphaned ghost record with no VMI", func() {
+		It("cleans up an orphaned ghost record when the cached domain is marked deleted", func() {
+			Expect(os.Remove(sockFile)).To(Succeed())
+			Expect(virtcache.GhostRecordGlobalStore.Add(metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
+			// The launcher is gone, so deletion cannot obtain a client.
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			now := metav1.Now()
+			domain.DeletionTimestamp = &now
+			// Mirror the stale domain published by getDomainFromRecord without
+			// adding a VMI to either informer store or the fake API client.
+			addDomain(domain)
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(
+				libvmi.New(libvmi.WithName("testvmi"), libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)),
+				mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(domain.Namespace, domain.Name)).To(BeFalse(),
+				"an orphaned ghost record must be removed when its cached domain is marked deleted")
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+		})
+
+		It("preserves an orphaned ghost record while the cached domain is running", func() {
+			Expect(virtcache.GhostRecordGlobalStore.Add(metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			addDomain(domain)
+
+			// No VMI means request shutdown, but retain the live launcher's record
+			// until a later domain event establishes that it is no longer alive.
+			client.EXPECT().KillVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
+			client.EXPECT().DeleteDomain(gomock.Any()).Times(0)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), gomock.Any()).Times(0)
+
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(domain.Namespace, domain.Name)).To(BeTrue(),
+				"a live launcher's ghost record must not be cleaned up merely because no VMI exists")
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			testutils.ExpectEvent(recorder, VMIStopping)
+		})
+	})
+
 	Context("ghost record left by an older VMI incarnation", func() {
 		// kubevirt#7032: the old virt-launcher vanished before cleanup, so no live
 		// domain remains to trigger the stale-domain branch in execute(), while
@@ -3750,6 +3797,42 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 		})
 
+		It("keeps the older incarnation's ghost record and retries when closing its launcher client fails", func() {
+			plantStaleRecord()
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
+				Initialized:              false,
+				CloseLauncherClientError: fmt.Errorf("checkpoint delete failed"),
+			}
+
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			createVMI(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue(),
+				"a failed close must leave the record so the next attempt still sees the stale incarnation")
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+		})
+
+		It("keeps a cached domain that belongs to the new VMI when cleaning up the older incarnation", func() {
+			plantStaleRecord()
+
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmi.UID)
+			domain.Status.Status = api.Running
+			addVMI(vmi, domain)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			// sanityExecute fails the spec if the new VMI's domain was removed from the domain store.
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse(),
+				"the dead older incarnation must still be cleaned up")
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
 		It("blocks the new VMI while the older incarnation's launcher socket is still present", func() {
 			plantStaleRecord()
 			createLiveStaleSocket()
@@ -3804,7 +3887,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeTrue())
 			Expect(record.UID).To(Equal(staleUID),
-				"the new VMI's cleanup removes ghost records by name and would delete a possibly-live older incarnation's record")
+				"a possibly-live older incarnation must keep its ghost record while a final or deleting new VMI is blocked")
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
 		},
@@ -3816,6 +3899,71 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.DeletionTimestamp = &now
 			}),
 		)
+	})
+
+	Context("stale cached domain from an older VMI incarnation", func() {
+		// Without a cached launcher client, IsLauncherClientUnresponsive reports a
+		// reference VMI's launcher as gone (it has no ActivePods to find the socket
+		// with), for example right after a virt-handler restart. The mock models
+		// that answer; the ghost record's socket file is the ground truth.
+		var staleUID types.UID
+		var staleSocket string
+
+		BeforeEach(func() {
+			staleUID = uuid.NewUUID()
+			staleSocket = cmdclient.SocketFilePathOnHost(string(uuid.NewUUID()))
+		})
+
+		addStaleDomainAndNewVMI := func(withGhostRecord bool) *v1.VirtualMachineInstance {
+			if withGhostRecord {
+				Expect(virtcache.GhostRecordGlobalStore.Add(metav1.NamespaceDefault, "testvmi", staleSocket, staleUID)).To(Succeed())
+			}
+			domain := api.NewMinimalDomainWithUUID("testvmi", staleUID)
+			domain.Status.Status = api.Running
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			addVMI(vmi, domain)
+			return vmi
+		}
+
+		It("does not clean up an older incarnation whose recorded launcher socket is still present", func() {
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true, UnResponsive: true}
+			Expect(os.MkdirAll(filepath.Dir(staleSocket), 0755)).To(Succeed())
+			f, err := os.Create(staleSocket)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			vmi := addStaleDomainAndNewVMI(true)
+
+			sanityExecute()
+
+			record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
+			Expect(exists).To(BeTrue())
+			Expect(record.UID).To(Equal(staleUID), "a live older launcher must keep its ghost record")
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+		})
+
+		It("cleans up an older incarnation whose recorded launcher socket is gone", func() {
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true, UnResponsive: false}
+			vmi := addStaleDomainAndNewVMI(true)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
+		It("falls back to the launcher client cache when the older incarnation has no ghost record", func() {
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true, UnResponsive: true}
+			addStaleDomainAndNewVMI(false)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
 	})
 
 	Context("updateBackupStatus", func() {

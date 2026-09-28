@@ -365,7 +365,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
-		expired, initialized, err := c.launcherClients.IsLauncherClientUnresponsive(oldVMI)
+		expired, initialized, err := c.staleIncarnationUnresponsive(oldVMI)
 		if err != nil {
 			return err
 		}
@@ -381,6 +381,13 @@ func (c *VirtualMachineController) execute(key string) error {
 			}
 			// Make sure we re-enqueue the key to ensure this new VMI is processed
 			// after the stale domain is removed
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
+		} else if record, matched := virtcache.GhostRecordGlobalStore.Get(oldVMI.Namespace, oldVMI.Name); matched && record.UID == oldVMI.UID {
+			// The older incarnation's launcher socket is still there, so this is the
+			// same conflict reconcileGhostRecordConflict reports. Say so and retry,
+			// instead of returning silently and waiting for a domain event.
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
+				"Waiting for older VMI incarnation %s to terminate before starting %s", oldVMI.UID, vmi.UID)
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 		}
 
@@ -460,9 +467,9 @@ func (c *VirtualMachineController) reconcileGhostRecordConflict(vmi *v1.VirtualM
 			// This node will not start the VMI, so there is nothing to block.
 			return false, nil
 		}
-		// Final or deleting VMIs are blocked too: their cleanup in sync()
-		// removes the ghost record by name, which would delete the record of an
-		// older incarnation that may still be alive.
+		// Final or deleting VMIs are blocked too, keeping the whole name fail
+		// closed until the older incarnation is gone. Their cleanup no longer
+		// removes another incarnation's ghost record or cached domain.
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
 			"Waiting for older VMI incarnation %s to terminate before starting %s", record.UID, vmi.UID)
 		return true, fmt.Errorf("vmi %s/%s with uid %s is blocked by the ghost record of uid %s whose launcher socket %s is still present",
@@ -476,15 +483,29 @@ func (c *VirtualMachineController) reconcileGhostRecordConflict(vmi *v1.VirtualM
 		return true, err
 	}
 
-	// processVmCleanup normally removes the record already; delete by UID so a
-	// record registered meanwhile by the new incarnation is never touched.
-	err = virtcache.GhostRecordGlobalStore.DeleteIfUID(vmi.Namespace, vmi.Name, record.UID)
-	if err != nil && !goerror.Is(err, virtcache.ErrGhostRecordUIDMismatch) {
-		return true, err
-	}
-
 	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 	return true, nil
+}
+
+// staleIncarnationUnresponsive reports whether the launcher of an older VMI
+// incarnation is gone. It prefers the socket recorded in that incarnation's
+// ghost record: IsLauncherClientUnresponsive locates sockets through
+// ActivePods, which a reference VMI does not have, so without a cached client
+// it reports even a running launcher as gone (for example right after a
+// virt-handler restart). Without a matching ghost record it falls back to the
+// launcher client cache.
+func (c *VirtualMachineController) staleIncarnationUnresponsive(oldVMI *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
+	record, exists := virtcache.GhostRecordGlobalStore.Get(oldVMI.Namespace, oldVMI.Name)
+	if exists && record.UID == oldVMI.UID {
+		// A matching record means this incarnation's launcher registered once, so
+		// it counts as initialized and its recorded socket answers from here on.
+		return cmdclient.IsSocketUnresponsive(record.SocketFile), true, nil
+	}
+	// No record for this UID: CloseLauncherClient deletes by UID, so its absence
+	// means this incarnation's cleanup already ran and its socket is gone. The
+	// launcher client cache answers "gone" for a reference VMI without a cached
+	// client, which is the correct answer here for that reason.
+	return c.launcherClients.IsLauncherClientUnresponsive(oldVMI)
 }
 
 type vmiIrrecoverableError struct {
@@ -1585,13 +1606,24 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	c.sriovHotplugExecutorPool.Delete(vmi.UID)
 
 	// Watch dog file and command client must be the last things removed here
-	c.launcherClients.CloseLauncherClient(vmi)
+	if err := c.launcherClients.CloseLauncherClient(vmi); err != nil {
+		return err
+	}
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
 	// possible if the VMI pod goes away before we receive the final domain
-	// "DELETE"
+	// "DELETE". A cached domain whose UID differs from this one is left alone:
+	// it belongs to a different incarnation with the same namespace/name.
 	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
+	_, _, cachedUID, err := c.getDomainFromCache(controller.VirtualMachineInstanceKey(vmi))
+	if err != nil {
+		return err
+	}
+	if vmi.UID != "" && cachedUID != "" && cachedUID != vmi.UID {
+		c.logger.Object(domain).V(3).Infof("Keeping cached domain of uid %s during final cleanup for uid %s", cachedUID, vmi.UID)
+		return nil
+	}
 	c.logger.Object(domain).Infof("Removing domain from cache during final cleanup")
 	return c.domainStore.Delete(domain)
 }
@@ -1766,7 +1798,13 @@ func (c *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	// Always clear the cached client afterward so that a stale entry from a
 	// dying launcher cannot poison the cache for subsequent controllers.
-	defer c.launcherClients.CloseLauncherClient(vmi)
+	defer func() {
+		// Logged, not returned: the close that matters runs in processVmCleanup,
+		// which propagates its error to the caller.
+		if err := c.launcherClients.CloseLauncherClient(vmi); err != nil {
+			c.logger.Object(vmi).Reason(err).Error("Failed to close the launcher client after signaling deletion")
+		}
+	}()
 	client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
 
 	// If the pod has been torn down, we know the VirtualMachineInstance is down.

@@ -55,12 +55,15 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -1202,6 +1205,104 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 
 		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+	})
+
+	failedMigrationTargetVMI := func() *v1.VirtualMachineInstance {
+		vmi := libvmi.New(
+			libvmi.WithName("testvmi"),
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmi.WithUID(vmiTestUUID),
+			libvmi.WithMemoryRequest("8192Ki"),
+			libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithPhase(v1.Running),
+				libvmistatus.WithNodeName("othernode"),
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					TargetNode:   host,
+					SourceNode:   "othernode",
+					MigrationUID: "123",
+					Failed:       true,
+					Completed:    true,
+					EndTimestamp: pointer.P(metav1.Now()),
+				}),
+				libvmistatus.WithActivePod(podTestUUID, host),
+			)),
+		)
+		vmi.ResourceVersion = "1"
+		return vmi
+	}
+
+	It("keeps the migration-target label and the ghost record when closing the launcher client fails", func() {
+		vmi := failedMigrationTargetVMI()
+
+		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+		createVMI(vmi)
+
+		launcherClients := controller.launcherClients.(*launcherclients.MockLauncherClientManager)
+		launcherClients.CloseLauncherClientError = fmt.Errorf("checkpoint delete failed")
+
+		client.EXPECT().SignalTargetPodCleanup(vmi)
+		sanityExecute()
+
+		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedVMI.Labels).To(HaveKey(v1.MigrationTargetNodeNameLabel))
+	})
+
+	It("finishes failed-migration cleanup when the target launcher is already gone", func() {
+		vmi := failedMigrationTargetVMI()
+
+		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+		createVMI(vmi)
+
+		// The target launcher exited during an earlier cleanup pass, so it can no
+		// longer be reached. Only SignalTargetPodCleanup needs it, and the gomock
+		// controller fails the spec if that call is attempted anyway.
+		launcherClients := controller.launcherClients.(*launcherclients.MockLauncherClientManager)
+		launcherClients.Client = nil
+
+		sanityExecute()
+
+		// Cleanup must still complete: without this, the retry after a failed close
+		// can never remove the label, and the ghost record leaks permanently.
+		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedVMI.Labels).ToNot(HaveKey(v1.MigrationTargetNodeNameLabel))
+	})
+
+	It("finishes failed-migration cleanup with hotplug volumes when the target launcher is already gone", func() {
+		vmi := failedMigrationTargetVMI()
+		vmi.Status.MigrationState.TargetAttachmentPodUID = "attachment-pod-uid"
+
+		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+		createVMI(vmi)
+
+		launcherClients := controller.launcherClients.(*launcherclients.MockLauncherClientManager)
+		launcherClients.Client = nil
+
+		// Building a cgroup manager detects isolation through the launcher socket,
+		// which is gone once the target pod exits. Without tolerance here the retry
+		// dies in unmountVolumes instead of GetLauncherClient - the same wedge, one
+		// step later.
+		originalGetCgroupManager := getCgroupManager
+		getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool) (cgroup.Manager, error) {
+			return nil, fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+		}
+		defer func() { getCgroupManager = originalGetCgroupManager }()
+
+		mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), gomock.Nil()).Return(nil)
+
+		sanityExecute()
+
+		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedVMI.Labels).ToNot(HaveKey(v1.MigrationTargetNodeNameLabel))
 	})
 
 	It("should remove CreateMigrationTarget annotation on successful migration cleanup", func() {

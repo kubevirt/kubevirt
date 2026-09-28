@@ -21,6 +21,7 @@ package launcher_clients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -41,7 +42,7 @@ type LauncherClientsManager interface {
 	GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error)
 	GetLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error)
 	GetLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo
-	CloseLauncherClient(vmi *v1.VirtualMachineInstance)
+	CloseLauncherClient(vmi *v1.VirtualMachineInstance) error
 	IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error)
 }
 
@@ -142,19 +143,30 @@ func (l *launcherClientsManager) GetLauncherClientInfo(vmi *v1.VirtualMachineIns
 	return launcherInfo
 }
 
-func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) {
+// CloseLauncherClient closes the launcher client of one VMI incarnation and
+// removes its ghost record. Everything is keyed by UID, so closing an older
+// incarnation never removes the ghost record of a newer one with the same
+// namespace/name.
+func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) error {
 	// UID is required in order to close socket
 	if string(vmi.GetUID()) == "" {
-		return
+		return nil
 	}
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
 	if exists {
 		clientInfo.Close()
 	}
-
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 	l.launcherClients.Delete(vmi.UID)
+
+	// The ghost record is removed last. A record that belongs to a different
+	// incarnation is left alone: this incarnation's cleanup is complete.
+	err := virtcache.GhostRecordGlobalStore.DeleteIfUID(vmi.Namespace, vmi.Name, vmi.UID)
+	if errors.Is(err, virtcache.ErrGhostRecordUIDMismatch) {
+		log.Log.Object(vmi).V(3).Infof("keeping the ghost record of a newer incarnation while closing the launcher client for uid %s", vmi.UID)
+		return nil
+	}
+	return err
 }
 
 func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
