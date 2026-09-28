@@ -8,7 +8,7 @@ aliases:
     - jean-edouard
     - mhenriks
     - enp0s3
-    - xpivarc
+    - xpivarc #not supported version
     - vasiliy-ul
     - iholder101
   emeritus_approvers:
@@ -31,7 +31,6 @@ aliases:
     - jean-edouard
     - mhenriks
     - EdDev
-    - xpivarc
     - iholder101
     - 0xFelix
     - lyarwood
@@ -43,13 +42,11 @@ aliases:
   #
   sig-test-reviewers:
     - enp0s3
-    - xpivarc
     - 0xFelix
   sig-test-approvers:
     - kbidarkar
     - phoracek
     - enp0s3
-    - xpivarc
     - dhiller
     - 0xFelix
   sig-test-emeritus_approvers:
@@ -116,7 +113,6 @@ aliases:
     - 0xFelix
     - vladikr
     - enp0s3
-    - xpivarc
   sig-compute-reviewers:
     - victortoso
     - fossedihelm
@@ -162,10 +158,8 @@ aliases:
   #
   sig-release-approvers:
     - fossedihelm
-    - xpivarc
   sig-release-reviewers:
     - fossedihelm
-    - xpivarc
 
   #
   # SIG Buildsystem
@@ -174,11 +168,9 @@ aliases:
   sig-buildsystem-approvers:
     - brianmcarey
     - dhiller
-    - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
     - enp0s3
-    - xpivarc
 
   #
   # SIG Architecture
