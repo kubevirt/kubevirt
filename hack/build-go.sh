@@ -119,8 +119,8 @@ if [ "${target}" = "install" ]; then
     (
         if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"virt-launcher-monitor"* ]]; then
             mkdir -p ${CMD_OUT_DIR}/virt-launcher-monitor
-            echo "building binary virt-launcher-monitor"
-            gcc -O2 -Wall -Wextra -Werror -o ${CMD_OUT_DIR}/virt-launcher-monitor/virt-launcher-monitor \
+            echo "building static binary virt-launcher-monitor"
+            gcc -static -O2 -Wall -Wextra -Werror -o ${CMD_OUT_DIR}/virt-launcher-monitor/virt-launcher-monitor \
                 ${KUBEVIRT_DIR}/cmd/virt-launcher-monitor/main.c
             kubevirt::version::get_version_vars
             echo "$KUBEVIRT_GIT_VERSION" >${CMD_OUT_DIR}/virt-launcher-monitor/.version
