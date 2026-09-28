@@ -75,10 +75,6 @@ func (config *ClusterConfig) GPUPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.GPUGate)
 }
 
-func (config *ClusterConfig) SnapshotEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SnapshotGate)
-}
-
 func (config *ClusterConfig) PluginsEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PluginsGate)
 }
