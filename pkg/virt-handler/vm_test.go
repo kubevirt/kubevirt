@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -123,6 +124,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	BeforeEach(func() {
 		diskutils.MockDefaultOwnershipManager()
+		vhmetrics.GetStaleVMIReconciliationsTotal().Reset()
+		DeferCleanup(vhmetrics.GetStaleVMIReconciliationsTotal().Reset)
 
 		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
@@ -263,6 +266,27 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		Expect(events).To(BeEmpty(), "unexpected events: %+v", events)
 	})
+
+	expectStaleReconciliationCounts := func(cleaned, failed float64) {
+		for result, expected := range map[string]float64{
+			vhmetrics.StaleVMIReconciliationCleaned: cleaned,
+			vhmetrics.StaleVMIReconciliationError:   failed,
+		} {
+			dto := &io_prometheus_client.Metric{}
+			counter, err := vhmetrics.GetStaleVMIReconciliationsTotal().GetMetricWithLabelValues(result)
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			ExpectWithOffset(1, counter).ToNot(BeNil())
+			ExpectWithOffset(1, counter.Write(dto)).To(Succeed())
+			ExpectWithOffset(1, *dto.Counter.Value).To(Equal(expected),
+				"unexpected stale reconciliation count for result %q", result)
+		}
+		registry := prometheus.NewRegistry()
+		ExpectWithOffset(1, registry.Register(vhmetrics.GetStaleVMIReconciliationsTotal())).To(Succeed())
+		families, err := registry.Gather()
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, families).To(HaveLen(1))
+		ExpectWithOffset(1, families[0].Metric).To(HaveLen(2), "only terminal outcomes should have counter series")
+	}
 
 	addDomain := func(domain *api.Domain) {
 		Expect(controller.domainStore.Add(domain)).To(Succeed())
@@ -3655,6 +3679,224 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	Context("orphaned ghost record with no VMI", func() {
+		It("reports and counts an orphaned ghost record removed through sync", func() {
+			Expect(virtcache.GhostRecordGlobalStore.Add(
+				metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+			controller.queue.Add(metav1.NamespaceDefault + "/testvmi")
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(metav1.NamespaceDefault, "testvmi")).To(BeFalse())
+			testutils.ExpectEvent(recorder, k8sv1.EventTypeNormal+" "+staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
+		})
+
+		It("reports and counts an orphaned ghost record cleanup failure", func() {
+			Expect(virtcache.GhostRecordGlobalStore.Add(
+				metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
+				Initialized:              true,
+				CloseLauncherClientError: fmt.Errorf("checkpoint delete failed"),
+			}
+			controller.queue.Add(metav1.NamespaceDefault + "/testvmi")
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(metav1.NamespaceDefault, "testvmi")).To(BeTrue())
+			testutils.ExpectEvent(recorder, k8sv1.EventTypeWarning+" "+staleVMIIncarnationCleanupFailedReason)
+			testutils.ExpectEvent(recorder, v1.SyncFailed.String())
+			expectStaleReconciliationCounts(0, 1)
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+		})
+
+		DescribeTable("does not account for another UID's ghost record",
+			func(reason api.StateChangeReason, removeRecord, failCleanup bool) {
+				otherUID := uuid.NewUUID()
+				Expect(virtcache.GhostRecordGlobalStore.Add(
+					metav1.NamespaceDefault, "testvmi", sockFile, otherUID)).To(Succeed())
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.SetState(api.Shutoff, reason)
+				addDomain(domain)
+				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).DoAndReturn(
+					func(vmi *v1.VirtualMachineInstance, _ cgroup.Manager) error {
+						if removeRecord {
+							// Model the other controller removing its own record during our cleanup.
+							Expect(virtcache.GhostRecordGlobalStore.DeleteIfUID(
+								vmi.Namespace, vmi.Name, otherUID)).To(Succeed())
+						}
+						if failCleanup {
+							return fmt.Errorf("unmount failed")
+						}
+						return nil
+					})
+
+				if failCleanup {
+					sanityExecute()
+					Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+					if reason != api.ReasonMigrated {
+						testutils.ExpectEvent(recorder, v1.SyncFailed.String())
+					}
+				} else {
+					sanityExecuteNoDomain()
+				}
+
+				Expect(virtcache.GhostRecordGlobalStore.Exists(domain.Namespace, domain.Name)).To(Equal(!removeRecord))
+				expectStaleReconciliationCounts(0, 0)
+				Expect(recorder.Events).To(BeEmpty())
+			},
+			Entry("sync succeeds while the other record remains", api.ReasonUnknown, false, false),
+			Entry("sync succeeds after the other record disappears", api.ReasonUnknown, true, false),
+			Entry("sync fails while the other record remains", api.ReasonUnknown, false, true),
+			Entry("sync fails after the other record disappears", api.ReasonUnknown, true, true),
+			Entry("migrated orphan cleanup succeeds while the other record remains", api.ReasonMigrated, false, false),
+			Entry("migrated orphan cleanup succeeds after the other record disappears", api.ReasonMigrated, true, false),
+			Entry("migrated orphan cleanup fails while the other record remains", api.ReasonMigrated, false, true),
+			Entry("migrated orphan cleanup fails after the other record disappears", api.ReasonMigrated, true, true),
+		)
+
+		DescribeTable("counts the cleaned UID even when another UID registers during cleanup", func(reason api.StateChangeReason) {
+			Expect(virtcache.GhostRecordGlobalStore.Add(
+				metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.SetState(api.Shutoff, reason)
+			addDomain(domain)
+			replacementUID := uuid.NewUUID()
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).DoAndReturn(
+				func(vmi *v1.VirtualMachineInstance, _ cgroup.Manager) error {
+					// processVmDelete has closed the old launcher before final cleanup runs.
+					Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+					Expect(virtcache.GhostRecordGlobalStore.Add(
+						vmi.Namespace, vmi.Name, sockFile, replacementUID)).To(Succeed())
+					return nil
+				})
+
+			sanityExecuteNoDomain()
+
+			record, exists := virtcache.GhostRecordGlobalStore.Get(domain.Namespace, domain.Name)
+			Expect(exists).To(BeTrue())
+			Expect(record.UID).To(Equal(replacementUID))
+			testutils.ExpectEvent(recorder, k8sv1.EventTypeNormal+" "+staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
+		},
+			Entry("through sync", api.ReasonUnknown),
+			Entry("through the migrated orphan return", api.ReasonMigrated),
+		)
+
+		DescribeTable("accounts for migrated orphan cleanup only when the VMI is absent", func(vmiExists, failCleanup bool) {
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Status.Phase = v1.Succeeded
+			if vmiExists {
+				createVMI(vmi)
+			}
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+			launcherManager := &launcherclients.MockLauncherClientManager{Initialized: true}
+			if failCleanup {
+				launcherManager.CloseLauncherClientError = fmt.Errorf("checkpoint delete failed")
+			}
+			controller.launcherClients = launcherManager
+			domain := api.NewMinimalDomainWithUUID(vmi.Name, vmi.UID)
+			domain.SetState(api.Shutoff, api.ReasonMigrated)
+			addDomain(domain)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			if failCleanup {
+				sanityExecute()
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			} else {
+				sanityExecuteNoDomain()
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			}
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(Equal(failCleanup))
+			if vmiExists {
+				expectStaleReconciliationCounts(0, 0)
+				Expect(recorder.Events).To(BeEmpty())
+			} else if failCleanup {
+				testutils.ExpectEvent(recorder, k8sv1.EventTypeWarning+" "+staleVMIIncarnationCleanupFailedReason)
+				expectStaleReconciliationCounts(0, 1)
+			} else {
+				testutils.ExpectEvent(recorder, k8sv1.EventTypeNormal+" "+staleVMIIncarnationCleanedReason)
+				expectStaleReconciliationCounts(1, 0)
+			}
+		},
+			Entry("after successful orphan cleanup", false, false),
+			Entry("after failed orphan cleanup", false, true),
+			Entry("after successful cleanup of a live VMI's own record", true, false),
+			Entry("after failed cleanup of a live VMI's own record", true, true),
+		)
+
+		It("counts an error after record removal but cannot count the later successful retry", func() {
+			Expect(virtcache.GhostRecordGlobalStore.Add(
+				metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.SetState(api.Shutoff, api.ReasonUnknown)
+			addDomain(domain)
+			gomock.InOrder(
+				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).
+					Return(fmt.Errorf("unmount failed")),
+				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil),
+			)
+
+			sanityExecute()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(domain.Namespace, domain.Name)).To(BeFalse())
+			testutils.ExpectEvent(recorder, k8sv1.EventTypeWarning+" "+staleVMIIncarnationCleanupFailedReason)
+			testutils.ExpectEvent(recorder, v1.SyncFailed.String())
+			expectStaleReconciliationCounts(0, 1)
+
+			controller.queue.Add(domain.Namespace + "/" + domain.Name)
+			sanityExecuteNoDomain()
+
+			expectStaleReconciliationCounts(0, 1)
+			Expect(recorder.Events).To(BeEmpty())
+		})
+
+		It("does not count successful cleanup while the captured ghost UID still remains", func() {
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+
+			controller.accountStaleCleanup(vmi, vmi.UID, nil, false)
+
+			expectStaleReconciliationCounts(0, 0)
+			Expect(recorder.Events).To(BeEmpty())
+		})
+
+		It("ordinary deletion without a ghost record must not change stale counters", func() {
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Status.Phase = v1.Succeeded
+			now := metav1.Now()
+			vmi.DeletionTimestamp = &now
+			createVMI(vmi)
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+
+			sanityExecuteNoDomain()
+
+			expectStaleReconciliationCounts(0, 0)
+			Expect(recorder.Events).To(BeEmpty(), "ordinary deletion must not emit stale incarnation events")
+		})
+
+		It("does not count normal VMI cleanup that removes its own ghost record", func() {
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Status.Phase = v1.Succeeded
+			createVMI(vmi)
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true}
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+			expectStaleReconciliationCounts(0, 0)
+			Expect(recorder.Events).To(BeEmpty())
+		})
+
 		It("cleans up an orphaned ghost record when the cached domain is marked deleted", func() {
 			Expect(os.Remove(sockFile)).To(Succeed())
 			Expect(virtcache.GhostRecordGlobalStore.Add(metav1.NamespaceDefault, "testvmi", sockFile, vmiTestUUID)).To(Succeed())
@@ -3673,6 +3915,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockCgroupManager).Return(nil)
 
 			sanityExecuteNoDomain()
+
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
 
 			Expect(virtcache.GhostRecordGlobalStore.Exists(domain.Namespace, domain.Name)).To(BeFalse(),
 				"an orphaned ghost record must be removed when its cached domain is marked deleted")
@@ -3698,6 +3943,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				"a live launcher's ghost record must not be cleaned up merely because no VMI exists")
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, VMIStopping)
+			expectStaleReconciliationCounts(0, 0)
 		})
 	})
 
@@ -3737,6 +3983,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecuteNoDomain()
 
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
+
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse(),
 				"the ghost record of the dead incarnation must be removed")
 			Expect(controller.domainStore.List()).To(BeEmpty())
@@ -3744,6 +3994,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
 			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed(),
 				"the new incarnation must be able to register its ghost record")
+			_, tracked := controller.reportedIncarnationConflicts.Load("default/testvmi")
+			Expect(tracked).To(BeFalse(), "a cleaned-up conflict must not stay tracked")
 		},
 			Entry("when the launcher socket directory is gone and no domain is cached", func() {}),
 			Entry("when the launcher socket directory is gone and the cached domain is marked deleted", func() {
@@ -3777,6 +4029,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecuteNoDomain()
 
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
+
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse(),
 				"a dead older incarnation's record must be removed even if this node will not run the new VMI")
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
@@ -3792,9 +4048,21 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecute()
 
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanupFailedReason)
+			expectStaleReconciliationCounts(0, 1)
+
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue(),
 				"the record must survive so the next attempt still sees the stale incarnation")
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(fmt.Errorf("unmount failed"))
+			controller.queue.Add("default/testvmi")
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanupFailedReason)
+			Expect(recorder.Events).ToNot(Receive())
+			expectStaleReconciliationCounts(0, 2)
 		})
 
 		It("keeps the older incarnation's ghost record and retries when closing its launcher client fails", func() {
@@ -3809,6 +4077,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 
 			sanityExecute()
+
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanupFailedReason)
+			expectStaleReconciliationCounts(0, 1)
 
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue(),
 				"a failed close must leave the record so the next attempt still sees the stale incarnation")
@@ -3828,10 +4100,119 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// sanityExecute fails the spec if the new VMI's domain was removed from the domain store.
 			sanityExecute()
 
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
+
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse(),
 				"the dead older incarnation must still be cleaned up")
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
 		})
+
+		It("reports a blocked reconciliation once, without counting it as a terminal outcome", func() {
+			plantStaleRecord()
+			createLiveStaleSocket()
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Status.NodeName = host
+
+			handled, err := controller.reconcileGhostRecordConflict(vmi)
+			Expect(handled).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(recorder.Events).To(Receive(And(
+				ContainSubstring(k8sv1.EventTypeWarning+" "+staleVMIIncarnationDetectedReason),
+				ContainSubstring(string(staleUID)),
+				ContainSubstring(string(vmi.UID)),
+			)))
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+
+			// The retry is still blocked, but it is not a new conflict.
+			handled, err = controller.reconcileGhostRecordConflict(vmi)
+			Expect(handled).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(recorder.Events).ToNot(Receive())
+
+			expectStaleReconciliationCounts(0, 0)
+		})
+
+		It("reports again when a different older incarnation blocks", func() {
+			plantStaleRecord()
+			createLiveStaleSocket()
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Status.NodeName = host
+
+			_, _ = controller.reconcileGhostRecordConflict(vmi)
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+
+			Expect(virtcache.GhostRecordGlobalStore.DeleteIfUID(vmi.Namespace, vmi.Name, staleUID)).To(Succeed())
+			otherUID := uuid.NewUUID()
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, staleSocket, otherUID)).To(Succeed())
+
+			_, _ = controller.reconcileGhostRecordConflict(vmi)
+			Expect(recorder.Events).To(Receive(ContainSubstring(string(otherUID))))
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+		})
+
+		It("warns about the conflict once the VMI becomes owned by this node", func() {
+			plantStaleRecord()
+			createLiveStaleSocket()
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			vmi.Status.NodeName = "othernode"
+
+			handled, err := controller.reconcileGhostRecordConflict(vmi)
+			Expect(handled).To(BeFalse())
+			Expect(err).ToNot(HaveOccurred())
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			Expect(recorder.Events).ToNot(Receive())
+
+			vmi.Status.NodeName = host
+			handled, err = controller.reconcileGhostRecordConflict(vmi)
+			Expect(handled).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+			Expect(recorder.Events).ToNot(Receive())
+
+			// Losing ownership ends the blocking episode; regaining it warns again.
+			vmi.Status.NodeName = "othernode"
+			_, _ = controller.reconcileGhostRecordConflict(vmi)
+			vmi.Status.NodeName = host
+			_, _ = controller.reconcileGhostRecordConflict(vmi)
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+			Expect(recorder.Events).ToNot(Receive())
+		})
+
+		It("forgets a reported conflict when execute finds no VMI", func() {
+			key := "default/testvmi"
+			controller.reportedIncarnationConflicts.Store(key, incarnationConflict{currentUID: vmiTestUUID, olderUID: staleUID, blocked: true})
+			// With no VMI, domain or record, sync() still runs deletion cleanup, which unmounts hotplug volumes.
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			controller.queue.Add(key)
+			sanityExecute()
+
+			_, tracked := controller.reportedIncarnationConflicts.Load(key)
+			Expect(tracked).To(BeFalse())
+		})
+
+		DescribeTable("leaves non-conflicting ghost records silent and uncounted", func(withRecord bool) {
+			vmi := NewScheduledVMI(vmiTestUUID, podTestUUID, host)
+			if withRecord {
+				Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+			}
+			controller.reportedIncarnationConflicts.Store("default/testvmi", incarnationConflict{currentUID: vmi.UID, olderUID: "older", blocked: true})
+
+			handled, err := controller.reconcileGhostRecordConflict(vmi)
+
+			Expect(handled).To(BeFalse())
+			Expect(err).ToNot(HaveOccurred())
+			expectStaleReconciliationCounts(0, 0)
+			Expect(recorder.Events).To(BeEmpty())
+			_, tracked := controller.reportedIncarnationConflicts.Load("default/testvmi")
+			Expect(tracked).To(BeFalse(), "a cleared conflict must be reported again if it comes back")
+		},
+			Entry("when there is no ghost record", false),
+			Entry("when the ghost record UID matches the VMI", true),
+		)
 
 		It("blocks the new VMI while the older incarnation's launcher socket is still present", func() {
 			plantStaleRecord()
@@ -3841,6 +4222,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			sanityExecute()
+
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			expectStaleReconciliationCounts(0, 0)
 
 			record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeTrue())
@@ -3869,6 +4253,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecute()
 
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			expectStaleReconciliationCounts(0, 0)
+
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			// AfterEach fails the spec if a VMIIncarnationConflict event was recorded.
@@ -3883,6 +4270,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			sanityExecute()
+
+			testutils.ExpectEvent(recorder, staleVMIIncarnationDetectedReason)
+			expectStaleReconciliationCounts(0, 0)
 
 			record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeTrue())
@@ -3940,18 +4330,82 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(record.UID).To(Equal(staleUID), "a live older launcher must keep its ghost record")
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
 			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+			expectStaleReconciliationCounts(0, 0)
+		})
+
+		It("warns from the stale-domain path only while the VMI is owned by this node", func() {
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true, UnResponsive: true}
+			Expect(os.MkdirAll(filepath.Dir(staleSocket), 0755)).To(Succeed())
+			f, err := os.Create(staleSocket)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			vmi := addStaleDomainAndNewVMI(true)
+			setOwner := func(node string) {
+				updated := vmi.DeepCopy()
+				updated.Labels[v1.NodeNameLabel] = node
+				updated.Status.NodeName = node
+				Expect(controller.vmiStore.Update(updated)).To(Succeed())
+				vmi = updated
+			}
+
+			setOwner("othernode")
+			sanityExecute()
+			Expect(recorder.Events).ToNot(Receive(), "this node will not start the VMI, so it is not waiting on anything")
+
+			setOwner(host)
+			controller.queue.Add("default/testvmi")
+			sanityExecute()
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+			Expect(recorder.Events).ToNot(Receive())
+
+			// Losing ownership ends the blocking episode; regaining it warns again.
+			setOwner("othernode")
+			controller.queue.Add("default/testvmi")
+			sanityExecute()
+			setOwner(host)
+			controller.queue.Add("default/testvmi")
+			sanityExecute()
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+			Expect(recorder.Events).ToNot(Receive())
+		})
+
+		It("shares one report between the stale-domain path and the ghost-record path", func() {
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true, UnResponsive: true}
+			Expect(os.MkdirAll(filepath.Dir(staleSocket), 0755)).To(Succeed())
+			f, err := os.Create(staleSocket)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			vmi := addStaleDomainAndNewVMI(true)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, vmiIncarnationConflictReason)
+
+			controller.queue.Add("default/testvmi")
+			sanityExecute()
+			Expect(recorder.Events).ToNot(Receive())
+
+			// Same pair, still blocking, seen from the ghost-record path: no new event.
+			vmi.Status.NodeName = host
+			_, _ = controller.reconcileGhostRecordConflict(vmi)
+			Expect(recorder.Events).ToNot(Receive())
 		})
 
 		It("cleans up an older incarnation whose recorded launcher socket is gone", func() {
 			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: true, UnResponsive: false}
 			vmi := addStaleDomainAndNewVMI(true)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			controller.reportedIncarnationConflicts.Store("default/testvmi", incarnationConflict{currentUID: vmiTestUUID, olderUID: staleUID, blocked: true})
 
 			sanityExecuteNoDomain()
+
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
 
 			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
 			Expect(controller.domainStore.List()).To(BeEmpty())
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+			_, tracked := controller.reportedIncarnationConflicts.Load("default/testvmi")
+			Expect(tracked).To(BeFalse(), "a cleaned-up conflict must not stay tracked")
 		})
 
 		It("falls back to the launcher client cache when the older incarnation has no ghost record", func() {
@@ -3961,9 +4415,38 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecuteNoDomain()
 
+			testutils.ExpectEvent(recorder, staleVMIIncarnationCleanedReason)
+			expectStaleReconciliationCounts(1, 0)
+
 			Expect(controller.domainStore.List()).To(BeEmpty())
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
 		})
+
+		It("reports and counts a stale-domain cleanup failure", func() {
+			vmi := addStaleDomainAndNewVMI(true)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(fmt.Errorf("unmount failed"))
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, k8sv1.EventTypeWarning+" "+staleVMIIncarnationCleanupFailedReason)
+			expectStaleReconciliationCounts(0, 1)
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+		})
+
+		DescribeTable("leaves undecided stale domains silent and uncounted", func(initialized bool, retries int) {
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{Initialized: initialized}
+			addStaleDomainAndNewVMI(false)
+
+			sanityExecute()
+
+			expectStaleReconciliationCounts(0, 0)
+			Expect(recorder.Events).To(BeEmpty())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(retries))
+		},
+			Entry("while the launcher is not initialized", false, 1),
+			Entry("when a live launcher has no matching ghost record", true, 0),
+		)
 	})
 
 	Context("updateBackupStatus", func() {

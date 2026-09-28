@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -127,6 +128,12 @@ type VirtualMachineController struct {
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
 	migrationProxy           proxyCleaner
+
+	// reportedIncarnationConflicts remembers, per VMI key, the incarnation
+	// conflict last reported, so events fire when a conflict appears or starts
+	// blocking rather than on every reconcile. It lives as long as the process,
+	// so a virt-handler restart reports an ongoing conflict once more.
+	reportedIncarnationConflicts sync.Map
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
@@ -335,6 +342,7 @@ func (c *VirtualMachineController) execute(key string) error {
 
 	if !vmiExists {
 		c.vmiExpectations.DeleteExpectations(key)
+		c.forgetIncarnationConflict(key)
 	} else if !c.vmiExpectations.SatisfiedExpectations(key) {
 		return nil
 	}
@@ -374,20 +382,44 @@ func (c *VirtualMachineController) execute(key string) error {
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 			return nil
 		} else if expired {
-			c.logger.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
+			socketPath := ""
+			record, exists := virtcache.GhostRecordGlobalStore.Get(oldVMI.Namespace, oldVMI.Name)
+			if exists && record.UID == oldVMI.UID {
+				socketPath = record.SocketFile
+			}
+			c.staleIncarnationLogger(oldVMI, vmi.UID, socketPath, "cleanup").Infof(
+				"Detected stale vmi %s that still needs cleanup before new vmi %s "+
+					"with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
 			err = c.processVmCleanup(oldVMI)
 			if err != nil {
+				c.staleIncarnationLogger(oldVMI, vmi.UID, socketPath, vhmetrics.StaleVMIReconciliationError).
+					Reason(err).Errorf("Failed to clean up older VMI incarnation %s before starting %s",
+					oldVMI.UID, vmi.UID)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, staleVMIIncarnationCleanupFailedReason,
+					"Failed to clean up older VMI incarnation %s before starting %s: %v", oldVMI.UID, vmi.UID, err)
+				vhmetrics.IncStaleVMIReconciliation(vhmetrics.StaleVMIReconciliationError)
 				return err
 			}
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, staleVMIIncarnationCleanedReason,
+				"Cleaned up older VMI incarnation %s before starting %s", oldVMI.UID, vmi.UID)
+			vhmetrics.IncStaleVMIReconciliation(vhmetrics.StaleVMIReconciliationCleaned)
 			// Make sure we re-enqueue the key to ensure this new VMI is processed
 			// after the stale domain is removed
+			c.forgetIncarnationConflict(key)
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 		} else if record, matched := virtcache.GhostRecordGlobalStore.Get(oldVMI.Namespace, oldVMI.Name); matched && record.UID == oldVMI.UID {
 			// The older incarnation's launcher socket is still there, so this is the
-			// same conflict reconcileGhostRecordConflict reports. Say so and retry,
-			// instead of returning silently and waiting for a domain event.
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
-				"Waiting for older VMI incarnation %s to terminate before starting %s", oldVMI.UID, vmi.UID)
+			// same conflict reconcileGhostRecordConflict reports. Say so once and
+			// retry, instead of returning silently and waiting for a domain event.
+			waiting := c.staleIncarnationLogger(oldVMI, vmi.UID, record.SocketFile, "blocked")
+			// Only a node that will start the VMI is waiting on the older incarnation.
+			if _, newlyBlocked := c.noteIncarnationConflict(key, vmi.UID, oldVMI.UID, c.isVMIOwnedByNode(vmi)); newlyBlocked {
+				waiting.Infof("Waiting for older VMI incarnation %s to terminate before starting %s", oldVMI.UID, vmi.UID)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
+					"Waiting for older VMI incarnation %s to terminate before starting %s", oldVMI.UID, vmi.UID)
+			} else {
+				waiting.V(4).Infof("Still waiting for older VMI incarnation %s to terminate before starting %s", oldVMI.UID, vmi.UID)
+			}
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 		}
 
@@ -403,7 +435,13 @@ func (c *VirtualMachineController) execute(key string) error {
 	if domainExists &&
 		(domainMigrated(domain) || domain.DeletionTimestamp != nil) {
 		c.logger.Object(vmi).V(4).Info("detected orphan vmi")
-		return c.deleteVM(vmi)
+		var ghostRecordUID types.UID
+		if record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name); exists && record.UID == vmi.UID {
+			ghostRecordUID = record.UID
+		}
+		err = c.deleteVM(vmi)
+		c.accountStaleCleanup(vmi, ghostRecordUID, err, vmiExists)
+		return err
 	}
 
 	if migrations.IsMigrating(vmi) && (vmi.Status.Phase == v1.Failed) {
@@ -445,16 +483,83 @@ func (c *VirtualMachineController) execute(key string) error {
 
 }
 
+func (c *VirtualMachineController) accountStaleCleanup(
+	vmi *v1.VirtualMachineInstance, ghostRecordUID types.UID, cleanupErr error, vmiExists bool,
+) {
+	if vmiExists || ghostRecordUID == "" {
+		return
+	}
+	if cleanupErr != nil {
+		// An error after record removal is counted here; later retries have no record
+		// of ours, so an eventual success cannot be counted.
+		c.staleIncarnationLogger(vmi, "", "", "error").Reason(cleanupErr).Errorf(
+			"Failed to clean up orphaned VMI incarnation %s", ghostRecordUID)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, staleVMIIncarnationCleanupFailedReason,
+			"Failed to clean up orphaned VMI incarnation %s: %v", ghostRecordUID, cleanupErr)
+		vhmetrics.IncStaleVMIReconciliation(vhmetrics.StaleVMIReconciliationError)
+		return
+	}
+	if record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name); exists && record.UID == ghostRecordUID {
+		return
+	}
+	c.staleIncarnationLogger(vmi, "", "", "cleanup").Infof("Cleaned up orphaned VMI incarnation %s", ghostRecordUID)
+	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, staleVMIIncarnationCleanedReason,
+		"Cleaned up orphaned VMI incarnation %s", ghostRecordUID)
+	vhmetrics.IncStaleVMIReconciliation(vhmetrics.StaleVMIReconciliationCleaned)
+}
+
+func (c *VirtualMachineController) staleIncarnationLogger(
+	oldVMI *v1.VirtualMachineInstance, currentUID types.UID, socket, action string,
+) *log.FilteredLogger {
+	return c.logger.Object(oldVMI).With(
+		"node", c.host,
+		"currentUID", string(currentUID),
+		"socketPath", socket,
+		"action", action,
+	)
+}
+
+type incarnationConflict struct {
+	currentUID types.UID
+	olderUID   types.UID
+	blocked    bool
+}
+
+// noteIncarnationConflict records the conflict between currentUID and olderUID
+// for key. newConflict is true when that pair is not the one last recorded.
+// newlyBlocked is true when blocked is set and was not set for the same pair
+// before, so a VMI that becomes owned by this node still gets its first warning.
+func (c *VirtualMachineController) noteIncarnationConflict(key string, currentUID, olderUID types.UID, blocked bool) (newConflict, newlyBlocked bool) {
+	next := incarnationConflict{currentUID: currentUID, olderUID: olderUID, blocked: blocked}
+	previous, loaded := c.reportedIncarnationConflicts.Swap(key, next)
+	if !loaded {
+		return true, blocked
+	}
+	prev := previous.(incarnationConflict)
+	if prev.currentUID != currentUID || prev.olderUID != olderUID {
+		return true, blocked
+	}
+	return false, blocked && !prev.blocked
+}
+
+func (c *VirtualMachineController) forgetIncarnationConflict(key string) {
+	c.reportedIncarnationConflicts.Delete(key)
+}
+
 // reconcileGhostRecordConflict resolves a ghost record left by an older
 // incarnation of this VMI (same namespace/name, different UID). When the old
 // virt-launcher vanished before cleanup, no live domain remains to trigger the
 // stale-domain branch in execute(), and GhostRecordStore.Add would reject the
 // new UID on every sync. handled is true when execute must stop for this key.
 func (c *VirtualMachineController) reconcileGhostRecordConflict(vmi *v1.VirtualMachineInstance) (handled bool, err error) {
+	key := controller.VirtualMachineInstanceKey(vmi)
 	record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name)
 	if !exists || record.UID == vmi.UID {
+		c.forgetIncarnationConflict(key)
 		return false, nil
 	}
+	oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
+	oldVMI.UID = record.UID
 
 	// Check the recorded socket directly: IsLauncherClientUnresponsive cannot
 	// locate the socket of a reference VMI without ActivePods and would report
@@ -462,27 +567,55 @@ func (c *VirtualMachineController) reconcileGhostRecordConflict(vmi *v1.VirtualM
 	// socket or its directory is gone, or when the domain watcher's
 	// unresponsive marker is present (or cannot be looked up), so a transient
 	// connection failure never condemns the old incarnation.
-	if !cmdclient.IsSocketUnresponsive(record.SocketFile) {
-		if !c.isVMIOwnedByNode(vmi) {
+	alive := !cmdclient.IsSocketUnresponsive(record.SocketFile)
+	// Final or deleting VMIs are blocked too, keeping the whole name fail
+	// closed until the older incarnation is gone. Their cleanup no longer
+	// removes another incarnation's ghost record or cached domain.
+	blocked := alive && c.isVMIOwnedByNode(vmi)
+	newConflict, newlyBlocked := c.noteIncarnationConflict(key, vmi.UID, record.UID, blocked)
+
+	detected := c.staleIncarnationLogger(oldVMI, vmi.UID, record.SocketFile, "detected")
+	if newConflict {
+		detected.Infof("Detected older VMI incarnation %s with a ghost record while reconciling %s", record.UID, vmi.UID)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, staleVMIIncarnationDetectedReason,
+			"Detected older VMI incarnation %s with a ghost record while reconciling %s", record.UID, vmi.UID)
+	} else {
+		detected.V(4).Infof("Older VMI incarnation %s with a ghost record still present while reconciling %s", record.UID, vmi.UID)
+	}
+
+	if alive {
+		if !blocked {
 			// This node will not start the VMI, so there is nothing to block.
 			return false, nil
 		}
-		// Final or deleting VMIs are blocked too, keeping the whole name fail
-		// closed until the older incarnation is gone. Their cleanup no longer
-		// removes another incarnation's ghost record or cached domain.
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
-			"Waiting for older VMI incarnation %s to terminate before starting %s", record.UID, vmi.UID)
+		waiting := c.staleIncarnationLogger(oldVMI, vmi.UID, record.SocketFile, "blocked")
+		if newlyBlocked {
+			waiting.Infof("Waiting for older VMI incarnation %s to terminate before starting %s", record.UID, vmi.UID)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, vmiIncarnationConflictReason,
+				"Waiting for older VMI incarnation %s to terminate before starting %s", record.UID, vmi.UID)
+		} else {
+			waiting.V(4).Infof("Still waiting for older VMI incarnation %s to terminate before starting %s", record.UID, vmi.UID)
+		}
 		return true, fmt.Errorf("vmi %s/%s with uid %s is blocked by the ghost record of uid %s whose launcher socket %s is still present",
 			vmi.Namespace, vmi.Name, vmi.UID, record.UID, record.SocketFile)
 	}
 
-	oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
-	oldVMI.UID = record.UID
-	c.logger.Object(oldVMI).Infof("Detected stale ghost record with socket %s blocking vmi uid %s, cleaning up", record.SocketFile, vmi.UID)
+	c.staleIncarnationLogger(oldVMI, vmi.UID, record.SocketFile, "cleanup").Infof(
+		"Detected stale ghost record with socket %s blocking vmi uid %s, cleaning up", record.SocketFile, vmi.UID)
 	if err := c.processVmCleanup(oldVMI); err != nil {
+		c.staleIncarnationLogger(oldVMI, vmi.UID, record.SocketFile, vhmetrics.StaleVMIReconciliationError).Reason(err).Errorf(
+			"Failed to clean up older VMI incarnation %s before starting %s", oldVMI.UID, vmi.UID)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, staleVMIIncarnationCleanupFailedReason,
+			"Failed to clean up older VMI incarnation %s before starting %s: %v", oldVMI.UID, vmi.UID, err)
+		vhmetrics.IncStaleVMIReconciliation(vhmetrics.StaleVMIReconciliationError)
 		return true, err
 	}
+	// Cleanup propagates DeleteIfUID failures through CloseLauncherClient.
+	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, staleVMIIncarnationCleanedReason,
+		"Cleaned up older VMI incarnation %s before starting %s", oldVMI.UID, vmi.UID)
+	vhmetrics.IncStaleVMIReconciliation(vhmetrics.StaleVMIReconciliationCleaned)
 
+	c.forgetIncarnationConflict(key)
 	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 	return true, nil
 }
@@ -1545,7 +1678,12 @@ func (c *VirtualMachineController) sync(key string,
 		}
 	case shouldDelete:
 		c.logger.Object(vmi).V(3).Info("Processing deletion.")
+		var ghostRecordUID types.UID
+		if record, exists := virtcache.GhostRecordGlobalStore.Get(vmi.Namespace, vmi.Name); exists && record.UID == vmi.UID {
+			ghostRecordUID = record.UID
+		}
 		syncErr = c.deleteVM(vmi)
+		c.accountStaleCleanup(vmi, ghostRecordUID, syncErr, vmiExists)
 	case shouldUpdate:
 		c.logger.Object(vmi).V(3).Info("Processing vmi update")
 		syncErr = c.processVmUpdate(vmi, domain)

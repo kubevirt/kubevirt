@@ -47,10 +47,19 @@ func SetupMetrics(
 		return err
 	}
 
-	metricsToRegister := [][]operatormetrics.Metric{componentMetrics, versionMetrics, machineTypeMetrics, guestPanicMetrics}
+	metricsToRegister := [][]operatormetrics.Metric{
+		componentMetrics,
+		versionMetrics,
+		machineTypeMetrics,
+		guestPanicMetrics,
+		ghostRecordMetrics,
+	}
 
 	if err := operatormetrics.RegisterMetrics(metricsToRegister...); err != nil {
 		return err
+	}
+	for _, result := range []string{StaleVMIReconciliationCleaned, StaleVMIReconciliationError} {
+		staleVMIReconciliationsTotal.WithLabelValues(result).Add(0)
 	}
 	SetVersionInfo()
 	ReportDeprecatedMachineTypes(machines, nodeName)
