@@ -27,14 +27,36 @@ import (
 var gpuRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "vmi:kubevirt_vmi_gpu_mem_copy_util:sum",
-			Help: "Memory utilization (ratio, 0-1) of the GPU passed through to a virtual machine instance.",
+			Name: "vmi:kubevirt_vmi_gpu_mem_copy_utilization_ratio:sum",
+			Help: "Memory utilization (0-1) of the GPU passed through to a virtual machine instance.",
 		},
 		MetricType: operatormetrics.GaugeType,
 		Expr: intstr.FromString(
 			"sum by(namespace, name, node, uuid, resource) (" +
 				"label_replace(max by (UUID) (DCGM_FI_DEV_MEM_COPY_UTIL), 'uuid', '$1', 'UUID', '(.*)') * " +
 				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) / 100"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_gpu_utilization_ratio:sum",
+			Help: "Utilization (0-1) of the time the GPU passed through to a virtual machine instance was busy.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(
+			"sum by(namespace, name, node, uuid, resource) (" +
+				"label_replace(max by (UUID) (DCGM_FI_DEV_GPU_UTIL), 'uuid', '$1', 'UUID', '(.*)') * " +
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) / 100"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_gpu_gr_engine_active_ratio:sum",
+			Help: "Ratio (0-1) of the time the graphics engine was active on the GPU passed through to a virtual machine instance.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr: intstr.FromString(
+			"sum by(namespace, name, node, uuid, resource) (" +
+				"label_replace(max by (UUID) (DCGM_FI_PROF_GR_ENGINE_ACTIVE), 'uuid', '$1', 'UUID', '(.*)') * " +
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info)"),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
