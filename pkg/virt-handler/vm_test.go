@@ -2752,7 +2752,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Message).To(Equal("VMI specifies non-migratable GPU device"))
 				})
 
-				It("should not be allowed to live-migrate if the VMI uses multiple vGPUs", func() {
+				It("should be allowed to live-migrate if the VMI uses multiple vGPUs", func() {
 					vmi := api2.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 						{
@@ -2769,15 +2769,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
 							FeatureGates: []string{featuregate.VGPULiveMigration},
 						},
+						PermittedHostDevices: &v1.PermittedHostDevices{
+							MediatedDevices: []v1.MediatedHostDevice{
+								{
+									MDEVNameSelector:         "GRID M10-2B",
+									ResourceName:             "nvidia.com/gpu",
+									ExternalResourceProvider: false,
+								},
+							},
+						},
 					})
 					controller.clusterConfig = config
 
 					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
 					Expect(isBlockMigration).To(BeFalse())
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
-					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies too many GPUs"))
+					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 				})
 			})
 		})
