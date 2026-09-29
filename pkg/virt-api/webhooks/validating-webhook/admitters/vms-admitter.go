@@ -21,7 +21,6 @@ package admitters
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -94,13 +93,11 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return resp
 	}
 
-	raw := ar.Request.Object.Raw
-	vm := v1.VirtualMachine{}
-
-	err := json.Unmarshal(raw, &vm)
+	newVM, oldVM, err := webhookutils.GetVMFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
+	vm := *newVM
 
 	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
 	if vm.DeletionTimestamp != nil {
@@ -149,6 +146,14 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, isKubeVirtServiceAccount)
 	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	var oldVolumes []v1.Volume
+	if oldVM != nil && oldVM.Spec.Template != nil {
+		oldVolumes = oldVM.Spec.Template.Spec.Volumes
+	}
+	if causes = validateContainerPathVolumesFeatureGate(k8sfield.NewPath("spec", "template", "spec"), vm.Spec.Template.Spec.Volumes, oldVolumes, admitter.ClusterConfig); len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
