@@ -160,19 +160,6 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	}
 
 	if err == nil {
-		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
-		// After a one-time convert and persist, old records are safe too.
-		if !record.UsesSafePaths {
-			record.UsesSafePaths = true
-			for i, entry := range record.MountTargetEntries {
-				safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", entry.TargetFile)
-				if err != nil {
-					return nil, fmt.Errorf("failed converting legacy path to safepath: %v", err)
-				}
-				record.MountTargetEntries[i].TargetFile = unsafepath.UnsafeAbsolute(safePath.Raw())
-			}
-		}
-
 		m.mountRecords[vmi.UID] = &record
 		return &record, nil
 	}
@@ -193,8 +180,6 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 	if string(vmi.UID) == "" {
 		return fmt.Errorf("unable to set container disk mounted directories for vmi without uid")
 	}
-	// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
-	// After a one-time convert and persist, old records are safe too.
 	record.UsesSafePaths = true
 
 	err := m.checkpointManager.Get(string(vmi.UID), &vmiMountTargetRecord{})
