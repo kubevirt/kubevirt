@@ -100,6 +100,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -1618,6 +1619,12 @@ func (l *LibvirtDomainManager) syncDisks(
 			continue
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+
+		// special handling for hotplugged disks using virtio and auto iothreads policy
+		if vmi.Spec.Domain.IOThreadsPolicy != nil && *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto && attachDisk.Target.Bus == v1.DiskBusVirtio {
+			validateIOThreads(&attachDisk, spec)
+		}
+
 		// set drivers cache mode
 		err = l.driverConfigurator.SetDriverCacheMode(&attachDisk)
 		if err != nil {
@@ -3122,4 +3129,36 @@ func gracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 	return gracePeriodSeconds
+}
+
+// perform validation and reassignment of iothread values for hotplugged disks
+// to prevent new disks from being assigned threadids that are outside of the originally defined range
+func validateIOThreads(attachDisk *api.Disk, spec *api.DomainSpec) {
+	// if initial domain spec does not have iothreads set, then any thread value for this new disk would be invalid and should be unset
+	if spec.IOThreads == nil {
+		attachDisk.Driver.IOThread = nil
+		attachDisk.Driver.IOThreads = nil
+		return
+	}
+	// total iothreads calculated at vm startup
+	totalThreads := spec.IOThreads.IOThreads
+	if attachDisk.Driver.IOThread != nil {
+		diskThread := *attachDisk.Driver.IOThread
+		if diskThread > totalThreads {
+			// get the last assigned auto thread
+			var currThread uint
+			for i := len(spec.Devices.Disks) - 1; i >= 0; i-- {
+				if spec.Devices.Disks[i].Target.Bus == v1.DiskBusVirtio {
+					currThread = *(spec.Devices.Disks[i].Driver.IOThread)
+					break
+				}
+			}
+			// assign next thread id to account for wraparound where first thread id is 1
+			attachDisk.Driver.IOThread = new((currThread % totalThreads) + 1)
+		}
+	} else if attachDisk.Driver.IOThreads != nil {
+		// iothread pool for auto policy is created based on available disks,
+		// however when new disk is hotplugged this pool size grows to be larger than the total iothreads value defined at startup
+		attachDisk.Driver.IOThreads = iothreads.BuildIOThreadPool(int(totalThreads))
+	}
 }

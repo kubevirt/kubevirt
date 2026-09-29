@@ -51,7 +51,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if hasIOThreads {
 		// ioThreadCount here accounts for total of autoThreads + dedicatedIOThreads
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
-		if c.SCSIMultiIOThreadEnabled {
+		if c.SCSIMultiIOThreadEnabled && vmi.Spec.Domain.IOThreadsPolicy != nil {
 			if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
 				scsiControllerThreads = ioThreadCount
 			} else {

@@ -26,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
@@ -268,11 +269,6 @@ func (c ControllersDomainConfigurator) assignSCSIControllerIOThread(
 		return scsiControllerDriver
 	}
 
-	iothreads := &api.DiskIOThreads{}
-	for id := 1; id <= int(totalThreads); id++ {
-		iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
-	}
-
-	scsiControllerDriver.IOThreads = iothreads
+	scsiControllerDriver.IOThreads = iothreads.BuildIOThreadPool(int(totalThreads))
 	return scsiControllerDriver
 }
