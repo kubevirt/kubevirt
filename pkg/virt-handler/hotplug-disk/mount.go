@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
@@ -40,6 +39,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/mountrecord"
 
 	"github.com/opencontainers/cgroups"
 
@@ -151,9 +151,7 @@ var (
 )
 
 type volumeMounter struct {
-	checkpointManager  checkpoint.CheckpointManager
-	mountRecords       map[types.UID]*vmiMountTargetRecord
-	mountRecordsLock   sync.Mutex
+	mountRecords       *mountrecord.Store
 	skipSafetyCheck    bool
 	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 	ownershipManager   diskutils.OwnershipManagerInterface
@@ -174,30 +172,10 @@ type VolumeMounter interface {
 	IsMounted(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID) (bool, error)
 }
 
-type vmiMountTargetEntry struct {
-	TargetFile string `json:"targetFile"`
-}
-
-type vmiMountTargetRecord struct {
-	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
-	UsesSafePaths      bool                  `json:"usesSafePaths"`
-}
-
-func (r *vmiMountTargetRecord) appendPath(path string) bool {
-	for _, entry := range r.MountTargetEntries {
-		if entry.TargetFile == path {
-			return false // skip appending if already present
-		}
-	}
-	r.MountTargetEntries = append(r.MountTargetEntries, vmiMountTargetEntry{TargetFile: path})
-	return true
-}
-
 // NewVolumeMounter creates a new VolumeMounter
 func NewVolumeMounter(checkpointManager checkpoint.CheckpointManager, kubeletPodsDir string, host string) VolumeMounter {
 	return &volumeMounter{
-		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-		checkpointManager:  checkpointManager,
+		mountRecords:       mountrecord.NewStore(checkpointManager),
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 		kubeletPodsDir:     kubeletPodsDir,
@@ -205,99 +183,17 @@ func NewVolumeMounter(checkpointManager checkpoint.CheckpointManager, kubeletPod
 	}
 }
 
-func (m *volumeMounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error {
-	if string(vmi.UID) == "" {
-		return fmt.Errorf(unableFindHotplugMountedDir)
+func (m *volumeMounter) deleteMountRecord(vmi *v1.VirtualMachineInstance, entries []mountrecord.Entry) error {
+	for _, entry := range entries {
+		_ = os.Remove(entry.TargetFile)
 	}
-
-	record := vmiMountTargetRecord{}
-	err := m.checkpointManager.Get(string(vmi.UID), &record)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to get checkpoint %s, %w", vmi.UID, err)
-	}
-
-	if err == nil {
-		for _, target := range record.MountTargetEntries {
-			os.Remove(target.TargetFile)
-		}
-
-		if err := m.checkpointManager.Delete(string(vmi.UID)); err != nil {
-			return fmt.Errorf("failed to delete checkpoint %s, %w", vmi.UID, err)
-		}
-	}
-
-	m.mountRecordsLock.Lock()
-	defer m.mountRecordsLock.Unlock()
-	delete(m.mountRecords, vmi.UID)
-
-	return nil
-}
-
-func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMountTargetRecord, error) {
-	var ok bool
-	var existingRecord *vmiMountTargetRecord
-
-	if string(vmi.UID) == "" {
-		return nil, fmt.Errorf(unableFindHotplugMountedDir)
-	}
-
-	m.mountRecordsLock.Lock()
-	defer m.mountRecordsLock.Unlock()
-	existingRecord, ok = m.mountRecords[vmi.UID]
-
-	// first check memory cache
-	if ok {
-		return existingRecord, nil
-	}
-
-	// if not there, see if record is on disk, this can happen if virt-handler restarts
-	record := vmiMountTargetRecord{}
-	err := m.checkpointManager.Get(string(vmi.UID), &record)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("failed to get checkpoint %s, %w", vmi.UID, err)
-	}
-
-	if err == nil {
-		m.mountRecords[vmi.UID] = &record
-		return &record, nil
-	}
-
-	// not found
-	return &vmiMountTargetRecord{UsesSafePaths: true}, nil
-}
-
-func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
-	if string(vmi.UID) == "" {
-		return fmt.Errorf(unableFindHotplugMountedDir)
-	}
-
-	record.UsesSafePaths = true
-
-	m.mountRecordsLock.Lock()
-	defer m.mountRecordsLock.Unlock()
-
-	if err := m.checkpointManager.Store(string(vmi.UID), record); err != nil {
-		return fmt.Errorf("failed to checkpoint %s, %w", vmi.UID, err)
-	}
-	m.mountRecords[vmi.UID] = record
-	return nil
-}
-
-func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
-	if !record.appendPath(path) {
-		return nil
-	}
-	if err := m.setMountTargetRecord(vmi, record); err != nil {
-		return err
-	}
-	return nil
+	return m.mountRecords.Delete(vmi.UID)
 }
 
 func (m *volumeMounter) mountHotplugVolume(
 	vmi *v1.VirtualMachineInstance,
 	volumeName string,
 	sourceUID types.UID,
-	record *vmiMountTargetRecord,
 	mountDirectory bool,
 	cgroupManager cgroup.Manager,
 ) error {
@@ -306,12 +202,12 @@ func (m *volumeMounter) mountHotplugVolume(
 	if sourceUID != "" {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
 			logger.V(3).Infof("Mounting block volume: %s", volumeName)
-			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record, cgroupManager); err != nil {
+			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, cgroupManager); err != nil {
 				return fmt.Errorf("failed to mount block hotplug volume %s: %w", volumeName, err)
 			}
 		} else {
 			logger.V(3).Infof("Mounting file system volume: %s", volumeName)
-			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
+			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, mountDirectory); err != nil {
 				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %w", volumeName, err)
 			}
 		}
@@ -328,11 +224,6 @@ func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 }
 
 func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID, cgroupManager cgroup.Manager) error {
-	record, err := m.getMountTargetRecord(vmi)
-	if err != nil {
-		return err
-	}
-
 	specVolumes := sets.New[string]()
 	for i := range vmi.Spec.Volumes {
 		specVolumes.Insert(vmi.Spec.Volumes[i].Name)
@@ -362,7 +253,7 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		if volumeSourceUID == "" {
 			volumeSourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, volumeSourceUID, record, mountDirectory, cgroupManager); err != nil {
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, volumeSourceUID, mountDirectory, cgroupManager); err != nil {
 			return err
 		}
 	}
@@ -415,7 +306,6 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 	vmi *v1.VirtualMachineInstance,
 	volume string,
 	sourceUID types.UID,
-	record *vmiMountTargetRecord,
 	cgroupManager cgroup.Manager,
 ) error {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
@@ -434,7 +324,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 			return err
 		}
 
-		if err := m.writePathToMountRecord(filepath.Join(unsafepath.UnsafeAbsolute(targetPath.Raw()), volume), vmi, record); err != nil {
+		if err := m.mountRecords.Add(vmi.UID, mountrecord.Entry{TargetFile: filepath.Join(unsafepath.UnsafeAbsolute(targetPath.Raw()), volume)}); err != nil {
 			return err
 		}
 
@@ -531,7 +421,7 @@ func (m *volumeMounter) createBlockDeviceFile(basePath *safepath.Path, deviceNam
 	}
 }
 
-func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
+func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, mountDirectory bool) error {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -557,7 +447,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if err != nil {
 			return fmt.Errorf("failed to get source path for volume %s from source pod %s: %v: %w", volume, sourceUID, err, ErrWaitingForHotplugMount)
 		}
-		if err := m.writePathToMountRecord(unsafepath.UnsafeAbsolute(target.Raw()), vmi, record); err != nil {
+		if err := m.mountRecords.Add(vmi.UID, mountrecord.Entry{TargetFile: unsafepath.UnsafeAbsolute(target.Raw())}); err != nil {
 			return err
 		}
 		if !mountDirectory {
@@ -649,14 +539,10 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
 func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
 	if vmi.UID != "" {
-		record, err := m.getMountTargetRecord(vmi)
+		entries, err := m.mountRecords.Entries(vmi.UID)
 		if err != nil {
 			return err
-		} else if record == nil {
-			// no entries to unmount
-			return nil
-		}
-		if len(record.MountTargetEntries) == 0 {
+		} else if len(entries) == 0 {
 			return nil
 		}
 
@@ -667,7 +553,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				// no mounts left, the base path does not even exist anymore
-				if err := m.deleteMountTargetRecord(vmi); err != nil {
+				if err := m.deleteMountRecord(vmi, entries); err != nil {
 					return fmt.Errorf("failed to delete mount target records: %v", err)
 				}
 				return nil
@@ -727,17 +613,15 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 			}
 			currentHotplugPaths[unsafepath.UnsafeAbsolute(path.Raw())] = virtlauncherUID
 		}
-		newRecord := vmiMountTargetRecord{
-			MountTargetEntries: make([]vmiMountTargetEntry, 0),
-		}
+		var kept []mountrecord.Entry
 		var errs []error
 		logErrAndKeepMount := func(path string, format string, args ...any) {
 			err := fmt.Errorf(format, args...)
 			log.Log.Object(vmi).Error(err.Error())
-			newRecord.appendPath(path)
+			kept = append(kept, mountrecord.Entry{TargetFile: path})
 			errs = append(errs, err)
 		}
-		for _, entry := range record.MountTargetEntries {
+		for _, entry := range entries {
 			fd, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
@@ -766,13 +650,13 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				}
 				log.Log.Object(vmi).V(3).Infof("Unmounted hotplug volume path %s", diskPath)
 			} else {
-				_ = newRecord.appendPath(diskPathAbs)
+				kept = append(kept, mountrecord.Entry{TargetFile: diskPathAbs})
 			}
 		}
-		if len(newRecord.MountTargetEntries) > 0 {
-			err = m.setMountTargetRecord(vmi, &newRecord)
+		if len(kept) > 0 {
+			err = m.mountRecords.Replace(vmi.UID, kept)
 		} else {
-			err = m.deleteMountTargetRecord(vmi)
+			err = m.deleteMountRecord(vmi, entries)
 		}
 		if err != nil {
 			return err
@@ -819,16 +703,15 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager
 	if vmi.UID != "" {
 		logger := log.DefaultLogger().Object(vmi)
 		logger.Info("Cleaning up remaining hotplug volumes")
-		record, err := m.getMountTargetRecord(vmi)
+		entries, err := m.mountRecords.Entries(vmi.UID)
 		if err != nil {
 			return err
-		} else if record == nil {
-			// no entries to unmount
+		} else if len(entries) == 0 {
 			logger.Info("No hotplug volumes found to unmount")
 			return nil
 		}
 
-		for _, entry := range record.MountTargetEntries {
+		for _, entry := range entries {
 			diskPath, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
@@ -853,7 +736,7 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager
 				}
 			}
 		}
-		err = m.deleteMountTargetRecord(vmi)
+		err = m.deleteMountRecord(vmi, entries)
 		if err != nil {
 			return err
 		}
