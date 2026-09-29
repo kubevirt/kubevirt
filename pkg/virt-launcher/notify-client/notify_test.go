@@ -359,16 +359,11 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, cache, false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
-					Expect(newDomain.Status.FSFreezeStatus.Status).To(Equal(api.FSFrozen))
-				}
-				Expect(timedOut).To(BeFalse())
+				var event watch.Event
+				Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+				newDomain, ok := event.Object.(*api.Domain)
+				Expect(ok).To(BeTrue())
+				Expect(newDomain.Status.FSFreezeStatus.Status).To(Equal(api.FSFrozen))
 			})
 
 		It("should update Guest FSFreeze status as thawed",
@@ -386,16 +381,11 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, cache, false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
-					Expect(newDomain.Status.FSFreezeStatus.Status).To(Equal(api.FSThawed))
-				}
-				Expect(timedOut).To(BeFalse())
+				var event watch.Event
+				Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+				newDomain, ok := event.Object.(*api.Domain)
+				Expect(ok).To(BeTrue())
+				Expect(newDomain.Status.FSFreezeStatus.Status).To(Equal(api.FSThawed))
 			})
 
 		It("should consolidate I/O error status and Agent updates into a single watch event", func() {

@@ -140,12 +140,14 @@ var _ = Describe("FSFreeze", func() {
 			done <- manager.FreezeVMI(vmi, 0)
 		}()
 
-		<-freezeStarted
+		Eventually(freezeStarted).Should(BeClosed())
 
 		Expect(manager.FreezeVMI(vmi, 0)).To(MatchError(ContainSubstring("freezing is already in progress")))
 
 		close(freezeBlocked)
-		Expect(<-done).To(Succeed())
+		var freezeErr error
+		Eventually(done).Should(Receive(&freezeErr))
+		Expect(freezeErr).To(Succeed())
 		Expect(loadFSFreezeStatus().Status).To(Equal(api.FSFrozen))
 	})
 
@@ -202,6 +204,22 @@ var _ = Describe("FSFreeze", func() {
 		mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil)
 
 		Expect(manager.UnfreezeVMI(vmi)).To(Succeed())
+		Expect(loadFSFreezeStatus().Status).To(Equal(api.FSThawed))
+	})
+
+	It("should set thawed when FSThaw fails because VSS released the freeze", func() {
+		vmi := newVMI(testNamespace, testVmName)
+
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(2)
+		mockDomain.EXPECT().Free().Times(2)
+		mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil)
+		mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(fmt.Errorf("fsfreeze is limited to 10 seconds"))
+
+		Expect(manager.FreezeVMI(vmi, 0)).To(Succeed())
+		Expect(loadFSFreezeStatus().Status).To(Equal(api.FSFrozen))
+
+		// VSS thaws the guest on its own, so the error is surfaced but the state is thawed
+		Expect(manager.UnfreezeVMI(vmi)).To(MatchError(ContainSubstring("fsfreeze is limited")))
 		Expect(loadFSFreezeStatus().Status).To(Equal(api.FSThawed))
 	})
 

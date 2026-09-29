@@ -22,6 +22,7 @@ package storage
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -41,12 +42,10 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	if fsFreeze.Status == api.FSFrozen {
 		return nil
 	}
-	if m.IsFreezing() {
+	if !m.beginFreezing() {
 		return fmt.Errorf("freezing is already in progress for VMI %s", vmi.Name)
 	}
-
-	m.SetFreezing(true)
-	defer m.SetFreezing(false)
+	defer m.endFreezing()
 
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
@@ -105,12 +104,19 @@ func (m *StorageManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer domain.Free()
 
-	if err := domain.FSThaw(nil, 0); err != nil {
-		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
-		return err
+	thawErr := domain.FSThaw(nil, 0)
+
+	// Only record thawed once the guest is known to be thawed. A failed thaw must keep
+	// the frozen state so the next unfreeze isn't short circuited, except when VSS
+	// already released the freeze itself.
+	if thawErr == nil || strings.Contains(thawErr.Error(), api.VSSFreezeLimitReached) {
+		m.metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSThawed})
 	}
 
-	m.metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSThawed})
+	if thawErr != nil {
+		log.Log.Errorf("Failed to unfreeze vmi, %s", thawErr.Error())
+		return thawErr
+	}
 
 	return nil
 }

@@ -100,6 +100,11 @@ const (
 	FSFrozen      = "frozen"
 	SchedulerFIFO = "fifo"
 
+	// VSSFreezeLimitReached is the guest agent error substring reported when Windows
+	// VSS could not hold the freeze. VSS releases it on its own after 10 seconds, so
+	// the guest filesystems are already thawed by the time this surfaces.
+	VSSFreezeLimitReached = "fsfreeze is limited"
+
 	HostDevicePCI  = "pci"
 	HostDeviceMDev = "mdev"
 	HostDeviceUSB  = "usb"
