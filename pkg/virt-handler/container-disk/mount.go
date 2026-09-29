@@ -136,10 +136,8 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 		}
 	}
 
-	if len(entries) > 0 {
-		if err := m.mountRecords.Replace(vmi.UID, entries); err != nil {
-			return err
-		}
+	if err := m.mountRecords.Add(vmi.UID, entries...); err != nil {
+		return err
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
