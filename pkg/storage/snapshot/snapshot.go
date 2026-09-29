@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -610,7 +611,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
-			if strings.Contains(err.Error(), VSSFreezeLimitReached) {
+			if strings.Contains(err.Error(), launcherapi.VSSFreezeLimitReached) {
 				contentCpy.Status.CreationTime = nil
 				contentCpy.Status.Error = &snapshotv1.Error{
 					Time:    currentTime(),
@@ -1021,7 +1022,7 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 			snapErr := snapshot.Status.Error
 			if snapErr != nil && snapErr.Message != nil &&
-				strings.Contains(*snapErr.Message, VSSFreezeLimitReached) {
+				strings.Contains(*snapErr.Message, launcherapi.VSSFreezeLimitReached) {
 				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceTimeoutIndication)
 			}
 		} else {

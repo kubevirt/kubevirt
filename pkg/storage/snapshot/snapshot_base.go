@@ -507,7 +507,7 @@ func (ctrl *VMSnapshotController) handleVMI(obj interface{}) {
 				continue
 			}
 			vmSnapshot, ok := storeObj.(*snapshotv1.VirtualMachineSnapshot)
-			if !ok {
+			if !ok || !vmSnapshotProgressing(vmSnapshot) {
 				continue
 			}
 			contentName := GetVMSnapshotContentName(vmSnapshot)
