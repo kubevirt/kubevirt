@@ -52,9 +52,6 @@ import (
 
 const (
 	sourceFinalizer = "snapshot.kubevirt.io/snapshot-source-protection"
-	// VSSFreezeLimitReached is the error substring returned by the QEMU guest agent
-	// when Windows VSS cannot hold the freeze long enough (10-second VSS limitation).
-	VSSFreezeLimitReached = "fsfreeze is limited"
 )
 
 var (

@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -140,7 +139,7 @@ func run(config *FreezerConfig, client cmdclient.LauncherClient) error {
 	} else {
 		err = client.UnfreezeVirtualMachine(vmi)
 		if err != nil {
-			if strings.Contains(err.Error(), snapshot.VSSFreezeLimitReached) {
+			if strings.Contains(err.Error(), api.VSSFreezeLimitReached) {
 				log.Log.Reason(err).Error("Unfreezing VMI failed, please try again. If problem continues, stop the VM and backup while down")
 			} else {
 				log.Log.Reason(err).Error("Unfreezing VMI failed")

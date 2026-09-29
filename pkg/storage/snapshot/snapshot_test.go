@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
+	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -1685,7 +1686,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse: pointer.P(false),
+					ReadyToUse: new(bool),
 					Error: &snapshotv1.Error{
 						Time:    timeFunc(),
 						Message: &errorMessage,
@@ -1711,7 +1712,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent2 := vmSnapshotContent.DeepCopy()
 				updatedContent2.ResourceVersion = "1"
 				updatedContent2.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse: pointer.P(false),
+					ReadyToUse: new(bool),
 				}
 				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
 				for i := range volumeSnapshots {
@@ -1742,7 +1743,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiSource.Add(vmi)
 
 				// VSS timeout error during unfreeze - this should trigger QuiesceTimeout
-				vmSnapshotContent := createErrorVMSnapshotContent(VSSFreezeLimitReached)
+				vmSnapshotContent := createErrorVMSnapshotContent(launcherapi.VSSFreezeLimitReached)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmSnapshot := createVMSnapshotInProgress()
