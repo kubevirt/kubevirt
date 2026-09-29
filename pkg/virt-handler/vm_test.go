@@ -2518,7 +2518,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			It("should be allowed to live-migrate if the VMI uses virtiofs", func() {
 				vmi := libvmi.New(withFilesystemDevice("VIRTIOFS"))
 
-				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 				Expect(isBlockMigration).To(BeFalse())
 				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
@@ -2537,7 +2537,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					),
 				)))
 
-				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 
 				if errorMsg != "" {
 					Expect(isBlockMigration).To(BeTrue())
@@ -2569,7 +2569,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
 				configVolume(vmi)
 
-				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 
 				Expect(isBlockMigration).To(BeFalse())
 				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
@@ -2592,7 +2592,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
-			controller.updateLiveMigrationConditions(vmi, conditionManager)
+			controller.updateLiveMigrationConditions(vmi, nil, conditionManager)
 
 			testutils.ExpectEvent(recorder, "cannot migrate VMI which does not use masquerade or a migratable plugin to connect to the pod network")
 		})
@@ -2617,7 +2617,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				}
 
-				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 				Expect(isBlockMigration).To(BeFalse())
 				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2639,7 +2639,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					_ = os.Unsetenv(envName2)
 				})
 
-				It("should respect the vgpu live migration feature gate", func() {
+				It("should not be allowed to live-migrate a vGPU when the feature gate is disabled", func() {
 					vmi := api2.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 						{
@@ -2647,43 +2647,29 @@ var _ = Describe("VirtualMachineInstance", func() {
 							DeviceName: "nvidia.com/GRID_M10-2B",
 						},
 					}
-					permittedHostDevs := &v1.PermittedHostDevices{
-						MediatedDevices: []v1.MediatedHostDevice{
-							{
-								MDEVNameSelector:         "GRID M10-2B",
-								ResourceName:             "nvidia.com/GRID_M10-2B",
-								ExternalResourceProvider: false,
-							},
-						},
-					}
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
 							FeatureGates: []string{},
 						},
-						PermittedHostDevices: permittedHostDevs,
+						PermittedHostDevices: &v1.PermittedHostDevices{
+							MediatedDevices: []v1.MediatedHostDevice{
+								{
+									MDEVNameSelector:         "GRID M10-2B",
+									ResourceName:             "nvidia.com/GRID_M10-2B",
+									ExternalResourceProvider: false,
+								},
+							},
+						},
 					})
 					controller.clusterConfig = config
 
-					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 					Expect(isBlockMigration).To(BeFalse())
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
 					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.VGPULiveMigration + " is not enabled"))
-
-					config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
-						},
-						PermittedHostDevices: permittedHostDevs,
-					})
-					controller.clusterConfig = config
-
-					condition, isBlockMigration = controller.calculateLiveMigrationCondition(vmi)
-					Expect(isBlockMigration).To(BeFalse())
-					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
-					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 				})
 
 				It("should not be allowed to live-migrate if the VMI uses generic PCI Host Device", func() {
@@ -2711,7 +2697,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					})
 					controller.clusterConfig = config
 
-					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 					Expect(isBlockMigration).To(BeFalse())
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2719,66 +2705,69 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Message).To(Equal("VMI specifies non-migratable generic PCI host device"))
 				})
 
-				It("should not be allowed to live-migrate if the VMI uses passthrough PCI GPU", func() {
+				DescribeTable("should allow live migration only for mdev vGPUs", func(gpus []v1.GPU, domain *api.Domain, status k8sv1.ConditionStatus, message string) {
 					vmi := api2.NewMinimalVMI("testvmi")
-					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-						{
-							Name:       "m10",
-							DeviceName: "nvidia.com/M10",
-						},
-					}
+					vmi.Spec.Domain.Devices.GPUs = gpus
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
 							FeatureGates: []string{featuregate.VGPULiveMigration},
 						},
-						PermittedHostDevices: &v1.PermittedHostDevices{
-							PciHostDevices: []v1.PciHostDevice{
-								{
-									PCIVendorSelector:        "10de:13bd",
-									ResourceName:             "nvidia.com/M10",
-									ExternalResourceProvider: false,
+					})
+					controller.clusterConfig = config
+
+					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, domain)
+					Expect(isBlockMigration).To(BeFalse())
+					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+					Expect(condition.Status).To(Equal(status))
+					if message != "" {
+						Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
+						Expect(condition.Message).To(Equal(message))
+					}
+				},
+					Entry("mdev vGPU",
+						[]v1.GPU{{
+							Name:       "m10",
+							DeviceName: "nvidia.com/GRID_M10-2B",
+						}, {
+							Name:       "m11",
+							DeviceName: "nvidia.com/GRID_M10-2B",
+						}},
+						newMdevDomain("gpu-m10", "gpu-m11"),
+						k8sv1.ConditionTrue,
+						"",
+					),
+					Entry("DRA mdev vGPU",
+						[]v1.GPU{{
+							Name: "m10",
+							ClaimRequest: &v1.ClaimRequest{
+								ClaimName:   "gpu-claim",
+								RequestName: "gpu-request",
+							},
+						}},
+						newMdevDomain("dra-gpu-m10"),
+						k8sv1.ConditionTrue,
+						"",
+					),
+					Entry("passthrough PCI GPU",
+						[]v1.GPU{{
+							Name:       "m10",
+							DeviceName: "nvidia.com/M10",
+						}},
+						&api.Domain{
+							Spec: api.DomainSpec{
+								Devices: api.Devices{
+									HostDevices: []api.HostDevice{{
+										Type:  api.HostDevicePCI,
+										Alias: api.NewUserDefinedAlias("gpu-m10"),
+									}},
 								},
 							},
 						},
-					})
-					controller.clusterConfig = config
-
-					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
-					Expect(isBlockMigration).To(BeFalse())
-					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
-					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies non-migratable GPU device"))
-				})
-
-				It("should not be allowed to live-migrate if the VMI uses multiple vGPUs", func() {
-					vmi := api2.NewMinimalVMI("testvmi")
-					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-						{
-							Name:       "name1",
-							DeviceName: "nvidia.com/gpu",
-						},
-						{
-							Name:       "name2",
-							DeviceName: "nvidia.com/gpu",
-						},
-					}
-
-					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
-						},
-					})
-					controller.clusterConfig = config
-
-					condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
-					Expect(isBlockMigration).To(BeFalse())
-					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
-					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies too many GPUs"))
-				})
+						k8sv1.ConditionFalse,
+						"VMI specifies non-migratable GPU device",
+					),
+				)
 			})
 		})
 
@@ -2788,7 +2777,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				SEV: &v1.SEV{},
 			}
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2800,7 +2789,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 			vmi.Spec.Architecture = "s390x"
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2813,7 +2802,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				TDX: &v1.TDX{},
 			}
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2833,7 +2822,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						},
 					},
 				})
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
@@ -2852,7 +2841,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						},
 					},
 				})
-			condition := controller.calculateLiveStorageMigrationCondition(vmi)
+			condition := controller.calculateLiveStorageMigrationCondition(vmi, nil)
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonNotMigratable))
@@ -2968,7 +2957,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)}}}
 			vmi.Status.TopologyHints = nil
 
-			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			cond, _ := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2978,7 +2967,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)}}
 
-			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			cond, _ := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2996,7 +2985,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			cond, _ := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
@@ -3994,6 +3983,23 @@ func withFilesystemDevice(deviceName string) libvmi.Option {
 			Name:     deviceName,
 			Virtiofs: &v1.FilesystemVirtiofs{},
 		})
+	}
+}
+
+func newMdevDomain(aliases ...string) *api.Domain {
+	hostDevices := make([]api.HostDevice, 0, len(aliases))
+	for _, alias := range aliases {
+		hostDevices = append(hostDevices, api.HostDevice{
+			Type:  api.HostDeviceMDev,
+			Alias: api.NewUserDefinedAlias(alias),
+		})
+	}
+	return &api.Domain{
+		Spec: api.DomainSpec{
+			Devices: api.Devices{
+				HostDevices: hostDevices,
+			},
+		},
 	}
 }
 
