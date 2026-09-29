@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -565,34 +566,25 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	for idx, entry := range record.MountTargetEntries {
-		if !strings.Contains(entry.TargetFile, containerdisk.KernelBootName) {
-			continue
-		}
-		targetDir, err := safepath.NewFileNoFollow(entry.TargetFile)
-		if err != nil {
-			return fmt.Errorf("failed to obtaining a reference to the target directory %q: %v", targetDir, err)
-		}
-		_ = targetDir.Close()
-		log.DefaultLogger().Object(vmi).Infof("unmounting kernel artifacts in path: %v", targetDir)
-
-		if err = unmount(targetDir.Path(), kb.InitrdPath, kb.KernelPath); err != nil {
-			// Not returning here since even if unmount wasn't successful it's better to keep
-			// cleaning the mounted files.
-			log.Log.Object(vmi).Reason(err).Error("unable to unmount kernel artifacts")
-		}
-
-		removeSliceElement := func(s []vmiMountTargetEntry, idxToRemove int) []vmiMountTargetEntry {
-			// removes slice element efficiently
-			s[idxToRemove] = s[len(s)-1]
-			return s[:len(s)-1]
-		}
-
-		record.MountTargetEntries = removeSliceElement(record.MountTargetEntries, idx)
-		return nil
+	idx := slices.IndexFunc(record.MountTargetEntries, func(e vmiMountTargetEntry) bool {
+		return strings.Contains(e.TargetFile, containerdisk.KernelBootName)
+	})
+	if idx < 0 {
+		return fmt.Errorf("kernel artifacts record wasn't found")
 	}
+	targetDir, err := safepath.NewFileNoFollow(record.MountTargetEntries[idx].TargetFile)
+	if err != nil {
+		return fmt.Errorf("failed to obtaining a reference to the target directory %q: %v", targetDir, err)
+	}
+	_ = targetDir.Close()
+	log.DefaultLogger().Object(vmi).Infof("unmounting kernel artifacts in path: %v", targetDir)
 
-	return fmt.Errorf("kernel artifacts record wasn't found")
+	if err = unmount(targetDir.Path(), kb.InitrdPath, kb.KernelPath); err != nil {
+		// Not returning here since even if unmount wasn't successful it's better to keep
+		// cleaning the mounted files.
+		log.Log.Object(vmi).Reason(err).Error("unable to unmount kernel artifacts")
+	}
+	return nil
 }
 
 func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v1.Volume, volumeIndex int) (*safepath.Path, error) {
