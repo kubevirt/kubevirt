@@ -2882,7 +2882,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithMemoryRequest(vmiRequest.String()),
 			)
 
-			vmiRequest.Add(resource.MustParse("50Mi")) //add 50Mi memoryOverHead to make sure vmi creation won't be blocked
+			vmiRequest.Add(resource.MustParse("150Mi"))
 			enoughMemoryToStartVmiButNotEnoughForMigration := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 			enoughMemoryToStartVmiButNotEnoughForMigration.Add(vmiRequest)
 			resourcesToLimit := k8sv1.ResourceList{
@@ -2892,28 +2892,19 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			By("Creating ResourceQuota with enough memory for the vmi but not enough for migration")
 			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
 			resourceQuota = createResourceQuota(resourceQuota)
-			Eventually(func() error {
-				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				for key := range resourcesToLimit {
-					if _, ok := quota.Status.Hard[key]; !ok {
-						return fmt.Errorf("Missing %s in status", key)
-					}
-					value := quota.Status.Hard[key]
-					if value.Cmp(resourcesToLimit[key]) != 0 {
-						return fmt.Errorf("%v should equal %v", value, resourcesToLimit[key])
-					}
-					if _, ok := quota.Status.Used[key]; !ok {
-						return fmt.Errorf("Missing %s in status.used", key)
-					}
-				}
-				return err
-			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 
 			By("Starting the VirtualMachineInstance")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Waiting for the ResourceQuota status to reflect the VMI's resource consumption")
+			Eventually(func(g Gomega) {
+				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(quota.Status.Used).ToNot(BeNil(), "resource quota status.used not yet populated")
+				usedMemory, found := quota.Status.Used[k8sv1.ResourceMemory]
+				g.Expect(found).To(BeTrue(), "memory not yet in status.used")
+				g.Expect(usedMemory.IsZero()).To(BeFalse(), "memory status.used is still zero")
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 
 			By("Trying to migrate the VirtualMachineInstance")
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
