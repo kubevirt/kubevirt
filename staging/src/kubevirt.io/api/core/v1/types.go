@@ -1360,6 +1360,10 @@ const (
 	// TDXLabel marks the node as capable of running workloads with Intel TDX
 	TDXLabel string = "kubevirt.io/tdx"
 
+	// VGPUHostDriverVersionLabelPrefix is the prefix for vGPU host driver version labels.
+	// The suffix is the vendor, for example nvidia. The value is that vendor's host driver version.
+	VGPUHostDriverVersionLabelPrefix string = "vgpu-host-driver-version.kubevirt.io/"
+
 	// VMArchLabel marks the node as capable of running VMs of a given architecture
 	VMArchLabel string = "kubevirt.io/vm-arch-"
 

@@ -426,6 +426,7 @@ var nodeLabels = map[string]string{
 	k8sv1.LabelHostname:                                                "node01",
 	"kubernetes.io/os":                                                 "linux",
 	"kubevirt.io/schedulable":                                          "true",
+	nvidiaVGPUHostDriverVersionLabel:                                   "595.91.04",
 	"node-role.kubernetes.io/control-plane":                            "",
 	"node-role.kubernetes.io/master":                                   "",
 	"node.kubernetes.io/exclude-from-external-load-balancers":          "",

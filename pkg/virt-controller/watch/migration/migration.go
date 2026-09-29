@@ -1181,7 +1181,10 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 	if exists {
 		node := obj.(*k8sv1.Node)
 		for key, value := range node.Labels {
-			if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) || strings.HasPrefix(key, virtv1.CPUModelVendorLabel) {
+			if strings.HasPrefix(key, virtv1.HostModelCPULabel) ||
+				strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) ||
+				strings.HasPrefix(key, virtv1.CPUModelVendorLabel) ||
+				(c.clusterConfig.VGPULiveMigrationEnabled() && strings.HasPrefix(key, virtv1.VGPUHostDriverVersionLabelPrefix)) {
 				res[key] = value
 			}
 		}
