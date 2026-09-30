@@ -20,6 +20,7 @@
 package network
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -103,12 +104,16 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	)
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 
-	interfacesStatus := ifacesStatusFromDomainInterfaces(vmi, domain.Spec.Devices.Interfaces)
+	domainInterfaces, err := filterValidDomainInterfaces(domain.Spec.Devices.Interfaces)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Ignoring invalid domain interfaces")
+	}
+
+	interfacesStatus := ifacesStatusFromDomainInterfaces(domainInterfaces)
 	interfacesStatus = append(interfacesStatus,
 		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
 	)
 
-	var err error
 	interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, vmi)
 	if err != nil {
 		return err
@@ -275,15 +280,27 @@ func ifaceNameFromKey(key string, vmiUID types.UID) string {
 	return strings.TrimPrefix(key, keyPrefix(vmiUID))
 }
 
-func ifacesStatusFromDomainInterfaces(vmi *v1.VirtualMachineInstance, domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+// filterValidDomainInterfaces returns the domain interfaces that can be reported
+// in the VMI status, and an error describing any that were filtered out.
+func filterValidDomainInterfaces(domainSpecIfaces []api.Interface) ([]api.Interface, error) {
+	var validIfaces []api.Interface
+	var errs []error
+
+	for i, domainSpecIface := range domainSpecIfaces {
+		if domainSpecIface.Alias == nil {
+			// Interfaces which do not include an alias cannot be associated with an iface spec.
+			errs = append(errs, fmt.Errorf("domain interface at index %d has no alias", i))
+			continue
+		}
+		validIfaces = append(validIfaces, domainSpecIface)
+	}
+	return validIfaces, errors.Join(errs...)
+}
+
+func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, domainSpecIface := range domainSpecIfaces {
-		if domainSpecIface.Alias == nil {
-			// Interfaces which do not include an alias cannot be associated with an iface spec.
-			log.Log.Object(vmi).Errorf("Missing alias for domain interface %v", domainSpecIface)
-			continue
-		}
 		var mac string
 		if domainSpecIface.MAC != nil {
 			mac = domainSpecIface.MAC.MAC
