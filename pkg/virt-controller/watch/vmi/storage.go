@@ -40,7 +40,7 @@ import (
 )
 
 // addPVC handles the addition of a PVC, enqueuing affected VMIs.
-func (c *Controller) addPVC(obj interface{}) {
+func (c *Controller) addPVC(obj any) {
 	pvc := obj.(*k8sv1.PersistentVolumeClaim)
 	if pvc.DeletionTimestamp != nil {
 		return
@@ -63,7 +63,7 @@ func (c *Controller) addPVC(obj interface{}) {
 }
 
 // updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity or requested size changes.
-func (c *Controller) updatePVC(old, cur interface{}) {
+func (c *Controller) updatePVC(old, cur any) {
 	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
 	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
 	if curPVC.ResourceVersion == oldPVC.ResourceVersion {
