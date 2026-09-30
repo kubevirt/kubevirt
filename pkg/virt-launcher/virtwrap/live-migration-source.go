@@ -37,6 +37,7 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/hugepages"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -418,7 +419,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 			maxDowntimeMs:           options.MaxDowntimeMs,
 			allowPostCopy:           options.AllowPostCopy,
 			allowWorkloadDisruption: options.AllowWorkloadDisruption,
-			hasVFIO:                 vmitrait.HasVFIO(vmi),
+			forbidsPostCopy:         forbidsPostCopy(vmi),
 		}
 		monitor.logger.V(3).Infof(
 			"initialized migration monitor: stallDetection=%t progressTimeout=%ds completionTimeoutPerGiB=%d maxDowntimeMs=%d allowPostCopy=%t allowWorkloadDisruption=%t "+
@@ -602,7 +603,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 		// safety guard that protects against triggering a switch-over during a network drop
 		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
 
-		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
+		if m.options.AllowPostCopy && !forbidsPostCopy(m.vmi) && completable {
 			logger.Info("completion timeout reached: starting post-copy mode to force convergence")
 			if err := dom.MigrateStartPostCopy(0); err != nil {
 				logger.Reason(err).Error("failed to start post-copy migration")
@@ -773,10 +774,11 @@ func (m *migrationMonitor) handleLegacyConvergence(dom cli.VirDomain, elapsedNs 
 		// then it would result in that active state being lost.
 
 	case m.shouldAssistMigrationToComplete(elapsedNs, logger) && !m.isPausedMigration():
-		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) {
+		if m.options.AllowPostCopy && !forbidsPostCopy(m.vmi) {
 			logger.Info("Starting post copy mode for migration")
 			// if a migration has stalled too long, post copy will be
-			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
+			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices
+			// or guaranteed transparent hugepages)
 			err := dom.MigrateStartPostCopy(0)
 			if err != nil {
 				logger.Reason(err).Error("failed to start post migration")
@@ -1444,4 +1446,10 @@ func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shou
 
 func standardizeSpaces(s string) string {
 	return strings.Join(strings.Fields(s), " ")
+}
+
+// forbidsPostCopy reports whether post-copy switchover must be skipped for this VMI.
+func forbidsPostCopy(vmi *v1.VirtualMachineInstance) bool {
+	return vmitrait.HasVFIO(vmi) ||
+		(vmi.Spec.Domain.Memory != nil && hugepages.ForbidsPostCopy(vmi.Spec.Domain.Memory.Hugepages))
 }
