@@ -89,6 +89,14 @@ func setCgroupResourcesV1(paths map[string]string, resources *cgroups.Resources,
 }
 
 func setCgroupResourcesV2(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
+	// Done before attaching our own program: attaching it detaches all the
+	// programs already there, including the one systemd has just rebuilt.
+	if !resources.SkipDevices {
+		if err := syncSystemdDeviceAllow(paths, resources); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to sync device rules to systemd: %v\n", err)
+		}
+	}
+
 	for _, path := range paths {
 		if !resources.SkipDevices {
 			if err := attachDummyCgroupDeviceProg(path); err != nil {
