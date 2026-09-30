@@ -74,7 +74,7 @@ type stallDetector struct {
 	// migration policy flags (set once at init, immutable during migration)
 	allowPostCopy           bool
 	allowWorkloadDisruption bool
-	hasVFIO                 bool
+	forbidsPostCopy         bool
 }
 
 func (sd *stallDetector) updateBandwidthEstimate(bandwidthSample uint64, logger *log.FilteredLogger) {
@@ -294,7 +294,7 @@ func (sd *stallDetector) decideAction(record iterationRecord, estimatedDowntimeM
 		return actionNothing, fmt.Sprintf("estimated transfer time (%dms) exceeds remaining budget (%dms) before completion deadline (%ds)", estimatedDowntimeMs, remainingBudgetMs, deadlineSeconds)
 	}
 
-	if sd.allowWorkloadDisruption && sd.allowPostCopy && !sd.hasVFIO {
+	if sd.allowWorkloadDisruption && sd.allowPostCopy && !sd.forbidsPostCopy {
 		return actionPostCopy, fmt.Sprintf("estimated transfer time %dms is a local minima", estimatedDowntimeMs)
 	}
 

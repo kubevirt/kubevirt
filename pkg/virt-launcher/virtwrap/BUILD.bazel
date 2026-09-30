@@ -26,6 +26,7 @@ go_library(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/hooks:go_default_library",
+        "//pkg/hugepages:go_default_library",
         "//pkg/hypervisor:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
