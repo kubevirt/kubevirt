@@ -20,9 +20,13 @@
 package main
 
 import (
+	"kubevirt.io/kubevirt/pkg/coveragehttp"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 )
 
 func main() {
+	// No-op unless built with the coverage_e2e tag (--build-cover).
+	coveragehttp.Start("virt-controller")
+
 	watch.Execute()
 }
