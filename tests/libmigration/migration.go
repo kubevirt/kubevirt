@@ -541,7 +541,11 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	}
 
 	Eventually(func() error {
-		out := libmonitoring.GetKubevirtVMMetrics(pod)
+		out, err := libmonitoring.GetKubevirtVMMetrics(pod)
+		if err != nil {
+			return err
+		}
+
 		for _, metricName := range migrationMetrics {
 			lines := libinfra.TakeMetricsWithPrefix(out, metricName)
 			metrics, err := libinfra.ParseMetricsToMap(lines)
