@@ -2715,6 +2715,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(updatedPod.Annotations).To(HaveKeyWithValue(velero.PreBackupHookTimeoutAnnotation, "60s"))
 				Expect(updatedPod.Annotations).To(HaveKeyWithValue(velero.PostBackupHookContainerAnnotation, "compute"))
 				Expect(updatedPod.Annotations).To(HaveKey(velero.PostBackupHookCommandAnnotation))
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue(velero.PostBackupHookTimeoutAnnotation, "60s"))
 			})
 
 			It("should not patch pod when Velero annotations are already in sync", func() {
@@ -2732,6 +2733,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pod.Annotations[velero.PreBackupHookTimeoutAnnotation] = "60s"
 				pod.Annotations[velero.PostBackupHookContainerAnnotation] = "compute"
 				pod.Annotations[velero.PostBackupHookCommandAnnotation] = `["/usr/bin/virt-freezer", "--unfreeze", "--name", "testvmi", "--namespace", "default"]`
+				pod.Annotations[velero.PostBackupHookTimeoutAnnotation] = "60s"
 
 				addVirtualMachine(vmi)
 				addActivePods(vmi, pod.UID, "")
