@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -42,8 +41,6 @@ import (
 const kubeVirtNamespace = "kubevirt"
 
 var _ = Describe("Validating VM Admitter", func() {
-	_, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
 	Context("Validate VM DataVolumeTemplate", func() {
 		var vm *v1.VirtualMachine
 		apiGroup := "kubevirt.io"
@@ -84,8 +81,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
 			causes, err := admitVm(admissionv1.Create, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
@@ -131,8 +126,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
 			causes, err := admitVm(admissionv1.Create, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
@@ -154,8 +147,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(BeEmpty())
 			})
@@ -169,8 +160,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("'name' field must not be empty for DataVolumeTemplate entry spec.dataVolumeTemplate[0].name."))
@@ -186,8 +175,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Missing Data volume PVC or Storage"))
@@ -205,8 +192,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Duplicate storage definition, both target storage and target pvc defined"))
@@ -227,8 +212,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("External population is incompatible with Source and SourceRef"))
@@ -242,8 +225,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						PVC: &k8sv1.PersistentVolumeClaimSpec{},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Data volume should have either Source, SourceRef, or be externally populated"))
@@ -258,8 +239,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						Source: &cdiv1.DataVolumeSource{},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Missing dataVolume valid source"))
@@ -277,8 +256,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Multiple dataVolume sources"))
@@ -304,8 +281,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
