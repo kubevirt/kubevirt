@@ -249,10 +249,10 @@ func getDefaultDiskDriverStatistics() *api.DiskDriverStatistics {
 	histograms := make(
 		[]api.DiskDriverLatencyHistogram,
 		0,
-		len(DefaultLatencyHistogramOperations()),
+		len(DiskDriveLatencyOperations()),
 	)
 
-	for _, operation := range DefaultLatencyHistogramOperations() {
+	for _, operation := range DiskDriveLatencyOperations() {
 		histograms = append(histograms, api.DiskDriverLatencyHistogram{
 			Type: operation,
 			Bins: getDefaultLatencyHistogramBins(),
@@ -265,7 +265,7 @@ func getDefaultDiskDriverStatistics() *api.DiskDriverStatistics {
 }
 
 func getDefaultLatencyHistogramBins() []api.DiskDriverLatencyHistBin {
-	starts := DefaultLatencyHistogramBinStarts()
+	starts := DiskDriveLatencyBuckets()
 	bins := make([]api.DiskDriverLatencyHistBin, len(starts))
 
 	for i, start := range starts {
@@ -277,11 +277,11 @@ func getDefaultLatencyHistogramBins() []api.DiskDriverLatencyHistBin {
 	return bins
 }
 
-func DefaultLatencyHistogramOperations() []string {
+func DiskDriveLatencyOperations() []string {
 	return []string{"read", "write", "flush"}
 }
 
-func DefaultLatencyHistogramBinStarts() []uint32 {
+func DiskDriveLatencyBuckets() []uint32 {
 	return []uint32{
 		0,
 		1_000_000,

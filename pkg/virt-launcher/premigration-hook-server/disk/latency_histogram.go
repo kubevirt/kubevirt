@@ -64,7 +64,7 @@ func ensureLatencyHistograms(driver *libvirtxml.DomainDiskDriver) {
 		existingOperations[histogram.Type] = struct{}{}
 	}
 
-	for _, operation := range converterstorage.DefaultLatencyHistogramOperations() {
+	for _, operation := range converterstorage.DiskDriveLatencyOperations() {
 		if _, exists := existingOperations[operation]; exists {
 			continue
 		}
@@ -77,7 +77,7 @@ func ensureLatencyHistograms(driver *libvirtxml.DomainDiskDriver) {
 }
 
 func defaultLatencyHistogram(operation string) libvirtxml.DomainDiskLatencyHistogram {
-	starts := converterstorage.DefaultLatencyHistogramBinStarts()
+	starts := converterstorage.DiskDriveLatencyBuckets()
 	bins := make([]libvirtxml.DomainDiskLatencyHistogramBin, len(starts))
 
 	for i, start := range starts {
