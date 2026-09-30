@@ -2705,11 +2705,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.VGPULiveMigration + " is not enabled"))
+					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.MDevVGPULiveMigration + " is not enabled"))
 
 					config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: permittedHostDevs,
 					})
@@ -2732,7 +2732,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2765,7 +2765,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2802,7 +2802,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 					})
 					controller.clusterConfig = config

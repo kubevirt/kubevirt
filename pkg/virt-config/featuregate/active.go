@@ -203,9 +203,9 @@ const (
 	// Owner: @csomani1
 	// Alpha: v1.8.0
 	//
-	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
+	// The MDevVGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
-	VGPULiveMigration = "VGPULiveMigration"
+	MDevVGPULiveMigration = "MDevVGPULiveMigration"
 
 	// Owner: sig-compute / @enp0s3
 	// Alpha: v1.9.0
@@ -321,7 +321,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MDevVGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})

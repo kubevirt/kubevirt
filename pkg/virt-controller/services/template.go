@@ -485,7 +485,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
 			args = append(args, "--image-volume")
 		}
-		if t.clusterConfig.IsFeatureGateEnabled(featuregate.VGPULiveMigration) {
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.MDevVGPULiveMigration) {
 			args = append(args, "--vgpu-dedicated-hook")
 		}
 		if t.clusterConfig.IsFeatureGateEnabled(featuregate.VMStatsCollector) {
