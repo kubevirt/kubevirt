@@ -23,6 +23,36 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+# Opt-in E2E coverage instrumentation (VIRTCNV E2E code coverage).
+# When --build-cover is passed, component binaries are built with Go coverage
+# instrumentation so functests can collect a coverage profile. Production
+# builds are unaffected unless this flag is explicitly set.
+BUILD_COVER=false
+for arg in "$@"; do
+    case "${arg}" in
+    --build-cover)
+        BUILD_COVER=true
+        ;;
+    esac
+done
+
+coverage_args=()
+if [ "${BUILD_COVER}" == "true" ]; then
+    echo "Building images with E2E coverage instrumentation (--build-cover)"
+    coverage_args=(
+        --collect_code_coverage
+        --instrumentation_filter='//cmd/...,//pkg/...,//staging/src/kubevirt.io/client-go/...'
+        --@io_bazel_rules_go//go/config:cover_format=go_cover
+        --@io_bazel_rules_go//go/config:tags=coverage_e2e
+        # covermode is atomic automatically: rules_go v0.60.0 hardcodes
+        # cover_mode = "atomic" whenever coverage is enabled
+        # (go/private/actions/compilepkg.bzl L123-126), precisely because the
+        # runtime/coverage APIs require it. No cover_mode flag is needed (or
+        # exposed) -- atomic is guaranteed, so runtime/coverage.ClearCounters()
+        # (per-test reset) works with these binaries.
+    )
+fi
+
 # vars are uninteresting for the build step, they are interesting for the push step only
 other_images_default="
     //cmd/sidecars:sidecar-shim-image
@@ -79,6 +109,7 @@ esac
 
 bazel build \
     --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
+    "${coverage_args[@]}" \
     --define container_prefix= \
     --define image_prefix= \
     --define container_tag= \
