@@ -77,6 +77,8 @@ const (
 	failedGetAttractionPodsFmt                = "failed to get attachment pods: %v"
 	migrationBlockedByBackupAbortingMsgFmt    = "Aborting backup %s for system-critical migration"
 	migrationBlockedByBackupWaitingMsgFmt     = "Waiting for backup %s to complete"
+
+	vgpuSameHostDriverVersionWeight int32 = 100
 )
 
 const vmiPodIndex = "vmiPodIndex"
@@ -1004,6 +1006,10 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 		}
 	}
 
+	if err := c.setVGPUHostDriverVersionAffinity(migration, vmi, templatePod); err != nil {
+		return err
+	}
+
 	matchLevelOnTarget := c.clusterConfig.GetMigrationConfiguration().MatchSELinuxLevelOnMigration
 	if matchLevelOnTarget == nil || *matchLevelOnTarget {
 		err = setTargetPodSELinuxLevel(templatePod, selinuxContext)
@@ -1042,6 +1048,59 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	log.Log.Object(vmi).V(5).Infof("Created migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
 	return nil
+}
+
+func (c *Controller) setVGPUHostDriverVersionAffinity(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	if !c.clusterConfig.VGPULiveMigrationEnabled() || len(vmi.Spec.Domain.Devices.GPUs) == 0 {
+		return nil
+	}
+
+	var sourceLabels map[string]string
+	if migration.IsDecentralizedTarget() {
+		sourceLabels = vmi.Status.MigrationState.SourceState.NodeSelectors
+	} else {
+		node, err := c.getNodeForVMI(vmi)
+		if err != nil {
+			return err
+		}
+		sourceLabels = node.Labels
+	}
+
+	appendVGPUHostDriverVersionAffinity(pod, sourceLabels)
+	return nil
+}
+
+func appendVGPUHostDriverVersionAffinity(pod *k8sv1.Pod, sourceLabels map[string]string) {
+	var terms []k8sv1.PreferredSchedulingTerm
+	for key, version := range sourceLabels {
+		if version == "" || !strings.HasPrefix(key, virtv1.VGPUHostDriverVersionLabelPrefix) {
+			continue
+		}
+		terms = append(terms, k8sv1.PreferredSchedulingTerm{
+			Weight: vgpuSameHostDriverVersionWeight,
+			Preference: k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{{
+					Key:      key,
+					Operator: k8sv1.NodeSelectorOpIn,
+					Values:   []string{version},
+				}},
+			},
+		})
+	}
+	if len(terms) == 0 {
+		return
+	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		terms...,
+	)
 }
 
 // handleMigrationBackoff introduce a backoff (when needed) only for migrations
