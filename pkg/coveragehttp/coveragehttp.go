@@ -47,6 +47,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/coverage"
 	"sync"
 	"syscall"
@@ -129,35 +130,53 @@ func (s *server) handleFlush(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// flush uploads meta-data (first call only) and the current counters.
+// flush writes the current coverage to a temporary directory using the
+// runtime/coverage *Dir helpers -- which produce correctly named covmeta.<hash>
+// and covcounters.<hash>.<pid>.<time> files -- then uploads each file to the
+// collector under its original name. Preserving those names lets the collector
+// feed them straight to "go tool covdata", which pairs counters to their meta
+// by the hash in the filename. Meta-data is invariant per binary, so it is only
+// emitted on the first flush.
 func (s *server) flush() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	tmp, err := os.MkdirTemp("", "coverage-flush-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+
 	if !s.metaWritten {
-		var meta bytes.Buffer
-		if err := coverage.WriteMeta(&meta); err != nil {
-			return fmt.Errorf("WriteMeta: %w", err)
+		if err := coverage.WriteMetaDir(tmp); err != nil {
+			return fmt.Errorf("WriteMetaDir: %w", err)
 		}
-		if err := s.upload("meta", meta.Bytes()); err != nil {
-			return fmt.Errorf("upload meta: %w", err)
-		}
-		s.metaWritten = true
+	}
+	if err := coverage.WriteCountersDir(tmp); err != nil {
+		return fmt.Errorf("WriteCountersDir: %w", err)
 	}
 
-	var counters bytes.Buffer
-	if err := coverage.WriteCounters(&counters); err != nil {
-		return fmt.Errorf("WriteCounters: %w", err)
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		return err
 	}
-	if err := s.upload("counters", counters.Bytes()); err != nil {
-		return fmt.Errorf("upload counters: %w", err)
+	for _, e := range entries {
+		data, err := os.ReadFile(filepath.Join(tmp, e.Name()))
+		if err != nil {
+			return err
+		}
+		if err := s.upload(e.Name(), data); err != nil {
+			return fmt.Errorf("upload %s: %w", e.Name(), err)
+		}
 	}
+	s.metaWritten = true
 	return nil
 }
 
-// upload POSTs a single coverage blob to the collector, labelling it via
-// headers so the collector can lay it out as a covdata directory.
-func (s *server) upload(kind string, data []byte) error {
+// upload POSTs a single coverage data file to the collector, labelling it via
+// headers (including its original covmeta/covcounters filename) so the collector
+// can lay it out as a covdata directory.
+func (s *server) upload(filename string, data []byte) error {
 	if s.collector == "" {
 		return fmt.Errorf("%s not set", envCollector)
 	}
@@ -173,7 +192,7 @@ func (s *server) upload(kind string, data []byte) error {
 	req.Header.Set("X-Coverage-Component", s.component)
 	req.Header.Set("X-Coverage-Pod", s.pod)
 	req.Header.Set("X-Coverage-Run-Id", s.runID)
-	req.Header.Set("X-Coverage-Kind", kind) // "meta" or "counters"
+	req.Header.Set("X-Coverage-Filename", filename) // covmeta.* or covcounters.*
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
