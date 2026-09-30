@@ -1720,7 +1720,7 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 
 	l.metadataCache.UID.Set(vmi.UID)
 	l.metadataCache.GracePeriod.Set(
-		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
+		api.GracePeriodMetadata{DeletionGracePeriodSeconds: gracePeriodSeconds(vmi)},
 	)
 	logger.Info("Domain defined.")
 	return dom, err
@@ -2931,7 +2931,7 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 
 func (l *LibvirtDomainManager) syncGracePeriod(vmi *v1.VirtualMachineInstance) {
 	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
-		gracePeriod := converter.GracePeriodSeconds(vmi)
+		gracePeriod := gracePeriodSeconds(vmi)
 		if gracePeriodMetadata.DeletionGracePeriodSeconds != gracePeriod {
 			gracePeriodMetadata.DeletionGracePeriodSeconds = gracePeriod
 			log.Log.Object(vmi).Infof("Set new termination grace period: %d", gracePeriod)
@@ -3111,4 +3111,12 @@ func (l *LibvirtDomainManager) selectConverterArch(guestArch string) arch.Conver
 		vmArch = guestArch
 	}
 	return arch.NewConverter(vmArch)
+}
+
+func gracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
+	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+	}
+	return gracePeriodSeconds
 }
