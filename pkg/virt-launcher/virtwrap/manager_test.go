@@ -2832,7 +2832,7 @@ var _ = Describe("Manager", func() {
 				}
 
 				options := &cmdv1.VirtualMachineOptions{
-					ClusterConfig: &cmdv1.ClusterConfig{VGPULiveMigrationEnabled: true},
+					ClusterConfig: &cmdv1.ClusterConfig{MDevVGPULiveMigrationEnabled: true},
 				}
 				manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
 				Expect(err).ToNot(HaveOccurred())

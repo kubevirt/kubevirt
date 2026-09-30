@@ -785,7 +785,7 @@ func (m *migrationMonitor) handleLegacyConvergence(dom cli.VirDomain, elapsedNs 
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 		} else if vmitrait.HasVFIO(m.vmi) {
 			logger.Info("Setting large max downtime to trigger migration switchover")
-			// TODO: once the VGPULiveMigration featuregate graduates
+			// TODO: once the MDevVGPULiveMigration featuregate graduates
 			//  (and even possibly other VFIO live migration featuregates)
 			//  we should consider merging this with the "else" case below.
 			// Setting a very high max downtime causes QEMU to trigger its
