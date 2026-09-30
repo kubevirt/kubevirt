@@ -427,8 +427,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			updateVMWithDV(vm, volName, destDV.Name)
 
 			threshold := resource.MustParse("500Mi")
-			Eventually(func() []string {
-				out := libmonitoring.GetKubevirtVMMetrics(pod)
+			Eventually(func(g Gomega) []string {
+				out, err := libmonitoring.GetKubevirtVMMetrics(pod)
+				g.Expect(err).ToNot(HaveOccurred(), "should scrape the metrics endpoint")
 				return libinfra.TakeMetricsWithPrefix(out, "kubevirt_vmi_migration_data_processed_bytes")
 			}, 4*time.Minute, 10*time.Second).Should(
 				WithTransform(func(lines []string) []float64 {
