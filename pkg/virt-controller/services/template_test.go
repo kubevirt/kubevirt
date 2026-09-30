@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -40,7 +39,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -48,7 +46,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -58,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -76,8 +72,6 @@ var testHookSidecar = hooks.HookSidecar{
 }
 
 var _ = Describe("Template", func() {
-	const expectedNetworkResource = "amazing-network-resource.com"
-
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
@@ -151,45 +145,11 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
-				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			// Set up mock clients
-			networkClient := fakenetworkclient.NewSimpleClientset()
-			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 			k8sClient := k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-			// Sadly, we cannot pass desired attachment objects into
-			// Clientset constructor because UnsafeGuessKindToResource
-			// calculates incorrect object kind (without dashes). Instead
-			// of that, we use tracker Create function to register objects
-			// under explicitly defined schema name
-			gvr := schema.GroupVersionResource{
-				Group:    "k8s.cni.cncf.io",
-				Version:  "v1",
-				Resource: "network-attachment-definitions",
-			}
-			for _, name := range []string{"default", "test1"} {
-				network := &networkv1.NetworkAttachmentDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: "default",
-					},
-				}
-				err := networkClient.Tracker().Create(gvr, network, "default")
-				Expect(err).To(Not(HaveOccurred()))
-			}
-			// create a network in a different namespace
-			network := &networkv1.NetworkAttachmentDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: "other-namespace",
-					Annotations: map[string]string{
-						multus.ResourceNameAnnotation: expectedNetworkResource,
-					},
-				},
-			}
-			err := networkClient.Tracker().Create(gvr, network, "other-namespace")
-			Expect(err).To(Not(HaveOccurred()))
 			return config, kvStore, svc
 		}
 		nonRootUser = util.NonRootUID
@@ -570,7 +530,6 @@ var _ = Describe("Template", func() {
 					HaveKeyWithValue(v1.DomainAnnotation, "testvmi"),
 					HaveKeyWithValue("test", "shouldBeInPod"),
 					HaveKeyWithValue(hooks.HookSidecarListAnnotationName, `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`),
-					HaveKeyWithValue("kubevirt.io/migrationTransportUnix", "true"),
 					HaveKeyWithValue("kubectl.kubernetes.io/default-container", "compute"),
 					HaveKeyWithValue("descheduler.alpha.kubernetes.io/request-evict-only", ""),
 					HaveKey(v1.MemoryOverheadAnnotationBytes),
@@ -1117,17 +1076,6 @@ var _ = Describe("Template", func() {
 
 			})
 
-		})
-		Context("migration over unix sockets", func() {
-			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := api.NewMinimalVMI("fake-vmi")
-
-				pod, err := svc.RenderLaunchManifest(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
-				Expect(ok).To(BeTrue())
-			})
 		})
 
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
@@ -3235,7 +3183,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -6160,7 +6108,7 @@ var _ = Describe("Template", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
 
-			netBindingPluginMemoryOverheadCalculator := &stubNetMemoryCalculator{}
+			memoryOverheadCalculator := &stubMemoryOverheadCalculator{}
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
@@ -6176,7 +6124,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithMemoryOverheadCalculators(memoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
@@ -6188,7 +6136,7 @@ var _ = Describe("Template", func() {
 			_, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
+			Expect(memoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
 
@@ -6521,11 +6469,11 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	return timeoutString
 }
 
-type stubNetMemoryCalculator struct {
+type stubMemoryOverheadCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubMemoryOverheadCalculator) Calculate(_ *v1.VirtualMachineInstance) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}

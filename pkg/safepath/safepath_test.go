@@ -252,6 +252,26 @@ var _ = Describe("safepath", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("should work with os.ErrNotExist", func() {
+		root, err := JoinAndResolveWithRelativeRoot("/", GinkgoT().TempDir())
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = JoinAndResolveWithRelativeRoot(unsafepath.UnsafeAbsolute(root.Raw()), "test")
+		Expect(err).To(MatchError(os.ErrNotExist))
+
+		p, err := JoinNoFollow(root, "test")
+		Expect(err).To(MatchError(os.ErrNotExist))
+
+		Expect(TouchAtNoFollow(root, "test", os.ModePerm)).To(Succeed())
+		Expect(TouchAtNoFollow(root, "test", os.ModePerm)).To(MatchError(os.ErrExist))
+
+		p, err = JoinNoFollow(root, "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(UnlinkAtNoFollow(p)).To(Succeed())
+		Expect(UnlinkAtNoFollow(p)).To(MatchError(os.ErrNotExist))
+	})
+
 	It("should return base and relative paths correctly", func() {
 		baseDir := GinkgoT().TempDir()
 		root, err := JoinAndResolveWithRelativeRoot(baseDir)

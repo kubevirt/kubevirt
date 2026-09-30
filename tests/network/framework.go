@@ -23,6 +23,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 )
 
-func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+func SIG(text string, args ...any) (extendedText string, newArgs []any) {
 	return decorators.SIG("[sig-network]", text, decorators.SigNetwork, args)
 }

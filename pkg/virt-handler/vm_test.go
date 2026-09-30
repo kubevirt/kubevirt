@@ -3977,11 +3977,11 @@ func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
 }
 func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
 
-type stubNetBindingPluginMemoryCalculator struct {
+type stubMemoryOverheadCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubMemoryOverheadCalculator) Calculate(_ *v1.VirtualMachineInstance) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
@@ -3996,3 +3996,42 @@ func withFilesystemDevice(deviceName string) libvmi.Option {
 		})
 	}
 }
+
+var _ = Describe("detectDiskWriteLockError", func() {
+	var controller *VirtualMachineController
+	const expectedSubstr = "a disk image is locked by another process"
+
+	BeforeEach(func() {
+		controller = &VirtualMachineController{
+			vmiGlobalStore: cache.NewStore(cache.MetaNamespaceKeyFunc),
+		}
+	})
+
+	It("should not match an empty error", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		_, ok := controller.detectDiskWriteLockError(fmt.Errorf(""), vmi)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("should not match an unrelated error", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		_, ok := controller.detectDiskWriteLockError(fmt.Errorf("some other error"), vmi)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("should return a generic message when there is a write lock", func() {
+		err := fmt.Errorf(`Failed to get "write" lock on /some/unknown/path`)
+		vmi := api2.NewMinimalVMI("testvmi")
+		msg, ok := controller.detectDiskWriteLockError(err, vmi)
+		Expect(ok).To(BeTrue())
+		Expect(msg).To(ContainSubstring(expectedSubstr))
+	})
+
+	It("should return a generic message when another process is using the image", func() {
+		err := fmt.Errorf("Is another process using the image")
+		vmi := api2.NewMinimalVMI("testvmi")
+		msg, ok := controller.detectDiskWriteLockError(err, vmi)
+		Expect(ok).To(BeTrue())
+		Expect(msg).To(ContainSubstring(expectedSubstr))
+	})
+})

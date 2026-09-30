@@ -257,7 +257,7 @@ func WithNetworkIfacesResources(
 
 func AppendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int) *api.DomainSpec {
 	domainSpecWithIfacesResource := domainSpec.DeepCopy()
-	for i := 0; i < count; i++ {
+	for i := range count {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(
 			domainSpecWithIfacesResource.Devices.Interfaces,
 			newInterfacePlaceholder(i, virtio.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional, vmi.Spec.Architecture)),

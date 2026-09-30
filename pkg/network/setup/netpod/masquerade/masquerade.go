@@ -43,7 +43,6 @@ type nftable interface {
 type MasqPod struct {
 	nftable                   nftable
 	istioEnabled              bool
-	migrationPorts            []uint
 	portRangesSpecGateEnabled bool
 }
 
@@ -83,16 +82,6 @@ func WithNftableAdapter(h nftable) option {
 func WithPortRangesSpecGateEnabled(enabled bool) option {
 	return func(m *MasqPod) {
 		m.portRangesSpecGateEnabled = enabled
-	}
-}
-
-// WithLegacyMigrationPorts is used for legacy setups where migration ports are in use
-// When set, the configuration should skip forwarding for the reserved migration ports.
-func WithLegacyMigrationPorts() option {
-	const LibvirtDirectMigrationPort = 49152
-	const LibvirtBlockMigrationPort = 49153
-	return func(m *MasqPod) {
-		m.migrationPorts = []uint{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
 	}
 }
 
@@ -143,12 +132,6 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 	}
 	if err := m.nftable.AddRule(family, natTable, postroutingChain, "oifname", bridgeIfaceSpec.Name, "counter", "jump", kubevirtPostInboundChain); err != nil {
 		return err
-	}
-
-	if len(m.migrationPorts) > 0 {
-		if err := m.skipForwardPorts(family, m.migrationPorts...); err != nil {
-			return err
-		}
 	}
 
 	addressesToDnat := []string{ipLoopback(family)}

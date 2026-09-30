@@ -88,7 +88,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		permissions:  permissions,
 	}
 
-	for i := 0; i < maxDevices; i++ {
+	for i := range maxDevices {
 		deviceId := dpi.deviceName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,

@@ -776,7 +776,7 @@ var _ = Describe("HotplugVolume", func() {
 			path, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(path.Raw())), nil
 			}
 			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
@@ -825,7 +825,7 @@ var _ = Describe("HotplugVolume", func() {
 			expectedPath, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(expectedPath.Raw()))), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(expectedPath.Raw())), nil
 			}
 			res, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
 			Expect(err).ToNot(HaveOccurred())
@@ -839,7 +839,7 @@ var _ = Describe("HotplugVolume", func() {
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw())), nil
 			}
 			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
 			Expect(err).ToNot(HaveOccurred())
@@ -871,7 +871,7 @@ var _ = Describe("HotplugVolume", func() {
 
 		It("mountFileSystemHotplugVolume should return os.ErrNotExist if disk.img is missing", func() {
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", tempDir)), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "testvolume", tempDir), nil
 			}
 
 			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
@@ -898,7 +898,7 @@ var _ = Describe("HotplugVolume", func() {
 			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw())), nil
 			}
 			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
 			Expect(err).ToNot(HaveOccurred())
@@ -1145,7 +1145,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw()))), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw())), nil
 			}
 
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(fileSystemPath.Raw()), "disk.img")
@@ -1334,7 +1334,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw()))), nil
+				return fmt.Appendf(nil, findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw())), nil
 			}
 
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(fileSystemPath.Raw()), "disk.img")
@@ -1485,6 +1485,6 @@ func (f fakeFileInfo) IsDir() bool {
 	panic("implement me")
 }
 
-func (f fakeFileInfo) Sys() interface{} {
+func (f fakeFileInfo) Sys() any {
 	return &syscall.Stat_t{Rdev: f.dev}
 }

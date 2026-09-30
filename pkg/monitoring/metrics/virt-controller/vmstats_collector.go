@@ -169,6 +169,9 @@ var (
 
 			// Status
 			"status", "status_group",
+
+			// Related VM name (same as name; present for joins)
+			"vm",
 		},
 	)
 
@@ -254,6 +257,7 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 				os, workload, flavor, machineType,
 				instanceType, preference,
 				strings.ToLower(string(vm.Status.PrintableStatus)), getVMStatusGroup(vm.Status.PrintableStatus),
+				vm.Name,
 			},
 			Value: 1.0,
 		})

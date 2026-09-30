@@ -36,10 +36,6 @@ const (
 	// to a network other than Multus's `clusterNetwork` field under /etc/cni/net.d
 	// The value of this annotation should be a NetworkAttachmentDefinition's name
 	DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
-
-	// ResourceNameAnnotation represents a resource name that is associated with the network.
-	// It could be found on NetworkAttachmentDefinition objects.
-	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
 )
 
 func GenerateCNIAnnotation(

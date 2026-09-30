@@ -53,16 +53,20 @@ func ContainsCrt(bundle []byte, containedCrt []byte) bool {
 	return attached
 }
 
-func GetBundleFromConfigMap(ctx context.Context, configMapName string) ([]byte, []*x509.Certificate) {
+func GetBundleFromConfigMap(ctx context.Context, configMapName string) ([]byte, []*x509.Certificate, error) {
 	virtClient := kubevirt.Client()
 	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(ctx, configMapName, v1.GetOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	if err != nil {
+		return nil, nil, err
+	}
 	if rawBundle, ok := configMap.Data[components.CABundleKey]; ok {
 		crts, err := cert.ParseCertsPEM([]byte(rawBundle))
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		return []byte(rawBundle), crts
+		if err != nil {
+			return nil, nil, err
+		}
+		return []byte(rawBundle), crts, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 // EnsurePodsCertIsSynced waits until new certificates are rolled out to all pods

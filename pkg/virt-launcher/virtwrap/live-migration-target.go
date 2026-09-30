@@ -24,10 +24,8 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,8 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/net/ip"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -153,10 +149,6 @@ func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool 
 	return shouldBlock
 }
 
-func canSourceMigrateOverUnixURI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Status.MigrationTransport == v1.MigrationTransportUnix
-}
-
 func (l *LibvirtDomainManager) prepareMigrationTarget(
 	vmi *v1.VirtualMachineInstance,
 	allowEmulation bool,
@@ -232,38 +224,20 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
 	}
 
-	if canSourceMigrateOverUnixURI(vmi) {
-		// Prepare the directory for migration sockets
-		migrationSocketsPath := filepath.Join(l.virtShareDir, "migrationproxy")
-		err = util.MkdirAllWithNosec(migrationSocketsPath)
-		if err != nil {
-			logger.Reason(err).Error("failed to create the migration sockets directory")
-			return err
-		}
-		if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(migrationSocketsPath); err != nil {
-			logger.Reason(err).Error("failed to change ownership on migration sockets directory")
-			return err
-		}
-	} else {
-		logger.V(3).Info("Setting up TCP proxies to support incoming legacy VMI migration")
-		loopbackAddress := ip.GetLoopbackAddress()
+	if vmi.Status.MigrationTransport != v1.MigrationTransportUnix {
+		return fmt.Errorf("unsupported migration transport, %s", vmi.Status.MigrationTransport)
+	}
 
-		migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
-		for _, port := range migrationPortsRange {
-			// Prepare the direct migration proxy
-			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
-			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
-			logger.V(2).Infof("Creating socketpath for unix migration/tcp %s", unixSocketPath)
-			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, string(vmi.UID))
-
-			err := migrationProxy.Start()
-			if err != nil {
-				logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
-				return err
-			}
-
-		}
+	// Prepare the directory for migration sockets
+	migrationSocketsPath := filepath.Join(l.virtShareDir, "migrationproxy")
+	err = util.MkdirAllWithNosec(migrationSocketsPath)
+	if err != nil {
+		logger.Reason(err).Error("failed to create the migration sockets directory")
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(migrationSocketsPath); err != nil {
+		logger.Reason(err).Error("failed to change ownership on migration sockets directory")
+		return err
 	}
 
 	if vmi.IsDecentralizedMigration() {

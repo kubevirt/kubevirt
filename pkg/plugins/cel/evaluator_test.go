@@ -20,8 +20,6 @@
 package cel_test
 
 import (
-	"reflect"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -69,9 +67,9 @@ var _ = Describe("CEL Evaluator", func() {
 		}
 	})
 
-	Context("NewBaseEvaluator", func() {
+	Context("NewBaseEnv", func() {
 		It("should create base evaluator", func() {
-			_, err := cel.NewBaseEvaluator()
+			_, err := cel.NewBaseEnv()
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -79,7 +77,7 @@ var _ = Describe("CEL Evaluator", func() {
 	Context("VMI field access", func() {
 		It("should evaluate VMI name", func() {
 			result, err := evaluator.EvaluateCondition(
-				`vmi.metadata.name == "test-vmi"`,
+				`vmi.Name == "test-vmi"`,
 				map[string]any{"vmi": vmi},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -88,7 +86,7 @@ var _ = Describe("CEL Evaluator", func() {
 
 		It("should evaluate CPU cores", func() {
 			result, err := evaluator.EvaluateCondition(
-				`vmi.spec.domain.cpu.cores > 2`,
+				`vmi.Spec.Domain.CPU.Cores > 2`,
 				map[string]any{"vmi": vmi},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -97,7 +95,7 @@ var _ = Describe("CEL Evaluator", func() {
 
 		It("should evaluate labels", func() {
 			result, err := evaluator.EvaluateCondition(
-				`"app" in vmi.metadata.labels`,
+				`"app" in vmi.Labels`,
 				map[string]any{"vmi": vmi},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -106,7 +104,7 @@ var _ = Describe("CEL Evaluator", func() {
 
 		It("should return false for non-matching condition", func() {
 			result, err := evaluator.EvaluateCondition(
-				`vmi.spec.domain.cpu.cores < 2`,
+				`vmi.Spec.Domain.CPU.Cores < 2`,
 				map[string]any{"vmi": vmi},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -116,46 +114,36 @@ var _ = Describe("CEL Evaluator", func() {
 
 	Context("Compile-time validation", func() {
 		It("should detect field typos at compile time", func() {
-			err := evaluator.CompileCondition(`vmi.spec.doman.cpu.cores > 2`)
+			err := evaluator.CompileCondition(`vmi.Spec.Doman.CPU.Cores > 2`)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("compilation failed"))
 		})
 
 		It("should detect invalid syntax", func() {
-			err := evaluator.CompileCondition(`vmi.spec.domain.cpu.cores >`)
+			err := evaluator.CompileCondition(`vmi.Spec.Domain.CPU.Cores >`)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("should reject non-bool expressions", func() {
-			err := evaluator.CompileCondition(`vmi.metadata.name`)
+			err := evaluator.CompileCondition(`vmi.Name`)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("must return bool"))
 		})
 
 		It("should accept valid expressions", func() {
-			err := evaluator.CompileCondition(`vmi.spec.domain.cpu.cores > 0`)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should reject go struct parsing when default tag parser is JSON", func() {
 			err := evaluator.CompileCondition(`vmi.Spec.Domain.CPU.Cores > 0`)
-			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should accept go struct parsing when default tag parser is not JSON", func() {
-			eval, err := cel.NewBaseEvaluator(
-				cel.WithNativeTypes(reflect.TypeOf(&v1.VirtualMachineInstance{})),
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, issue := eval.Compile(`vmi.Spec.Domain.CPU.Cores > 0`)
-			Expect(issue.Err()).ToNot(HaveOccurred())
+		It("should reject JSON-style field access now that syntax is unified on Go field names", func() {
+			err := evaluator.CompileCondition(`vmi.spec.domain.cpu.cores > 0`)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Context("Expression caching", func() {
 		It("should cache compiled expressions", func() {
-			expr := `vmi.spec.domain.cpu.cores > 2`
+			expr := `vmi.Spec.Domain.CPU.Cores > 2`
 			vars := map[string]any{"vmi": vmi}
 
 			result1, err := evaluator.EvaluateCondition(expr, vars)
@@ -168,7 +156,7 @@ var _ = Describe("CEL Evaluator", func() {
 		})
 
 		It("should produce correct results with different inputs on cached expression", func() {
-			expr := `vmi.spec.domain.cpu.cores > 2`
+			expr := `vmi.Spec.Domain.CPU.Cores > 2`
 
 			result, err := evaluator.EvaluateCondition(expr, map[string]any{"vmi": vmi})
 			Expect(err).ToNot(HaveOccurred())
@@ -198,7 +186,7 @@ var _ = Describe("CEL Evaluator", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			result, err := eval.EvaluateCondition(
-				`vmi.spec.domain.cpu.cores > threshold`,
+				`vmi.Spec.Domain.CPU.Cores > threshold`,
 				map[string]any{"vmi": vmi, "threshold": int64(2)},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -220,7 +208,7 @@ var _ = Describe("CEL Evaluator", func() {
 
 		It("should return error for missing variable at evaluation time", func() {
 			_, err := evaluator.EvaluateCondition(
-				`vmi.spec.domain.cpu.cores > 0`,
+				`vmi.Spec.Domain.CPU.Cores > 0`,
 				map[string]any{},
 			)
 			Expect(err).To(HaveOccurred())

@@ -105,6 +105,12 @@ func WithAutoattachSerialConsole(enable bool) Option {
 	}
 }
 
+func WithAutoattachVSOCK(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = &enable
+	}
+}
+
 func WithTPM(persistent bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{

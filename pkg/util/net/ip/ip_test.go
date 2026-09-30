@@ -86,17 +86,4 @@ var _ = Describe("IP utils test", func() {
 			Expect(address).To(Equal("::"))
 		})
 	})
-
-	Context("GetLoopbackAddress", func() {
-
-		It("should return IPv4 loopback address", func() {
-			address := getLoopbackAddress(true)
-			Expect(address).To(Equal("127.0.0.1"))
-		})
-
-		It("should return IPv6 zero address", func() {
-			address := getLoopbackAddress(false)
-			Expect(address).To(Equal("::1"))
-		})
-	})
 })

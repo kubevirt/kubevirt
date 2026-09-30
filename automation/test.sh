@@ -68,7 +68,7 @@ fi
 # as with sig-compute-serial lane all sig-compute periodic lanes need to
 # have the Plugins feature gate enabled as well, since the Serial tests are not
 # split out from the sig-compute as in presubmit jobs
-if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute$ ]]; then
+if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute(-root)?$ ]]; then
   add_feature_gate "Plugins"
 fi
 
@@ -134,6 +134,10 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NFS_CSI=true
     export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
     source hack/config-default.sh
+    ;;
+  *sig-compute-root*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-root/}
+    add_feature_gate "Plugins"
     ;;
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
@@ -678,6 +682,13 @@ fi
 
 if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
+fi
+
+# VSOCK namespace confinement needs nodes with net.vsock.child_ns_mode set to local.
+if [[ "${KUBEVIRT_VSOCK_CHILD_NS_MODE:-}" == "local" ]]; then
+  add_to_label_filter '(!RequiresVSOCKGlobalNamespace)' '&&'
+else
+  add_to_label_filter '(!RequiresVSOCKLocalNamespace)' '&&'
 fi
 
 # OpenShift-specific tests require features not available in KubeVirtCI

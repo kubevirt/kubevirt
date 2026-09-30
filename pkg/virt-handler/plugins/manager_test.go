@@ -115,7 +115,7 @@ var _ = Describe("NodeHookManager", func() {
 
 		It("should skip plugin when plugin-level condition does not match", func() {
 			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
-			plugin.Spec.Condition = "vmi.metadata.name == 'nonexistent'"
+			plugin.Spec.Condition = "vmi.Name == 'nonexistent'"
 			Expect(pluginStore.Add(plugin)).To(Succeed())
 
 			Expect(manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")).To(Succeed())
@@ -123,7 +123,7 @@ var _ = Describe("NodeHookManager", func() {
 
 		It("should attempt to call plugin when plugin-level condition matches", func() {
 			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
-			plugin.Spec.Condition = "vmi.metadata.name == 'test-vmi'"
+			plugin.Spec.Condition = "vmi.Name == 'test-vmi'"
 			Expect(pluginStore.Add(plugin)).To(Succeed())
 
 			err := manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")

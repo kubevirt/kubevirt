@@ -323,14 +323,14 @@ var _ = Describe("KSM", func() {
 			expected.pages = nPagesMaxDefault + pagesDecayDefault
 			expected.sleep = sleepMsBaselineDefault * (16 * 1024 * 1024) / (memTotal - memAvailableNoPressure)
 			expectKSMState(expected)
-			for i := 0; i < 15; i++ {
+			for range 15 {
 				handler.spin()
 			}
 			expected.pages = nPagesMaxDefault + 16*pagesDecayDefault
 			expectKSMState(expected)
 
 			By("expecting KSM to stop running after enough time without memory pressure")
-			for i := 0; i < 30; i++ {
+			for range 30 {
 				handler.spin()
 			}
 			expected.running = false
@@ -372,14 +372,14 @@ var _ = Describe("KSM", func() {
 			handler.spin()
 			expected.pages = 166 + 123
 			expectKSMState(expected)
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				handler.spin()
 			}
 			expected.pages = 789
 			expectKSMState(expected)
 
 			By("canceling memory pressure and expecting to decrease pages and stop running when reaching minimum")
-			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {%q: %q}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
+			data := fmt.Appendf(nil, `{"metadata": { "annotations": {%q: %q}}}`, kubevirtv1.KSMFreePercentOverride, "0.1")
 			node, err := fakeClient.CoreV1().Nodes().Patch(
 				context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -387,7 +387,7 @@ var _ = Describe("KSM", func() {
 			handler.spin()
 			expected.pages = 789 - 50
 			expectKSMState(expected)
-			for i := 0; i < 16; i++ {
+			for range 16 {
 				handler.spin()
 			}
 			expected.running = false

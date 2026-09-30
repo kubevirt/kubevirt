@@ -7,6 +7,10 @@ service Synchronize {
   rpc SyncSourceMigrationStatus(VMIStatusRequest) returns (VMIStatusResponse) {}
   rpc SyncTargetMigrationStatus(VMIStatusRequest) returns (VMIStatusResponse) {}
   rpc CancelMigration(MigrationCancelRequest) returns (MigrationCancelResponse) {}
+
+  // Bidirectional stream for one migration channel (one stream per protocol port).
+  // Multiple streams share the existing control-plane gRPC connection.
+  rpc MigrationTunnel(stream MigrationFrame) returns (stream MigrationFrame) {}
 }
 
 message VMI {
@@ -32,4 +36,21 @@ message MigrationCancelRequest {
 
 message MigrationCancelResponse {
   string message = 1;
+}
+
+message MigrationFrame {
+  string migration_id = 1;       // Migration identifier (spec.sendTo.migrationID or spec.receive.migrationID)
+  int32 channel_id = 2;          // Protocol port: 0=virtqemud, 49152=libvirt, 49153=block
+  FrameType frame_type = 3;      // OPEN, DATA, CLOSE, ERROR
+  bytes data = 4;                // Payload (DATA frames only)
+  uint64 sequence = 5;           // Optional monotonically increasing counter for debugging/metrics; not validated by the receiver
+  string error_message = 6;      // Error details (ERROR frames only)
+}
+
+enum FrameType {
+  FRAME_TYPE_UNSPECIFIED = 0;
+  FRAME_TYPE_OPEN = 1;           // Open new channel
+  FRAME_TYPE_DATA = 2;           // Data payload
+  FRAME_TYPE_CLOSE = 3;          // Close channel gracefully
+  FRAME_TYPE_ERROR = 4;          // Error on channel
 }

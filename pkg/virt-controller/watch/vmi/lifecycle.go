@@ -426,12 +426,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.NodeName = pod.Spec.NodeName
 
 				// Set the VMI migration transport now before the VMI can be migrated
-				// This status field is needed to support the migration of legacy virt-launchers
-				// to newer ones. In an absence of this field on the vmi, the target launcher
-				// will set up a TCP proxy, as expected by a legacy virt-launcher.
-				if shouldSetMigrationTransport(pod) {
-					vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
-				}
+				// The status field was needed to support multiple transports (legacy, unix)
+				// The field was read by (target) launcher in order to setup proxies
+				vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
 
 				// Allocate the CID if VSOCK is enabled.
 				if util.IsAutoAttachVSOCK(vmiCopy) {
@@ -975,6 +972,14 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 	return nil
 }
 
+// isContainerImageErrorReason reports whether a container waiting reason indicates an image
+// reference or pull failure for a containerDisk volume.
+func isContainerImageErrorReason(reason string) bool {
+	return reason == controller.ErrImagePullReason ||
+		reason == controller.ImagePullBackOffReason ||
+		reason == controller.InvalidImageNameReason
+}
+
 // checkForContainerImageError checks if an error has occurred while handling the image of any of the pod's containers
 // (including init containers), and returns a syncErr with the details of the error, or nil otherwise.
 func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
@@ -984,7 +989,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 			continue
 		}
 		reason := containerStatus.State.Waiting.Reason
-		if reason == controller.ErrImagePullReason || reason == controller.ImagePullBackOffReason {
+		if isContainerImageErrorReason(reason) {
 			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
 		}
 	}
@@ -1051,6 +1056,9 @@ func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.
 	}
 	activePods := make(map[types.UID]string)
 	for _, pod := range pods {
+		if controller.PodIsDown(pod) {
+			continue
+		}
 		activePods[pod.UID] = pod.Spec.NodeName
 	}
 	vmi.Status.ActivePods = activePods
@@ -1080,11 +1088,6 @@ func (c *Controller) createPod(key, namespace string, pod *k8sv1.Pod) (*k8sv1.Po
 
 func isTempPod(pod *k8sv1.Pod) bool {
 	_, ok := pod.Annotations[virtv1.EphemeralProvisioningObject]
-	return ok
-}
-
-func shouldSetMigrationTransport(pod *k8sv1.Pod) bool {
-	_, ok := pod.Annotations[virtv1.MigrationTransportUnixAnnotation]
 	return ok
 }
 

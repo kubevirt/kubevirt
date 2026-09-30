@@ -3,6 +3,8 @@ FROM quay.io/centos/centos:stream9
 ARG ARCH
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
+ARG ENVTEST_K8S_VERSION=1.37.0
+ARG SETUP_ENVTEST_VERSION=v0.24.1
 
 ENV BAZEL_VERSION=7.5.0
 ENV GIMME_GO_VERSION=1.26.6
@@ -113,6 +115,15 @@ RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     go install -v mvdan.cc/gofumpt@v0.8.0 && \
     curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
+
+ENV KUBEBUILDER_ASSETS=/usr/local/kubebuilder/bin
+
+RUN set -x && \
+    source /etc/profile.d/gimme.sh && \
+    go install sigs.k8s.io/controller-runtime/tools/setup-envtest@${SETUP_ENVTEST_VERSION} && \
+    ENVTEST_ASSETS=$(setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir /usr/local/kubebuilder -p path) && \
+    ln -sfn "${ENVTEST_ASSETS}" "${KUBEBUILDER_ASSETS}" && \
+    go clean -cache -modcache
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 

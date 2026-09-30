@@ -95,9 +95,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
-	disableSEVFeatureGate := func() {
+	withDisabledFeatureGates := func(gates ...string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.WorkloadEncryptionSEV}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = gates
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
@@ -1169,6 +1169,68 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result).To(BeNil())
 			Expect(resp.Warnings).To(HaveLen(1))
 		})
+
+		DescribeTable("should warn about explicitly disabling ACPI on amd64", func(arch string, acpiEnabled *bool, expectWarning bool) {
+			vmi.Spec.Architecture = arch
+			vmi.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: acpiEnabled}}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			if expectWarning {
+				Expect(resp.Warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+			} else {
+				Expect(resp.Warnings).NotTo(ContainElement(ContainSubstring("disabling ACPI")))
+			}
+		},
+			Entry("amd64 with ACPI explicitly disabled", "amd64", new(false), true),
+			Entry("amd64 with ACPI explicitly enabled", "amd64", new(true), false),
+			Entry("amd64 with ACPI unset (defaults enabled)", "amd64", nil, false),
+			Entry("arm64 with ACPI explicitly disabled", "arm64", new(false), false),
+		)
+
+		DescribeTable("should only warn about disabling ACPI on amd64 for BIOS boot guests", func(firmware *v1.Firmware, expectWarning bool) {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Architecture: "amd64",
+				Domain: v1.DomainSpec{
+					Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}},
+					Firmware: firmware,
+				},
+			}
+
+			warnings := warnDisabledACPIAmd64(spec, config)
+			if expectWarning {
+				Expect(warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+			} else {
+				Expect(warnings).To(BeEmpty())
+			}
+		},
+			Entry("EFI boot", &v1.Firmware{Bootloader: &v1.Bootloader{EFI: &v1.EFI{}}}, false),
+			Entry("explicit BIOS boot", &v1.Firmware{Bootloader: &v1.Bootloader{BIOS: &v1.BIOS{}}}, true),
+			Entry("empty bootloader (defaults to BIOS)", &v1.Firmware{Bootloader: &v1.Bootloader{}}, true),
+			Entry("firmware unset (defaults to BIOS)", nil, true),
+		)
+
+		DescribeTable("should fall back to the cluster default architecture when spec.architecture is unset", func(defaultArch string, expectWarning bool) {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}},
+				},
+			}
+			updateDefaultArchitecture(defaultArch)
+
+			warnings := warnDisabledACPIAmd64(spec, config)
+			if expectWarning {
+				Expect(warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+			} else {
+				Expect(warnings).To(BeEmpty())
+			}
+		},
+			Entry("cluster default amd64", "amd64", true),
+			Entry("cluster default arm64", "arm64", false),
+		)
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
 			vmi := api.NewMinimalVMI("testvm")
@@ -2792,7 +2854,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-			disableSEVFeatureGate()
+			withDisabledFeatureGates(featuregate.WorkloadEncryptionSEV)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
@@ -2875,7 +2937,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should reject when the feature gate is disabled", func() {
-				disableSEVFeatureGate()
+				withDisabledFeatureGates(featuregate.WorkloadEncryptionSEV)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
@@ -3043,7 +3105,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGates(featuregate.VSOCKGate)
 		})
 
 		Context("feature gate enabled", func() {
@@ -3061,7 +3122,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		Context("feature gate disabled", func() {
 			It("should reject when the feature gate is disabled", func() {
-				disableFeatureGates()
+				withDisabledFeatureGates(featuregate.VSOCKGate)
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))

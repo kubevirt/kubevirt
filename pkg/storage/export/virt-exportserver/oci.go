@@ -21,10 +21,11 @@ package virtexportserver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -86,12 +87,21 @@ func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 			return nil, fmt.Errorf("error statting %s: %w", p, err)
 		}
 		if fi.IsDir() {
-			p = path.Join(p, "disk.img")
+			p = filepath.Join(p, "disk.img")
+			fi, err = os.Stat(p)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("error statting %s: %w", p, err)
+			}
+			if err != nil || !fi.Mode().IsRegular() {
+				// Backend storage for instance, not exported as a layer yet.
+				log.Log.Infof("Skipping volume %s, holds no disk image", vi.Path)
+				continue
+			}
 		}
 
 		disks = append(disks, oci.DiskInfo{
 			FilePath:   p,
-			VolumeName: path.Base(vi.Path),
+			VolumeName: filepath.Base(vi.Path),
 		})
 	}
 	return disks, nil

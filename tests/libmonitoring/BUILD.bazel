@@ -16,6 +16,7 @@ go_library(
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/monitoring/metrics/virt-handler:go_default_library",
         "//pkg/monitoring/metrics/virt-operator:go_default_library",
+        "//pkg/monitoring/metrics/virt-synchronization-controller:go_default_library",
         "//pkg/monitoring/rules:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/clientcmd:go_default_library",

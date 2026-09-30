@@ -61,8 +61,8 @@ export CRI_BIN=${CRI_BIN:-$(detect_cri)}
 
     echo "Deploy latest nighly build Kubevirt"
     if [ "$(kubectl get kubevirts -n kubevirt kubevirt -ojsonpath='{.status.phase}')" != "Deployed" ]; then
-      ${kubectl} apply -f "${nightly_build_base_url}/${latest}/kubevirt-operator.yaml"
-      ${kubectl} apply -f "${nightly_build_base_url}/${latest}/kubevirt-cr.yaml"
+      ${kubectl} apply --server-side -f "${nightly_build_base_url}/${latest}/kubevirt-operator.yaml"
+      ${kubectl} apply --server-side -f "${nightly_build_base_url}/${latest}/kubevirt-cr.yaml"
     fi
     ${kubectl} wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
 

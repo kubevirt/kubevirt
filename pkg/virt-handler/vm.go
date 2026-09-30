@@ -84,7 +84,6 @@ import (
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
@@ -100,6 +99,11 @@ type downwardMetricsManager interface {
 	Run(stopCh chan struct{})
 	StartServer(vmi *v1.VirtualMachineInstance, pid int) error
 	StopServer(vmi *v1.VirtualMachineInstance)
+}
+
+type proxyCleaner interface {
+	StopTargetListener(key string)
+	StopSourceListener(key string)
 }
 
 type VirtualMachineController struct {
@@ -122,6 +126,7 @@ type VirtualMachineController struct {
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
+	migrationProxy           proxyCleaner
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
@@ -143,7 +148,7 @@ func NewVirtualMachineController(
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
+	migrationProxy proxyCleaner,
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *libvirtxml.Caps,
 	hostCpuModel string,
@@ -171,7 +176,6 @@ func NewVirtualMachineController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
@@ -199,6 +203,7 @@ func NewVirtualMachineController(
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 		cbtHandler:               cbtHandler,
 		pluginExecutor:           pluginExecutor,
+		migrationProxy:           migrationProxy,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -2044,9 +2049,26 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 		}
+		if msg, ok := c.detectDiskWriteLockError(err, vmi); ok {
+			return fmt.Errorf("%s", msg)
+		}
 	}
 
 	return err
+}
+
+func (c *VirtualMachineController) detectDiskWriteLockError(err error, vmi *v1.VirtualMachineInstance) (string, bool) {
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, `Failed to get "write" lock`) &&
+		!strings.Contains(errMsg, "Is another process using the image") {
+		return "", false
+	}
+
+	msg := fmt.Sprintf("failed to start VM %q: a disk image is locked by another process. "+
+		"The PVC may be in use by another VirtualMachine. "+
+		"Each VM needs its own PVC, or the disk must be marked as shareable.", vmi.Name)
+
+	return msg, true
 }
 
 func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {

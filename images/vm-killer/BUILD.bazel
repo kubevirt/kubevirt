@@ -1,8 +1,17 @@
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel:image.bzl", "kubevirt_image")
+
+pkg_tar(
+    name = "var-run-symlink-tar",
+    symlinks = {
+        "/var/run": "../run",
+    },
+)
 
 kubevirt_image(
     name = "vm-killer-image",
     base = "//images:kubevirt-testing-base",
+    tars = [":var-run-symlink-tar"],
     user = "1001",
     visibility = ["//visibility:public"],
 )

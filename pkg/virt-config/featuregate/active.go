@@ -48,7 +48,14 @@ const (
 	// Beta: v1.9.0
 	WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
 	WorkloadEncryptionTDX = "WorkloadEncryptionTDX"
-	VSOCKGate             = "VSOCK"
+
+	// Owner: sig-compute / @0xFelix
+	// Alpha: v0.59.0
+	// Beta: v1.10.0
+	//
+	// VSOCK enables the AF_VSOCK host-guest communication channel for VMs.
+	VSOCKGate = "VSOCK"
+
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
 
@@ -115,6 +122,16 @@ const (
 	// DecentralizedLiveMigration enables live migration across namespaces
 	// with separate source and target VirtualMachineInstanceMigration resources.
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
+
+	// Owner: sig-compute / @awels
+	// Alpha: v1.10.0
+	//
+	// CrossClusterMigrationProxy enables network proxy support in synchronization controllers
+	// for cross-cluster live migrations. When enabled along with crossClusterNetwork configuration,
+	// sync controllers attach to both in-cluster and cross-cluster networks and proxy migration
+	// traffic between them. This reduces IP address requirements on the cross-cluster network
+	// from N×(M+2) to N×2 addresses (where N=clusters, M=virt-handlers per cluster).
+	CrossClusterMigrationProxy = "CrossClusterMigrationProxy"
 
 	// Owner: sig-storage / @alromeros
 	// Alpha: v1.6.0
@@ -283,7 +300,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
@@ -292,6 +309,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: CrossClusterMigrationProxy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})

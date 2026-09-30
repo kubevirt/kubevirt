@@ -20,6 +20,7 @@
 package cache_test
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -62,6 +63,43 @@ var _ = Describe("time defined cache", func() {
 		Entry("should get the same value if the refresh duration has not passed", false),
 		Entry("should get a new value if the refresh duration has passed", true),
 	)
+
+	It("should recalculate the value after reset even if the refresh duration has not passed", func() {
+		cache, err := virtcache.NewTimeDefinedCache(123*time.Second, true, getMockCalcFunc())
+		Expect(err).ToNot(HaveOccurred())
+
+		value, err := cache.Get()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(value).To(Equal(1))
+
+		cache.Reset()
+
+		value, err = cache.Get()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(value).To(Equal(2))
+	})
+
+	It("should not return the old value after reset if re-calculation fails", func() {
+		calls := 0
+		cache, err := virtcache.NewTimeDefinedCache(123*time.Second, true, func() (int, error) {
+			calls++
+			if calls > 1 {
+				return 0, fmt.Errorf("mock error")
+			}
+			return 42, nil
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		value, err := cache.Get()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(value).To(Equal(42))
+
+		cache.Reset()
+
+		value, err = cache.Get()
+		Expect(err).To(HaveOccurred())
+		Expect(value).To(BeZero())
+	})
 
 	It("should return an error if the re-calculation function is not set", func() {
 		var dummyFunc func() (int, error)

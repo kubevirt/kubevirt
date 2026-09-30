@@ -73,7 +73,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
-	"kubevirt.io/kubevirt/pkg/util"
+	storagevmispec "kubevirt.io/kubevirt/pkg/storage/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
@@ -1313,6 +1313,9 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
 		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)
+		if vmi.Annotations == nil {
+			vmi.Annotations = make(map[string]string)
+		}
 		vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
 	}
 
@@ -1912,7 +1915,7 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
-	util.SetDefaultVolumeDisk(&vmi.Spec)
+	storagevmispec.SetDefaultVolumeDisk(&vmi.Spec)
 
 	return vmi
 }
@@ -2679,10 +2682,17 @@ func (c *Controller) isVirtualMachineStatusUnschedulable(vm *virtv1.VirtualMachi
 		k8score.PodReasonUnschedulable)
 }
 
+// isErrImagePullPrintableStatusReason reports whether a VMI Synchronized condition reason
+// should surface the VM ErrImagePull printable status.
+func isErrImagePullPrintableStatusReason(reason string) bool {
+	return reason == controller.ErrImagePullReason || reason == controller.InvalidImageNameReason
+}
+
 // isVirtualMachineStatusErrImagePull determines whether the VM status field should be set to "ErrImagePull"
 func (c *Controller) isVirtualMachineStatusErrImagePull(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
-	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == controller.ErrImagePullReason
+	return syncCond != nil && syncCond.Status == k8score.ConditionFalse &&
+		isErrImagePullPrintableStatusReason(syncCond.Reason)
 }
 
 // isVirtualMachineStatusImagePullBackOff determines whether the VM status field should be set to "ImagePullBackOff"

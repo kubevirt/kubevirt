@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -46,12 +45,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -62,8 +61,14 @@ type passtRepairSourceHandler interface {
 	HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
 }
 
+type proxyManager interface {
+	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir *safepath.Path) error
+	StopSourceListener(key string)
+}
+
 type MigrationSourceController struct {
 	*BaseController
+	migrationProxy     proxyManager
 	pluginExecutor     plugins.NodeHookExecutor
 	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	passtRepairHandler passtRepairSourceHandler
@@ -78,7 +83,7 @@ func NewMigrationSourceController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
+	migrationProxy proxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
 	passtRepairHandler passtRepairSourceHandler,
@@ -105,7 +110,6 @@ func NewMigrationSourceController(
 		clusterConfig,
 		podIsolationDetector,
 		launcherClients,
-		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
@@ -121,6 +125,7 @@ func NewMigrationSourceController(
 		pluginExecutor:     pluginExecutor,
 		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		passtRepairHandler: passtRepairHandler,
+		migrationProxy:     migrationProxy,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -274,9 +279,16 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 		// Decentralized migrations have no shared VMI controller to advance phase;
 		// the source marks Succeeded once the target has the domain and migration completed.
-		if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
-			c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
-			vmi.Status.Phase = v1.Succeeded
+		// EndTimestamp can arrive from sync before Completed (target finalizeMigration lag);
+		// treat a non-failed EndTimestamp as completed so the source VMIM can finish.
+		if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil {
+			if vmi.Status.MigrationState.EndTimestamp != nil && !vmi.Status.MigrationState.Failed {
+				vmi.Status.MigrationState.Completed = true
+			}
+			if vmi.Status.MigrationState.Completed && !vmi.Status.MigrationState.Failed {
+				c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
+				vmi.Status.Phase = v1.Succeeded
+			}
 		}
 	}
 
@@ -447,6 +459,15 @@ func (c *MigrationSourceController) execute(key string) error {
 	// post migration clean up
 	if isMigrationDone(vmi.Status.MigrationState) {
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
+		// Completed/EndTimestamp can be synced onto the source VMI before this
+		// controller observes the migrated domain. Still run sync so updateStatus
+		// can mark a decentralized source VMI as Succeeded. Limit to the source
+		// node — every virt-handler watches the VMI, but only this host has the domain.
+		if vmi.IsDecentralizedMigration() &&
+			vmi.Status.Phase != v1.Succeeded &&
+			vmi.Status.MigrationState.SourceNode == c.host {
+			return c.sync(vmi.DeepCopy(), domain)
+		}
 		return nil
 	}
 
@@ -475,9 +496,10 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 	if err != nil {
 		return err
 	}
-	// the migration-proxy is no longer shared via host mount, so we
-	// pass in the virt-launcher's baseDir to reach the unix sockets.
-	baseDir := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
+	mountRoot, err := res.MountRoot()
+	if err != nil {
+		return err
+	}
 	if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 		return errWaitingForTargetPorts
 	}
@@ -486,7 +508,7 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 		string(vmi.UID),
 		vmi.Status.MigrationState.TargetNodeAddress,
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
-		baseDir,
+		mountRoot,
 	)
 	if err != nil {
 		return err
