@@ -54,6 +54,8 @@ const (
 	randNodeSelectorSuffixLength   = 8
 	lowReadySingletonWorkloadCount = 1
 	lowReadyDeploymentRunningCount = 2
+	virtHandlerDownNodeSelectorKey = "kubevirt.io/e2e-virt-handler-down"
+	gomegaHelperCallerOffset       = 2
 )
 
 type alerts struct {
@@ -138,12 +140,15 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.downAlert)
 		})
 
-		It("NoReadyVirtOperator should be triggered when virt-operator is down", func() {
-			By("Waiting for the operator to be down")
+		// NoReadyVirtOperator no longer fires when all pods are absent (false-positive fix).
+		// When the operator is scaled to 0, the app-level ready_status metric becomes stale,
+		// so the NoReady expression returns empty. The VirtOperatorDown alert covers this scenario.
+		It("NoReadyVirtOperator should not fire when operator is scaled to zero", func() {
+			By("Waiting for the operator ready metric to be zero")
 			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_ready:sum", 0)
 
-			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
+			By("Verifying the NoReady alert does NOT fire (absent metrics)")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.noReadyAlert)
 		})
 
 		It("VirtControllerDown should be triggered when virt-controller is down", func() {
@@ -175,6 +180,19 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
 		})
 
+		// NoReadyVirtController no longer fires when all pods are absent (false-positive fix).
+		// VirtControllerDown covers the "scaled to 0" scenario.
+		It("NoReadyVirtController should not fire when controller is scaled to zero", func() {
+			By("Scaling down the controller")
+			scales.UpdateScale(virtController.deploymentName, int32(0))
+
+			By("Waiting for the controller ready metric to be zero")
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_ready:sum", 0)
+
+			By("Verifying the NoReady alert does NOT fire (absent metrics)")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtController.noReadyAlert)
+		})
+
 		It("VirtAPIDown should be triggered when virt-api is down", func() {
 			By("Scaling down the api")
 			scales.UpdateScale(virtAPI.deploymentName, int32(0))
@@ -204,6 +222,19 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtAPI.noReadyAlert)
 		})
 
+		// NoReadyVirtAPI no longer fires when all pods are absent (false-positive fix).
+		// VirtAPIDown covers the "scaled to 0" scenario.
+		It("NoReadyVirtAPI should not fire when api is scaled to zero", func() {
+			By("Scaling down the api")
+			scales.UpdateScale(virtAPI.deploymentName, int32(0))
+
+			By("Waiting for the api ready metric to be zero")
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_api_ready:sum", 0)
+
+			By("Verifying the NoReady alert does NOT fire (absent metrics)")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtAPI.noReadyAlert)
+		})
+
 		It("VirtHandlerDown should be triggered when virt-handler is down", func() {
 			By("Patching virt-handler DaemonSet with a nodeSelector that matches no node (no running virt-handler pods)")
 			daemonSet, getErr := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(
@@ -215,7 +246,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				daemonSet.Spec.Template.Spec.NodeSelector = map[string]string{}
 			}
 			// VirtHandlerDown uses running pod count; a non-scrapable-but-Running pod would not satisfy the alert.
-			daemonSet.Spec.Template.Spec.NodeSelector["kubevirt.io/e2e-virt-handler-down"] = rand.String(randNodeSelectorSuffixLength)
+			daemonSet.Spec.Template.Spec.NodeSelector[virtHandlerDownNodeSelectorKey] = rand.String(randNodeSelectorSuffixLength)
 
 			patchBytes, patchErr := json.Marshal(daemonSet)
 			Expect(patchErr).ToNot(HaveOccurred())
@@ -224,6 +255,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				context.Background(), virtHandler.deploymentName, types.MergePatchType, patchBytes, metav1.PatchOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
+			defer restoreVirtHandlerDownNodeSelector(virtClient)
 
 			By("Waiting for no running virt-handler pods")
 			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_handler_pods_running:count", 0)
@@ -232,7 +264,92 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtHandler.downAlert)
 		})
 
-		It("NoReadyVirtHandler should be triggered when virt-handler is not ready", func() {
+		It("VirtControllerDown should report waiting reason when controller pods have bad image", func() {
+			By("Scaling down the controller so no healthy pods remain during the image patch")
+			scales.UpdateScale(virtController.deploymentName, int32(0))
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_pods_running:count", 0)
+
+			By("Saving the original image for later restoration")
+			deployment, getErr := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtController.deploymentName, metav1.GetOptions{},
+			)
+			Expect(getErr).ToNot(HaveOccurred())
+			originalImage := deployment.Spec.Template.Spec.Containers[0].Image
+			containerName := deployment.Spec.Template.Spec.Containers[0].Name
+
+			patchContainerImage := func(image string) {
+				patch := map[string]interface{}{
+					"spec": map[string]interface{}{
+						"template": map[string]interface{}{
+							"spec": map[string]interface{}{
+								"containers": []map[string]interface{}{
+									{
+										"name":  containerName,
+										"image": image,
+									},
+								},
+							},
+						},
+					},
+				}
+				patchBytes, patchErr := json.Marshal(patch)
+				Expect(patchErr).ToNot(HaveOccurred())
+				_, patchErr = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(
+					context.Background(), virtController.deploymentName,
+					types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+				)
+				Expect(patchErr).ToNot(HaveOccurred())
+			}
+
+			By("Patching the controller deployment with a non-existent image")
+			patchContainerImage("registry.example.com/nonexistent:v0.0.0")
+
+			defer func() {
+				By("Restoring the controller image")
+				patchContainerImage(originalImage)
+				scales.RestoreScale(virtController.deploymentName)
+				libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtController.downAlert)
+			}()
+
+			By("Scaling up to 1 replica — the only pod that starts has the bad image")
+			Eventually(func() error {
+				scale, scaleErr := virtClient.AppsV1().
+					Deployments(flags.KubeVirtInstallNamespace).
+					GetScale(context.Background(), virtController.deploymentName, metav1.GetOptions{})
+				if scaleErr != nil {
+					return scaleErr
+				}
+				scale.Spec.Replicas = 1
+				_, scaleErr = virtClient.AppsV1().
+					Deployments(flags.KubeVirtInstallNamespace).
+					UpdateScale(context.Background(), virtController.deploymentName, scale, metav1.UpdateOptions{})
+				return scaleErr
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+			By("Verifying VirtControllerDown fires with a reason label")
+			Eventually(func(g Gomega) {
+				alerts, alertErr := libmonitoring.GetAlerts(virtClient)
+				g.Expect(alertErr).ToNot(HaveOccurred())
+
+				found := false
+				for _, a := range alerts {
+					if string(a.Labels["alertname"]) != virtController.downAlert {
+						continue
+					}
+					reason := string(a.Labels["reason"])
+					if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
+						found = true
+						break
+					}
+				}
+				g.Expect(found).To(BeTrue(), "expected VirtControllerDown with reason ImagePullBackOff or ErrImagePull")
+			}, 5*time.Minute, 10*time.Second).Should(Succeed())
+		})
+
+		// NoReadyVirtHandler no longer fires when the app metric is absent (false-positive fix).
+		// Replacing the container with a non-KubeVirt binary causes ready_status to go stale,
+		// so the NoReady expression returns empty. VirtHandlerDaemonSetRolloutFailing covers this scenario.
+		It("NoReadyVirtHandler should not fire when handler has no app metrics", func() {
 			daemonSet, getErr := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(
 				context.Background(), virtHandler.deploymentName, metav1.GetOptions{},
 			)
@@ -260,14 +377,17 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				g.Expect(running).To(BeNumerically(">", 0))
 			}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
-			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtHandler.noReadyAlert)
+			By("Verifying the NoReady alert does NOT fire (absent app metrics)")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtHandler.noReadyAlert)
 		})
 	})
 
-	Context("Low ready alerts", func() {
-		It("LowReadyVirtControllersCount should be triggered when virt controller pods ready are less than running and ready > 0", func() {
-			runLowReadyDecoyDeploymentTest(
+	// LowReady alerts now fire per-pod and require the app-level ready_status metric
+	// to report 0 (not just be absent). Decoy pods that don't export the metric
+	// should NOT trigger the alert (false-positive fix).
+	Context("Low ready alerts - false positive prevention", func() {
+		It("LowReadyVirtControllersCount should not fire for decoy pods without app metrics", func() {
+			runLowReadyDecoyDeploymentNoAlertTest(
 				virtClient, scales,
 				virtController.deploymentName, virtController.lowReadyAlert,
 				"cluster:kubevirt_virt_controller_ready:sum",
@@ -275,8 +395,8 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			)
 		})
 
-		It("LowReadyVirtAPICount should be triggered when virt api pods ready are less than running and ready > 0", func() {
-			runLowReadyDecoyDeploymentTest(
+		It("LowReadyVirtAPICount should not fire for decoy pods without app metrics", func() {
+			runLowReadyDecoyDeploymentNoAlertTest(
 				virtClient, scales,
 				virtAPI.deploymentName, virtAPI.lowReadyAlert,
 				"cluster:kubevirt_virt_api_ready:sum",
@@ -284,12 +404,12 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			)
 		})
 
-		It("LowReadyVirtHandlerCount should be triggered when virt-handler pods ready are less than running and ready > 0", func() {
-			runLowReadyDecoyDaemonSetTest(virtClient, virtHandler.lowReadyAlert)
+		It("LowReadyVirtHandlerCount should not fire for decoy pods without app metrics", func() {
+			runLowReadyDecoyDaemonSetNoAlertTest(virtClient, virtHandler.lowReadyAlert)
 		})
 
-		It("LowReadyVirtOperatorsCount should be triggered when virt-operator pods ready are less than running and ready > 0", func() {
-			runLowReadyDecoyDeploymentTest(
+		It("LowReadyVirtOperatorsCount should not fire for decoy pods without app metrics", func() {
+			runLowReadyDecoyDeploymentNoAlertTest(
 				virtClient, scales,
 				virtOperator.deploymentName, virtOperator.lowReadyAlert,
 				"cluster:kubevirt_virt_operator_ready:sum",
@@ -423,13 +543,46 @@ func restoreOperator(virtClient kubecli.KubevirtClient, scales *libmonitoring.Sc
 
 		By("Waiting for running virt-operator pods")
 		libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_pods_running:count", float64(replica))
-
-		By("Waiting for the operator to be ready")
-		libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_ready:sum", float64(replica))
 	}
 
+	By("Waiting for virt-operator ready_status to be scraped")
+	waitForScrapedMetricSumAtLeast(virtClient, "kubevirt_virt_operator_ready_status", 1.0)
+
 	By("Waiting for an operator to be leading")
-	libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_leading:sum", 1.0)
+	waitForScrapedMetricSumAtLeast(virtClient, "kubevirt_virt_operator_leading_status", 1.0)
+}
+
+// waitForScrapedMetricSumAtLeast queries the raw kubevirt_* series, not the
+// cluster:* recording rules. Those rules use `or vector(0)`, so a scrape or
+// label-join miss looks like a real 0 and AfterEach times out while the pod is
+// already Ready. Missing series stay -1 here and keep polling.
+func waitForScrapedMetricSumAtLeast(virtClient kubecli.KubevirtClient, metric string, minimum float64) {
+	libmonitoring.WaitForMetricValueWithLabelsToBe(
+		virtClient,
+		fmt.Sprintf("sum(%s)", metric),
+		nil,
+		gomegaHelperCallerOffset,
+		">=",
+		minimum,
+	)
+}
+
+func restoreVirtHandlerDownNodeSelector(virtClient kubecli.KubevirtClient) {
+	By("Removing the virt-handler e2e nodeSelector")
+	patch := fmt.Sprintf(
+		`{"spec":{"template":{"spec":{"nodeSelector":{%q:null}}}}}`,
+		virtHandlerDownNodeSelectorKey,
+	)
+	_, patchErr := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Patch(
+		context.Background(), virtHandler.deploymentName, types.MergePatchType, []byte(patch), metav1.PatchOptions{},
+	)
+	Expect(patchErr).ToNot(HaveOccurred())
+
+	By("Waiting for virt-handler pods to run again")
+	libmonitoring.WaitForMetricValueWithLabelsToBe(
+		virtClient, "cluster:kubevirt_virt_handler_pods_running:count", nil, gomegaHelperCallerOffset, ">", 0,
+	)
+	libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtHandler.downAlert)
 }
 
 func checkRESTErrorsBurst(virtClient kubecli.KubevirtClient, roleBindingName, alertName string) {
@@ -471,7 +624,9 @@ func increaseRateLimit(virtClient kubecli.KubevirtClient) {
 	config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 }
 
-func runLowReadyDecoyDeploymentTest(
+// runLowReadyDecoyDeploymentNoAlertTest verifies that a decoy pod (which does not
+// export the app-level ready_status metric) does NOT trigger the per-pod LowReady alert.
+func runLowReadyDecoyDeploymentNoAlertTest(
 	virtClient kubecli.KubevirtClient,
 	scales *libmonitoring.Scaling,
 	deploymentName, lowReadyAlert, readyMetric, runningMetric string,
@@ -494,24 +649,25 @@ func runLowReadyDecoyDeploymentTest(
 	defer func() {
 		By("Deleting the low-ready decoy pod")
 		_ = virtClient.CoreV1().Pods(ns).Delete(ctx, decoyName, metav1.DeleteOptions{})
-		By("Waiting for the low ready alert to not be firing anymore")
-		libmonitoring.WaitUntilAlertDoesNotExist(virtClient, lowReadyAlert)
 		By("Restoring the deployment replica count")
 		scales.RestoreScale(deploymentName)
 	}()
 
-	By("Creating a decoy pod that counts as running but does not contribute to the KubeVirt ready sum")
+	By("Creating a decoy pod that counts as running but does not export ready_status")
 	_, createErr := virtClient.CoreV1().Pods(ns).Create(ctx, decoyPod, metav1.CreateOptions{})
 	Expect(createErr).ToNot(HaveOccurred())
 
-	By("Waiting for two running pods and one ready pod in metrics (decoy running, single real pod ready)")
+	By("Waiting for two running pods while ready sum stays at one")
 	libmonitoring.WaitForMetricValue(virtClient, runningMetric, lowReadyDeploymentRunningCount)
 	libmonitoring.WaitForMetricValue(virtClient, readyMetric, float64(lowReadySingletonWorkloadCount))
 
-	libmonitoring.VerifyAlertExist(virtClient, lowReadyAlert)
+	By("Verifying the LowReady alert does NOT fire (decoy has no app metrics)")
+	libmonitoring.WaitUntilAlertDoesNotExist(virtClient, lowReadyAlert)
 }
 
-func runLowReadyDecoyDaemonSetTest(virtClient kubecli.KubevirtClient, lowReadyAlert string) {
+// runLowReadyDecoyDaemonSetNoAlertTest verifies that a decoy pod alongside real virt-handler
+// pods does NOT trigger the per-pod LowReady alert when the decoy lacks app metrics.
+func runLowReadyDecoyDaemonSetNoAlertTest(virtClient kubecli.KubevirtClient, lowReadyAlert string) {
 	ns := flags.KubeVirtInstallNamespace
 	ctx := context.Background()
 
@@ -524,8 +680,6 @@ func runLowReadyDecoyDaemonSetTest(virtClient kubecli.KubevirtClient, lowReadyAl
 	defer func() {
 		By("Deleting the virt-handler low-ready decoy pod")
 		_ = virtClient.CoreV1().Pods(ns).Delete(ctx, decoyName, metav1.DeleteOptions{})
-		By("Waiting for the low ready alert to not be firing anymore")
-		libmonitoring.WaitUntilAlertDoesNotExist(virtClient, lowReadyAlert)
 	}()
 
 	By("Creating a virt-handler decoy pod so running count exceeds the KubeVirt ready sum")
@@ -546,7 +700,8 @@ func runLowReadyDecoyDaemonSetTest(virtClient kubecli.KubevirtClient, lowReadyAl
 		g.Expect(ready).To(BeNumerically("<", running))
 	}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
-	libmonitoring.VerifyAlertExist(virtClient, lowReadyAlert)
+	By("Verifying the LowReady alert does NOT fire (decoy has no app metrics)")
+	libmonitoring.WaitUntilAlertDoesNotExist(virtClient, lowReadyAlert)
 }
 
 func lowReadyDecoyPodSpecFromTemplate(spec corev1.PodSpec) corev1.PodSpec {
