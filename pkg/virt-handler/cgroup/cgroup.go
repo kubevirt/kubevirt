@@ -156,6 +156,12 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDev
 		return nil, err
 	}
 
+	hotplugDeviceRules, err := generateDeviceRulesForAttachedHotplugVolumes(vmi, mountRoot)
+	if err != nil {
+		return nil, err
+	}
+	vmiDeviceRules = append(vmiDeviceRules, hotplugDeviceRules...)
+
 	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
 }
 

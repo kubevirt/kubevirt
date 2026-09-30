@@ -43,6 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -67,6 +68,9 @@ var (
 			return nil, err
 		}
 		return safepath.StatAtNoFollow(path)
+	}
+	resolveDeviceDir = func(mountRoot *safepath.Path, relPath string) (*safepath.Path, error) {
+		return mountRoot.AppendAndResolveWithRelativeRoot(relPath)
 	}
 	readDeviceDir = func(mountRoot *safepath.Path, relPath string) ([]os.DirEntry, error) {
 		dirPath, err := safepath.JoinNoFollow(mountRoot, relPath)
@@ -224,6 +228,45 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, mountRoot *safepa
 	}
 
 	return vmiDeviceRules, nil
+}
+
+// generateDeviceRulesForAttachedHotplugVolumes returns allow rules for the
+// hotplug block volumes already attached to the virt-launcher pod.
+// A new manager is created on every sync and, on cgroup v2, every Set
+// rewrites the whole allow list, so without them the first Set of a sync
+// drops these volumes until the hotplug mount flow allows them again.
+func generateDeviceRulesForAttachedHotplugVolumes(vmi *v1.VirtualMachineInstance, mountRoot *safepath.Path) ([]*devices.Rule, error) {
+	var rules []*devices.Rule
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.HotplugVolume == nil || volumeStatus.PersistentVolumeClaimInfo == nil ||
+			!storagetypes.IsPVCBlock(volumeStatus.PersistentVolumeClaimInfo.VolumeMode) {
+			continue
+		}
+		devicePath := volumepath.HotplugBlockDevice(volumeStatus.Name)
+		// /var/run is a symlink to /run in the virt-launcher image, and safepath does not
+		// follow symlinks. Resolve the directory inside the launcher root, then stat the
+		// device node in it without following links.
+		deviceDir, err := resolveDeviceDir(mountRoot, filepath.Dir(devicePath))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to resolve path for hotplug volume %s: %v", volumeStatus.Name, err)
+		}
+		rule, err := newAllowedDeviceRule(deviceDir, filepath.Base(devicePath), getDeviceRwmPermissions())
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				// Not attached yet, the hotplug mount flow allows it later.
+				continue
+			}
+			return nil, fmt.Errorf("failed to resolve path for hotplug volume %s: %v", volumeStatus.Name, err)
+		}
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for attached hotplug volume %s: %v", volumeStatus.Name, rule)
+			rules = append(rules, rule)
+		}
+	}
+	return rules, nil
 }
 
 // discoverDeviceRulesInDir recursively scans a directory under the
