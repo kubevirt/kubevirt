@@ -854,10 +854,10 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 
 	// Unmount all hotplug volumes
 	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
-		if err != nil {
-			return err
-		}
+		// UnmountAll does the cleanup on the "best effort" basis: it is
+		// safe to pass a nil cgroupManager. The target pod may already be
+		// gone, and failing here would leak the hotplug mounts.
+		cgroupManager, _ := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err = c.hotplugVolumeMounter.UnmountAll(vmiCopy, cgroupManager); err != nil {
 			return fmt.Errorf("failed to unmount all hotplug volumes: %v", err)
 		}
