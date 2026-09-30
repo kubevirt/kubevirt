@@ -13,28 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
-package main
+//go:build !coverage_e2e
 
-import (
-	klog "kubevirt.io/client-go/log"
+package coveragehttp
 
-	"kubevirt.io/kubevirt/pkg/coveragehttp"
-	"kubevirt.io/kubevirt/pkg/service"
-	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
-)
-
-func main() {
-	klog.InitializeLogging("virt-api")
-
-	// No-op unless built with the coverage_e2e tag (--build-cover): starts the
-	// E2E coverage HTTP endpoint and SIGTERM flush handler.
-	coveragehttp.Start("virt-api")
-
-	app := virt_api.NewVirtApi()
-	service.Setup(app)
-	app.Execute()
-}
+// Start is a no-op in production (non-coverage) builds. Daemons call it
+// unconditionally at startup; the coverage HTTP server only exists in binaries
+// built with the "coverage_e2e" tag (hack/bazel-build-images.sh --build-cover).
+func Start(component string) {}
