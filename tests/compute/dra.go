@@ -28,13 +28,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -303,12 +301,6 @@ func WithVfioGPURequestMatchAttribute(attribute string, requestNames ...string) 
 	}
 }
 
-func WithVfioGPUDeviceCount(count int64) vfioGPUResourceClaimTemplateOption {
-	return func(rct *resourcev1.ResourceClaimTemplate) {
-		rct.Spec.Spec.Devices.Requests[0].Exactly.Count = count
-	}
-}
-
 func WithVfioGPUMultipleRequests(count int) vfioGPUResourceClaimTemplateOption {
 	return WithVfioGPUMultipleRequestsFromIndex(count, 0)
 }
@@ -412,36 +404,6 @@ func WithVfioGPUClaimRequest(claimName, requestName string) vfioGPUOption {
 		}
 	}
 }
-
-func verifyVMIPodUnschedulable(vmiName string, messageMatcher OmegaMatcher) {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmiName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	cond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(
-		vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
-	)
-	Expect(cond).NotTo(BeNil())
-	Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
-	Expect(cond.Reason).To(SatisfyAny(
-		Equal(k8sv1.PodReasonUnschedulable),
-		Equal(k8sv1.PodReasonSchedulerError),
-	))
-	Expect(cond.Message).To(messageMatcher)
-}
-
-func expectVMISyncFailed(vmiName string, messageMatcher OmegaMatcher) {
-	Eventually(func(g Gomega) {
-		vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmiName, metav1.GetOptions{})
-		g.Expect(err).ToNot(HaveOccurred())
-		cond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(
-			vmi, v1.VirtualMachineInstanceSynchronized,
-		)
-		g.Expect(cond).NotTo(BeNil())
-		g.Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
-		g.Expect(cond.Reason).To(Equal("Synchronizing with the Domain failed."))
-		g.Expect(cond.Message).To(messageMatcher)
-	}, timeout, pollingInterval).Should(Succeed())
-}
-
 func withVfioGPUMultiDeviceMemory() vfioGPUVMIOption {
 	return func(vmi *v1.VirtualMachineInstance) {
 		libvmi.WithMemoryRequest("128Mi")(vmi)
