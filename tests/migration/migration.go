@@ -24,7 +24,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -2875,45 +2873,36 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 	Context("ResourceQuota rejection", func() {
 		It("Should contain condition when migrating with quota that doesn't have resources for both source and target", decorators.Conformance, func() {
-			vmiRequest := resource.MustParse("200Mi")
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
-				libvmi.WithMemoryRequest(vmiRequest.String()),
+				libvmi.WithMemoryRequest("200Mi"),
 			)
-
-			vmiRequest.Add(resource.MustParse("50Mi")) //add 50Mi memoryOverHead to make sure vmi creation won't be blocked
-			enoughMemoryToStartVmiButNotEnoughForMigration := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
-			enoughMemoryToStartVmiButNotEnoughForMigration.Add(vmiRequest)
-			resourcesToLimit := k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse(enoughMemoryToStartVmiButNotEnoughForMigration.String()),
-			}
-
-			By("Creating ResourceQuota with enough memory for the vmi but not enough for migration")
-			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
-			resourceQuota = createResourceQuota(resourceQuota)
-			Eventually(func() error {
-				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				for key := range resourcesToLimit {
-					if _, ok := quota.Status.Hard[key]; !ok {
-						return fmt.Errorf("Missing %s in status", key)
-					}
-					value := quota.Status.Hard[key]
-					if value.Cmp(resourcesToLimit[key]) != 0 {
-						return fmt.Errorf("%v should equal %v", value, resourcesToLimit[key])
-					}
-					if _, ok := quota.Status.Used[key]; !ok {
-						return fmt.Errorf("Missing %s in status.used", key)
-					}
-				}
-				return err
-			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 
 			By("Starting the VirtualMachineInstance")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Determining the actual memory consumed by the virt-launcher pod")
+			launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			podMemoryRequest := totalPodMemoryRequest(launcherPod)
+
+			By("Creating ResourceQuota with enough memory for the running vmi but not enough for migration")
+			resourcesToLimit := k8sv1.ResourceList{
+				k8sv1.ResourceMemory: podMemoryRequest,
+			}
+			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
+			resourceQuota = createResourceQuota(resourceQuota)
+
+			By("Waiting for the ResourceQuota status to reflect the VMI's resource consumption")
+			Eventually(func(g Gomega) {
+				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(quota.Status.Used).ToNot(BeNil(), "resource quota status.used not yet populated")
+				usedMemory, found := quota.Status.Used[k8sv1.ResourceMemory]
+				g.Expect(found).To(BeTrue(), "memory not yet in status.used")
+				g.Expect(usedMemory.IsZero()).To(BeFalse(), "memory status.used is still zero")
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 
 			By("Trying to migrate the VirtualMachineInstance")
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
@@ -3122,6 +3111,23 @@ func newResourceQuota(hardResourcesLimitation k8sv1.ResourceList, namespace stri
 			Hard: hardResourcesLimitation,
 		},
 	}
+}
+
+func totalPodMemoryRequest(pod *k8sv1.Pod) resource.Quantity {
+	total := resource.Quantity{}
+	for _, c := range pod.Spec.Containers {
+		if mem, ok := c.Resources.Requests[k8sv1.ResourceMemory]; ok {
+			total.Add(mem)
+		}
+	}
+	for _, c := range pod.Spec.InitContainers {
+		if c.RestartPolicy != nil && *c.RestartPolicy == k8sv1.ContainerRestartPolicyAlways {
+			if mem, ok := c.Resources.Requests[k8sv1.ResourceMemory]; ok {
+				total.Add(mem)
+			}
+		}
+	}
+	return total
 }
 
 func temporaryTLSConfig() *tls.Config {
