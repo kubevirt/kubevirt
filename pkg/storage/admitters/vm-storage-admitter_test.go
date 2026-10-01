@@ -20,28 +20,20 @@
 package admitters
 
 import (
-	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -49,19 +41,6 @@ import (
 const kubeVirtNamespace = "kubevirt"
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-	var (
-		virtClient *kubecli.MockKubevirtClient
-	)
-
-	BeforeEach(func() {
-		ctrl := gomock.NewController(GinkgoT())
-		k8sClient := k8sfake.NewSimpleClientset()
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-
-		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
-	})
-
 	Context("Validate VM DataVolumeTemplate", func() {
 		var vm *v1.VirtualMachine
 		apiGroup := "kubevirt.io"
@@ -102,9 +81,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			causes, err := admitVm(virtClient, admissionv1.Create, config, vm, nil)
+			causes, err := admitVm(admissionv1.Create, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes).To(BeEmpty())
 			causes = ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
@@ -149,9 +126,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			causes, err := admitVm(virtClient, admissionv1.Create, config, vm, nil)
+			causes, err := admitVm(admissionv1.Create, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
 		})
@@ -172,8 +147,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(BeEmpty())
 			})
@@ -187,8 +160,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("'name' field must not be empty for DataVolumeTemplate entry spec.dataVolumeTemplate[0].name."))
@@ -204,8 +175,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Missing Data volume PVC or Storage"))
@@ -223,8 +192,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Duplicate storage definition, both target storage and target pvc defined"))
@@ -245,8 +212,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("External population is incompatible with Source and SourceRef"))
@@ -260,8 +225,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						PVC: &k8sv1.PersistentVolumeClaimSpec{},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Data volume should have either Source, SourceRef, or be externally populated"))
@@ -276,8 +239,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						Source: &cdiv1.DataVolumeSource{},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Missing dataVolume valid source"))
@@ -295,8 +256,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(Equal("Multiple dataVolume sources"))
@@ -322,8 +281,6 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				})
-
-				testutils.AddDataVolumeAPI(crdInformer)
 				causes := ValidateDataVolumeTemplate(k8sfield.NewPath("spec"), &vm.Spec)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
@@ -360,7 +317,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			allow := mutateFn(vm)
 
-			causes, err := admitVm(virtClient, admissionv1.Update, config, vm, oldVM)
+			causes, err := admitVm(admissionv1.Update, vm, oldVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			if !allow {
@@ -446,7 +403,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			allow := mutateFn(vm)
 
-			causes, err := admitVm(virtClient, admissionv1.Update, config, vm, oldVM)
+			causes, err := admitVm(admissionv1.Update, vm, oldVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			if !allow {
@@ -480,7 +437,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 })
 
-func admitVm(virtClient *kubecli.MockKubevirtClient, operation admissionv1.Operation, config *virtconfig.ClusterConfig, vm, oldVm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func admitVm(operation admissionv1.Operation, vm, oldVm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	vmBytes, _ := json.Marshal(vm)
 
 	ar := &admissionv1.AdmissionRequest{
@@ -498,5 +455,5 @@ func admitVm(virtClient *kubecli.MockKubevirtClient, operation admissionv1.Opera
 		}
 	}
 
-	return Admit(virtClient, context.Background(), ar, vm, config)
+	return Admit(ar, vm)
 }
