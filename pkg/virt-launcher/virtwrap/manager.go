@@ -1330,7 +1330,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 				UsesFirmwareAutoSelection: true,
 			}
 		} else {
-			if enrolledKeys := vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys; enrolledKeys != nil && !*enrolledKeys {
+			if efiSpec := vmi.Spec.Domain.Firmware.Bootloader.EFI; efiSpec != nil && efiSpec.EnrolledKeys != nil && !*efiSpec.EnrolledKeys {
 				return nil, fmt.Errorf("EFI Secure Boot without enrolled keys requires the FirmwareAutoSelection feature gate")
 			}
 			if !efiEnv.Bootable(secureBoot, vmType) {

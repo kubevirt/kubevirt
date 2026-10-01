@@ -2999,7 +2999,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.efi.enrolledKeys"))
-			Expect(causes[0].Message).To(ContainSubstring("FirmwareAutoSelection feature gate is not enabled"))
+			Expect(causes[0].Message).To(Equal("fake.domain.firmware.bootloader.efi.enrolledKeys cannot be false when the FirmwareAutoSelection feature gate is not enabled"))
 		})
 
 		DescribeTable("should reject enrolledKeys without SecureBoot", func(enrolledKeys bool) {

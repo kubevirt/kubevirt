@@ -1559,7 +1559,7 @@ func validateEFIEnrolledKeys(field *k8sfield.Path, spec *v1.DomainSpec, config *
 	if !config.FirmwareAutoSelectionEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.FirmwareAutoSelection),
+			Message: fmt.Sprintf("%s cannot be false when the %s feature gate is not enabled", field.String(), featuregate.FirmwareAutoSelection),
 			Field:   field.String(),
 		})
 	}
