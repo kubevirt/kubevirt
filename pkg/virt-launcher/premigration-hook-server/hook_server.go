@@ -19,6 +19,7 @@
 package premigrationhookserver
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -66,7 +67,8 @@ func (h *PreMigrationHookServer) Start(c *convertertypes.ConverterContext, vmi *
 	h.startOnce.Do(func() {
 		const socketPath = "/var/run/kubevirt/migration-hook-socket"
 
-		socket, err := net.Listen("unix", socketPath)
+		var lc net.ListenConfig
+		socket, err := lc.Listen(context.Background(), "unix", socketPath)
 		if err != nil {
 			startErr = fmt.Errorf("failed to listen on unix socket %s: %v", socketPath, err)
 			return
