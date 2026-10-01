@@ -124,7 +124,6 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []v1.Vir
 		return &api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
 			Source:  api.HostDeviceSource{Address: hostAddr},
-			Driver:  &api.HostDevDriver{Iommufd: "yes"},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
 		}, nil
