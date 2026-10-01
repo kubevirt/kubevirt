@@ -364,9 +364,8 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		return
 	}
 
-	fragments := strings.SplitN(line, ": ", 5)
-	if len(fragments) < 4 {
-		now := time.Now()
+	logRawLine := func() {
+		now := time.Now().UTC()
 		logger.logger.Log(
 			"level", "info",
 			"timestamp", now.Format(logTimestampFormat),
@@ -374,22 +373,39 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 			"subcomponent", "libvirt",
 			"msg", line,
 		)
+	}
+
+	fragments := strings.SplitN(line, ": ", 5)
+	if len(fragments) < 4 {
+		logRawLine()
+		return
+	}
+
+	thread := strings.TrimSpace(fragments[1])
+	if _, err := strconv.Atoi(thread); err != nil {
+		logRawLine()
 		return
 	}
 	severity := strings.ToLower(strings.TrimSpace(fragments[2]))
-
-	if severity == "debug" {
+	switch severity {
+	case "debug":
 		severity = "info"
+	case "info", "warning", "error":
+	default:
+		logRawLine()
+		return
 	}
 
 	t, err := time.Parse(libvirtTimestampFormat, strings.TrimSpace(fragments[0]))
 	if err != nil {
-		fmt.Println(err)
+		logRawLine()
 		return
 	}
-	thread := strings.TrimSpace(fragments[1])
 	pos := strings.TrimSpace(fragments[3])
-	msg := strings.TrimSpace(fragments[4])
+	msg := pos
+	if len(fragments) == 5 {
+		msg = strings.TrimSpace(fragments[4])
+	}
 
 	//TODO: implement proper behavior for unsupported GA commands
 	// by either considering the GA version as unsupported or just don't
@@ -404,14 +420,18 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 
 	// check if we really got a position
 	isPos := false
-	if split := strings.Split(pos, ":"); len(split) == 2 {
-		if _, err := strconv.Atoi(split[1]); err == nil {
-			isPos = true
+	if len(fragments) == 5 {
+		if split := strings.Split(pos, ":"); len(split) == 2 {
+			if _, err := strconv.Atoi(split[1]); err == nil {
+				isPos = true
+			}
 		}
 	}
 
 	if !isPos {
-		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
+		if len(fragments) == 5 {
+			msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
+		}
 		logger.logger.Log(
 			"level", severity,
 			"timestamp", t.Format(logTimestampFormat),
