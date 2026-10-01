@@ -1,3 +1,4 @@
+pkg/libvmi
 pkg/network
 pkg/virt-handler/cache
 pkg/virt-handler/cgroup

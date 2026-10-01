@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	"maps"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -64,9 +66,7 @@ func WithAnnotations(annotations map[string]string) VMOption {
 		if vm.Annotations == nil {
 			vm.Annotations = annotations
 		}
-		for key, val := range annotations {
-			vm.Annotations[key] = val
-		}
+		maps.Copy(vm.Annotations, annotations)
 	}
 }
 
@@ -75,9 +75,7 @@ func WithLabels(labels map[string]string) VMOption {
 		if vm.Labels == nil {
 			vm.Labels = labels
 		}
-		for key, val := range labels {
-			vm.Labels[key] = val
-		}
+		maps.Copy(vm.Labels, labels)
 	}
 }
 
@@ -200,6 +198,6 @@ func WithPreferenceRevision(revisionName string) VMOption {
 
 func WithUpdateVolumeStrategy(strategy v1.UpdateVolumesStrategy) VMOption {
 	return func(vm *v1.VirtualMachine) {
-		vm.Spec.UpdateVolumesStrategy = pointer.P(strategy)
+		vm.Spec.UpdateVolumesStrategy = new(strategy)
 	}
 }
