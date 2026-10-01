@@ -237,7 +237,7 @@ var _ = Describe("Backup source", func() {
 				},
 			},
 			Status: &backupv1.VirtualMachineBackupStatus{
-				Type:            backupv1.Full,
+				StartTimestamp:  new(metav1.Now()),
 				Conditions:      conditions,
 				IncludedVolumes: includedVolumes,
 				CheckpointName:  checkpointName,
@@ -273,7 +273,7 @@ var _ = Describe("Backup source", func() {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
-			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
+			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName, Type: backupv1.Full}},
 			pointer.P(testBackupCheckpointName),
 		)
 		addTestVMI("test-vm")
@@ -336,11 +336,11 @@ var _ = Describe("Backup source", func() {
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(
 			k8sv1.EnvVar{Name: "BACKUP_CACERT", Value: cert},
 			k8sv1.EnvVar{Name: "BACKUP_UID", Value: testBackupUID},
-			k8sv1.EnvVar{Name: "BACKUP_TYPE", Value: string(backupv1.Full)},
 			k8sv1.EnvVar{Name: "BACKUP_CHECKPOINT", Value: testBackupCheckpointName},
 			k8sv1.EnvVar{Name: "BACKUP0_BACKUP_PATH", Value: testBackupVolumeName},
 			k8sv1.EnvVar{Name: "BACKUP0_DATA_URI", Value: backupDataURI(testBackupVolumeName)},
 			k8sv1.EnvVar{Name: "BACKUP0_MAP_URI", Value: backupMapURI(testBackupVolumeName)},
+			k8sv1.EnvVar{Name: "BACKUP0_TYPE", Value: string(backupv1.Full)},
 		))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 	})
@@ -438,7 +438,7 @@ var _ = Describe("Backup source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
-	It("Should return error if VirtualMachineBackup status is empty", func() {
+	It("Should return error if the VirtualMachineBackup has not started", func() {
 		testVMExport := createBackupVMExport()
 
 		vmBackup := &backupv1.VirtualMachineBackup{
@@ -452,7 +452,7 @@ var _ = Describe("Backup source", func() {
 		retry, err := controller.updateVMExport(testVMExport)
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("backup status empty"))
+		Expect(err.Error()).To(ContainSubstring("backup has not started"))
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 

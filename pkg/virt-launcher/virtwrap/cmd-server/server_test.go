@@ -362,10 +362,6 @@ var _ = Describe("Virt remote commands", func() {
 				checkpoint = &backupv1.BackupCheckpoint{
 					Name:         "checkpoint-1",
 					CreationTime: &creationTime,
-					Volumes: []backupv1.BackupVolumeInfo{
-						{VolumeName: "disk1"},
-						{VolumeName: "disk2"},
-					},
 				}
 			})
 
@@ -374,8 +370,6 @@ var _ = Describe("Virt remote commands", func() {
 					func(vmiArg *v1.VirtualMachineInstance, cpArg *backupv1.BackupCheckpoint) (bool, error) {
 						Expect(vmiArg.Name).To(Equal("testvmi"))
 						Expect(cpArg.Name).To(Equal("checkpoint-1"))
-						Expect(cpArg.Volumes).To(HaveLen(2))
-						Expect(cpArg.Volumes[0].VolumeName).To(Equal("disk1"))
 						Expect(cpArg.CreationTime.Unix()).To(Equal(int64(1234567890)))
 						return false, nil
 					})

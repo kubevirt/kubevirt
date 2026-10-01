@@ -42,6 +42,7 @@ type BackupInfo struct {
 	Path    string
 	DataURI string
 	MapURI  string
+	Type    string
 }
 
 // ServerPaths contains static paths and per-volume paths
@@ -109,6 +110,7 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 			Path:    env[k],
 			DataURI: env[envPrefix+"_DATA_URI"],
 			MapURI:  env[envPrefix+"_MAP_URI"],
+			Type:    env[envPrefix+"_TYPE"],
 		}
 		result.Backups = append(result.Backups, bi)
 	}

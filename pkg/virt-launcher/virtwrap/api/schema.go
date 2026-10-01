@@ -498,6 +498,7 @@ type BackupDisks struct {
 type BackupDisk struct {
 	Name         string         `xml:"name,attr"`
 	Backup       string         `xml:"backup,attr"`
+	BackupMode   string         `xml:"backupmode,attr,omitempty"`
 	Type         string         `xml:"type,attr,omitempty"`
 	Target       *BackupTarget  `xml:"target,omitempty"`
 	Scratch      *BackupScratch `xml:"scratch,omitempty"`

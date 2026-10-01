@@ -55,7 +55,6 @@ func main() {
 	}
 	if len(config.Paths.Backups) > 0 {
 		config.BackupUID = getBackupUID()
-		config.BackupType = getBackupType()
 		config.BackupCheckpoint = getBackupCheckpoint()
 		config.BackupCACert = getBackupCACert()
 	}
@@ -110,14 +109,6 @@ func getBackupUID() string {
 		panic("backup export but not backup UID provided")
 	}
 	return backupUID
-}
-
-func getBackupType() string {
-	backupType := os.Getenv("BACKUP_TYPE")
-	if backupType == "" {
-		panic("backup export but no backup type provided")
-	}
-	return backupType
 }
 
 func getBackupCheckpoint() string {

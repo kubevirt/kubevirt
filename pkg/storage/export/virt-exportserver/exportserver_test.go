@@ -825,7 +825,7 @@ var _ = Describe("exportserver", func() {
 		DescribeTable("should return error on non GET", func(verb string) {
 			req := httptest.NewRequest(verb, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 			Expect(rec.Code).To(BeEquivalentTo(http.StatusMethodNotAllowed))
 		},
 			Entry("POST", http.MethodPost),
@@ -837,7 +837,7 @@ var _ = Describe("exportserver", func() {
 		It("should return 503 when no NBD client is connected", func() {
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
 
@@ -860,7 +860,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map?offset=0&length=1024", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			var resp ExportMapResponse
@@ -890,7 +890,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map?page_size=2", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			var resp ExportMapResponse
@@ -905,7 +905,7 @@ var _ = Describe("exportserver", func() {
 				server.nbdClient = nbdv1.NewMockNBDClient(ctrl)
 				req := httptest.NewRequest(http.MethodGet, "/backup/map?"+query, nil)
 				rec := httptest.NewRecorder()
-				server.backupMapHandler("disk0").ServeHTTP(rec, req)
+				server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 				Expect(rec.Code).To(Equal(http.StatusBadRequest))
 			},
 			Entry("non-numeric offset", "offset=notanumber"),
@@ -921,7 +921,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
 		})
 
@@ -935,7 +935,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
 		})
 
@@ -948,11 +948,11 @@ var _ = Describe("exportserver", func() {
 				Map(gomock.Any(), &nbdv1.MapRequest{ExportName: "disk0", BitmapName: "checkpoint-name"}).
 				Return(mapStream, nil)
 			server.nbdClient = nbdClient
-			server.ExportServerConfig.BackupType = string(backupv1.Incremental)
 			server.ExportServerConfig.BackupCheckpoint = "checkpoint-name"
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
-			server.backupMapHandler("disk0").ServeHTTP(httptest.NewRecorder(), req)
+			backup := export.BackupInfo{Path: "disk0", Type: string(backupv1.Incremental)}
+			server.backupMapHandler(backup).ServeHTTP(httptest.NewRecorder(), req)
 		})
 
 		It("should omit the bitmap name for full backups", func() {
@@ -964,11 +964,11 @@ var _ = Describe("exportserver", func() {
 				Map(gomock.Any(), &nbdv1.MapRequest{ExportName: "disk0"}).
 				Return(mapStream, nil)
 			server.nbdClient = nbdClient
-			server.ExportServerConfig.BackupType = "Full"
 			server.ExportServerConfig.BackupCheckpoint = "checkpoint-name"
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
-			server.backupMapHandler("disk0").ServeHTTP(httptest.NewRecorder(), req)
+			backup := export.BackupInfo{Path: "disk0", Type: string(backupv1.Full)}
+			server.backupMapHandler(backup).ServeHTTP(httptest.NewRecorder(), req)
 		})
 	})
 
