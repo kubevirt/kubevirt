@@ -21,18 +21,23 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
+	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/cmd/test-helpers/dra-network-test-driver/pkg/driver"
 )
+
+const maxDevices = 5
 
 func main() {
 	log.InitializeLogging("dra-network-test-driver")
@@ -64,6 +69,26 @@ func main() {
 	)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start the kubelet plugin")
+		os.Exit(1)
+	}
+
+	var devices []resourceapi.Device
+	for index := range maxDevices {
+		devices = append(devices, resourceapi.Device{
+			Name: fmt.Sprintf("vhostuser-%d", index),
+		})
+	}
+
+	if err := helper.PublishResources(ctx, resourceslice.DriverResources{
+		Pools: map[string]resourceslice.Pool{
+			nodeName: {
+				Slices: []resourceslice.Slice{{
+					Devices: devices,
+				}},
+			},
+		},
+	}); err != nil {
+		log.Log.Reason(err).Error("Failed to publish resources")
 		os.Exit(1)
 	}
 
