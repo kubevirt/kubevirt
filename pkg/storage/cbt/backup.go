@@ -598,7 +598,7 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 
 func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker, backupStatus *v1.VirtualMachineInstanceBackupStatus) error {
 	if backupTracker != nil && backupStatus.CheckpointName != nil && !backupStatus.Failed {
-		if err := ctrl.updateBackupTracker(backup.Namespace, backupTracker, backupStatus); err != nil {
+		if err := ctrl.updateBackupTracker(backup, backupTracker, backupStatus); err != nil {
 			log.Log.Object(backup).Reason(err).Error("Failed to update BackupTracker")
 			return err
 		}
@@ -650,7 +650,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 	switch *backup.Spec.Mode {
 	case backupv1.PushMode, backupv1.PullMode:
-		reason, err := ctrl.verifyBackupTargetPVC(backup.Spec.PvcName, backup.Namespace)
+		pvcName, reason, err := ctrl.ensureBackupTargetPVC(backup, vmi)
 		if err != nil {
 			return err
 		}
@@ -661,7 +661,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 
 		volumeName := backupTargetVolumeName(backup.Name)
 		if !ctrl.backupTargetPVCAttached(vmi, volumeName) {
-			return ctrl.attachBackupTargetPVC(vmi, *backup.Spec.PvcName, volumeName)
+			return ctrl.attachBackupTargetPVC(vmi, pvcName, volumeName)
 		}
 		backupOptions.Mode = *backup.Spec.Mode
 		backupOptions.TargetPath = pointer.P(hotplugdisk.GetVolumeMountDir(volumeName))
@@ -965,7 +965,7 @@ func (ctrl *VMBackupController) resolveCompletion(backup *backupv1.VirtualMachin
 	ctrl.recorder.Eventf(backup, corev1.EventTypeNormal, backupCompletedEvent, backupCompleted)
 }
 
-func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *backupv1.VirtualMachineBackupTracker, backupStatus *v1.VirtualMachineInstanceBackupStatus) error {
+func (ctrl *VMBackupController) updateBackupTracker(backup *backupv1.VirtualMachineBackup, tracker *backupv1.VirtualMachineBackupTracker, backupStatus *v1.VirtualMachineInstanceBackupStatus) error {
 	if tracker == nil {
 		return nil
 	}
@@ -974,6 +974,10 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		Name:         *backupStatus.CheckpointName,
 		CreationTime: backupStatus.StartTimestamp,
 		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
+		PvcName:      backup.Spec.PvcName,
+	}
+	if newCheckpoint.PvcName == nil && backup.Status != nil {
+		newCheckpoint.PvcName = backup.Status.PvcName
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -992,7 +996,7 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		return fmt.Errorf("failed to generate patch payload: %w", err)
 	}
 
-	_, err = ctrl.client.VirtualMachineBackupTracker(namespace).Patch(
+	_, err = ctrl.client.VirtualMachineBackupTracker(backup.Namespace).Patch(
 		context.Background(),
 		tracker.Name,
 		types.JSONPatchType,
@@ -1005,9 +1009,13 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	}
 
 	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
-		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d",
-		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
+		backup.Namespace, tracker.Name, newCheckpoint.Name)
+	pvcNameLog := ""
+	if newCheckpoint.PvcName != nil {
+		pvcNameLog = *newCheckpoint.PvcName
+	}
+	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d, pvcName=%s",
+		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes), pvcNameLog)
 
 	return nil
 }
