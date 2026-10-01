@@ -39,6 +39,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
@@ -54,6 +55,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
@@ -110,6 +112,7 @@ type VirtualMachineController struct {
 	*BaseController
 	capabilities             *libvirtxml.Caps
 	virtClient               kubecli.KubevirtClient
+	k8sClient                kubernetes.Interface
 	containerDiskMounter     containerdisk.Mounter
 	downwardMetricsManager   downwardMetricsManager
 	hotplugVolumeMounter     hotplugvolume.VolumeMounter
@@ -190,6 +193,7 @@ func NewVirtualMachineController(
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
 		virtClient:               virtClient,
+		k8sClient:                k8sClient,
 		containerDiskMounter:     cdMounter,
 		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hvMounter,
@@ -1154,6 +1158,10 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(reason, v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
+	if c.cpusFromDRA(vmi) {
+		return newNonMigratableCondition(cpuDRANotMigratableMessage, v1.VirtualMachineInstanceReasonCPUDRANotMigratable), isBlockMigration
+	}
+
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
 	} else if util.IsTDXVMI(vmi) {
@@ -1189,6 +1197,42 @@ func isMdevGPU(gpu v1.GPU, config *v1.KubeVirtConfiguration) bool {
 	for _, mdev := range config.PermittedHostDevices.MediatedDevices {
 		if mdev.ResourceName == gpu.DeviceName {
 			return true
+		}
+	}
+	return false
+}
+
+// CPU DRA is not supported for live migration yet.
+const cpuDRANotMigratableMessage = "VMI CPUs are provisioned through DRA"
+
+// cpusFromDRA reports whether this VMI holds an allocated synthesized CPU ResourceClaim. Such a VMI cannot be live migrated.
+func (c *VirtualMachineController) cpusFromDRA(vmi *v1.VirtualMachineInstance) bool {
+	if !drautil.ShouldSynthesizeCPUResourceClaim(vmi) {
+		return false
+	}
+
+	claim, err := c.k8sClient.ResourceV1().ResourceClaims(vmi.Namespace).Get(
+		context.Background(),
+		drautil.CPUResourceClaimName(vmi.Name),
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			log.Log.Object(vmi).Reason(err).Warning("failed to determine whether VMI CPUs are allocated through DRA")
+			return true
+		}
+		return false
+	}
+
+	if !metav1.IsControlledBy(claim, vmi) || claim.Status.Allocation == nil {
+		return false
+	}
+
+	for _, consumer := range claim.Status.ReservedFor {
+		if consumer.APIGroup == "" && consumer.Resource == "pods" {
+			if _, active := vmi.Status.ActivePods[consumer.UID]; active {
+				return true
+			}
 		}
 	}
 	return false
@@ -1271,6 +1315,10 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, c.clusterConfig)
 	if ok {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, reason)
+	}
+
+	if c.cpusFromDRA(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUDRANotMigratable, cpuDRANotMigratableMessage)
 	}
 
 	if util.IsSEVVMI(vmi) {

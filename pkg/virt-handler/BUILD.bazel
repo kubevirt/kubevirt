@@ -21,6 +21,7 @@ go_library(
     deps = [
         "//pkg/config:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/dra:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/executor:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
@@ -106,6 +107,7 @@ go_test(
         "//pkg/checkpoint:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/controller/testing:go_default_library",
+        "//pkg/dra:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/hypervisor:go_default_library",
@@ -145,6 +147,7 @@ go_test(
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",

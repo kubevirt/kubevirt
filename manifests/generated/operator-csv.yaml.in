@@ -863,11 +863,19 @@ spec:
           - resource.k8s.io
           resources:
           - resourceslices
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - resource.k8s.io
+          resources:
           - resourceclaims
           verbs:
           - list
           - watch
           - get
+          - create
         - apiGroups:
           - kubevirt.io
           resources:
@@ -884,6 +892,12 @@ spec:
           - patch
           - list
           - watch
+          - get
+        - apiGroups:
+          - resource.k8s.io
+          resources:
+          - resourceclaims
+          verbs:
           - get
         - apiGroups:
           - ""
