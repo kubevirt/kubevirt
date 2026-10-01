@@ -25,9 +25,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 
 	"kubevirt.io/client-go/log"
 
@@ -64,6 +66,22 @@ func main() {
 	)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start the kubelet plugin")
+		os.Exit(1)
+	}
+
+	// publish one device per node
+	devices := []resourceapi.Device{{Name: "vhostuser"}}
+
+	if err := helper.PublishResources(ctx, resourceslice.DriverResources{
+		Pools: map[string]resourceslice.Pool{
+			nodeName: {
+				Slices: []resourceslice.Slice{{
+					Devices: devices,
+				}},
+			},
+		},
+	}); err != nil {
+		log.Log.Reason(err).Error("Failed to publish resources")
 		os.Exit(1)
 	}
 
