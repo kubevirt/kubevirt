@@ -21,9 +21,12 @@ var (
 
 	/* HW */
 
+	// DRACEX is CEX AP-queue passthrough via Kubernetes DRA.
+	// These tests require s390x and the CEX DRA driver; see TARGET sig-compute-dra-cex.
 	GPU             = Label("GPU")
 	VGPU            = Label("VGPU")
 	DRAGPU          = Label("DRA-GPU")
+	DRACEX          = Label("DRA-CEX")
 	SEV             = Label("SEV")
 	SEVES           = Label("SEVES")
 	SEVSNP          = Label("SEVSNP")
