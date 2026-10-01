@@ -547,12 +547,12 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 }
 
 // Works whenever pod has curl
-func GetKubevirtVMMetrics(pod *k8sv1.Pod) string {
+func GetKubevirtVMMetrics(pod *k8sv1.Pod) (string, error) {
 	return GetKubevirtVMMetricsByIP(pod, "localhost")
 }
 
 // Deprecated: Use GetKubevirtVMMetrics or grab metrics indirectly through prometheus
-func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) string {
+func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) (string, error) {
 	metricsURL := PrepareMetricsURL(ip, defaultMetricsPort)
 	stdout, stderr, err := execute.ExecuteCommandOnPodWithResults(
 		pod,
@@ -563,8 +563,11 @@ func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) string {
 			"-k",
 			metricsURL,
 		})
-	Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", stdout, stderr)
-	return stdout
+	if err != nil {
+		return stdout, fmt.Errorf("failed to scrape %s from pod %s/%s: %w, out: %s stderr: %s",
+			metricsURL, pod.Namespace, pod.Name, err, stdout, stderr)
+	}
+	return stdout, nil
 }
 
 func PrepareMetricsURL(ip string, port int) string {

@@ -153,80 +153,75 @@ func (l *LibvirtConnection) Close() (int, error) {
 	}
 }
 
-func (l *LibvirtConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
+func registerEventCallback[T any](l *LibvirtConnection, callbacks *[]T, callback T, register func(T) (int, error)) error {
+	l.reconnectLock.Lock()
+	defer l.reconnectLock.Unlock()
+
+	if err := l.reconnectIfNecessaryLocked(); err != nil {
+		return err
 	}
 
-	l.domainEventJobCompletedCallbacks = append(l.domainEventJobCompletedCallbacks, callback)
-	_, err = l.Connect.DomainEventJobCompletedRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+	*callbacks = append(*callbacks, callback)
+	_, err := register(callback)
+	l.checkConnectionLostLocked(err)
+	return err
 }
 
-func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.domainEventCallbacks = append(l.domainEventCallbacks, callback)
-	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+func (l *LibvirtConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error {
+	return registerEventCallback(l, &l.domainEventJobCompletedCallbacks, callback,
+		func(cb libvirt.DomainEventJobCompletedCallback) (int, error) {
+			return l.Connect.DomainEventJobCompletedRegister(nil, cb)
+		})
 }
 
-func (l *LibvirtConnection) DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.domainRebootEventCallbacks = append(l.domainRebootEventCallbacks, callback)
-	_, err = l.Connect.DomainEventRebootRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error {
+	return registerEventCallback(l, &l.domainEventCallbacks, callback,
+		func(cb libvirt.DomainEventLifecycleCallback) (int, error) {
+			return l.Connect.DomainEventLifecycleRegister(nil, cb)
+		})
 }
 
-func (l *LibvirtConnection) DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.domainDeviceAddedEventCallbacks = append(l.domainDeviceAddedEventCallbacks, callback)
-	_, err = l.Connect.DomainEventDeviceAddedRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+func (l *LibvirtConnection) DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) error {
+	return registerEventCallback(l, &l.domainRebootEventCallbacks, callback,
+		func(cb libvirt.DomainEventGenericCallback) (int, error) {
+			return l.Connect.DomainEventRebootRegister(nil, cb)
+		})
 }
 
-func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.domainDeviceRemovedEventCallbacks = append(l.domainDeviceRemovedEventCallbacks, callback)
-	_, err = l.VolatileDomainEventDeviceRemovedRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+func (l *LibvirtConnection) DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error {
+	return registerEventCallback(l, &l.domainDeviceAddedEventCallbacks, callback,
+		func(cb libvirt.DomainEventDeviceAddedCallback) (int, error) {
+			return l.Connect.DomainEventDeviceAddedRegister(nil, cb)
+		})
 }
 
+func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error {
+	return registerEventCallback(l, &l.domainDeviceRemovedEventCallbacks, callback,
+		func(cb libvirt.DomainEventDeviceRemovedCallback) (int, error) {
+			return l.Connect.DomainEventDeviceRemovedRegister(nil, cb)
+		})
+}
+
+// The registration ID is only valid on the connection the callback was
+// registered on, so the callback is not stored for replay after a reconnect.
 func (l *LibvirtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error) {
-	if err := l.reconnectIfNecessary(); err != nil {
+	l.reconnectLock.Lock()
+	defer l.reconnectLock.Unlock()
+
+	if err := l.reconnectIfNecessaryLocked(); err != nil {
 		return 0, err
 	}
 
 	registrationID, err := l.Connect.DomainEventMigrationIterationRegister(nil, callback)
-	l.checkConnectionLost(err)
+	l.checkConnectionLostLocked(err)
 	return registrationID, err
 }
 
-func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.agentEventCallbacks = append(l.agentEventCallbacks, callback)
-	_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error {
+	return registerEventCallback(l, &l.agentEventCallbacks, callback,
+		func(cb libvirt.DomainEventAgentLifecycleCallback) (int, error) {
+			return l.Connect.DomainEventAgentLifecycleRegister(nil, cb)
+		})
 }
 
 func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error) {
@@ -237,15 +232,11 @@ func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirD
 	return l.Connect.DomainEventDeviceRemovedRegister(dom, callback)
 }
 
-func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.domainDeviceMemoryDeviceSizeChangeCallbacks = append(l.domainDeviceMemoryDeviceSizeChangeCallbacks, callback)
-	_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
+func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
+	return registerEventCallback(l, &l.domainDeviceMemoryDeviceSizeChangeCallbacks, callback,
+		func(cb libvirt.DomainEventMemoryDeviceSizeChangeCallback) (int, error) {
+			return l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, cb)
+		})
 }
 
 func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
@@ -547,9 +538,15 @@ func (l *LibvirtConnection) installWatchdog(checkInterval time.Duration) {
 	}()
 }
 
-func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
+func (l *LibvirtConnection) reconnectIfNecessary() error {
 	l.reconnectLock.Lock()
 	defer l.reconnectLock.Unlock()
+
+	return l.reconnectIfNecessaryLocked()
+}
+
+// reconnectIfNecessaryLocked expects reconnectLock to be held.
+func (l *LibvirtConnection) reconnectIfNecessaryLocked() (err error) {
 	// TODO add a reconnect backoff, and immediately return an error in these cases
 	// We need this to avoid swamping libvirt with reconnect tries
 	if l.alive {
@@ -621,6 +618,11 @@ func (l *LibvirtConnection) checkConnectionLost(err error) {
 	l.reconnectLock.Lock()
 	defer l.reconnectLock.Unlock()
 
+	l.checkConnectionLostLocked(err)
+}
+
+// checkConnectionLostLocked expects reconnectLock to be held.
+func (l *LibvirtConnection) checkConnectionLostLocked(err error) {
 	if errors.IsOk(err) {
 		return
 	}

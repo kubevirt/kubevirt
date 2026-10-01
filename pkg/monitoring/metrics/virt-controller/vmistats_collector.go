@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	none      = "" // Empty values will be ignored by operator-observability and label will not be created
+	none      = "" // Empty variable labels are exposed; empty constant labels are omitted.
 	other     = "<other>"
 	modelNone = "<none>"
 
@@ -204,6 +204,10 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 	kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
 	guestOSMachineType := getVMIMachine(vmi)
 	vmiPod := getVMIPod(vmi)
+	var relatedVMLabels map[string]string
+	if vmName := relatedVirtualMachineName(vmi); vmName != none {
+		relatedVMLabels = map[string]string{"vm": vmName}
+	}
 
 	return operatormetrics.CollectorResult{
 		Metric: vmiInfo,
@@ -215,8 +219,17 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 			strconv.FormatBool(isVMIOutdated(vmi)),
 			vmiPod,
 		},
-		Value: 1.0,
+		ConstLabels: relatedVMLabels,
+		Value:       1.0,
 	}
+}
+
+func relatedVirtualMachineName(vmi *k6tv1.VirtualMachineInstance) string {
+	owner := v1.GetControllerOf(vmi)
+	if owner == nil || owner.Kind != k6tv1.VirtualMachineGroupVersionKind.Kind {
+		return none
+	}
+	return owner.Name
 }
 
 func getVMIPhase(vmi *k6tv1.VirtualMachineInstance) string {
