@@ -94,6 +94,7 @@ type clusterConfigProvider interface {
 	GetPermittedHostDevices() *v1.PermittedHostDevices
 	IsSerialConsoleLogDisabled() bool
 	GetConfig() *v1.KubeVirtConfiguration
+	GetEmulationPolicy(vmi *v1.VirtualMachineInstance) v1.EmulationPolicy
 }
 
 var _ clusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
@@ -503,7 +504,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		args = append(args, "--allow-emulation")
 	}
 
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) {
+	if t.useSoftwareEmulation(vmi) {
 		command = append(command, "--allow-cross-arch-emulation")
 	}
 
@@ -765,7 +766,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) {
+	if t.allowCrossArchEmulation(vmi) {
 		setPreferredArchitectureAffinity(vmi.Spec.Architecture, &pod)
 		if vmi.Spec.Architecture != "" {
 			if pod.Spec.NodeSelector == nil {
@@ -854,7 +855,7 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTDXSelector())
 	}
 
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && vmi.Spec.Architecture != "" {
+	if t.allowCrossArchEmulation(vmi) && vmi.Spec.Architecture != "" {
 		opts = append(opts, WithoutNativeArchSelector())
 	}
 
@@ -1830,4 +1831,12 @@ func isHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
 func emptyMemoryRequest(vmi *v1.VirtualMachineInstance) bool {
 	resources := &vmi.Spec.Domain.Resources
 	return resources.Requests.Memory().IsZero()
+}
+
+func (t *TemplateService) allowCrossArchEmulation(vmi *v1.VirtualMachineInstance) bool {
+	return t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) != v1.EmulationPolicyNone
+}
+
+func (t *TemplateService) useSoftwareEmulation(vmi *v1.VirtualMachineInstance) bool {
+	return t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) == v1.EmulationPolicySoftware
 }
