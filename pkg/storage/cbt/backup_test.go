@@ -324,6 +324,9 @@ var _ = Describe("Backup Controller", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		podInformer, _ := testutils.NewFakeInformerFor(&corev1.Pod{})
+
 		controller = &VMBackupController{
 			client:                virtClient,
 			backupInformer:        backupInformer,
@@ -332,6 +335,8 @@ var _ = Describe("Backup Controller", func() {
 			vmiStore:              vmiInformer.GetStore(),
 			pvcStore:              pvcInformer.GetStore(),
 			vmExportStore:         vmExportInformer.GetStore(),
+			podIndexer:            podInformer.GetIndexer(),
+			clusterConfig:         clusterConfig,
 			recorder:              recorder,
 			backupQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
 				workqueue.DefaultTypedControllerRateLimiter[string](),

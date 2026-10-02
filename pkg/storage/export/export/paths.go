@@ -42,6 +42,8 @@ type BackupInfo struct {
 	Path    string
 	DataURI string
 	MapURI  string
+	// DiskPath is the in-pod mount path of the data PVC, set only for offline backups.
+	DiskPath string
 }
 
 // ServerPaths contains static paths and per-volume paths
@@ -106,9 +108,10 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 	for _, k := range backupKeys {
 		envPrefix := strings.TrimSuffix(k, "_BACKUP_PATH")
 		bi := BackupInfo{
-			Path:    env[k],
-			DataURI: env[envPrefix+"_DATA_URI"],
-			MapURI:  env[envPrefix+"_MAP_URI"],
+			Path:     env[k],
+			DataURI:  env[envPrefix+"_DATA_URI"],
+			MapURI:   env[envPrefix+"_MAP_URI"],
+			DiskPath: env[envPrefix+"_DISK_PATH"],
 		}
 		result.Backups = append(result.Backups, bi)
 	}

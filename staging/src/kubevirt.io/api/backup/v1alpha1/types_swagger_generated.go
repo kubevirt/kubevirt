@@ -110,5 +110,6 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
 		"exportUID":       "+optional\nExportUID tracks the UID of the associated VMExport for pull-mode backups\nused to detect VMExport recreation and re-initiate the export handshake",
 		"links":           "+optional\nLinks exposes internal (in-cluster) and external (Ingress/Route) endpoints\nfor pull-mode backups, each with a CA certificate and per-volume URLs.\nContains per-volume data and map endpoint URLs for each network path.",
+		"offline":         "+optional\nOffline is set to true when the backup was taken while the VM was stopped\n(no running VMI), using persisted QCOW2 dirty bitmaps served by qemu-nbd.",
 	}
 }

@@ -102,6 +102,10 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		if !vmi.IsUnprocessed() {
 			return nil, pod
 		}
+		if c.offlineBackupInProgress(vmi) {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while an offline backup is in progress")
+			return nil, pod
+		}
 		// let's check if we already have topology hints or if we are still waiting for them
 		if vmi.Status.TopologyHints == nil && c.topologyHinter.IsTscFrequencyRequired(vmi) {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
@@ -333,6 +337,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			if err := c.addTopologyHints(vmi, vmiCopy); err != nil {
 				return err
 			}
+			c.syncBackupInProgressCondition(vmiCopy)
 			if hasWffcDataVolume {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:   virtv1.VirtualMachineInstanceProvisioning,

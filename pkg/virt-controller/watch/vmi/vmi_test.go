@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
@@ -221,6 +222,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
+		vmBackupInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
+		vmBackupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
@@ -246,6 +249,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			cdiInformer,
 			cdiConfigInformer,
 			kubeVirtInformer,
+			vmBackupInformer,
+			vmBackupTrackerInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 			stubNetworkAnnotationsGenerator{},
