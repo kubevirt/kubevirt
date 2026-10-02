@@ -112,10 +112,8 @@ var _ = Describe("Live migration source", func() {
 	Context("Migration metadata initialization", func() {
 		It("should clear completed data before publishing a new migration", func() {
 			libvirtDomainManager.metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{
-				Stats: api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150},
-				Migration: api.MigrationMetadata{
-					UID: "previous-migration",
-				},
+				Stats:        api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150},
+				MigrationUID: "previous-migration",
 			})
 			libvirtDomainManager.metadataCache.ResetNotification()
 			vmi.Status.MigrationState.MigrationUID = "next-migration"

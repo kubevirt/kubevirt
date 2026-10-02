@@ -437,6 +437,12 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	if fsFreezeStatus != nil {
 		domain.Status.FSFreezeStatus = *fsFreezeStatus
 	}
+	// Lifecycle metadata can advance after JOB_COMPLETED and remains available
+	// even after the source domain is gone.
+	domain.Spec.Metadata.KubeVirt.Migration = nil
+	if migration, exists := metadataCache.Migration.Load(); exists {
+		domain.Spec.Metadata.KubeVirt.Migration = &migration
+	}
 	applyCompletedMigrationStats(domain, metadataCache)
 
 	event := watch.Event{Type: eventType, Object: domain}
@@ -788,17 +794,23 @@ func storeCompletedMigrationStats(jobInfo *libvirt.DomainJobInfo, metadataCache 
 			DowntimeSet: jobInfo.DowntimeSet,
 			Downtime:    jobInfo.Downtime,
 		},
-		Migration: migration,
+		MigrationUID: migration.UID,
 	})
 }
 
 func applyCompletedMigrationStats(domain *api.Domain, metadataCache *metadata.Cache) {
+	domain.Status.CompletedMigrationStats = nil
 	completedMigration, exists := metadataCache.CompletedMigration.Load()
 	if !exists || !completedMigration.Stats.DowntimeSet {
 		return
 	}
 
-	domain.Spec.Metadata.KubeVirt.Migration = &completedMigration.Migration
+	// Match the snapshot being sent, not a separate read of the advancing cache.
+	migration := domain.Spec.Metadata.KubeVirt.Migration
+	if migration == nil || completedMigration.MigrationUID == "" || migration.UID != completedMigration.MigrationUID {
+		return
+	}
+
 	domain.Status.CompletedMigrationStats = &completedMigration.Stats
 }
 

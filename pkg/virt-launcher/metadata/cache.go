@@ -25,10 +25,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-// CompletedMigrationData binds final job stats to the migration that produced them.
+// CompletedMigrationData binds completed downtime to the migration that produced it.
 type CompletedMigrationData struct {
-	Stats     api.CompletedMigrationStats
-	Migration api.MigrationMetadata
+	Stats        api.CompletedMigrationStats
+	MigrationUID types.UID
 }
 
 type Cache struct {
