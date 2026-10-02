@@ -33,6 +33,17 @@ func NewOldNotifyClient(virtShareDir string) notifyClient {
 	}
 }
 
+func NewOldNotifyClientWithCustomTimeouts(virtShareDir string,
+	interval, send, total time.Duration,
+) notifyClient {
+	return notifyClient{
+		pipeSocketPath:  filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
+		intervalTimeout: interval,
+		sendTimeout:     send,
+		totalTimeout:    total,
+	}
+}
+
 var _ notifierClient = &notifyClient{}
 
 type notifyClient struct {

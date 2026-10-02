@@ -45,7 +45,7 @@ var (
 )
 
 type Notifier struct {
-	client *notifyClient
+	client notifierClient
 
 	firstAdd    *sync.Once
 	firstDelete *sync.Once
@@ -58,10 +58,9 @@ type libvirtEvent struct {
 	JobCompletedEvent *libvirt.DomainEventJobCompleted
 }
 
-func NewNotifier(virtShareDir string) *Notifier {
-	client := NewOldNotifyClient(virtShareDir)
+func NewNotifier(client notifierClient) *Notifier {
 	return &Notifier{
-		client:      &client,
+		client:      client,
 		firstAdd:    &sync.Once{},
 		firstDelete: &sync.Once{},
 	}
@@ -118,14 +117,6 @@ func isTransientError(err error) bool {
 	default:
 		return false
 	}
-}
-
-// used by unit tests
-func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
-	n.client.intervalTimeout = interval
-	n.client.sendTimeout = send
-	n.client.totalTimeout = total
-
 }
 
 //nolint:dupl
