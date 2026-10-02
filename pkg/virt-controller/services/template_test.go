@@ -35,6 +35,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -230,11 +231,14 @@ var _ = Describe("Template", func() {
 
 		Context("Use emulation", func() {
 			const (
-				testNamespace        = "default"
-				computeContainerName = "compute"
-				kvmResource          = "devices.kubevirt.io/kvm"
-				allowEmulationOption = "--allow-emulation"
+				testNamespace                 = "default"
+				computeContainerName          = "compute"
+				kvmResource                   = "devices.kubevirt.io/kvm"
+				allowEmulationOption          = "--allow-emulation"
+				allowCrossArchEmulationOption = "--allow-cross-arch-emulation"
 			)
+
+			notContainCrossArchEmulation := Not(ContainElements(allowCrossArchEmulationOption))
 
 			It("should add the kvm resource when emulation is disabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
@@ -266,34 +270,37 @@ var _ = Describe("Template", func() {
 				Expect(containers[0].Args).To(ContainElements(allowEmulationOption))
 			})
 
-			It("should add the allow-cross-arch-emulation option when feature gate is enabled", func() {
+			DescribeTable("should only add the allow-cross-arch-emulation option when using software emulation", func(fg bool, policy v1.EmulationPolicy, matchExpectedArgs gomegatypes.GomegaMatcher) {
 				config, kvStore, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+				if fg {
+					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+				}
 
-				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+				if policy != "" {
+					vmi.Spec.EmulationPolicy = &policy
+				}
+				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(pod.Spec.Containers[0].Command).To(ContainElements("--allow-cross-arch-emulation"))
-			})
+				Expect(pod.Spec.Containers[0].Command).To(matchExpectedArgs)
+			},
+				Entry("default state", false, nil, notContainCrossArchEmulation),
+				Entry("FeatureGate and default policy", true, nil, notContainCrossArchEmulation),
+				Entry("FeatureGate and None", true, v1.EmulationPolicyNone, notContainCrossArchEmulation),
+				Entry("FeatureGate and Software", true, v1.EmulationPolicySoftware, ContainElements(allowCrossArchEmulationOption)),
+			)
 
-			It("should not add the allow-cross-arch-emulation option by default", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-
-				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(pod.Spec.Containers[0].Command).NotTo(ContainElements("--allow-cross-arch-emulation"))
-			})
-
-			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when CrossArchitectureVirtualization is enabled", func() {
+			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when Software emulation is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithArchitecture("arm64"))
+				vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).NotTo(HaveOccurred())
 

@@ -357,6 +357,75 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
+	DescribeTable("validateEmulationPolicy", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateEmulationPolicy(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).ToNot(BeEmpty())
+			Expect(causes[0].Field).To(Equal("spec.configuration.emulationPolicy"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should do nothing when not set",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should reject when FeatureGate is not enabled",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					EmulationPolicy: pointer.P(v1.EmulationPolicySoftware),
+				},
+			},
+			true,
+		),
+		Entry("should reject unkown value",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicy("foo")),
+				},
+			},
+			true,
+		),
+		Entry("should accept value 'None'",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicyNone),
+				},
+			},
+			false,
+		),
+		Entry("should accept value 'Software'",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicySoftware),
+				},
+			},
+			false,
+		),
+		Entry("should reject value 'Hardware'",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicyHardware),
+				},
+			},
+			true,
+		),
+	)
+
 	DescribeTable("warnProxyMigrationNetwork", func(kvSpec v1.KubeVirtSpec, expectWarning bool) {
 		warnings := warnProxyMigrationNetwork(&kvSpec.Configuration)
 		if expectWarning {

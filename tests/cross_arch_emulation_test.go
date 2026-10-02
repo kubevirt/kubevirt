@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -57,6 +58,7 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 			)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 
 			By("Creating a VMI with " + guestArch + " architecture on a cross-architecture host")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
@@ -93,14 +95,17 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 		),
 	)
 
-	DescribeTable("should boot a native-arch guest using KVM when the feature gate is enabled",
-		func(guestArch string) {
+	DescribeTable("should boot a native-arch guest using KVM",
+		func(guestArch string, policy v1.EmulationPolicy) {
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(guestArch),
 				libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 			)
+			if policy != v1.EmulationPolicy("") {
+				vmi.Spec.EmulationPolicy = &policy
+			}
 
 			By("Creating a VMI with " + guestArch + " architecture on a same-architecture host")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
@@ -108,12 +113,34 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 			By("Verifying the VMI does not have the SoftwareEmulation condition")
 			Consistently(matcher.ThisVMI(vmi), 10*time.Second, 2*time.Second).ShouldNot(matcher.HaveConditionTrue(v1.VirtualMachineInstanceSoftwareEmulation))
 		},
-		Entry("amd64 guest on amd64 host",
+		Entry("amd64 guest on amd64 host with Software policy",
 			"amd64",
+			v1.EmulationPolicySoftware,
 			decorators.RequiresAMD64,
 		),
-		Entry("arm64 guest on arm64 host",
+		Entry("amd64 guest on amd64 host with None policy",
+			"amd64",
+			v1.EmulationPolicyNone,
+			decorators.RequiresAMD64,
+		),
+		Entry("amd64 guest on amd64 host with no policy",
+			"amd64",
+			v1.EmulationPolicy(""),
+			decorators.RequiresAMD64,
+		),
+		Entry("arm64 guest on arm64 host with Software policy",
 			"arm64",
+			v1.EmulationPolicySoftware,
+			decorators.RequiresARM64,
+		),
+		Entry("arm64 guest on arm64 host with None policy",
+			"arm64",
+			v1.EmulationPolicyNone,
+			decorators.RequiresARM64,
+		),
+		Entry("arm64 guest on arm64 host with no policy",
+			"arm64",
+			v1.EmulationPolicy(""),
 			decorators.RequiresARM64,
 		),
 	)
