@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["server.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/grpcserver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/util/net/grpc:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "server_suite_test.go",
+        "server_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//pkg/handler-launcher-com/cmd/info:go_default_library",
+        "//pkg/handler-launcher-com/notify/info:go_default_library",
+        "//pkg/util/net/grpc:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+    ],
+)
