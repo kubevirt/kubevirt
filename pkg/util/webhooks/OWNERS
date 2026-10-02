@@ -1,0 +1,7 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+reviewers:
+  - sig-control-plane-reviewers
+approvers:
+  - sig-control-plane-approvers
+labels:
+  - sig/control-plane
