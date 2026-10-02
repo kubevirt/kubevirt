@@ -50,12 +50,23 @@ var (
 	defaultTotalTimeout    = 20 * time.Second
 )
 
-func newGRPCNotifyClient(virtShareDir string) *notifyClient {
+func NewGRPCNotifyClient(virtShareDir string) *notifyClient {
 	return &notifyClient{
 		pipeSocketPath:  filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
 		intervalTimeout: defaultIntervalTimeout,
 		sendTimeout:     defaultSendTimeout,
 		totalTimeout:    defaultTotalTimeout,
+	}
+}
+
+func NewGRPCNotifyClientWithCustomTimeouts(virtShareDir string,
+	interval, send, total time.Duration,
+) notifyClient {
+	return notifyClient{
+		pipeSocketPath:  filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
+		intervalTimeout: interval,
+		sendTimeout:     send,
+		totalTimeout:    total,
 	}
 }
 
