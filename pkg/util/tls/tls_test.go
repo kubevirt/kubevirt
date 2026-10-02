@@ -480,4 +480,30 @@ var _ = Describe("TLS", func() {
 				To(MatchError(ContainSubstring("not found in deployment")))
 		})
 	})
+
+	Describe("ApplyTLSConfigurationFromKubeVirtStore", func() {
+		It("should apply default TLS 1.2 when KubeVirt has no TLS config", func() {
+			config := &tls.Config{}
+			kvtls.ApplyTLSConfigurationFromKubeVirtStore(config, kubeVirtStore)
+
+			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
+			Expect(config.CipherSuites).To(BeNil())
+		})
+
+		It("should apply custom TLS configuration from KubeVirt", func() {
+			kv := testutils.GetFakeKubeVirtClusterConfig(kubeVirtStore)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS13,
+				Ciphers:       []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtStore, kvConfig)
+
+			config := &tls.Config{}
+			kvtls.ApplyTLSConfigurationFromKubeVirtStore(config, kubeVirtStore)
+
+			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS13)))
+			Expect(config.CipherSuites).To(Equal(kvtls.CipherSuiteIds([]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"})))
+		})
+	})
 })
