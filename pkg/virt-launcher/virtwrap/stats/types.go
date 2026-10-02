@@ -188,19 +188,21 @@ type DomainStatsMemory struct {
 	Total            uint64
 }
 
-type DomainStatsBlockLatencyHistogramBin struct {
-	StartSet bool
-	Start    uint64
-	ValueSet bool
-	Value    uint64
+type Histogram struct {
+	Name    string
+	Count   uint64
+	Buckets []HistogramBucket
 }
-type DomainStatsBlockLatencyHistogram struct {
-	Bins []DomainStatsBlockLatencyHistogramBin
+
+type HistogramBucket struct {
+	UpperBound      uint64
+	CumulativeCount uint64
 }
+
 type DomainStatsBlockLatencyHistograms struct {
-	Read  *DomainStatsBlockLatencyHistogram
-	Write *DomainStatsBlockLatencyHistogram
-	Flush *DomainStatsBlockLatencyHistogram
+	Read  *Histogram
+	Write *Histogram
+	Flush *Histogram
 }
 
 // mimic existing structs, but data is taken from
