@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
@@ -85,8 +86,12 @@ func markReady() {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) chan struct{} {
-	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	options *cmdserver.ServerOptions) <-chan struct{} {
+
+	done, err := grpcserver.RunServer(stopChan, socketPath,
+		cmdserver.RegisterCmdServer(
+			cmdserver.NewLauncher(domainManager, options),
+		))
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
