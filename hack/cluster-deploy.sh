@@ -62,6 +62,22 @@ function configure_prometheus() {
     fi
 }
 
+function _deploy_dra_network_test_driver() {
+
+    _kubectl apply -f - <<EOF
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubevirt-test-dra
+  labels:
+    pod-security.kubernetes.io/enforce: "privileged"
+EOF
+
+    _kubectl apply -f "${KUBEVIRT_DIR}"/cmd/test-helpers/dra-network-test-driver/manifests -n kubevirt-test-dra
+    _kubectl rollout status daemonset dra-network-test-driver -n kubevirt-test-dra --timeout=5m
+}
+
 trap dump_kubevirt EXIT
 
 echo "Deploying ..."
@@ -133,5 +149,9 @@ until _kubectl wait -n ${namespace} kv kubevirt --for condition=Available --time
 done
 
 configure_prometheus
+
+if [ "${KUBEVIRT_DEPLOY_NET_DRA_DRIVER}" == "true" ]; then
+    _deploy_dra_network_test_driver
+fi
 
 echo "Done $0"
