@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -57,6 +58,7 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 			)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 
 			By("Creating a VMI with " + guestArch + " architecture on a cross-architecture host")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
@@ -101,6 +103,7 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 			)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 
 			By("Creating a VMI with " + guestArch + " architecture on a same-architecture host")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())

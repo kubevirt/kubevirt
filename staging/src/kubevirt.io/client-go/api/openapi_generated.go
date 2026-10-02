@@ -23360,6 +23360,13 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"emulationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set the maximum level of emulation allowed for the VM. Valid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -29814,6 +29821,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 									},
 								},
 							},
+						},
+					},
+					"emulationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set the maximum level of emulation allowed for the VM. Overrides the value set in the global kubevirt configuration. Valid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
