@@ -295,6 +295,12 @@ type EFI struct {
 	// Defaults to true
 	// +optional
 	SecureBoot *bool `json:"secureBoot,omitempty"`
+	// If set to false, the firmware starts in Setup Mode with no Secure Boot
+	// keys pre-enrolled, so the guest can enroll its own. Only valid with
+	// SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+	// Defaults to true
+	// +optional
+	EnrolledKeys *bool `json:"enrolledKeys,omitempty"`
 	// If set to true, Persistent will persist the EFI NVRAM across reboots.
 	// Defaults to false
 	// +optional

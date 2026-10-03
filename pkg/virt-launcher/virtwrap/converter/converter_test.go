@@ -3330,6 +3330,29 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		})
 
+		It("should request firmware without enrolled keys when enrolledKeys is false", func() {
+			c.EFIConfiguration = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot:   pointer.P(true),
+						EnrolledKeys: pointer.P(false),
+					},
+				},
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.Firmware).To(Equal("efi"))
+			Expect(domainSpec.OS.FirmwareInfo).ToNot(BeNil())
+			Expect(domainSpec.OS.FirmwareInfo.Features).To(ConsistOf(
+				api.FirmwareFeature{Enabled: "yes", Name: compute.FirmwareFeatureSecureBoot},
+				api.FirmwareFeature{Enabled: "no", Name: compute.FirmwareFeatureEnrolledKeys},
+			))
+		})
+
 		DescribeTable("display device should be set to", func(arch string, bootloader v1.Bootloader, enableFG bool, expectedDevice string) {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{Bootloader: &bootloader}
 			c = &convertertypes.ConverterContext{

@@ -327,6 +327,34 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
 
+		It("should boot EFI secure boot in Setup Mode when keys are not enrolled", Serial, func() {
+			kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+
+			fedoraWithUefi := libvmifact.NewFedora(
+				libvmi.WithMemoryRequest("1Gi"),
+				libvmi.WithUefi(true),
+				libvmi.WithEnrolledKeys(false),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Starting the VirtualMachineInstance")
+			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, flags.StartupTimeoutSecondsHuge())
+
+			By("Checking libvirt selected the Secure Boot firmware with an empty varstore")
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(fedoraWithUefi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domSpec.OS.BootLoader.Secure).To(Equal("yes"))
+			Expect(domSpec.OS.NVRam.Template).To(HaveSuffix("OVMF_VARS.fd"))
+
+			By("Checking the guest firmware is in Setup Mode")
+			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
+			Expect(console.SafeExpectBatch(fedoraWithUefi, []expect.Batcher{
+				&expect.BSnd{S: "mokutil --sb-state\n"},
+				&expect.BExp{R: "SecureBoot disabled"},
+				&expect.BExp{R: "Platform is in Setup Mode"},
+			}, 200)).To(Succeed())
+		})
+
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				overcommitVmi := libvmifact.NewAlpine(overcommitGuestOverhead())

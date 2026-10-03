@@ -8556,6 +8556,13 @@ var CRDsValidation map[string]string = map[string]string{
                             efi:
                               description: If set, EFI will be used instead of BIOS.
                               properties:
+                                enrolledKeys:
+                                  description: |-
+                                    If set to false, the firmware starts in Setup Mode with no Secure Boot
+                                    keys pre-enrolled, so the guest can enroll its own. Only valid with
+                                    SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                                    Defaults to true
+                                  type: boolean
                                 persistent:
                                   description: |-
                                     If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -12114,6 +12121,13 @@ var CRDsValidation map[string]string = map[string]string{
             preferredEfi:
               description: PreferredEfi optionally enables EFI
               properties:
+                enrolledKeys:
+                  description: |-
+                    If set to false, the firmware starts in Setup Mode with no Secure Boot
+                    keys pre-enrolled, so the guest can enroll its own. Only valid with
+                    SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                    Defaults to true
+                  type: boolean
                 persistent:
                   description: |-
                     If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -14822,6 +14836,13 @@ var CRDsValidation map[string]string = map[string]string{
                     efi:
                       description: If set, EFI will be used instead of BIOS.
                       properties:
+                        enrolledKeys:
+                          description: |-
+                            If set to false, the firmware starts in Setup Mode with no Secure Boot
+                            keys pre-enrolled, so the guest can enroll its own. Only valid with
+                            SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                            Defaults to true
+                          type: boolean
                         persistent:
                           description: |-
                             If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -19038,6 +19059,13 @@ var CRDsValidation map[string]string = map[string]string{
                     efi:
                       description: If set, EFI will be used instead of BIOS.
                       properties:
+                        enrolledKeys:
+                          description: |-
+                            If set to false, the firmware starts in Setup Mode with no Secure Boot
+                            keys pre-enrolled, so the guest can enroll its own. Only valid with
+                            SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                            Defaults to true
+                          type: boolean
                         persistent:
                           description: |-
                             If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -21642,6 +21670,13 @@ var CRDsValidation map[string]string = map[string]string{
                             efi:
                               description: If set, EFI will be used instead of BIOS.
                               properties:
+                                enrolledKeys:
+                                  description: |-
+                                    If set to false, the firmware starts in Setup Mode with no Secure Boot
+                                    keys pre-enrolled, so the guest can enroll its own. Only valid with
+                                    SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                                    Defaults to true
+                                  type: boolean
                                 persistent:
                                   description: |-
                                     If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -26833,6 +26868,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: If set, EFI will be used instead
                                         of BIOS.
                                       properties:
+                                        enrolledKeys:
+                                          description: |-
+                                            If set to false, the firmware starts in Setup Mode with no Secure Boot
+                                            keys pre-enrolled, so the guest can enroll its own. Only valid with
+                                            SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                                            Defaults to true
+                                          type: boolean
                                         persistent:
                                           description: |-
                                             If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -28940,6 +28982,13 @@ var CRDsValidation map[string]string = map[string]string{
             preferredEfi:
               description: PreferredEfi optionally enables EFI
               properties:
+                enrolledKeys:
+                  description: |-
+                    If set to false, the firmware starts in Setup Mode with no Secure Boot
+                    keys pre-enrolled, so the guest can enroll its own. Only valid with
+                    SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                    Defaults to true
+                  type: boolean
                 persistent:
                   description: |-
                     If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -32520,6 +32569,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: If set, EFI will be used instead
                                             of BIOS.
                                           properties:
+                                            enrolledKeys:
+                                              description: |-
+                                                If set to false, the firmware starts in Setup Mode with no Secure Boot
+                                                keys pre-enrolled, so the guest can enroll its own. Only valid with
+                                                SecureBoot enabled and requires the FirmwareAutoSelection feature gate.
+                                                Defaults to true
+                                              type: boolean
                                             persistent:
                                               description: |-
                                                 If set to true, Persistent will persist the EFI NVRAM across reboots.
