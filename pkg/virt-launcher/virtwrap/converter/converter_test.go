@@ -4110,6 +4110,25 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.IOMMUFD.FDGroup).To(Equal("iommu"))
 		})
 
+		It("should set IOMMUFD on PCI host devices when IOMMUFDEnabled is true", func() {
+			vmi := libvmi.New()
+			c := &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:            true,
+				HypervisorDeviceAvailable: true,
+				IOMMUFDEnabled:            true,
+				GPUHostDevices: []api.HostDevice{
+					{Type: api.HostDevicePCI},
+					{Type: api.HostDeviceMDev},
+				},
+			}
+			domain := vmiToDomain(vmi, c)
+
+			Expect(domain.Spec.Devices.HostDevices).To(HaveLen(2))
+			Expect(domain.Spec.Devices.HostDevices[0].Driver).To(Equal(&api.HostDevDriver{Iommufd: "yes"}))
+			Expect(domain.Spec.Devices.HostDevices[1].Driver).To(BeNil())
+		})
+
 		It("should not set IOMMUFD on domain when IOMMUFDEnabled is false", func() {
 			vmi := libvmi.New()
 			c := &convertertypes.ConverterContext{
