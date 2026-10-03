@@ -248,9 +248,8 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
 			Singular:   "virtualmachineinstancepreset",
 			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
 			ShortNames: []string{"vmipreset", "vmipresets"},
-			Categories: []string{
-				"all",
-			},
+			// Deprecated on every served version, so deliberately not in the
+			// "all" category: that would make every "kubectl get all" warn.
 		},
 	}
 
