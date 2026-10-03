@@ -22847,6 +22847,10 @@
      "error": {
       "$ref": "#/definitions/v1beta1.Error"
      },
+     "freezeFailures": {
+      "type": "integer",
+      "format": "int32"
+     },
      "readyToUse": {
       "type": "boolean"
      },
