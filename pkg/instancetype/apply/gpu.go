@@ -1,3 +1,4 @@
+//nolint:dupl
 /*
  * This file is part of the KubeVirt project
  *
@@ -39,7 +40,9 @@ func applyGPUs(
 	}
 
 	vmiSpec.Domain.Devices.GPUs = make([]virtv1.GPU, len(instancetypeSpec.GPUs))
-	copy(vmiSpec.Domain.Devices.GPUs, instancetypeSpec.GPUs)
+	for i := range instancetypeSpec.GPUs {
+		instancetypeSpec.GPUs[i].DeepCopyInto(&vmiSpec.Domain.Devices.GPUs[i])
+	}
 
 	return nil
 }
