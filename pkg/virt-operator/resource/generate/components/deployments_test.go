@@ -10,6 +10,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var _ = Describe("Deployments", func() {
@@ -139,5 +141,88 @@ var _ = Describe("Deployments", func() {
 				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/control-plane"))
 			}
 		})
+	})
+
+	Context("SecurityContext", func() {
+		DescribeTable("should set ReadOnlyRootFilesystem to true on",
+			func(createDeployment func() corev1.PodSpec) {
+				podSpec := createDeployment()
+				for _, c := range podSpec.Containers {
+					Expect(c.SecurityContext).ToNot(BeNil(),
+						"container %s should have SecurityContext", c.Name)
+					Expect(c.SecurityContext.ReadOnlyRootFilesystem).ToNot(BeNil(),
+						"container %s should have ReadOnlyRootFilesystem set", c.Name)
+					Expect(*c.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue(),
+						"container %s should have ReadOnlyRootFilesystem=true", c.Name)
+				}
+			},
+			Entry(VirtAPIName, func() corev1.PodSpec {
+				d := NewApiServerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtControllerName, func() corev1.PodSpec {
+				d := NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtOperatorName, func() corev1.PodSpec {
+				d := NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtExportProxyName, func() corev1.PodSpec {
+				d := NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
+				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+		)
+
+		It("should have emptyDir /tmp volume on virt-api", func() {
+			d := NewApiServerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+			podSpec := d.Spec.Template.Spec
+
+			Expect(podSpec.Volumes).To(ContainElement(corev1.Volume{
+				Name: tmpDirName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						SizeLimit: new(resource.MustParse(tmpDirSizeLimit)),
+					},
+				},
+			}),
+				"virt-api should have a size-limited tmp-dir emptyDir volume")
+
+			for _, container := range podSpec.Containers {
+				Expect(container.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+					Name:      tmpDirName,
+					MountPath: tmpDirMountPath,
+				}), "container %s should mount tmp-dir at /tmp", container.Name)
+			}
+		})
+
+		DescribeTable("should NOT have tmp-dir volume on",
+			func(createDeployment func() corev1.PodSpec) {
+				podSpec := createDeployment()
+				Expect(podSpec.Volumes).ToNot(
+					ContainElement(HaveField("Name", tmpDirName)),
+					"deployment should not have tmp-dir volume")
+			},
+			Entry(VirtControllerName, func() corev1.PodSpec {
+				d := NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtOperatorName, func() corev1.PodSpec {
+				d := NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtExportProxyName, func() corev1.PodSpec {
+				d := NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
+				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+		)
 	})
 })
