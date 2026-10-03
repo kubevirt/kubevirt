@@ -185,7 +185,7 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 func (c *DeviceController) updateTdxDevice() (Device, error) {
 	maxTDXVMs, err := cgroup.GetMiscCapacity("tdx")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get TDX capacity from misc.capacity: %v", err)
+		return nil, fmt.Errorf("failed to get TDX capacity from the misc cgroup: %v", err)
 	} else if maxTDXVMs > 0 {
 		var selinuxExecutor selinux.SELinuxExecutor
 		socketPath := c.virtConfig.GetQGSSocketPath()
