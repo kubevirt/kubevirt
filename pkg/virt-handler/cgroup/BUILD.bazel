@@ -14,6 +14,7 @@ go_library(
     deps = [
         "//pkg/safepath:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/volumepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cgroup/constants:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
@@ -48,5 +49,6 @@ go_test(
         "//vendor/github.com/opencontainers/cgroups/devices/config:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
     ],
 )
