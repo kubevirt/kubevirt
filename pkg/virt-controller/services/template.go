@@ -62,12 +62,41 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
+
+// ClusterConfigProvider is the cluster configuration TemplateService
+// needs to render a virt-launcher Pod. Feature-gate checks go through
+// IsFeatureGateEnabled so the interface does not grow a method per gate.
+// *virtconfig.ClusterConfig satisfies it.
+type ClusterConfigProvider interface {
+	IsFeatureGateEnabled(gate string) bool
+	AllowEmulation() bool
+	GetOVMFPath(arch string) string
+	GetDiskVerification() *v1.DiskVerification
+	GetHypervisor() *v1.HypervisorConfiguration
+	GetVirtLauncherVerbosity() uint
+	GetSELinuxLauncherType() string
+	GetDefaultRuntimeClass() string
+	GetNodeSelectors() map[string]string
+	GetImagePullPolicy() k8sv1.PullPolicy
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	GetMemoryOvercommit() int
+	GetCPUAllocationRatio() int
+	GetClusterCPUArch() string
+	GetSupportContainerRequest(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity
+	GetSupportContainerLimit(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity
+	GetPermittedHostDevices() *v1.PermittedHostDevices
+	IsSerialConsoleLogDisabled() bool
+	GetConfig() *v1.KubeVirtConfiguration
+}
+
+var _ ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
 
 const (
 	containerDisks          = "container-disks"
@@ -141,7 +170,7 @@ type TemplateService struct {
 	imagePullSecret             string
 	persistentVolumeClaimStore  cache.Store
 	virtClient                  kubecli.KubevirtClient
-	clusterConfig               *virtconfig.ClusterConfig
+	clusterConfig               ClusterConfigProvider
 	launcherSubGid              int64
 	resourceQuotaStore          cache.Store
 	namespaceStore              cache.Store
@@ -316,7 +345,7 @@ func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.ImageVolumeEnabled())
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume))
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
@@ -452,16 +481,16 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if nonRoot {
 			args = append(args, "--run-as-nonroot")
 		}
-		if t.clusterConfig.ImageVolumeEnabled() {
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
 			args = append(args, "--image-volume")
 		}
-		if t.clusterConfig.VGPULiveMigrationEnabled() {
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.VGPULiveMigration) {
 			args = append(args, "--vgpu-dedicated-hook")
 		}
-		if t.clusterConfig.VMStatsCollectorEnabled() {
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.VMStatsCollector) {
 			args = append(args, "--vm-stats-collector")
 		}
-		if t.clusterConfig.FirmwareAutoSelectionEnabled() {
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.FirmwareAutoSelection) {
 			args = append(args, "--firmware-auto-selection")
 		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
@@ -474,7 +503,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		args = append(args, "--allow-emulation")
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) {
 		command = append(command, "--allow-cross-arch-emulation")
 	}
 
@@ -531,7 +560,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
-	if !t.clusterConfig.ImageVolumeEnabled() {
+	if !t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
 		containersDisks := containerdisk.GenerateContainers(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
 		containers = append(containers, containersDisks...)
 
@@ -600,7 +629,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
-	if t.clusterConfig.VmiMemoryOverheadReportEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.VmiMemoryOverheadReport) {
 		podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
 	}
 
@@ -611,7 +640,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		initContainers = append(initContainers, *sconsolelogContainer)
 	}
 
-	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
+	if !t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
 		initContainers = append(
 			initContainers,
 			t.newInitContainerRenderer(vmi,
@@ -629,7 +658,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
-	} else if t.clusterConfig.ImageVolumeEnabled() && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" {
+	} else if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" {
 		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
 		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
 		// and the digest can be fetched directly from the Pod volume status.
@@ -715,7 +744,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	}
 
-	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
+	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.IsFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround))
 
 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
 	runtimeClassName := t.clusterConfig.GetDefaultRuntimeClass()
@@ -736,7 +765,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) {
 		setPreferredArchitectureAffinity(vmi.Spec.Architecture, &pod)
 		if vmi.Spec.Architecture != "" {
 			if pod.Spec.NodeSelector == nil {
@@ -771,7 +800,7 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	if vmi.IsCPUDedicated() {
 		opts = append(opts, WithDedicatedCPU())
 	}
-	if t.clusterConfig.HypervStrictCheckEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.HypervStrictCheckGate) {
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
 
@@ -825,7 +854,7 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTDXSelector())
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() && vmi.Spec.Architecture != "" {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && vmi.Spec.Architecture != "" {
 		opts = append(opts, WithoutNativeArchSelector())
 	}
 
@@ -943,7 +972,7 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
-	imageVolumeFeatureGateEnabled := t.clusterConfig.ImageVolumeEnabled()
+	imageVolumeFeatureGateEnabled := t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume)
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
@@ -956,7 +985,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
 	}
-	if t.clusterConfig.PluginsEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.PluginsGate) {
 		volumeOpts = append(volumeOpts, withPluginSocketVolume())
 	}
 
@@ -1393,7 +1422,7 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
-	clusterConfig *virtconfig.ClusterConfig,
+	clusterConfig ClusterConfigProvider,
 	launcherSubGid int64,
 	exporterImage string,
 	resourceQuotaStore cache.Store,
@@ -1637,20 +1666,20 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
 			NewVMIResourceRule(isGPUVMIDevicePlugins, WithGPUsDevicePlugins(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.GPUsWithDRAGateEnabled() && isGPUVMIDRA(vmi)
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate) && isGPUVMIDRA(vmi)
 			}, WithGPUsDRA(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(isHostDevVMIDevicePlugins, WithHostDevicesDevicePlugins(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate) && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.NetworkDevicesWithDRAGateEnabled() && vmispec.HasDRANetwork(vmi.Spec.Networks)
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate) && vmispec.HasDRANetwork(vmi.Spec.Networks)
 			}, WithNetworksDRA(vmi.Spec.Networks)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IOMMUFDEnabled()
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.IOMMUFDGate)
 			}, WithIOMMUFD()),
 		},
 	}
@@ -1658,7 +1687,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 
 // TODO: Make this function private (calculateMemoryOverhead) once VmiMemoryOverheadReport feature gate is GA
 // and we are sure that all VMIs include the MemoryOverhead status field
-func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
+func CalculateMemoryOverhead(clusterConfig ClusterConfigProvider, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture
 	if vmiCPUArch == "" {
