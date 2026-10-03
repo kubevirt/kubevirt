@@ -35,10 +35,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"

@@ -41,11 +41,11 @@ import (
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"

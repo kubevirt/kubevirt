@@ -55,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/executor"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
@@ -64,6 +63,7 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
