@@ -20,7 +20,7 @@ go_library(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/hooks:go_default_library",
-        "//pkg/hotplug-disk:go_default_library",
+        "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/storage/nbdclient:go_default_library",
         "//pkg/virt-config:go_default_library",

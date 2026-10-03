@@ -36,7 +36,7 @@ import (
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
