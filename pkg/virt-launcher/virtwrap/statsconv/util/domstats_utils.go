@@ -138,6 +138,11 @@ var Testdataexpected = `{
        "FlReqsSet": true,
        "FlTimes": 3721268610,
        "FlTimesSet": true,
+       "LatencyHistograms": {
+          "Read": null,
+          "Write": null,
+          "Flush": null
+        },
        "Name": "vda",
        "NameSet": true,
        "Alias": "",
