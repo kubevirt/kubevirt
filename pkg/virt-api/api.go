@@ -108,13 +108,14 @@ type VirtApi interface {
 
 type virtAPIApp struct {
 	service.ServiceListen
-	SubresourcesOnly bool
-	virtClient       kubecli.KubevirtClient
-	k8sClient        kubernetes.Interface
-	aggregatorClient *aggregatorclient.Clientset
-	authorizor       rest.VirtApiAuthorizor
-	certsDirectory   string
-	clusterConfig    *virtconfig.ClusterConfig
+	SubresourcesOnly   bool
+	virtClient         kubecli.KubevirtClient
+	k8sClient          kubernetes.Interface
+	launcherPodIndexer cache.Indexer
+	aggregatorClient   *aggregatorclient.Clientset
+	authorizor         rest.VirtApiAuthorizor
+	certsDirectory     string
+	clusterConfig      *virtconfig.ClusterConfig
 
 	namespace               string
 	host                    string
@@ -238,7 +239,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(definitions.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtClient, app.k8sClient, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtClient, app.k8sClient, app.launcherPodIndexer, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -1217,6 +1218,8 @@ func (app *virtAPIApp) Run() {
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
 	vmBackupInformer := kubeInformerFactory.VirtualMachineBackup()
 	namespaceInformer := kubeInformerFactory.Namespace()
+	// The port-forward subresource resolves the virt-launcher pod IP from this informer.
+	app.launcherPodIndexer = kubeInformerFactory.KubeVirtPod().GetIndexer()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
