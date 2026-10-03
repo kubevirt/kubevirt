@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -156,7 +157,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
 		})
 
-		DescribeTable("should not-recreate VMI on guest reboot", decorators.RebootPolicy, func(runStrategy v1.VirtualMachineRunStrategy) {
+		DescribeTable("should not-recreate VMI on guest reboot", decorators.RebootPolicy, func(runStrategy v1.VirtualMachineRunStrategy, vmiMatcher types.GomegaMatcher) {
 			By("Creating a VM with runStrategy " + string(runStrategy) + " and rebootPolicy Terminate")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -187,11 +188,11 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VMI to be destroyed on guest reboot")
-			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveSucceeded())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(vmiMatcher)
 		},
-			Entry("with RunStrategy Once", v1.RunStrategyOnce),
-			Entry("with RunStrategy RerunOnFailure", v1.RunStrategyRerunOnFailure),
-			Entry("with RunStrategy Manual", v1.RunStrategyManual),
+			Entry("with RunStrategy Once", v1.RunStrategyOnce, matcher.HaveSucceeded()),
+			Entry("with RunStrategy RerunOnFailure", v1.RunStrategyRerunOnFailure, matcher.BeGone()),
+			Entry("with RunStrategy Manual", v1.RunStrategyManual, matcher.HaveSucceeded()),
 		)
 	})
 

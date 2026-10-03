@@ -79,9 +79,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = libvmifact.NewAlpine(libvmi.WithInterface(
-			libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		vmi = libvmifact.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithTerminationGracePeriod(30),
 		)
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
