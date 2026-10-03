@@ -31,26 +31,20 @@ import (
 
 	"kubevirt.io/api/core"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
-type vmSnapshotConfigChecker interface {
-	SnapshotEnabled() bool
-}
-
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
 type VMSnapshotAdmitter struct {
-	config vmSnapshotConfigChecker
 	Client kubecli.KubevirtClient
 }
 
 // NewVMSnapshotAdmitter creates a VMSnapshotAdmitter
-func NewVMSnapshotAdmitter(config vmSnapshotConfigChecker, client kubecli.KubevirtClient) *VMSnapshotAdmitter {
+func NewVMSnapshotAdmitter(client kubecli.KubevirtClient) *VMSnapshotAdmitter {
 	return &VMSnapshotAdmitter{
-		config: config,
 		Client: client,
 	}
 }
@@ -60,10 +54,6 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinesnapshots" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
-	}
-
-	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate not enabled"))
 	}
 
 	vmSnapshot := &snapshotv1.VirtualMachineSnapshot{}

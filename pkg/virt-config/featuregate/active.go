@@ -26,11 +26,6 @@ const (
 	SidecarGate           = "Sidecar"
 	HostDevicesGate       = "HostDevices"
 
-	// Owner: sig-storage
-	// Alpha: v0.30.0
-	// Beta: v1.3.0
-	SnapshotGate = "Snapshot"
-
 	HostDiskGate = "HostDisk"
 
 	// Owner: sig-storage
@@ -294,7 +289,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})

@@ -49,7 +49,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/kubecli"
 	templateapi "kubevirt.io/virt-template-api/core"
 

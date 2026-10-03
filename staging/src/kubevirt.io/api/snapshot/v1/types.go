@@ -17,7 +17,7 @@
  *
  */
 
-package v1alpha1
+package v1
 
 import (
 	"time"
@@ -30,6 +30,7 @@ import (
 )
 
 const DefaultFailureDeadline = 5 * time.Minute
+const DefaultGracePeriod = 5 * time.Minute
 
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
 // +genclient
@@ -127,6 +128,7 @@ type VirtualMachineSnapshotStatus struct {
 	Error *Error `json:"error,omitempty"`
 
 	// +optional
+	// +listType=atomic
 	Conditions []Condition `json:"conditions,omitempty"`
 
 	// Deprecated: Use SourceIndications instead. This field will be removed in a future version.
@@ -226,6 +228,7 @@ type VirtualMachineSnapshotContentSpec struct {
 	Source SourceSpec `json:"source"`
 
 	// +optional
+	// +listType=atomic
 	VolumeBackups []VolumeBackup `json:"volumeBackups,omitempty"`
 }
 
@@ -282,6 +285,7 @@ type VirtualMachineSnapshotContentStatus struct {
 	Error *Error `json:"error,omitempty"`
 
 	// +optional
+	// +listType=atomic
 	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
 }
 
@@ -322,42 +326,116 @@ type VirtualMachineRestore struct {
 	Status *VirtualMachineRestoreStatus `json:"status,omitempty"`
 }
 
-// VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
+// TargetReadinessPolicy defines how to handle the restore in case
+// the target is not ready
+type TargetReadinessPolicy string
+
+const (
+	// VirtualMachineRestoreStopTarget defined TargetReadinessPolicy which stops the target so the
+	// VirtualMachineRestore can continue immediatly
+	VirtualMachineRestoreStopTarget TargetReadinessPolicy = "StopTarget"
+
+	// VirtualMachineRestoreWaitGracePeriodAndFail defines TargetReadinessPolicy which lets the
+	// user `DefaultGracePeriod` time to get the target ready.
+	// If not ready in that time the restore will fail
+	VirtualMachineRestoreWaitGracePeriodAndFail TargetReadinessPolicy = "WaitGracePeriod"
+
+	//VirtualMachineRestoreFailImmediate defines TargetReadinessPolicy which if VirtualMachineRestore
+	// was initiated when target is not ready it fails the restore immediately
+	VirtualMachineRestoreFailImmediate TargetReadinessPolicy = "FailImmediate"
+
+	// VirtualMachineRestoreWaitEventually defines TargetReadinessPolicy which keeps the
+	// VirtualMachineRestore around and once the target is ready the restore will
+	// occur. No timeout for the operation
+	VirtualMachineRestoreWaitEventually TargetReadinessPolicy = "WaitEventually"
+)
+
+// VolumeRestorePolicy defines how to handle the restore of snapshotted volumes
+type VolumeRestorePolicy string
+
+const (
+	// VolumeRestorePolicyRandomizeNames defines a VolumeRestorePolicy which creates
+	// new PVCs with randomized names for each snapshotted volume. This is the default policy.
+	VolumeRestorePolicyRandomizeNames VolumeRestorePolicy = "RandomizeNames"
+
+	// VolumeRestorePolicyInPlace defines a VolumeRestorePolicy which overwrites
+	// existing PVCs for each snapshotted volumes. That means deleting the original PVC if it still
+	// exists, and restoring the volume with the same name as the original PVC.
+	VolumeRestorePolicyInPlace VolumeRestorePolicy = "InPlace"
+
+	// VolumeRestorePolicyPrefixTargetName defines a VolumeRestorePolicy which creates
+	// new PVCs with names prefixed by the target VM name: {targetVMName}-{volumeName}.
+	// This provides predictable naming while avoiding collisions when restoring to different targets.
+	VolumeRestorePolicyPrefixTargetName VolumeRestorePolicy = "PrefixTargetName"
+)
+
+// VolumeOwnershipPolicy defines what owns volumes once they're restored
+type VolumeOwnershipPolicy string
+
+const (
+	// VolumeOwnershipPolicyVm defines a VolumeOwnershipPolicyVm where restored volumes are owned by the restored VM
+	VolumeOwnershipPolicyVm VolumeOwnershipPolicy = "Vm"
+
+	// VolumeOwnershipPolicyNone defines a VolumeOwnershipPolicyVm where restored volumes are not owned by any entity
+	VolumeOwnershipPolicyNone VolumeOwnershipPolicy = "None"
+)
+
+// VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource
 type VirtualMachineRestoreSpec struct {
 	// initially only VirtualMachine type supported
 	Target corev1.TypedLocalObjectReference `json:"target"`
 
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 
+	// +optional
+	// +kubebuilder:default=WaitGracePeriod
+	// +kubebuilder:validation:Enum=StopTarget;WaitGracePeriod;FailImmediate;WaitEventually
+	TargetReadinessPolicy *TargetReadinessPolicy `json:"targetReadinessPolicy,omitempty"`
+
+	// +optional
+	VolumeRestorePolicy *VolumeRestorePolicy `json:"volumeRestorePolicy,omitempty"`
+
+	// +optional
+	VolumeOwnershipPolicy *VolumeOwnershipPolicy `json:"volumeOwnershipPolicy,omitempty"`
+
+	// VolumeRestoreOverrides gives the option to change properties of each restored volume
+	// For example, specifying the name of the restored volume, or adding labels/annotations to it
+	// +optional
+	// +listType=atomic
+	VolumeRestoreOverrides []VolumeRestoreOverride `json:"volumeRestoreOverrides,omitempty"`
+
 	// If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be
 	// applied to the target manifest before it's created. Patches should fit the target's Kind.
 	//
-	// Example for a patch: {"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "00:00:5e:00:53:01"}
+	// Example for a patch: {"op": "replace", "path": "/metadata/name", "value": "new-vm-name"}
 	//
 	// +optional
 	// +listType=atomic
 	Patches []string `json:"patches,omitempty"`
 }
 
-// VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
+// VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource
 type VirtualMachineRestoreStatus struct {
 	// +optional
+	// +listType=atomic
 	Restores []VolumeRestore `json:"restores,omitempty"`
 
 	// +optional
 	RestoreTime *metav1.Time `json:"restoreTime,omitempty"`
 
 	// +optional
+	// +listType=set
 	DeletedDataVolumes []string `json:"deletedDataVolumes,omitempty"`
 
 	// +optional
 	Complete *bool `json:"complete,omitempty"`
 
 	// +optional
+	// +listType=atomic
 	Conditions []Condition `json:"conditions,omitempty"`
 }
 
-// VolumeRestore contains the data neeed to restore a PVC
+// VolumeRestore contains the data needed to restore a PVC
 type VolumeRestore struct {
 	VolumeName string `json:"volumeName"`
 
@@ -367,6 +445,17 @@ type VolumeRestore struct {
 
 	// +optional
 	DataVolumeName *string `json:"dataVolumeName,omitempty"`
+}
+
+// VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot
+type VolumeRestoreOverride struct {
+	VolumeName string `json:"volumeName,omitempty"`
+	// +optional
+	RestoreName string `json:"restoreName,omitempty"`
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // VirtualMachineRestoreList is a list of VirtualMachineRestore resources

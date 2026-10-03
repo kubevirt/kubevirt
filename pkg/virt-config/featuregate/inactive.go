@@ -90,6 +90,13 @@ const (
 	// VMExportGate enables the creation of VMExport resources, that allows setting up the export server to export VM volumes.
 	VMExportGate = "VMExport"
 
+	// Owner: sig-storage
+	// Alpha: v0.30.0
+	// Beta: v1.3.0
+	// GA: v1.10.0
+	// SnapshotGate enables the creation of VirtualMachineSnapshot, VirtualMachineSnapshotContent and VirtualMachineRestore resources.
+	SnapshotGate = "Snapshot"
+
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
@@ -251,6 +258,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(

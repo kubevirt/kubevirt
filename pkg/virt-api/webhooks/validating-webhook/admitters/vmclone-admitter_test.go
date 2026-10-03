@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/testing"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"go.uber.org/mock/gomock"
@@ -36,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/cache"
 
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
@@ -46,9 +45,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineClone Admitter", func() {
@@ -57,34 +53,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var kubevirtClient *fake.Clientset
 	var admitter *VirtualMachineCloneAdmitter
 	var vmClone *clone.VirtualMachineClone
-	var config *virtconfig.ClusterConfig
-	var kvStore cache.Store
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vm *v1.VirtualMachine
-
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
-					},
-				},
-			},
-		})
-	}
-
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.SnapshotGate},
-					},
-				},
-			},
-		})
-	}
 
 	newValidVM := func(namespace, name string) *v1.VirtualMachine {
 		return &v1.VirtualMachine{
@@ -140,7 +110,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		kubevirtClient = fake.NewSimpleClientset()
 		virtClient.
@@ -151,15 +120,15 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		virtClient.
 			EXPECT().
 			VirtualMachineSnapshot(metav1.NamespaceDefault).
-			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots(metav1.NamespaceDefault)).
+			Return(kubevirtClient.SnapshotV1().VirtualMachineSnapshots(metav1.NamespaceDefault)).
 			AnyTimes()
 		virtClient.
 			EXPECT().
 			VirtualMachineSnapshotContent(metav1.NamespaceDefault).
-			Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).
+			Return(kubevirtClient.SnapshotV1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).
 			AnyTimes()
 
-		admitter = &VirtualMachineCloneAdmitter{Config: config, Client: virtClient}
+		admitter = &VirtualMachineCloneAdmitter{Client: virtClient}
 		vmClone = newValidClone()
 		vm = newValidVM(vmClone.Namespace, vmClone.Spec.Source.Name)
 		vmInterface.EXPECT().Get(gomock.Any(), vmClone.Spec.Source.Name, gomock.Any()).Return(vm, nil).AnyTimes()
@@ -202,12 +171,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			}
 			return true, contents, nil
 		})
-
-		enableFeatureGate("Snapshot")
-	})
-
-	AfterEach(func() {
-		disableFeatureGates()
 	})
 
 	It("should allow legal clone", func() {
@@ -289,11 +252,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
 			admitter.admitAndExpect(vmClone, true)
 		})
-	})
-
-	It("Should reject if snapshot feature gate is not enabled", func() {
-		disableFeatureGates()
-		admitter.admitAndExpect(vmClone, false)
 	})
 
 	DescribeTable("Should allow a source volume not Snapshot-able", func(index int) {
