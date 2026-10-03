@@ -9,6 +9,7 @@ go_library(
         "migration_metrics.go",
         "migrationstats_collector.go",
         "perfscale_metrics.go",
+        "pool.go",
         "vmistats_collector.go",
         "vmsnapshot.go",
         "vmstats_collector.go",
