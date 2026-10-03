@@ -14,6 +14,8 @@ import (
 
 	cgroups "github.com/opencontainers/cgroups"
 	gomock "go.uber.org/mock/gomock"
+
+	constants "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
 // MockManager is a mock of Manager interface.
@@ -38,6 +40,20 @@ func NewMockManager(ctrl *gomock.Controller) *MockManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
+}
+
+// AllowDevice mocks base method.
+func (m *MockManager) AllowDevice(deviceType string, major, minor int64, permissions string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllowDevice", deviceType, major, minor, permissions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AllowDevice indicates an expected call of AllowDevice.
+func (mr *MockManagerMockRecorder) AllowDevice(deviceType, major, minor, permissions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllowDevice", reflect.TypeOf((*MockManager)(nil).AllowDevice), deviceType, major, minor, permissions)
 }
 
 // AttachTID mocks base method.
@@ -125,6 +141,35 @@ func (m *MockManager) GetCpuSet() (string, error) {
 func (mr *MockManagerMockRecorder) GetCpuSet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCpuSet", reflect.TypeOf((*MockManager)(nil).GetCpuSet))
+}
+
+// ListDevices mocks base method.
+func (m *MockManager) ListDevices() ([]constants.DeviceMapEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDevices")
+	ret0, _ := ret[0].([]constants.DeviceMapEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDevices indicates an expected call of ListDevices.
+func (mr *MockManagerMockRecorder) ListDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDevices", reflect.TypeOf((*MockManager)(nil).ListDevices))
+}
+
+// RemoveDevice mocks base method.
+func (m *MockManager) RemoveDevice(deviceType string, major, minor int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveDevice", deviceType, major, minor)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveDevice indicates an expected call of RemoveDevice.
+func (mr *MockManagerMockRecorder) RemoveDevice(deviceType, major, minor any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDevice", reflect.TypeOf((*MockManager)(nil).RemoveDevice), deviceType, major, minor)
 }
 
 // Set mocks base method.

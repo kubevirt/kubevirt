@@ -42,7 +42,6 @@ import (
 type v1Manager struct {
 	cgroups.Manager
 	controllerPaths          map[string]string
-	isRootless               bool
 	execVirtChroot           execVirtChrootFunc
 	getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc
 }
@@ -53,15 +52,14 @@ func newV1Manager(config *cgroups.Cgroup, controllerPaths map[string]string) (Ma
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
-	return newCustomizedV1Manager(cgManager, config.Rootless, execVirtChrootCgroups, getCurrentlyDefinedRules)
+	return newCustomizedV1Manager(cgManager, execVirtChrootCgroups, getCurrentlyDefinedRules)
 }
 
-func newCustomizedV1Manager(cgManager cgroups.Manager, isRootless bool,
+func newCustomizedV1Manager(cgManager cgroups.Manager,
 	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
 	manager := v1Manager{
 		cgManager,
 		cgManager.GetPaths(),
-		isRootless,
 		execVirtChroot,
 		getCurrentlyDefinedRules,
 	}
@@ -97,7 +95,7 @@ func (v *v1Manager) Set(r *cgroups.Resources) error {
 	log.Log.V(loggingVerbosity).Infof("Adding current rules to requested for cgroup %s. Rules added: %d", V1, len(requestedAndCurrentRules)-len(r.Devices))
 	resourcesToSet.Devices = requestedAndCurrentRules
 
-	err = v.execVirtChroot(&resourcesToSet, v.controllerPaths, v.isRootless, v.GetCgroupVersion())
+	err = v.execVirtChroot(&resourcesToSet, v.controllerPaths, v.GetCgroupVersion())
 
 	return err
 }
@@ -262,4 +260,16 @@ func (v *v1Manager) GetCgroupThreads() ([]int, error) {
 
 func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
+}
+
+func (v *v1Manager) AllowDevice(_ string, _, _ int64, _ string) error {
+	return fmt.Errorf("AllowDevice is not supported on cgroups v1")
+}
+
+func (v *v1Manager) RemoveDevice(_ string, _, _ int64) error {
+	return fmt.Errorf("RemoveDevice is not supported on cgroups v1")
+}
+
+func (v *v1Manager) ListDevices() ([]cgroupconsts.DeviceMapEntry, error) {
+	return nil, fmt.Errorf("ListDevices is not supported on cgroups v1")
 }

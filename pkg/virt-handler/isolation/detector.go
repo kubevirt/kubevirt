@@ -72,7 +72,7 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 		return nil, fmt.Errorf("Could not get owner Pid of socket %s: %w", socket, err)
 	}
 
-	ppid, err := getPPid(pid)
+	ppid, err := GetPPid(pid)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get owner PPid of socket %s: %w", socket, err)
 	}
@@ -112,7 +112,7 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	return int(ucreds.Pid), nil
 }
 
-func getPPid(pid int) (int, error) {
+func GetPPid(pid int) (int, error) {
 	process, err := ps.FindProcess(pid)
 	if err != nil {
 		return -1, err

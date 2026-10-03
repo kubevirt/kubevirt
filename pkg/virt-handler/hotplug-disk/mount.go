@@ -39,11 +39,9 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	"github.com/opencontainers/cgroups"
-
-	devices "github.com/opencontainers/cgroups/devices/config"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -457,6 +455,15 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 			return err
 		}
 		log.Log.Object(vmi).V(1).Infof("successfully created block device %s", volume)
+
+		if err := m.allowBlockMajorMinor(dev, cgroupManager); err != nil {
+			// Remove the device file so the next resync retries both
+			// creation and AllowDevice.
+			if p, e := safepath.JoinNoFollow(targetPath, volume); e == nil {
+				_ = safepath.UnlinkAtNoFollow(p)
+			}
+			return err
+		}
 	} else if err != nil {
 		return err
 	}
@@ -469,15 +476,6 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 		return err
 	} else if !isBlockExists {
 		return fmt.Errorf("target device %v exists but it is not a block device", devicePath)
-	}
-
-	dev, _, err := m.getBlockFileMajorMinor(devicePath, statDevice)
-	if err != nil {
-		return err
-	}
-	// allow block devices
-	if err := m.allowBlockMajorMinor(dev, cgroupManager); err != nil {
-		return err
 	}
 
 	return m.ownershipManager.SetFileOwnership(devicePath)
@@ -505,36 +503,30 @@ func (m *volumeMounter) getBlockFileMajorMinor(devicePath *safepath.Path, getter
 }
 
 func (m *volumeMounter) removeBlockMajorMinor(dev uint64, cgroupManager cgroup.Manager) error {
-	return m.updateBlockMajorMinor(dev, false, cgroupManager)
+	if cgroupManager == nil {
+		return fmt.Errorf("failed to remove device %d:%d: cgroup manager is nil", unix.Major(dev), unix.Minor(dev))
+	}
+	major, minor := int64(unix.Major(dev)), int64(unix.Minor(dev))
+	err := cgroupManager.RemoveDevice(cgroupconsts.BlockDevice, major, minor)
+	if err != nil {
+		log.Log.Errorf("failed to remove block device %d:%d from device map: %v", major, minor, err)
+	} else {
+		log.Log.Infof("removed block device %d:%d from device map", major, minor)
+	}
+	return err
 }
 
 func (m *volumeMounter) allowBlockMajorMinor(dev uint64, cgroupManager cgroup.Manager) error {
-	return m.updateBlockMajorMinor(dev, true, cgroupManager)
-}
-
-func (m *volumeMounter) updateBlockMajorMinor(dev uint64, allow bool, cgroupManager cgroup.Manager) error {
-	deviceRule := &devices.Rule{
-		Type:        devices.BlockDevice,
-		Major:       int64(unix.Major(dev)),
-		Minor:       int64(unix.Minor(dev)),
-		Permissions: "rwm",
-		Allow:       allow,
-	}
-
 	if cgroupManager == nil {
-		return fmt.Errorf("failed to apply device rule %+v: cgroup manager is nil", *deviceRule)
+		return fmt.Errorf("failed to allow device %d:%d: cgroup manager is nil", unix.Major(dev), unix.Minor(dev))
 	}
-
-	err := cgroupManager.Set(&cgroups.Resources{
-		Devices: []*devices.Rule{deviceRule},
-	})
-
+	major, minor := int64(unix.Major(dev)), int64(unix.Minor(dev))
+	err := cgroupManager.AllowDevice(cgroupconsts.BlockDevice, major, minor, "rwm")
 	if err != nil {
-		log.Log.Errorf("cgroup %s had failed to set device rule. error: %v. rule: %+v", cgroupManager.GetCgroupVersion(), err, *deviceRule)
+		log.Log.Errorf("failed to allow block device %d:%d: %v", major, minor, err)
 	} else {
-		log.Log.Infof("cgroup %s device rule is set successfully. rule: %+v", cgroupManager.GetCgroupVersion(), *deviceRule)
+		log.Log.Infof("allowed block device %d:%d with permissions rwm", major, minor)
 	}
-
 	return err
 }
 
