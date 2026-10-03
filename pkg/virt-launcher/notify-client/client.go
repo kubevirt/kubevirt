@@ -437,6 +437,13 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	if fsFreezeStatus != nil {
 		domain.Status.FSFreezeStatus = *fsFreezeStatus
 	}
+	// Lifecycle metadata can advance after JOB_COMPLETED and remains available
+	// even after the source domain is gone.
+	domain.Spec.Metadata.KubeVirt.Migration = nil
+	if migration, exists := metadataCache.Migration.Load(); exists {
+		domain.Spec.Metadata.KubeVirt.Migration = &migration
+	}
+	applyCompletedMigrationStats(domain, metadataCache)
 
 	event := watch.Event{Type: eventType, Object: domain}
 
@@ -605,13 +612,13 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 	domainEventJobCompletedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventJobCompleted) {
-		log.Log.Infof("Domain Job Completed event type %v received. Job operation: %v, succeeded: %t", event.Info.Type, event.Info.Operation, event.Info.JobSuccess)
-		name, err := d.GetName()
-		if err != nil {
-			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
+		log.Log.Infof("Domain Job Completed event type %v received. Job operation: %v, success reported: %t, succeeded: %t", event.Info.Type, event.Info.Operation, event.Info.JobSuccessSet, event.Info.JobSuccess)
+		if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
+			storeCompletedMigrationStats(&event.Info, metadataCache)
 		}
+		// The domain may already be gone when the terminal callback runs, so use the name captured when callbacks were registered.
 		select {
-		case eventChan <- libvirtEvent{JobCompletedEvent: event, Domain: name}:
+		case eventChan <- libvirtEvent{JobCompletedEvent: event, Domain: domainName}:
 		default:
 			log.Log.Infof(libvirtEventChannelFull)
 		}
@@ -768,6 +775,43 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		log.Log.V(3).Infof("Received a job completion event for operation %v", jobCompletedEvent.Info.Operation)
 		return false
 	}
+}
+
+func storeCompletedMigrationStats(jobInfo *libvirt.DomainJobInfo, metadataCache *metadata.Cache) {
+	// Migration-out completion is emitted only on success; JobSuccess is not emitted for migration stats.
+	if !jobInfo.DowntimeSet {
+		log.Log.Warning("Ignoring completed migration stats because libvirt did not report a downtime")
+		return
+	}
+	migration, exists := metadataCache.Migration.Load()
+	if !exists || migration.UID == "" {
+		log.Log.Error("Ignoring completed migration stats because no migration is being tracked")
+		return
+	}
+
+	metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{
+		Stats: api.CompletedMigrationStats{
+			DowntimeSet: jobInfo.DowntimeSet,
+			Downtime:    jobInfo.Downtime,
+		},
+		MigrationUID: migration.UID,
+	})
+}
+
+func applyCompletedMigrationStats(domain *api.Domain, metadataCache *metadata.Cache) {
+	domain.Status.CompletedMigrationStats = nil
+	completedMigration, exists := metadataCache.CompletedMigration.Load()
+	if !exists || !completedMigration.Stats.DowntimeSet {
+		return
+	}
+
+	// Match the snapshot being sent, not a separate read of the advancing cache.
+	migration := domain.Spec.Metadata.KubeVirt.Migration
+	if migration == nil || completedMigration.MigrationUID == "" || migration.UID != completedMigration.MigrationUID {
+		return
+	}
+
+	domain.Status.CompletedMigrationStats = &completedMigration.Stats
 }
 
 func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {

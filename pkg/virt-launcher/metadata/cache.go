@@ -25,14 +25,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+// CompletedMigrationData binds completed downtime to the migration that produced it.
+type CompletedMigrationData struct {
+	Stats        api.CompletedMigrationStats
+	MigrationUID types.UID
+}
+
 type Cache struct {
-	UID               SafeData[types.UID]
-	Migration         SafeData[api.MigrationMetadata]
-	GracePeriod       SafeData[api.GracePeriodMetadata]
-	AccessCredential  SafeData[api.AccessCredentialMetadata]
-	MemoryDump        SafeData[api.MemoryDumpMetadata]
-	Backup            SafeData[api.BackupMetadata]
-	GuestPanicHandled SafeData[bool]
+	UID                SafeData[types.UID]
+	Migration          SafeData[api.MigrationMetadata]
+	GracePeriod        SafeData[api.GracePeriodMetadata]
+	AccessCredential   SafeData[api.AccessCredentialMetadata]
+	MemoryDump         SafeData[api.MemoryDumpMetadata]
+	Backup             SafeData[api.BackupMetadata]
+	GuestPanicHandled  SafeData[bool]
+	CompletedMigration SafeData[CompletedMigrationData]
 
 	notificationSignal chan struct{}
 }
@@ -48,6 +55,7 @@ func NewCache() *Cache {
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
 	cache.Backup.dirtyChanel = cache.notificationSignal
 	cache.GuestPanicHandled.dirtyChanel = cache.notificationSignal
+	cache.CompletedMigration.dirtyChanel = cache.notificationSignal
 	return cache
 }
 
