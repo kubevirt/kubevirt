@@ -236,18 +236,11 @@ func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan s
 
 func pidExists(pid int) (exists bool, isZombie bool, err error) {
 
-	pathCmdline := fmt.Sprintf("/proc/%d/cmdline", pid)
 	pathStatus := fmt.Sprintf("/proc/%d/status", pid)
-
-	exists, err = diskutils.FileExists(pathCmdline)
-	if err != nil {
-		return false, false, err
-	}
-	if exists == false {
+	dataBytes, err := os.ReadFile(pathStatus)
+	if errors.Is(err, os.ErrNotExist) {
 		return false, false, nil
 	}
-
-	dataBytes, err := os.ReadFile(pathStatus)
 	if err != nil {
 		return false, false, err
 	}
@@ -256,7 +249,7 @@ func pidExists(pid int) (exists bool, isZombie bool, err error) {
 		isZombie = true
 	}
 
-	return exists, isZombie, nil
+	return true, isZombie, nil
 }
 
 func FindPid(domainName string, pidDir string) (int, error) {
