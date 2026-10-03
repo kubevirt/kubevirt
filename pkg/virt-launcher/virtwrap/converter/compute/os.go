@@ -149,7 +149,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.BootLoader.Type = "pflash"
 		domain.Spec.OS.NVRam = &api.NVRam{
 			Template: o.efiConfiguration.EFIVars,
-			NVRam:    filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			NVRam:    filepath.Join(util.PathForNVram(vmi), GetEFIVarsFileName(vmi)),
 		}
 	}
 }
@@ -250,4 +250,8 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 	}
 
 	return nil, fmt.Errorf("firmware's volume for %s was not found", tableType)
+}
+
+func GetEFIVarsFileName(vmi *v1.VirtualMachineInstance) string {
+	return fmt.Sprintf("%s_VARS.fd", vmi.Name)
 }
