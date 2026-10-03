@@ -107,11 +107,16 @@ they have the legal right to submit the code. This is achieved by adding a line
     Signed-off-by: Real Name <email@address.com>
 
 to the bottom of every commit message. Existence of such a line certifies
-that the submitter has complied with the Developer's Certificate of Origin 1.1,
-(as defined in the file docs/developer-certificate-of-origin).
+that the submitter has complied with the [Developer's Certificate of Origin](docs/developer-certificate-of-origin).
 
 This line can be automatically added to a commit in the correct format, by
 using the '-s' option to 'git commit'.
+
+For more details on contributing, see the [contribution guide](https://github.com/kubevirt/kubevirt/blob/main/CONTRIBUTING.md).
+
+### AI-assisted contributions
+
+Contributors using AI tools should review and follow the [AI Contribution Policy](https://github.com/kubevirt/community/blob/main/ai-contribution-policy.md), which includes disclosure requirements and guidelines for responsible AI use.
 
 ## License
 
