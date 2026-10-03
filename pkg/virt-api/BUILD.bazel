@@ -2,7 +2,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["api.go"],
+    srcs = [
+        "api.go",
+        "header_limit_go127.go",
+        "header_limit_pre_go127.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-api",
     visibility = ["//visibility:public"],
     deps = [
@@ -54,6 +58,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "api_test.go",
+        "header_limit_go127_test.go",
         "virt-api_suite_test.go",
     ],
     embed = [":go_default_library"],

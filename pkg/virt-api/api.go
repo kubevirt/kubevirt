@@ -1132,6 +1132,7 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 		// See CVE-2023-44487
 		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
+	configureIdentityHeaderLimit(server)
 
 	// start TLS server
 	go func() {
