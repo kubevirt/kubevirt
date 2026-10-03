@@ -2485,16 +2485,13 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	created := vmi != nil
 	vm.Status.Created = created
 
-	ready := false
 	if created {
-		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
 		var err error
 		vmi, err = c.syncGenerationInfo(vm, vmi, logger)
 		if err != nil {
 			return err
 		}
 	}
-	vm.Status.Ready = ready
 
 	runStrategy, _ := vmOrig.RunStrategy()
 	// sync for the first time only when the VMI gets created
@@ -2515,6 +2512,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	// condition to the VM
 	syncVolumeMigration(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
+	vm.Status.Ready = controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineReady, k8score.ConditionTrue)
 	c.setPrintableStatus(vm, vmi)
 	cbt.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
 
@@ -2741,6 +2739,19 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			Status:             k8score.ConditionFalse,
 			Reason:             "VMINotExists",
 			Message:            "VMI does not exist",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
+
+	} else if vmi.IsFinal() && (vmiReadyCond == nil || vmiReadyCond.Status != k8score.ConditionFalse) {
+		// The VMI phase and Ready condition are updated independently. Override
+		// stale or missing readiness so the VM cannot be both Stopped and ready,
+		// but preserve the VMI's condition once it reports not ready.
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineReady,
+			Status:             k8score.ConditionFalse,
+			Reason:             "VMI" + string(vmi.Status.Phase),
+			Message:            fmt.Sprintf("VMI is in %s phase", vmi.Status.Phase),
 			LastProbeTime:      now,
 			LastTransitionTime: now,
 		})
