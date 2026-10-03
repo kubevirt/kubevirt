@@ -32,7 +32,39 @@ const (
 	ENV_VAR_SHARED_FILESYSTEM_PATHS     = "SHARED_FILESYSTEM_PATHS"
 	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
 	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+
+	// VMStatePVCMountPath is where VMState PVC is mounted
+	VMStatePVCMountPath = VirtPrivateDir + "/vm-state"
+
+	// Canonical subdirectories/files inside the VirtualMachineState PVC.
+	VMStateDirTPM          = "tpm"
+	VMStateDirEFI          = "efi"
+	VMStateDirCBT          = "cbt"
+	VMStateDirMeta         = "meta"
+	VMStateDirSwtpmLocalca = "swtpm-localca"
+	VMStateEFIVarsFile     = "efi_vars.fd"
+
+	// Old layout directory names, migrated to the canonical layout on first boot. See VEP #312.
+	VMStateDirNVRAMLegacy = "nvram" // holds <vmname>_VARS.fd, moved to efi/efi_vars.fd
+	VMStateDirSwtpmLegacy = "swtpm" // holds <uuid>/tpm2, moved to tpm/
+
+	// VMStateFileLayout is the file inside meta/ that records the PVC's canonical layout version
+	// (VMStateLayoutVersion). See VEP #312.
+	VMStateFileLayout = "layout"
+
+	// VMStateLayoutVersion is the current on-disk layout version of a declarative VirtualMachineState
+	// PVC in meta/layout. A PVC already at this version skips legacy normalization; bump it
+	// when the canonical layout changes and key migration off the recorded version. See VEP #312.
+	VMStateLayoutVersion = 1
 )
+
+func HasDeclarativeVMState(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.VirtualMachineState != nil
+}
+
+func VMStateCanonicalEFIVarsPath() string {
+	return filepath.Join(VMStatePVCMountPath, VMStateDirEFI, VMStateEFIVarsFile)
+}
 
 // Check if a VMI spec requests VirtIO-FS
 func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
@@ -120,4 +152,12 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	}
 
 	return nvramPath
+}
+
+func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
+	localCaPath := "/var/lib/swtpm-localca"
+	if vmitrait.IsNonRoot(vmi) {
+		localCaPath = filepath.Join(VirtPrivateDir, "var", "lib", "swtpm-localca")
+	}
+	return localCaPath
 }
