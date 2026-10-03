@@ -210,6 +210,75 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Entry("with proxied server URL", proxyPath),
 	)
 
+	DescribeTable("should allow to connect a serial console stream to a VM", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		consolePath := path.Join(subVMIPath, "console")
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, consolePath)),
+			func(w http.ResponseWriter, r *http.Request) {
+				_, err := upgrader.Upgrade(w, r, nil)
+				if err != nil {
+					return
+				}
+			},
+		))
+		stream, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SerialConsoleContext(context.Background(), "testvm", nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stream.AsConn().Close()).To(Succeed())
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
+
+	It("should time out SerialConsoleContext when the console stays unready", func() {
+		client, err := GetKubevirtClientFromFlags(server.URL(), "")
+		Expect(err).ToNot(HaveOccurred())
+
+		consolePath := path.Join(subVMIPath, "console")
+		server.RouteToHandler("GET", consolePath, func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "console is not ready", http.StatusBadRequest)
+		})
+
+		_, err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SerialConsoleContext(
+			context.Background(),
+			"testvm",
+			&kvcorev1.SerialConsoleOptions{ConnectionTimeout: 200 * time.Millisecond},
+		)
+		Expect(err).To(MatchError("Timeout trying to connect to the virtual machine instance"))
+	})
+
+	It("should retry SerialConsoleContext after a 400 and then connect", func() {
+		client, err := GetKubevirtClientFromFlags(server.URL(), "")
+		Expect(err).ToNot(HaveOccurred())
+
+		consolePath := path.Join(subVMIPath, "console")
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", consolePath),
+				ghttp.RespondWith(http.StatusBadRequest, "console is not ready"),
+			),
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", consolePath),
+				func(w http.ResponseWriter, r *http.Request) {
+					_, err := upgrader.Upgrade(w, r, nil)
+					if err != nil {
+						return
+					}
+				},
+			),
+		)
+
+		stream, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SerialConsoleContext(
+			context.Background(),
+			"testvm",
+			&kvcorev1.SerialConsoleOptions{ConnectionTimeout: 3 * time.Second},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stream.AsConn().Close()).To(Succeed())
+	})
+
 	DescribeTable("should exchange data with the VM", func(proxyPath string) {
 		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
 		Expect(err).ToNot(HaveOccurred())
