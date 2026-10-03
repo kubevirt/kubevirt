@@ -39,22 +39,23 @@ else
     args=$@
 fi
 
-PLATFORM=$(uname -m)
-case ${PLATFORM} in
-x86_64* | i?86_64* | amd64*)
-    ARCH="amd64"
-    ;;
-aarch64* | arm64*)
-    ARCH="arm64"
-    ;;
-s390x)
-    ARCH="s390x"
-    ;;
-*)
-    echo "invalid Arch, only support x86_64, aarch64 and s390x"
-    exit 1
-    ;;
-esac
+if [ -n "${BUILD_ARCH}" ]; then
+    ARCH=$(format_archname "${BUILD_ARCH}" tag)
+else
+    ARCH=$(format_archname "$(uname -m)" tag)
+fi
+
+HOST_ARCH=$(format_archname "$(uname -m)" tag)
+
+# Set up cross-compiler when target differs from host
+if [ "${ARCH}" != "${HOST_ARCH}" ]; then
+    case ${ARCH} in
+    arm64) export CC=aarch64-linux-gnu-gcc ;;
+    s390x) export CC=s390x-linux-gnu-gcc ;;
+    amd64) export CC=x86_64-linux-gnu-gcc ;;
+    esac
+    export CGO_ENABLED=1
+fi
 
 # forward all commands to all packages if no specific one was requested
 # TODO finetune this a little bit more
@@ -111,9 +112,8 @@ if [ "${target}" = "install" ]; then
         if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"container-disk"* ]]; then
             mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
             cd cmd/container-disk-v2alpha
-            # The containerdisk binary needs to be static, as it runs in a scratch container
             echo "building static binary container-disk"
-            gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
+            ${CC:-gcc} -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
         fi
     )
 fi
@@ -137,7 +137,7 @@ for arg in $args; do
         ARCH_BASENAME=${BIN_NAME}-${KUBEVIRT_VERSION}
         mkdir -p ${CMD_OUT_DIR}/${BIN_NAME}
         (
-            go vet ./$arg/...
+            GOOS=linux GOARCH=${ARCH} go vet ./$arg/...
 
             cd $arg
 
