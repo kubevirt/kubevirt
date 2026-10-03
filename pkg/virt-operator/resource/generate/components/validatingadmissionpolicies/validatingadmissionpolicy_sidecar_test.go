@@ -21,7 +21,6 @@ package validatingadmissionpolicies_test
 
 import (
 	"encoding/json"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 )
@@ -45,10 +43,6 @@ func podToUnstructured(pod *corev1.Pod) map[string]interface{} {
 
 func admitSidecarSubPath(pod *corev1.Pod) error {
 	return evaluatePolicy(vap.NewSidecarSubPathValidatingAdmissionPolicy(), podToUnstructured(pod))
-}
-
-func admitPluginSocketPath(plugin *pluginv1alpha1.Plugin) error {
-	return evaluatePolicy(vap.NewPluginSocketPathValidatingAdmissionPolicy(), pluginToUnstructured(plugin))
 }
 
 func launcherPod(containers ...corev1.Container) *corev1.Pod {
@@ -163,91 +157,6 @@ var _ = Describe("Sidecar ValidatingAdmissionPolicies", func() {
 				},
 			}}
 			Expect(admitSidecarSubPath(pod)).To(Succeed())
-		})
-	})
-
-	Context("PluginSocketPath policy", func() {
-		It("should allow valid socket path", func() {
-			plugin := &pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
-							SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook.sock",
-						},
-					}},
-				},
-			}
-			Expect(admitPluginSocketPath(plugin)).To(Succeed())
-		})
-
-		It("should reject socket path without .sock suffix", func() {
-			plugin := &pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
-							SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook",
-						},
-					}},
-				},
-			}
-			Expect(admitPluginSocketPath(plugin)).NotTo(Succeed())
-		})
-
-		It("should reject socket path over 108 characters", func() {
-			longPath := "/var/run/kubevirt-plugin/my-plugin/" + strings.Repeat("a", 80) + ".sock"
-			plugin := &pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
-							SocketPath: longPath,
-						},
-					}},
-				},
-			}
-			Expect(admitPluginSocketPath(plugin)).NotTo(Succeed())
-		})
-
-		It("should reject socket path outside plugin directory", func() {
-			plugin := &pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
-							SocketPath: "/tmp/evil/hook.sock",
-						},
-					}},
-				},
-			}
-			Expect(admitPluginSocketPath(plugin)).NotTo(Succeed())
-		})
-
-		It("should allow plugin with only CEL hooks (no sidecar)", func() {
-			plugin := &pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{}`},
-					}},
-				},
-			}
-			Expect(admitPluginSocketPath(plugin)).To(Succeed())
-		})
-
-		It("should allow valid nested socket path", func() {
-			plugin := &pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "my-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{
-							SocketPath: "/var/run/kubevirt-plugin/my-plugin/sub/dir/hook.sock",
-						},
-					}},
-				},
-			}
-			Expect(admitPluginSocketPath(plugin)).To(Succeed())
 		})
 	})
 })

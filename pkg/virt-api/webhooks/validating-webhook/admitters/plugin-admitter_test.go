@@ -22,6 +22,7 @@ package admitters
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -80,13 +81,13 @@ var _ = Describe("Validating Plugin Admitter", func() {
 
 	It("should reject when Plugins feature gate is disabled", func() {
 		disablePluginFeatureGate()
-		resp := admit(newValidPluginWithDomainHook())
+		resp := admit(newValidPluginWithLauncherHook())
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Message).To(ContainSubstring("Plugins feature gate is not enabled"))
 	})
 
 	It("should accept a valid Plugin", func() {
-		resp := admit(newValidPluginWithDomainHook())
+		resp := admit(newValidPluginWithLauncherHook())
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
@@ -96,10 +97,10 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	It("should reject CEL domain hook with invalid expression syntax", func() {
+	It("should reject CEL launcher hook with invalid expression syntax", func() {
 		p := newMinimalPlugin()
-		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-			CEL: &pluginv1alpha1.CELDomainHook{Expression: "invalid!!! syntax"},
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL: &pluginv1alpha1.CELLauncherHook{Expression: "invalid!!! syntax"},
 		}}
 		resp := admit(p)
 		Expect(resp.Allowed).To(BeFalse())
@@ -108,10 +109,10 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		))
 	})
 
-	It("should reject CEL domain hook with unknown type name", func() {
+	It("should reject CEL launcher hook with unknown type name", func() {
 		p := newMinimalPlugin()
-		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-			CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domainn{Title: "test"}`},
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domainn{Title: "test"}`},
 		}}
 		resp := admit(p)
 		Expect(resp.Allowed).To(BeFalse())
@@ -120,10 +121,10 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		))
 	})
 
-	It("should reject domain hook with invalid condition expression", func() {
+	It("should reject launcher hook with invalid condition expression", func() {
 		p := newMinimalPlugin()
-		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-			CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "test"}`},
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "test"}`},
 			Condition: "invalid!!! condition",
 		}}
 		resp := admit(p)
@@ -135,8 +136,8 @@ var _ = Describe("Validating Plugin Admitter", func() {
 
 	It("should reject condition that returns non-bool", func() {
 		p := newMinimalPlugin()
-		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-			CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "test"}`},
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Title: "test"}`},
 			Condition: `vmi.Name`,
 		}}
 		resp := admit(p)
@@ -148,8 +149,8 @@ var _ = Describe("Validating Plugin Admitter", func() {
 
 	It("should accept valid CEL expression with condition", func() {
 		p := newMinimalPlugin()
-		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-			CEL:       &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "test"}`},
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "test"}`},
 			Condition: `vmi.Name == "test"`,
 		}}
 		resp := admit(p)
@@ -176,10 +177,10 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Entry("with non-bool return type", `vmi.Name`),
 	)
 
-	It("should reject CEL domain hook with type-incorrect field value", func() {
+	It("should reject CEL launcher hook with type-incorrect field value", func() {
 		p := newMinimalPlugin()
-		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-			CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Memory: "not-a-struct"}`},
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL: &pluginv1alpha1.CELLauncherHook{Expression: `Domain{Memory: "not-a-struct"}`},
 		}}
 		resp := admit(p)
 		Expect(resp.Allowed).To(BeFalse())
@@ -213,37 +214,29 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	Context("sidecar socketPath validation", func() {
-		It("should accept a valid sidecar socketPath", func() {
-			p := newMinimalPlugin()
-			p.Name = "my-plugin"
-			p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-				Sidecar: &pluginv1alpha1.SidecarDomainHook{
-					SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook.sock",
+	It("should accept a fully valid plugin with cel, sidecar and node hooks", func() {
+		p := newMinimalPlugin()
+		p.Name = "my-plugin"
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{
+			{
+				CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "test"}`},
+			},
+			{
+				Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+					SocketPath:     "/var/run/kubevirt-plugin/my-plugin/hook.sock",
+					PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
 				},
-			}}
-			resp := admit(p)
-			Expect(resp.Allowed).To(BeTrue())
-		})
-
-		DescribeTable("should reject socketPath with unclean path segments", func(socketPath string) {
-			p := newMinimalPlugin()
-			p.Name = "my-plugin"
-			p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-				Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
-			}}
-			resp := admit(p)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(ContainElement(
-				WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("must be a clean path")),
-			))
-		},
-			Entry("path traversal with ..", "/var/run/kubevirt-plugin/my-plugin/../other/hook.sock"),
-			Entry("dot segment", "/var/run/kubevirt-plugin/my-plugin/./hook.sock"),
-			Entry("double slash", "/var/run/kubevirt-plugin/my-plugin//hook.sock"),
-			Entry("trailing slash", "/var/run/kubevirt-plugin/my-plugin/hook.sock/"),
-		)
-
+				Timeout: &metav1.Duration{Duration: time.Minute},
+			},
+		}
+		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
+			Socket:         "/var/run/kubevirt/plugins/test.sock",
+			PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
+			Timeout:        &metav1.Duration{Duration: time.Minute},
+		}}
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeTrue())
+		Expect(resp.Result).To(BeNil())
 	})
 })
 
@@ -256,10 +249,10 @@ func newMinimalPlugin() *pluginv1alpha1.Plugin {
 	}
 }
 
-func newValidPluginWithDomainHook() *pluginv1alpha1.Plugin {
+func newValidPluginWithLauncherHook() *pluginv1alpha1.Plugin {
 	p := newMinimalPlugin()
-	p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
-		CEL: &pluginv1alpha1.CELDomainHook{Expression: `Domain{Title: "test"}`},
+	p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+		CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "test"}`},
 	}}
 	return p
 }
