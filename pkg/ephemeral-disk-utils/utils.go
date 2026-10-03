@@ -111,16 +111,6 @@ func (om *OwnershipManager) UnsafeSetFileOwnership(file string) error {
 	return os.Chown(file, uid, gid)
 }
 
-func RemoveFilesIfExist(paths ...string) error {
-	var err error
-	for _, path := range paths {
-		err = os.Remove(path)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
-	return nil
-}
 func FileExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	exists := false
