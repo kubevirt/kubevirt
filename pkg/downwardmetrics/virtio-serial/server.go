@@ -39,7 +39,6 @@ import (
 
 	metricsScraper "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 const (
@@ -55,10 +54,7 @@ const (
 const _ = uint8(maxRequestsBurst - 1)
 
 func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) error {
-	report, err := newMetricsReporter(nodeName, launcherSocketPath)
-	if err != nil {
-		return err
-	}
+	report := newMetricsReporter(nodeName, launcherSocketPath)
 
 	server := downwardMetricsServer{
 		rateLimiter:        rate.NewLimiter(maxRequestsPerSecond, maxRequestsBurst),
@@ -72,20 +68,12 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 
 type metricsReporter func() (*api.Metrics, error)
 
-func newMetricsReporter(nodeName, launcherSocketPath string) (metricsReporter, error) {
-	exists, err := diskutils.FileExists(launcherSocketPath)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.New("virt-launcher socket not found")
-	}
-
+func newMetricsReporter(nodeName, launcherSocketPath string) metricsReporter {
 	scraper := metricsScraper.NewReporter(nodeName)
 
 	return func() (*api.Metrics, error) {
 		return scraper.Report(launcherSocketPath)
-	}, nil
+	}
 }
 
 // The DownwardMetrics server is special, in the sense that the socket is created
