@@ -22,6 +22,7 @@ package cloudinit
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -524,7 +525,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 	}
 	isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 
-	err = diskutils.RemoveFilesIfExist(isoStaging)
+	err = removeFilesIfExist(isoStaging)
 	if err != nil {
 		return err
 	}
@@ -634,7 +635,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		networkData = []byte(data.NetworkData)
 	}
 
-	err = diskutils.RemoveFilesIfExist(userFile, metaFile, networkFile, isoStaging)
+	err = removeFilesIfExist(userFile, metaFile, networkFile, isoStaging)
 	if err != nil {
 		return err
 	}
@@ -680,5 +681,16 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 	}
 
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
+	return nil
+}
+
+func removeFilesIfExist(paths ...string) error {
+	var err error
+	for _, path := range paths {
+		err = os.Remove(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
 	return nil
 }
