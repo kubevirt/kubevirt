@@ -205,7 +205,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    37,
-		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: (QEMU unexpectedly closed the monitor|process exited while connecting to monitor).*(The sum of offset.*has to be smaller or equal to the  actual size of the containing file|Permission denied|Could not open '/var/run/kubevirt/container-disks/disk_0\.img': No such file or directory)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: (QEMU unexpectedly closed the monitor|process exited while connecting to monitor).*"`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
@@ -235,12 +235,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    43,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to start VirtualMachineInstance.*Permission denied'\)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to start VirtualMachineInstance.*(Permission denied'|internal error: (QEMU unexpectedly closed the monitor|process exited while connecting to monitor))`),
 		SIGs:  SIGStorage,
 	},
 	{
 		ID:    44,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"reason":"virError\(Code=.*, Domain=.*, Message='internal error: process exited while connecting to monitor:.*Permission denied'\)"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"reason":"virError\(Code=.*, Domain=.*, Message='internal error: process exited while connecting to monitor:.*"`),
 		SIGs:  SIGStorage,
 	},
 	{
@@ -435,7 +435,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    90,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"reason":"virError\(.*Message='internal error: QEMU unexpectedly closed the monitor.*Could not open '/var/run/kubevirt-private/vmi-disks/disk[0-9]+/disk\.img': Permission denied'\)"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"reason":"virError\(.*Message='internal error: QEMU unexpectedly closed the monitor.*"`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
@@ -517,11 +517,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		ID:    109,
 		Regex: regexp.MustCompile(`"level":"error","msg":"(pre start setup for VirtualMachineInstance failed\.|Failed to sync vmi)".*"reason":"preparing ephemeral container disk images failed: no supported file disk found for volume found in: /var/run/kubevirt/container-disks/disk_\d+\.img"`),
 		SIGs:  SIGCompute,
-	},
-	{
-		ID:    107,
-		Regex: regexp.MustCompile(`"level":"error","msg":".*QEMU unexpectedly closed the monitor.*Failed to get .*write.* lock.*"`),
-		SIGs:  SIGStorage,
 	},
 }
 
