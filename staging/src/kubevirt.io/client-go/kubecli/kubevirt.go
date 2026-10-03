@@ -23,6 +23,8 @@ package kubecli
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
+ generated_mock_kubevirt.go must retain the //go:build kubevirt_mock constraint so downstream
+ consumers on k8s.io/client-go v0.35+ are not forced to compile the mock.
 */
 
 import (
