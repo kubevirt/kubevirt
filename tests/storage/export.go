@@ -2360,7 +2360,7 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, func() {
+	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, decorators.RequiresBlockStorage, func() {
 		const (
 			reasonDigestsComputed = "DigestsComputed"
 		)
