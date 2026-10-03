@@ -4417,6 +4417,97 @@ var _ = Describe("getUpdatedDisks", func() {
 	)
 })
 
+var _ = Describe("validateIOThreads", func() {
+	makeSpec := func(iothreads uint) *api.DomainSpec {
+		spec := &api.DomainSpec{
+			IOThreads: &api.IOThreads{IOThreads: iothreads},
+		}
+		for thread := range iothreads {
+			thread += 1
+			spec.Devices.Disks = append(spec.Devices.Disks, api.Disk{
+				Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+				Driver: &api.DiskDriver{IOThread: &thread},
+			})
+		}
+		return spec
+	}
+
+	makePool := func(poolSize uint32) *api.DiskIOThreads {
+		pool := &api.DiskIOThreads{}
+		for id := range poolSize {
+			pool.IOThread = append(pool.IOThread, api.DiskIOThread{Id: id})
+		}
+		return pool
+	}
+
+	makePoolSpec := func(iothreads uint) *api.DomainSpec {
+		spec := &api.DomainSpec{
+			IOThreads: &api.IOThreads{IOThreads: iothreads},
+		}
+		pool := makePool(uint32(iothreads))
+		for range iothreads {
+			spec.Devices.Disks = append(spec.Devices.Disks, api.Disk{
+				Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+				Driver: &api.DiskDriver{IOThreads: pool},
+			})
+		}
+		return spec
+	}
+
+	Context("single IOThread assignment", func() {
+		It("should wrap around when assigned thread exceeds range", func() {
+			spec := makeSpec(3)
+			disk := api.Disk{
+				Driver: &api.DiskDriver{IOThread: new(uint(4))},
+				Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+			}
+
+			validateIOThreads(&disk, spec)
+			Expect(disk.Driver.IOThread).ToNot(BeNil())
+			Expect(*disk.Driver.IOThread).To(Equal(uint(1)))
+			spec.Devices.Disks = append(spec.Devices.Disks, disk)
+
+			disk2 := api.Disk{
+				Driver: &api.DiskDriver{IOThread: new(uint(5))},
+				Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+			}
+
+			validateIOThreads(&disk2, spec)
+			Expect(disk2.Driver.IOThread).ToNot(BeNil())
+			Expect(*disk2.Driver.IOThread).To(Equal(uint(2)))
+		})
+
+		It("should not modify thread when within range", func() {
+			spec := makeSpec(4)
+			disk := api.Disk{
+				Driver: &api.DiskDriver{IOThread: new(uint(4))},
+				Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+			}
+
+			validateIOThreads(&disk, spec)
+			Expect(*disk.Driver.IOThread).To(Equal(uint(4)))
+		})
+	})
+
+	Context("IOThreads pool assignment", func() {
+		It("should clamp pool to declared count when pool size exceeds it", func() {
+			spec := makePoolSpec(3)
+			disk := api.Disk{Driver: &api.DiskDriver{IOThreads: makePool(5)}}
+
+			validateIOThreads(&disk, spec)
+			Expect(disk.Driver.IOThreads.IOThread).To(HaveLen(3))
+		})
+
+		It("should not rebuild pool when size already valid", func() {
+			spec := makeSpec(3)
+			disk := api.Disk{Driver: &api.DiskDriver{IOThreads: makePool(3)}}
+
+			validateIOThreads(&disk, spec)
+			Expect(disk.Driver.IOThreads.IOThread).To(HaveLen(3))
+		})
+	})
+})
+
 var _ = Describe("Manager helper functions", func() {
 
 	Context("getVMIEphemeralDisksTotalSize", func() {

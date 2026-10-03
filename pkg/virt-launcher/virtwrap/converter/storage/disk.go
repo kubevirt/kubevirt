@@ -341,10 +341,10 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
-func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
+func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, ioThreadPool *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
-		if supplementalIOThreads != nil {
-			apiDisk.Driver.IOThreads = supplementalIOThreads
+		if ioThreadPool != nil {
+			apiDisk.Driver.IOThreads = ioThreadPool
 		} else {
 			if iothreads.HasDedicatedIOThread(*disk) {
 				apiDisk.Driver.IOThread = pointer.P(currentDedicatedThread)

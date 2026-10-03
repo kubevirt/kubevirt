@@ -30,18 +30,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
-const (
-	defaultIOThread = uint(1)
-)
-
 type ControllersDomainConfigurator struct {
 	isUSBNeeded               bool
 	scsiModel                 string
-	autoThreads               uint
+	totalThreads              uint
 	useLaunchSecuritySEV      bool
 	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
 	virtioSerialModel         string
+	scsiMultiIOThreadEnabled  bool
 }
 
 type controllersOption func(*ControllersDomainConfigurator)
@@ -67,7 +64,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.autoThreads, controllerDriver.DeepCopy())
+		scsiControllerDriver := c.assignSCSIControllerIOThread(vmi, c.totalThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -97,9 +94,15 @@ func ControllersWithSCSIModel(scsiModel string) controllersOption {
 	}
 }
 
-func ControllersWithSCSIIOThreads(autoThreads uint) controllersOption {
+func ControllersWithSCSIIOThreads(totalThreads uint) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
-		c.autoThreads = autoThreads
+		c.totalThreads = totalThreads
+	}
+}
+
+func ControllerWithSCSIMultiIOThreadEnabled(enabled bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.scsiMultiIOThreadEnabled = enabled
 	}
 }
 
@@ -209,18 +212,29 @@ func getBusFromDisk(disk v1.Disk) v1.DiskBus {
 	return ""
 }
 
-func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
-	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
-		return getBusFromDisk(disk) == v1.DiskBusSCSI && iothreads.HasDedicatedIOThread(disk)
-	})
+// configure dedicated thread(s) to scsi controller if vmi set ioThreadsPolicy and contains a scsi disk
+func (c ControllersDomainConfigurator) shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.IOThreadsPolicy == nil {
+		return false
+	}
+
+	// if feature gate is enabled, allocate thread pool to the controller even if VMI contains no scsi disks
+	// this is to enable the multi iothread performance gain for scsi disks that may be hotplugged after initialization
+	if c.scsiMultiIOThreadEnabled {
+		return true
+	} else {
+		return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
+			return getBusFromDisk(disk) == v1.DiskBusSCSI
+		})
+	}
 }
 
-func assignSCSIControllerIOThread(
+func (c ControllersDomainConfigurator) assignSCSIControllerIOThread(
 	vmi *v1.VirtualMachineInstance,
-	autoThreads uint,
+	totalThreads uint,
 	scsiControllerDriver *api.ControllerDriver,
 ) *api.ControllerDriver {
-	if autoThreads == 0 || !shouldConfigSCSIThread(vmi) {
+	if totalThreads == 0 || !c.shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
 	}
 
@@ -233,20 +247,18 @@ func assignSCSIControllerIOThread(
 		vcpus = 1
 	}
 
-	scsiControllerDriver.IOThread = computeScsiControllerThread(autoThreads, vmi.Spec.Domain.Devices.Disks)
 	scsiControllerDriver.Queues = new(vcpus)
 
-	return scsiControllerDriver
-}
+	// we don't want to allocate more threads than the controller needs
+	// totalThreads should never exceed the number of created virtqueues (1 per vCPU)
+	totalThreads = min(totalThreads, vcpus)
 
-func computeScsiControllerThread(autoThreads uint, disks []v1.Disk) *uint {
-	currentAutoThread := defaultIOThread
-
-	for _, disk := range disks {
-		if getBusFromDisk(disk) == v1.DiskBusVirtio && !iothreads.HasDedicatedIOThread(disk) {
-			currentAutoThread = (currentAutoThread % autoThreads) + 1
-		}
+	// if we just have single thread, we don't need to populate thread list
+	if totalThreads == 1 {
+		scsiControllerDriver.IOThread = new(totalThreads)
+		return scsiControllerDriver
 	}
 
-	return &currentAutoThread
+	scsiControllerDriver.IOThreads = iothreads.BuildIOThreadPool(int(totalThreads))
+	return scsiControllerDriver
 }
