@@ -253,6 +253,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 		"serial":     "The system-serial-number in SMBIOS",
 		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
 		"acpi":       "Information that can be set in the ACPI table",
+		"oemStrings": "OEM Strings to be set in the SMBIOS\n+listType=atomic",
 	}
 }
 
@@ -451,7 +452,9 @@ func (SEVPolicy) SwaggerDoc() map[string]string {
 }
 
 func (SEVSNP) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"initDataRef": "Name of the InitData CR that carries the launch-time values for this VMI.\nWhen set, virt-handler blocks VM startup until a committed InitData CR with\nthis name exists in the VMI namespace.\n+optional",
+	}
 }
 
 func (SEVAttestation) SwaggerDoc() map[string]string {
@@ -459,7 +462,9 @@ func (SEVAttestation) SwaggerDoc() map[string]string {
 }
 
 func (TDX) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"initDataRef": "Name of the InitData CR that carries the launch-time values for this VMI.\nWhen set, virt-handler blocks VM startup until a committed InitData CR with\nthis name exists in the VMI namespace.\n+optional",
+	}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
