@@ -15,7 +15,6 @@ go_library(
         "patches.go",
         "prometheus.go",
         "rbac.go",
-        "rbacbackup.go",
         "reconcile.go",
         "routes.go",
         "ssc.go",
