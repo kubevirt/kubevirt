@@ -26,11 +26,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/util"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -699,7 +698,7 @@ func createImageVolumeSourcePodWithKernelBoot(vmi *v1.VirtualMachineInstance, ex
 		pod.Spec.Volumes = append(pod.Spec.Volumes, imageVolume)
 	}
 
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmitrait.HasKernelBootContainerImage(vmi) {
 		digest, exists := expectedDigests["kernel-boot-volume"]
 		if exists {
 			baseImage := strings.Split(vmi.Spec.Domain.Firmware.KernelBoot.Container.Image, ":")[0]

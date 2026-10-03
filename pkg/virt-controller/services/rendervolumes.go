@@ -247,7 +247,7 @@ func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			}
 		}
 
-		if util.HasKernelBootContainerImage(vmi) {
+		if vmitrait.HasKernelBootContainerImage(vmi) {
 			kbc := vmi.Spec.Domain.Firmware.KernelBoot.Container
 			renderer.addKernelBootVolume(kbc)
 			renderer.addKernelBootVolumeMount()
@@ -867,7 +867,7 @@ func shouldAddLauncherBinaryVolume(vmi *v1.VirtualMachineInstance, imageIDs map[
 		return true
 	}
 	kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
-	return util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
+	return vmitrait.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
 }
 
 func pathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
