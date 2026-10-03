@@ -213,8 +213,8 @@ func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.OptOutRoleAggregation)
 }
 
-func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
+func (config *ClusterConfig) MDevVGPULiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MDevVGPULiveMigration)
 }
 
 func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
