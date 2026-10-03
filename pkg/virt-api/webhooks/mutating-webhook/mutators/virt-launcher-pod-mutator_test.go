@@ -36,10 +36,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 var _ = Describe("VirtLauncherPodMutator", func() {

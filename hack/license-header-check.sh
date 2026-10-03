@@ -26,7 +26,6 @@ TARGET_DIRS=(
     "pkg/storage"
     "pkg/container-disk"
     "pkg/libdv"
-    "pkg/virtiofs"
     "pkg/virt-controller/watch/volume-migration"
     "pkg/virtctl/guestfs"
     "pkg/virtctl/imageupload"

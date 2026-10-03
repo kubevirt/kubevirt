@@ -22,8 +22,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
