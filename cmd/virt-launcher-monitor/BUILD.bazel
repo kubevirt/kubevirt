@@ -6,9 +6,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-launcher-monitor",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/virt-launcher/capability:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/golang.org/x/sys/unix:go_default_library",
     ],
 )
 
