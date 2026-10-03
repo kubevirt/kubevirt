@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["host-disk.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/host-disk",
+    importpath = "kubevirt.io/kubevirt/pkg/storage/host-disk",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",

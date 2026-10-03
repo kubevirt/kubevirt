@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

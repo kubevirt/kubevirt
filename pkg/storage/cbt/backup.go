@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
