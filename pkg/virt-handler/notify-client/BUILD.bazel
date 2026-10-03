@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/handler-launcher-com/notify/v2:go_default_library",
         "//pkg/util/net/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
     ],
 )
 
