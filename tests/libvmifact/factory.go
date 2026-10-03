@@ -149,6 +149,7 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 		libvmi.WithCPUCount(cpuCount, cpuCount, cpuCount),
 		libvmi.WithMemoryRequest("2048Mi"),
 		libvmi.WithEphemeralPersistentVolumeClaim(windowsDiskName, WindowsPVCName),
+		libvmi.WithPanicDevice(kvirtv1.Hyperv),
 	}
 
 	windowsOpts = append(windowsOpts, opts...)
