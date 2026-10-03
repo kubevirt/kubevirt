@@ -104,7 +104,10 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
-dump: bazel-build
+# Do not depend on bazel-build: that copies dump for BUILD_ARCH
+# dump must run on the Prow host, so use the binary
+# already produced for HOST_ARCHITECTURE by bazel-build-functests.
+dump:
 	hack/dump.sh
 
 functest-image-build: manifests build-functests
