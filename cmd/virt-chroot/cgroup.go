@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/ebpf/link"
 	cgroups "github.com/opencontainers/cgroups"
 	_ "github.com/opencontainers/cgroups/devices"
-	cgroupfs "github.com/opencontainers/cgroups/fs"
 	cgroupfs2 "github.com/opencontainers/cgroups/fs2"
 	"golang.org/x/sys/unix"
 
@@ -38,8 +37,8 @@ func decodeResources(marshalledResourcesHash string) (*cgroups.Resources, error)
 	return &unmarshalledResources, err
 }
 
-func decodePaths(marshalledPathsHash string) (map[string]string, error) {
-	var unmarshalledPaths map[string]string
+func decodePaths(marshalledPathsHash string) ([]string, error) {
+	var unmarshalledPaths []string
 
 	marshalledPaths, err := base64.StdEncoding.DecodeString(marshalledPathsHash)
 	if err != nil {
@@ -56,39 +55,21 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool, isV2 bool) error {
+func setCgroupResources(paths []string, resources *cgroups.Resources, isRootless bool) error {
 	config := &cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
 		Rootless:  isRootless,
 	}
 
-	var err error
-
-	if isV2 {
-		err = setCgroupResourcesV2(paths, resources, config)
-	} else {
-		err = setCgroupResourcesV1(paths, resources, config)
-	}
-
-	if err != nil {
+	if err := setCgroupResourcesV2(paths, resources, config); err != nil {
 		return fmt.Errorf("cannot set cgroup resources. err: %v", err)
 	}
 
 	return nil
 }
 
-func setCgroupResourcesV1(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
-	return RunWithChroot(cgroupconsts.HostCgroupBasePath, func() error {
-		cgroupManager, err := cgroupfs.NewManager(config, paths)
-		if err != nil {
-			return fmt.Errorf("cannot create cgroups v1 manager. err: %v", err)
-		}
-		return cgroupManager.Set(resources)
-	})
-}
-
-func setCgroupResourcesV2(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
+func setCgroupResourcesV2(paths []string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
 	for _, path := range paths {
 		if !resources.SkipDevices {
 			if err := attachDummyCgroupDeviceProg(path); err != nil {
