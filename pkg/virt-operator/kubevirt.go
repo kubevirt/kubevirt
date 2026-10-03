@@ -822,9 +822,12 @@ func (c *KubeVirtController) execute(key string) error {
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(kv) {
-		kv := kv.DeepCopy()
-		controller.SetLatestApiVersionAnnotation(kv)
-		_, err = c.virtClient.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+		var patchBytes []byte
+		patchBytes, err = controller.LatestApiVersionMergePatch()
+		if err != nil {
+			return err
+		}
+		_, err = c.virtClient.KubeVirt(kv.ObjectMeta.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
 		}
