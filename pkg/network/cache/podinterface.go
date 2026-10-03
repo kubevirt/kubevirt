@@ -20,6 +20,7 @@
 package cache
 
 import (
+	"fmt"
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -46,33 +47,52 @@ type PodInterfaceCache struct {
 	cache *Cache
 }
 
-func ReadPodInterfaceCache(c cacheCreator, uid, ifaceName string) (*PodIfaceCacheData, error) {
-	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+func ReadPodInterfaceCache(c cacheCreator, pid int, ifaceName string) (*PodIfaceCacheData, error) {
+	podCache, err := NewPodInterfaceCache(c, pid).IfaceEntry(ifaceName)
 	if err != nil {
 		return nil, err
 	}
 	return podCache.Read()
 }
 
-func WritePodInterfaceCache(c cacheCreator, uid, ifaceName string, cacheInterface *PodIfaceCacheData) error {
-	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+func WritePodInterfaceCache(c cacheCreator, pid int, ifaceName string, data *PodIfaceCacheData) error {
+	podCache, err := NewPodInterfaceCache(c, pid).IfaceEntry(ifaceName)
 	if err != nil {
 		return err
 	}
-	return podCache.Write(cacheInterface)
+	return podCache.Write(data)
 }
 
-func DeletePodInterfaceCache(c cacheCreator, uid, ifaceName string) error {
-	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+func DeletePodInterfaceCache(c cacheCreator, pid int, ifaceName string) error {
+	podCache, err := NewPodInterfaceCache(c, pid).IfaceEntry(ifaceName)
 	if err != nil {
 		return err
 	}
 	return podCache.Remove()
 }
 
-func NewPodInterfaceCache(creator cacheCreator, uid string) PodInterfaceCache {
+// ReadLegacyPodInterfaceCache reads from the pre-upgrade virt-handler-local path keyed by
+// VMI UID. Use only for upgrade fallback reads; new code must use ReadPodInterfaceCache.
+func ReadLegacyPodInterfaceCache(c cacheCreator, uid, ifaceName string) (*PodIfaceCacheData, error) {
+	podCache, err := NewLegacyPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+	return podCache.Read()
+}
+
+// NewLegacyPodInterfaceCache returns a cache rooted in virt-handler's local filesystem,
+// keyed by VMI UID. Use only for upgrade fallback reads and teardown cleanup;
+// new code should use NewPodInterfaceCache with the launcher PID.
+func NewLegacyPodInterfaceCache(creator cacheCreator, uid string) PodInterfaceCache {
 	const podIfaceCacheDirName = "network-info-cache"
 	return PodInterfaceCache{creator.New(filepath.Join(util.VirtPrivateDir, podIfaceCacheDirName, uid))}
+}
+
+func NewPodInterfaceCache(creator cacheCreator, pid int) PodInterfaceCache {
+	const podIfaceCacheDirName = "network-info-cache"
+	podRootFilesystemPath := fmt.Sprintf("/proc/%d/root", pid)
+	return PodInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir, podIfaceCacheDirName))}
 }
 
 func (p PodInterfaceCache) IfaceEntry(ifaceName string) (PodInterfaceCache, error) {
