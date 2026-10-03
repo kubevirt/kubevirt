@@ -72,11 +72,9 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		_, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 	}
 
-	volumeIndices := map[string]int{}
 	volumes := map[string]*v1.Volume{}
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
-		volumeIndices[volume.Name] = i
 	}
 
 	var numBlkQueues *uint
@@ -124,7 +122,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		case hpOk:
 			err = d.convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk)
 		default:
-			err = d.convert_v1_Volume_To_api_Disk(volume, &newDisk, volumeIndices[disk.Name], vmi.Namespace, vmi.Name)
+			err = d.convert_v1_Volume_To_api_Disk(volume, &newDisk, vmi.Namespace, vmi.Name)
 		}
 
 		if err != nil {
@@ -241,13 +239,13 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 	return nil
 }
 
-func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string) error {
+func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, vmiNamespace, vmiName string) error {
 	if source.ContainerDisk != nil {
 		info := d.disksInfo[source.Name]
 		if info == nil {
 			return fmt.Errorf("no disk info provided for volume %s", source.Name)
 		}
-		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.ephemeralDiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
+		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.ephemeralDiskCreator.GetFilePath(source.Name), info.Format)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {

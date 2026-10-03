@@ -101,12 +101,12 @@ func GetDiskTargetDirFromHostView(vmi *v1.VirtualMachineInstance) (*safepath.Pat
 	return basepath, nil
 }
 
-func GetDiskTargetName(volumeIndex int) string {
-	return fmt.Sprintf("disk_%d.img", volumeIndex)
+func GetDiskTargetName(volumeName string) string {
+	return fmt.Sprintf("disk_%s.img", volumeName)
 }
 
-func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
-	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
+func GetDiskTargetPathFromLauncherView(volumeName string) string {
+	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeName))
 }
 
 func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
@@ -139,6 +139,10 @@ func setPodsDirectory(dir string) error {
 
 // NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
 // can be provided which can for instance point to /tmp.
+//
+// Unlike the disk image, the socket stays index-based: it is created at
+// "<copy-path>.sock", with copy-path baked into the sidecar args at pod creation
+// (see generateContainerFromVolume), so it cannot be renamed for running pods.
 func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 		for podUID := range vmi.Status.ActivePods {
@@ -334,13 +338,13 @@ func CreateEphemeralImages(
 	// to do here is only create the image where the domain expects it (GetDiskTargetPathFromLauncherView)
 	// for each disk that requires it.
 
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.ContainerDisk != nil {
 			info, _ := disksInfo[volume.Name]
 			if info == nil {
 				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
 			}
-			backingFile := GetDiskTargetPathFromLauncherView(i)
+			backingFile := GetDiskTargetPathFromLauncherView(volume.Name)
 			exists, err := diskutils.FileExists(backingFile)
 			if err != nil {
 				return err
