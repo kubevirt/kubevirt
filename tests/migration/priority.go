@@ -162,11 +162,11 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 
 		// - Expect vmis[3] and vmis[4] are the first 2 migrations
 		// vmis[3] and vmis[4] have the same priority and we cannot assert anything
-		Expect(migrationStarTimestamp[vmis[3].Name].Before(migrationStarTimestamp[vmis[1].Name])).To(BeTrue())
-		Expect(migrationStarTimestamp[vmis[3].Name].Before(migrationStarTimestamp[vmis[2].Name])).To(BeTrue())
+		Expect(migrationStarTimestamp[vmis[3].Name].Before(migrationStarTimestamp[vmis[1].Name])).To(BeTrue(), "migration of the higher priority vmi %s should have started before the one of %s", vmis[3].Name, vmis[1].Name)
+		Expect(migrationStarTimestamp[vmis[3].Name].Before(migrationStarTimestamp[vmis[2].Name])).To(BeTrue(), "migration of the higher priority vmi %s should have started before the one of %s", vmis[3].Name, vmis[2].Name)
 
-		Expect(migrationStarTimestamp[vmis[4].Name].Before(migrationStarTimestamp[vmis[1].Name])).To(BeTrue())
-		Expect(migrationStarTimestamp[vmis[4].Name].Before(migrationStarTimestamp[vmis[2].Name])).To(BeTrue())
+		Expect(migrationStarTimestamp[vmis[4].Name].Before(migrationStarTimestamp[vmis[1].Name])).To(BeTrue(), "migration of the higher priority vmi %s should have started before the one of %s", vmis[4].Name, vmis[1].Name)
+		Expect(migrationStarTimestamp[vmis[4].Name].Before(migrationStarTimestamp[vmis[2].Name])).To(BeTrue(), "migration of the higher priority vmi %s should have started before the one of %s", vmis[4].Name, vmis[2].Name)
 
 	})
 }))
