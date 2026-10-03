@@ -2,6 +2,7 @@ package expose_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,7 +12,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -49,7 +52,9 @@ var _ = Describe("Expose", func() {
 			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().ReplicaSet(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault)).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		kubecli.GetK8sClientFromClientConfig = func(_ clientcmd.ClientConfig) (kubernetes.Interface, error) {
+			return kubeClient, nil
+		}
 	})
 
 	Context("should fail", func() {
@@ -92,6 +97,14 @@ var _ = Describe("Expose", func() {
 			kubecli.GetKubevirtClientFromClientConfig = kubecli.GetInvalidKubevirtClientFromClientConfig
 			err := runCommand("vmi", "my-vm", "--name", "my-service")
 			Expect(err).To(MatchError(ContainSubstring("cannot obtain KubeVirt client")))
+		})
+
+		It("when k8s client has an error", func() {
+			kubecli.GetK8sClientFromClientConfig = func(_ clientcmd.ClientConfig) (kubernetes.Interface, error) {
+				return nil, fmt.Errorf("k8s client error")
+			}
+			err := runCommand("vmi", "my-vm", "--name", "my-service")
+			Expect(err).To(MatchError(ContainSubstring("cannot obtain Kubernetes client")))
 		})
 
 		DescribeTable("with missing resource", func(resource, errMsg string) {
