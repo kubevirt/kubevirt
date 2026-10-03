@@ -25,7 +25,6 @@ TARGET_DIRS=(
     "pkg/network"
     "pkg/storage"
     "pkg/container-disk"
-    "pkg/hotplug-disk"
     "pkg/libdv"
     "pkg/virtiofs"
     "pkg/virt-controller/watch/volume-migration"
