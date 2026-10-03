@@ -213,17 +213,18 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			}, 30*time.Second, 1*time.Second).Should(Equal(v1.MigrationPending))
 
 			// Verify condition is set to indicate utility volumes are blocking
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, condition := range migration.Status.Conditions {
-					if condition.Type == v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes &&
-						condition.Status == k8sv1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "Should have condition indicating utility volumes are blocking")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(migration.Status.Conditions).To(ContainElement(And(
+					WithTransform(func(condition v1.VirtualMachineInstanceMigrationCondition) v1.VirtualMachineInstanceMigrationConditionType {
+						return condition.Type
+					}, Equal(v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)),
+					WithTransform(func(condition v1.VirtualMachineInstanceMigrationCondition) k8sv1.ConditionStatus {
+						return condition.Status
+					}, Equal(k8sv1.ConditionTrue)),
+				)))
+			}, 30*time.Second, 1*time.Second).Should(Succeed(), "Should have condition indicating utility volumes are blocking")
 
 			events.ExpectEvent(migration, k8sv1.EventTypeWarning, controller.UtilityVolumeMigrationPendingReason)
 
@@ -232,16 +233,15 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			verifyUtilityVolumeRemovedFromVMI(virtClient, vmi, utilityVolumeName)
 
 			// Verify condition is removed after utility volumes are detached
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, condition := range migration.Status.Conditions {
-					if condition.Type == v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes {
-						return false
-					}
-				}
-				return true
-			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "Utility volumes condition should be removed after volumes are detached")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(migration.Status.Conditions).ToNot(ContainElement(
+					WithTransform(func(condition v1.VirtualMachineInstanceMigrationCondition) v1.VirtualMachineInstanceMigrationConditionType {
+						return condition.Type
+					}, Equal(v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)),
+				))
+			}, 30*time.Second, 1*time.Second).Should(Succeed(), "Utility volumes condition should be removed after volumes are detached")
 
 			// Wait for migration to succeed
 			Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
@@ -301,27 +301,19 @@ func verifyUtilityVolumeInVMISpec(virtClient kubecli.KubevirtClient, vmi *v1.Vir
 }
 
 func verifyUtilityVolumeRemovedFromVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, utilityVolumeName string) {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) {
 		currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(currentVMI.Spec.UtilityVolumes).ToNot(ContainElement(
+			WithTransform(func(utilityVolume v1.UtilityVolume) string { return utilityVolume.Name }, Equal(utilityVolumeName)),
+		))
+	}, 30*time.Second, 1*time.Second).Should(Succeed())
 
-		for _, utilityVolume := range currentVMI.Spec.UtilityVolumes {
-			if utilityVolume.Name == utilityVolumeName {
-				return false
-			}
-		}
-		return true
-	}, 30*time.Second, 1*time.Second).Should(BeTrue())
-
-	Eventually(func() bool {
+	Eventually(func(g Gomega) {
 		currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		for _, volumeStatus := range currentVMI.Status.VolumeStatus {
-			if volumeStatus.Name == utilityVolumeName {
-				return false
-			}
-		}
-		return true
-	}, 30*time.Second, 1*time.Second).Should(BeTrue())
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(currentVMI.Status.VolumeStatus).ToNot(ContainElement(
+			WithTransform(func(volumeStatus v1.VolumeStatus) string { return volumeStatus.Name }, Equal(utilityVolumeName)),
+		))
+	}, 30*time.Second, 1*time.Second).Should(Succeed())
 }

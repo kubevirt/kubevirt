@@ -135,7 +135,7 @@ var _ = Describe(SIG("CBT", func() {
 		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(pod).NotTo(BeNil())
+		Expect(pod).NotTo(BeNil(), "expected pod for VMI %s/%s not to be nil", vmi.Namespace, vmi.Name)
 
 		var cmdOutput string
 		cmdOutput, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"ls", "-d", cbt.PathForCBT(vmi)})
