@@ -103,6 +103,7 @@ const (
 	podReadyReason            = "PodReady"
 	inUseReason               = "InUse"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
+	duplicatePVCReason        = "DuplicatePVC"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -2288,6 +2289,71 @@ var _ = Describe(SIG("Export", func() {
 			waitForDisksComplete(vm)
 			waitForExportPhase(export, exportv1.Ready)
 		}
+	})
+
+	It("should mark the status phase skipped when two VM volumes reference the same PVC", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when Filesystem storage is not present")
+		}
+		vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+		vm = createVM(vm)
+
+		dv := libdv.NewDataVolume(
+			libdv.WithNamespace(vm.Namespace),
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
+		)
+		dv = createDataVolume(dv)
+		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
+
+		By("Adding the same claim to the VM twice")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, name := range []string{"blank-disk", "duplicate-disk"} {
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: name,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: dv.Name,
+						},
+					},
+				},
+			})
+		}
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{}) //nolint:forbidigo
+		Expect(err).ToNot(HaveOccurred())
+
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		waitForExportPhase(export, exportv1.Skipped)
+		waitForExportCondition(export, MatchConditionIgnoreTimeStamp(exportv1.Condition{
+			Type:    exportv1.ConditionReady,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  duplicatePVCReason,
+			Message: fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s", dv.Name),
+		}), "export should report the duplicate PVC")
+
+		By("Removing the duplicate volume, the export recovers on its own")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		volumes := vm.Spec.Template.Spec.Volumes
+		vm.Spec.Template.Spec.Volumes = volumes[:len(volumes)-1]
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{}) //nolint:forbidigo
+		Expect(err).ToNot(HaveOccurred())
+
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			// With WFFC the volume only populates once it has a consumer.
+			waitForExportPhase(export, exportv1.Pending)
+			vm = libvmops.StartVirtualMachine(vm)
+			waitForDisksComplete(vm)
+			libvmops.StopVirtualMachine(vm)
+		} else {
+			waitForDisksComplete(vm)
+		}
+		waitForExportPhase(export, exportv1.Ready)
 	})
 
 	Context(" with potential KubeVirt CR update", Serial, func() {
