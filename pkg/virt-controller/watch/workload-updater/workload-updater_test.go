@@ -633,6 +633,30 @@ var _ = Describe("Workload Updater", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should not deadlock when multiple migrations fail to delete for the same VMI", func() {
+			vmi := createVM(withAnnotation, withoutMemoryChangeCondition)
+			createMig(vmi.Name, v1.MigrationRunning)
+
+			mig2 := newMigration("test2", vmi.Name, v1.MigrationRunning)
+			mig2.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
+			controller.migrationIndexer.Add(mig2)
+			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(mig2.Namespace).Create(context.Background(), mig2, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstancemigrations", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+				return true, nil, fmt.Errorf("some error")
+			})
+
+			done := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				sanityExecute()
+				close(done)
+			}()
+			Eventually(done, 5*time.Second).Should(BeClosed())
+			testutils.ExpectEvent(recorder, FailedChangeAbortionReason)
+		})
+
 		It("shouldn't cancel the migration if the migration object is still in running phase but the domain is ready on the target", func() {
 			vmi := libvmi.New(
 				libvmi.WithName("testvm"),
