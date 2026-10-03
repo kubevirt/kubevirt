@@ -183,12 +183,14 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 				Access:       &api.MemoryBackingAccess{Mode: "test"},
 				Allocation:   &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
 				NoSharePages: &api.NoSharePages{},
+				Locked:       &api.Locked{},
 			}, &libvirtxml.DomainMemoryBacking{
 				MemoryHugePages:    dhugePage,
 				MemorySource:       &libvirtxml.DomainMemorySource{Type: "test"},
 				MemoryAccess:       &libvirtxml.DomainMemoryAccess{Mode: "test"},
 				MemoryAllocation:   &libvirtxml.DomainMemoryAllocation{Mode: "immediate"},
 				MemoryNosharepages: &libvirtxml.DomainMemoryNosharepages{},
+				MemoryLocked:       &libvirtxml.DomainMemoryLocked{},
 			}),
 		)
 	})

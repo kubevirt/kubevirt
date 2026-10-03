@@ -10,6 +10,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
+	"kubevirt.io/kubevirt/pkg/hugepages"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
@@ -53,12 +54,13 @@ func RequiresMemoryOverheadReservation(v *v1.VirtualMachineInstance) bool {
 		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
 }
 
-// Check if a VMI spec requests locking VM's memory (e.g. for DMA)
+// Check if a VMI requires locking guest memory (e.g. for DMA or transparent hugepages)
 func RequiresLockingMemory(v *v1.VirtualMachineInstance) bool {
 	return v.Spec.Domain.Memory != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
-		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired
+		((v.Spec.Domain.Memory.ReservedOverhead != nil &&
+			v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
+			*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired) ||
+			hugepages.IsTransparent(v.Spec.Domain.Memory.Hugepages))
 }
 
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {

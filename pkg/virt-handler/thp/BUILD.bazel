@@ -3,34 +3,32 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "madvise_linux.go",
-        "madvise_unsupported.go",
-        "process.go",
-        "qemu.go",
-        "setsched.go",
-        "setsched_common.go",
-        "setsched_unsupported.go",
-        "vcpu.go",
+        "collapse.go",
+        "collapse_linux.go",
+        "collapse_unsupported.go",
+        "maps.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/hypervisor/common",
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/thp",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/mitchellh/go-ps:go_default_library",
-        "//vendor/golang.org/x/sys/unix:go_default_library",
+        "//pkg/hypervisor/common:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "common_suite_test.go",
-        "process_test.go",
+        "collapse_linux_test.go",
+        "madvise_stub_linux_test.go",
+        "thp_suite_test.go",
+        "thp_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/hypervisor/common:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],

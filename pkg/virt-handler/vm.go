@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/hugepages"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
@@ -87,6 +88,7 @@ import (
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	"kubevirt.io/kubevirt/pkg/virt-handler/thp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -120,6 +122,7 @@ type VirtualMachineController struct {
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
 	lastSeenPanicCount       sync.Map
+	thpCollapsed             sync.Map
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
@@ -1072,6 +1075,13 @@ func (c *VirtualMachineController) handleSyncError(vmi *v1.VirtualMachineInstanc
 		c.logger.Errorf("virt-launcher reached an irrecoverable error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
+	var thpCollapseFailed *thp.CollapseFailedError
+	if goerror.As(syncError, &thpCollapseFailed) {
+		c.logger.Object(vmi).Errorf("THP collapse failed: %s", thpCollapseFailed.Error())
+		vmi.Status.Phase = v1.Failed
+		condManager.CheckFailure(vmi, syncError, thpCollapseFailed.Error())
+		return
+	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 }
 
@@ -1507,6 +1517,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	c.logger.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
 	c.lastSeenPanicCount.Delete(vmiId)
+	c.thpCollapsed.Delete(vmiId)
 
 	c.migrationProxy.StopTargetListener(vmiId)
 	c.migrationProxy.StopSourceListener(vmiId)
@@ -1948,6 +1959,54 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 		*errorTolerantFeaturesError = append(*errorTolerantFeaturesError, err)
 	}
 
+	return c.ensureTransparentHugepageCollapse(vmi, isolationRes)
+}
+
+// ensureTransparentHugepageCollapse runs MADV_COLLAPSE once the VMI is Running
+// (skipped when smaps already show full THP coverage) and enforces guaranteed policy.
+// thpCollapsed stores true on success, or *CollapseFailedError on hard failure so a
+// lost Failed status update is re-applied without re-running collapse.
+func (c *VirtualMachineController) ensureTransparentHugepageCollapse(
+	vmi *v1.VirtualMachineInstance,
+	isolationRes isolation.IsolationResult,
+) error {
+	if vmi.Spec.Domain.Memory == nil || !hugepages.IsTransparent(vmi.Spec.Domain.Memory.Hugepages) {
+		return nil
+	}
+
+	uid := string(vmi.UID)
+	if v, done := c.thpCollapsed.Load(uid); done {
+		if failErr, ok := v.(*thp.CollapseFailedError); ok {
+			return failErr
+		}
+		return nil
+	}
+
+	result, err := c.hypervisorRuntime.CollapseTransparentHugepages(isolationRes)
+	if err != nil {
+		var collapseFailed *thp.CollapseFailedError
+		if goerror.As(err, &collapseFailed) {
+			c.thpCollapsed.Store(uid, collapseFailed)
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, thp.EventReasonCollapseFailed, collapseFailed.Error())
+			return collapseFailed
+		}
+		return fmt.Errorf("THP collapse: %w", err)
+	}
+
+	c.logger.Object(vmi).Infof(
+		"THP collapse finished: minCoverage=%.1f%% regionsCollapsed=%d requestedBytes=%d",
+		result.Coverage*100, result.RegionsCollapsed, result.BytesRequested,
+	)
+
+	if hugepages.EffectivePolicy(vmi.Spec.Domain.Memory.Hugepages) == v1.HugepagesPolicyGuaranteed &&
+		result.Coverage < thp.GuaranteedCoverageThreshold {
+		failErr := &thp.CollapseFailedError{Coverage: result.Coverage}
+		c.thpCollapsed.Store(uid, failErr)
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, thp.EventReasonCollapseFailed, failErr.Error())
+		return failErr
+	}
+
+	c.thpCollapsed.Store(uid, true)
 	return nil
 }
 

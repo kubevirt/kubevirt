@@ -160,4 +160,30 @@ var _ = DescribeTable("memory lock limit requirements",
 		},
 		true,
 	),
+	Entry(
+		"transparent hugepages",
+		&v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Memory: &v1.Memory{
+						Hugepages: &v1.Hugepages{Mode: pointer.P(v1.HugepagesModeTransparent)},
+					},
+				},
+			},
+		},
+		true,
+	),
+	Entry(
+		"static hugepages do not require locking",
+		&v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Memory: &v1.Memory{
+						Hugepages: &v1.Hugepages{PageSize: "2Mi"},
+					},
+				},
+			},
+		},
+		false,
+	),
 )
