@@ -29,6 +29,7 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/libvmi:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
