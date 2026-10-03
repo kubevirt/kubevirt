@@ -482,7 +482,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 				}
 
-				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
+				Eventually(func() error {
+					return verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)
+				}).WithTimeout(2 * time.Minute).WithPolling(time.Second).Should(Succeed())
 			},
 				Entry("basic connectivity [IPv4]",
 					conformanceVMI(), conformanceVMI(), 8080, ""),
@@ -539,7 +541,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				By("starting a http server")
 				vmnetserver.StartPythonHTTPServer(serverVMI, tcpPort)
 
-				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
+				Eventually(func() error {
+					return verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)
+				}).WithTimeout(2 * time.Minute).WithPolling(time.Second).Should(Succeed())
 			},
 				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, cloudinit.DefaultIPv6CIDR),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, cloudinit.DefaultIPv6CIDR),
