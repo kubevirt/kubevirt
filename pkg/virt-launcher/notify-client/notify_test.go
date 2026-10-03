@@ -314,6 +314,27 @@ var _ = Describe("Notify", func() {
 				Expect(timedOut).To(BeFalse())
 			})
 
+		It("should update Disk status with the recorded attach errors",
+			func() {
+				domain := api.NewMinimalDomain("test")
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+				cache := metadataCache()
+				cache.DiskAttachErrors.Set("hpvolume1", "attach failed")
+
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, nil, cache, false)
+
+				var event watch.Event
+				Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+				newDomain, _ := event.Object.(*api.Domain)
+				Expect(newDomain.Status.Disks).To(Equal([]api.DiskStatus{{Name: "hpvolume1", AttachError: "attach failed"}}))
+			})
+
 		It("should update Guest OS Info",
 			func() {
 				domain := api.NewMinimalDomain("test")

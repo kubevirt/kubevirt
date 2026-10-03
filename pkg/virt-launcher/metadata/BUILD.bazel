@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cache.go",
+        "diskattacherrors.go",
         "kubevirt.go",
         "safedata.go",
     ],
@@ -18,6 +19,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "diskattacherrors_test.go",
         "metadata_suite_test.go",
         "metadata_test.go",
     ],
