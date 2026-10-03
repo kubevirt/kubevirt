@@ -51,8 +51,7 @@ func NewConnectToNotifyFunc(virtShareDir string) connectFunc {
 }
 
 // InjectNotify injects the domain-notify.sock into the VMI pod and listens for connections
-func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
-	nonRoot bool) (net.Listener, error) {
+func InjectNotify(pod isolation.IsolationResult, virtShareDir string) (net.Listener, error) {
 	root, err := pod.MountRoot()
 	if err != nil {
 		return nil, err
@@ -67,16 +66,14 @@ func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
 		return nil, fmt.Errorf("failed to create unix socket for proxy service: %w", err)
 	}
 
-	if nonRoot {
-		socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-		if err != nil {
-			return nil, err
-		}
+	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
+	if err != nil {
+		return nil, err
+	}
 
-		err = diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to change ownership for domain notify: %w", err)
-		}
+	err = diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to change ownership for domain notify: %w", err)
 	}
 
 	return listener, nil

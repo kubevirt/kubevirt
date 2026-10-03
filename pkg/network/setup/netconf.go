@@ -21,7 +21,6 @@ package network
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"kubevirt.io/client-go/log"
@@ -29,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
@@ -37,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	converternet "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type cacheCreator interface {
@@ -95,10 +92,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		c.configStateMutex.Unlock()
 	}
 
-	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
-	if vmitrait.IsNonRoot(vmi) {
-		ownerID = util.NonRootUID
-	}
+	ownerID := util.NonRootUID
 	queuesCapacity := int(converternet.NetworkQueuesCapacity(vmi))
 	netpod := netpod.NewNetPod(
 		networks,
