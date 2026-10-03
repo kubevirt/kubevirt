@@ -475,13 +475,6 @@ func SetLocalDirectory(dir string) error {
 		return fmt.Errorf("unable to initialize cloudInit local cache directory (%s). %v", dir, err)
 	}
 
-	exists, err := diskutils.FileExists(dir)
-	if err != nil {
-		return fmt.Errorf("CloudInit local cache directory (%s) does not exist or is inaccessible. %v", dir, err)
-	} else if exists == false {
-		return fmt.Errorf("CloudInit local cache directory (%s) does not exist or is inaccessible", dir)
-	}
-
 	SetLocalDirectoryOnly(dir)
 	return nil
 }
