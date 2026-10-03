@@ -17,10 +17,12 @@
  *
  */
 
-package launcher_clients
+package notifymanager
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,15 +31,22 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"go.uber.org/mock/gomock"
+
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 )
 
 var _ = Describe("startDomainNotifyPipe", func() {
@@ -49,7 +58,7 @@ var _ = Describe("startDomainNotifyPipe", func() {
 	)
 
 	var (
-		manager    *launcherClientsManager
+		manager    *pipeManager
 		detector   *isolation.MockPodIsolationDetector
 		isoResult  *isolation.MockIsolationResult
 		safeRoot   *safepath.Path
@@ -73,9 +82,8 @@ var _ = Describe("startDomainNotifyPipe", func() {
 		isoResult = isolation.NewMockIsolationResult(ctrl)
 		detector = isolation.NewMockPodIsolationDetector(ctrl)
 
-		manager = &launcherClientsManager{
+		manager = &pipeManager{
 			virtShareDir:         shareDirName,
-			launcherClients:      virtcache.LauncherClientInfoByVMI{},
 			podIsolationDetector: detector,
 		}
 
@@ -212,6 +220,200 @@ var _ = Describe("startDomainNotifyPipe", func() {
 
 			_, err := net.Dial("unix", socketPath)
 			Expect(err).To(MatchError(syscall.ENOENT))
+		})
+	})
+})
+
+var _ = Describe("DomainNotifyServer integration", func() {
+	var preparePipe = func() (string, string) {
+		pipeDir := GinkgoT().TempDir()
+		pipePath := filepath.Join(pipeDir, "domain-notify-pipe.sock")
+		err := os.MkdirAll(pipeDir, 0755)
+		Expect(err).ToNot(HaveOccurred())
+		return pipeDir, pipePath
+	}
+
+	var (
+		ctx       context.Context
+		cancel    context.CancelFunc
+		notifyDir string
+	)
+
+	BeforeEach(func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		var err error
+		notifyDir, err = os.MkdirTemp("", "kubevirt-share")
+		Expect(err).ToNot(HaveOccurred())
+
+	})
+
+	AfterEach(func() {
+		cancel()
+		os.RemoveAll(notifyDir)
+	})
+
+	startServer := func(recorder *record.FakeRecorder,
+		vmiStore cache.Store) (chan struct{}, chan struct{}) {
+		serverIsStoppedChan := make(chan struct{})
+		serverStopChan := make(chan struct{})
+
+		recorder.IncludeObject = true
+
+		go func() {
+			notifyserver.RunServer(notifyDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
+			close(serverIsStoppedChan)
+		}()
+
+		return serverIsStoppedChan, serverStopChan
+	}
+
+	Context("with running Server", func() {
+
+		var recorder *record.FakeRecorder
+		var vmiStore cache.Store
+
+		BeforeEach(func() {
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiStore = vmiInformer.GetStore()
+
+			recorder = record.NewFakeRecorder(10)
+			serverIsStoppedChan, serverStopChan := startServer(recorder, vmiStore)
+			time.Sleep(3)
+			DeferCleanup(func() {
+				close(serverStopChan)
+				<-serverIsStoppedChan
+			})
+		})
+
+		It("should get notify events", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			vmiStore.Add(vmi)
+
+			eventType := "Normal"
+			eventReason := "fooReason"
+			eventMessage := "barMessage"
+
+			pipeDir, pipePath := preparePipe()
+
+			listener, err := net.Listen("unix", pipePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
+			time.Sleep(1)
+
+			notifyClient := notifyclient.NewOldNotifyClient(pipeDir)
+			client := notifyclient.NewNotifier(&notifyClient)
+			defer client.Close()
+
+			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			Expect(err).ToNot(HaveOccurred())
+
+			timedOut := false
+			timeout := time.After(4 * time.Second)
+			select {
+			case <-timeout:
+				timedOut = true
+			case event := <-recorder.Events:
+				Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
+			}
+
+			Expect(timedOut).To(BeFalse(), "should not time out")
+		})
+
+		It("should eventually get notify events once pipe is online", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			vmiStore.Add(vmi)
+
+			eventType := "Normal"
+			eventReason := "fooReason"
+			eventMessage := "barMessage"
+
+			pipeDir, pipePath := preparePipe()
+
+			// Client should fail when pipe is offline
+			notifyClient := notifyclient.NewOldNotifyClientWithCustomTimeouts(pipeDir,
+				1*time.Second, 1*time.Second, 3*time.Second,
+			)
+			client := notifyclient.NewNotifier(&notifyClient)
+			defer client.Close()
+
+			err := client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			Expect(err).To(HaveOccurred())
+
+			// Client should automatically come online when pipe is established
+			listener, err := net.Listen("unix", pipePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
+			time.Sleep(1)
+
+			// Expect the client to reconnect and succeed despite initial failure
+			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+
+	})
+	Context("", func() {
+		It("should be resilient to notify server restarts", func() {
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiStore := vmiInformer.GetStore()
+
+			recorder := record.NewFakeRecorder(10)
+			serverIsStoppedChan, serverStopChan := startServer(recorder, vmiStore)
+
+			time.Sleep(3)
+
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			vmiStore.Add(vmi)
+
+			eventType := "Normal"
+			eventReason := "fooReason"
+			eventMessage := "barMessage"
+
+			pipeDir, pipePath := preparePipe()
+
+			listener, err := net.Listen("unix", pipePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
+			time.Sleep(1)
+
+			notifyClient := notifyclient.NewOldNotifyClientWithCustomTimeouts(pipeDir,
+				1*time.Second, 1*time.Second, 1*time.Second,
+			)
+			client := notifyclient.NewNotifier(&notifyClient)
+			defer client.Close()
+
+			for range 4 {
+				// close and wait for server to stop
+				close(serverStopChan)
+				<-serverIsStoppedChan
+
+				// Expect a client error to occur here because the server is down
+				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+				Expect(err).To(HaveOccurred())
+
+				// Restart the server now that it is down.
+				serverIsStoppedChan, serverStopChan = startServer(recorder, vmiStore)
+
+				// Expect the client to reconnect and succeed despite server restarts
+				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+				Expect(err).ToNot(HaveOccurred())
+
+				timedOut := false
+				timeout := time.After(4 * time.Second)
+				select {
+				case <-timeout:
+					timedOut = true
+				case event := <-recorder.Events:
+					Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
+				}
+				Expect(timedOut).To(BeFalse(), "should not time out")
+			}
 		})
 	})
 })
