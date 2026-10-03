@@ -233,4 +233,6 @@ type VMStats struct {
 	GuestNetworkGetInterfaces string
 	GuestGetMemoryBlocks      string
 	GuestGetDevices           string
+
+	Errors map[string]string `json:",omitempty"`
 }
