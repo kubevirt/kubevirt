@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -27,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -385,6 +387,18 @@ func newReadyExport(namespace, name, serviceName string) *exportv1.VirtualMachin
 	}
 }
 
+func newExportService(namespace, name, clusterIP string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: clusterIP,
+		},
+	}
+}
+
 var _ = Describe("proxyHandler", func() {
 	var (
 		kvStore cache.Store
@@ -407,13 +421,15 @@ var _ = Describe("proxyHandler", func() {
 		app = &exportProxyApp{
 			kubeVirtStore: kvStore,
 			exportStore:   cache.NewStore(cache.MetaNamespaceKeyFunc),
+			serviceStore:  cache.NewStore(cache.MetaNamespaceKeyFunc),
 		}
 		app.initReverseProxy()
 		app.reverseProxy.Transport = capture
 	})
 
-	It("rewrites the outbound request URL and clears Host for the backend", func() {
+	It("rewrites headless export Services to the container port", func() {
 		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
+		Expect(app.serviceStore.Add(newExportService(testNamespace, testExportService, corev1.ClusterIPNone))).To(Succeed())
 
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
@@ -422,9 +438,32 @@ var _ = Describe("proxyHandler", func() {
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(capture.lastReq.URL.Scheme).To(Equal("https"))
-		Expect(capture.lastReq.URL.Host).To(Equal(testBackendHost + ":443"))
+		Expect(capture.lastReq.URL.Host).To(Equal(fmt.Sprintf("%s:%d", testBackendHost, storagetypes.ExportServerPort)))
 		Expect(capture.lastReq.URL.Path).To(Equal("/volumes/disk.img"))
 		Expect(capture.lastReq.Host).To(Equal(""))
+	})
+
+	It("rewrites ClusterIP export Services to the historical Service port", func() {
+		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
+		Expect(app.serviceStore.Add(newExportService(testNamespace, testExportService, "10.96.0.10"))).To(Succeed())
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
+		app.proxyHandler(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(capture.lastReq.URL.Host).To(Equal(fmt.Sprintf("%s:%d", testBackendHost, storagetypes.ExportClusterIPServicePort)))
+	})
+
+	It("returns 503 when the export Service is not in the cache", func() {
+		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
+		app.proxyHandler(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(capture.lastReq).To(BeNil())
 	})
 
 	It("returns 404 when the export does not exist", func() {
