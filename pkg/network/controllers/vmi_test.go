@@ -309,6 +309,59 @@ var _ = Describe("Status Update", func() {
 		),
 	)
 
+	It("Should populate MAC from network-status for SR-IOV interface without explicit MAC", func() {
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetworkName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+		)
+
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
+		}
+
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
+	It("Should not overwrite existing MAC for SR-IOV interface", func() {
+		existingMAC := "de:ad:be:ef:00:01"
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, MAC: existingMAC, InfoSource: vmispec.InfoSourceDomain},
+		}
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetworkName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
+
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:             secondaryNetworkName,
+				PodInterfaceName: "pod7e0055a6880",
+				MAC:              existingMAC,
+				InfoSource:       vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
+			},
+		}
+
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
 	DescribeTable("Interface status should be reported correctly for VMI with primary and secondary networks",
 		func(podAnnotations map[string]string, expectedPrimaryInterfaceName string) {
 			vmi := libvmi.New(
