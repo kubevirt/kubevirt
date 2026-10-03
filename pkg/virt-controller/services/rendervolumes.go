@@ -11,6 +11,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -35,6 +36,7 @@ type imagePullPolicyGetter interface {
 
 type VolumeRenderer struct {
 	useImageVolumes       bool
+	launcherSocketAuth    bool
 	launcherImage         string
 	imageIDs              map[string]string
 	imagePullPolicyGetter imagePullPolicyGetter
@@ -48,9 +50,10 @@ type VolumeRenderer struct {
 	volumeDevices         []k8sv1.VolumeDevice
 }
 
-func NewVolumeRenderer(imagePullPolicyGetter imagePullPolicyGetter, imageVolumeFeatureGateEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
+func NewVolumeRenderer(imagePullPolicyGetter imagePullPolicyGetter, imageVolumeFeatureGateEnabled bool, launcherSocketAuthEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
 	volumeRenderer := &VolumeRenderer{
 		useImageVolumes:       imageVolumeFeatureGateEnabled,
+		launcherSocketAuth:    launcherSocketAuthEnabled,
 		launcherImage:         launcherImage,
 		imageIDs:              imageIDs,
 		imagePullPolicyGetter: imagePullPolicyGetter,
@@ -75,6 +78,9 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 		mountPath("libvirt-runtime", "/var/run/libvirt"),
 		mountPath("sockets", filepath.Join(vr.virtShareDir, "sockets")),
 	}
+	if vr.launcherSocketAuth {
+		volumeMounts = append(volumeMounts, readOnlyMountPath(cmdAuthTokenVolumeName, cmdAuthTokenMountPath))
+	}
 	if !vr.useImageVolumes {
 		volumeMounts = append(volumeMounts, mountPathWithPropagation(containerDisks, vr.containerDiskDir, k8sv1.MountPropagationHostToContainer))
 	}
@@ -90,10 +96,51 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		emptyDirVolume("libvirt-runtime"),
 		emptyDirVolume("ephemeral-disks"),
 	}
+	if vr.launcherSocketAuth {
+		volumes = append(volumes, cmdAuthTokenVolume())
+	}
 	if !vr.useImageVolumes {
 		volumes = append(volumes, emptyDirVolume(containerDisks))
 	}
 	return append(volumes, vr.podVolumes...)
+}
+
+const (
+	cmdAuthTokenVolumeName = "cmd-auth-token"
+	cmdAuthTokenMountPath  = "/var/run/secrets/tokens"
+	cmdAuthTokenAudience   = "kubevirt.io/cmd-auth"
+)
+
+// cmdAuthTokenVolume creates a projected volume carrying an
+// audience-scoped, time-limited ServiceAccount token that virt-handler
+// can verify via the TokenReview API to authenticate virt-launchers.
+func cmdAuthTokenVolume() k8sv1.Volume {
+	expirationSeconds := int64(3600)
+	return k8sv1.Volume{
+		Name: cmdAuthTokenVolumeName,
+		VolumeSource: k8sv1.VolumeSource{
+			Projected: &k8sv1.ProjectedVolumeSource{
+				DefaultMode: ptr.To[int32](0440),
+				Sources: []k8sv1.VolumeProjection{
+					{
+						ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+							Audience:          cmdAuthTokenAudience,
+							ExpirationSeconds: &expirationSeconds,
+							Path:              "cmd-auth-token",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func readOnlyMountPath(name, path string) k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      name,
+		MountPath: path,
+		ReadOnly:  true,
+	}
 }
 
 func (vr *VolumeRenderer) VolumeDevices() []k8sv1.VolumeDevice {

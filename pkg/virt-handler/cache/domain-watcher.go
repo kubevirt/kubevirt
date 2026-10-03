@@ -27,13 +27,17 @@ import (
 	"sync"
 	"time"
 
+	authv1 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/client-go/log"
 
+	cmdauth "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/auth"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -54,9 +58,11 @@ type domainWatcher struct {
 	recorder            record.EventRecorder
 	consecutiveFails    *int
 	unresponsiveSockets map[string]int64
+	authClient          kubernetes.Interface
+	launcherSAName      string
 }
 
-func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int) *domainWatcher {
+func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int, authClient kubernetes.Interface, launcherSAName string) *domainWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	d := &domainWatcher{
 		recorder:            recorder,
@@ -64,6 +70,8 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 		consecutiveFails:    consecutiveFails,
 		result:              make(chan watch.Event, 100),
 		cancel:              cancel,
+		authClient:          authClient,
+		launcherSAName:      launcherSAName,
 	}
 	d.wg.Add(1)
 	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
@@ -156,24 +164,23 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 
 	log.Log.Infof("resyncing virt-launcher domains")
 	for _, socket := range socketFiles {
+		if err := d.authenticateSocket(ctx, socket); err != nil {
+			log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during resync, skipping", socket)
+			continue
+		}
+
 		client, err := cmdclient.NewClient(socket)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to connect to cmd client socket during resync")
-			// Ignore failure to connect to client.
-			// These are all local connections via unix socket.
-			// A failure to connect means there's nothing on the other
-			// end listening.
 			continue
 		}
 		defer client.Close()
 
 		domain, exists, err := client.GetDomain()
 		if err != nil {
-			// this resync is best effort only.
 			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", socket)
 			continue
 		} else if !exists {
-			// nothing to sync if it doesn't exist
 			continue
 		}
 
@@ -181,6 +188,57 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (d *domainWatcher) authenticateSocket(ctx context.Context, socketPath string) error {
+	return AuthenticateSocket(ctx, d.authClient, socketPath, d.launcherSAName)
+}
+
+// AuthenticateSocket connects to a virt-launcher socket, requests its
+// projected ServiceAccount token via the CmdAuth gRPC service, and
+// validates it through the Kubernetes TokenReview API. If k8sClient is
+// nil, authentication is skipped (returns nil).
+func AuthenticateSocket(ctx context.Context, k8sClient kubernetes.Interface, socketPath string, expectedSAName string) error {
+	if k8sClient == nil {
+		return nil
+	}
+
+	conn, err := grpcutil.DialSocket(socketPath)
+	if err != nil {
+		return fmt.Errorf("dialing socket for auth: %w", err)
+	}
+	defer conn.Close()
+
+	authClient := cmdauth.NewCmdAuthClient(conn)
+	resp, err := authClient.Authenticate(ctx, &cmdauth.AuthRequest{})
+	if err != nil {
+		return fmt.Errorf("calling Authenticate RPC: %w", err)
+	}
+
+	review := &authv1.TokenReview{
+		Spec: authv1.TokenReviewSpec{
+			Token:     resp.GetToken(),
+			Audiences: []string{cmdauth.Audience},
+		},
+	}
+	result, err := k8sClient.AuthenticationV1().TokenReviews().Create(ctx, review, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("TokenReview API call: %w", err)
+	}
+	if !result.Status.Authenticated {
+		return fmt.Errorf("token not authenticated: %s", result.Status.Error)
+	}
+
+	if expectedSAName != "" {
+		expectedPrefix := fmt.Sprintf("system:serviceaccount:%s", expectedSAName)
+		if result.Status.User.Username != expectedPrefix {
+			return fmt.Errorf("unexpected service account: got %q, want prefix %q",
+				result.Status.User.Username, expectedPrefix)
+		}
+	}
+
+	log.Log.Infof("authenticated launcher at %s: user=%s", socketPath, result.Status.User.Username)
+	return nil
 }
 
 func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeout int) error {
