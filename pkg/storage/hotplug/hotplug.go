@@ -34,13 +34,17 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
-func HandleDeclarativeVolumes(client kubecli.KubevirtClient, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+type DiskPreferenceApplier interface {
+	ApplyDiskPreferences(vm *virtv1.VirtualMachine, vmiSpec *virtv1.VirtualMachineInstanceSpec) error
+}
+
+func HandleDeclarativeVolumes(client kubecli.KubevirtClient, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, prefApplier DiskPreferenceApplier) error {
 	if vm.Spec.UpdateVolumesStrategy != nil && *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration {
 		// Are there some cases we can proceed?
 		return nil
 	}
 
-	if err := patchHotplugVolumes(client, vm, vmi); err != nil {
+	if err := patchHotplugVolumes(client, vm, vmi, prefApplier); err != nil {
 		log.Log.Object(vm).Errorf("failed to update hotplug volumes for vmi:%v", err)
 		return err
 	}
@@ -48,13 +52,22 @@ func HandleDeclarativeVolumes(client kubecli.KubevirtClient, vm *virtv1.VirtualM
 	return nil
 }
 
-func patchHotplugVolumes(client kubecli.KubevirtClient, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func patchHotplugVolumes(client kubecli.KubevirtClient, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, prefApplier DiskPreferenceApplier) error {
 	if vmi == nil || !vmi.IsRunning() {
 		return nil
 	}
 
 	newVmiVolumes := append(filterHotplugVMIVolumes(vm, vmi), getNewHotplugVMVolumes(vm, vmi)...)
 	newVmiDisks := append(filterHotplugVMIDisks(vm, vmi, newVmiVolumes), getNewHotplugVMDisks(vm, vmi, newVmiVolumes)...)
+
+	if prefApplier != nil {
+		tempSpec := &virtv1.VirtualMachineInstanceSpec{
+			Domain: virtv1.DomainSpec{Devices: virtv1.Devices{Disks: newVmiDisks}},
+		}
+		if err := prefApplier.ApplyDiskPreferences(vm, tempSpec); err != nil {
+			log.Log.Object(vm).Warningf("Failed to apply disk preferences during declarative hotplug: %v", err)
+		}
+	}
 
 	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, newVmiVolumes) &&
 		equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Disks, newVmiDisks) {
