@@ -20,8 +20,10 @@
 package patch
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -180,4 +182,57 @@ func UnmarshalPatch(patch []byte) ([]PatchOperation, error) {
 func EscapeJSONPointer(ptr string) string {
 	s := strings.ReplaceAll(ptr, "~", "~0")
 	return strings.ReplaceAll(s, "/", "~1")
+}
+
+// GeneratePerKeyMapPatches produces per-key JSON Patch operations for map diffs.
+// A whole-map test+replace fails if ANY key was concurrently modified, even keys
+// unrelated to the change. Per-key operations narrow the conflict surface to only
+// the individual keys being changed:
+//   - Added keys use "add" (no test, so no conflict possible)
+//   - Removed keys use "remove"
+//   - Modified keys use "test"+"replace" on the specific key only
+//
+// When oldMap is nil/empty, a test guards against concurrent writers before
+// adding the new map. Keys are sorted for deterministic patch output.
+func GeneratePerKeyMapPatches[K ~string, V comparable](basePath string, oldMap, newMap map[K]V) []PatchOption {
+	if len(oldMap) == 0 {
+		return []PatchOption{
+			WithTest(basePath, oldMap),
+			WithAdd(basePath, newMap),
+		}
+	}
+
+	var opts []PatchOption
+
+	for _, key := range sortedKeys(oldMap) {
+		keyPath := basePath + "/" + EscapeJSONPointer(string(key))
+		newVal, exists := newMap[key]
+		switch {
+		case !exists:
+			opts = append(opts, WithRemove(keyPath))
+		case oldMap[key] != newVal:
+			opts = append(opts,
+				WithTest(keyPath, oldMap[key]),
+				WithReplace(keyPath, newVal),
+			)
+		}
+	}
+
+	for _, key := range sortedKeys(newMap) {
+		if _, exists := oldMap[key]; !exists {
+			keyPath := basePath + "/" + EscapeJSONPointer(string(key))
+			opts = append(opts, WithAdd(keyPath, newMap[key]))
+		}
+	}
+
+	return opts
+}
+
+func sortedKeys[K ~string, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, func(a, b K) int { return cmp.Compare(string(a), string(b)) })
+	return keys
 }

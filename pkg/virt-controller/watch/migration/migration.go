@@ -347,10 +347,7 @@ func (c *Controller) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) er
 	}
 
 	if !equality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
-		patchSet.AddOption(
-			patch.WithTest("/metadata/labels", origVMI.Labels),
-			patch.WithReplace("/metadata/labels", newVMI.Labels),
-		)
+		patchSet.AddOption(patch.GeneratePerKeyMapPatches("/metadata/labels", origVMI.Labels, newVMI.Labels)...)
 	}
 
 	if !patchSet.IsEmpty() {
