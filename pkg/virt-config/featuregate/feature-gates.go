@@ -55,6 +55,9 @@ type FeatureGate struct {
 	State       State
 	VmiSpecUsed func(spec *v1.VirtualMachineInstanceSpec) bool
 	Message     string
+	// Dependencies lists other feature gates that must be enabled for this
+	// feature gate to be fully functional
+	Dependencies []string
 }
 
 var featureGates = map[string]FeatureGate{}
