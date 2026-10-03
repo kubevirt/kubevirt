@@ -474,7 +474,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		args = append(args, "--allow-emulation")
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+	if useSoftwareEmulation(t.clusterConfig, vmi) {
 		command = append(command, "--allow-cross-arch-emulation")
 	}
 
@@ -736,7 +736,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+	if allowCrossArchEmulation(t.clusterConfig, vmi) {
 		setPreferredArchitectureAffinity(vmi.Spec.Architecture, &pod)
 		if vmi.Spec.Architecture != "" {
 			if pod.Spec.NodeSelector == nil {
@@ -825,7 +825,7 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTDXSelector())
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() && vmi.Spec.Architecture != "" {
+	if allowCrossArchEmulation(t.clusterConfig, vmi) && vmi.Spec.Architecture != "" {
 		opts = append(opts, WithoutNativeArchSelector())
 	}
 
@@ -1801,4 +1801,12 @@ func isHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
 func emptyMemoryRequest(vmi *v1.VirtualMachineInstance) bool {
 	resources := &vmi.Spec.Domain.Resources
 	return resources.Requests.Memory().IsZero()
+}
+
+func allowCrossArchEmulation(config *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) bool {
+	return config.CrossArchitectureVirtualizationEnabled() && config.GetEmulationPolicy(vmi) != v1.EmulationPolicyNone
+}
+
+func useSoftwareEmulation(config *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) bool {
+	return config.CrossArchitectureVirtualizationEnabled() && config.GetEmulationPolicy(vmi) == v1.EmulationPolicySoftware
 }

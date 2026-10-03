@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,6 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -50,13 +52,14 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 
 	DescribeTable("should boot a guest using QEMU TCG emulation on a cross-architecture host",
 		func(guestArch, expectedUnameArch string) {
-			containerDiskImage := cd.ContainerDiskForArch(cd.ContainerDiskFedoraTestTooling, guestArch)
+			containerDiskImage := fmt.Sprintf("quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.9.0-%s", guestArch)
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(guestArch),
 				libvmi.WithContainerDiskAndPullPolicy("disk0", containerDiskImage, k8sv1.PullIfNotPresent),
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 			)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 
 			By("Creating a VMI with " + guestArch + " architecture on a cross-architecture host")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
@@ -101,6 +104,7 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 			)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 
 			By("Creating a VMI with " + guestArch + " architecture on a same-architecture host")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
