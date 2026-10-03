@@ -434,6 +434,10 @@ func (ctrl *VMRestoreController) handleVMRestoreTargetNotReady(vmRestore *snapsh
 }
 
 func (ctrl *VMRestoreController) stopTarget(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	if isTargetStopping(vmRestore) {
+		return nil
+	}
+
 	vmRestoreCpy := vmRestore.DeepCopy()
 	ctrl.Recorder.Event(vmRestoreCpy, corev1.EventTypeWarning, restoreVMNotReadyEvent, stopTargetMessage)
 	updateRestoreCondition(vmRestoreCpy, newProgressingCondition(corev1.ConditionFalse, stopTargetMessage))
@@ -446,6 +450,18 @@ func (ctrl *VMRestoreController) stopTarget(vmRestore *snapshotv1.VirtualMachine
 	}
 
 	return ctrl.doUpdateStatus(vmRestore, vmRestoreCpy)
+}
+
+func isTargetStopping(vmRestore *snapshotv1.VirtualMachineRestore) bool {
+	if vmRestore.Status == nil {
+		return false
+	}
+	for _, c := range vmRestore.Status.Conditions {
+		if c.Type == snapshotv1.ConditionProgressing && c.Status == corev1.ConditionFalse && c.Reason == stopTargetMessage {
+			return true
+		}
+	}
+	return false
 }
 
 func vmRestoreTargetReadyGracePeriodExceeded(vmRestore *snapshotv1.VirtualMachineRestore) bool {
@@ -653,7 +669,21 @@ func (t *vmRestoreTarget) Stop() error {
 	}
 
 	log.Log.Infof("Stopping VM before restore [%s/%s]", t.vm.Namespace, t.vm.Name)
-	return t.controller.Client.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
+	err := t.controller.Client.VirtualMachine(t.vm.Namespace).Stop(context.Background(), t.vm.Name, &kubevirtv1.StopOptions{})
+	if isVMAlreadyStoppedOrStoppingError(err) {
+		log.Log.Object(t.vmRestore).V(3).Infof("VM %s/%s stop returned conflict, target is already stopping or stopped: %v", t.vm.Namespace, t.vm.Name, err)
+		return nil
+	}
+	return err
+}
+
+func isVMAlreadyStoppedOrStoppingError(err error) bool {
+	if err == nil || !k8serrors.IsConflict(err) {
+		return false
+	}
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "Halted only supports manual stop requests with a shorter graceperiod") ||
+		strings.Contains(errMsg, "VM is not running")
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {
