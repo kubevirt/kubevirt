@@ -112,6 +112,32 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	DescribeTable("ContainerPath feature gate on VMI creation", func(enabled, allowed bool) {
+		if enabled {
+			enableFeatureGates(featuregate.ContainerPathVolumesGate)
+		}
+		vmi := newBaseVmi()
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name:         "containerpath",
+			VolumeSource: v1.VolumeSource{ContainerPath: &v1.ContainerPathVolumeSource{Path: "/run/secrets/test"}},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name: "containerpath", Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(Equal(allowed))
+		if !allowed {
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumes[0].containerPath"))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("ContainerPathVolumes feature gate"))
+		}
+	},
+		Entry("rejects when disabled", false, false),
+		Entry("allows when enabled", true, true),
+	)
+
 	It("when spec validator pass, should allow", func() {
 		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
 		Expect(err).ToNot(HaveOccurred())
@@ -2571,6 +2597,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("kubevirt path", "/var/run/kubevirt/something", "/var/run/kubevirt"),
 			Entry("kubevirt-private path", "/var/run/kubevirt-private/secret", "/var/run/kubevirt"),
 			Entry("libvirt path", "/var/run/libvirt/socket", "/var/run/libvirt"),
+			Entry("run kubevirt path", "/run/kubevirt/something", "/run/kubevirt"),
+			Entry("run kubevirt-private path", "/run/kubevirt-private/secret", "/run/kubevirt"),
+			Entry("run libvirt path", "/run/libvirt/socket", "/run/libvirt"),
+			Entry("run kubevirt root", "/run/kubevirt", "/run/kubevirt"),
+			Entry("run libvirt root", "/run/libvirt", "/run/libvirt"),
+			Entry("normalized kubevirt path", "/run/secrets/../kubevirt-private/secret", "/run/kubevirt"),
+			Entry("normalized libvirt path", "/var//run/./libvirt/socket", "/var/run/libvirt"),
 		)
 
 	})
