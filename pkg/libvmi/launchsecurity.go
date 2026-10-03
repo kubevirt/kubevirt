@@ -57,3 +57,15 @@ func WithSEVAttestation() Option {
 		vmi.Spec.Domain.LaunchSecurity.SEV.Attestation = &v1.SEVAttestation{}
 	}
 }
+
+func WithCCA() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		}
+		if vmi.Spec.Domain.LaunchSecurity.CCA == nil {
+			vmi.Spec.Domain.LaunchSecurity.CCA = &v1.CCA{}
+		}
+		vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementAlgo = "sha256"
+	}
+}
