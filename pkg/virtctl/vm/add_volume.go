@@ -173,6 +173,9 @@ func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubec
 		if bus != v1.DiskBusSCSI {
 			return fmt.Errorf("Invalid bus type '%s' for LUN disk. Only '%s' bus is supported.", busType, v1.DiskBusSCSI)
 		}
+		if serial != "" {
+			return fmt.Errorf("Serial definition is not supported for LUN disks")
+		}
 		hotplugRequest.Disk.DiskDevice.LUN = &v1.LunTarget{
 			Bus: bus,
 		}
