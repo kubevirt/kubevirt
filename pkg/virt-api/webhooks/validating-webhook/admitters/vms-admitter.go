@@ -135,7 +135,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			if causes = featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec); len(causes) > 0 {
+			if causes = featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmCopy.Spec.Template.Spec); len(causes) > 0 {
 				return webhookutils.ToAdmissionResponse(causes)
 			}
 		}
@@ -160,6 +160,8 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	// Volume requests operate on vm.Status.VolumeRequests and vm.Spec.Template.Spec.Volumes from the
+	// original request, not the instancetype-expanded copy, so vm is intentional here.
 	causes, err = admitter.validateVolumeRequests(ctx, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -172,7 +174,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		metrics.NewVMCreated(&vm)
 	}
 
-	warnings := warnDeprecatedAPIs(&vm.Spec.Template.Spec, admitter.ClusterConfig)
+	warnings := warnDeprecatedAPIs(&vmCopy.Spec.Template.Spec, admitter.ClusterConfig)
 	warnings = append(warnings, warnDisabledACPIAmd64(&vmCopy.Spec.Template.Spec, admitter.ClusterConfig)...)
 	if vm.Spec.Running != nil {
 		warnings = append(warnings, "spec.running is deprecated, please use spec.runStrategy instead.")
