@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "clients.go",
+        "doc.go",
+        "exporter.go",
+        "version.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace",
+    importpath = "go.opentelemetry.io/otel/exporters/otlp/otlptrace",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/go.opentelemetry.io/otel/exporters/otlp/otlptrace/internal/tracetransform:go_default_library",
+        "//vendor/go.opentelemetry.io/otel/sdk/trace:go_default_library",
+        "//vendor/go.opentelemetry.io/proto/otlp/trace/v1:go_default_library",
+    ],
+)

@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["errorhandler.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/otel/internal/errorhandler",
+    importpath = "go.opentelemetry.io/otel/internal/errorhandler",
+    visibility = ["//vendor/go.opentelemetry.io/otel:__subpackages__"],
+)

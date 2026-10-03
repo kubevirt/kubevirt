@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["xxhash.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/go.opentelemetry.io/otel/attribute/internal/xxhash",
+    importpath = "go.opentelemetry.io/otel/attribute/internal/xxhash",
+    visibility = ["//vendor/go.opentelemetry.io/otel/attribute:__subpackages__"],
+    deps = ["//vendor/github.com/cespare/xxhash/v2:go_default_library"],
+)
