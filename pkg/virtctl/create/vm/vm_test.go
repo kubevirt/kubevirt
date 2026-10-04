@@ -421,7 +421,7 @@ chpasswd: { expire: False }`
 		DescribeTable("VM with specified datasource", func(params, dsNamespace, dvtName, dvtSize string, bootOrder int) {
 			const dsName = "my-ds"
 
-			out, err := runCmd(setFlag(DataSourceVolumeFlag, params))
+			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -472,22 +472,22 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
-			Entry("without namespace", "src:my-ds", "", "", "", 0),
-			Entry("with namespace", "src:my-ns/my-ds", "my-ns", "", "", 0),
-			Entry("without namespace and with name", "src:my-ds,name:my-dvt", "", "my-dvt", "", 0),
-			Entry("with namespace and name", "src:my-ns/my-ds,name:my-dvt", "my-ns", "my-dvt", "", 0),
-			Entry("without namespace and with size", "src:my-ds,size:10Gi", "", "", "10Gi", 0),
-			Entry("with namespace and size", "src:my-ns/my-ds,size:10Gi", "my-ns", "", "10Gi", 0),
-			Entry("without namespace and with bootorder", "src:my-ds,bootorder:1", "", "", "", 1),
-			Entry("with namespace and bootorder", "src:my-ns/my-ds,bootorder:2", "my-ns", "", "", 2),
-			Entry("without namespace and with name and size", "src:my-ds,name:my-dvt,size:10Gi", "", "my-dvt", "10Gi", 0),
-			Entry("with namespace, name and size", "src:my-ns/my-ds,name:my-dvt,size:10Gi", "my-ns", "my-dvt", "10Gi", 0),
-			Entry("without namespace and with name and bootorder", "src:my-ds,name:my-dvt,bootorder:3", "", "my-dvt", "", 3),
-			Entry("with namespace, name and bootorder", "src:my-ns/my-ds,name:my-dvt,bootorder:4", "my-ns", "my-dvt", "", 4),
-			Entry("without namespace and with size and bootorder", "src:my-ds,size:10Gi,bootorder:5", "", "", "10Gi", 5),
-			Entry("with namespace, size and bootorder", "src:my-ns/my-ds,size:10Gi,bootorder:6", "my-ns", "", "10Gi", 6),
-			Entry("without namespace and with name, size and bootorder", "src:my-ds,name:my-dvt,size:10Gi,bootorder:7", "", "my-dvt", "10Gi", 7),
-			Entry("with namespace, name, size and bootorder", "src:my-ns/my-ds,name:my-dvt,size:10Gi,bootorder:8", "my-ns", "my-dvt", "10Gi", 8),
+			Entry("without namespace", "type:ds,src:my-ds", "", "", "", 0),
+			Entry("with namespace", "type:ds,src:my-ns/my-ds", "my-ns", "", "", 0),
+			Entry("without namespace and with name", "type:ds,src:my-ds,name:my-dvt", "", "my-dvt", "", 0),
+			Entry("with namespace and name", "type:ds,src:my-ns/my-ds,name:my-dvt", "my-ns", "my-dvt", "", 0),
+			Entry("without namespace and with size", "type:ds,src:my-ds,size:10Gi", "", "", "10Gi", 0),
+			Entry("with namespace and size", "type:ds,src:my-ns/my-ds,size:10Gi", "my-ns", "", "10Gi", 0),
+			Entry("without namespace and with bootorder", "type:ds,src:my-ds,bootorder:1", "", "", "", 1),
+			Entry("with namespace and bootorder", "type:ds,src:my-ns/my-ds,bootorder:2", "my-ns", "", "", 2),
+			Entry("without namespace and with name and size", "type:ds,src:my-ds,name:my-dvt,size:10Gi", "", "my-dvt", "10Gi", 0),
+			Entry("with namespace, name and size", "type:ds,src:my-ns/my-ds,name:my-dvt,size:10Gi", "my-ns", "my-dvt", "10Gi", 0),
+			Entry("without namespace and with name and bootorder", "type:ds,src:my-ds,name:my-dvt,bootorder:3", "", "my-dvt", "", 3),
+			Entry("with namespace, name and bootorder", "type:ds,src:my-ns/my-ds,name:my-dvt,bootorder:4", "my-ns", "my-dvt", "", 4),
+			Entry("without namespace and with size and bootorder", "type:ds,src:my-ds,size:10Gi,bootorder:5", "", "", "10Gi", 5),
+			Entry("with namespace, size and bootorder", "type:ds,src:my-ns/my-ds,size:10Gi,bootorder:6", "my-ns", "", "10Gi", 6),
+			Entry("without namespace and with name, size and bootorder", "type:ds,src:my-ds,name:my-dvt,size:10Gi,bootorder:7", "", "my-dvt", "10Gi", 7),
+			Entry("with namespace, name, size and bootorder", "type:ds,src:my-ns/my-ds,name:my-dvt,size:10Gi,bootorder:8", "my-ns", "my-dvt", "10Gi", 8),
 		)
 
 		DescribeTable("VM with specified imported volume", func(params, name, size string, bootOrder int, source *cdiv1.DataVolumeSource, sourceRef *cdiv1.DataVolumeSourceRef) {
@@ -1581,25 +1581,25 @@ chpasswd: { expire: False }`
 			Entry("dash at the beginning", "src:my.registry/my-image:my-tag,name:-notallowed", nameDashBeginningError),
 		)
 
-		DescribeTable("Invalid parameters to DataSourceVolumeFlag", func(params, errMsg string) {
-			out, err := runCmd(setFlag(DataSourceVolumeFlag, params))
+		DescribeTable("Invalid parameters to VolumeImportFlag with datasource", func(params, errMsg string) {
+			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
 			Entry("Empty params", "", paramsEmptyError),
 			Entry("Invalid param", "test=test", paramsInvalidError),
-			Entry("Unknown param", "test:test", paramsUnknownError),
-			Entry("Missing src", "name:test", srcMissingError),
-			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
-			Entry("Invalid slashes count in src", "src:my-ns/my-ds/madethisup", srcInvalidSlashCountError),
-			Entry("Invalid quantity in size", "size:10Gu", sizeInvalidError),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
-			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
-			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", bootOrderZeroError),
-			Entry("invalid character (dot)", "src:my-ds,name:name.with.dot", nameDotsError),
-			Entry("name has more than 63 characters", "src:my-ds,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
-			Entry("upper case", "src:my-ds,name:NOTALLOWED", nameUpperCaseError),
-			Entry("dash at the beginning", "src:my-ds,name:-notallowed", nameDashBeginningError),
+			Entry("Unknown param", "type:ds,test:test", paramsUnknownError),
+			Entry("Missing src", "type:ds,name:test", srcMissingError),
+			Entry("Empty name in src", "type:ds,src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "type:ds,src:my-ns/my-ds/madethisup", srcInvalidSlashCountError),
+			Entry("Invalid quantity in size", "type:ds,size:10Gu", sizeInvalidError),
+			Entry("Invalid number in bootorder", "type:ds,bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "type:ds,bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "type:ds,src:my-ds,bootorder:0", bootOrderZeroError),
+			Entry("invalid character (dot)", "type:ds,src:my-ds,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "type:ds,src:my-ds,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "type:ds,src:my-ds,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "type:ds,src:my-ds,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to ClonePvcVolumeFlag", func(params, errMsg string) {
