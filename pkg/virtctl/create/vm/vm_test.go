@@ -720,7 +720,7 @@ chpasswd: { expire: False }`
 		DescribeTable("VM with blank disk", func(params, blankName string) {
 			const size = "10Gi"
 
-			out, err := runCmd(setFlag(BlankVolumeFlag, params))
+			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -748,8 +748,8 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
-			Entry("with size", "size:10Gi", ""),
-			Entry("with size and name", "size:10Gi,name:my-blank", "my-blank"),
+			Entry("with size", "type:blank,size:10Gi", ""),
+			Entry("with size and name", "type:blank,size:10Gi,name:my-blank", "my-blank"),
 		)
 
 		DescribeTable("VM with specified sysprep volume", func(params, volType string) {
@@ -1645,19 +1645,19 @@ chpasswd: { expire: False }`
 			Entry("dash at the beginning", "src:my-pvc,name:-notallowed", nameDashBeginningError),
 		)
 
-		DescribeTable("Invalid parameters to BlankVolumeFlag", func(params, errMsg string) {
-			out, err := runCmd(setFlag(BlankVolumeFlag, params))
+		DescribeTable("Invalid parameters to VolumeImportFlag with blank disk", func(params, errMsg string) {
+			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
 			Entry("Empty params", "", paramsEmptyError),
 			Entry("Invalid param", "test=test", paramsInvalidError),
-			Entry("Unknown param", "test:test", paramsUnknownError),
-			Entry("Missing size", "name:my-blank", sizeMissingError),
-			Entry("invalid character (dot)", "size:256Mi,name:name.with.dot", nameDotsError),
-			Entry("name has more than 63 characters", "size:256Mi,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
-			Entry("upper case", "size:256Mi,name:NOTALLOWED", nameUpperCaseError),
-			Entry("dash at the beginning", "size:256Mi,name:-notallowed", nameDashBeginningError),
+			Entry("Unknown param", "type:blank,test:test", paramsUnknownError),
+			Entry("Missing size", "type:blank,name:my-blank", sizeMissingError),
+			Entry("invalid character (dot)", "type:blank,size:256Mi,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "type:blank,size:256Mi,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "type:blank,size:256Mi,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "type:blank,size:256Mi,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to VolumeImportFlag", func(params, errMsg string) {
