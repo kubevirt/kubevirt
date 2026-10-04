@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirt"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -48,7 +49,6 @@ const (
 	backupTimeXMLFormat               = "2006-01-02_15-04-05"
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
-	qmpQueryBlockNodesCmd             = `{"execute":"query-named-block-nodes"}`
 	operationCanceledMsg              = "Operation canceled"
 
 	pullBackupSocketDir  = "/var/run/kubevirt/sockets"
@@ -467,148 +467,115 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.virConn.LookupDomainByName(domName)
 	if err != nil {
-		return false, fmt.Errorf("failed to lookup domain %s: %v", domName, err)
+		return false, fmt.Errorf("failed to lookup domain %s: %w", domName, err)
 	}
 	defer dom.Free()
 
-	// Get all domain disks and find those with the checkpoint bitmap
-	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, checkpoint.Name)
+	disks, err := util.GetAllDomainDisks(dom)
 	if err != nil {
-		return false, err
-	}
-
-	if len(disksWithoutBitmap) > 0 {
-		logger.V(3).Infof("Disks without checkpoint bitmap: %v", disksWithoutBitmap)
-	}
-
-	if len(checkpointDisks.Disks) == 0 {
-		logger.Warning("No disks found with checkpoint bitmap")
-		return true, fmt.Errorf("no disks found with checkpoint bitmap %s", checkpoint.Name)
+		return false, fmt.Errorf("failed to get domain disks: %w", err)
 	}
 
 	domainCheckpoint := &api.DomainCheckpoint{
-		Name:            checkpoint.Name,
-		CheckpointDisks: checkpointDisks,
+		Name: checkpoint.Name,
 	}
-
 	if checkpoint.CreationTime != nil {
 		ct := uint64(checkpoint.CreationTime.Unix())
 		domainCheckpoint.CreationTime = &ct
 	}
 
-	checkpointXML, err := xml.Marshal(domainCheckpoint)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal checkpoint XML: %v", err)
+	checkpointDisks, disksWithoutBitmap, err := redefineCheckpointOnUsableDisks(dom, disks, domainCheckpoint)
+	if disksWithoutBitmap.Len() > 0 {
+		logger.V(3).Infof("Disks without checkpoint bitmap: %v", sets.List(disksWithoutBitmap))
 	}
-
-	logger.V(3).Infof("Checkpoint XML for redefinition: %s", string(checkpointXML))
-
-	redefineFlags := libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE | libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
-	_, err = dom.CreateCheckpointXML(string(checkpointXML), redefineFlags)
+	if errors.Is(err, errNoUsableCheckpointBitmap) {
+		logger.Warning("No disks found with checkpoint bitmap")
+		return true, fmt.Errorf("no disks found with checkpoint bitmap %s", checkpoint.Name)
+	}
 	if err != nil {
 		checkpointInvalid = isLibvirtCheckpointInvalidError(err)
 		if checkpointInvalid {
 			logger.Reason(err).Error("Checkpoint bitmap is invalid/corrupt")
 		}
-		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %v", checkpoint.Name, err)
+		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %w", checkpoint.Name, err)
 	}
 
 	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpointDisks.Disks))
 	return false, nil
 }
 
-// findDisksWithCheckpointBitmap iterates over all domain disks and returns those
-// that have the specified checkpoint bitmap in their qcow2 file.
-func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*api.CheckpointDisks, []string, error) {
-	disks, err := util.GetAllDomainDisks(dom)
+var errNoUsableCheckpointBitmap = errors.New("no disk carries a usable checkpoint bitmap")
+
+func redefineCheckpointOnUsableDisks(dom cli.VirDomain, disks []api.Disk, domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
+	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, disks, domainCheckpoint)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get domain disks: %v", err)
+		return nil, disksWithoutBitmap, err
+	}
+	if len(checkpointDisks.Disks) == 0 {
+		return checkpointDisks, disksWithoutBitmap, errNoUsableCheckpointBitmap
 	}
 
-	bitmapsByFile, err := queryBitmaps(dom)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query bitmaps: %v", err)
-	}
+	redefined := domainCheckpoint.DeepCopy()
+	redefined.CheckpointDisks = checkpointDisks
+	return checkpointDisks, disksWithoutBitmap, redefineCheckpoint(dom, redefined)
+}
 
+// findDisksWithCheckpointBitmap returns the domain disks that carry a usable
+// bitmap for the checkpoint, and those that don't.
+//
+// Bitmap state is only exposed by QEMU, and querying it through the QEMU
+// monitor taints the domain. Instead, each disk is probed by redefining the
+// checkpoint with that disk alone and REDEFINE_VALIDATE, which makes libvirt
+// run the same check it runs at BackupBegin: the bitmap must be present,
+// persistent, recording and consistent. Each successful probe leaves a
+// single-disk definition behind, so callers must redefine the checkpoint
+// afterwards, see redefineCheckpointOnUsableDisks.
+func findDisksWithCheckpointBitmap(dom cli.VirDomain, disks []api.Disk, domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
 	checkpointDisks := &api.CheckpointDisks{}
-	var disksWithoutBitmap []string
+	disksWithoutBitmap := sets.New[string]()
 
 	for _, disk := range disks {
 		if disk.Target.Device == "" || !DiskHasDataStore(&disk) {
 			continue
 		}
-		if disk.Source.File == "" {
-			log.Log.Warningf("disk with data store source should have the qcow2 overlay file source, disk %s", disk.Target.Device)
+
+		checkpointDisk := api.CheckpointDisk{Name: disk.Target.Device, Checkpoint: "bitmap"}
+		probe := domainCheckpoint.DeepCopy()
+		probe.CheckpointDisks = &api.CheckpointDisks{Disks: []api.CheckpointDisk{checkpointDisk}}
+		err := redefineCheckpoint(dom, probe)
+		if err == nil {
+			checkpointDisks.Disks = append(checkpointDisks.Disks, checkpointDisk)
 			continue
 		}
-
-		if hasBitmap(bitmapsByFile, disk.Source.File, checkpointName) {
-			checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
-				Name:       disk.Target.Device,
-				Checkpoint: "bitmap",
-			})
-		} else {
-			disksWithoutBitmap = append(disksWithoutBitmap, disk.Target.Device)
+		if !isLibvirtCheckpointInvalidError(err) {
+			return nil, nil, fmt.Errorf("failed to probe checkpoint %s bitmap on disk %s: %w", domainCheckpoint.Name, disk.Target.Device, err)
 		}
+		log.Log.V(3).Reason(err).Infof("Disk %s has no usable bitmap for checkpoint %s", disk.Target.Device, domainCheckpoint.Name)
+		disksWithoutBitmap.Insert(disk.Target.Device)
 	}
 
 	return checkpointDisks, disksWithoutBitmap, nil
 }
 
-func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName string) bool {
-	bitmaps, ok := bitmapsByFile[filePath]
-	if !ok {
-		return false
-	}
-	for _, bm := range bitmaps {
-		if bm.Name == bitmapName {
-			if bm.Inconsistent {
-				log.Log.Warningf("Bitmap %s on %s is inconsistent (possibly from failed migration), treating as absent", bitmapName, filePath)
-				return false
-			}
-			return true
-		}
-	}
-	return false
-}
-
-type qmpBitmapInfo struct {
-	Name         string `json:"name"`
-	Inconsistent bool   `json:"inconsistent,omitempty"`
-}
-
-type qmpBlockNodeInfo struct {
-	File         string          `json:"file,omitempty"`
-	DirtyBitmaps []qmpBitmapInfo `json:"dirty-bitmaps,omitempty"`
-}
-
-type qmpQueryBlockNodesResponse struct {
-	Return []qmpBlockNodeInfo `json:"return"`
-}
-
-// queryBitmaps queries QEMU for bitmap information via QMP.
-// Returns a map of file path to list of bitmaps on that file.
-// This is used instead of qemu-img info because qemu-img info doesn't see
-// updated bitmap state unless the VM was shutdown.
-var queryBitmaps = func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
-	output, err := dom.QemuMonitorCommand(qmpQueryBlockNodesCmd, libvirt.DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
+func redefineCheckpoint(dom cli.VirDomain, domainCheckpoint *api.DomainCheckpoint) error {
+	checkpointXML, err := xml.Marshal(domainCheckpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute QMP query-named-block-nodes: %w", err)
+		return fmt.Errorf("failed to marshal checkpoint XML: %v", err)
 	}
 
-	var resp qmpQueryBlockNodesResponse
-	if err := json.Unmarshal([]byte(output), &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse QMP response: %w", err)
-	}
+	log.Log.V(3).Infof("Checkpoint XML for redefinition: %s", string(checkpointXML))
 
-	result := make(map[string][]qmpBitmapInfo)
-	for _, node := range resp.Return {
-		if node.File != "" && len(node.DirtyBitmaps) > 0 {
-			result[node.File] = append(result[node.File], node.DirtyBitmaps...)
+	redefineFlags := libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE | libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
+	chk, err := dom.CreateCheckpointXML(string(checkpointXML), redefineFlags)
+	if err != nil {
+		return err
+	}
+	if chk != nil {
+		if err := chk.Free(); err != nil {
+			log.Log.Reason(err).Warningf("failed to free checkpoint %s", domainCheckpoint.Name)
 		}
 	}
-
-	return result, nil
+	return nil
 }
 
 func checkBackupEligibility(exists bool, backupMetadata api.BackupMetadata, backupOptions *backupv1.BackupOptions) error {
