@@ -51,10 +51,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/testutils"

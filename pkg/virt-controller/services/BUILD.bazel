@@ -17,7 +17,6 @@ go_library(
     deps = [
         "//pkg/apimachinery:go_default_library",
         "//pkg/config:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/dra:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hypervisor:go_default_library",
@@ -27,6 +26,7 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
+        "//pkg/storage/container-disk:go_default_library",
         "//pkg/storage/host-disk:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
@@ -75,7 +75,6 @@ go_test(
     race = "on",
     deps = [
         "//pkg/config:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hypervisor:go_default_library",
         "//pkg/libvmi:go_default_library",
@@ -83,6 +82,7 @@ go_test(
         "//pkg/network/istio:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
+        "//pkg/storage/container-disk:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/virtiofs:go_default_library",
         "//pkg/testutils:go_default_library",

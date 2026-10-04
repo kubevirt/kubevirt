@@ -24,7 +24,6 @@ TARGET_DIRS=(
     "pkg/instancetype"
     "pkg/network"
     "pkg/storage"
-    "pkg/container-disk"
     "pkg/libdv"
     "pkg/virt-controller/watch/volume-migration"
     "pkg/virtctl/guestfs"

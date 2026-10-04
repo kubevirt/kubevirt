@@ -38,7 +38,7 @@ import (
 	gomega_types "github.com/onsi/gomega/types"
 	gomock "go.uber.org/mock/gomock"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 
 	"k8s.io/apimachinery/pkg/types"
 

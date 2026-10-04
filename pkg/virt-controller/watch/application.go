@@ -32,7 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	clone "kubevirt.io/api/clone/v1beta1"

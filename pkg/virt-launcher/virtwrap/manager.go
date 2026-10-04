@@ -66,7 +66,6 @@ import (
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -82,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/storage/emptydisk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"

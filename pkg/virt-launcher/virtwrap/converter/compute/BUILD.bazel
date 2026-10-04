@@ -34,11 +34,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/storage/container-disk:go_default_library",
         "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",

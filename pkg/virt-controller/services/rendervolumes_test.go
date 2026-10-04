@@ -12,10 +12,10 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 )
 
 var _ = Describe("Container spec renderer", func() {
