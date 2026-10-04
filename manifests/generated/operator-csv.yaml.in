@@ -1396,25 +1396,25 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: VIRT_API_SHASUM
-                  value: {{if .VirtApiSha}}{{.VirtApiSha}}{{end}}
+                  value: '{{if .VirtApiSha}}{{.VirtApiSha}}{{end}}'
                 - name: VIRT_CONTROLLER_SHASUM
-                  value: {{if .VirtControllerSha}}{{.VirtControllerSha}}{{end}}
+                  value: '{{if .VirtControllerSha}}{{.VirtControllerSha}}{{end}}'
                 - name: VIRT_HANDLER_SHASUM
-                  value: {{if .VirtHandlerSha}}{{.VirtHandlerSha}}{{end}}
+                  value: '{{if .VirtHandlerSha}}{{.VirtHandlerSha}}{{end}}'
                 - name: VIRT_LAUNCHER_SHASUM
-                  value: {{if .VirtLauncherSha}}{{.VirtLauncherSha}}{{end}}
+                  value: '{{if .VirtLauncherSha}}{{.VirtLauncherSha}}{{end}}'
                 - name: VIRT_EXPORTPROXY_SHASUM
-                  value: {{if .VirtExportProxySha}}{{.VirtExportProxySha}}{{end}}
+                  value: '{{if .VirtExportProxySha}}{{.VirtExportProxySha}}{{end}}'
                 - name: VIRT_EXPORTSERVER_SHASUM
-                  value: {{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}
+                  value: '{{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}'
                 - name: VIRT_SYNCHRONIZATIONCONTROLLER_SHASUM
-                  value: {{if .VirtSynchronizationControllerSha}}{{.VirtSynchronizationControllerSha}}{{end}}
+                  value: '{{if .VirtSynchronizationControllerSha}}{{.VirtSynchronizationControllerSha}}{{end}}'
                 - name: GS_SHASUM
-                  value: {{if .GsSha}}{{.GsSha}}{{end}}
+                  value: '{{if .GsSha}}{{.GsSha}}{{end}}'
                 - name: PR_HELPER_SHASUM
-                  value: {{if .PrHelperSha}}{{.PrHelperSha}}{{end}}
+                  value: '{{if .PrHelperSha}}{{.PrHelperSha}}{{end}}'
                 - name: SIDECAR_SHIM_SHASUM
-                  value: {{if .SidecarShimSha}}{{.SidecarShimSha}}{{end}}
+                  value: '{{if .SidecarShimSha}}{{.SidecarShimSha}}{{end}}'
                 - name: KUBEVIRT_VERSION
                   value: {{.DockerTag}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}

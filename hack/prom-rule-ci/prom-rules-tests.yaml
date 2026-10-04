@@ -33,69 +33,81 @@ tests:
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
-              summary: "All virt-api servers are down."
+              summary: "No healthy virt-api pods were detected for the last 10 min."
+              description: "No running virt-api pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No healthy virt-controller was detected for the last 10 min."
+              description: "No running virt-controller pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 10m
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
-              summary: "All virt-operator servers are down."
+              summary: "No healthy virt-operator pods were detected for the last 10 min."
+              description: "No running virt-operator pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       # it must trigger when operators are not healthy
       - eval_time: 16m
         alertname: VirtAPIDown
         exp_alerts:
           - exp_annotations:
-              summary: "All virt-api servers are down."
+              summary: "No healthy virt-api pods were detected for the last 10 min."
+              description: "No running virt-api pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtAPIDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No healthy virt-controller was detected for the last 10 min."
+              description: "No running virt-controller pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       - eval_time: 16m
         alertname: VirtOperatorDown
         exp_alerts:
           - exp_annotations:
-              summary: "All virt-operator servers are down."
+              summary: "No healthy virt-operator pods were detected for the last 10 min."
+              description: "No running virt-operator pods detected and no container waiting reasons reported."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtOperatorDown"
             exp_labels:
               severity: "critical"
               operator_health_impact: "critical"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
+              namespace: "ci"
       # it must not trigger when operators are healthy
       - eval_time: 17m
         alertname: VirtAPIDown
@@ -1100,3 +1112,165 @@ tests:
       - eval_time: 60m
         alertname: LowVirtOperatorCount
         exp_alerts: []
+
+  # Backported waiting-reason diagnostics and healthy-peer regression cases.
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Pending"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-api-1", container="virt-api", reason="ImagePullBackOff"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 8m
+      alertname: VirtAPIDown
+      exp_alerts: []
+    - eval_time: 10m
+      alertname: VirtAPIDown
+      exp_alerts:
+      - exp_annotations:
+          summary: No healthy virt-api pods were detected for the last 10 min.
+          description: 'Pod virt-api-1 is unhealthy (reason: ImagePullBackOff).'
+          runbook_url: https://kubevirt.io/monitoring/runbooks/VirtAPIDown
+        exp_labels:
+          severity: critical
+          operator_health_impact: critical
+          kubernetes_operator_part_of: kubevirt
+          kubernetes_operator_component: kubevirt
+          namespace: ci
+          pod: virt-api-1
+          reason: ImagePullBackOff
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-controller-1", container="virt-controller",
+        reason="CrashLoopBackOff"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 8m
+      alertname: VirtControllerDown
+      exp_alerts: []
+    - eval_time: 10m
+      alertname: VirtControllerDown
+      exp_alerts:
+      - exp_annotations:
+          summary: No healthy virt-controller was detected for the last 10 min.
+          description: 'Pod virt-controller-1 is unhealthy (reason: CrashLoopBackOff).'
+          runbook_url: https://kubevirt.io/monitoring/runbooks/VirtControllerDown
+        exp_labels:
+          severity: critical
+          operator_health_impact: critical
+          kubernetes_operator_part_of: kubevirt
+          kubernetes_operator_component: kubevirt
+          namespace: ci
+          pod: virt-controller-1
+          reason: CrashLoopBackOff
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Running"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-api-1", container="virt-api", reason="CrashLoopBackOff"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_status_ready{namespace="ci", pod="virt-api-1", condition="true"}
+      values: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-api-2", phase="Running"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_status_ready{namespace="ci", pod="virt-api-2", condition="true"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 10m
+      alertname: VirtAPIDown
+      exp_alerts: []
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-operator-1", phase="Pending"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-operator-1", container="virt-operator", reason="ErrImagePull"}
+      values: 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-operator-1", container="virt-operator", reason="ImagePullBackOff"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 10m
+      alertname: VirtOperatorDown
+      exp_alerts:
+      - exp_annotations:
+          summary: No healthy virt-operator pods were detected for the last 10 min.
+          description: 'Pod virt-operator-1 is unhealthy (reason: ErrImagePull).'
+          runbook_url: https://kubevirt.io/monitoring/runbooks/VirtOperatorDown
+        exp_labels:
+          severity: critical
+          operator_health_impact: critical
+          kubernetes_operator_part_of: kubevirt
+          kubernetes_operator_component: kubevirt
+          namespace: ci
+          pod: virt-operator-1
+          reason: ErrImagePull
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Failed"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-api-1", container="virt-api", reason="CrashLoopBackOff"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 10m
+      alertname: VirtAPIDown
+      exp_alerts:
+      - exp_annotations:
+          summary: No healthy virt-api pods were detected for the last 10 min.
+          description: 'Pod virt-api-1 is unhealthy (reason: CrashLoopBackOff).'
+          runbook_url: https://kubevirt.io/monitoring/runbooks/VirtAPIDown
+        exp_labels:
+          severity: critical
+          operator_health_impact: critical
+          kubernetes_operator_part_of: kubevirt
+          kubernetes_operator_component: kubevirt
+          namespace: ci
+          pod: virt-api-1
+          reason: CrashLoopBackOff
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Failed"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 10m
+      alertname: VirtControllerDown
+      exp_alerts:
+      - exp_annotations:
+          summary: No healthy virt-controller was detected for the last 10 min.
+          description: No running virt-controller pods detected and no container waiting reasons reported.
+          runbook_url: https://kubevirt.io/monitoring/runbooks/VirtControllerDown
+        exp_labels:
+          severity: critical
+          operator_health_impact: critical
+          kubernetes_operator_part_of: kubevirt
+          kubernetes_operator_component: kubevirt
+          namespace: ci
+  - interval: 1m
+    input_series:
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Pending"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+    - series: kube_pod_container_status_waiting_reason{namespace="ci", pod="virt-api-1", container="virt-api", reason="ImagePullBackOff"}
+      values: 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+    - series: kube_pod_status_phase{namespace="ci", pod="virt-api-1", phase="Running"}
+      values: 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1
+    - series: up{namespace="ci", pod="virt-api-1"}
+      values: 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1
+    alert_rule_test:
+    - eval_time: 10m
+      alertname: VirtAPIDown
+      exp_alerts:
+      - exp_annotations:
+          summary: No healthy virt-api pods were detected for the last 10 min.
+          description: 'Pod virt-api-1 is unhealthy (reason: ImagePullBackOff).'
+          runbook_url: https://kubevirt.io/monitoring/runbooks/VirtAPIDown
+        exp_labels:
+          severity: critical
+          operator_health_impact: critical
+          kubernetes_operator_part_of: kubevirt
+          kubernetes_operator_component: kubevirt
+          namespace: ci
+          pod: virt-api-1
+          reason: ImagePullBackOff
+    - eval_time: 22m
+      alertname: VirtAPIDown
+      exp_alerts: []
