@@ -24,7 +24,7 @@
         },
         {
           "justification ": "TODO: can get away from unsafepath but has no additional security risk since host-disk is insecure by default",
-          "allowedPkg": "kubevirt.io/kubevirt/pkg/host-disk"
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/storage/host-disk"
         },
         {
           "justification ": "TODO: checking if a path is mounted requires a path-string to check against the mount table, can be improved, exploitability risk is very low.",

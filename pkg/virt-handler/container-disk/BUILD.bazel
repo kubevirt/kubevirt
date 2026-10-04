@@ -10,9 +10,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/checkpoint:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/safepath:go_default_library",
+        "//pkg/storage/container-disk:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
@@ -37,9 +37,9 @@ go_test(
     race = "on",
     deps = [
         "//pkg/checkpoint:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/storage/container-disk:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
