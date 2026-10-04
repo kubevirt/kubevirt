@@ -20,6 +20,7 @@
 package nbdclient
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -553,6 +554,20 @@ var _ = Describe("NBDClient", func() {
 				Expect(extents[0].Length).To(Equal(uint64(2048)))
 				Expect(extents[0].Description).To(Equal("dirty"))
 			})
+		})
+	})
+
+	Context("mapExtents", func() {
+		It("should stop when the context is canceled", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			merger := newMergedContextMapper(4096, 512, func(*nbdv1.MapResponse) error { return nil })
+			blockStatus := func(_, _ uint64, _ libnbd.Extent64Callback) error {
+				Fail("no request should be sent")
+				return nil
+			}
+
+			Expect(mapExtents(ctx, blockStatus, merger, 0, 4096)).To(MatchError(context.Canceled))
 		})
 	})
 
