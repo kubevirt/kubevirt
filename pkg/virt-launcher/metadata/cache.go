@@ -48,14 +48,14 @@ func NewCache() *Cache {
 	cache := &Cache{
 		notificationSignal: make(chan struct{}, 1),
 	}
-	cache.UID.dirtyChanel = cache.notificationSignal
-	cache.Migration.dirtyChanel = cache.notificationSignal
-	cache.GracePeriod.dirtyChanel = cache.notificationSignal
-	cache.AccessCredential.dirtyChanel = cache.notificationSignal
-	cache.MemoryDump.dirtyChanel = cache.notificationSignal
-	cache.Backup.dirtyChanel = cache.notificationSignal
-	cache.GuestPanicHandled.dirtyChanel = cache.notificationSignal
-	cache.CompletedMigration.dirtyChanel = cache.notificationSignal
+	cache.UID.dirtyChannel = cache.notificationSignal
+	cache.Migration.dirtyChannel = cache.notificationSignal
+	cache.GracePeriod.dirtyChannel = cache.notificationSignal
+	cache.AccessCredential.dirtyChannel = cache.notificationSignal
+	cache.MemoryDump.dirtyChannel = cache.notificationSignal
+	cache.Backup.dirtyChannel = cache.notificationSignal
+	cache.GuestPanicHandled.dirtyChannel = cache.notificationSignal
+	cache.CompletedMigration.dirtyChannel = cache.notificationSignal
 	return cache
 }
 
