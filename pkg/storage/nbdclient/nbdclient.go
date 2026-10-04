@@ -53,8 +53,11 @@ func NewNBDClient(socketPath string) *NBDClient {
 type sendFn func(*nbdv1.MapResponse) error
 type descFn func(uint64) string
 
+// mapHandler consumes the extents of one BlockStatus64 call through
+// HandleExtents, then Merge emits them and returns the offset up to which
+// the map is now complete. The next call must resume from that offset.
 type mapHandler interface {
-	HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error)
+	HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) error
 	Merge() (uint64, error)
 	Flush() error
 }
@@ -137,7 +140,7 @@ func newSingleContextMapper(endOffset uint64, batchSize int, send sendFn) *singl
 	}
 }
 
-func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error) {
+func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []libnbd.LibnbdExtent) error {
 	localOffset := offset
 	for _, e := range entries {
 		if localOffset >= b.endOffset {
@@ -151,12 +154,12 @@ func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []l
 			continue
 		}
 		if err := b.coalesce(localOffset, length, e.Flags); err != nil {
-			return localOffset, err
+			return err
 		}
 		localOffset += length
 	}
 	b.end = max(b.end, localOffset)
-	return localOffset, nil
+	return nil
 }
 
 func (b *singleContextMapper) Merge() (uint64, error) { return b.end, nil }
@@ -197,7 +200,7 @@ func newMergedContextMapper(endOffset uint64, batchSize int, send sendFn) *merge
 	}
 }
 
-func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error) {
+func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) error {
 	localOffset := offset
 	for _, e := range entries {
 		if localOffset >= m.endOffset {
@@ -221,7 +224,7 @@ func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, e
 		}
 		localOffset += length
 	}
-	return localOffset, nil
+	return nil
 }
 
 // Merge emits the range described by both contexts and returns its end.
@@ -341,7 +344,7 @@ func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error
 type blockStatusFn func(count, offset uint64, cb libnbd.Extent64Callback) error
 
 // mapExtents walks [currentOffset, endOffset) with blockStatus, resuming each
-// call where the previous one stopped.
+// call where the handler's merged map ends.
 func mapExtents(ctx context.Context, blockStatus blockStatusFn, handler mapHandler, currentOffset, endOffset uint64) error {
 	for currentOffset < endOffset {
 		select {
@@ -352,23 +355,20 @@ func mapExtents(ctx context.Context, blockStatus blockStatusFn, handler mapHandl
 		prevOffset := currentOffset
 		if err := blockStatus(endOffset-currentOffset, currentOffset,
 			func(metacontext string, offset uint64, entries []libnbd.LibnbdExtent, nbdErr *int) int {
-				maxOff, err := handler.HandleExtents(metacontext, offset, entries)
-				if err != nil {
+				if err := handler.HandleExtents(metacontext, offset, entries); err != nil {
 					*nbdErr = 1
 					return -1
-				}
-				if maxOff > currentOffset {
-					currentOffset = maxOff
 				}
 				return 0
 			}); err != nil {
 			return fmt.Errorf("BlockStatus64 at offset %d: %w", prevOffset, err)
 		}
-		if _, err := handler.Merge(); err != nil {
+		var err error
+		if currentOffset, err = handler.Merge(); err != nil {
 			return err
 		}
 		if currentOffset <= prevOffset {
-			return fmt.Errorf("BlockStatus64 returned no forward progress at offset %d", prevOffset)
+			return fmt.Errorf("BlockStatus64 at offset %d did not advance the map, a metadata context returned no extents", prevOffset)
 		}
 	}
 
