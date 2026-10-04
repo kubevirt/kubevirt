@@ -3,10 +3,8 @@ package api
 import archdefaulter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api/arch-defaulter"
 
 const (
-	DefaultProtocol   = "TCP"
 	DefaultVMCIDR     = "10.0.2.0/24"
 	DefaultVMIpv6CIDR = "fd10:0:2::/120"
-	DefaultBridgeName = "k6t-eth0"
 )
 
 func NewDefaulter(arch string) *Defaulter {
