@@ -20,6 +20,7 @@
 package nbdclient
 
 import (
+	"context"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -320,14 +321,25 @@ func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error
 		handler = newSingleContextMapper(endOffset, mapResponseBatchSize, stream.Send)
 	}
 
+	blockStatus := func(count, offset uint64, cb libnbd.Extent64Callback) error {
+		return l.BlockStatus64(count, offset, cb, nil)
+	}
+	return mapExtents(stream.Context(), blockStatus, handler, currentOffset, endOffset)
+}
+
+type blockStatusFn func(count, offset uint64, cb libnbd.Extent64Callback) error
+
+// mapExtents walks [currentOffset, endOffset) with blockStatus, resuming each
+// call where the previous one stopped.
+func mapExtents(ctx context.Context, blockStatus blockStatusFn, handler mapHandler, currentOffset, endOffset uint64) error {
 	for currentOffset < endOffset {
 		select {
-		case <-stream.Context().Done():
-			return stream.Context().Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 		}
 		prevOffset := currentOffset
-		if err := l.BlockStatus64(endOffset-currentOffset, currentOffset,
+		if err := blockStatus(endOffset-currentOffset, currentOffset,
 			func(metacontext string, offset uint64, entries []libnbd.LibnbdExtent, nbdErr *int) int {
 				maxOff, err := handler.HandleExtents(metacontext, offset, entries)
 				if err != nil {
@@ -338,7 +350,7 @@ func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error
 					currentOffset = maxOff
 				}
 				return 0
-			}, nil); err != nil {
+			}); err != nil {
 			return fmt.Errorf("BlockStatus64 at offset %d: %w", prevOffset, err)
 		}
 		if err := handler.Merge(); err != nil {
