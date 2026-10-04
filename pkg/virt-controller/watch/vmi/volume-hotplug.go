@@ -322,7 +322,10 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 }
 
 func (c *Controller) createAttachmentPod(vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*v1.Volume, attachmentPods []*k8sv1.Pod) (*k8sv1.Pod, common.SyncError) {
-	attachmentPodTemplate, _ := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes, attachmentPods)
+	attachmentPodTemplate, err := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes, attachmentPods)
+	if err != nil {
+		return nil, common.NewSyncError(fmt.Errorf("Error rendering attachment pod template %v", err), controller.FailedCreatePodReason)
+	}
 	if attachmentPodTemplate == nil {
 		return nil, nil
 	}

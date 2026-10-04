@@ -4114,6 +4114,27 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(attachmentPods[0].Spec.Volumes).ToNot(ContainElement(HaveField("Name", "wffc")))
 		})
 
+		It("Should fail the sync when the attachment pod template cannot be rendered", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "data",
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{Name: "data", Hotpluggable: true},
+				},
+			}}
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			Expect(controller.pvcIndexer.Add(newHotplugPVC("data", k8sv1.NamespaceDefault, k8sv1.ClaimBound))).To(Succeed())
+			dataVolumes := []*cdiv1.DataVolume{newDv(k8sv1.NamespaceDefault, "data", cdiv1.Succeeded)}
+
+			hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
+			syncErr := controller.handleHotplugVolumes(hotplugVolumes, nil, vmi, virtlauncherPod, dataVolumes)
+			Expect(syncErr).To(HaveOccurred())
+			Expect(syncErr.Reason()).To(Equal(kvcontroller.FailedCreatePodReason))
+			Expect(syncErr.Error()).To(ContainSubstring("unable to find datavolume"))
+		})
+
 		It("Should set error for utility volume with block mode PVC", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
