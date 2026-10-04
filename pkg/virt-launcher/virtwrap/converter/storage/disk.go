@@ -32,7 +32,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -106,7 +105,7 @@ func convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch s
 		// which means that a discard_granularity value of 0 is omitted.
 		// remove this comment once upgraded.
 		if blockSize.DiscardGranularity != nil {
-			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
+			disk.BlockIO.DiscardGranularity = new(*blockSize.DiscardGranularity)
 		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
 		blockIO, err := detectOptimalBlockIO(disk)
@@ -174,7 +173,7 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	blockIO := &api.BlockIO{
 		LogicalBlockSize:   uint(logicalSize),
 		PhysicalBlockSize:  uint(physicalSize),
-		DiscardGranularity: pointer.P(uint(discardGranularity)),
+		DiscardGranularity: new(uint(discardGranularity)),
 	}
 	if logicalSize == 0 || physicalSize == 0 {
 		if logicalSize > physicalSize {
@@ -187,7 +186,7 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	}
 	if *blockIO.DiscardGranularity%blockIO.LogicalBlockSize != 0 {
 		log.Log.Infof("Invalid discard granularity %d. Matching it to physical size %d", *blockIO.DiscardGranularity, blockIO.PhysicalBlockSize)
-		blockIO.DiscardGranularity = pointer.P(uint(physicalSize))
+		blockIO.DiscardGranularity = new(uint(physicalSize))
 	}
 	return blockIO, nil
 }
@@ -259,7 +258,7 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]device
 	}
 	deviceNamer := prefixMap[prefix]
 	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
-		for i := 0; i < 26*26*26; i++ {
+		for i := range 26 * 26 * 26 {
 			calculatedName := formatDeviceName(prefix, i)
 			if calculatedName == name {
 				return name, i
@@ -269,7 +268,7 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]device
 		return name, 0
 	}
 	// Name not found yet, generate next new one.
-	for i := 0; i < 26*26*26; i++ {
+	for i := range 26 * 26 * 26 {
 		name := formatDeviceName(prefix, i)
 		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
 			deviceNamer.existingNameMap[diskName] = name
@@ -347,10 +346,10 @@ func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads 
 			apiDisk.Driver.IOThreads = supplementalIOThreads
 		} else {
 			if iothreads.HasDedicatedIOThread(*disk) {
-				apiDisk.Driver.IOThread = pointer.P(currentDedicatedThread)
+				apiDisk.Driver.IOThread = new(currentDedicatedThread)
 				currentDedicatedThread += 1
 			} else {
-				apiDisk.Driver.IOThread = pointer.P(currentAutoThread)
+				apiDisk.Driver.IOThread = new(currentAutoThread)
 				// increment the threadId to be used next but wrap around at the thread limit
 				// the odd math here is because thread ID's start at 1, not 0
 				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
