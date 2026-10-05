@@ -7370,6 +7370,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		DescribeTable("should adopt a terminal VMI's false Ready condition", func(phase v1.VirtualMachineInstancePhase, initialStatus k8sv1.ConditionStatus, fallbackReason string) {
+			vm.Status.Ready = true
 			vmi.Status.Phase = phase
 			readyCond := v1.VirtualMachineInstanceCondition{
 				Type:               v1.VirtualMachineInstanceReady,
@@ -7393,6 +7394,7 @@ var _ = Describe("VirtualMachine", func() {
 			cond := conditionManager.GetCondition(vm, v1.VirtualMachineReady)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(vm.Status.Ready).To(BeFalse())
 			if initialStatus != k8sv1.ConditionFalse {
 				Expect(cond.Reason).To(Equal(fallbackReason))
 			} else {

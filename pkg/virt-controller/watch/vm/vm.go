@@ -2509,7 +2509,6 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	// condition to the VM
 	syncVolumeMigration(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
-	vm.Status.Ready = controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineReady, k8score.ConditionTrue)
 	c.setPrintableStatus(vm, vmi)
 	cbt.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
 
@@ -2734,9 +2733,9 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		})
 
 	} else if vmi.IsFinal() && (vmiReadyCond == nil || vmiReadyCond.Status != k8score.ConditionFalse) {
-		// The VMI phase and Ready condition are updated independently. Override
-		// stale or missing readiness so the VM cannot be both Stopped and ready,
-		// but preserve the VMI's condition once it reports not ready.
+		// Older components can update the VMI phase without clearing readiness.
+		// Keep the VM consistent during upgrades, preserving a False VMI condition
+		// once it becomes available.
 		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineReady,
 			Status:             k8score.ConditionFalse,
@@ -2766,6 +2765,7 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			LastTransitionTime: vmiReadyCond.LastTransitionTime,
 		})
 	}
+	vm.Status.Ready = conditionManager.HasConditionWithStatus(vm, virtv1.VirtualMachineReady, k8score.ConditionTrue)
 }
 
 func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr common.SyncError) {

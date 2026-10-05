@@ -378,6 +378,8 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 		log.Log.Object(vmi).Reason(updateErr).Error("Updating network interfaces status failed.")
 	}
 
+	controller.NewVirtualMachineInstanceConditionManager().SyncReadyConditionForFinalVMI(vmi)
+
 	// update the VMI if necessary
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)

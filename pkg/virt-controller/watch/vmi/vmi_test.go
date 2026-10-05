@@ -949,6 +949,40 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				{Name: "stubNetStatusUpdate2"},
 			}
 		})
+		DescribeTable("should reject a readiness patch prepared before a terminal phase update", func(phase virtv1.VirtualMachineInstancePhase, shouldSucceed bool) {
+			oldVMI.Status.Phase = virtv1.Running
+			setReadyCondition(oldVMI, k8sv1.ConditionFalse, "GuestNotRunning")
+			newVMI = oldVMI.DeepCopy()
+			setReadyCondition(newVMI, k8sv1.ConditionTrue, "PodReady")
+			payload, err := prepareVMIPatch(oldVMI, newVMI).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			// The phase writer preserves the existing False condition. Testing only
+			// conditions would let the stale patch restore Ready=True after shutdown.
+			currentVMI := oldVMI.DeepCopy()
+			currentVMI.Status.Phase = phase
+			_, err = virtClientset.KubevirtV1().VirtualMachineInstances(currentVMI.Namespace).Create(context.Background(), currentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClientset.KubevirtV1().VirtualMachineInstances(currentVMI.Namespace).Patch(context.Background(), currentVMI.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+			if shouldSucceed {
+				Expect(err).ToNot(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(currentVMI.Namespace).Get(context.Background(), currentVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.Phase).To(Equal(phase))
+			expectedStatus := k8sv1.ConditionFalse
+			if shouldSucceed {
+				expectedStatus = k8sv1.ConditionTrue
+			}
+			Expect(kvcontroller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(updatedVMI, virtv1.VirtualMachineInstanceReady, expectedStatus)).To(BeTrue())
+		},
+			Entry("after Succeeded", virtv1.Succeeded, false),
+			Entry("after Failed", virtv1.Failed, false),
+			Entry("but accept it while still Running", virtv1.Running, true),
+		)
+
 		It("should create empty status network interfaces patch, regardless of interfaces order", func() {
 
 			// Reverse the order of interfaces in the new VMI

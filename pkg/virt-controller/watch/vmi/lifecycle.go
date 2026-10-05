@@ -567,6 +567,8 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceEvictionRequested)
 	}
 
+	conditionManager.SyncReadyConditionForFinalVMI(vmiCopy)
+
 	// VMI is owned by virt-handler, so patch instead of update
 	if vmi.IsRunning() || vmi.IsScheduled() {
 		patchSet := prepareVMIPatch(vmi, vmiCopy)
@@ -644,6 +646,11 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	// We don't own the object anymore, so patch instead of update
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	if !vmiConditions.ConditionsEqual(oldVMI, newVMI) {
+		// Conditions may still match after virt-handler advances the phase. Do not
+		// allow a stale Pod readiness update to make a terminal VMI ready again.
+		if newVMI.Status.Phase == oldVMI.Status.Phase {
+			patchSet.AddOption(patch.WithTest("/status/phase", oldVMI.Status.Phase))
+		}
 		patchSet.AddOption(
 			patch.WithTest("/status/conditions", oldVMI.Status.Conditions),
 			patch.WithReplace("/status/conditions", newVMI.Status.Conditions),

@@ -277,8 +277,17 @@ func (c *Controller) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv1.Vi
 	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
 	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
 
-	patchBytes, err := patch.New(patch.WithReplace("/status/phase", virtv1.Failed),
-		patch.WithAdd("/status/reason", NodeUnresponsiveReason)).GeneratePayload()
+	vmiCopy := vmi.DeepCopy()
+	vmiCopy.Status.Phase = virtv1.Failed
+	controller.NewVirtualMachineInstanceConditionManager().SyncReadyConditionForFinalVMI(vmiCopy)
+
+	patchBytes, err := patch.New(
+		// Protect the conditions from concurrent updates by other controllers.
+		patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion),
+		patch.WithReplace("/status/phase", virtv1.Failed),
+		patch.WithAdd("/status/reason", NodeUnresponsiveReason),
+		patch.WithAdd("/status/conditions", vmiCopy.Status.Conditions),
+	).GeneratePayload()
 	if err != nil {
 		return err
 	}
