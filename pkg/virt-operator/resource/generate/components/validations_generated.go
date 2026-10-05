@@ -9797,7 +9797,7 @@ var CRDsValidation map[string]string = map[string]string{
                       emptyDisk:
                         description: |-
                           EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-                          More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+                          More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
                         properties:
                           capacity:
                             anyOf:
@@ -16050,7 +16050,7 @@ var CRDsValidation map[string]string = map[string]string{
               emptyDisk:
                 description: |-
                   EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-                  More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+                  More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
                 properties:
                   capacity:
                     anyOf:
@@ -22883,7 +22883,7 @@ var CRDsValidation map[string]string = map[string]string{
                       emptyDisk:
                         description: |-
                           EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-                          More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+                          More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
                         properties:
                           capacity:
                             anyOf:
@@ -28091,7 +28091,7 @@ var CRDsValidation map[string]string = map[string]string{
                               emptyDisk:
                                 description: |-
                                   EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-                                  More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+                                  More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
                                 properties:
                                   capacity:
                                     anyOf:
@@ -33790,7 +33790,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   emptyDisk:
                                     description: |-
                                       EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-                                      More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+                                      More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
                                     properties:
                                       capacity:
                                         anyOf:

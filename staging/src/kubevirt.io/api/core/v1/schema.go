@@ -971,7 +971,7 @@ type VolumeSource struct {
 	// +optional
 	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
 	// EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
+	// More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk
 	// +optional
 	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
 	// DataVolume represents the dynamic creation a PVC for this volume as well as
