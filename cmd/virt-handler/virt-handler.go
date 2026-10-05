@@ -292,7 +292,7 @@ func (app *virtHandlerApp) Run() {
 	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
 	// Wire Domain controller
-	domainSharedInformer, _ := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
+	domainSharedInformer, directChan := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
@@ -381,7 +381,10 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
+	notifyManager := notifymanager.NewUpgradeAwareManager(
+		notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir),
+		notifymanager.NewNotifyV2Manager(directChan, recorder, podIsolationDetector),
+	)
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
