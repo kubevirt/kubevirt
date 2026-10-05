@@ -373,19 +373,19 @@ var _ = Describe("PVC source", func() {
 		exportVolumeFormats := make([]exportv1.VirtualMachineExportVolumeFormat, 0)
 		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.KubeVirtRaw,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[0]),
+			Url:    fmt.Sprintf("%s/volumes/%s/disk.img", internalExportBaseURL(exportName, namespace), volumeNames[0]),
 		})
 		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.KubeVirtGz,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[0]),
+			Url:    fmt.Sprintf("%s/volumes/%s/disk.img.gz", internalExportBaseURL(exportName, namespace), volumeNames[0]),
 		})
 		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.Dir,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/dir", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[1]),
+			Url:    fmt.Sprintf("%s/volumes/%s/dir", internalExportBaseURL(exportName, namespace), volumeNames[1]),
 		})
 		exportVolumeFormats = append(exportVolumeFormats, exportv1.VirtualMachineExportVolumeFormat{
 			Format: exportv1.ArchiveGz,
-			Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.tar.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeNames[1]),
+			Url:    fmt.Sprintf("%s/volumes/%s/disk.tar.gz", internalExportBaseURL(exportName, namespace), volumeNames[1]),
 		})
 		verifyLinksInternal(vmExport, exportVolumeFormats...)
 	}

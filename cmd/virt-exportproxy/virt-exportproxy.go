@@ -31,6 +31,7 @@ import (
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -62,6 +64,7 @@ type exportProxyApp struct {
 	caManager       kvtls.ClientCAManager
 	exportStore     cache.Store
 	kubeVirtStore   cache.Store
+	serviceStore    cache.Store
 }
 
 func NewExportProxyApp() service.Service {
@@ -137,7 +140,11 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	host := fmt.Sprintf("%s.%s.svc:443", export.Status.ServiceName, match[2])
+	host, status := app.backendAddr(match[2], export.Status.ServiceName)
+	if status != 0 {
+		w.WriteHeader(status)
+		return
+	}
 	targetPath := "/" + match[4]
 
 	certPool, err := app.caManager.GetCurrent()
@@ -167,6 +174,24 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 	p.ServeHTTP(w, r)
 }
 
+func (app *exportProxyApp) backendAddr(namespace, serviceName string) (string, int) {
+	if app.serviceStore == nil || serviceName == "" {
+		return "", http.StatusServiceUnavailable
+	}
+	obj, exists, err := app.serviceStore.GetByKey(controller.NamespacedKey(namespace, serviceName))
+	if err != nil {
+		return "", http.StatusInternalServerError
+	}
+	if !exists {
+		return "", http.StatusServiceUnavailable
+	}
+	svc, ok := obj.(*corev1.Service)
+	if !ok {
+		return "", http.StatusInternalServerError
+	}
+	return fmt.Sprintf("%s.%s.svc:%d", serviceName, namespace, storagetypes.ExportServiceDialPort(svc)), 0
+}
+
 func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	namespace, err := clientutil.GetNamespace()
 	if err != nil {
@@ -187,6 +212,7 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	caInformer := kubeInformerFactory.KubeVirtExportCAConfigMap()
 	app.exportStore = kubeInformerFactory.VirtualMachineExport().GetStore()
 	app.kubeVirtStore = kubeInformerFactory.KubeVirt().GetStore()
+	app.serviceStore = kubeInformerFactory.ExportService().GetStore()
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
