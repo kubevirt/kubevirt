@@ -73,6 +73,7 @@ func NewLauncherClientsManager(
 		virtShareDir:         virtShareDir,
 		launcherClients:      virtcache.LauncherClientInfoByVMI{},
 		podIsolationDetector: podIsolationDetector,
+		notifyManager:        notifyManager,
 	}
 
 	return l

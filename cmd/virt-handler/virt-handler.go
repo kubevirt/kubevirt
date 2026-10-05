@@ -276,7 +276,7 @@ func (app *virtHandlerApp) Run() {
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
-	domainSharedInformer, _ := virtcache.NewSharedInformer(
+	domainSharedInformer, directChan := virtcache.NewSharedInformer(
 		app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder,
 		vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second,
 	)
@@ -390,7 +390,10 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
+	notifyManager := notifymanager.NewUpgradeAwareManager(
+		notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir),
+		notifymanager.NewNotifyV2Manager(directChan, recorder, podIsolationDetector),
+	)
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector, notifyManager)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
