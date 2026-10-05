@@ -177,7 +177,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
 			Expect(ghostRecordStore.Add(domainNamespace, domainName, socketPath, podUID)).To(Succeed())
 
-			informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
+			informer, _ = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
 			ctrl := gomock.NewController(GinkgoT())
@@ -333,6 +333,7 @@ var _ = Describe("Domain informer", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil,
 			)
 			defer d.Stop()
 
@@ -376,6 +377,7 @@ var _ = Describe("Domain informer", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil,
 			)
 			defer d.Stop()
 
@@ -461,7 +463,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 			}
 			lw := &cache.ListWatch{
 				WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails), nil
+					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil), nil
 				},
 			}
 
