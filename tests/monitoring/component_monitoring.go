@@ -159,17 +159,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
 		})
 
-		It("NoReadyVirtController should be triggered when virt-controller is down", func() {
-			By("Scaling down the controller")
-			scales.UpdateScale(virtController.deploymentName, int32(0))
-
-			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_ready:sum", 0)
-
-			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
-		})
-
 		// NoReadyVirtController no longer fires when all pods are absent (false-positive fix).
 		// VirtControllerDown covers the "scaled to 0" scenario.
 		It("NoReadyVirtController should not fire when controller is scaled to zero", func() {
