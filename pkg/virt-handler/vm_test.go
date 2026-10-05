@@ -1838,6 +1838,97 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Entry("When current phase is HotplugVolumeAttachedToNode", v1.HotplugVolumeAttachedToNode),
 			)
 
+			Context("with a hotplug attach error reported by the domain", func() {
+				const attachError = "internal error: unable to execute QEMU command 'device_add': The serial number can't be longer than 36 characters"
+
+				newMountedHotplugVolumeStatus := func(name string) v1.VolumeStatus {
+					return v1.VolumeStatus{
+						Name:    name,
+						Phase:   v1.HotplugVolumeMounted,
+						Reason:  VolumeMountedToPodReason,
+						Message: fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", name),
+						HotplugVolume: &v1.HotplugVolumeStatus{
+							AttachPodName: "testpod",
+							AttachPodUID:  "1234",
+						},
+					}
+				}
+
+				newVMIWithMountedHotplugVolumes := func(names ...string) *v1.VirtualMachineInstance {
+					vmi := api2.NewMinimalVMI("testvmi")
+					vmi.UID = vmiTestUUID
+					vmi.Status.Phase = v1.Running
+					for _, name := range names {
+						vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: name})
+						vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, newMountedHotplugVolumeStatus(name))
+					}
+					return vmi
+				}
+
+				It("should set the reason and message only on the failed volume and keep the phase", func() {
+					vmi := newVMIWithMountedHotplugVolumes("failed", "pending")
+					domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+					domain.Status.Status = api.Running
+					domain.Status.Disks = []api.DiskStatus{{Name: "failed", AttachError: attachError}}
+					addVMI(vmi, domain)
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "failed", gomock.Any()).Return(true, nil)
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "pending", gomock.Any()).Return(true, nil)
+
+					Expect(controller.updateVolumeStatusesFromDomain(vmi, domain)).To(BeTrue())
+
+					Expect(vmi.Status.VolumeStatus[0].Name).To(Equal("failed"))
+					Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.HotplugVolumeMounted))
+					Expect(vmi.Status.VolumeStatus[0].Reason).To(Equal(HotplugAttachFailedReason))
+					Expect(vmi.Status.VolumeStatus[0].Message).To(ContainSubstring(attachError))
+					Expect(vmi.Status.VolumeStatus[1].Name).To(Equal("pending"))
+					Expect(vmi.Status.VolumeStatus[1].Phase).To(Equal(v1.HotplugVolumeMounted))
+					Expect(vmi.Status.VolumeStatus[1].Reason).To(Equal(VolumeMountedToPodReason))
+					testutils.ExpectEvent(recorder, fmt.Sprintf("%s %s", k8sv1.EventTypeWarning, HotplugAttachFailedReason))
+
+					By("Calling it again with the same error, no new events are generated")
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "failed", gomock.Any()).Return(true, nil)
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "pending", gomock.Any()).Return(true, nil)
+					controller.updateVolumeStatusesFromDomain(vmi, domain)
+				})
+
+				It("should restore the mounted reason once the attach error is gone", func() {
+					vmi := newVMIWithMountedHotplugVolumes("test")
+					vmi.Status.VolumeStatus[0].Reason = HotplugAttachFailedReason
+					vmi.Status.VolumeStatus[0].Message = "Failed to attach hotplugged volume test to VM: " + attachError
+					domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+					domain.Status.Status = api.Running
+					addVMI(vmi, domain)
+					mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+
+					Expect(controller.updateVolumeStatusesFromDomain(vmi, domain)).To(BeTrue())
+
+					Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.HotplugVolumeMounted))
+					Expect(vmi.Status.VolumeStatus[0].Reason).To(Equal(VolumeMountedToPodReason))
+					Expect(vmi.Status.VolumeStatus[0].Message).To(Equal("Volume test has been mounted in virt-launcher pod"))
+				})
+
+				It("should mark the volume ready once it got attached", func() {
+					vmi := newVMIWithMountedHotplugVolumes("test")
+					vmi.Status.VolumeStatus[0].Reason = HotplugAttachFailedReason
+					domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+					domain.Status.Status = api.Running
+					domain.Spec.Devices.Disks = []api.Disk{{
+						Device: "disk",
+						Type:   "file",
+						Source: api.DiskSource{File: "/var/run/kubevirt/hotplug-disks/test.img"},
+						Target: api.DiskTarget{Device: "sda", Bus: v1.DiskBusSCSI},
+						Alias:  api.NewUserDefinedAlias("test"),
+					}}
+					addVMI(vmi, domain)
+
+					Expect(controller.updateVolumeStatusesFromDomain(vmi, domain)).To(BeTrue())
+
+					Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.VolumeReady))
+					Expect(vmi.Status.VolumeStatus[0].Reason).To(Equal(VolumeReadyReason))
+					testutils.ExpectEvent(recorder, "Successfully attach hotplugged volume test to VM")
+				})
+			})
+
 			DescribeTable("should generate an unmount event for cdrom when appropriate", func(source string) {
 				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID

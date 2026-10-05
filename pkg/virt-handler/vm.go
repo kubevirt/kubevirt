@@ -481,7 +481,9 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 			c.recorder.Event(vmi, k8sv1.EventTypeNormal, VolumeUnplugged, fmt.Sprintf("Volume %s has been unplugged", oldStatus.Name))
 			continue
 		}
-		if newStatus.Phase != oldStatus.Phase {
+		if newStatus.Reason == HotplugAttachFailedReason && oldStatus.Reason != HotplugAttachFailedReason {
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, newStatus.Reason, newStatus.Message)
+		} else if newStatus.Phase != oldStatus.Phase {
 			c.recorder.Event(vmi, k8sv1.EventTypeNormal, newStatus.Reason, newStatus.Message)
 		}
 		delete(newStatusMapCopy, newStatus.Name)
@@ -492,7 +494,12 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 	}
 }
 
-func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]struct{}) (v1.VolumeStatus, bool) {
+func (c *VirtualMachineController) updateHotplugVolumeStatus(
+	vmi *v1.VirtualMachineInstance,
+	volumeStatus v1.VolumeStatus,
+	specVolumeMap map[string]struct{},
+	attachError string,
+) (v1.VolumeStatus, bool) {
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
@@ -507,6 +514,16 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 				volumeStatus.Phase = v1.HotplugVolumeMounted
 				volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
 				volumeStatus.Reason = VolumeMountedToPodReason
+			}
+			if volumeStatus.Phase == v1.HotplugVolumeMounted {
+				// The phase is kept so the attachment keeps being retried, only the reason reflects the failure
+				if attachError != "" {
+					volumeStatus.Message = fmt.Sprintf("Failed to attach hotplugged volume %s to VM: %s", volumeStatus.Name, attachError)
+					volumeStatus.Reason = HotplugAttachFailedReason
+				} else if volumeStatus.Reason == HotplugAttachFailedReason {
+					volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
+					volumeStatus.Reason = VolumeMountedToPodReason
+				}
 			}
 		} else {
 			// Not mounted, check if the volume is in the spec, if not update status
@@ -536,12 +553,16 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	}
 
 	diskDeviceMap := make(map[string]string)
+	diskAttachErrorMap := make(map[string]string)
 	if domain != nil {
 		for _, disk := range domain.Spec.Devices.Disks {
 			// don't care about empty cdroms
 			if disk.Source.File != "" || disk.Source.Dev != "" {
 				diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
 			}
+		}
+		for _, disk := range domain.Status.Disks {
+			diskAttachErrorMap[disk.Name] = disk.AttachError
 		}
 	}
 	specVolumeMap := make(map[string]struct{})
@@ -561,7 +582,7 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 		if volumeStatus.HotplugVolume != nil {
 			hasHotplug = true
-			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap, diskAttachErrorMap[volumeStatus.Name])
 			needsRefresh = needsRefresh || tmpNeedsRefresh
 		}
 		if volumeStatus.MemoryDumpVolume != nil {

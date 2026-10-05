@@ -80,11 +80,17 @@ func (d *SafeData[T]) WithSafeBlock(f func(data *T, initialized bool)) {
 // notify sends a signal to notify listeners of a change in the data.
 // The operation is non-blocking.
 func (d *SafeData[T]) notify() {
-	if d.dirtyChanel == nil {
+	notify(d.dirtyChanel)
+}
+
+// notify sends a signal on the dirty channel, if one exists.
+// The operation is non-blocking.
+func notify(dirtyChanel chan<- struct{}) {
+	if dirtyChanel == nil {
 		return
 	}
 	select {
-	case d.dirtyChanel <- struct{}{}:
+	case dirtyChanel <- struct{}{}:
 	default:
 	}
 }

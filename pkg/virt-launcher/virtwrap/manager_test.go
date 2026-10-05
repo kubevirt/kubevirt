@@ -24,6 +24,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -977,6 +978,67 @@ var _ = Describe("Manager", func() {
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
+		})
+
+		Context("when attaching a hotplugged disk", func() {
+			var manager *LibvirtDomainManager
+
+			newHotplugDisk := func(volumeName, device string) api.Disk {
+				return api.Disk{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{File: filepath.Join(v1.HotplugDiskDir, volumeName+".img")},
+					Target: api.DiskTarget{Bus: v1.DiskBusSCSI, Device: device},
+					Alias:  api.NewUserDefinedAlias(volumeName),
+				}
+			}
+
+			BeforeEach(func() {
+				origCheckIfDiskReadyToUse := checkIfDiskReadyToUse
+				checkIfDiskReadyToUse = func(string) (bool, error) { return true, nil }
+				DeferCleanup(func() { checkIfDiskReadyToUse = origCheckIfDiskReadyToUse })
+
+				domainManager, err := newLibvirtDomainManager(
+					mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath,
+					ephemeralDiskCreatorMock, &stubDiskDriverConfigurator{}, metadataCache, nil,
+					virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName,
+					nil, "", false, false, false, nil,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				manager = domainManager.(*LibvirtDomainManager)
+			})
+
+			It("should record the attach error of the failed volume and drop it once the volume is no longer pending", func() {
+				vmi := newVMI(testNamespace, testVmName)
+				liveSpec := &api.DomainSpec{}
+				desired := &api.Domain{}
+				desired.Spec.Devices.Disks = []api.Disk{newHotplugDisk("hpvolume1", "sda")}
+
+				attachErr := errors.New("The serial number can't be longer than 36 characters")
+				mockLibvirt.DomainEXPECT().AttachDeviceFlags(gomock.Any(), affectDeviceLiveAndConfigLibvirtFlags).Return(attachErr)
+				Expect(manager.syncDisks(desired, liveSpec, mockLibvirt.VirtDomain, vmi)).To(MatchError(attachErr))
+				Expect(metadataCache.DiskAttachErrors.Load()).To(Equal([]api.DiskStatus{
+					{Name: "hpvolume1", AttachError: attachErr.Error()},
+				}))
+
+				By("Removing the volume from the desired domain, the error is dropped")
+				desired.Spec.Devices.Disks = nil
+				Expect(manager.syncDisks(desired, liveSpec, mockLibvirt.VirtDomain, vmi)).To(Succeed())
+				Expect(metadataCache.DiskAttachErrors.Load()).To(BeEmpty())
+			})
+
+			It("should drop the attach error once the volume got attached", func() {
+				vmi := newVMI(testNamespace, testVmName)
+				metadataCache.DiskAttachErrors.Set("hpvolume1", "previous error")
+				hotplugDisk := newHotplugDisk("hpvolume1", "sda")
+				liveSpec := &api.DomainSpec{}
+				liveSpec.Devices.Disks = []api.Disk{hotplugDisk}
+				desired := &api.Domain{}
+				desired.Spec.Devices.Disks = []api.Disk{hotplugDisk}
+
+				Expect(manager.syncDisks(desired, liveSpec, mockLibvirt.VirtDomain, vmi)).To(Succeed())
+				Expect(metadataCache.DiskAttachErrors.Load()).To(BeEmpty())
+			})
 		})
 
 		It("should unplug a disk if a volume was unplugged", func() {
@@ -2908,6 +2970,7 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(x), nil)
 			mockLibvirt.ConnectionEXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockLibvirt.VirtDomain}, nil)
+			metadataCache.DiskAttachErrors.Set("hpvolume1", "attach failed")
 
 			manager, _ := newLibvirtDomainManagerDefault()
 			doms, err := manager.ListAllDomains()
@@ -2920,6 +2983,7 @@ var _ = Describe("Manager", func() {
 			Expect(&domain.Spec).To(Equal(api.NewMinimalDomainSpec("test")))
 			Expect(domain.Status.Status).To(Equal(kubevirtState))
 			Expect(domain.Status.Reason).To(Equal(kubevirtReason))
+			Expect(domain.Status.Disks).To(Equal([]api.DiskStatus{{Name: "hpvolume1", AttachError: "attach failed"}}))
 		},
 		Entry("crashed", libvirt.DOMAIN_CRASHED, api.Crashed, int(libvirt.DOMAIN_CRASHED_UNKNOWN), api.ReasonUnknown),
 		Entry("shutoff", libvirt.DOMAIN_SHUTOFF, api.Shutoff, int(libvirt.DOMAIN_SHUTOFF_DESTROYED), api.ReasonDestroyed),
