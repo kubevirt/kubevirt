@@ -909,11 +909,13 @@ var _ = Describe("Notify", func() {
 	Describe("gRPC status error handling", func() {
 		newTestNotifier := func(fake *fakeNotifyClient) *Notifier {
 			return &Notifier{
-				v1client:        fake,
-				conn:            &grpc.ClientConn{},
-				intervalTimeout: 100 * time.Millisecond,
-				sendTimeout:     1 * time.Second,
-				totalTimeout:    3 * time.Second,
+				client: &notifyClient{
+					v1client:        fake,
+					conn:            &grpc.ClientConn{},
+					intervalTimeout: 100 * time.Millisecond,
+					sendTimeout:     1 * time.Second,
+					totalTimeout:    3 * time.Second,
+				},
 			}
 		}
 
