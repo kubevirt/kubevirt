@@ -276,7 +276,10 @@ func (app *virtHandlerApp) Run() {
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	domainSharedInformer, _ := virtcache.NewSharedInformer(
+		app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder,
+		vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second,
+	)
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
