@@ -36,7 +36,6 @@ import (
 	clone "kubevirt.io/api/clone/v1beta1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -44,15 +43,19 @@ const (
 	virtualMachineSnapshotKind = "VirtualMachineSnapshot"
 )
 
+type clusterConfigurer interface {
+	SnapshotEnabled() bool
+}
+
 // VirtualMachineCloneAdmitter validates VirtualMachineClones
 type VirtualMachineCloneAdmitter struct {
-	Config *virtconfig.ClusterConfig
+	config clusterConfigurer
 }
 
 // NewVMCloneAdmitter creates a VM Clone Admitter
-func NewVMCloneAdmitter(config *virtconfig.ClusterConfig) *VirtualMachineCloneAdmitter {
+func NewVMCloneAdmitter(config clusterConfigurer) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
-		Config: config,
+		config: config,
 	}
 }
 
@@ -65,7 +68,7 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clonebase.ResourceVMClonePlural))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
+	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate is not enabled"))
 	}
 

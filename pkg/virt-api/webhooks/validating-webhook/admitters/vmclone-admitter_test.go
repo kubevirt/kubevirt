@@ -30,8 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/cache"
-
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
@@ -40,41 +38,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var admitter *VirtualMachineCloneAdmitter
 	var vmClone *clone.VirtualMachineClone
-	var config *virtconfig.ClusterConfig
-	var kvStore cache.Store
 	var vm *v1.VirtualMachine
-
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
-					},
-				},
-			},
-		})
-	}
-
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.SnapshotGate},
-					},
-				},
-			},
-		})
-	}
 
 	newValidVM := func(namespace, name string) *v1.VirtualMachine {
 		return &v1.VirtualMachine{
@@ -128,17 +97,9 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	}
 
 	BeforeEach(func() {
-		config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
-		admitter = &VirtualMachineCloneAdmitter{Config: config}
+		admitter = NewVMCloneAdmitter(stubClusterConfigurer{snapshotEnabled: true})
 		vmClone = newValidClone()
 		vm = newValidVM(vmClone.Namespace, vmClone.Spec.Source.Name)
-
-		enableFeatureGate("Snapshot")
-	})
-
-	AfterEach(func() {
-		disableFeatureGates()
 	})
 
 	It("should allow legal clone", func() {
@@ -223,7 +184,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	})
 
 	It("Should reject if snapshot feature gate is not enabled", func() {
-		disableFeatureGates()
+		admitter := NewVMCloneAdmitter(stubClusterConfigurer{snapshotEnabled: false})
 		admitter.admitAndExpect(vmClone, false)
 	})
 
@@ -352,7 +313,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			admitter.admitAndExpect(vmClone, false)
 		})
 	})
-
 })
 
 func createCloneAdmissionReview(vmClone *clone.VirtualMachineClone) *admissionv1.AdmissionReview {
@@ -395,4 +355,12 @@ func newValidObjReference() *k8sv1.TypedLocalObjectReference {
 		Kind:     virtualMachineKind,
 		Name:     "clone-source-vm",
 	}
+}
+
+type stubClusterConfigurer struct {
+	snapshotEnabled bool
+}
+
+func (s stubClusterConfigurer) SnapshotEnabled() bool {
+	return s.snapshotEnabled
 }
