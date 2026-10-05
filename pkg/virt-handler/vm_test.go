@@ -22,6 +22,7 @@ package virthandler
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1650,6 +1651,40 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				sanityExecute()
 				testutils.ExpectEvent(recorder, VMIDefined)
+			})
+
+			It("should set Synchronized=False when a disk is locked by another process", func() {
+				// A VMI that is scheduled so the controller tries to start it
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Scheduled
+				createVMI(vmi)
+
+				// Mount succeeds, but start fails later inside virt-launcher
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+				// SyncVirtualMachine is mocked, so return the launcher error that
+				// causes virt-handler to classify this as a disk write-lock failure.
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Return(
+					errors.New(`Failed to get "write" lock on /var/run/kubevirt-private/vmi-disks/disk0/disk.img`),
+				)
+
+				sanityExecute()
+
+				// sync() records this event.
+				testutils.ExpectEvent(recorder, v1.SyncFailed.String())
+
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(),
+					vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(updatedVMI.Status.Conditions).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status":  Equal(k8sv1.ConditionFalse),
+						"Message": ContainSubstring("is locked by another process"),
+					}),
+				))
 			})
 
 			It("should call mount and unmount if VMI is running", func() {
