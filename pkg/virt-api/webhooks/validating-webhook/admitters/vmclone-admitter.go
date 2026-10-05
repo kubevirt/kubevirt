@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/network/link"
@@ -166,7 +167,7 @@ func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.St
 	supportedSourceTypes := []string{virtualMachineKind, virtualMachineSnapshotKind}
 	supportedTargetTypes := []string{virtualMachineKind}
 
-	if !doesSliceContainStr(supportedSourceTypes, vmClone.Spec.Source.Kind) {
+	if !slices.Contains(supportedSourceTypes, vmClone.Spec.Source.Kind) {
 		causes = []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Source kind is not supported",
@@ -174,7 +175,7 @@ func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.St
 		}}
 	}
 
-	if vmClone.Spec.Target != nil && !doesSliceContainStr(supportedTargetTypes, vmClone.Spec.Target.Kind) {
+	if vmClone.Spec.Target != nil && !slices.Contains(supportedTargetTypes, vmClone.Spec.Target.Kind) {
 		if causes == nil {
 			causes = []metav1.StatusCause{}
 		}
@@ -278,15 +279,4 @@ func validatePatches(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	}
 
 	return causes
-}
-
-func doesSliceContainStr(slice []string, str string) (isFound bool) {
-	for _, curSliceStr := range slice {
-		if curSliceStr == str {
-			isFound = true
-			break
-		}
-	}
-
-	return isFound
 }
