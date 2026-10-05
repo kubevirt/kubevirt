@@ -97,7 +97,7 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateSource(ctx, admitter.Client, vmClone); newCauses != nil {
+	if newCauses := validateSource(vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -189,7 +189,7 @@ func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.St
 	return causes
 }
 
-func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
+func validateSource(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 	source := vmClone.Spec.Source
