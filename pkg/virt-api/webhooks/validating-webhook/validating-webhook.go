@@ -139,8 +139,8 @@ func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, cluster
 	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter(clusterConfig))
 }
 
-func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(clusterConfig, virtClient))
+func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(clusterConfig))
 }
 
 func ServePlugins(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

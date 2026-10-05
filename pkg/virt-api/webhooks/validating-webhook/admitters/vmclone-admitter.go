@@ -34,7 +34,6 @@ import (
 
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -48,14 +47,12 @@ const (
 // VirtualMachineCloneAdmitter validates VirtualMachineClones
 type VirtualMachineCloneAdmitter struct {
 	Config *virtconfig.ClusterConfig
-	Client kubecli.KubevirtClient
 }
 
 // NewVMCloneAdmitter creates a VM Clone Admitter
-func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
+func NewVMCloneAdmitter(config *virtconfig.ClusterConfig) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
 		Config: config,
-		Client: client,
 	}
 }
 

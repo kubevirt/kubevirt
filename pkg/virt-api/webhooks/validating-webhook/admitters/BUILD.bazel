@@ -124,7 +124,6 @@ go_test(
         "//staging/src/kubevirt.io/api/plugin:go_default_library",
         "//staging/src/kubevirt.io/api/plugin/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
