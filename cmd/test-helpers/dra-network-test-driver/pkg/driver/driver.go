@@ -94,6 +94,8 @@ func (d *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceap
 func (d *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[types.UID]error, error) {
 	results := make(map[types.UID]error)
 	for _, claim := range claims {
+		// Stop passt before the directory goes away: the PID file lives in it.
+		stopBackendDevice(hostPathFor(claim.UID))
 		results[claim.UID] = unprepareHostpath(claim.UID)
 	}
 	return results, nil
