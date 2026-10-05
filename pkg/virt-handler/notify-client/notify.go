@@ -41,8 +41,8 @@ type notifyClient struct {
 	conn     *grpc.ClientConn
 }
 
-func (c *notifyClient) Ping(context.Context) error {
-	_, err := c.v2Client.Ping(context.Background(), &v2.EmptyRequest{})
+func (c *notifyClient) Ping(ctx context.Context) error {
+	_, err := c.v2Client.Ping(ctx, &v2.EmptyRequest{})
 	return err
 }
 
