@@ -56,7 +56,9 @@ type domainWatcher struct {
 	unresponsiveSockets map[string]int64
 }
 
-func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int) *domainWatcher {
+func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc,
+	watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder,
+	consecutiveFails *int, directChan <-chan watch.Event) *domainWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	d := &domainWatcher{
 		recorder:            recorder,
@@ -67,6 +69,18 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 	}
 	d.wg.Add(1)
 	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
+	go func() {
+		for {
+			select {
+			// We need to return with worker
+			case <-ctx.Done():
+				return
+			// TODO make sure we synchronize closure of result
+			case d.result <- <-directChan:
+			}
+		}
+
+	}()
 	return d
 }
 
