@@ -27,12 +27,18 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
+	"strings"
+	"syscall"
 	"time"
+
+	"kubevirt.io/client-go/log"
 )
 
 const (
-	binary     = "/usr/bin/passt"
-	socketName = "vhost.sock"
+	binary      = "/usr/bin/passt"
+	socketName  = "vhost.sock"
+	pidFileName = "passt.pid"
 )
 
 // pidFilePath returns the file passt writes its PID to. It lives in the claim's
@@ -85,7 +91,7 @@ func executeBackendDevice(ctx context.Context, hostPath, targetInterface string,
 		log.Log.Infof("passt (pid %d) is already serving %s", pid, hostPath)
 		return nil
 	}
-	
+
 	socketPath := path.Join(hostPath, socketName)
 	gwIP, err := ipv4Addr(targetInterface)
 	if err != nil {
