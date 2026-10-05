@@ -20,6 +20,7 @@
 package collector
 
 import (
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -130,7 +131,122 @@ var _ = Describe("Collector", func() {
 			Expect(completed).To(BeTrue())
 		})
 	})
+
+	Context("concurrent scrape limit", func() {
+		fakeMapper := func(vmiList []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+			m := vmiSocketMap{}
+			for _, vmi := range vmiList {
+				m[vmi.Name] = vmi
+			}
+			return m
+		}
+
+		It("should not scrape more sources than maxConcurrentSources", func() {
+			const (
+				maxConcurrent = 2
+				numSources    = 8
+				scrapeDelay   = 50 * time.Millisecond
+			)
+
+			many := make([]*k6tv1.VirtualMachineInstance, numSources)
+			for i := 0; i < numSources; i++ {
+				many[i] = &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: string(rune('a' + i))},
+				}
+			}
+
+			var (
+				inFlight    atomic.Int32
+				maxInFlight atomic.Int32
+			)
+			scraper := &concurrencyTrackingScraper{
+				delay: scrapeDelay,
+				onStart: func() {
+					current := inFlight.Add(1)
+					for {
+						max := maxInFlight.Load()
+						if current <= max || maxInFlight.CompareAndSwap(max, current) {
+							break
+						}
+					}
+				},
+				onDone: func() {
+					inFlight.Add(-1)
+				},
+			}
+
+			cc := NewConcurrentCollectorWithLimits(1, maxConcurrent, fakeMapper)
+			skipped, completed := cc.Collect(many, scraper, 5*time.Second)
+
+			Expect(skipped).To(BeEmpty())
+			Expect(completed).To(BeTrue())
+			Expect(maxInFlight.Load()).To(BeNumerically("<=", maxConcurrent))
+			Expect(maxInFlight.Load()).To(BeNumerically(">", 0))
+		})
+
+		It("should not block forever when hung scrapes hold all scrape slots", func() {
+			const maxConcurrent = 1
+
+			blocked := []*k6tv1.VirtualMachineInstance{
+				{ObjectMeta: metav1.ObjectMeta{Name: "stuck"}},
+			}
+			next := []*k6tv1.VirtualMachineInstance{
+				{ObjectMeta: metav1.ObjectMeta{Name: "next"}},
+			}
+
+			fs := newFakeScraper()
+			fs.Block("stuck")
+			cc := NewConcurrentCollectorWithLimits(2, maxConcurrent, fakeMapper)
+
+			By("Starting a collection that leaves a hung scrape holding the only slot")
+			skipped, completed := cc.Collect(blocked, fs, 200*time.Millisecond)
+			Expect(skipped).To(BeEmpty())
+			Expect(completed).To(BeFalse())
+
+			By("A later collection must return instead of blocking forever on scrapeSlots")
+			done := make(chan struct{})
+			var nextSkipped []string
+			var nextCompleted bool
+			go func() {
+				defer close(done)
+				nextSkipped, nextCompleted = cc.Collect(next, newFakeScraper(), 200*time.Millisecond)
+			}()
+
+			Eventually(done, 2*time.Second).Should(BeClosed())
+			// "stuck" is still reserved from the hung scrape, and/or we timed out
+			// waiting for a scrape slot — either way Collect must not hang.
+			_ = nextSkipped
+			Expect(nextCompleted).To(BeFalse())
+
+			ready := fs.Wakeup("stuck")
+			<-ready
+			fs.Unblock("stuck")
+		})
+
+		DescribeTable("should panic on invalid limits", func(maxRequestsPerKey, maxConcurrentSources int) {
+			Expect(func() {
+				NewConcurrentCollectorWithLimits(maxRequestsPerKey, maxConcurrentSources, fakeMapper)
+			}).To(Panic())
+		},
+			Entry("maxRequestsPerKey < 1", 0, 1),
+			Entry("maxConcurrentSources < 1", 1, 0),
+		)
+	})
 })
+
+type concurrencyTrackingScraper struct {
+	delay   time.Duration
+	onStart func()
+	onDone  func()
+}
+
+func (s *concurrencyTrackingScraper) Scrape(_ string, _ *k6tv1.VirtualMachineInstance) {
+	s.onStart()
+	defer s.onDone()
+	time.Sleep(s.delay)
+}
+
+func (s *concurrencyTrackingScraper) Complete() {}
 
 type fakeScraper struct {
 	ready   map[string]chan bool
