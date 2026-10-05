@@ -30734,7 +30734,7 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"containerDisk": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
 							Ref:         ref(corev1.ContainerDiskSource{}.OpenAPIModelName()),
 						},
 					},
@@ -30915,7 +30915,7 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"containerDisk": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
 							Ref:         ref(corev1.ContainerDiskSource{}.OpenAPIModelName()),
 						},
 					},

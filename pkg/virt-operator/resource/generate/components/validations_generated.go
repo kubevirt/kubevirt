@@ -9639,7 +9639,7 @@ var CRDsValidation map[string]string = map[string]string{
                       containerDisk:
                         description: |-
                           ContainerDisk references a docker image, embedding a qcow or raw disk.
-                          More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+                          More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
                         properties:
                           image:
                             description: Image is the name of the image with the embedded
@@ -15897,7 +15897,7 @@ var CRDsValidation map[string]string = map[string]string{
               containerDisk:
                 description: |-
                   ContainerDisk references a docker image, embedding a qcow or raw disk.
-                  More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+                  More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
                 properties:
                   image:
                     description: Image is the name of the image with the embedded
@@ -22725,7 +22725,7 @@ var CRDsValidation map[string]string = map[string]string{
                       containerDisk:
                         description: |-
                           ContainerDisk references a docker image, embedding a qcow or raw disk.
-                          More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+                          More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
                         properties:
                           image:
                             description: Image is the name of the image with the embedded
@@ -27927,7 +27927,7 @@ var CRDsValidation map[string]string = map[string]string{
                               containerDisk:
                                 description: |-
                                   ContainerDisk references a docker image, embedding a qcow or raw disk.
-                                  More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+                                  More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
                                 properties:
                                   image:
                                     description: Image is the name of the image with
@@ -33624,7 +33624,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   containerDisk:
                                     description: |-
                                       ContainerDisk references a docker image, embedding a qcow or raw disk.
-                                      More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+                                      More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
                                     properties:
                                       image:
                                         description: Image is the name of the image

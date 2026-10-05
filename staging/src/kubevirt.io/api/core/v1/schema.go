@@ -964,7 +964,7 @@ type VolumeSource struct {
 	// +optional
 	Sysprep *SysprepSource `json:"sysprep,omitempty"`
 	// ContainerDisk references a docker image, embedding a qcow or raw disk.
-	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+	// More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk
 	// +optional
 	ContainerDisk *ContainerDiskSource `json:"containerDisk,omitempty"`
 	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
