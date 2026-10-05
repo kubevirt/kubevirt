@@ -253,10 +253,12 @@ func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			renderer.addKernelBootVolumeMount()
 		}
 
-		if vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
-			shouldAddLauncherBinaryVolume(vmi, renderer.imageIDs) {
-			renderer.addLauncherBinaryVolume()
-		}
+		// PERF EXPERIMENT: Skip launcher binary Image volume — it's only needed
+		// for init containers which are disabled for this test.
+		// if vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
+		// 	shouldAddLauncherBinaryVolume(vmi, renderer.imageIDs) {
+		// 	renderer.addLauncherBinaryVolume()
+		// }
 
 		return nil
 	}
