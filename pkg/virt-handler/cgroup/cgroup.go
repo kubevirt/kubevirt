@@ -204,12 +204,6 @@ var (
 	miscMaxPath      = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.max")
 )
 
-// miscMaxUnlimited is what misc.max reports for a key that has no limit set,
-// which is the default for every key.
-const miscMaxUnlimited = "max"
-
-var errMiscKeyNotFound = errors.New("key not found")
-
 // readMiscKey returns the raw value a misc cgroup file lists for key. Both
 // misc.capacity and misc.max hold lines in the format: "key [value]"
 func readMiscKey(filePath, key string) (string, error) {
@@ -232,37 +226,31 @@ func readMiscKey(filePath, key string) (string, error) {
 	if err := scanner.Err(); err != nil {
 		return "", err
 	}
-	return "", fmt.Errorf("%w: %s in %s", errMiscKeyNotFound, key, filePath)
+	return "", fmt.Errorf("key %s not found in %s", key, filePath)
 }
 
 // GetMiscCapacity reports how many guests charging the given misc cgroup key
 // this node can run.
 //
-// misc.capacity is declared CFTYPE_ONLY_ON_ROOT and misc.max CFTYPE_NOT_ON_ROOT,
-// so the kernel never puts both at the same cgroup. A node that owns the machine
-// reads the machine wide capacity the kernel registered, while a containerized
-// node, like a KinD node, has no capacity at all and can only be told its
-// share by way of a limit on its own cgroup. Prefer capacity, and fall back
-// to the limit where the kernel did not provide one.
+// The kernel never exposes both keys at one cgroup: misc.capacity is
+// CFTYPE_ONLY_ON_ROOT, misc.max is CFTYPE_NOT_ON_ROOT. A node owning the
+// machine reads the real capacity; a containerized node, like KinD, sees only
+// a limit on its own cgroup. If key is present only in misc.max, assume the
+// value is a share of misc.capacity, and report one.
 func GetMiscCapacity(key string) (int, error) {
 	capacity, err := readMiscKey(miscCapacityPath, key)
-	switch {
-	case err == nil:
+	if err == nil {
 		return strconv.Atoi(capacity)
-	case !errors.Is(err, fs.ErrNotExist):
-		// A permission or I/O error says nothing about which kind of node this
-		// is, so do not let it silently downgrade to the limit.
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
 		return 0, err
 	}
 
-	limit, limitErr := readMiscKey(miscMaxPath, key)
-	if limitErr != nil {
-		return 0, fmt.Errorf("no capacity for %s (%v) and no limit either: %w", key, err, limitErr)
+	const defaultLimit = 1
+	if _, limitErr := readMiscKey(miscMaxPath, key); limitErr != nil {
+		return 0, fmt.Errorf("misc resource %q not found: %w; %w", key, err, limitErr)
 	}
-	if limit == miscMaxUnlimited {
-		log.Log.Warningf("%s is unlimited in %s and absent from %s, treating it as not configured on this node",
-			key, miscMaxPath, miscCapacityPath)
-		return 0, fmt.Errorf("%s is not configured on this node", key)
-	}
-	return strconv.Atoi(limit)
+	log.Log.Warningf("misc resource %q is found in %s and absent from %s, defaulting to %d",
+		key, miscMaxPath, miscCapacityPath, defaultLimit)
+	return defaultLimit, nil
 }

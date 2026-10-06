@@ -275,9 +275,6 @@ var _ = Describe("GetMiscCapacity", func() {
 		Entry("produces error for non-numeric capacity",
 			"tdx abc\n", "", "tdx", 0, true,
 		),
-		Entry("falls back to the limit when there is no capacity file",
-			"", "tdx max\nsev_es 4\n", "sev_es", 4, false,
-		),
 		Entry("produces error when key not found in limit file",
 			"", "sev_es 4\n", "tdx", 0, true,
 		),
@@ -285,20 +282,16 @@ var _ = Describe("GetMiscCapacity", func() {
 		Entry("prefers capacity over the limit",
 			"sev_es 999\n", "sev_es 4\n", "sev_es", 999, false,
 		),
-		Entry("produces error when an unlimited limit leaves the key unconfigured",
-			"", "sev_es max\n", "sev_es", 0, true,
+		Entry("sets capacity to 1 when the limit present as numeric value",
+			"", "sev_es 3\n", "sev_es", 1, false,
 		),
-		Entry("produces error for a non-numeric limit",
-			"", "sev_es abc\n", "sev_es", 0, true,
+		Entry("sets capacity to 1 when the limit is set to max",
+			"", "sev_es max\n", "sev_es", 1, false,
+		),
+		Entry("sets capacity to 1 when the limit is non-numeric",
+			"", "sev_es abc\n", "sev_es", 1, false,
 		),
 	)
-
-	It("reports an unlimited limit as unconfigured rather than as a missing key", func() {
-		Expect(os.WriteFile(miscMaxPath, []byte("sev_es max\n"), 0644)).To(Succeed())
-
-		_, err := GetMiscCapacity("sev_es")
-		Expect(err).To(MatchError(ContainSubstring("not configured")))
-	})
 })
 
 var _ = Describe("parseDevicesList", func() {
