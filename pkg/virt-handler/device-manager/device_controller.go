@@ -185,23 +185,23 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 func (c *DeviceController) updateTdxDevice() (Device, error) {
 	maxTDXVMs, err := cgroup.GetMiscCapacity("tdx")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get TDX capacity from the misc cgroup: %v", err)
-	} else if maxTDXVMs > 0 {
-		var selinuxExecutor selinux.SELinuxExecutor
-		socketPath := c.virtConfig.GetQGSSocketPath()
-		socketDir := path.Dir(socketPath)
-		socketFile := path.Base(socketPath)
-		var tdxPlugin Device
-		var err error
-		if c.virtConfig.RequireQGS() {
-			tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
-		} else {
-			tdxPlugin = NewOptionalSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
-		}
-		return tdxPlugin, err
-	} else {
-		return nil, fmt.Errorf("an invalid device capacity of %d was report for tdx", maxTDXVMs)
+		return nil, fmt.Errorf("failed to get TDX capacity from the misc cgroup: %w", err)
 	}
+	if maxTDXVMs <= 0 {
+		return nil, fmt.Errorf("an invalid device capacity of %d was reported for tdx", maxTDXVMs)
+	}
+
+	var selinuxExecutor selinux.SELinuxExecutor
+	socketPath := c.virtConfig.GetQGSSocketPath()
+	socketDir := path.Dir(socketPath)
+	socketFile := path.Base(socketPath)
+	var tdxPlugin Device
+	if c.virtConfig.RequireQGS() {
+		tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
+	} else {
+		tdxPlugin = NewOptionalSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
+	}
+	return tdxPlugin, err
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
