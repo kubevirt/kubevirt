@@ -64,6 +64,7 @@ ADD https://storage.googleapis.com/builddeps/swagger2markup-cli-1.3.3.jar /opt/s
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 ENV JAVA_HOME=/usr/lib/jvm/java-21
+ENV JAVA_TOOL_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED"
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
@@ -140,9 +141,13 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-RUN if test "${ARCH}" != "s390x"; then \
+# Install Bazel based on architecture
+RUN if test "${ARCH}" != "s390x" && test "${ARCH}" != "ppc64le"; then \
+       # Download pre-built Bazel for amd64 and arm64
        curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
        chmod u+x /usr/bin/bazel; \
+    else \
+       echo "WARNING: No pre-built bazel binary available for ${ARCH}. Bazel must be installed separately or built from source."; \
     fi
 
 # Add /root/go/src/kubevirt.io/kubevirt and mark it as a safe directory for git

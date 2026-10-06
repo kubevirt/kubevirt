@@ -34,14 +34,21 @@ default_targets="
     virt-exportproxy
     virt-synchronization-controller
     alpine-container-disk-demo
-    fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
     disks-images-provider
     libguestfs-tools
     test-helpers
-    alpine-with-test-tooling-container-disk
 "
+
+# Test-tooling images: available for x86_64, aarch64, s390x but not ppc64le
+# (no ppc64le base images exist yet)
+if [[ "${ARCHITECTURE}" != "ppc64le" && "${ARCHITECTURE}" != "crossbuild-ppc64le" ]]; then
+    default_targets+="
+        fedora-with-test-tooling-container-disk
+        alpine-with-test-tooling-container-disk
+    "
+fi
 
 # Add additional images for s390x only
 if [[ "${ARCHITECTURE}" == "s390x" || "${ARCHITECTURE}" == "crossbuild-s390x" ]]; then
@@ -52,16 +59,20 @@ fi
 
 # Add additional images for x86_64 only
 if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" &&
-    "${ARCHITECTURE}" != "aarch64" && "${ARCHITECTURE}" != "crossbuild-aarch64" ]]; then
+    "${ARCHITECTURE}" != "aarch64" && "${ARCHITECTURE}" != "crossbuild-aarch64" &&
+    "${ARCHITECTURE}" != "ppc64le" && "${ARCHITECTURE}" != "crossbuild-ppc64le" ]]; then
     default_targets+="
         fedora-realtime-container-disk
         network-passt-binding-cni
         alpine-ext-kernel-boot-demo
+        winrmcli
+        network-passt-binding
     "
 fi
 
-# Add additional images for non-s390x architectures (x86_64 + aarch64)
-if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]; then
+# Add additional images for non-s390x, non-ppc64le architectures (x86_64 + aarch64)
+if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" &&
+    "${ARCHITECTURE}" != "ppc64le" && "${ARCHITECTURE}" != "crossbuild-ppc64le" ]]; then
     default_targets+="
         conformance
         pr-helper
@@ -74,6 +85,7 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         cirros-custom-container-disk-demo
         virtio-container-disk
         winrmcli
+        network-slirp-binding
         network-passt-binding
     "
 fi
