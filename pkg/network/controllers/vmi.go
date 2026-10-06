@@ -47,10 +47,8 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 
 	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
 
-	// Keep statuses for spec interfaces that are not managed by the virt-controller updater,
-	// such as DRA resource-claim networks.
 	interfaceStatuses = append(interfaceStatuses,
-		filterDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks)...,
+		calculateDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks, pod.Spec.ResourceClaims, pod.Status.ResourceClaimStatuses)...,
 	)
 
 	// Preserve interfaces discovered by the virt-handler which are not specified in the VMI.Spec.
@@ -60,22 +58,60 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	return nil
 }
 
-func filterDRAIfaceStatuses(
+func calculateDRAIfaceStatuses(
 	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
 	networks []v1.Network,
+	podResourceClaims []k8scorev1.PodResourceClaim,
+	resourceClaimStatuses []k8scorev1.PodResourceClaimStatus,
 ) []v1.VirtualMachineInstanceNetworkInterface {
-	var preservedIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+	var draIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
-	networksByName := vmispec.IndexNetworkSpecByName(networks)
-	for _, ifaceStatus := range ifaceStatuses {
-		if !vmispec.IsDRANetwork(networksByName[ifaceStatus.Name]) {
+	for _, network := range networks {
+		if !vmispec.IsDRANetwork(network) {
 			continue
 		}
 
-		preservedIfaceStatuses = append(preservedIfaceStatuses, ifaceStatus)
+		claimAssigned := isDRAResourceClaimAssigned(podResourceClaims, resourceClaimStatuses, network.ResourceClaim.ClaimName)
+		ifaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, network.Name)
+		switch {
+		case ifaceStatus != nil:
+			updatedIfaceStatus := *ifaceStatus
+			if claimAssigned {
+				updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			} else {
+				updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
+			if updatedIfaceStatus.InfoSource == "" {
+				continue
+			}
+			draIfaceStatuses = append(draIfaceStatuses, updatedIfaceStatus)
+		case claimAssigned:
+			draIfaceStatuses = append(draIfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+				Name:       network.Name,
+				InfoSource: vmispec.InfoSourcePodStatus,
+			})
+		}
 	}
 
-	return preservedIfaceStatuses
+	return draIfaceStatuses
+}
+
+func isDRAResourceClaimAssigned(
+	podResourceClaims []k8scorev1.PodResourceClaim,
+	resourceClaimStatuses []k8scorev1.PodResourceClaimStatus,
+	claimName string,
+) bool {
+	for _, claim := range podResourceClaims {
+		if claim.Name == claimName && claim.ResourceClaimName != nil {
+			return true
+		}
+	}
+	for _, claimStatus := range resourceClaimStatuses {
+		if claimStatus.Name == claimName {
+			return claimStatus.ResourceClaimName != nil
+		}
+	}
+	return false
 }
 
 func calculatePrimaryIfaceStatus(
