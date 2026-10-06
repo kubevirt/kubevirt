@@ -5,9 +5,11 @@ reviewers:
   - sig-network-reviewers
   - sig-test-reviewers
   - sig-observability-reviewers
+  - sig-control-plane-reviewers
 approvers:
   - sig-compute-approvers
   - sig-storage-approvers
   - sig-network-approvers
   - sig-test-approvers
   - sig-observability-approvers
+  - sig-control-plane-approvers
