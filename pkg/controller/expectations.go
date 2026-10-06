@@ -120,13 +120,13 @@ func (r *ControllerExpectations) DeleteExpectations(controllerKey string) {
 func (r *ControllerExpectations) SatisfiedExpectations(controllerKey string) bool {
 	if exp, exists, err := r.GetExpectations(controllerKey); exists {
 		if exp.Fulfilled() {
-			log.Log.V(4).Infof("Controller expectations (name: %s) fulfilled %#v", r.name, exp)
+			log.Log.V(4).Infof("Controller expectations (name: %s) fulfilled %s", r.name, exp)
 			return true
 		} else if exp.isExpired() {
-			log.Log.V(4).Infof("Controller expectations (name: %s) expired %#v", r.name, exp)
+			log.Log.V(4).Infof("Controller expectations (name: %s) expired %s", r.name, exp)
 			return true
 		} else {
-			log.Log.V(4).Infof("Controller (name: %s) still waiting on expectations %#v", r.name, exp)
+			log.Log.V(4).Infof("Controller (name: %s) still waiting on expectations %s", r.name, exp)
 			return false
 		}
 	} else if err != nil {
@@ -162,7 +162,7 @@ func (r *ControllerExpectations) SetExpectations(controllerKey string, add, del 
 	exp := &ControlleeExpectations{key: controllerKey, timestamp: clock.RealClock{}.Now()}
 	exp.add.Store(int64(add))
 	exp.del.Store(int64(del))
-	log.Log.V(4).Infof("Setting expectations %#v", exp)
+	log.Log.V(4).Infof("Setting expectations %s", exp)
 	if err := r.Add(exp); err != nil {
 		panicWithKeyFuncMsg(err)
 	}
