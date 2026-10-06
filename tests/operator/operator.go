@@ -66,7 +66,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -109,10 +109,9 @@ import (
 )
 
 type vmSnapshotDef struct {
-	vmSnapshotName  string
-	yamlFile        string
-	restoreName     string
-	restoreYamlFile string
+	vmSnapshotName string
+	yamlFile       string
+	restoreName    string
 }
 
 type vmYamlDefinition struct {
@@ -974,9 +973,25 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(*vm.Spec.RunStrategy).To(Equal(runStrategyHalted))
 
 				By(fmt.Sprintf("Ensure vm %s can be restored from vmsnapshots", vmYaml.vmName))
+				vmAPIGroup := "kubevirt.io"
 				for _, snapshot := range vmYaml.vmSnapshots {
-					_, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "create", "-f", snapshot.restoreYamlFile, "--cache-dir", newClientCacheDir)
-					Expect(err).ToNot(HaveOccurred(), stderr)
+					// Create the restore with the internal client so it targets a
+					// currently served API version, unlike a version-pinned manifest.
+					restore := &snapshotv1.VirtualMachineRestore{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: snapshot.restoreName,
+						},
+						Spec: snapshotv1.VirtualMachineRestoreSpec{
+							Target: k8sv1.TypedLocalObjectReference{
+								APIGroup: &vmAPIGroup,
+								Kind:     "VirtualMachine",
+								Name:     vmYaml.vmName,
+							},
+							VirtualMachineSnapshotName: snapshot.vmSnapshotName,
+						},
+					}
+					_, err := virtClient.VirtualMachineRestore(testsuite.GetTestNamespace(nil)).Create(context.Background(), restore, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 					Eventually(func() bool {
 						r, err := virtClient.VirtualMachineRestore(testsuite.GetTestNamespace(nil)).Get(context.Background(), snapshot.restoreName, metav1.GetOptions{})
 						if err != nil {
@@ -2910,24 +2925,11 @@ func generateSnapshotsForVersion(vmYaml *vmYamlDefinition, version string, workD
 	}
 
 	restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
-	restoreYamlFileName := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
-	err = resourcefiles.WriteFile(
-		restoreYamlFileName,
-		resourcefiles.RestoreInfo{
-			Version:      version,
-			Name:         restoreName,
-			VMName:       vmYaml.vmName,
-			SnapshotName: snapshotName,
-		})
-	if err != nil {
-		return nil, err
-	}
 
 	vmSnapshots = append(vmSnapshots, vmSnapshotDef{
-		vmSnapshotName:  snapshotName,
-		yamlFile:        snapshotYamlFileName,
-		restoreName:     restoreName,
-		restoreYamlFile: restoreYamlFileName,
+		vmSnapshotName: snapshotName,
+		yamlFile:       snapshotYamlFileName,
+		restoreName:    restoreName,
 	})
 
 	return vmSnapshots, nil

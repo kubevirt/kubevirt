@@ -40,17 +40,6 @@ func (SnapshotInfo) templateName() string {
 	return "snapshot-template.yaml"
 }
 
-type RestoreInfo struct {
-	Version      string
-	Name         string
-	VMName       string
-	SnapshotName string
-}
-
-func (RestoreInfo) templateName() string {
-	return "restore-template.yaml"
-}
-
 func WriteFile(fileName string, info TemplateInfo) error {
 	file, err := os.Create(fileName)
 	if err != nil {

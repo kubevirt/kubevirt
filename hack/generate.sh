@@ -11,8 +11,8 @@ CLIENT_GEN_BASE=kubevirt.io/client-go
 # KubeVirt stuff
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/schema.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1beta1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1beta1/types.go
@@ -28,8 +28,8 @@ deepcopy-gen \
     --bounding-dirs kubevirt.io/api \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
     --output-file deepcopy_generated.go \
-    kubevirt.io/api/snapshot/v1alpha1 \
     kubevirt.io/api/snapshot/v1beta1 \
+    kubevirt.io/api/snapshot/v1 \
     kubevirt.io/api/export/v1beta1 \
     kubevirt.io/api/export/v1 \
     kubevirt.io/api/instancetype/v1beta1 \
@@ -69,8 +69,8 @@ openapi-gen \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/pool/v1alpha1 \
     kubevirt.io/api/pool/v1beta1 \
-    kubevirt.io/api/snapshot/v1alpha1 \
     kubevirt.io/api/snapshot/v1beta1 \
+    kubevirt.io/api/snapshot/v1 \
     kubevirt.io/api/backup/v1alpha1 \
     kubevirt.io/api/plugin/v1alpha1 \
     kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
@@ -91,7 +91,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1,plugin/v1alpha1 \
+    --input core/v1,export/v1beta1,export/v1,snapshot/v1beta1,snapshot/v1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1,plugin/v1alpha1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -140,8 +140,8 @@ deepcopy-gen \
         # suppress -mod=vendor
         GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=../api/core/v1/
     #include snapshot
-    GOFLAGS= controller-gen crd paths=../api/snapshot/v1alpha1/
     GOFLAGS= controller-gen crd paths=../api/snapshot/v1beta1/
+    GOFLAGS= controller-gen crd paths=../api/snapshot/v1/
 
     #include export
     GOFLAGS= controller-gen crd paths=../api/export/v1beta1/

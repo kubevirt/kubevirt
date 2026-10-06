@@ -42,7 +42,7 @@ import (
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
@@ -744,28 +744,29 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		poolv1beta1.VirtualMachinePoolUnmanagedStrategy{}.OpenAPIModelName():                              schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolUnmanagedStrategy(ref),
 		poolv1beta1.VirtualMachinePoolUpdateStrategy{}.OpenAPIModelName():                                 schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolUpdateStrategy(ref),
 		poolv1beta1.VirtualMachineTemplateSpec{}.OpenAPIModelName():                                       schema_kubevirtio_api_pool_v1beta1_VirtualMachineTemplateSpec(ref),
-		snapshotv1alpha1.Condition{}.OpenAPIModelName():                                                   schema_kubevirtio_api_snapshot_v1alpha1_Condition(ref),
-		snapshotv1alpha1.Error{}.OpenAPIModelName():                                                       schema_kubevirtio_api_snapshot_v1alpha1_Error(ref),
-		snapshotv1alpha1.PersistentVolumeClaim{}.OpenAPIModelName():                                       schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref),
-		snapshotv1alpha1.SnapshotVolumesLists{}.OpenAPIModelName():                                        schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref),
-		snapshotv1alpha1.SourceIndication{}.OpenAPIModelName():                                            schema_kubevirtio_api_snapshot_v1alpha1_SourceIndication(ref),
-		snapshotv1alpha1.SourceSpec{}.OpenAPIModelName():                                                  schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref),
-		snapshotv1alpha1.VirtualMachine{}.OpenAPIModelName():                                              schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref),
-		snapshotv1alpha1.VirtualMachineRestore{}.OpenAPIModelName():                                       schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref),
-		snapshotv1alpha1.VirtualMachineRestoreList{}.OpenAPIModelName():                                   schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreList(ref),
-		snapshotv1alpha1.VirtualMachineRestoreSpec{}.OpenAPIModelName():                                   schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref),
-		snapshotv1alpha1.VirtualMachineRestoreStatus{}.OpenAPIModelName():                                 schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref),
-		snapshotv1alpha1.VirtualMachineSnapshot{}.OpenAPIModelName():                                      schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshot(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotContent{}.OpenAPIModelName():                               schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotContentList{}.OpenAPIModelName():                           schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentList(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotContentSpec{}.OpenAPIModelName():                           schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotContentStatus{}.OpenAPIModelName():                         schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotList{}.OpenAPIModelName():                                  schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotList(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotSpec{}.OpenAPIModelName():                                  schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref),
-		snapshotv1alpha1.VirtualMachineSnapshotStatus{}.OpenAPIModelName():                                schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref),
-		snapshotv1alpha1.VolumeBackup{}.OpenAPIModelName():                                                schema_kubevirtio_api_snapshot_v1alpha1_VolumeBackup(ref),
-		snapshotv1alpha1.VolumeRestore{}.OpenAPIModelName():                                               schema_kubevirtio_api_snapshot_v1alpha1_VolumeRestore(ref),
-		snapshotv1alpha1.VolumeSnapshotStatus{}.OpenAPIModelName():                                        schema_kubevirtio_api_snapshot_v1alpha1_VolumeSnapshotStatus(ref),
+		snapshotv1.Condition{}.OpenAPIModelName():                                                         schema_kubevirtio_api_snapshot_v1_Condition(ref),
+		snapshotv1.Error{}.OpenAPIModelName():                                                             schema_kubevirtio_api_snapshot_v1_Error(ref),
+		snapshotv1.PersistentVolumeClaim{}.OpenAPIModelName():                                             schema_kubevirtio_api_snapshot_v1_PersistentVolumeClaim(ref),
+		snapshotv1.SnapshotVolumesLists{}.OpenAPIModelName():                                              schema_kubevirtio_api_snapshot_v1_SnapshotVolumesLists(ref),
+		snapshotv1.SourceIndication{}.OpenAPIModelName():                                                  schema_kubevirtio_api_snapshot_v1_SourceIndication(ref),
+		snapshotv1.SourceSpec{}.OpenAPIModelName():                                                        schema_kubevirtio_api_snapshot_v1_SourceSpec(ref),
+		snapshotv1.VirtualMachine{}.OpenAPIModelName():                                                    schema_kubevirtio_api_snapshot_v1_VirtualMachine(ref),
+		snapshotv1.VirtualMachineRestore{}.OpenAPIModelName():                                             schema_kubevirtio_api_snapshot_v1_VirtualMachineRestore(ref),
+		snapshotv1.VirtualMachineRestoreList{}.OpenAPIModelName():                                         schema_kubevirtio_api_snapshot_v1_VirtualMachineRestoreList(ref),
+		snapshotv1.VirtualMachineRestoreSpec{}.OpenAPIModelName():                                         schema_kubevirtio_api_snapshot_v1_VirtualMachineRestoreSpec(ref),
+		snapshotv1.VirtualMachineRestoreStatus{}.OpenAPIModelName():                                       schema_kubevirtio_api_snapshot_v1_VirtualMachineRestoreStatus(ref),
+		snapshotv1.VirtualMachineSnapshot{}.OpenAPIModelName():                                            schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshot(ref),
+		snapshotv1.VirtualMachineSnapshotContent{}.OpenAPIModelName():                                     schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContent(ref),
+		snapshotv1.VirtualMachineSnapshotContentList{}.OpenAPIModelName():                                 schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContentList(ref),
+		snapshotv1.VirtualMachineSnapshotContentSpec{}.OpenAPIModelName():                                 schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContentSpec(ref),
+		snapshotv1.VirtualMachineSnapshotContentStatus{}.OpenAPIModelName():                               schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContentStatus(ref),
+		snapshotv1.VirtualMachineSnapshotList{}.OpenAPIModelName():                                        schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotList(ref),
+		snapshotv1.VirtualMachineSnapshotSpec{}.OpenAPIModelName():                                        schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotSpec(ref),
+		snapshotv1.VirtualMachineSnapshotStatus{}.OpenAPIModelName():                                      schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotStatus(ref),
+		snapshotv1.VolumeBackup{}.OpenAPIModelName():                                                      schema_kubevirtio_api_snapshot_v1_VolumeBackup(ref),
+		snapshotv1.VolumeRestore{}.OpenAPIModelName():                                                     schema_kubevirtio_api_snapshot_v1_VolumeRestore(ref),
+		snapshotv1.VolumeRestoreOverride{}.OpenAPIModelName():                                             schema_kubevirtio_api_snapshot_v1_VolumeRestoreOverride(ref),
+		snapshotv1.VolumeSnapshotStatus{}.OpenAPIModelName():                                              schema_kubevirtio_api_snapshot_v1_VolumeSnapshotStatus(ref),
 		snapshotv1beta1.Condition{}.OpenAPIModelName():                                                    schema_kubevirtio_api_snapshot_v1beta1_Condition(ref),
 		snapshotv1beta1.Error{}.OpenAPIModelName():                                                        schema_kubevirtio_api_snapshot_v1beta1_Error(ref),
 		snapshotv1beta1.PersistentVolumeClaim{}.OpenAPIModelName():                                        schema_kubevirtio_api_snapshot_v1beta1_PersistentVolumeClaim(ref),
@@ -35265,7 +35266,7 @@ func schema_kubevirtio_api_pool_v1beta1_VirtualMachineTemplateSpec(ref common.Re
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35317,7 +35318,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_Condition(ref common.ReferenceCallb
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_Error(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_Error(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35343,7 +35344,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_Error(ref common.ReferenceCallback)
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_PersistentVolumeClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35371,7 +35372,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_PersistentVolumeClaim(ref common.Re
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_SnapshotVolumesLists(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35422,7 +35423,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_SnapshotVolumesLists(ref common.Ref
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_SourceIndication(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_SourceIndication(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35452,7 +35453,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_SourceIndication(ref common.Referen
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_SourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35461,18 +35462,18 @@ func schema_kubevirtio_api_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.VirtualMachine{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.VirtualMachine{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			snapshotv1alpha1.VirtualMachine{}.OpenAPIModelName()},
+			snapshotv1.VirtualMachine{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachine(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35506,7 +35507,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachine(ref common.Reference
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35536,12 +35537,12 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref common.Re
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(snapshotv1alpha1.VirtualMachineRestoreSpec{}.OpenAPIModelName()),
+							Ref:     ref(snapshotv1.VirtualMachineRestoreSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.VirtualMachineRestoreStatus{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.VirtualMachineRestoreStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -35549,11 +35550,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestore(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			metav1.ObjectMeta{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineRestoreSpec{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineRestoreStatus{}.OpenAPIModelName()},
+			metav1.ObjectMeta{}.OpenAPIModelName(), snapshotv1.VirtualMachineRestoreSpec{}.OpenAPIModelName(), snapshotv1.VirtualMachineRestoreStatus{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35587,7 +35588,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreList(ref commo
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.VirtualMachineRestore{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.VirtualMachineRestore{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35598,15 +35599,15 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreList(ref commo
 			},
 		},
 		Dependencies: []string{
-			metav1.ListMeta{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineRestore{}.OpenAPIModelName()},
+			metav1.ListMeta{}.OpenAPIModelName(), snapshotv1.VirtualMachineRestore{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+				Description: "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"target": {
@@ -35623,6 +35624,43 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref commo
 							Format:  "",
 						},
 					},
+					"targetReadinessPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"volumeRestorePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"volumeOwnershipPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"volumeRestoreOverrides": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(snapshotv1.VolumeRestoreOverride{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 					"patches": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -35630,7 +35668,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref commo
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be applied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/spec/template/spec/domain/devices/interfaces/0/macAddress\", \"value\": \"00:00:5e:00:53:01\"}",
+							Description: "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be applied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/metadata/name\", \"value\": \"new-vm-name\"}",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -35648,25 +35686,30 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref commo
 			},
 		},
 		Dependencies: []string{
-			v1.TypedLocalObjectReference{}.OpenAPIModelName()},
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), snapshotv1.VolumeRestoreOverride{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineRestoreStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+				Description: "VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"restores": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.VolumeRestore{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.VolumeRestore{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35678,6 +35721,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 						},
 					},
 					"deletedDataVolumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -35698,13 +35746,18 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 						},
 					},
 					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.Condition{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35714,11 +35767,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), snapshotv1alpha1.Condition{}.OpenAPIModelName(), snapshotv1alpha1.VolumeRestore{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName(), snapshotv1.Condition{}.OpenAPIModelName(), snapshotv1.VolumeRestore{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshot(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshot(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35748,12 +35801,12 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshot(ref common.R
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(snapshotv1alpha1.VirtualMachineSnapshotSpec{}.OpenAPIModelName()),
+							Ref:     ref(snapshotv1.VirtualMachineSnapshotSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.VirtualMachineSnapshotStatus{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.VirtualMachineSnapshotStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -35761,11 +35814,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshot(ref common.R
 			},
 		},
 		Dependencies: []string{
-			metav1.ObjectMeta{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineSnapshotSpec{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineSnapshotStatus{}.OpenAPIModelName()},
+			metav1.ObjectMeta{}.OpenAPIModelName(), snapshotv1.VirtualMachineSnapshotSpec{}.OpenAPIModelName(), snapshotv1.VirtualMachineSnapshotStatus{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContent(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35795,12 +35848,12 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(snapshotv1alpha1.VirtualMachineSnapshotContentSpec{}.OpenAPIModelName()),
+							Ref:     ref(snapshotv1.VirtualMachineSnapshotContentSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.VirtualMachineSnapshotContentStatus{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.VirtualMachineSnapshotContentStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -35808,11 +35861,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref c
 			},
 		},
 		Dependencies: []string{
-			metav1.ObjectMeta{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineSnapshotContentSpec{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineSnapshotContentStatus{}.OpenAPIModelName()},
+			metav1.ObjectMeta{}.OpenAPIModelName(), snapshotv1.VirtualMachineSnapshotContentSpec{}.OpenAPIModelName(), snapshotv1.VirtualMachineSnapshotContentStatus{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35846,7 +35899,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentList(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.VirtualMachineSnapshotContent{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.VirtualMachineSnapshotContent{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35857,11 +35910,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentList(r
 			},
 		},
 		Dependencies: []string{
-			metav1.ListMeta{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineSnapshotContent{}.OpenAPIModelName()},
+			metav1.ListMeta{}.OpenAPIModelName(), snapshotv1.VirtualMachineSnapshotContent{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35877,17 +35930,22 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(r
 					"source": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(snapshotv1alpha1.SourceSpec{}.OpenAPIModelName()),
+							Ref:     ref(snapshotv1.SourceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"volumeBackups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.VolumeBackup{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.VolumeBackup{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35898,11 +35956,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(r
 			},
 		},
 		Dependencies: []string{
-			snapshotv1alpha1.SourceSpec{}.OpenAPIModelName(), snapshotv1alpha1.VolumeBackup{}.OpenAPIModelName()},
+			snapshotv1.SourceSpec{}.OpenAPIModelName(), snapshotv1.VolumeBackup{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotContentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35922,17 +35980,22 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.Error{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.Error{}.OpenAPIModelName()),
 						},
 					},
 					"volumeSnapshotStatus": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.VolumeSnapshotStatus{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.VolumeSnapshotStatus{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35942,11 +36005,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), snapshotv1alpha1.Error{}.OpenAPIModelName(), snapshotv1alpha1.VolumeSnapshotStatus{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName(), snapshotv1.Error{}.OpenAPIModelName(), snapshotv1.VolumeSnapshotStatus{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -35980,7 +36043,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotList(ref comm
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.VirtualMachineSnapshot{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.VirtualMachineSnapshot{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -35991,11 +36054,11 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotList(ref comm
 			},
 		},
 		Dependencies: []string{
-			metav1.ListMeta{}.OpenAPIModelName(), snapshotv1alpha1.VirtualMachineSnapshot{}.OpenAPIModelName()},
+			metav1.ListMeta{}.OpenAPIModelName(), snapshotv1.VirtualMachineSnapshot{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -36029,7 +36092,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VirtualMachineSnapshotStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -36067,17 +36130,22 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.Error{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.Error{}.OpenAPIModelName()),
 						},
 					},
 					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.Condition{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -36115,7 +36183,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(snapshotv1alpha1.SourceIndication{}.OpenAPIModelName()),
+										Ref:     ref(snapshotv1.SourceIndication{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -36123,18 +36191,18 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 					},
 					"snapshotVolumes": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.SnapshotVolumesLists{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.SnapshotVolumesLists{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), snapshotv1alpha1.Condition{}.OpenAPIModelName(), snapshotv1alpha1.Error{}.OpenAPIModelName(), snapshotv1alpha1.SnapshotVolumesLists{}.OpenAPIModelName(), snapshotv1alpha1.SourceIndication{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName(), snapshotv1.Condition{}.OpenAPIModelName(), snapshotv1.Error{}.OpenAPIModelName(), snapshotv1.SnapshotVolumesLists{}.OpenAPIModelName(), snapshotv1.SourceIndication{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VolumeBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -36151,7 +36219,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(snapshotv1alpha1.PersistentVolumeClaim{}.OpenAPIModelName()),
+							Ref:     ref(snapshotv1.PersistentVolumeClaim{}.OpenAPIModelName()),
 						},
 					},
 					"volumeSnapshotName": {
@@ -36165,15 +36233,15 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			snapshotv1alpha1.PersistentVolumeClaim{}.OpenAPIModelName()},
+			snapshotv1.PersistentVolumeClaim{}.OpenAPIModelName()},
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VolumeRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VolumeRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VolumeRestore contains the data neeed to restore a PVC",
+				Description: "VolumeRestore contains the data needed to restore a PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"volumeName": {
@@ -36210,7 +36278,62 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VolumeRestore(ref common.ReferenceC
 	}
 }
 
-func schema_kubevirtio_api_snapshot_v1alpha1_VolumeSnapshotStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_snapshot_v1_VolumeRestoreOverride(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"restoreName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"labels": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_snapshot_v1_VolumeSnapshotStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -36237,7 +36360,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VolumeSnapshotStatus(ref common.Ref
 					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(snapshotv1alpha1.Error{}.OpenAPIModelName()),
+							Ref: ref(snapshotv1.Error{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -36245,7 +36368,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VolumeSnapshotStatus(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), snapshotv1alpha1.Error{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName(), snapshotv1.Error{}.OpenAPIModelName()},
 	}
 }
 

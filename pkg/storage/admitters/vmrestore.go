@@ -34,28 +34,22 @@ import (
 
 	"kubevirt.io/api/core"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
-type vmRestoreConfigChecker interface {
-	SnapshotEnabled() bool
-}
-
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
-	config            vmRestoreConfigChecker
 	client            kubecli.KubevirtClient
 	vmRestoreInformer cache.SharedIndexInformer
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config vmRestoreConfigChecker, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
-		config:            config,
 		client:            client,
 		vmRestoreInformer: vmRestoreInformer,
 	}
@@ -66,10 +60,6 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinerestores" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
-	}
-
-	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Snapshot/Restore feature gate not enabled"))
 	}
 
 	vmRestore := &snapshotv1.VirtualMachineRestore{}

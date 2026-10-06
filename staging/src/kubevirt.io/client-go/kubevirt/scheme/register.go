@@ -37,7 +37,7 @@ import (
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
@@ -56,8 +56,8 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	pluginv1alpha1.AddToScheme,
 	poolv1alpha1.AddToScheme,
 	poolv1beta1.AddToScheme,
-	snapshotv1alpha1.AddToScheme,
 	snapshotv1beta1.AddToScheme,
+	snapshotv1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

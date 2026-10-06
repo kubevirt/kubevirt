@@ -49,8 +49,8 @@ import (
 	fakepoolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1/fake"
 	poolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	fakepoolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1/fake"
-	snapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
-	fakesnapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1/fake"
+	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1"
+	fakesnapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1/fake"
 	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 	fakesnapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1/fake"
 )
@@ -164,12 +164,12 @@ func (c *Clientset) PoolV1beta1() poolv1beta1.PoolV1beta1Interface {
 	return &fakepoolv1beta1.FakePoolV1beta1{Fake: &c.Fake}
 }
 
-// SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
-func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
-	return &fakesnapshotv1alpha1.FakeSnapshotV1alpha1{Fake: &c.Fake}
-}
-
 // SnapshotV1beta1 retrieves the SnapshotV1beta1Client
 func (c *Clientset) SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface {
 	return &fakesnapshotv1beta1.FakeSnapshotV1beta1{Fake: &c.Fake}
+}
+
+// SnapshotV1 retrieves the SnapshotV1Client
+func (c *Clientset) SnapshotV1() snapshotv1.SnapshotV1Interface {
+	return &fakesnapshotv1.FakeSnapshotV1{Fake: &c.Fake}
 }

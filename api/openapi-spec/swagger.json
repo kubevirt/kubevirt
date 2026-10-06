@@ -6953,13 +6953,13 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/": {
+   "/apis/snapshot.kubevirt.io/v1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-snapshot.kubevirt.io-v1beta1",
+     "operationId": "getAPIResources-snapshot.kubevirt.io-v1",
      "responses": {
       "200": {
        "description": "OK",
@@ -6979,7 +6979,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinerestores": {
+   "/apis/snapshot.kubevirt.io/v1/namespaces/{namespace}/virtualmachinerestores": {
     "get": {
      "description": "Get a list of VirtualMachineRestore objects.",
      "produces": [
@@ -7021,7 +7021,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestoreList"
+        "$ref": "#/definitions/v1.VirtualMachineRestoreList"
        }
       },
       "401": {
@@ -7049,7 +7049,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       {
@@ -7060,19 +7060,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "401": {
@@ -7132,7 +7132,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinerestores/{name}": {
+   "/apis/snapshot.kubevirt.io/v1/namespaces/{namespace}/virtualmachinerestores/{name}": {
     "get": {
      "description": "Get a VirtualMachineRestore object.",
      "produces": [
@@ -7153,7 +7153,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "401": {
@@ -7181,7 +7181,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       }
      ],
@@ -7189,13 +7189,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "401": {
@@ -7265,7 +7265,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
+        "$ref": "#/definitions/v1.VirtualMachineRestore"
        }
       },
       "401": {
@@ -7290,7 +7290,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinesnapshotcontents": {
+   "/apis/snapshot.kubevirt.io/v1/namespaces/{namespace}/virtualmachinesnapshotcontents": {
     "get": {
      "description": "Get a list of VirtualMachineSnapshotContent objects.",
      "produces": [
@@ -7332,7 +7332,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContentList"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContentList"
        }
       },
       "401": {
@@ -7360,7 +7360,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       {
@@ -7371,19 +7371,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "401": {
@@ -7443,7 +7443,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinesnapshotcontents/{name}": {
+   "/apis/snapshot.kubevirt.io/v1/namespaces/{namespace}/virtualmachinesnapshotcontents/{name}": {
     "get": {
      "description": "Get a VirtualMachineSnapshotContent object.",
      "produces": [
@@ -7464,7 +7464,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "401": {
@@ -7492,7 +7492,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       }
      ],
@@ -7500,13 +7500,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "401": {
@@ -7576,7 +7576,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
        }
       },
       "401": {
@@ -7601,7 +7601,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinesnapshots": {
+   "/apis/snapshot.kubevirt.io/v1/namespaces/{namespace}/virtualmachinesnapshots": {
     "get": {
      "description": "Get a list of VirtualMachineSnapshot objects.",
      "produces": [
@@ -7643,7 +7643,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotList"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotList"
        }
       },
       "401": {
@@ -7671,7 +7671,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       {
@@ -7682,19 +7682,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "401": {
@@ -7754,7 +7754,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinesnapshots/{name}": {
+   "/apis/snapshot.kubevirt.io/v1/namespaces/{namespace}/virtualmachinesnapshots/{name}": {
     "get": {
      "description": "Get a VirtualMachineSnapshot object.",
      "produces": [
@@ -7775,7 +7775,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "401": {
@@ -7803,7 +7803,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       }
      ],
@@ -7811,13 +7811,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "401": {
@@ -7887,7 +7887,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshot"
        }
       },
       "401": {
@@ -7912,7 +7912,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/virtualmachinerestores": {
+   "/apis/snapshot.kubevirt.io/v1/virtualmachinerestores": {
     "get": {
      "description": "Get a list of all VirtualMachineRestore objects.",
      "produces": [
@@ -7925,7 +7925,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineRestoreList"
+        "$ref": "#/definitions/v1.VirtualMachineRestoreList"
        }
       },
       "401": {
@@ -7963,7 +7963,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/virtualmachinesnapshotcontents": {
+   "/apis/snapshot.kubevirt.io/v1/virtualmachinesnapshotcontents": {
     "get": {
      "description": "Get a list of all VirtualMachineSnapshotContent objects.",
      "produces": [
@@ -7976,7 +7976,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContentList"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotContentList"
        }
       },
       "401": {
@@ -8014,7 +8014,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/virtualmachinesnapshots": {
+   "/apis/snapshot.kubevirt.io/v1/virtualmachinesnapshots": {
     "get": {
      "description": "Get a list of all VirtualMachineSnapshot objects.",
      "produces": [
@@ -8027,7 +8027,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotList"
+        "$ref": "#/definitions/v1.VirtualMachineSnapshotList"
        }
       },
       "401": {
@@ -8065,7 +8065,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinerestores": {
+   "/apis/snapshot.kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachinerestores": {
     "get": {
      "description": "Watch a VirtualMachineRestore object.",
      "produces": [
@@ -8117,7 +8117,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinesnapshotcontents": {
+   "/apis/snapshot.kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachinesnapshotcontents": {
     "get": {
      "description": "Watch a VirtualMachineSnapshotContent object.",
      "produces": [
@@ -8169,7 +8169,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinesnapshots": {
+   "/apis/snapshot.kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachinesnapshots": {
     "get": {
      "description": "Watch a VirtualMachineSnapshot object.",
      "produces": [
@@ -8221,7 +8221,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/watch/virtualmachinerestores": {
+   "/apis/snapshot.kubevirt.io/v1/watch/virtualmachinerestores": {
     "get": {
      "description": "Watch a VirtualMachineRestoreList object.",
      "produces": [
@@ -8270,7 +8270,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/watch/virtualmachinesnapshotcontents": {
+   "/apis/snapshot.kubevirt.io/v1/watch/virtualmachinesnapshotcontents": {
     "get": {
      "description": "Watch a VirtualMachineSnapshotContentList object.",
      "produces": [
@@ -8319,7 +8319,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1beta1/watch/virtualmachinesnapshots": {
+   "/apis/snapshot.kubevirt.io/v1/watch/virtualmachinesnapshots": {
     "get": {
      "description": "Watch a VirtualMachineSnapshotList object.",
      "produces": [
@@ -14964,6 +14964,18 @@
      }
     }
    },
+   "v1.Error": {
+    "description": "Error is the last error encountered during the snapshot/restore",
+    "type": "object",
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "time": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
    "v1.EvacuateCancelOptions": {
     "description": "EvacuateCancelOptions may be provided on evacuate cancel request.",
     "type": "object",
@@ -16965,6 +16977,21 @@
      }
     }
    },
+   "v1.PersistentVolumeClaim": {
+    "type": "object",
+    "properties": {
+     "metadata": {
+      "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimSpec"
+     }
+    }
+   },
    "v1.PersistentVolumeClaimInfo": {
     "description": "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
     "type": "object",
@@ -17615,6 +17642,28 @@
      }
     }
    },
+   "v1.SnapshotVolumesLists": {
+    "description": "SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot",
+    "type": "object",
+    "properties": {
+     "excludedVolumes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "includedVolumes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "set"
+     }
+    }
+   },
    "v1.SoundDevice": {
     "description": "Represents the user's configuration to emulate sound cards in the VMI.",
     "type": "object",
@@ -17630,6 +17679,35 @@
       "description": "User's defined name for this sound device",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1.SourceIndication": {
+    "description": "SourceIndication provides an indication of the source VM with its description message",
+    "type": "object",
+    "required": [
+     "indication",
+     "message"
+    ],
+    "properties": {
+     "indication": {
+      "description": "Indication is the indication type",
+      "type": "string",
+      "default": ""
+     },
+     "message": {
+      "description": "Message provides a description message of the indication",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.SourceSpec": {
+    "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
+    "type": "object",
+    "properties": {
+     "virtualMachine": {
+      "$ref": "#/definitions/v1.VirtualMachine"
      }
     }
    },
@@ -20093,6 +20171,381 @@
      }
     }
    },
+   "v1.VirtualMachineRestore": {
+    "description": "VirtualMachineRestore defines the operation of restoring a VM",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1.VirtualMachineRestoreSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1.VirtualMachineRestoreStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineRestoreList": {
+    "description": "VirtualMachineRestoreList is a list of VirtualMachineRestore resources",
+    "type": "object",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VirtualMachineRestore"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineRestoreSpec": {
+    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
+    "type": "object",
+    "required": [
+     "target",
+     "virtualMachineSnapshotName"
+    ],
+    "properties": {
+     "patches": {
+      "description": "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be applied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/metadata/name\", \"value\": \"new-vm-name\"}",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "target": {
+      "description": "initially only VirtualMachine type supported",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
+     },
+     "targetReadinessPolicy": {
+      "type": "string"
+     },
+     "virtualMachineSnapshotName": {
+      "type": "string",
+      "default": ""
+     },
+     "volumeOwnershipPolicy": {
+      "type": "string"
+     },
+     "volumeRestoreOverrides": {
+      "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VolumeRestoreOverride"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "volumeRestorePolicy": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineRestoreStatus": {
+    "description": "VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "complete": {
+      "type": "boolean"
+     },
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "deletedDataVolumes": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "restoreTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "restores": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VolumeRestore"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshot": {
+    "description": "VirtualMachineSnapshot defines the operation of snapshotting a VM",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1.VirtualMachineSnapshotSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1.VirtualMachineSnapshotStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotContent": {
+    "description": "VirtualMachineSnapshotContent contains the snapshot data",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1.VirtualMachineSnapshotContentSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1.VirtualMachineSnapshotContentStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotContentList": {
+    "description": "VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources",
+    "type": "object",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VirtualMachineSnapshotContent"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotContentSpec": {
+    "description": "VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource",
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "source": {
+      "default": {},
+      "$ref": "#/definitions/v1.SourceSpec"
+     },
+     "virtualMachineSnapshotName": {
+      "type": "string"
+     },
+     "volumeBackups": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VolumeBackup"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotContentStatus": {
+    "description": "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "creationTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "error": {
+      "$ref": "#/definitions/v1.Error"
+     },
+     "readyToUse": {
+      "type": "boolean"
+     },
+     "volumeSnapshotStatus": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VolumeSnapshotStatus"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotList": {
+    "description": "VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources",
+    "type": "object",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VirtualMachineSnapshot"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotSpec": {
+    "description": "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "deletionPolicy": {
+      "type": "string"
+     },
+     "failureDeadline": {
+      "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "source": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
+     }
+    }
+   },
+   "v1.VirtualMachineSnapshotStatus": {
+    "description": "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "creationTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "error": {
+      "$ref": "#/definitions/v1.Error"
+     },
+     "indications": {
+      "description": "Deprecated: Use SourceIndications instead. This field will be removed in a future version.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "phase": {
+      "type": "string"
+     },
+     "readyToUse": {
+      "type": "boolean"
+     },
+     "snapshotVolumes": {
+      "$ref": "#/definitions/v1.SnapshotVolumesLists"
+     },
+     "sourceIndications": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.SourceIndication"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "sourceUID": {
+      "type": "string"
+     },
+     "virtualMachineSnapshotContentName": {
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec describes how the proper VirtualMachine should look like",
     "type": "object",
@@ -20364,6 +20817,27 @@
      }
     }
    },
+   "v1.VolumeBackup": {
+    "description": "VolumeBackup contains the data neeed to restore a PVC",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "persistentVolumeClaim"
+    ],
+    "properties": {
+     "persistentVolumeClaim": {
+      "default": {},
+      "$ref": "#/definitions/v1.PersistentVolumeClaim"
+     },
+     "volumeName": {
+      "type": "string",
+      "default": ""
+     },
+     "volumeSnapshotName": {
+      "type": "string"
+     }
+    }
+   },
    "v1.VolumeMigrationState": {
     "type": "object",
     "properties": {
@@ -20375,6 +20849,58 @@
        "$ref": "#/definitions/v1.StorageMigratedVolumeInfo"
       },
       "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.VolumeRestore": {
+    "description": "VolumeRestore contains the data needed to restore a PVC",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "persistentVolumeClaim",
+     "volumeSnapshotName"
+    ],
+    "properties": {
+     "dataVolumeName": {
+      "type": "string"
+     },
+     "persistentVolumeClaim": {
+      "type": "string",
+      "default": ""
+     },
+     "volumeName": {
+      "type": "string",
+      "default": ""
+     },
+     "volumeSnapshotName": {
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.VolumeRestoreOverride": {
+    "description": "VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot",
+    "type": "object",
+    "properties": {
+     "annotations": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "restoreName": {
+      "type": "string"
+     },
+     "volumeName": {
+      "type": "string"
      }
     }
    },
@@ -21465,18 +21991,6 @@
      }
     }
    },
-   "v1beta1.Error": {
-    "description": "Error is the last error encountered during the snapshot/restore",
-    "type": "object",
-    "properties": {
-     "message": {
-      "type": "string"
-     },
-     "time": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     }
-    }
-   },
    "v1beta1.FeaturePreferences": {
     "description": "FeaturePreferences contains various optional defaults for Features.",
     "type": "object",
@@ -21581,21 +22095,6 @@
      }
     }
    },
-   "v1beta1.PersistentVolumeClaim": {
-    "type": "object",
-    "properties": {
-     "metadata": {
-      "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-      "default": {},
-      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimSpec"
-     }
-    }
-   },
    "v1beta1.PlatformOptions": {
     "type": "object",
     "properties": {
@@ -21619,57 +22118,6 @@
      "memory": {
       "description": "Required Memory related attributes of the instancetype.",
       "$ref": "#/definitions/v1beta1.MemoryPreferenceRequirement"
-     }
-    }
-   },
-   "v1beta1.SnapshotVolumesLists": {
-    "description": "SnapshotVolumesLists includes the list of volumes which were included in the snapshot and volumes which were excluded from the snapshot",
-    "type": "object",
-    "properties": {
-     "excludedVolumes": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "set"
-     },
-     "includedVolumes": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "set"
-     }
-    }
-   },
-   "v1beta1.SourceIndication": {
-    "description": "SourceIndication provides an indication of the source VM with its description message",
-    "type": "object",
-    "required": [
-     "indication",
-     "message"
-    ],
-    "properties": {
-     "indication": {
-      "description": "Indication is the indication type",
-      "type": "string",
-      "default": ""
-     },
-     "message": {
-      "description": "Message provides a description message of the indication",
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
-   "v1beta1.SourceSpec": {
-    "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
-    "type": "object",
-    "properties": {
-     "virtualMachine": {
-      "$ref": "#/definitions/v1beta1.VirtualMachine"
      }
     }
    },
@@ -21738,25 +22186,6 @@
      "volumeName": {
       "description": "VolumeName is the binding reference to the PersistentVolume backing this claim.",
       "type": "string"
-     }
-    }
-   },
-   "v1beta1.VirtualMachine": {
-    "type": "object",
-    "properties": {
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VirtualMachineSpec contains the VirtualMachine specification.",
-      "default": {},
-      "$ref": "#/definitions/v1.VirtualMachineSpec"
-     },
-     "status": {
-      "description": "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
-      "default": {},
-      "$ref": "#/definitions/v1.VirtualMachineStatus"
      }
     }
    },
@@ -22587,381 +23016,6 @@
      }
     }
    },
-   "v1beta1.VirtualMachineRestore": {
-    "description": "VirtualMachineRestore defines the operation of restoring a VM",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1beta1.VirtualMachineRestoreSpec"
-     },
-     "status": {
-      "$ref": "#/definitions/v1beta1.VirtualMachineRestoreStatus"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineRestoreList": {
-    "description": "VirtualMachineRestoreList is a list of VirtualMachineRestore resources",
-    "type": "object",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VirtualMachineRestore"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineRestoreSpec": {
-    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
-    "type": "object",
-    "required": [
-     "target",
-     "virtualMachineSnapshotName"
-    ],
-    "properties": {
-     "patches": {
-      "description": "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be applied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/metadata/name\", \"value\": \"new-vm-name\"}",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "target": {
-      "description": "initially only VirtualMachine type supported",
-      "default": {},
-      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
-     },
-     "targetReadinessPolicy": {
-      "type": "string"
-     },
-     "virtualMachineSnapshotName": {
-      "type": "string",
-      "default": ""
-     },
-     "volumeOwnershipPolicy": {
-      "type": "string"
-     },
-     "volumeRestoreOverrides": {
-      "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VolumeRestoreOverride"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "volumeRestorePolicy": {
-      "type": "string"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineRestoreStatus": {
-    "description": "VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource",
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "complete": {
-      "type": "boolean"
-     },
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.Condition"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "deletedDataVolumes": {
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "set"
-     },
-     "restoreTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "restores": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VolumeRestore"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshot": {
-    "description": "VirtualMachineSnapshot defines the operation of snapshotting a VM",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotSpec"
-     },
-     "status": {
-      "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotStatus"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotContent": {
-    "description": "VirtualMachineSnapshotContent contains the snapshot data",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContentSpec"
-     },
-     "status": {
-      "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContentStatus"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotContentList": {
-    "description": "VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources",
-    "type": "object",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VirtualMachineSnapshotContent"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotContentSpec": {
-    "description": "VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource",
-    "type": "object",
-    "required": [
-     "source"
-    ],
-    "properties": {
-     "source": {
-      "default": {},
-      "$ref": "#/definitions/v1beta1.SourceSpec"
-     },
-     "virtualMachineSnapshotName": {
-      "type": "string"
-     },
-     "volumeBackups": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VolumeBackup"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotContentStatus": {
-    "description": "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "creationTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "error": {
-      "$ref": "#/definitions/v1beta1.Error"
-     },
-     "readyToUse": {
-      "type": "boolean"
-     },
-     "volumeSnapshotStatus": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VolumeSnapshotStatus"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotList": {
-    "description": "VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources",
-    "type": "object",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.VirtualMachineSnapshot"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotSpec": {
-    "description": "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
-    "type": "object",
-    "required": [
-     "source"
-    ],
-    "properties": {
-     "deletionPolicy": {
-      "type": "string"
-     },
-     "failureDeadline": {
-      "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
-     },
-     "source": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
-     }
-    }
-   },
-   "v1beta1.VirtualMachineSnapshotStatus": {
-    "description": "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.Condition"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "creationTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "error": {
-      "$ref": "#/definitions/v1beta1.Error"
-     },
-     "indications": {
-      "description": "Deprecated: Use SourceIndications instead. This field will be removed in a future version.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "set"
-     },
-     "phase": {
-      "type": "string"
-     },
-     "readyToUse": {
-      "type": "boolean"
-     },
-     "snapshotVolumes": {
-      "$ref": "#/definitions/v1beta1.SnapshotVolumesLists"
-     },
-     "sourceIndications": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1beta1.SourceIndication"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "sourceUID": {
-      "type": "string"
-     },
-     "virtualMachineSnapshotContentName": {
-      "type": "string"
-     }
-    }
-   },
    "v1beta1.VirtualMachineTemplateSpec": {
     "type": "object",
     "properties": {
@@ -22976,107 +23030,12 @@
      }
     }
    },
-   "v1beta1.VolumeBackup": {
-    "description": "VolumeBackup contains the data neeed to restore a PVC",
-    "type": "object",
-    "required": [
-     "volumeName",
-     "persistentVolumeClaim"
-    ],
-    "properties": {
-     "persistentVolumeClaim": {
-      "default": {},
-      "$ref": "#/definitions/v1beta1.PersistentVolumeClaim"
-     },
-     "volumeName": {
-      "type": "string",
-      "default": ""
-     },
-     "volumeSnapshotName": {
-      "type": "string"
-     }
-    }
-   },
    "v1beta1.VolumePreferences": {
     "type": "object",
     "properties": {
      "preferredStorageClassName": {
       "description": "PreffereedStorageClassName optionally defines the preferred storageClass",
       "type": "string"
-     }
-    }
-   },
-   "v1beta1.VolumeRestore": {
-    "description": "VolumeRestore contains the data needed to restore a PVC",
-    "type": "object",
-    "required": [
-     "volumeName",
-     "persistentVolumeClaim",
-     "volumeSnapshotName"
-    ],
-    "properties": {
-     "dataVolumeName": {
-      "type": "string"
-     },
-     "persistentVolumeClaim": {
-      "type": "string",
-      "default": ""
-     },
-     "volumeName": {
-      "type": "string",
-      "default": ""
-     },
-     "volumeSnapshotName": {
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
-   "v1beta1.VolumeRestoreOverride": {
-    "description": "VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot",
-    "type": "object",
-    "properties": {
-     "annotations": {
-      "type": "object",
-      "additionalProperties": {
-       "type": "string",
-       "default": ""
-      }
-     },
-     "labels": {
-      "type": "object",
-      "additionalProperties": {
-       "type": "string",
-       "default": ""
-      }
-     },
-     "restoreName": {
-      "type": "string"
-     },
-     "volumeName": {
-      "type": "string"
-     }
-    }
-   },
-   "v1beta1.VolumeSnapshotStatus": {
-    "description": "VolumeSnapshotStatus is the status of a VolumeSnapshot",
-    "type": "object",
-    "required": [
-     "volumeSnapshotName"
-    ],
-    "properties": {
-     "creationTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "error": {
-      "$ref": "#/definitions/v1beta1.Error"
-     },
-     "readyToUse": {
-      "type": "boolean"
-     },
-     "volumeSnapshotName": {
-      "type": "string",
-      "default": ""
      }
     }
    }
