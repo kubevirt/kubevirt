@@ -64,6 +64,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtcache "kubevirt.io/kubevirt/pkg/cache"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -113,7 +114,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage/diskdriver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
-	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
 const (
