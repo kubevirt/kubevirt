@@ -47,14 +47,17 @@ const (
 )
 
 var (
+	// MutatingAdmissionPolicy is v1alpha1 in k8s 1.32 (GA expected in 1.34+).
+	// Verified against our kubeadm 1.32.13 cluster: kubectl api-resources
+	// shows admissionregistration.k8s.io/v1alpha1 for mutatingadmissionpolicies.
 	mapGVR = schema.GroupVersionResource{
 		Group:    "admissionregistration.k8s.io",
-		Version:  "v1",
+		Version:  "v1alpha1",
 		Resource: "mutatingadmissionpolicies",
 	}
 	bindingGVR = schema.GroupVersionResource{
 		Group:    "admissionregistration.k8s.io",
-		Version:  "v1",
+		Version:  "v1alpha1",
 		Resource: "mutatingadmissionpolicybindings",
 	}
 )
@@ -137,7 +140,7 @@ func buildPolicy(uploaderImage, collectorURL, runID string) *unstructured.Unstru
 
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "admissionregistration.k8s.io/v1",
+			"apiVersion": "admissionregistration.k8s.io/v1alpha1",
 			"kind":       "MutatingAdmissionPolicy",
 			"metadata":   map[string]interface{}{"name": PolicyName},
 			"spec": map[string]interface{}{
@@ -175,7 +178,7 @@ func buildPolicy(uploaderImage, collectorURL, runID string) *unstructured.Unstru
 func buildBinding() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "admissionregistration.k8s.io/v1",
+			"apiVersion": "admissionregistration.k8s.io/v1alpha1",
 			"kind":       "MutatingAdmissionPolicyBinding",
 			"metadata":   map[string]interface{}{"name": BindingName},
 			"spec": map[string]interface{}{
