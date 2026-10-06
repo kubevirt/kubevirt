@@ -2716,7 +2716,7 @@ func (c *Controller) isVirtualMachineWaitingReceiver(vm *virtv1.VirtualMachine, 
 	return (vmi == nil || vmi.IsWaitingForSync()) && runStrategy == virtv1.RunStrategyWaitAsReceiver
 }
 
-func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+func syncReadinessFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
@@ -2739,8 +2739,8 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineReady,
 			Status:             k8score.ConditionFalse,
-			Reason:             "VMI" + string(vmi.Status.Phase),
-			Message:            fmt.Sprintf("VMI is in %s phase", vmi.Status.Phase),
+			Reason:             virtv1.GuestNotRunningReason,
+			Message:            "Guest VM is not reported as running",
 			LastProbeTime:      now,
 			LastTransitionTime: now,
 		})
@@ -2772,7 +2772,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	cm := controller.NewVirtualMachineConditionManager()
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
-	syncReadyConditionFromVMI(vm, vmi)
+	syncReadinessFromVMI(vm, vmi)
 	processFailureCondition(vm, syncErr)
 
 	// nothing to do if vmi hasn't been created yet.

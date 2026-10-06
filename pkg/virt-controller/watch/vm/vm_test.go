@@ -3957,7 +3957,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
 			})
 
-			DescribeTable("should set Stopped and not ready when a terminal VMI still reports ready", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time, reason string) {
+			DescribeTable("should set Stopped and not ready when a terminal VMI still reports ready", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Ready = true
 				virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
@@ -3995,7 +3995,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond).ToNot(BeNil())
 				Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Status": Equal(k8sv1.ConditionFalse),
-					"Reason": Equal(reason),
+					"Reason": Equal(v1.GuestNotRunningReason),
 				}))
 
 				// If the VMI is not already marked to be deleted (deletion timestamp is set), it should be deleted
@@ -4006,10 +4006,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			},
 
-				Entry("in Succeeded state", v1.Succeeded, nil, "VMISucceeded"),
-				Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, &metav1.Time{Time: time.Now()}, "VMISucceeded"),
-				Entry("in Failed state", v1.Failed, nil, "VMIFailed"),
-				Entry("in Failed state with a deletionTimestamp", v1.Failed, &metav1.Time{Time: time.Now()}, "VMIFailed"),
+				Entry("in Succeeded state", v1.Succeeded, nil),
+				Entry("in Succeeded state with a deletionTimestamp", v1.Succeeded, &metav1.Time{Time: time.Now()}),
+				Entry("in Failed state", v1.Failed, nil),
+				Entry("in Failed state with a deletionTimestamp", v1.Failed, &metav1.Time{Time: time.Now()}),
 			)
 
 			It("Should set a Starting status when running=true and VMI doesn't exist", func() {
@@ -7369,7 +7369,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
 		})
 
-		DescribeTable("should adopt a terminal VMI's false Ready condition", func(phase v1.VirtualMachineInstancePhase, initialStatus k8sv1.ConditionStatus, fallbackReason string) {
+		DescribeTable("should adopt a terminal VMI's false Ready condition", func(phase v1.VirtualMachineInstancePhase, initialStatus k8sv1.ConditionStatus) {
 			vm.Status.Ready = true
 			vmi.Status.Phase = phase
 			readyCond := v1.VirtualMachineInstanceCondition{
@@ -7396,7 +7396,8 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(vm.Status.Ready).To(BeFalse())
 			if initialStatus != k8sv1.ConditionFalse {
-				Expect(cond.Reason).To(Equal(fallbackReason))
+				Expect(cond.Reason).To(Equal(v1.GuestNotRunningReason))
+				Expect(cond.Message).To(Equal("Guest VM is not reported as running"))
 			} else {
 				Expect(cond.Reason).To(Equal(readyCond.Reason))
 			}
@@ -7414,14 +7415,14 @@ var _ = Describe("VirtualMachine", func() {
 				LastTransitionTime: readyCond.LastTransitionTime,
 			}))
 		},
-			Entry("Succeeded with True readiness", v1.Succeeded, k8sv1.ConditionTrue, "VMISucceeded"),
-			Entry("Succeeded with Unknown readiness", v1.Succeeded, k8sv1.ConditionUnknown, "VMISucceeded"),
-			Entry("Succeeded with missing readiness", v1.Succeeded, k8sv1.ConditionStatus(""), "VMISucceeded"),
-			Entry("Succeeded with False readiness", v1.Succeeded, k8sv1.ConditionFalse, "VMISucceeded"),
-			Entry("Failed with True readiness", v1.Failed, k8sv1.ConditionTrue, "VMIFailed"),
-			Entry("Failed with Unknown readiness", v1.Failed, k8sv1.ConditionUnknown, "VMIFailed"),
-			Entry("Failed with missing readiness", v1.Failed, k8sv1.ConditionStatus(""), "VMIFailed"),
-			Entry("Failed with False readiness", v1.Failed, k8sv1.ConditionFalse, "VMIFailed"),
+			Entry("Succeeded with True readiness", v1.Succeeded, k8sv1.ConditionTrue),
+			Entry("Succeeded with Unknown readiness", v1.Succeeded, k8sv1.ConditionUnknown),
+			Entry("Succeeded with missing readiness", v1.Succeeded, k8sv1.ConditionStatus("")),
+			Entry("Succeeded with False readiness", v1.Succeeded, k8sv1.ConditionFalse),
+			Entry("Failed with True readiness", v1.Failed, k8sv1.ConditionTrue),
+			Entry("Failed with Unknown readiness", v1.Failed, k8sv1.ConditionUnknown),
+			Entry("Failed with missing readiness", v1.Failed, k8sv1.ConditionStatus("")),
+			Entry("Failed with False readiness", v1.Failed, k8sv1.ConditionFalse),
 		)
 
 		It("should sync appropriate conditions and ignore others", func() {

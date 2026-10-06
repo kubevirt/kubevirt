@@ -209,7 +209,7 @@ var _ = Describe("Node controller with", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(controller.createAndApplyFailedVMINodeUnresponsivePatch(vmi, log.DefaultLogger())).ToNot(Succeed())
-			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
+			Expect(recorder.Events).To(BeEmpty())
 
 			currentVMI, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -234,7 +234,6 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			Expect(controller.updateVMIWithFailedStatus([]*v1.VirtualMachineInstance{vmi, vmi1, vmi2}, log.DefaultLogger())).To(HaveOccurred())
-			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(3))

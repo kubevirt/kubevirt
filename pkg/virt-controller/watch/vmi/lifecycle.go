@@ -646,8 +646,8 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	// We don't own the object anymore, so patch instead of update
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	if !vmiConditions.ConditionsEqual(oldVMI, newVMI) {
-		// Conditions may still match after virt-handler advances the phase. Do not
-		// allow a stale Pod readiness update to make a terminal VMI ready again.
+		// Phase changes are guarded below. Also guard conditions-only updates
+		// so stale Pod readiness cannot make a terminal VMI ready again.
 		if newVMI.Status.Phase == oldVMI.Status.Phase {
 			patchSet.AddOption(patch.WithTest("/status/phase", oldVMI.Status.Phase))
 		}
