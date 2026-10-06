@@ -124,10 +124,10 @@ func New() *Framework {
 func (f *Framework) Start(ctx context.Context) {
 	GinkgoHelper()
 	f.ctx, f.cancel = context.WithCancel(ctx)
+	DeferCleanup(f.Stop)
 
 	cfg, err := f.env.Start()
 	Expect(err).NotTo(HaveOccurred(), "failed to start envtest")
-	DeferCleanup(f.Stop)
 
 	f.initClients(cfg)
 	f.createSeedData()

@@ -52,6 +52,7 @@ go_test(
         "framework_suite_test.go",
         "framework_test.go",
         "podsimulator_test.go",
+        "startup_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -64,6 +65,7 @@ go_test(
         "//vendor/k8s.io/api/storage/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
