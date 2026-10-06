@@ -20,7 +20,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/expand"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type Event string
@@ -53,6 +57,10 @@ var (
 	ErrSourceWithBackendStorage = errors.New("Clone of source with backendstorage is not supported")
 )
 
+type expandHandler interface {
+	Expand(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
+}
+
 type VMCloneController struct {
 	client               kubecli.KubevirtClient
 	vmCloneIndexer       cache.Indexer
@@ -65,9 +73,31 @@ type VMCloneController struct {
 
 	vmCloneQueue workqueue.TypedRateLimitingInterface[string]
 	hasSynced    func() bool
+
+	expandHandler expandHandler
 }
 
-func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*VMCloneController, error) {
+func NewVmCloneController(
+	client kubecli.KubevirtClient,
+	vmCloneInformer, snapshotInformer, restoreInformer, vmInformer, snapshotContentInformer, pvcInformer cache.SharedIndexInformer,
+	instancetypeInformer, clusterInstancetypeInformer, preferenceInformer, clusterPreferenceInformer, controllerRevisionInformer cache.SharedIndexInformer,
+	clusterConfig *virtconfig.ClusterConfig,
+	recorder record.EventRecorder,
+) (*VMCloneController, error) {
+	instancetypeFinder := find.NewSpecFinder(
+		instancetypeInformer.GetStore(),
+		clusterInstancetypeInformer.GetStore(),
+		controllerRevisionInformer.GetStore(),
+		client,
+	)
+	preferenceFinder := preferencefind.NewSpecFinder(
+		preferenceInformer.GetStore(),
+		clusterPreferenceInformer.GetStore(),
+		controllerRevisionInformer.GetStore(),
+		client,
+	)
+	expandHandler := expand.New(clusterConfig, instancetypeFinder, preferenceFinder)
+
 	ctrl := VMCloneController{
 		client:               client,
 		vmCloneIndexer:       vmCloneInformer.GetIndexer(),
@@ -77,6 +107,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		snapshotContentStore: snapshotContentInformer.GetStore(),
 		pvcStore:             pvcInformer.GetStore(),
 		recorder:             recorder,
+		expandHandler:        expandHandler,
 		vmCloneQueue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmclone"},
