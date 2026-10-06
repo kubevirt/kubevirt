@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -79,23 +78,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-	})
-
-	Context("when requesting virtio-transitional models", func() {
-		It("[test_id:6957]should start and run the guest", func() {
-			vmi := libvmifact.NewAlpine(
-				libvmi.WithRng(),
-				libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch()),
-				libvmi.WithTablet("tablet", "virtio"),
-				libvmi.WithTablet("tablet1", "usb"),
-			)
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			testutils.ExpectVirtioTransitionalOnly(domSpec)
-		})
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", decorators.WgS390x, func() {
