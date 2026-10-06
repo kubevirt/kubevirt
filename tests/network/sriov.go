@@ -250,7 +250,8 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			networkInterface := vmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, mac)
 			Expect(networkInterface).NotTo(BeNil(), "interface not found")
 			Expect(networkInterface.InfoSource).To(Equal(vmispec.NewInfoSource(
-				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus)))
+				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent,
+				vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus)))
 		})
 
 		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
