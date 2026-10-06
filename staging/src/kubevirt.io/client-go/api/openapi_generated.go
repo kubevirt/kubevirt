@@ -29194,7 +29194,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 					},
 					"infoSource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status, pod-status.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
