@@ -116,7 +116,8 @@ func New() *Framework {
 	Expect(err).NotTo(HaveOccurred(), "failed to load CRDs")
 	return &Framework{
 		env: &envtest.Environment{
-			CRDs: crds,
+			CRDs:               crds,
+			UseExistingCluster: new(bool),
 		},
 	}
 }
