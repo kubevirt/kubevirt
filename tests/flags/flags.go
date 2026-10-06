@@ -63,6 +63,12 @@ var EmulatedSRIOV bool
 var PrimaryNetworkBindingPlugin string
 var OrasTestArtifactImage = "quay.io/vladikr/alpine-oras-artifact:devel"
 
+// E2E coverage collection flags (--cov-report). These are only active when
+// images are built with --build-cover (hack/bazel-build-images.sh).
+var CovReport bool
+var CovCollectorURL string
+var CovUploaderImage string
+
 func init() {
 	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
@@ -99,6 +105,11 @@ func init() {
 	flag.BoolVar(&EmulatedSRIOV, "emulated-sriov", false, "Run SR-IOV tests in emulated mode")
 	flag.StringVar(&PrimaryNetworkBindingPlugin, "primary-network-binding-plugin", "", "Name of a pre-registered network binding plugin to use instead of masquerade in conformance tests")
 	flag.StringVar(&OrasTestArtifactImage, "oras-test-artifact-image", OrasTestArtifactImage, "OCI artifact image for ORAS functional tests")
+
+	// E2E coverage flags (opt-in; only meaningful with --build-cover images).
+	flag.BoolVar(&CovReport, "cov-report", false, "Enable E2E coverage collection (requires --build-cover images)")
+	flag.StringVar(&CovCollectorURL, "cov-collector-url", "http://kv-coverage-collector-svc.kubevirt-coverage/coverage", "kv-coverage-collector service URL")
+	flag.StringVar(&CovUploaderImage, "cov-uploader-image", "", "coverage-uploader image injected into virt-launcher pods via MAP")
 }
 
 func NormalizeFlags() {
