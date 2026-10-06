@@ -20,9 +20,12 @@
 package storage
 
 import (
+	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -917,146 +920,141 @@ var _ = Describe("Backup", func() {
 		})
 	})
 
-	Describe("findDisksWithCheckpointBitmap", func() {
-		const checkpointName = "checkpoint-1"
+	Describe("RedefineCheckpoint", func() {
+		const (
+			checkpointName = "checkpoint-1"
+			vdaOverlay     = "/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2"
+			vdbOverlay     = "/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2"
+		)
 
-		It("should find disks with checkpoint bitmap and ignore disks without DataStore", func() {
-			domainXML := `<domain>
-				<devices>
-					<disk type="file" device="disk">
-						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
-							<dataStore>
-								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
-							</dataStore>
-						</source>
-						<target dev="vda"/>
-					</disk>
-					<disk type="file" device="cdrom">
-						<source file="/var/run/kubevirt-private/cdrom/cd.iso"/>
-						<target dev="sda"/>
-					</disk>
-				</devices>
-			</domain>`
+		var (
+			checkpoint     *backupv1.BackupCheckpoint
+			redefinedDisks [][]string
+		)
 
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			queryBitmaps = mockQueryBitmaps(map[string]string{
-				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": checkpointName,
-			})
+		dataStoreDisk := func(dev, overlay string) string {
+			return fmt.Sprintf(`<disk type="file" device="disk">
+				<source file=%q>
+					<dataStore>
+						<source file="/var/lib/kubevirt/disks/%s-backing.img"/>
+					</dataStore>
+				</source>
+				<target dev=%q/>
+			</disk>`, overlay, dev, dev)
+		}
 
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+		domainXML := func(disks ...string) string {
+			return "<domain><devices>" + strings.Join(disks, "") + "</devices></domain>"
+		}
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Disks).To(HaveLen(1))
-			Expect(result.Disks[0].Name).To(Equal("vda"))
-			Expect(result.Disks[0].Checkpoint).To(Equal("bitmap"))
-			Expect(disksWithoutBitmap).To(BeEmpty())
-		})
+		bitmapInvalidErr := libvirt.Error{
+			Code:    libvirt.ERR_CHECKPOINT_INCONSISTENT,
+			Message: "checkpoint inconsistent: missing or broken bitmap",
+		}
 
-		It("should return disk in disksWithoutBitmap when bitmap is not found", func() {
-			domainXML := `<domain>
-				<devices>
-					<disk type="file" device="disk">
-						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
-							<dataStore>
-								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
-							</dataStore>
-						</source>
-						<target dev="vda"/>
-					</disk>
-				</devices>
-			</domain>`
+		expectRedefine := func(times int, withoutBitmap ...string) {
+			mockDomain.EXPECT().CreateCheckpointXML(gomock.Any(), libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE|libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE).
+				Times(times).
+				DoAndReturn(func(checkpointXML string, _ libvirt.DomainCheckpointCreateFlags) (*libvirt.DomainCheckpoint, error) {
+					def := &api.DomainCheckpoint{}
+					Expect(xml.Unmarshal([]byte(checkpointXML), def)).To(Succeed())
+					Expect(def.Name).To(Equal(checkpointName))
+					Expect(def.CreationTime).ToNot(BeNil())
+					var disks []string
+					for _, d := range def.CheckpointDisks.Disks {
+						Expect(d.Checkpoint).To(Equal("bitmap"))
+						disks = append(disks, d.Name)
+					}
+					redefinedDisks = append(redefinedDisks, disks)
+					for _, d := range disks {
+						if slices.Contains(withoutBitmap, d) {
+							return nil, bitmapInvalidErr
+						}
+					}
+					return nil, nil
+				})
+		}
 
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			queryBitmaps = mockQueryBitmaps(map[string]string{
-				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": "other-checkpoint",
-			})
-
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Disks).To(BeEmpty())
-			Expect(disksWithoutBitmap).To(HaveLen(1))
-			Expect(disksWithoutBitmap[0]).To(Equal("vda"))
-		})
-
-		It("should treat inconsistent bitmap as absent", func() {
-			domainXML := `<domain>
-				<devices>
-					<disk type="file" device="disk">
-						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
-							<dataStore>
-								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
-							</dataStore>
-						</source>
-						<target dev="vda"/>
-					</disk>
-				</devices>
-			</domain>`
-
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			queryBitmaps = func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
-				return map[string][]qmpBitmapInfo{
-					"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": {
-						{Name: checkpointName, Inconsistent: true},
-					},
-				}, nil
+		BeforeEach(func() {
+			checkpoint = &backupv1.BackupCheckpoint{
+				Name:         checkpointName,
+				CreationTime: pointer.P(metav1.Now()),
 			}
-
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Disks).To(BeEmpty())
-			Expect(disksWithoutBitmap).To(HaveLen(1))
-			Expect(disksWithoutBitmap[0]).To(Equal("vda"))
+			redefinedDisks = nil
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+			mockDomain.EXPECT().Free().Return(nil)
 		})
 
-		It("should find multiple disks with checkpoint bitmap", func() {
-			domainXML := `<domain>
-				<devices>
-					<disk type="file" device="disk">
-						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
-							<dataStore>
-								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
-							</dataStore>
-						</source>
-						<target dev="vda"/>
-					</disk>
-					<disk type="file" device="disk">
-						<source file="/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2">
-							<dataStore>
-								<source file="/var/lib/kubevirt/disks/disk2-backing.qcow2"/>
-							</dataStore>
-						</source>
-						<target dev="vdb"/>
-					</disk>
-				</devices>
-			</domain>`
+		It("should probe each disk with a datastore and redefine with all of them", func() {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML(
+				dataStoreDisk("vda", vdaOverlay),
+				`<disk type="file" device="cdrom"><source file="/var/run/kubevirt-private/cdrom/cd.iso"/><target dev="sda"/></disk>`,
+				dataStoreDisk("vdb", vdbOverlay),
+			), nil)
+			expectRedefine(3)
 
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			queryBitmaps = mockQueryBitmaps(map[string]string{
-				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": checkpointName,
-				"/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2": checkpointName,
-			})
-
-			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+			checkpointInvalid, err := manager.RedefineCheckpoint(vmi, checkpoint)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Disks).To(HaveLen(2))
-			Expect(result.Disks[0].Name).To(Equal("vda"))
-			Expect(result.Disks[1].Name).To(Equal("vdb"))
-			Expect(disksWithoutBitmap).To(BeEmpty())
+			Expect(checkpointInvalid).To(BeFalse())
+			Expect(redefinedDisks).To(Equal([][]string{{"vda"}, {"vdb"}, {"vda", "vdb"}}))
+		})
+
+		It("should redefine only with the disks whose bitmap is usable", func() {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML(
+				dataStoreDisk("vda", vdaOverlay),
+				dataStoreDisk("vdb", vdbOverlay),
+			), nil)
+			expectRedefine(3, "vda")
+
+			checkpointInvalid, err := manager.RedefineCheckpoint(vmi, checkpoint)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpointInvalid).To(BeFalse())
+			Expect(redefinedDisks).To(Equal([][]string{{"vda"}, {"vdb"}, {"vdb"}}))
+		})
+
+		It("should report the checkpoint invalid when no disk has a usable bitmap", func() {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML(
+				dataStoreDisk("vda", vdaOverlay),
+				dataStoreDisk("vdb", vdbOverlay),
+			), nil)
+			expectRedefine(2, "vda", "vdb")
+
+			checkpointInvalid, err := manager.RedefineCheckpoint(vmi, checkpoint)
+
+			Expect(err).To(MatchError(ContainSubstring("no disks found with checkpoint bitmap")))
+			Expect(checkpointInvalid).To(BeTrue())
+			Expect(redefinedDisks).To(Equal([][]string{{"vda"}, {"vdb"}}))
+		})
+
+		It("should not treat a probe failure unrelated to the bitmap as a missing bitmap", func() {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML(
+				dataStoreDisk("vda", vdaOverlay),
+				dataStoreDisk("vdb", vdbOverlay),
+			), nil)
+			mockDomain.EXPECT().CreateCheckpointXML(gomock.Any(), gomock.Any()).
+				Return(nil, libvirt.Error{Code: libvirt.ERR_OPERATION_INVALID, Message: "domain is not running"})
+
+			checkpointInvalid, err := manager.RedefineCheckpoint(vmi, checkpoint)
+
+			Expect(err).To(MatchError(ContainSubstring("domain is not running")))
+			Expect(checkpointInvalid).To(BeFalse())
+		})
+
+		It("should report the checkpoint invalid when the final redefinition finds a broken bitmap", func() {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML(
+				dataStoreDisk("vda", vdaOverlay),
+			), nil)
+			gomock.InOrder(
+				mockDomain.EXPECT().CreateCheckpointXML(gomock.Any(), gomock.Any()).Return(nil, nil),
+				mockDomain.EXPECT().CreateCheckpointXML(gomock.Any(), gomock.Any()).Return(nil, bitmapInvalidErr),
+			)
+
+			checkpointInvalid, err := manager.RedefineCheckpoint(vmi, checkpoint)
+
+			Expect(err).To(HaveOccurred())
+			Expect(checkpointInvalid).To(BeTrue())
 		})
 	})
 })
-
-func mockQueryBitmaps(fileToBitmap map[string]string) func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
-	return func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
-		result := make(map[string][]qmpBitmapInfo)
-		for file, bitmapName := range fileToBitmap {
-			if bitmapName != "" {
-				result[file] = []qmpBitmapInfo{{Name: bitmapName}}
-			}
-		}
-		return result, nil
-	}
-}
