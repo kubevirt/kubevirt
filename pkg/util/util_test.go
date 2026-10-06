@@ -30,19 +30,21 @@ import (
 var _ = Describe("Misc Capacity", func() {
 	var (
 		originalMiscCapacityPath string
+		originalMiscMaxPath      string
 		tempDir                  string
 	)
 
 	BeforeEach(func() {
-		originalMiscCapacityPath = miscCapacityPath
-		tempDir, err := os.MkdirTemp("", "cgroup")
-		Expect(err).ToNot(HaveOccurred())
+		originalMiscCapacityPath, originalMiscMaxPath = miscCapacityPath, miscMaxPath
+		tempDir = GinkgoT().TempDir()
+		// A case that writes neither file must see neither, rather than falling
+		// through to the misc cgroup of whatever host the test runs on.
 		miscCapacityPath = path.Join(tempDir, "misc.capacity")
+		miscMaxPath = path.Join(tempDir, "misc.max")
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
-		miscCapacityPath = originalMiscCapacityPath
+		miscCapacityPath, miscMaxPath = originalMiscCapacityPath, originalMiscMaxPath
 	})
 
 	Context("when reading secure guest capacity from misc.capacity", func() {
@@ -83,6 +85,41 @@ var _ = Describe("Misc Capacity", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(caps).To(HaveLen(1))
 			Expect(caps["sev_es"]).To(Equal(99))
+		})
+	})
+
+	Context("when misc.capacity is absent and the node has only a limit", func() {
+		It("should report one for a limit the kernel left unlimited", func() {
+			Expect(os.WriteFile(miscMaxPath, []byte("sev max\nsev_es max\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(2))
+			Expect(caps["sev"]).To(Equal(1))
+			Expect(caps["sev_es"]).To(Equal(1))
+		})
+
+		It("should report one regardless of what the limit is set to", func() {
+			Expect(os.WriteFile(miscMaxPath, []byte("sev_es 100\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(1))
+			Expect(caps["sev_es"]).To(Equal(1))
+		})
+
+		It("should prefer the capacity where the kernel provided one", func() {
+			Expect(os.WriteFile(miscCapacityPath, []byte("sev_es 99\n"), 0644)).To(Succeed())
+			Expect(os.WriteFile(miscMaxPath, []byte("sev_es max\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(1))
+			Expect(caps["sev_es"]).To(Equal(99))
+		})
+
+		It("should return a not exist error when neither file is present", func() {
+			caps, err := GetMiscCapacity()
+			Expect(err).To(HaveOccurred())
+			Expect(caps).To(BeNil())
+			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
 	})
 })
