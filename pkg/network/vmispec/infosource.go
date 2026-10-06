@@ -27,6 +27,7 @@ const (
 	InfoSourceDomain       string = "domain"
 	InfoSourceGuestAgent   string = "guest-agent"
 	InfoSourceMultusStatus string = "multus-status"
+	InfoSourcePodStatus    string = "pod-status"
 	InfoSourceDomainAndGA  string = InfoSourceDomain + ", " + InfoSourceGuestAgent
 
 	separator = ", "

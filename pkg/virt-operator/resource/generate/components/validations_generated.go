@@ -16410,7 +16410,7 @@ var CRDsValidation map[string]string = map[string]string{
             properties:
               infoSource:
                 description: 'Specifies the origin of the interface data collected.
-                  values: domain, guest-agent, multus-status.'
+                  values: domain, guest-agent, multus-status, pod-status.'
                 type: string
               interfaceName:
                 description: The interface name inside the Virtual Machine
