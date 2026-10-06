@@ -33,7 +33,6 @@ import (
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -43,63 +42,10 @@ import (
 var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var admitter *VirtualMachineCloneAdmitter
 	var vmClone *clone.VirtualMachineClone
-	var vm *v1.VirtualMachine
-
-	newValidVM := func(namespace, name string) *v1.VirtualMachine {
-		return &v1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      name,
-			},
-			Spec: v1.VirtualMachineSpec{
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: v1.VirtualMachineInstanceSpec{
-						Volumes: []v1.Volume{
-							{
-								Name: "dvVol",
-								VolumeSource: v1.VolumeSource{
-									DataVolume: &v1.DataVolumeSource{},
-								},
-							},
-							{
-								Name: "pvcVol",
-								VolumeSource: v1.VolumeSource{
-									PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
-								},
-							},
-							{
-								Name: "containerDiskVol",
-								VolumeSource: v1.VolumeSource{
-									ContainerDisk: &v1.ContainerDiskSource{},
-								},
-							},
-						},
-					},
-				},
-			},
-			Status: v1.VirtualMachineStatus{
-				VolumeSnapshotStatuses: []v1.VolumeSnapshotStatus{
-					{
-						Name:    "dvVol",
-						Enabled: true,
-					},
-					{
-						Name:    "pvcVol",
-						Enabled: true,
-					},
-					{
-						Name:    "containerDiskVol",
-						Enabled: false,
-					},
-				},
-			},
-		}
-	}
 
 	BeforeEach(func() {
 		admitter = NewVMCloneAdmitter(stubClusterConfigurer{snapshotEnabled: true})
 		vmClone = newValidClone()
-		vm = newValidVM(vmClone.Namespace, vmClone.Spec.Source.Name)
 	})
 
 	It("should allow legal clone", func() {
@@ -188,45 +134,10 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter.admitAndExpect(vmClone, false)
 	})
 
-	DescribeTable("Should allow a source volume not Snapshot-able", func(index int) {
-		vm.Status.VolumeSnapshotStatuses[index].Enabled = false
+	It("should allow if vmsnapshot contents don't include a volume's backup", func() {
+		vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
+
 		admitter.admitAndExpect(vmClone, true)
-	},
-		Entry("DataVolume", 0),
-		Entry("PersistentVolumeClaim", 1),
-	)
-
-	Context("volume snapshots", func() {
-		It("should allow non-PVC/DV volumes that have disabled volume snapshot status", func() {
-			volumeName := "ephemeral-volume"
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{
-				{
-					Name:         volumeName,
-					VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}},
-				},
-			}
-			vm.Status.VolumeSnapshotStatuses = []v1.VolumeSnapshotStatus{
-				{
-					Name:    volumeName,
-					Enabled: false,
-				},
-			}
-
-			admitter.admitAndExpect(vmClone, true)
-		})
-
-		It("should allow PVC/DV volumes with disabled volume snapshot status", func() {
-			for i := range vm.Status.VolumeSnapshotStatuses {
-				vm.Status.VolumeSnapshotStatuses[i].Enabled = false
-			}
-			admitter.admitAndExpect(vmClone, true)
-		})
-
-		It("should allow if vmsnapshot contents don't include a volume's backup", func() {
-			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
-
-			admitter.admitAndExpect(vmClone, true)
-		})
 	})
 
 	Context("Annotations and labels filters", func() {
