@@ -164,15 +164,6 @@ func (f *Framework) Stop() {
 		f.podSimulator.Stop()
 	}
 	f.wg.Wait()
-	// Controller Run methods shut down their queues but do not wait for
-	// in-flight reconciliations. Drain them after Run has returned so its
-	// deferred ShutDown cannot interrupt the drain.
-	if f.vmiController != nil {
-		f.vmiController.Queue.ShutDownWithDrain()
-	}
-	if f.vmController != nil {
-		f.vmController.Queue.ShutDownWithDrain()
-	}
 	if f.env != nil {
 		Expect(f.env.Stop()).To(Succeed())
 	}

@@ -29,6 +29,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
@@ -305,6 +306,9 @@ type Controller struct {
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
+	var workers sync.WaitGroup
+	// Shut down the queue before joining workers so blocked Get calls can return.
+	defer workers.Wait()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachine controller.")
 
@@ -313,7 +317,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
+		workers.Go(func() { wait.Until(c.runWorker, time.Second, stopCh) })
 	}
 
 	<-stopCh
