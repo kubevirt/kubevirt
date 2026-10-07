@@ -16,15 +16,18 @@ Bazel uses `cc_binary` with `-static`.
 Behavior preserved from the Go monitor:
 
 - SIGINT/SIGTERM/SIGQUIT are forwarded as SIGTERM to virt-launcher
-- SIGCHLD is reaped with `waitpid(-1, WNOHANG)`
+- the monitor waits with `sigsuspend`; SIGCHLD is reaped with
+  `waitpid(-1, WNOHANG)` in the handler
 - full launcher argv is passed through except `--keep-after-failure`
 - `--keep-after-failure` parks the compute container on failure
 - `CAP_NET_BIND_SERVICE` is raised inheritable + ambient on the child
 - after launcher exit, dump `/var/run/kubevirt/passt.log` and
   `/run/kubevirt-private/libvirt/qemu/log/*`
-- leftover QEMU (`qemu-system` or `qemu-kvm`) gets SIGTERM and 10s to exit
+- leftover QEMU (`qemu-system` or `qemu-kvm`) gets SIGTERM; the monitor
+  waits up to 10s on SIGCHLD
 - delete `*.sock` under `--container-disk-dir`
 - Istio ready probe on `:15021` and `POST :15020/quitquitquit`
 
-Logs are plain stderr lines prefixed with `virt-launcher-monitor:` so PID 1
-does not pull in the Go logging stack.
+Logs are plain stderr lines prefixed with `virt-launcher-monitor:`. Errors
+use `virt-launcher-monitor: error:` so vmlogchecker can see them without
+the Go JSON logger. PID 1 does not pull in the Go logging stack.

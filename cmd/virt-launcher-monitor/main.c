@@ -48,7 +48,9 @@
 #define ENVOY_READY_PORT 15021
 #define ENVOY_QUIT_PORT 15020
 #define HTTP_TIMEOUT_SEC 2
-#define LOG_LINE_LIMIT (512 * 1024)
+#define QEMU_CMDLINE_LIMIT 256
+#define QEMU_EXIT_TIMEOUT_MS 10000
+#define LOG_LINE_LIMIT 2048
 
 #define LOG(fmt, ...) fprintf(stderr, "virt-launcher-monitor: " fmt "\n", ##__VA_ARGS__)
 #define LOG_ERROR(fmt, ...) fprintf(stderr, "virt-launcher-monitor: error: " fmt "\n", ##__VA_ARGS__)
@@ -258,14 +260,14 @@ static void sleep_ms(int ms)
 	}
 }
 
-static bool cmdline_contains(const char *cmdline, size_t len, const char *needle)
+static int64_t monotonic_milliseconds(void)
 {
-	size_t nlen = strlen(needle);
+	struct timespec now;
 
-	if (nlen == 0 || len < nlen) {
-		return false;
+	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
+		return -1;
 	}
-	return memmem(cmdline, len, needle, nlen) != NULL;
+	return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
 static pid_t find_qemu_pid(const char *prefix)
@@ -280,7 +282,7 @@ static pid_t find_qemu_pid(const char *prefix)
 
 	while ((entry = readdir(dir)) != NULL) {
 		char path[64];
-		char buf[4096];
+		char buf[QEMU_CMDLINE_LIMIT];
 		ssize_t n;
 		int fd;
 		char *end = NULL;
@@ -299,12 +301,14 @@ static pid_t find_qemu_pid(const char *prefix)
 		if (fd < 0) {
 			continue;
 		}
-		n = read(fd, buf, sizeof(buf));
+		n = read(fd, buf, sizeof(buf) - 1);
 		close(fd);
 		if (n <= 0) {
 			continue;
 		}
-		if (cmdline_contains(buf, (size_t)n, prefix)) {
+		buf[n] = '\0';
+		/* cmdline is NUL-separated; strstr stops at argv0. */
+		if (strstr(buf, prefix) != NULL) {
 			found = (pid_t)pid;
 			break;
 		}
@@ -319,11 +323,83 @@ static bool pid_exists(pid_t pid)
 	return kill(pid, 0) == 0 || errno == EPERM;
 }
 
+static bool qemu_exited(pid_t pid, const char *prefix)
+{
+	return !pid_exists(pid) && find_qemu_pid(prefix) <= 0;
+}
+
+static int wait_for_qemu_exit(pid_t pid, const char *prefix)
+{
+	sigset_t chld, old_mask;
+	int64_t deadline;
+	int result = -1;
+
+	sigemptyset(&chld);
+	sigaddset(&chld, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &chld, &old_mask) < 0) {
+		LOG_ERROR("failed to block SIGCHLD while waiting for QEMU: %s", strerror(errno));
+		return -1;
+	}
+
+	LOG("Killing QEMU gracefully.");
+	if (kill(pid, SIGTERM) < 0) {
+		if (errno == ESRCH) {
+			result = 0;
+		} else {
+			LOG_ERROR("failed to signal QEMU: %s", strerror(errno));
+		}
+		goto restore;
+	}
+
+	deadline = monotonic_milliseconds();
+	if (deadline < 0) {
+		LOG_ERROR("failed to read monotonic clock: %s", strerror(errno));
+		goto restore;
+	}
+	deadline += QEMU_EXIT_TIMEOUT_MS;
+
+	for (;;) {
+		int64_t now, remaining;
+		struct timespec timeout;
+
+		reap_children();
+		if (qemu_exited(pid, prefix)) {
+			result = 0;
+			break;
+		}
+
+		now = monotonic_milliseconds();
+		if (now < 0) {
+			LOG_ERROR("failed to read monotonic clock: %s", strerror(errno));
+			break;
+		}
+		remaining = deadline - now;
+		if (remaining <= 0) {
+			LOG_ERROR("QEMU did not exit within 10 seconds");
+			break;
+		}
+
+		timeout.tv_sec = remaining / 1000;
+		timeout.tv_nsec = (remaining % 1000) * 1000000L;
+		/* Timed wait for SIGCHLD; equivalent to sigsuspend with a deadline. */
+		if (sigtimedwait(&chld, NULL, &timeout) < 0 && errno != EAGAIN && errno != EINTR) {
+			LOG_ERROR("failed to wait for QEMU exit: %s", strerror(errno));
+			break;
+		}
+	}
+
+restore:
+	if (sigprocmask(SIG_SETMASK, &old_mask, NULL) < 0) {
+		LOG_ERROR("failed to restore signal mask after QEMU wait: %s", strerror(errno));
+		return -1;
+	}
+	return result;
+}
+
 static int cleanup_qemu(void)
 {
 	const char *prefix = "qemu-system";
 	pid_t pid = find_qemu_pid(prefix);
-	int i;
 
 	if (pid <= 0) {
 		prefix = "qemu-kvm";
@@ -332,22 +408,7 @@ static int cleanup_qemu(void)
 	if (pid <= 0) {
 		return 0;
 	}
-
-	LOG("Killing QEMU gracefully.");
-	if (kill(pid, SIGTERM) < 0 && errno != ESRCH) {
-		LOG_ERROR("failed to signal QEMU: %s", strerror(errno));
-		return -1;
-	}
-
-	for (i = 0; i < 100; i++) {
-		if (!pid_exists(pid) && find_qemu_pid(prefix) <= 0) {
-			return 0;
-		}
-		sleep_ms(100);
-	}
-
-	LOG_ERROR("QEMU did not exit within 10 seconds");
-	return -1;
+	return wait_for_qemu_exit(pid, prefix);
 }
 
 static void emit_log_line(const char *path, const char *line, size_t length, bool truncated)
@@ -365,15 +426,10 @@ static void emit_log_line(const char *path, const char *line, size_t length, boo
 	fputc('\n', stderr);
 }
 
-/* Stream logs with fixed bounded storage; getline may allocate an unbounded
- * buffer before a long line can be truncated. */
 static void dump_log_file(const char *path)
 {
 	FILE *file = fopen(path, "r");
-	char *line;
-	size_t length = 0;
-	bool truncated = false;
-	int ch;
+	char line[LOG_LINE_LIMIT];
 
 	if (file == NULL) {
 		if (errno != ENOENT) {
@@ -381,31 +437,23 @@ static void dump_log_file(const char *path)
 		}
 		return;
 	}
-	line = malloc(LOG_LINE_LIMIT);
-	if (line == NULL) {
-		LOG_ERROR("failed to allocate log line buffer for %s", path);
-		fclose(file);
-		return;
-	}
 
 	LOG("dump log file: %s", path);
-	while ((ch = fgetc(file)) != EOF) {
-		if (ch == '\n') {
-			emit_log_line(path, line, length, truncated);
-			length = 0;
-			truncated = false;
-			continue;
-		}
-		if (length < LOG_LINE_LIMIT) {
-			line[length++] = (char)ch;
-		} else {
+	while (fgets(line, sizeof(line), file) != NULL) {
+		size_t length = strlen(line);
+		bool truncated = false;
+
+		if (length > 0 && line[length - 1] == '\n') {
+			length--;
+		} else if (!feof(file)) {
+			int ch;
+
 			truncated = true;
+			while ((ch = getc(file)) != EOF && ch != '\n') {
+			}
 		}
-	}
-	if (length > 0 || truncated) {
 		emit_log_line(path, line, length, truncated);
 	}
-	free(line);
 	if (ferror(file)) {
 		int read_error = errno == 0 ? EIO : errno;
 		LOG_ERROR("failed to read file %s: %s", path, strerror(read_error));
@@ -506,16 +554,6 @@ static int retry_delay_ms(int attempt)
 		delay *= 5;
 	}
 	return delay;
-}
-
-static int64_t monotonic_milliseconds(void)
-{
-	struct timespec now;
-
-	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
-		return -1;
-	}
-	return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
 static int set_http_timeout(int fd, int option, int64_t deadline)
