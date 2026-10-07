@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"net"
+	"time"
 
 	"libguestfs.org/libnbd"
 
@@ -423,6 +425,18 @@ func readChunks(ctx context.Context, pread preadFn, w io.Writer, chunks []readCh
 	}
 
 	return nil
+}
+
+// Serving reports whether an NBD server accepts connections on the socket.
+// QEMU both creates and removes the socket around serving a backup, so
+// connecting to it is enough to tell.
+func (c *NBDClient) Serving(timeout time.Duration) error {
+	conn, err := net.DialTimeout("unix", c.socketPath, timeout)
+	if err != nil {
+		return err
+	}
+
+	return conn.Close()
 }
 
 func (c *NBDClient) connect(l *libnbd.Libnbd, exportName string) error {

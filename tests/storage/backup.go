@@ -55,7 +55,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
-	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
+	exportapi "kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -1827,7 +1827,7 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 		return nil
 	}, 3*time.Minute, 2*time.Second).Should(Succeed(), "Failed to curl map endpoint after retries")
 
-	var mapResp exportServer.ExportMapResponse
+	var mapResp exportapi.ExportMapResponse
 	err = json.Unmarshal([]byte(out), &mapResp)
 	Expect(err).ToNot(HaveOccurred(), "Failed to unmarshal Map endpoint JSON response: %s", out)
 

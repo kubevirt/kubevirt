@@ -22,7 +22,6 @@ package export
 import (
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const (
@@ -59,14 +57,12 @@ const (
 
 type VMBackupSource struct {
 	vmBackup *backupv1.VirtualMachineBackup
-	caCert   string
 	vmi      *virtv1.VirtualMachineInstance
 }
 
-func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, caCert string, vmi *virtv1.VirtualMachineInstance) *VMBackupSource {
+func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, vmi *virtv1.VirtualMachineInstance) *VMBackupSource {
 	return &VMBackupSource{
 		vmBackup: vmBackup,
-		caCert:   caCert,
 		vmi:      vmi,
 	}
 }
@@ -121,14 +117,6 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 			Value: backupMapURI(volume.VolumeName),
 		})
 	}
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
-		Name:  "BACKUP_CACERT",
-		Value: s.caCert,
-	})
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
-		Name:  "BACKUP_UID",
-		Value: string(s.vmBackup.UID),
-	})
 	if s.vmBackup.Status != nil {
 		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
 			Name:  "BACKUP_TYPE",
@@ -291,20 +279,6 @@ func (ctrl *VMExportController) getVMBackupFromExport(vmExport *exportv1.Virtual
 		return nil, fmt.Errorf("VirtualMachineBackup not found: %s/%s", vmExport.Namespace, vmExport.Spec.Source.Name)
 	}
 	return vmBackup, nil
-}
-
-func (ctrl *VMExportController) backupCA() (string, bool, error) {
-	key := controller.NamespacedKey(ctrl.KubevirtNamespace, components.KubeVirtBackupCASecretName)
-	obj, exists, err := ctrl.BackupCAConfigMapInformer.GetStore().GetByKey(key)
-	if err != nil {
-		return "", exists, err
-	}
-	if !exists {
-		return "", exists, fmt.Errorf("backup CA not found")
-	}
-	cm := obj.(*corev1.ConfigMap).DeepCopy()
-	bundle := cm.Data[caBundle]
-	return strings.TrimSpace(bundle), true, nil
 }
 
 func backupMapURI(volumeName string) string {

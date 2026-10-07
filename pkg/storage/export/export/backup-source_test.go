@@ -292,7 +292,6 @@ var _ = Describe("Backup source", func() {
 		)
 		addTestVMI("test-vm")
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
-		withBackupCAConfigMap(controller)
 
 		var pod *k8sv1.Pod
 		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -346,14 +345,9 @@ var _ = Describe("Backup source", func() {
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty())
 
 		Expect(pod.Spec.Containers).To(HaveLen(1))
-		cert, exists, err := controller.backupCA()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(exists).To(BeTrue())
-		Expect(cert).ToNot(BeEmpty())
 
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(
-			k8sv1.EnvVar{Name: "BACKUP_CACERT", Value: cert},
-			k8sv1.EnvVar{Name: "BACKUP_UID", Value: testBackupUID},
+			k8sv1.EnvVar{Name: "BACKUP_NBD_SOCKET", Value: nbdSocketPath},
 			k8sv1.EnvVar{Name: "BACKUP_TYPE", Value: string(backupv1.Full)},
 			k8sv1.EnvVar{Name: "BACKUP_CHECKPOINT", Value: testBackupCheckpointName},
 			k8sv1.EnvVar{Name: "BACKUP0_BACKUP_PATH", Value: testBackupVolumeName},
@@ -378,7 +372,6 @@ var _ = Describe("Backup source", func() {
 
 			vmBackup := createTestVMBackup(backupConditions, volumes, checkpoint)
 			controller.VMBackupInformer.GetStore().Add(vmBackup)
-			withBackupCAConfigMap(controller)
 
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -475,7 +468,6 @@ var _ = Describe("Backup source", func() {
 		)
 		addTestVMI("test-vm")
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
-		withBackupCAConfigMap(controller)
 
 		var pod *k8sv1.Pod
 
@@ -505,7 +497,7 @@ var _ = Describe("Backup source", func() {
 		Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(HaveField("Name", "BACKUP_CHECKPOINT")))
 	})
 
-	It("Should return an error when failed to obtain backup CA", func() {
+	It("Should return an error when the VMI of the backup is gone", func() {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
@@ -513,9 +505,10 @@ var _ = Describe("Backup source", func() {
 			nil,
 		)
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
+
 		_, err := controller.updateVMExport(testVMExport)
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(MatchError(ContainSubstring("could not obtain VirtualMachineBackup tunnel CA:")))
+
+		Expect(err).To(MatchError(ContainSubstring("VirtualMachineInstance not found")))
 	})
 
 	DescribeTable("Should serve the backup from the virt-launcher NBD socket", func(checkpointName *string) {
@@ -535,7 +528,6 @@ var _ = Describe("Backup source", func() {
 		vmi.Spec.Tolerations = []k8sv1.Toleration{vmiToleration}
 		Expect(controller.VMIInformer.GetStore().Update(vmi)).To(Succeed())
 		Expect(controller.VMBackupInformer.GetStore().Add(vmBackup)).To(Succeed())
-		withBackupCAConfigMap(controller)
 
 		var pod *k8sv1.Pod
 
@@ -676,18 +668,3 @@ var _ = Describe("Backup source", func() {
 		})
 	})
 })
-
-func withBackupCAConfigMap(controller *VMExportController) {
-	Expect(
-		controller.BackupCAConfigMapInformer.GetStore().Add(&k8sv1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controller.KubevirtNamespace,
-				Name:      components.KubeVirtBackupCASecretName,
-			},
-			Data: map[string]string{
-				"ca-bundle": "test",
-			},
-		}),
-	).To(Succeed())
-
-}
