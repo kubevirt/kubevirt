@@ -311,7 +311,6 @@ func NewLibvirtDomainManager(
 	imageVolumeEnabled bool,
 	hookServer *premigrationhookserver.PreMigrationHookServer,
 	hypervisorName string,
-	registerNBD storage.RegisterNBDFunc,
 	domainName string,
 	vmStatsCollectorEnabled bool,
 	firmwareAutoSelectionEnabled bool,
@@ -332,7 +331,6 @@ func NewLibvirtDomainManager(
 		imageVolumeEnabled,
 		hookServer,
 		hypervisorName,
-		registerNBD,
 		domainName,
 		vmStatsCollectorEnabled,
 		firmwareAutoSelectionEnabled,
@@ -354,7 +352,6 @@ func newLibvirtDomainManager(
 	imageVolumeEnabled bool,
 	hookServer *premigrationhookserver.PreMigrationHookServer,
 	hypervisorName string,
-	registerNBD storage.RegisterNBDFunc,
 	domainName string,
 	vmStatsCollectorEnabled bool,
 	firmwareAutoSelectionEnabled bool,
@@ -402,7 +399,7 @@ func newLibvirtDomainManager(
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
-	manager.storageManager = storage.NewStorageManager(connection, metadataCache, registerNBD)
+	manager.storageManager = storage.NewStorageManager(connection, metadataCache)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache, eventSender)
 
 	reCalcDomainStats := func() (*stats.DomainStats, error) {
@@ -3064,8 +3061,6 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 	switch backupOptions.Cmd {
 	case backupv1.Start:
 		return l.storageManager.BackupVirtualMachine(vmi, backupOptions)
-	case backupv1.Export:
-		return l.storageManager.ExportVirtualMachineBackup(vmi, backupOptions)
 	case backupv1.Abort:
 		return l.storageManager.AbortVirtualMachineBackup(vmi, backupOptions)
 	default:

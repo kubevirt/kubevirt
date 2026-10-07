@@ -437,49 +437,6 @@ func relabelWithoutCategories(path string) error {
 	return selinux.SetFileLabel(path, ctx.Get())
 }
 
-func (m *StorageManager) ExportVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
-	backupMetadata, exists := m.metadataCache.Backup.Load()
-	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
-		return err
-	}
-	return m.initiateBackupTunnel(vmi, backupOptions)
-}
-
-func (m *StorageManager) initiateBackupTunnel(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
-	m.backupTunnelMu.Lock()
-	defer m.backupTunnelMu.Unlock()
-
-	backupSock := filepath.Join(cbt.PathForBackupNBDSocketDir(vmi), cbt.NBDSocketName)
-
-	if m.activeBackupTunnel != nil {
-		if m.activeBackupTunnel.IsMatch(backupOptions.BackupName, backupOptions.BackupStartTime) {
-			return nil
-		}
-		m.activeBackupTunnel.Stop()
-	}
-
-	tunnel := newBackupTunnelManager(
-		*backupOptions.ExportServerAddr,
-		*backupOptions.ExportServerName,
-		backupSock,
-		*backupOptions.CACert,
-		*backupOptions.BackupCert,
-		*backupOptions.BackupKey,
-		backupOptions.BackupName,
-		backupOptions.BackupStartTime,
-		m.registerNBD,
-	)
-	if err := tunnel.Start(); err != nil {
-		return err
-	}
-
-	m.activeBackupTunnel = tunnel
-
-	return nil
-}
-
-// isLibvirtCheckpointInvalidError checks if the libvirt error indicates
-// the checkpoint is invalid/corrupt (bitmap corruption, inconsistent state, etc.)
 func isLibvirtCheckpointInvalidError(err error) bool {
 	var libvirtErr libvirt.Error
 	if errors.As(err, &libvirtErr) {
