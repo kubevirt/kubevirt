@@ -519,12 +519,12 @@ var _ = Describe("Backup source", func() {
 		Expect(err).To(MatchError(ContainSubstring("could not obtain VirtualMachineBackup tunnel CA:")))
 	})
 
-	It("Should add pod affinity when CBT is enabled (CheckpointName is set)", func() {
+	DescribeTable("Should require pod affinity to the virt-launcher pod", func(checkpointName *string) {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
-			pointer.P(testBackupCheckpointName),
+			checkpointName,
 		)
 		vmBackup.Spec.Source = k8sv1.TypedLocalObjectReference{
 			APIGroup: &virtv1.SchemeGroupVersion.Group,
@@ -571,64 +571,17 @@ var _ = Describe("Backup source", func() {
 		By("Checking pod affinity is set")
 		Expect(pod.Spec.Affinity).ToNot(BeNil())
 		Expect(pod.Spec.Affinity.PodAffinity).ToNot(BeNil())
-		Expect(pod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+		Expect(pod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 
-		affinityTerm := pod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
-		Expect(affinityTerm.Weight).To(Equal(int32(100)))
-		Expect(affinityTerm.PodAffinityTerm).ToNot(BeNil())
-		Expect(affinityTerm.PodAffinityTerm.TopologyKey).To(Equal("kubernetes.io/hostname"))
-		Expect(affinityTerm.PodAffinityTerm.LabelSelector).ToNot(BeNil())
-		Expect(affinityTerm.PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.AppLabel, "virt-launcher"))
-		Expect(affinityTerm.PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.VirtualMachineInstanceIDLabel, "test-vm"))
-	})
-
-	It("Should NOT add pod affinity when CBT is disabled (CheckpointName is nil)", func() {
-		testVMExport := createBackupVMExport()
-		vmBackup := createTestVMBackup(
-			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
-			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
-			nil,
-		)
-		addTestVMI("test-vm")
-		Expect(controller.VMBackupInformer.GetStore().Add(vmBackup)).To(Succeed())
-		withBackupCAConfigMap(controller)
-
-		var pod *k8sv1.Pod
-
-		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			create, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			pod, ok = create.GetObject().(*k8sv1.Pod)
-			Expect(ok).To(BeTrue())
-
-			pod.Status = k8sv1.PodStatus{
-				Phase: k8sv1.PodRunning,
-				Conditions: []k8sv1.PodCondition{
-					{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue},
-				},
-			}
-			return true, pod, nil
-		})
-
-		vmExportClient.Fake.PrependReactor(
-			"update",
-			"virtualmachineexports",
-			func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				return true, vmExport, nil
-			},
-		)
-
-		_, err := controller.updateVMExport(testVMExport)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pod).ToNot(BeNil())
-
-		By("Checking pod affinity is NOT set")
-		Expect(pod.Spec.Affinity).To(BeNil())
-	})
+		affinityTerm := pod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
+		Expect(affinityTerm.TopologyKey).To(Equal("kubernetes.io/hostname"))
+		Expect(affinityTerm.LabelSelector).ToNot(BeNil())
+		Expect(affinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.AppLabel, "virt-launcher"))
+		Expect(affinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.VirtualMachineInstanceIDLabel, "test-vm"))
+	},
+		Entry("with a checkpoint", pointer.P(testBackupCheckpointName)),
+		Entry("without a checkpoint", nil),
+	)
 
 	Context("getBackupSourceVMIID", func() {
 		It("Should return error when VirtualMachineBackupTracker not found", func() {
