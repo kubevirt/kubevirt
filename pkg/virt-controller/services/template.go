@@ -70,11 +70,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
-// ClusterConfigProvider is the cluster configuration TemplateService
-// needs to render a virt-launcher Pod. Feature-gate checks go through
-// IsFeatureGateEnabled so the interface does not grow a method per gate.
-// *virtconfig.ClusterConfig satisfies it.
-type ClusterConfigProvider interface {
+// clusterConfigProvider is the cluster configuration TemplateService
+// needs to render a virt-launcher Pod. Callers satisfy it implicitly.
+// Feature-gate checks go through IsFeatureGateEnabled so the interface
+// does not grow a method per gate. *virtconfig.ClusterConfig satisfies it.
+type clusterConfigProvider interface {
 	IsFeatureGateEnabled(gate string) bool
 	AllowEmulation() bool
 	GetOVMFPath(arch string) string
@@ -96,7 +96,7 @@ type ClusterConfigProvider interface {
 	GetConfig() *v1.KubeVirtConfiguration
 }
 
-var _ ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
+var _ clusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
 
 const (
 	containerDisks          = "container-disks"
@@ -170,7 +170,7 @@ type TemplateService struct {
 	imagePullSecret             string
 	persistentVolumeClaimStore  cache.Store
 	virtClient                  kubecli.KubevirtClient
-	clusterConfig               ClusterConfigProvider
+	clusterConfig               clusterConfigProvider
 	launcherSubGid              int64
 	resourceQuotaStore          cache.Store
 	namespaceStore              cache.Store
@@ -1422,7 +1422,7 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
-	clusterConfig ClusterConfigProvider,
+	clusterConfig clusterConfigProvider,
 	launcherSubGid int64,
 	exporterImage string,
 	resourceQuotaStore cache.Store,
@@ -1687,7 +1687,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 
 // TODO: Make this function private (calculateMemoryOverhead) once VmiMemoryOverheadReport feature gate is GA
 // and we are sure that all VMIs include the MemoryOverhead status field
-func CalculateMemoryOverhead(clusterConfig ClusterConfigProvider, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
+func CalculateMemoryOverhead(clusterConfig clusterConfigProvider, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture
 	if vmiCPUArch == "" {

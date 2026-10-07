@@ -50,7 +50,7 @@ type ClusterConfigProvider interface {
 	GetMaximumGuestMemory() *resource.Quantity
 	GetDefaultNetworkInterface() string
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
-	GetConfig() *v1.KubeVirtConfiguration
+	GetEvictionStrategy() *v1.EvictionStrategy
 }
 
 func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig ClusterConfigProvider, virtClient kubecli.KubevirtClient) {
@@ -223,7 +223,7 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig ClusterConfigProvider, s
 
 func setDefaultEvictionStrategy(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.EvictionStrategy == nil {
-		spec.EvictionStrategy = clusterConfig.GetConfig().EvictionStrategy
+		spec.EvictionStrategy = clusterConfig.GetEvictionStrategy()
 	}
 }
 
@@ -353,7 +353,7 @@ func setDefaultArchitectureFromDataSource(vm *v1.VirtualMachine, virtClient kube
 		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
 		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
 	)
-	if vm.Spec.Template.Spec.Architecture != "" {
+	if virtClient == nil || vm.Spec.Template.Spec.Architecture != "" {
 		return
 	}
 	for _, template := range vm.Spec.DataVolumeTemplates {

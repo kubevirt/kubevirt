@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config ClusterConfigProvider, virtLauncherLogVerbosity uint) *k8sv1.Container {
+func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config clusterConfigProvider, virtLauncherLogVerbosity uint) *k8sv1.Container {
 	const serialPort = 0
 	if isSerialConsoleLogEnabled(vmi, config) {
 		logFile := fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
@@ -52,7 +52,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 	return nil
 }
 
-func isSerialConsoleLogEnabled(vmi *v1.VirtualMachineInstance, config ClusterConfigProvider) bool {
+func isSerialConsoleLogEnabled(vmi *v1.VirtualMachineInstance, config clusterConfigProvider) bool {
 	if vmi.Spec.Domain.Devices.AutoattachSerialConsole != nil && *vmi.Spec.Domain.Devices.AutoattachSerialConsole == false {
 		return false
 	}
@@ -62,7 +62,7 @@ func isSerialConsoleLogEnabled(vmi *v1.VirtualMachineInstance, config ClusterCon
 	return !config.IsSerialConsoleLogDisabled()
 }
 
-func resourcesForSerialConsoleLogContainer(dedicatedCPUs bool, guaranteedQOS bool, config ClusterConfigProvider) k8sv1.ResourceRequirements {
+func resourcesForSerialConsoleLogContainer(dedicatedCPUs bool, guaranteedQOS bool, config clusterConfigProvider) k8sv1.ResourceRequirements {
 	resources := k8sv1.ResourceRequirements{Requests: k8sv1.ResourceList{}, Limits: k8sv1.ResourceList{}}
 
 	resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("35M")

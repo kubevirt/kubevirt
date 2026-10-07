@@ -239,6 +239,10 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
 }
 
+func (c *ClusterConfig) GetEvictionStrategy() *v1.EvictionStrategy {
+	return c.GetConfig().EvictionStrategy
+}
+
 func (c *ClusterConfig) GetDefaultArchitecture() string {
 	return c.GetConfig().ArchitectureConfiguration.DefaultArchitecture
 }

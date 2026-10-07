@@ -396,6 +396,15 @@ func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	}
 }
 
+func (c *ClusterConfig) EmulatorThreadCompleteToEvenParity() bool {
+	kv := c.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return false
+	}
+	_, exists := kv.Annotations[v1.EmulatorThreadCompleteToEvenParity]
+	return exists
+}
+
 func (c *ClusterConfig) HasDataSourceAPI() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
