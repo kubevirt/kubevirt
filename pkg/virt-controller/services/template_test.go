@@ -1102,6 +1102,7 @@ var _ = Describe("Template", func() {
 				Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue())
 				Expect(pod.Labels).To(HaveKeyWithValue(istio.InjectSidecarLabel, "true"))
 				Expect(pod.Annotations).To(HaveKeyWithValue(istio.InjectSidecarAnnotation, "true"))
+				Expect(pod.Annotations).To(HaveKeyWithValue(istio.NativeSidecarAnnotation, "true"))
 			})
 		})
 		Context("with node selectors", func() {
