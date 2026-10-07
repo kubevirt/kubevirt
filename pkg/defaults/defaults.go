@@ -53,6 +53,8 @@ type ClusterConfigProvider interface {
 	GetEvictionStrategy() *v1.EvictionStrategy
 }
 
+var _ ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
+
 func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig ClusterConfigProvider, virtClient kubecli.KubevirtClient) {
 	setDefaultArchitectureFromDataSource(vm, virtClient)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)

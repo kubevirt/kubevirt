@@ -615,13 +615,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 		})
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
 		Expect(kvStore.Replace(nil, "")).To(Succeed())
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(mutator.ClusterConfig.EmulatorThreadCompleteToEvenParity()).To(BeFalse())
 
 		vmi.Spec.Domain.CPU = &v1.CPU{IsolateEmulatorThread: true}
 
 		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
-		_, exist := vmiMeta.Annotations[v1.EmulatorThreadCompleteToEvenParity]
-		Expect(exist).To(BeFalse())
+		Expect(vmiMeta.Annotations).ToNot(HaveKey(v1.EmulatorThreadCompleteToEvenParity))
 	})
 
 	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
