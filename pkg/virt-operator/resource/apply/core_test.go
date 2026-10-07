@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	fakestrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
@@ -395,6 +396,39 @@ var _ = Describe("Apply", func() {
 			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, externalCACerts, duration, requiredCM)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
+		})
+	})
+
+	Context("certificate secrets", func() {
+		It("should apply an install strategy that still carries the removed backup CA secret", func() {
+			const operatorNamespace = "opNamespace"
+			coreclientset := fake.NewSimpleClientset()
+			stores := util.Stores{SecretCache: cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)}
+			expectations := &util.Expectations{
+				Secrets: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secrets")),
+			}
+			caKeyPair, err := triple.NewCA("kubevirt.io", time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			caCert := &tls.Certificate{Leaf: caKeyPair.Cert, PrivateKey: caKeyPair.Key}
+
+			backupCASecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-backup-ca", Namespace: operatorNamespace}}
+			apiSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: components.VirtApiCertSecretName, Namespace: operatorNamespace}}
+
+			r := &Reconciler{
+				kv:             &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: operatorNamespace}},
+				targetStrategy: &fakestrategy.FakeStrategy{FakeCertificateSecrets: []*corev1.Secret{backupCASecret, apiSecret}},
+				stores:         stores,
+				k8sClient:      coreclientset,
+				expectations:   expectations,
+			}
+
+			queue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
+			duration := &metav1.Duration{Duration: time.Hour}
+			Expect(r.createOrUpdateCertificateSecrets(queue, caCert, duration, duration, duration)).To(Succeed())
+
+			secrets, err := coreclientset.CoreV1().Secrets(operatorNamespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(secrets.Items).To(ConsistOf(HaveField("Name", components.VirtApiCertSecretName)))
 		})
 	})
 

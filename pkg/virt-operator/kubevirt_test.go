@@ -92,8 +92,8 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 96 + virtTemplateResourceCount
-	patchCount    = 64 + virtTemplatePatchCount
+	resourceCount = 94 + virtTemplateResourceCount
+	patchCount    = 62 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -1334,15 +1334,12 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	caSecrets := components.NewCACertSecrets(NAMESPACE)
 	var caSecret *k8sv1.Secret
 	var caExportSecret *k8sv1.Secret
-	var caBackupSecret *k8sv1.Secret
 	for _, ca := range caSecrets {
 		switch ca.Name {
 		case components.KubeVirtCASecretName:
 			caSecret = ca
 		case components.KubeVirtExportCASecretName:
 			caExportSecret = ca
-		case components.KubeVirtBackupCASecretName:
-			caBackupSecret = ca
 		}
 	}
 	components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: apply.Duration7d})
@@ -1356,24 +1353,15 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	caExportBundle := cert.EncodeCertPEM(caExportCert.Leaf)
 	all = append(all, caExportSecret)
 
-	caBackupDuration := metav1.Duration{Duration: time.Hour * 24 * 7} // 7 Days
-	components.PopulateSecretWithCertificate(caBackupSecret, nil, &caBackupDuration)
-	caBackupCert, _ := components.LoadCertificates(caBackupSecret)
-	caBackupBundle := cert.EncodeCertPEM(caBackupCert.Leaf)
-	all = append(all, caBackupSecret)
-
 	configMaps := components.NewCAConfigMaps(NAMESPACE)
 	var caConfigMap *k8sv1.ConfigMap
 	var caExportConfigMap *k8sv1.ConfigMap
-	var caBackupConfigMap *k8sv1.ConfigMap
 	for _, cm := range configMaps {
 		switch cm.Name {
 		case components.KubeVirtCASecretName:
 			caConfigMap = cm
 		case components.KubeVirtExportCASecretName:
 			caExportConfigMap = cm
-		case components.KubeVirtBackupCASecretName:
-			caBackupConfigMap = cm
 		}
 	}
 
@@ -1381,8 +1369,6 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, caConfigMap)
 	caExportConfigMap.Data = map[string]string{components.CABundleKey: string(caExportBundle)}
 	all = append(all, caExportConfigMap)
-	caBackupConfigMap.Data = map[string]string{components.CABundleKey: string(caBackupBundle)}
-	all = append(all, caBackupConfigMap)
 
 	// webhooks and apiservice
 	validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
@@ -1565,7 +1551,7 @@ func (k *KubeVirtTestData) shouldExpectInstallStrategyDeletion() {
 		deleted, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
 		switch deleted.GetName() {
-		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, components.KubeVirtBackupCASecretName:
+		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName:
 			return false, nil, nil
 		}
 		var key string
