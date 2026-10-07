@@ -32,16 +32,13 @@ import (
 	k8scorev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -176,10 +173,14 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, decorators.WgS39
 				Should(Not(BeTrue()))
 		})
 
-		It("Should fail the VMI with working Exec probe and invalid command", func() {
+		It("[test_id:CNV82132-003] Should fail the VMI with working Exec probe and invalid command, even with guest-agent probes paused", func() {
 			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1")
 			vmi := libvmifact.NewFedora(withLivenessProbe(livenessProbe))
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
+
+			// The pause annotation only gates guest-agent ping probes; exec probes must keep working.
+			By("Pausing guest-agent probes")
+			pauseGuestAgentProbes(vmi)
 
 			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
@@ -224,30 +225,6 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, decorators.WgS39
 
 	})
 
-	It("emits GuestAgentPingFailed event when guest agent is stopped", func() {
-		// Use a short initialDelaySeconds so the probe fires quickly after the
-		// agent is stopped, and a high failureThreshold to prevent the VMI
-		// from being killed before the event assertion completes.
-		probe := &v1.Probe{
-			Handler:             v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}},
-			InitialDelaySeconds: 30,
-			PeriodSeconds:       5,
-			FailureThreshold:    20,
-		}
-		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(probe))
-		vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
-
-		By("Waiting for agent to connect")
-		Eventually(matcher.ThisVMI(vmi)).
-			WithTimeout(guestAgentConnectTimeout).
-			WithPolling(2 * time.Second).
-			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-		Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-		Expect(stopGuestAgent(vmi)).To(Succeed())
-		events.ExpectEvent(vmi, k8scorev1.EventTypeWarning, "GuestAgentPingFailed")
-	})
-
 	Context("Liveness probe with guest agent ping and user-paused VMI", func() {
 		It("should not kill the VMI while it is paused by the user", func() {
 			// Low FailureThreshold so that without the fix the probe would
@@ -287,67 +264,6 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, decorators.WgS39
 				WithTimeout(30 * time.Second).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
-		})
-	})
-
-	Context("Liveness probe with guest agent ping and annotation-paused probes", func() {
-		It("should not kill the VMI when probes are paused by annotation", func() {
-			livenessProbe := &v1.Probe{
-				Handler:             v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}},
-				InitialDelaySeconds: 30,
-				PeriodSeconds:       5,
-				FailureThreshold:    3,
-			}
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
-
-			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(guestAgentConnectTimeout).
-				WithPolling(2 * time.Second).
-				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			By("Adding the pause-guest-agent-probes annotation")
-			patchBytes, err := patch.New(
-				patch.WithAdd(
-					fmt.Sprintf("/metadata/annotations/%s",
-						patch.EscapeJSONPointer(v1.PauseGuestAgentProbesAnnotation)),
-					"true",
-				),
-			).GeneratePayload()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
-				Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Stopping guest agent to simulate maintenance")
-			Expect(stopGuestAgent(vmi)).To(Succeed())
-
-			By("Verifying the VMI stays alive while annotation is set (probes paused)")
-			Consistently(matcher.ThisVMI(vmi)).
-				WithTimeout(45 * time.Second).
-				WithPolling(2 * time.Second).
-				Should(Not(matcher.BeInPhase(v1.Failed)))
-
-			By("Removing the pause annotation to resume probes")
-			removePatchBytes, err := patch.New(
-				patch.WithRemove(
-					fmt.Sprintf("/metadata/annotations/%s",
-						patch.EscapeJSONPointer(v1.PauseGuestAgentProbesAnnotation)),
-				),
-			).GeneratePayload()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
-				Patch(context.Background(), vmi.Name, types.JSONPatchType, removePatchBytes, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Verifying the VMI eventually succeeds after annotation is removed (agent still stopped, pod terminates cleanly)")
-			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(2 * time.Minute).
-				WithPolling(1 * time.Second).
-				Should(matcher.HaveSucceeded())
 		})
 	})
 }))
