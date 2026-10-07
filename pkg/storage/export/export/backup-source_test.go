@@ -175,7 +175,6 @@ var _ = Describe("Backup source", func() {
 			ControllerRevisionInformer:  controllerRevisionInformer,
 			VMBackupInformer:            vmBackupInformer,
 			VMBackupTrackerInformer:     vmBackupTrackerInformer,
-			BackupCAConfigMapInformer:   cmInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			ctrl.caCertManager.Start()

@@ -351,7 +351,6 @@ type VMExportController struct {
 	ControllerRevisionInformer  cache.SharedIndexInformer
 	VMBackupInformer            cache.SharedIndexInformer
 	VMBackupTrackerInformer     cache.SharedIndexInformer
-	BackupCAConfigMapInformer   cache.SharedIndexInformer
 	VMTemplateInformer          cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
