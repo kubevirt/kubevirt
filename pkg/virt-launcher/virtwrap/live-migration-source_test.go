@@ -1755,16 +1755,21 @@ var _ = Describe("tuneDowntime", func() {
 		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(nil)
 		monitor.tuneDowntime(mockDomain, nil, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+		Expect(monitor.nextTuneIteration).To(Equal(uint64(cfg.StartAfterIteration)))
 	})
 
 	It("does nothing when stats is nil after initial call", func() {
 		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
+		monitor.lastTunedAt = time.Now()
 		monitor.tuneDowntime(mockDomain, nil, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
 	})
 
 	It("does nothing before StartAfterIteration", func() {
 		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
+		monitor.lastTunedAt = time.Now().Add(-time.Hour) // cooldown expired; only iteration gate should block
 		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 1}
 		monitor.tuneDowntime(mockDomain, stats, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
@@ -1772,12 +1777,13 @@ var _ = Describe("tuneDowntime", func() {
 
 	It("steps up and respects ceiling", func() {
 		monitor.currentDowntimeMs = 100
-		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
 
 		mockDomain.EXPECT().MigrateSetMaxDowntime(gomock.Any(), uint32(0)).Times(3).Return(nil)
 
-		for i := 0; i < 5; i++ {
-			monitor.lastTunedAt = time.Time{}
+		for i := uint64(0); i < 5; i++ {
+			monitor.lastTunedAt = time.Now().Add(-time.Hour)
+			stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5 + i}
 			monitor.tuneDowntime(mockDomain, stats, logger)
 		}
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(1000)))
@@ -1785,10 +1791,38 @@ var _ = Describe("tuneDowntime", func() {
 
 	It("respects cooldown", func() {
 		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
 		monitor.lastTunedAt = time.Now()
 		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
 		monitor.tuneDowntime(mockDomain, stats, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+	})
+
+	It("does not step twice on the same MemIteration", func() {
+		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
+		monitor.lastTunedAt = time.Now().Add(-time.Hour)
+		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
+
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(400), uint32(0)).Return(nil)
+		monitor.tuneDowntime(mockDomain, stats, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(400)))
+		Expect(monitor.nextTuneIteration).To(Equal(uint64(6)))
+
+		monitor.lastTunedAt = time.Now().Add(-time.Hour)
+		monitor.tuneDowntime(mockDomain, stats, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(400)))
+	})
+
+	It("retries initial on failure", func() {
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(fmt.Errorf("fail"))
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.lastTunedAt.IsZero()).To(BeTrue())
+
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(nil)
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+		Expect(monitor.lastTunedAt.IsZero()).To(BeFalse())
 	})
 
 	It("does nothing when tuning is nil", func() {
