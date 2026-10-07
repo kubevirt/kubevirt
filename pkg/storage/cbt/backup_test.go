@@ -48,7 +48,6 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -1880,23 +1879,6 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 		})
 
-		DescribeTable("exportServerAddrForService should pick the Service dial port",
-			func(svc *corev1.Service, expectedPort int32) {
-				addr, serverName := exportServerAddrForService("virt-export-test-backup", testNamespace, svc)
-				Expect(addr).To(Equal(fmt.Sprintf("virt-export-test-backup.%s.svc:%d", testNamespace, expectedPort)))
-				Expect(serverName).To(Equal(fmt.Sprintf("virt-export-test-backup.%s.svc.cluster.local", testNamespace)))
-			},
-			Entry("headless Service", &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{Name: "virt-export-test-backup", Namespace: testNamespace},
-				Spec:       corev1.ServiceSpec{ClusterIP: corev1.ClusterIPNone},
-			}, int32(storagetypes.ExportServerPort)),
-			Entry("ClusterIP Service", &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{Name: "virt-export-test-backup", Namespace: testNamespace},
-				Spec:       corev1.ServiceSpec{ClusterIP: "172.30.1.10"},
-			}, int32(storagetypes.ExportClusterIPServicePort)),
-			Entry("nil Service", nil, int32(storagetypes.ExportServerPort)),
-		)
-
 		It("should return false for a new backup", func() {
 			Expect(isPullBackupTTLExpired(backup)).To(BeFalse())
 		})
@@ -1940,9 +1922,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return nil when export is not yet in Ready phase", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
-
 			vmExport = createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Pending}
 			controller.vmExportStore.Add(vmExport)
@@ -1952,9 +1931,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should update includedVolumes when export is in Ready phase but the backup has no included volumes", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
-
 			vmExport := createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Ready}
 			controller.vmExportStore.Add(vmExport)
@@ -1971,8 +1947,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return an error when export is ready but has no links", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
 			})
@@ -1985,8 +1959,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return an error when the export is ready but the cert is empty", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
 			})
@@ -2015,8 +1987,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return ExportReady with populated endpoints using internal links", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
@@ -2056,8 +2026,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should populate Links with both internal and external endpoints", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
@@ -2107,8 +2075,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should map endpoints independently for multiple volumes", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{
 				{VolumeName: "rootdisk"},
 				{VolumeName: "datadisk"},
@@ -2162,8 +2128,6 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should set Links with cert but empty volumes when export has no backup entries", func() {
-			exportUID := types.UID("test-export-uid")
-			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
