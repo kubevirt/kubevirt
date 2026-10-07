@@ -26,6 +26,7 @@
 #include <linux/capability.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -51,9 +52,81 @@
 #define QEMU_CMDLINE_LIMIT 256
 #define QEMU_EXIT_TIMEOUT_MS 10000
 #define LOG_LINE_LIMIT 2048
+#define LOG_COMPONENT "virt-launcher-monitor"
+#define LOG_POS "main.c"
 
-#define LOG(fmt, ...) fprintf(stderr, "virt-launcher-monitor: " fmt "\n", ##__VA_ARGS__)
-#define LOG_ERROR(fmt, ...) fprintf(stderr, "virt-launcher-monitor: error: " fmt "\n", ##__VA_ARGS__)
+static void json_write_escaped(FILE *out, const char *s, size_t len)
+{
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		unsigned char c = (unsigned char)s[i];
+
+		switch (c) {
+		case '"':
+			fputs("\\\"", out);
+			break;
+		case '\\':
+			fputs("\\\\", out);
+			break;
+		case '\b':
+			fputs("\\b", out);
+			break;
+		case '\f':
+			fputs("\\f", out);
+			break;
+		case '\n':
+			fputs("\\n", out);
+			break;
+		case '\r':
+			fputs("\\r", out);
+			break;
+		case '\t':
+			fputs("\\t", out);
+			break;
+		default:
+			if (c < 0x20) {
+				fprintf(out, "\\u%04x", c);
+			} else {
+				fputc(c, out);
+			}
+			break;
+		}
+	}
+}
+
+static void log_json(const char *level, const char *msg, size_t msg_len)
+{
+	fputs("{\"component\":\"" LOG_COMPONENT "\",\"level\":\"", stderr);
+	fputs(level, stderr);
+	fputs("\",\"msg\":\"", stderr);
+	json_write_escaped(stderr, msg, msg_len);
+	fputs("\",\"pos\":\"" LOG_POS "\"}\n", stderr);
+	fflush(stderr);
+}
+
+static void __attribute__((format(printf, 2, 3)))
+log_jsonf(const char *level, const char *fmt, ...)
+{
+	char buf[LOG_LINE_LIMIT];
+	va_list ap;
+	int n;
+
+	va_start(ap, fmt);
+	n = vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	if (n < 0) {
+		log_json(level, "failed to format log message", 28);
+		return;
+	}
+	if (n >= (int)sizeof(buf)) {
+		n = (int)sizeof(buf) - 1;
+	}
+	log_json(level, buf, (size_t)n);
+}
+
+#define LOG(fmt, ...) log_jsonf("info", fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) log_jsonf("error", fmt, ##__VA_ARGS__)
 
 static volatile sig_atomic_t termination_requests;
 static volatile sig_atomic_t launcher_exit_code = -1;
@@ -416,14 +489,15 @@ static void emit_log_line(const char *path, const char *line, size_t length, boo
 	if (length > 0 && line[length - 1] == '\r') {
 		length--;
 	}
-	fputs("virt-launcher-monitor: ", stderr);
-	fwrite(path, 1, strlen(path), stderr);
+	fputs("{\"component\":\"" LOG_COMPONENT "\",\"level\":\"info\",\"msg\":\"", stderr);
+	json_write_escaped(stderr, path, strlen(path));
 	fputs(": ", stderr);
-	fwrite(line, 1, length, stderr);
+	json_write_escaped(stderr, line, length);
 	if (truncated) {
 		fputs(" [line truncated]", stderr);
 	}
-	fputc('\n', stderr);
+	fputs("\",\"pos\":\"" LOG_POS "\"}\n", stderr);
+	fflush(stderr);
 }
 
 static void dump_log_file(const char *path)

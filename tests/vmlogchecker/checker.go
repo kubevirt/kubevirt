@@ -250,12 +250,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    47,
-		Regex: regexp.MustCompile(`dirty virt-launcher shutdown: exit-code 2`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"dirty virt-launcher shutdown: exit-code 2"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    48,
-		Regex: regexp.MustCompile(`failed to read qemu log directory`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"failed to read qemu log directory`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
@@ -548,12 +548,10 @@ const (
 	UnexpectedError
 )
 
-const monitorErrorPrefix = "virt-launcher-monitor: error: "
-
-// IsErrorLevel recognizes JSON error logs and the C monitor's explicit error marker.
+// IsErrorLevel returns true if the log line contains a JSON "level":"error" field.
 // Use this to pre-filter lines before classification when only error-level lines matter.
 func IsErrorLevel(line string) bool {
-	return strings.Contains(line, `"level":"error"`) || strings.HasPrefix(line, monitorErrorPrefix)
+	return strings.Contains(line, `"level":"error"`)
 }
 
 func ClassifyLogLine(line string) ErrorClassification {

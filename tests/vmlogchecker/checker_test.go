@@ -30,7 +30,7 @@ var _ = Describe("ClassifyLogLine", func() {
 		Entry("failed keyword", `{"level":"error","msg":"something totally unexpected failed"}`),
 		Entry("fatal keyword", `{"level":"error","msg":"fatal crash in component"}`),
 		Entry("panic keyword", `{"level":"error","msg":"panic in goroutine"}`),
-		Entry("C monitor error marker", `virt-launcher-monitor: error: QEMU did not exit within 10 seconds`),
+		Entry("C monitor error", `{"component":"virt-launcher-monitor","level":"error","msg":"QEMU did not exit within 10 seconds","pos":"main.c"}`),
 	)
 
 	It("should return AllowlistedError when line matches an allowlist pattern", func() {
@@ -52,8 +52,8 @@ var _ = Describe("IsErrorLevel", func() {
 		Entry("error level", `{"level":"error","msg":"something failed"}`, true),
 		Entry("info level", `{"level":"info","msg":"all good"}`, false),
 		Entry("warning level", `{"level":"warning","msg":"be careful"}`, false),
-		Entry("C monitor error", `virt-launcher-monitor: error: QEMU did not exit within 10 seconds`, true),
-		Entry("C monitor info", `virt-launcher-monitor: signalling virt-launcher to shut down`, false),
+		Entry("C monitor error", `{"component":"virt-launcher-monitor","level":"error","msg":"QEMU did not exit within 10 seconds","pos":"main.c"}`, true),
+		Entry("C monitor info", `{"component":"virt-launcher-monitor","level":"info","msg":"signalling virt-launcher to shut down","pos":"main.c"}`, false),
 		Entry("unrelated plain error", `error: something failed`, false),
 		Entry("plain text", `just a plain line with no JSON`, false),
 		Entry("empty", ``, false),

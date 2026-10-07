@@ -113,7 +113,7 @@ var _ = Describe("virt-launcher-monitor", func() {
 		var exitErr *exec.ExitError
 		Expect(errors.As(err, &exitErr)).To(BeTrue())
 		Expect(exitErr.ExitCode()).To(Equal(1))
-		Expect(string(output)).To(ContainSubstring("virt-launcher-monitor: error: failed to exec virt-launcher:"))
+		Expect(string(output)).To(ContainSubstring(`"level":"error","msg":"failed to exec virt-launcher:`))
 	})
 
 	It("propagates the virt-launcher exit code", func() {

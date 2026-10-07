@@ -28,6 +28,6 @@ Behavior preserved from the Go monitor:
 - delete `*.sock` under `--container-disk-dir`
 - Istio ready probe on `:15021` and `POST :15020/quitquitquit`
 
-Logs are plain stderr lines prefixed with `virt-launcher-monitor:`. Errors
-use `virt-launcher-monitor: error:` so vmlogchecker can see them without
-the Go JSON logger. PID 1 does not pull in the Go logging stack.
+Logs are kubevirt JSON lines on stderr (`component`, `level`, `msg`, `pos`)
+so they match virt-launcher in the same stream. PID 1 does not pull in the
+Go logging stack.
