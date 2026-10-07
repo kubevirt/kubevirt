@@ -89,6 +89,9 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_CDI=false
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_SECONDARY_IFACES_TO_IP=eth1
+    export KUBEVIRT_DEPLOY_NET_DRA_DRIVER=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     if [[ "${KUBEVIRT_PROVIDER}" == "${SRIOV_TEST_LANE}" && $JOB_NAME =~ ^(pull|periodic)-kubevirt-e2e-${SRIOV_TEST_LANE}-sig-network$ ]]; then
       export KUBEVIRT_WITH_SRIOV=true
