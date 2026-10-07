@@ -62,3 +62,22 @@ Export-proxy pods are Burstable (requests below limits). HPA
 `AverageUtilization` is relative to **requests**, so targets are above 100% of
 request in order to align scale-out with soft admission near 70% of **limits**.
 See the constants in `pkg/virt-operator/resource/generate/components/hpa.go`.
+
+## Unauthenticated traffic and DoS controls
+
+`virt-exportproxy` does **not** validate export tokens. Auth stays on
+`virt-exportserver` (per-namespace token secrets). The proxy only routes to a
+ready export backend.
+
+To avoid unauthenticated floods driving HPA scale-out:
+
+1. **Auth-gated admission** – `TryRecordTransferStarted` (soft transfer /
+   CPU / memory limits and `kubevirt_exportproxy_active_transfers`) runs only
+   after the backend returns a response that is not `401`/`403`. Failed auth
+   does not consume admission slots or move HPA metrics.
+2. **Per-source-IP concurrency** – at most
+   `MaxConcurrentRequestsPerIP` (32) in-flight proxied requests per
+   `Request.RemoteAddr` peer. Excess requests get HTTP `429` before the
+   backend is contacted. `X-Forwarded-For` is not trusted (spoofable); real
+   client IPs require the ingress/load balancer to present them as the TCP
+   peer.

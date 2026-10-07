@@ -63,4 +63,10 @@ const (
 	// HPAMaxMetricAverageFloor suppresses the gated max HPA metric when fleet
 	// average active transfers is below this value (70% of HPATargetAverageTransfers).
 	HPAMaxMetricAverageFloor = 91
+
+	// MaxConcurrentRequestsPerIP caps in-flight proxied requests from a single
+	// client IP (Request.RemoteAddr). Limits single-source connection floods
+	// without reading export tokens. Well below SoftTransferLimit so one client
+	// cannot monopolize pod admission capacity once authenticated.
+	MaxConcurrentRequestsPerIP = 32
 )

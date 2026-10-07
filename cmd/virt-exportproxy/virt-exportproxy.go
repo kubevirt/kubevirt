@@ -31,6 +31,7 @@ import (
 	"net/http/httputil"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -84,10 +85,14 @@ type exportProxyApp struct {
 	// reverseProxy is a shared template; proxyHandler takes a shallow copy per
 	// request and sets a per-request Rewrite closure on the copy.
 	reverseProxy *httputil.ReverseProxy
+	// ipLimiter caps concurrent proxied requests per client RemoteAddr.
+	ipLimiter *admission.IPConcurrencyLimiter
 }
 
 func NewExportProxyApp() service.Service {
-	return &exportProxyApp{}
+	return &exportProxyApp{
+		ipLimiter: admission.NewIPConcurrencyLimiter(admission.MaxConcurrentRequestsPerIP),
+	}
 }
 
 func (app *exportProxyApp) AddFlags() {
@@ -174,23 +179,22 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Cap concurrent proxied requests per TCP peer before touching the backend.
+	// Transfer/HPA admission happens later in admittingTransport after auth.
+	clientIP := admission.ClientIP(r.RemoteAddr)
+	if app.ipLimiter != nil && !app.ipLimiter.TryAcquire(clientIP) {
+		writeRateLimited(w)
+		return
+	}
+	if app.ipLimiter != nil {
+		defer app.ipLimiter.Release(clientIP)
+	}
+
 	backendHost, status := app.backendAddr(namespace, serviceName)
 	if status != 0 {
 		w.WriteHeader(status)
 		return
 	}
-
-	// Admit only after the export exists, is ready, and has a resolvable backend
-	// so invalid paths do not consume transfer slots or inflate HPA metrics.
-	activeTransfer, ok := exportproxymetrics.TryRecordTransferStarted()
-	if !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
-		w.Header().Set("Connection", "close")
-		w.WriteHeader(http.StatusTooManyRequests)
-		io.WriteString(w, proxyRateLimitedBody)
-		return
-	}
-	defer activeTransfer.Finish()
 
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy
@@ -203,6 +207,13 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		pr.Out.Host = ""
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+func writeRateLimited(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+	w.Header().Set("Connection", "close")
+	w.WriteHeader(http.StatusTooManyRequests)
+	io.WriteString(w, proxyRateLimitedBody)
 }
 
 func (app *exportProxyApp) backendAddr(namespace, serviceName string) (string, int) {
@@ -232,15 +243,66 @@ func (app *exportProxyApp) initReverseProxy() {
 		ResponseHeaderTimeout: backendResponseHeaderTimeout,
 	}
 	app.reverseProxy = &httputil.ReverseProxy{
-		Transport:      transport,
-		FlushInterval:  -1, // flush immediately; avoids proxy-side buffering of large export streams
-		ModifyResponse: app.modifyProxyResponse,
+		// admittingTransport records HPA/admission only after the export server
+		// accepts the request (non-401/403), so unauthenticated floods do not scale pods.
+		Transport:     &admittingTransport{base: transport},
+		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
 	}
 }
 
-func (app *exportProxyApp) modifyProxyResponse(resp *http.Response) error {
-	resp.Body = exportproxymetrics.NewCountingReadCloser(resp.Body)
-	return nil
+// admittingTransport wraps the backend RoundTripper and admits transfers only
+// after the export server returns a response that is not Unauthorized/Forbidden.
+type admittingTransport struct {
+	base http.RoundTripper
+}
+
+func (t *admittingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	resp, err := base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if isUnauthenticatedExportResponse(resp.StatusCode) {
+		// Auth failures must not consume soft-admission slots or HPA metrics.
+		return resp, nil
+	}
+
+	transfer, ok := exportproxymetrics.TryRecordTransferStarted()
+	if !ok {
+		// Close without draining: the body may be a multi-GB export stream, and
+		// draining it under SoftTransferLimit overload would amplify load.
+		// Closing may prevent keep-alive reuse for this backend connection.
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return rateLimitedProxyResponse(req), nil
+	}
+	resp.Body = exportproxymetrics.NewAdmittedTransferBody(resp.Body, transfer.Finish)
+	return resp, nil
+}
+
+func isUnauthenticatedExportResponse(statusCode int) bool {
+	return statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
+}
+
+func rateLimitedProxyResponse(req *http.Request) *http.Response {
+	header := make(http.Header)
+	header.Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+	header.Set("Content-Type", "text/plain; charset=utf-8")
+	body := proxyRateLimitedBody
+	return &http.Response{
+		StatusCode:    http.StatusTooManyRequests,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        header,
+		Body:          io.NopCloser(strings.NewReader(body)),
+		ContentLength: int64(len(body)),
+		Request:       req,
+	}
 }
 
 func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr string) (net.Conn, error) {

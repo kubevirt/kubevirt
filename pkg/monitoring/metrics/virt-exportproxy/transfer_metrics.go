@@ -20,6 +20,8 @@ package virtexportproxy
 
 import (
 	"io"
+	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
@@ -37,14 +39,15 @@ var (
 	activeTransfers = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_exportproxy_active_transfers",
-			Help: "Number of export transfers currently being proxied.",
+			Help: "Number of admitted export transfers currently being proxied.",
 		},
 	)
 
 	transfersTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_exportproxy_transfers_total",
-			Help: "Total number of export transfers handled by the proxy since startup, including active, completed, and failed transfers.",
+			Help: "Total admitted export transfers since startup. " +
+				"Excludes unauthorized and forbidden responses.",
 		},
 	)
 
@@ -105,6 +108,32 @@ func NewCountingReadCloser(body io.ReadCloser) io.ReadCloser {
 	return &countingReadCloser{ReadCloser: body}
 }
 
+// NewAdmittedTransferBody wraps a response body for an admitted transfer: it
+// counts transferred bytes and calls finish exactly once when the body is closed.
+func NewAdmittedTransferBody(body io.ReadCloser, finish func()) io.ReadCloser {
+	if body == nil {
+		body = io.NopCloser(strings.NewReader(""))
+	}
+	return &admittedTransferBody{
+		ReadCloser: NewCountingReadCloser(body),
+		finish:     finish,
+	}
+}
+
+// ResetTransferMetricsForTest clears transfer counters for unit tests.
+func ResetTransferMetricsForTest() {
+	atomic.StoreInt64(&activeTransferCount, 0)
+	readinessShedding.Store(false)
+	activeTransfers.Set(0)
+	admission.ResetUtilizationReaderForTest()
+}
+
+// SetActiveTransferCountForTest sets the active transfer counter for unit tests.
+func SetActiveTransferCountForTest(count int64) {
+	atomic.StoreInt64(&activeTransferCount, count)
+	activeTransfers.Set(float64(count))
+}
+
 type countingReadCloser struct {
 	io.ReadCloser
 }
@@ -115,4 +144,16 @@ func (c *countingReadCloser) Read(p []byte) (int, error) {
 		transferredBytesTotal.Add(float64(n))
 	}
 	return n, err
+}
+
+type admittedTransferBody struct {
+	io.ReadCloser
+	finish func()
+	once   sync.Once
+}
+
+func (b *admittedTransferBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.once.Do(b.finish)
+	return err
 }
