@@ -57,6 +57,11 @@ var (
 	CBTBackendStateOverhead = "512Mi"
 )
 
+const (
+	NBDSocketName    = "backup-nbd-sock"
+	BackupNBDSubPath = "cbt-nbd"
+)
+
 func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingState {
 	if status == nil {
 		return v1.ChangedBlockTrackingUndefined
@@ -321,6 +326,10 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(qemuStatePath(vmi), "cbt")
+}
+
+func PathForBackupNBD(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(qemuStatePath(vmi), BackupNBDSubPath)
 }
 
 const rootQEMUStateDir = "/var/lib/libvirt/qemu"
