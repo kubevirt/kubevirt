@@ -750,7 +750,7 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 }
 
 func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineExport, source exportSource) (time.Duration, error) {
-	service, err := ctrl.getOrCreateExportService(vmExport, source)
+	service, err := ctrl.getOrCreateExportService(vmExport)
 	if err != nil {
 		return 0, err
 	}
@@ -1031,7 +1031,7 @@ func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMa
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
-func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport, source exportSource) (*corev1.Service, error) {
+func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportServiceName(vmExport))
 	obj, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key)
 	if err != nil {
@@ -1044,7 +1044,7 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 		return obj.(*corev1.Service), nil
 	}
 
-	service := ctrl.createServiceManifest(vmExport, source)
+	service := ctrl.createServiceManifest(vmExport)
 	log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
 	service, err = ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 	if err != nil {
@@ -1054,7 +1054,7 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 	return service, nil
 }
 
-func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport, source exportSource) *corev1.Service {
+func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Service {
 	labels := map[string]string{virtv1.AppLabel: exportv1.App}
 	for key, value := range vmExport.Labels {
 		labels[key] = value
@@ -1081,14 +1081,6 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
 		},
-	}
-
-	// The backup tunnel is established by virt-launcher dialing this service,
-	// but the export server only reports ready once the tunnel is up. The
-	// endpoint must be routable while the pod is still unready, otherwise the
-	// tunnel can never connect and readiness deadlocks.
-	if _, isBackup := source.(*VMBackupSource); isBackup {
-		service.Spec.PublishNotReadyAddresses = true
 	}
 
 	return service
