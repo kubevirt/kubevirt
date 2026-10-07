@@ -22,7 +22,6 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -106,25 +105,19 @@ const (
 type BackupCmd string
 
 const (
-	Start  BackupCmd = "Start"
-	Abort  BackupCmd = "Abort"
-	Export BackupCmd = "Export"
+	Start BackupCmd = "Start"
+	Abort BackupCmd = "Abort"
 )
 
 // BackupOptions are options used to configure virtual machine backup job
 type BackupOptions struct {
-	BackupName       string       `json:"backupName,omitempty"`
-	Cmd              BackupCmd    `json:"cmd,omitempty"`
-	Mode             BackupMode   `json:"mode,omitempty"`
-	BackupStartTime  *metav1.Time `json:"backupStartTime,omitempty"`
-	Incremental      *string      `json:"incremental,omitempty"`
-	TargetPath       *string      `json:"targetPath,omitempty"`
-	SkipQuiesce      bool         `json:"skipQuiesce,omitempty"`
-	ExportServerAddr *string      `json:"exportServerAddr,omitempty"`
-	ExportServerName *string      `json:"exportServerName,omitempty"`
-	BackupKey        *string      `json:"backupKey,omitempty"`
-	BackupCert       *string      `json:"backupCert,omitempty"`
-	CACert           *string      `json:"caCert,omitempty"`
+	BackupName      string       `json:"backupName,omitempty"`
+	Cmd             BackupCmd    `json:"cmd,omitempty"`
+	Mode            BackupMode   `json:"mode,omitempty"`
+	BackupStartTime *metav1.Time `json:"backupStartTime,omitempty"`
+	Incremental     *string      `json:"incremental,omitempty"`
+	TargetPath      *string      `json:"targetPath,omitempty"`
+	SkipQuiesce     bool         `json:"skipQuiesce,omitempty"`
 }
 
 // VirtualMachineBackupTracker defines the way to track the latest checkpoint of
@@ -268,10 +261,6 @@ type VirtualMachineBackupStatus struct {
 	// IncludedVolumes lists the volumes that were included in the backup
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
 	// +optional
-	// ExportUID tracks the UID of the associated VMExport for pull-mode backups
-	// used to detect VMExport recreation and re-initiate the export handshake
-	ExportUID *types.UID `json:"exportUID,omitempty"`
-	// +optional
 	// Links exposes internal (in-cluster) and external (Ingress/Route) endpoints
 	// for pull-mode backups, each with a CA certificate and per-volume URLs.
 	// Contains per-volume data and map endpoint URLs for each network path.
@@ -300,7 +289,6 @@ const (
 	ReasonInitializing         = "Initializing"
 	ReasonInitiated            = "Initiated"
 	ReasonPreparingExport      = "PreparingExport"
-	ReasonExportInitiated      = "ExportInitiated"
 	ReasonExportReady          = "ExportReady"
 	ReasonAborting             = "Aborting"
 	ReasonCompleted            = "Completed"
