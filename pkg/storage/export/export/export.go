@@ -739,11 +739,11 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if err != nil || !exists {
 			return 0, fmt.Errorf("could not obtain VirtualMachineBackup tunnel CA: %w", err)
 		}
-		vmiID, err := ctrl.getBackupSourceVMIID(vmBackup)
+		vmi, err := ctrl.getBackupSourceVMI(vmBackup)
 		if err != nil {
 			return 0, err
 		}
-		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, caCert, vmiID))
+		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, caCert, vmi))
 	}
 
 	return 0, nil

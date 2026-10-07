@@ -39,6 +39,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -49,19 +51,23 @@ const (
 	vmBackupNotExist               = "VMBackup does not exist yet"
 	vmBackupNoProgressingCondition = "VMBackup progressing condition not found"
 	vmBackupNoContent              = "VMBackup has no included volumes"
+
+	nbdVolumeName = "backup-nbd"
+	nbdDir        = "/var/run/kubevirt/backup-nbd"
+	nbdSocketPath = nbdDir + "/" + cbt.NBDSocketName
 )
 
 type VMBackupSource struct {
 	vmBackup *backupv1.VirtualMachineBackup
 	caCert   string
-	vmiID    string
+	vmi      *virtv1.VirtualMachineInstance
 }
 
-func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, caCert string, vmiID string) *VMBackupSource {
+func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, caCert string, vmi *virtv1.VirtualMachineInstance) *VMBackupSource {
 	return &VMBackupSource{
 		vmBackup: vmBackup,
 		caCert:   caCert,
-		vmiID:    vmiID,
+		vmi:      vmi,
 	}
 }
 
@@ -136,6 +142,16 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 		}
 	}
 
+	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "BACKUP_NBD_SOCKET",
+		Value: nbdSocketPath,
+	})
+
+	s.configurePodAffinity(pod)
+	s.configurePodNBDVolume(pod)
+}
+
+func (s *VMBackupSource) configurePodAffinity(pod *corev1.Pod) {
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &corev1.Affinity{}
 	}
@@ -148,12 +164,30 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					virtv1.AppLabel:                      "virt-launcher",
-					virtv1.VirtualMachineInstanceIDLabel: s.vmiID,
+					virtv1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(s.vmi.Name),
 				},
 			},
-			TopologyKey: "kubernetes.io/hostname",
+			TopologyKey: corev1.LabelHostname,
 		},
 	)
+}
+
+func (s *VMBackupSource) configurePodNBDVolume(pod *corev1.Pod) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: nbdVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: backendstorage.CurrentPVCName(s.vmi),
+				ReadOnly:  true,
+			},
+		},
+	})
+	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		Name:      nbdVolumeName,
+		MountPath: nbdDir,
+		SubPath:   path.Join(cbt.BackupNBDSubPath, cbt.NBDSocketDir),
+		ReadOnly:  true,
+	})
 }
 
 func (s *VMBackupSource) ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string) {
@@ -285,23 +319,37 @@ func (ctrl *VMExportController) getBackupTracker(namespace, name string) (*backu
 	return obj.(*backupv1.VirtualMachineBackupTracker).DeepCopy(), true, nil
 }
 
-// getBackupSourceVMIID resolves the actual VM name from the backup's source,
-// handling both direct VM sources and VirtualMachineBackupTracker sources.
-func (ctrl *VMExportController) getBackupSourceVMIID(vmBackup *backupv1.VirtualMachineBackup) (string, error) {
+// getBackupSourceVMI resolves the VMI of the backup's source, handling both
+// direct VM sources and VirtualMachineBackupTracker sources.
+func (ctrl *VMExportController) getBackupSourceVMI(vmBackup *backupv1.VirtualMachineBackup) (*virtv1.VirtualMachineInstance, error) {
 	var vmName string
 
 	if vmBackup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
 		tracker, exists, err := ctrl.getBackupTracker(vmBackup.Namespace, vmBackup.Spec.Source.Name)
 		if err != nil {
-			return "", fmt.Errorf("error fetching backup tracker %s/%s: %w", vmBackup.Namespace, vmBackup.Spec.Source.Name, err)
+			return nil, fmt.Errorf("error fetching backup tracker %s/%s: %w", vmBackup.Namespace, vmBackup.Spec.Source.Name, err)
 		}
 		if !exists {
-			return "", fmt.Errorf("VirtualMachineBackupTracker not found: %s/%s", vmBackup.Namespace, vmBackup.Spec.Source.Name)
+			return nil, fmt.Errorf("VirtualMachineBackupTracker not found: %s/%s", vmBackup.Namespace, vmBackup.Spec.Source.Name)
 		}
 		vmName = tracker.Spec.Source.Name
 	} else {
 		vmName = vmBackup.Spec.Source.Name
 	}
 
-	return apimachinery.CalculateVirtualMachineInstanceID(vmName), nil
+	objKey := controller.NamespacedKey(vmBackup.Namespace, vmName)
+	obj, exists, err := ctrl.VMIInformer.GetStore().GetByKey(objKey)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching VMI %s: %w", objKey, err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("VirtualMachineInstance not found: %s", objKey)
+	}
+	vmi := obj.(*virtv1.VirtualMachineInstance)
+
+	if backendstorage.CurrentPVCName(vmi) == "" {
+		return nil, fmt.Errorf("VirtualMachineInstance %s has no backend storage to serve the backup from", objKey)
+	}
+
+	return vmi, nil
 }
