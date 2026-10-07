@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
 )
 
-var heldTransfers []activeTransfer
+var heldTransfers []*ActiveTransfer
 
 type testUtilizationReader struct {
 	cpuPercent float64

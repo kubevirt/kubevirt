@@ -31,8 +31,12 @@ var readinessShedding atomic.Bool
 // HardTransferLimit (== SoftTransferLimit, above HPATargetMaxTransfers) so
 // endpoint state does not flap under load. Soft admission 429s at the same
 // cap; readiness shedding stops Service routing while 429 covers races and
-// non-Service hits.
+// non-Service hits. Returning false while draining removes the pod from
+// endpoints during graceful shutdown.
 func ReadyForService() bool {
+	if IsDraining() {
+		return false
+	}
 	active := ActiveTransferCount()
 	if active >= admission.HardTransferLimit {
 		readinessShedding.Store(true)

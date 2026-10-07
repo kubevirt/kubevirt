@@ -23,14 +23,18 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
+	"syscall"
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -68,6 +72,14 @@ const (
 	backendResponseHeaderTimeout = 30 * time.Second
 	serverIdleTimeout            = 60 * time.Second
 	serverReadHeaderTimeout      = 10 * time.Second
+
+	// drainPollInterval is how often to check for active transfers during shutdown.
+	drainPollInterval = 500 * time.Millisecond
+	// httpShutdownTimeout bounds Server.Shutdown after transfers have drained.
+	httpShutdownTimeout = 30 * time.Second
+	// transferDrainTimeout is how long to wait for active transfers before
+	// forcing HTTP shutdown. Keep below the pod terminationGracePeriodSeconds.
+	transferDrainTimeout = 9 * time.Minute
 
 	proxyRateLimitedBody = "rate limited"
 )
@@ -115,6 +127,7 @@ func (app *exportProxyApp) Run() {
 	if err := exportproxymetrics.SetupMetrics(); err != nil {
 		panic(err)
 	}
+	admission.StartUtilizationSampler()
 
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
@@ -134,8 +147,40 @@ func (app *exportProxyApp) Run() {
 		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 
-	if err := server.ListenAndServeTLS("", ""); err != nil {
-		panic(err)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.ListenAndServeTLS("", "")
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	case sig := <-sigCh:
+		log.Log.Infof("received signal %s, initiating graceful shutdown", sig.String())
+		app.gracefulShutdown(server)
+	}
+}
+
+func (app *exportProxyApp) gracefulShutdown(server *http.Server) {
+	exportproxymetrics.BeginDrain()
+
+	deadline := time.Now().Add(transferDrainTimeout)
+	for exportproxymetrics.ActiveTransferCount() > 0 && time.Now().Before(deadline) {
+		time.Sleep(drainPollInterval)
+	}
+	if remaining := exportproxymetrics.ActiveTransferCount(); remaining > 0 {
+		log.Log.Warningf("timed out waiting for %d active transfers to finish", remaining)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Log.Reason(err).Error("HTTP server shutdown error")
 	}
 }
 
@@ -174,26 +219,25 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Soft admission (transfer count + CPU/mem) before contacting the backend
+	// so rejected requests skip TLS dial and volume open. Connection: close is
+	// set on the client response so keep-alive clients rebalance to other pods.
+	transfer, ok := exportproxymetrics.TryRecordTransferStarted()
+	if !ok {
+		writeRateLimited(w)
+		return
+	}
+
 	backendHost, status := app.backendAddr(namespace, serviceName)
 	if status != 0 {
+		transfer.Cancel()
 		w.WriteHeader(status)
 		return
 	}
 
-	// Admit only after the export exists, is ready, and has a resolvable backend
-	// so invalid paths do not consume transfer slots or inflate HPA metrics.
-	activeTransfer, ok := exportproxymetrics.TryRecordTransferStarted()
-	if !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
-		w.Header().Set("Connection", "close")
-		w.WriteHeader(http.StatusTooManyRequests)
-		io.WriteString(w, proxyRateLimitedBody)
-		return
-	}
-	defer activeTransfer.Finish()
-
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy
+	proxy.Transport = &admittingTransport{base: app.reverseProxy.Transport, transfer: transfer}
 	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
 		// Route via Out (not SetURL) so the inbound path is not joined onto the target.
 		pr.Out.URL.Scheme = "https"
@@ -203,6 +247,13 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		pr.Out.Host = ""
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+func writeRateLimited(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+	w.Header().Set("Connection", "close")
+	w.WriteHeader(http.StatusTooManyRequests)
+	io.WriteString(w, proxyRateLimitedBody)
 }
 
 func (app *exportProxyApp) backendAddr(namespace, serviceName string) (string, int) {
@@ -232,15 +283,49 @@ func (app *exportProxyApp) initReverseProxy() {
 		ResponseHeaderTimeout: backendResponseHeaderTimeout,
 	}
 	app.reverseProxy = &httputil.ReverseProxy{
-		Transport:      transport,
-		FlushInterval:  -1, // flush immediately; avoids proxy-side buffering of large export streams
-		ModifyResponse: app.modifyProxyResponse,
+		Transport:     transport,
+		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
 	}
 }
 
-func (app *exportProxyApp) modifyProxyResponse(resp *http.Response) error {
-	resp.Body = exportproxymetrics.NewCountingReadCloser(resp.Body)
-	return nil
+// admittingTransport wraps the backend RoundTripper. The soft-admission slot is
+// reserved in proxyHandler before dialing; this transport Confirms on success
+// or Cancels on dial/auth failure so unauthenticated floods do not inflate
+// transfers_total or leave slots stuck.
+type admittingTransport struct {
+	base     http.RoundTripper
+	transfer *exportproxymetrics.ActiveTransfer
+}
+
+func (t *admittingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	resp, err := base.RoundTrip(req)
+	if err != nil {
+		if t.transfer != nil {
+			t.transfer.Cancel()
+		}
+		return nil, err
+	}
+	if isUnauthenticatedExportResponse(resp.StatusCode) {
+		// Auth failures must not consume soft-admission slots or HPA metrics.
+		if t.transfer != nil {
+			t.transfer.Cancel()
+		}
+		return resp, nil
+	}
+
+	if t.transfer != nil {
+		t.transfer.Confirm()
+		resp.Body = exportproxymetrics.NewAdmittedTransferBody(resp.Body, t.transfer.Finish)
+	}
+	return resp, nil
+}
+
+func isUnauthenticatedExportResponse(statusCode int) bool {
+	return statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
 }
 
 func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr string) (net.Conn, error) {

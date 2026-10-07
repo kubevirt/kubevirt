@@ -20,6 +20,8 @@ package virtexportproxy
 
 import (
 	"io"
+	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
@@ -37,14 +39,15 @@ var (
 	activeTransfers = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_exportproxy_active_transfers",
-			Help: "Number of export transfers currently being proxied.",
+			Help: "Number of admitted export transfers currently being proxied.",
 		},
 	)
 
 	transfersTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_exportproxy_transfers_total",
-			Help: "Total number of export transfers handled by the proxy since startup, including active, completed, and failed transfers.",
+			Help: "Total admitted export transfers since startup. " +
+				"Excludes unauthorized and forbidden responses.",
 		},
 	)
 
@@ -56,13 +59,34 @@ var (
 	)
 
 	activeTransferCount int64
+	draining            atomic.Bool
 )
 
-type activeTransfer struct{}
+// ActiveTransfer holds a soft-admission slot. Reserve with
+// TryRecordTransferStarted, then either Cancel (auth failure / dial error) or
+// Confirm + Finish (successful transfer).
+type ActiveTransfer struct {
+	once sync.Once
+}
 
-// Finish marks the end of an active export transfer.
-func (activeTransfer) Finish() {
-	RecordTransferFinished()
+// Finish releases a reserved or confirmed transfer slot.
+func (t *ActiveTransfer) Finish() {
+	t.release()
+}
+
+// Cancel releases a reserved slot without counting it as an admitted transfer.
+func (t *ActiveTransfer) Cancel() {
+	t.release()
+}
+
+// Confirm marks a reserved transfer as admitted (increments transfers_total).
+// Call after the backend accepts the request (non-401/403).
+func (t *ActiveTransfer) Confirm() {
+	transfersTotal.Inc()
+}
+
+func (t *ActiveTransfer) release() {
+	t.once.Do(RecordTransferFinished)
 }
 
 // ActiveTransferCount returns the number of export transfers currently proxied.
@@ -70,23 +94,39 @@ func ActiveTransferCount() int64 {
 	return atomic.LoadInt64(&activeTransferCount)
 }
 
-// TryRecordTransferStarted increments active and total transfer counters when the
-// pod is below SoftTransferLimit and soft CPU/memory utilization thresholds.
-// Returns false without incrementing when at capacity.
-func TryRecordTransferStarted() (activeTransfer, bool) {
+// BeginDrain marks the process as shutting down: readiness fails and new
+// transfers are rejected so in-flight exports can complete before SIGKILL.
+func BeginDrain() {
+	draining.Store(true)
+}
+
+// IsDraining reports whether the process is draining for shutdown.
+func IsDraining() bool {
+	return draining.Load()
+}
+
+// TryRecordTransferStarted reserves a soft-admission slot when the pod is below
+// SoftTransferLimit, soft CPU/memory thresholds, and not draining.
+// Returns false without reserving when at capacity.
+//
+// Call Cancel on dial/auth failure, or Confirm then Finish (via
+// NewAdmittedTransferBody) for a successful transfer.
+func TryRecordTransferStarted() (*ActiveTransfer, bool) {
+	if IsDraining() {
+		return nil, false
+	}
 	if admission.OverSoftUtilizationLimit() {
-		return activeTransfer{}, false
+		return nil, false
 	}
 
 	for {
 		current := atomic.LoadInt64(&activeTransferCount)
 		if current >= admission.SoftTransferLimit {
-			return activeTransfer{}, false
+			return nil, false
 		}
 		if atomic.CompareAndSwapInt64(&activeTransferCount, current, current+1) {
 			activeTransfers.Inc()
-			transfersTotal.Inc()
-			return activeTransfer{}, true
+			return &ActiveTransfer{}, true
 		}
 	}
 }
@@ -105,6 +145,33 @@ func NewCountingReadCloser(body io.ReadCloser) io.ReadCloser {
 	return &countingReadCloser{ReadCloser: body}
 }
 
+// NewAdmittedTransferBody wraps a response body for an admitted transfer: it
+// counts transferred bytes and calls finish exactly once when the body is closed.
+func NewAdmittedTransferBody(body io.ReadCloser, finish func()) io.ReadCloser {
+	if body == nil {
+		body = io.NopCloser(strings.NewReader(""))
+	}
+	return &admittedTransferBody{
+		ReadCloser: NewCountingReadCloser(body),
+		finish:     finish,
+	}
+}
+
+// ResetTransferMetricsForTest clears transfer counters for unit tests.
+func ResetTransferMetricsForTest() {
+	atomic.StoreInt64(&activeTransferCount, 0)
+	readinessShedding.Store(false)
+	draining.Store(false)
+	activeTransfers.Set(0)
+	admission.ResetUtilizationReaderForTest()
+}
+
+// SetActiveTransferCountForTest sets the active transfer counter for unit tests.
+func SetActiveTransferCountForTest(count int64) {
+	atomic.StoreInt64(&activeTransferCount, count)
+	activeTransfers.Set(float64(count))
+}
+
 type countingReadCloser struct {
 	io.ReadCloser
 }
@@ -115,4 +182,16 @@ func (c *countingReadCloser) Read(p []byte) (int, error) {
 		transferredBytesTotal.Add(float64(n))
 	}
 	return n, err
+}
+
+type admittedTransferBody struct {
+	io.ReadCloser
+	finish func()
+	once   sync.Once
+}
+
+func (b *admittedTransferBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.once.Do(b.finish)
+	return err
 }
