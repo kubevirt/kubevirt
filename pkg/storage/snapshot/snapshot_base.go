@@ -498,8 +498,26 @@ func (ctrl *VMSnapshotController) handleVMI(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmSnapshotQueue.Add(k)
+			ctrl.enqueueExternalContent(k)
 		}
 	}
+}
+
+// the VMI is where the launcher reports the overlay transaction's progress
+func (ctrl *VMSnapshotController) enqueueExternalContent(vmSnapshotKey string) {
+	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(vmSnapshotKey)
+	if err != nil || !exists {
+		return
+	}
+
+	vmSnapshot := obj.(*snapshotv1.VirtualMachineSnapshot)
+	if snapshotMode(vmSnapshot) != snapshotv1.SnapshotModeExternal {
+		return
+	}
+
+	k := cacheKeyFunc(vmSnapshot.Namespace, GetVMSnapshotContentName(vmSnapshot))
+	log.Log.V(5).Infof(enqueuedForSyncFmt, k)
+	ctrl.vmSnapshotContentQueue.Add(k)
 }
 
 func (ctrl *VMSnapshotController) handleVolumeSnapshotClass(obj interface{}) {

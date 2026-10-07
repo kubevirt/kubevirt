@@ -642,6 +642,45 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 	}
 }
 
+func (c *VirtualMachineController) updateOverlaySnapshotCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+	if domain == nil {
+		// the condition's absence means the overlays were committed, so a domain
+		// that could not be read must not clear it
+		return
+	}
+
+	// the launcher zeroes the metadata rather than dropping the element
+	overlay := domain.Spec.Metadata.KubeVirt.SnapshotOverlay
+	if overlay == nil || overlay.Phase == "" {
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive)
+		return
+	}
+
+	status, reason := k8sv1.ConditionTrue, string(overlay.Phase)
+	switch overlay.Phase {
+	case api.SnapshotOverlayInProgress:
+		reason = v1.VirtualMachineInstanceReasonOverlayPreparing
+	case api.SnapshotOverlayReady:
+		reason = v1.VirtualMachineInstanceReasonOverlaysReady
+	case api.SnapshotOverlayCommitting:
+		reason = v1.VirtualMachineInstanceReasonOverlayCommitting
+	case api.SnapshotOverlayCommitFailed:
+		reason = v1.VirtualMachineInstanceReasonOverlayCommitFailed
+	case api.SnapshotOverlaySnapshotFailed:
+		// the only failure that leaves the disks back on their base images
+		status = k8sv1.ConditionFalse
+		reason = v1.VirtualMachineInstanceReasonOverlaySnapshotFailed
+	}
+
+	condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+		Type:               v1.VirtualMachineInstanceOverlaySnapshotActive,
+		Status:             status,
+		Reason:             reason,
+		Message:            overlay.Message,
+		LastTransitionTime: metav1.Now(),
+	})
+}
+
 func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
 	// Calculate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := c.calculateLiveMigrationCondition(vmi)
@@ -981,6 +1020,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
+	c.updateOverlaySnapshotCondition(vmi, domain, condManager)
 	c.updateLiveMigrationConditions(vmi, condManager)
 	err := c.updateGuestAgentConditions(vmi, guestAgentConnected(domain), condManager)
 	if err != nil {

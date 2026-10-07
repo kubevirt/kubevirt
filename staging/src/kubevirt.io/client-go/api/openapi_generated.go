@@ -560,6 +560,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.SeccompConfiguration{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		corev1.SecretVolumeSource{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		corev1.ServiceAccountVolumeSource{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
+		corev1.SnapshotOverlayOptions{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_SnapshotOverlayOptions(ref),
 		corev1.SoundDevice{}.OpenAPIModelName():                                                           schema_kubevirtio_api_core_v1_SoundDevice(ref),
 		corev1.StallDetectorOptions{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_StallDetectorOptions(ref),
 		corev1.StartOptions{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_StartOptions(ref),
@@ -26393,6 +26394,28 @@ func schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref common.Referen
 	}
 }
 
+func schema_kubevirtio_api_core_v1_SnapshotOverlayOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SnapshotOverlayOptions names the utility volume the copy-on-write overlays of an External mode VirtualMachineSnapshot are written to",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the utility volume attached to the VirtualMachineInstance",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -37014,6 +37037,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotContentStatus(
 							},
 						},
 					},
+					"snapshotMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotMode is the actual mode the snapshot is taken with",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -37096,12 +37126,25 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotSpec(ref commo
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},
+					"snapshotMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotMode selects the flow used to snapshot a running VM. Only meaningful for online snapshots; offline snapshots are unaffected. External requires the ExternalVMSnapshot feature gate. Defaults to Direct",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overlayScratchSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from FailureDeadline, capped by the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			v1.TypedLocalObjectReference{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), resource.Quantity{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
 	}
 }
 

@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "external.go",
         "restore.go",
         "restore_base.go",
         "snapshot.go",
@@ -20,6 +21,7 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/utilityvolume:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//pkg/util/gvk:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",
@@ -38,6 +40,7 @@ go_library(
         "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
@@ -54,6 +57,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "external_test.go",
         "restore_test.go",
         "snapshot_suite_test.go",
         "snapshot_test.go",
@@ -99,6 +103,7 @@ go_test(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

@@ -11,9 +11,11 @@ func (VirtualMachineSnapshot) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
-		"deletionPolicy":  "+optional",
-		"failureDeadline": "This time represents the number of seconds we permit the vm snapshot\nto take. In case we pass this deadline we mark this snapshot\nas failed.\nDefaults to DefaultFailureDeadline - 5min\n+optional",
+		"":                   "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource\n+kubebuilder:validation:XValidation:rule=\"!has(self.overlayScratchSize) || (has(self.snapshotMode) && self.snapshotMode == 'External')\",message=\"overlayScratchSize can only be set when snapshotMode is External\"",
+		"deletionPolicy":     "+optional",
+		"failureDeadline":    "This time represents the number of seconds we permit the vm snapshot\nto take. In case we pass this deadline we mark this snapshot\nas failed.\nDefaults to DefaultFailureDeadline - 5min\n+optional",
+		"snapshotMode":       "SnapshotMode selects the flow used to snapshot a running VM.\nOnly meaningful for online snapshots; offline snapshots are unaffected.\nExternal requires the ExternalVMSnapshot feature gate.\nDefaults to Direct\n+optional\n+kubebuilder:default=Direct",
+		"overlayScratchSize": "OverlayScratchSize overrides the size of the scratch volume holding the\ncopy-on-write overlays for the duration of an External mode snapshot.\nWhen not set, the size is derived from FailureDeadline, capped by the\nsize of the snapshotted disks.\nThis field can only be set when SnapshotMode is External\n+optional\n+kubebuilder:validation:XValidation:rule=\"quantity(string(self)).isGreaterThan(quantity('0'))\",message=\"overlayScratchSize must be greater than zero\"",
 	}
 }
 
@@ -121,6 +123,7 @@ func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 		"readyToUse":           "+optional",
 		"error":                "+optional",
 		"volumeSnapshotStatus": "+optional\n+listType=atomic",
+		"snapshotMode":         "SnapshotMode is the actual mode the snapshot is taken with\n+optional",
 	}
 }
 

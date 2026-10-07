@@ -349,6 +349,21 @@ func (mr *MockConnectionMockRecorder) SetReconnectChan(reconnect any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetReconnectChan", reflect.TypeOf((*MockConnection)(nil).SetReconnectChan), reconnect)
 }
 
+// VolatileDomainEventBlockJobRegister mocks base method.
+func (m *MockConnection) VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VolatileDomainEventBlockJobRegister", callback)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VolatileDomainEventBlockJobRegister indicates an expected call of VolatileDomainEventBlockJobRegister.
+func (mr *MockConnectionMockRecorder) VolatileDomainEventBlockJobRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolatileDomainEventBlockJobRegister", reflect.TypeOf((*MockConnection)(nil).VolatileDomainEventBlockJobRegister), callback)
+}
+
 // VolatileDomainEventDeviceRemovedRegister mocks base method.
 func (m *MockConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error) {
 	m.ctrl.T.Helper()
@@ -526,6 +541,34 @@ func (mr *MockVirDomainMockRecorder) BackupBegin(backupXML, checkpointXML, flags
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupBegin", reflect.TypeOf((*MockVirDomain)(nil).BackupBegin), backupXML, checkpointXML, flags)
 }
 
+// BlockCommit mocks base method.
+func (m *MockVirDomain) BlockCommit(disk, base, top string, bandwidth uint64, flags libvirt.DomainBlockCommitFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockCommit", disk, base, top, bandwidth, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BlockCommit indicates an expected call of BlockCommit.
+func (mr *MockVirDomainMockRecorder) BlockCommit(disk, base, top, bandwidth, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommit", reflect.TypeOf((*MockVirDomain)(nil).BlockCommit), disk, base, top, bandwidth, flags)
+}
+
+// BlockJobAbort mocks base method.
+func (m *MockVirDomain) BlockJobAbort(disk string, flags libvirt.DomainBlockJobAbortFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockJobAbort", disk, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BlockJobAbort indicates an expected call of BlockJobAbort.
+func (mr *MockVirDomainMockRecorder) BlockJobAbort(disk, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockJobAbort", reflect.TypeOf((*MockVirDomain)(nil).BlockJobAbort), disk, flags)
+}
+
 // BlockResize mocks base method.
 func (m *MockVirDomain) BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error {
 	m.ctrl.T.Helper()
@@ -567,6 +610,21 @@ func (m *MockVirDomain) CreateCheckpointXML(xmlConfig string, flags libvirt.Doma
 func (mr *MockVirDomainMockRecorder) CreateCheckpointXML(xmlConfig, flags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCheckpointXML", reflect.TypeOf((*MockVirDomain)(nil).CreateCheckpointXML), xmlConfig, flags)
+}
+
+// CreateSnapshotXML mocks base method.
+func (m *MockVirDomain) CreateSnapshotXML(xmlConfig string, flags libvirt.DomainSnapshotCreateFlags) (*libvirt.DomainSnapshot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSnapshotXML", xmlConfig, flags)
+	ret0, _ := ret[0].(*libvirt.DomainSnapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSnapshotXML indicates an expected call of CreateSnapshotXML.
+func (mr *MockVirDomainMockRecorder) CreateSnapshotXML(xmlConfig, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSnapshotXML", reflect.TypeOf((*MockVirDomain)(nil).CreateSnapshotXML), xmlConfig, flags)
 }
 
 // CreateWithFlags mocks base method.
@@ -680,6 +738,21 @@ func (m *MockVirDomain) GetBlockInfo(disk string, flags uint32) (*libvirt.Domain
 func (mr *MockVirDomainMockRecorder) GetBlockInfo(disk, flags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockInfo", reflect.TypeOf((*MockVirDomain)(nil).GetBlockInfo), disk, flags)
+}
+
+// GetBlockJobInfo mocks base method.
+func (m *MockVirDomain) GetBlockJobInfo(disk string, flags libvirt.DomainBlockJobInfoFlags) (*libvirt.DomainBlockJobInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockJobInfo", disk, flags)
+	ret0, _ := ret[0].(*libvirt.DomainBlockJobInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockJobInfo indicates an expected call of GetBlockJobInfo.
+func (mr *MockVirDomainMockRecorder) GetBlockJobInfo(disk, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockJobInfo", reflect.TypeOf((*MockVirDomain)(nil).GetBlockJobInfo), disk, flags)
 }
 
 // GetDiskErrors mocks base method.

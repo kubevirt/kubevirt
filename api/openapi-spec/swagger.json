@@ -8631,6 +8631,67 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/commitsnapshot": {
+    "put": {
+     "description": "Commit the qcow2 overlays of a VirtualMachineInstance back into their base images.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1CommitSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -8669,6 +8730,67 @@
        "required": true,
        "schema": {
         "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/externalsnapshot": {
+    "put": {
+     "description": "Redirect the disks of a VirtualMachineInstance to qcow2 overlays.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1ExternalSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
        }
       }
      ],
@@ -10462,6 +10584,67 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/commitsnapshot": {
+    "put": {
+     "description": "Commit the qcow2 overlays of a VirtualMachineInstance back into their base images.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3CommitSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -10500,6 +10683,67 @@
        "required": true,
        "schema": {
         "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/externalsnapshot": {
+    "put": {
+     "description": "Redirect the disks of a VirtualMachineInstance to qcow2 overlays.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3ExternalSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
        }
       }
      ],
@@ -17615,6 +17859,20 @@
      }
     }
    },
+   "v1.SnapshotOverlayOptions": {
+    "description": "SnapshotOverlayOptions names the utility volume the copy-on-write overlays of an External mode VirtualMachineSnapshot are written to",
+    "type": "object",
+    "required": [
+     "volumeName"
+    ],
+    "properties": {
+     "volumeName": {
+      "description": "VolumeName is the utility volume attached to the VirtualMachineInstance",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.SoundDevice": {
     "description": "Represents the user's configuration to emulate sound cards in the VMI.",
     "type": "object",
@@ -22850,6 +23108,10 @@
      "readyToUse": {
       "type": "boolean"
      },
+     "snapshotMode": {
+      "description": "SnapshotMode is the actual mode the snapshot is taken with",
+      "type": "string"
+     },
      "volumeSnapshotStatus": {
       "type": "array",
       "items": {
@@ -22902,6 +23164,14 @@
      "failureDeadline": {
       "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "overlayScratchSize": {
+      "description": "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from FailureDeadline, capped by the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
+     },
+     "snapshotMode": {
+      "description": "SnapshotMode selects the flow used to snapshot a running VM. Only meaningful for online snapshots; offline snapshots are unaffected. External requires the ExternalVMSnapshot feature gate. Defaults to Direct",
+      "type": "string"
      },
      "source": {
       "default": {},

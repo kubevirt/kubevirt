@@ -101,6 +101,31 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
+		DescribeTable("should admit snapshotMode according to the ExternalVMSnapshot feature gate", func(mode snapshotv1.SnapshotMode, externalEnabled, allowed bool) {
+			snapshot := &snapshotv1.VirtualMachineSnapshot{
+				Spec: snapshotv1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+					SnapshotMode: pointer.P(mode),
+				},
+			}
+
+			config := stubVMSnapshotConfigChecker{snapshotEnabled: true, externalVMSnapshotEnabled: externalEnabled}
+			ar := createSnapshotAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(Equal(allowed))
+			if !allowed {
+				Expect(resp.Result.Message).Should(Equal("ExternalVMSnapshot feature gate not enabled"))
+			}
+		},
+			Entry("reject External when the gate is disabled", snapshotv1.SnapshotModeExternal, false, false),
+			Entry("allow External when the gate is enabled", snapshotv1.SnapshotModeExternal, true, true),
+			Entry("allow Direct when the gate is disabled", snapshotv1.SnapshotModeDirect, false, true),
+		)
+
 		It("should reject spec update", func() {
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{
@@ -339,7 +364,12 @@ func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.Vir
 }
 
 type stubVMSnapshotConfigChecker struct {
-	snapshotEnabled bool
+	snapshotEnabled           bool
+	externalVMSnapshotEnabled bool
 }
 
 func (s stubVMSnapshotConfigChecker) SnapshotEnabled() bool { return s.snapshotEnabled }
+
+func (s stubVMSnapshotConfigChecker) ExternalVMSnapshotEnabled() bool {
+	return s.externalVMSnapshotEnabled
+}

@@ -1447,6 +1447,20 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) Backup(ctx, name, bac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Backup", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).Backup), ctx, name, backupOptions)
 }
 
+// CommitSnapshot mocks base method.
+func (m *MockVirtualMachineInstanceInterface) CommitSnapshot(ctx context.Context, name string, overlayOptions *v122.SnapshotOverlayOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitSnapshot", ctx, name, overlayOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CommitSnapshot indicates an expected call of CommitSnapshot.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) CommitSnapshot(ctx, name, overlayOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitSnapshot", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).CommitSnapshot), ctx, name, overlayOptions)
+}
+
 // Create mocks base method.
 func (m *MockVirtualMachineInstanceInterface) Create(ctx context.Context, virtualMachineInstance *v122.VirtualMachineInstance, opts v12.CreateOptions) (*v122.VirtualMachineInstance, error) {
 	m.ctrl.T.Helper()
@@ -1502,6 +1516,20 @@ func (m *MockVirtualMachineInstanceInterface) EvacuateCancel(ctx context.Context
 func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) EvacuateCancel(ctx, name, evacuateCancelOptions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvacuateCancel", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).EvacuateCancel), ctx, name, evacuateCancelOptions)
+}
+
+// ExternalSnapshot mocks base method.
+func (m *MockVirtualMachineInstanceInterface) ExternalSnapshot(ctx context.Context, name string, overlayOptions *v122.SnapshotOverlayOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExternalSnapshot", ctx, name, overlayOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExternalSnapshot indicates an expected call of ExternalSnapshot.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) ExternalSnapshot(ctx, name, overlayOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExternalSnapshot", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).ExternalSnapshot), ctx, name, overlayOptions)
 }
 
 // FilesystemList mocks base method.

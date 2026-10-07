@@ -40,6 +40,8 @@ service Cmd {
   rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
   rpc RedefineCheckpoint(RedefineCheckpointRequest) returns (RedefineCheckpointResponse) {}
   rpc GetVMStats(VMStatsRequest) returns (VMStatsResponse) {}
+  rpc ExternalSnapshot(ExternalSnapshotRequest) returns (Response) {}
+  rpc CommitSnapshot(CommitSnapshotRequest) returns (Response) {}
 }
 
 message QemuVersionResponse {
@@ -306,4 +308,18 @@ message VMStatsResponse {
   Response guestGetMemoryBlocks = 18;
   Response guestGetFsInfo = 19;
   Response guestGetDevices = 20;
+}
+
+message ExternalSnapshotRequest {
+  VMI vmi = 1;
+  // overlayDir is the directory the qcow2 overlays are created in. It is the
+  // mount point of the scratch volume attached to the virt-launcher pod.
+  string overlayDir = 2;
+}
+
+message CommitSnapshotRequest {
+  VMI vmi = 1;
+  // overlayDir is the directory holding the qcow2 overlays to commit back into
+  // their base images.
+  string overlayDir = 2;
 }

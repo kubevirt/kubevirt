@@ -20,21 +20,17 @@
 package cbt
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/utilityvolume"
 )
 
 const (
@@ -46,10 +42,6 @@ func backupTargetVolumeName(backupName string) string {
 }
 
 var (
-	failedTargetPVCAttach       = "failed to attach target backup pvc: %s"
-	failedTargetPVCDetach       = "failed to detach target backup pvc: %s"
-	attachTargetPVCMsg          = "attaching backup target pvc %s to vmi %s"
-	detachTargetPVCMsg          = "detaching backup target pvc from vmi %s"
 	backupTargetPVCBlockModeMsg = "backup target PVC must be a filesystem PVC, provided pvc %s/%s is block"
 	pvcNotFoundMsg              = "PVC %s/%s doesnt exist"
 
@@ -78,108 +70,17 @@ func (ctrl *VMBackupController) verifyBackupTargetPVC(pvcName *string, namespace
 }
 
 func (ctrl *VMBackupController) backupTargetPVCAttached(vmi *v1.VirtualMachineInstance, volumeName string) bool {
-	if vmi == nil {
-		return false
-	}
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.Name == volumeName {
-			return volumeStatus.HotplugVolume != nil && volumeStatus.Phase == v1.HotplugVolumeMounted
-		}
-	}
-	return false
+	return utilityvolume.Attached(vmi, volumeName)
 }
 
 func (ctrl *VMBackupController) backupTargetPVCDetached(vmi *v1.VirtualMachineInstance, volumeName string) bool {
-	if vmi == nil {
-		return true
-	}
-
-	for _, vol := range vmi.Spec.UtilityVolumes {
-		if vol.Name == volumeName {
-			return false
-		}
-	}
-
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.Name == volumeName {
-			return false
-		}
-	}
-
-	return true
+	return utilityvolume.Detached(vmi, volumeName)
 }
 
 func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInstance, pvcName string, volumeName string) error {
-	for _, vol := range vmi.Spec.UtilityVolumes {
-		if vol.Name == volumeName {
-			return nil
-		}
-	}
-
-	backupVolume := v1.UtilityVolume{
-		Name: volumeName,
-		PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: pvcName,
-		},
-		Type: pointer.P(v1.Backup),
-	}
-
-	patchSet := patch.New(
-		patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes),
-	)
-
-	newUtilityVolumes := append(vmi.Spec.UtilityVolumes, backupVolume)
-	if len(vmi.Spec.UtilityVolumes) > 0 {
-		patchSet.AddOption(patch.WithReplace("/spec/utilityVolumes", newUtilityVolumes))
-	} else {
-		patchSet.AddOption(patch.WithAdd("/spec/utilityVolumes", newUtilityVolumes))
-	}
-
-	patchBytes, err := patchSet.GeneratePayload()
-	if err != nil {
-		return fmt.Errorf("failed to generate attach backup target PVC patch: %w", err)
-	}
-
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf(failedTargetPVCAttach, err)
-	}
-
-	log.Log.Object(vmi).Infof(attachTargetPVCMsg, pvcName, vmi.Name)
-	return nil
+	return utilityvolume.Attach(ctrl.client, vmi, volumeName, pvcName, v1.Backup)
 }
 
 func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInstance, volumeName string) error {
-	if len(vmi.Spec.UtilityVolumes) == 0 {
-		return nil
-	}
-
-	newUtilityVolumes := make([]v1.UtilityVolume, 0, len(vmi.Spec.UtilityVolumes))
-	for _, vol := range vmi.Spec.UtilityVolumes {
-		if vol.Name != volumeName {
-			newUtilityVolumes = append(newUtilityVolumes, vol)
-		}
-	}
-
-	patchSet := patch.New(
-		patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes),
-	)
-	if len(newUtilityVolumes) == 0 {
-		patchSet.AddOption(patch.WithRemove("/spec/utilityVolumes"))
-	} else {
-		patchSet.AddOption(patch.WithReplace("/spec/utilityVolumes", newUtilityVolumes))
-	}
-
-	patchBytes, err := patchSet.GeneratePayload()
-	if err != nil {
-		return fmt.Errorf(failedTargetPVCDetach, err)
-	}
-
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf(failedTargetPVCDetach, err)
-	}
-
-	log.Log.Object(vmi).Infof(detachTargetPVCMsg, vmi.Name)
-	return nil
+	return utilityvolume.Detach(ctrl.client, vmi, volumeName)
 }

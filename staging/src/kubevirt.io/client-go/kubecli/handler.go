@@ -30,6 +30,8 @@ const (
 	redefineCheckpointTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/redefine-checkpoint"
 	freezeTemplateURI             = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
 	unfreezeTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
+	externalSnapshotTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/externalsnapshot"
+	commitSnapshotTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/commitsnapshot"
 	resetTemplateURI              = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
 	softRebootTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
 	guestInfoTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
@@ -68,6 +70,8 @@ type VirtHandlerConn interface {
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	ExternalSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	CommitSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -232,6 +236,14 @@ func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string,
 
 func (v *virtHandlerConn) UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(unfreezeTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) ExternalSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(externalSnapshotTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) CommitSnapshotURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(commitSnapshotTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

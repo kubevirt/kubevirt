@@ -979,6 +979,11 @@ func (in ServiceAccountVolumeSource) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SnapshotOverlayOptions) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.SnapshotOverlayOptions"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in SoundDevice) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.SoundDevice"
 }
