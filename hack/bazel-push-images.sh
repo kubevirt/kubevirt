@@ -75,6 +75,7 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         virtio-container-disk
         winrmcli
         network-passt-binding
+        test-network-vhostuser-dra-binding
     "
 fi
 
