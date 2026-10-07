@@ -49,6 +49,9 @@ var _ = Describe("Export proxy transfer metrics", func() {
 		Expect(ok).To(BeTrue())
 		Expect(ActiveTransferCount()).To(Equal(int64(1)))
 		Expect(getGaugeValue(activeTransfers)).To(Equal(1.0))
+		Expect(getCounterValue(transfersTotal)).To(Equal(totalBefore))
+
+		transfer.Confirm()
 		Expect(getCounterValue(transfersTotal)).To(Equal(totalBefore + 1.0))
 
 		transfer.Finish()
