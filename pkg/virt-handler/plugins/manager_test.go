@@ -82,9 +82,9 @@ var _ = Describe("NodeHookManager", func() {
 		})
 
 		It("should skip plugins without matching hook point", func() {
-			Expect(pluginStore.Add(newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStop))).To(Succeed())
+			Expect(pluginStore.Add(newPlugin("test-plugin", pluginv1alpha1.NodeHookOnVMStop))).To(Succeed())
 			// CallNodeHooks for PreVMStart should not attempt to dial a socket for a
-			// plugin that only permits PreVMStop. Since no socket exists, a dial
+			// plugin that only permits OnVMStop. Since no socket exists, a dial
 			// attempt would fail - success here proves the plugin was skipped.
 			Expect(manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")).To(Succeed())
 		})

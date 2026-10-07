@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"slices"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -98,8 +97,8 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 			}
 		}
 
-		for i, dh := range p.Spec.DomainHooks {
-			causes = append(causes, validateDomainHookCEL(eval, dh, specPath.Child("domainHooks").Index(i))...)
+		for i, dh := range p.Spec.LauncherHooks {
+			causes = append(causes, validateLauncherHookCEL(eval, dh, specPath.Child("launcherHooks").Index(i))...)
 		}
 
 		nodeEval, err := nodecelutil.NewEvaluator()
@@ -116,8 +115,6 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 		}
 	}
 
-	causes = append(causes, validateSidecarSocketPaths(p)...)
-
 	return causes
 }
 
@@ -128,12 +125,12 @@ func hasCELExpressions(p *pluginv1alpha1.Plugin) bool {
 	if slices.ContainsFunc(p.Spec.NodeHooks, func(nh pluginv1alpha1.NodeHook) bool { return nh.Condition != "" }) {
 		return true
 	}
-	return slices.ContainsFunc(p.Spec.DomainHooks, func(dh pluginv1alpha1.DomainHook) bool {
+	return slices.ContainsFunc(p.Spec.LauncherHooks, func(dh pluginv1alpha1.LauncherHook) bool {
 		return (dh.CEL != nil && dh.CEL.Expression != "") || dh.Condition != ""
 	})
 }
 
-func validateDomainHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.DomainHook, dhPath *field.Path) []metav1.StatusCause {
+func validateLauncherHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.LauncherHook, dhPath *field.Path) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if dh.CEL != nil && dh.CEL.Expression != "" {
@@ -172,28 +169,5 @@ func validateNodeHookCEL(eval *nodecelutil.Evaluator, nh pluginv1alpha1.NodeHook
 		}
 	}
 
-	return causes
-}
-
-func validateSidecarSocketPaths(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	specPath := field.NewPath("spec")
-
-	for i, dh := range p.Spec.DomainHooks {
-		if dh.Sidecar == nil {
-			continue
-		}
-		dhPath := specPath.Child("domainHooks").Index(i).Child("sidecar", "socketPath")
-		sp := dh.Sidecar.SocketPath
-
-		cleaned := filepath.Clean(sp)
-		if cleaned != sp {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "socketPath must be a clean path (no '..' segments or redundant separators)",
-				Field:   dhPath.String(),
-			})
-		}
-	}
 	return causes
 }
