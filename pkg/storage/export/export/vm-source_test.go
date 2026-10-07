@@ -19,6 +19,7 @@
 package export
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -661,5 +662,27 @@ var _ = Describe("PVC source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 		testutils.ExpectEvent(recorder, exporterPodFailedOrCompletedEvent)
+	})
+
+	It("should not include OCI manifest link when OCIExport feature gate is disabled", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		_, err := vmExportClient.ExportV1().VirtualMachineExports(testVMExport.Namespace).Create(
+			context.Background(), testVMExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+
+		updated, err := vmExportClient.ExportV1().VirtualMachineExports(testVMExport.Namespace).Get(
+			context.Background(), testVMExport.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updated.Status.Links.Internal).ToNot(BeNil())
+		Expect(updated.Status.Links.Internal.Manifests).ToNot(ContainElement(
+			HaveField("Type", exportv1.OCI)))
 	})
 })

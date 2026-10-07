@@ -102,6 +102,8 @@ var (
 	RequiresVSOCKLocalNamespace = Label("RequiresVSOCKLocalNamespace")
 	// RequiresVSOCKGlobalNamespace requires nodes with net.vsock.child_ns_mode unset or set to global
 	RequiresVSOCKGlobalNamespace = Label("RequiresVSOCKGlobalNamespace")
+	// RequiresOCIExport requires the OCIExport feature gate to be enabled on the kubevirt level
+	RequiresOCIExport = Label("RequiresOCIExport")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
