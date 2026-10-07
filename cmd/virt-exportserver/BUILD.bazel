@@ -21,7 +21,6 @@ go_library(
 go_binary(
     name = "virt-exportserver",
     embed = [":go_default_library"],
-    static = "on",
     visibility = ["//visibility:public"],
     x_defs = version_x_defs(),
 )

@@ -188,7 +188,6 @@ launcherbase_extra="
   tar
   virtiofsd-${VIRTIOFSD_VERSION}
   xorriso
-  libnbd-${LIBNBD_VERSION}
 "
 
 handlerbase_main="
@@ -227,6 +226,7 @@ libguestfstools_extra="
 
 exportserverbase_main="
   tar
+  libnbd-${LIBNBD_VERSION}
 "
 
 pr_helper="
