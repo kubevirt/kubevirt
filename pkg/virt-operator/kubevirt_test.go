@@ -42,6 +42,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -208,6 +209,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.APIService, _ = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 	informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 	informers.Route, _ = testutils.NewFakeInformerFor(&routev1.Route{})
+	informers.SynchronizationService, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
+	informers.SynchronizationIngress, _ = testutils.NewFakeInformerFor(&networkingv1.Ingress{})
+	informers.SynchronizationRoute, _ = testutils.NewFakeInformerFor(&routev1.Route{})
 	informers.InstallStrategyConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 	informers.InstallStrategyJob, _ = testutils.NewFakeInformerFor(&batchv1.Job{})
 	informers.InfrastructurePod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
