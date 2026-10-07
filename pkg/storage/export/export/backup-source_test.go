@@ -549,7 +549,10 @@ var _ = Describe("Backup source", func() {
 			Kind:     "VirtualMachine",
 			Name:     "test-vm",
 		}
-		addTestVMI("test-vm")
+		vmiToleration := k8sv1.Toleration{Key: "dedicated", Operator: k8sv1.TolerationOpEqual, Value: "vms", Effect: k8sv1.TaintEffectNoSchedule}
+		vmi := addTestVMI("test-vm")
+		vmi.Spec.Tolerations = []k8sv1.Toleration{vmiToleration}
+		Expect(controller.VMIInformer.GetStore().Update(vmi)).To(Succeed())
 		Expect(controller.VMBackupInformer.GetStore().Add(vmBackup)).To(Succeed())
 		withBackupCAConfigMap(controller)
 
@@ -596,6 +599,9 @@ var _ = Describe("Backup source", func() {
 		Expect(affinityTerm.LabelSelector).ToNot(BeNil())
 		Expect(affinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.AppLabel, "virt-launcher"))
 		Expect(affinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.VirtualMachineInstanceIDLabel, "test-vm"))
+
+		By("Checking the exporter tolerates the VMI's taints")
+		Expect(pod.Spec.Tolerations).To(ContainElement(vmiToleration))
 
 		By("Checking the backup NBD socket is mounted read only from the backend storage")
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
