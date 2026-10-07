@@ -67,6 +67,7 @@ var OrasTestArtifactImage = "quay.io/vladikr/alpine-oras-artifact:devel"
 // images are built with --build-cover (hack/bazel-build-images.sh).
 var CovReport bool
 var CovCollectorURL string
+var CovCollectorImage string
 var CovUploaderImage string
 
 func init() {
@@ -109,6 +110,7 @@ func init() {
 	// E2E coverage flags (opt-in; only meaningful with --build-cover images).
 	flag.BoolVar(&CovReport, "cov-report", false, "Enable E2E coverage collection (requires --build-cover images)")
 	flag.StringVar(&CovCollectorURL, "cov-collector-url", "http://kv-coverage-collector-svc.kubevirt-coverage/coverage", "kv-coverage-collector service URL")
+	flag.StringVar(&CovCollectorImage, "cov-collector-image", "", "kv-coverage-collector image deployed by SynchronizedBeforeSuite")
 	flag.StringVar(&CovUploaderImage, "cov-uploader-image", "", "coverage-uploader image injected into virt-launcher pods via MAP")
 }
 

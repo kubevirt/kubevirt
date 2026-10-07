@@ -32,7 +32,9 @@ for arg in "$@"; do
 done
 if [ "$KUBEVIRT_E2E_COVERAGE" = "true" ]; then
     echo "E2E coverage collection enabled (--cov-report)"
-    COV_REPORT_ARGS="-cov-report -cov-uploader-image=${COV_UPLOADER_IMAGE:-${docker_prefix}/coverage-uploader:${DOCKER_TAG}}"
+    COV_REPORT_ARGS="-cov-report \
+      -cov-collector-image=${COV_COLLECTOR_IMAGE:-${docker_prefix}/kv-coverage-collector:${DOCKER_TAG}} \
+      -cov-uploader-image=${COV_UPLOADER_IMAGE:-${docker_prefix}/coverage-uploader:${DOCKER_TAG}}"
 fi
 KUBEVIRT_FUNC_TEST_GINKGO_ARGS=${FUNC_TEST_ARGS:-${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}}
 KUBEVIRT_FUNC_TEST_LABEL_FILTER=${FUNC_TEST_LABEL_FILTER:-${KUBEVIRT_FUNC_TEST_LABEL_FILTER}}

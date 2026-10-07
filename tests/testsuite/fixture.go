@@ -130,6 +130,11 @@ func SynchronizedBeforeTestSetup() []byte {
 	EnsureKubevirtReady()
 	WaitForWorkerNodesSchedulable()
 
+	// E2E coverage setup (no-op unless --cov-report is set).
+	if flags.CovReport {
+		SetupCoverage()
+	}
+
 	return nil
 }
 
