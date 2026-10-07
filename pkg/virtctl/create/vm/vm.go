@@ -73,11 +73,6 @@ const (
 	CloudInitUserDataFlag    = "cloud-init-user-data"
 	CloudInitNetworkDataFlag = "cloud-init-network-data"
 
-	// Deprecated flags
-	DataSourceVolumeFlag = "volume-datasource"
-	ClonePvcVolumeFlag   = "volume-clone-pvc"
-	BlankVolumeFlag      = "volume-blank"
-
 	sysprepDisk      = "sysprepdisk"
 	sysprepConfigMap = "configmap"
 	sysprepSecret    = "secret"
@@ -138,11 +133,6 @@ type createVM struct {
 	cloudInitUserData    string
 	cloudInitNetworkData string
 
-	// Deprecated fields
-	dataSourceVolumes []string
-	clonePvcVolumes   []string
-	blankVolumes      []string
-
 	namespace                     string
 	explicitInstancetypeInference bool
 	explicitPreferenceInference   bool
@@ -153,7 +143,7 @@ type createVM struct {
 }
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
-// Containerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes
+// Containerdisk > PVC > Imported volumes
 // This is controlled by the order in which flags are processed.
 // Also note that flags can only change values of other flags that are processed afterward.
 // For example, the AccessCred flag can change the values of cloud-init-related flags,
@@ -164,9 +154,6 @@ var flags = []string{
 	PreferenceFlag,
 	ContainerdiskVolumeFlag,
 	PvcVolumeFlag,
-	DataSourceVolumeFlag,
-	ClonePvcVolumeFlag,
-	BlankVolumeFlag,
 	VolumeImportFlag,
 	SysprepVolumeFlag,
 	AccessCredFlag,
@@ -199,7 +186,7 @@ func NewCommand() *cobra.Command {
 		Short: "Create a VirtualMachine manifest.",
 		Long: "Create a VirtualMachine manifest.\n\n" +
 			"If no boot order was specified volumes have the following fixed boot order:\n" +
-			"Containerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes",
+			"Containerdisk > PVC > Imported volumes",
 		Args:    cobra.NoArgs,
 		Example: c.usage(),
 		RunE:    c.run,
@@ -289,20 +276,6 @@ func NewCommand() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, PasswordFileFlag)
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, SSHKeyFlag)
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, GAManageSSHFlag)
-
-	// Deprecated flags
-	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes,
-		"Specify a DataSource to be cloned by the VM. Can be provided multiple times.\n"+
-			"Supported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\n"+
-			"DEPRECATED: Use --volume-import with type:ds and same params instead.")
-	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes,
-		"Specify a PVC to be cloned by the VM. Can be provided multiple times.\n"+
-			"Supported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\n"+
-			"DEPRECATED: Use --volume-import with type:pvc and same params instead.")
-	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes,
-		"Specify a blank volume to be used by the VM. Can be provided multiple times.\n"+
-			"Supported parameters: name:string,size:resource.Quantity\n"+
-			"DEPRECATED: Use --volume-import with type:blank and same params instead.")
 
 	cmd.Flags().SortFlags = false
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -455,10 +428,7 @@ func (c *createVM) optFns() map[string]func(*v1.VirtualMachine) error {
 		InstancetypeFlag:        c.withInstancetype,
 		PreferenceFlag:          c.withPreference,
 		ContainerdiskVolumeFlag: c.withContainerdiskVolume,
-		DataSourceVolumeFlag:    c.withDataSourceVolume,
-		ClonePvcVolumeFlag:      c.withClonePvcVolume,
 		PvcVolumeFlag:           c.withPvcVolume,
-		BlankVolumeFlag:         c.withBlankVolume,
 		VolumeImportFlag:        c.withImportedVolume,
 		SysprepVolumeFlag:       c.withSysprepVolume,
 		AccessCredFlag:          c.withAccessCredential,
@@ -1550,40 +1520,4 @@ func (c *createVM) withAccessCredentialPassword(src *accessCredential) (*v1.Acce
 			},
 		},
 	}, nil
-}
-
-// Deprecated optFns
-
-func (c *createVM) withDataSourceVolume(_ *v1.VirtualMachine) error {
-	return aliasToVolumeImport(c.cmd, DataSourceVolumeFlag, ds, c.dataSourceVolumes, &c.volumeImport)
-}
-
-func (c *createVM) withClonePvcVolume(_ *v1.VirtualMachine) error {
-	return aliasToVolumeImport(c.cmd, ClonePvcVolumeFlag, pvc, c.clonePvcVolumes, &c.volumeImport)
-}
-
-func (c *createVM) withBlankVolume(_ *v1.VirtualMachine) error {
-	return aliasToVolumeImport(c.cmd, BlankVolumeFlag, blank, c.blankVolumes, &c.volumeImport)
-}
-
-func aliasToVolumeImport(cmd *cobra.Command, flag, volType string, vols []string, volumeImport *[]string) error {
-	// Print directly to os.Stderr to avoid tainting the regular output.
-	// This is necessary because cobra is writing deprecation messages to the regular output.
-	// Because of this cmd.Flags.MarkDeprecated() cannot be used to mark this flag as deprecated.
-	// See https://github.com/spf13/cobra/issues/1708
-	if _, err := fmt.Fprintf(os.Stderr, "Flag --%s has been deprecated, use flag --volume-import instead\n", flag); err != nil {
-		return err
-	}
-
-	for _, vol := range vols {
-		if vol == "" {
-			return params.FlagErr(VolumeImportFlag, "params may not be empty")
-		}
-		// Prepend the volume to keep the documented boot order
-		*volumeImport = append([]string{fmt.Sprintf("type:%s,%s", volType, vol)}, *volumeImport...)
-	}
-
-	cmd.Flags().Lookup(VolumeImportFlag).Changed = true
-
-	return nil
 }
