@@ -51,9 +51,9 @@
 #define LOG_LINE_LIMIT (512 * 1024)
 
 #define LOG(fmt, ...) fprintf(stderr, "virt-launcher-monitor: " fmt "\n", ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) fprintf(stderr, "virt-launcher-monitor: error: " fmt "\n", ##__VA_ARGS__)
 
-static volatile sig_atomic_t shutdown_requested;
-static volatile sig_atomic_t termination_sent;
+static volatile sig_atomic_t termination_requests;
 static volatile sig_atomic_t launcher_exit_code = -1;
 static volatile sig_atomic_t launcher_pid;
 static volatile sig_atomic_t wait_error;
@@ -102,7 +102,10 @@ static void handle_signal(int signo)
 		reap_children();
 		return;
 	}
-	shutdown_requested = 1;
+	/* Match Go's buffered signal channel without overflowing sig_atomic_t. */
+	if (termination_requests < 10) {
+		termination_requests++;
+	}
 }
 
 static int install_termination_handlers(void)
@@ -112,6 +115,9 @@ static int install_termination_handlers(void)
 	memset(&action, 0, sizeof(action));
 	action.sa_handler = handle_signal;
 	sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGINT);
+	sigaddset(&action.sa_mask, SIGTERM);
+	sigaddset(&action.sa_mask, SIGQUIT);
 
 	if (sigaction(SIGINT, &action, NULL) < 0 ||
 	    sigaction(SIGTERM, &action, NULL) < 0 ||
@@ -329,7 +335,7 @@ static int cleanup_qemu(void)
 
 	LOG("Killing QEMU gracefully.");
 	if (kill(pid, SIGTERM) < 0 && errno != ESRCH) {
-		LOG("failed to signal QEMU: %s", strerror(errno));
+		LOG_ERROR("failed to signal QEMU: %s", strerror(errno));
 		return -1;
 	}
 
@@ -340,7 +346,7 @@ static int cleanup_qemu(void)
 		sleep_ms(100);
 	}
 
-	LOG("QEMU did not exit within 10 seconds");
+	LOG_ERROR("QEMU did not exit within 10 seconds");
 	return -1;
 }
 
@@ -371,13 +377,13 @@ static void dump_log_file(const char *path)
 
 	if (file == NULL) {
 		if (errno != ENOENT) {
-			LOG("failed to open file %s: %s", path, strerror(errno));
+			LOG_ERROR("failed to open file %s: %s", path, strerror(errno));
 		}
 		return;
 	}
 	line = malloc(LOG_LINE_LIMIT);
 	if (line == NULL) {
-		LOG("failed to allocate log line buffer for %s", path);
+		LOG_ERROR("failed to allocate log line buffer for %s", path);
 		fclose(file);
 		return;
 	}
@@ -402,7 +408,7 @@ static void dump_log_file(const char *path)
 	free(line);
 	if (ferror(file)) {
 		int read_error = errno == 0 ? EIO : errno;
-		LOG("failed to read file %s: %s", path, strerror(read_error));
+		LOG_ERROR("failed to read file %s: %s", path, strerror(read_error));
 	}
 	fclose(file);
 }
@@ -417,7 +423,7 @@ static void dump_launcher_logs(void)
 	dir = opendir(QEMU_LOG_DIR);
 	if (dir == NULL) {
 		if (errno != ENOENT) {
-			LOG("failed to read qemu log directory: %s", strerror(errno));
+			LOG_ERROR("failed to read qemu log directory: %s", strerror(errno));
 		}
 		return;
 	}
@@ -429,7 +435,7 @@ static void dump_launcher_logs(void)
 		entry = readdir(dir);
 		if (entry == NULL) {
 			if (errno != 0) {
-				LOG("failed to read qemu log directory: %s", strerror(errno));
+				LOG_ERROR("failed to read qemu log directory: %s", strerror(errno));
 			}
 			break;
 		}
@@ -439,7 +445,7 @@ static void dump_launcher_logs(void)
 		}
 		n = snprintf(path, sizeof(path), "%s/%s", QEMU_LOG_DIR, entry->d_name);
 		if (n < 0 || (size_t)n >= sizeof(path)) {
-			LOG("qemu log path is too long: %s", entry->d_name);
+			LOG_ERROR("qemu log path is too long: %s", entry->d_name);
 			continue;
 		}
 		dump_log_file(path);
@@ -455,13 +461,13 @@ static void cleanup_container_disks(const char *directory)
 
 	if (dir == NULL) {
 		if (errno != ENOENT) {
-			LOG("failed to open container disk directory %s: %s", directory, strerror(errno));
+			LOG_ERROR("failed to open container disk directory %s: %s", directory, strerror(errno));
 		}
 		return;
 	}
 	directory_fd = dirfd(dir);
 	if (directory_fd < 0) {
-		LOG("failed to access container disk directory %s: %s", directory, strerror(errno));
+		LOG_ERROR("failed to access container disk directory %s: %s", directory, strerror(errno));
 		closedir(dir);
 		return;
 	}
@@ -473,7 +479,7 @@ static void cleanup_container_disks(const char *directory)
 		entry = readdir(dir);
 		if (entry == NULL) {
 			if (errno != 0) {
-				LOG("failed to read container disk directory %s: %s", directory, strerror(errno));
+				LOG_ERROR("failed to read container disk directory %s: %s", directory, strerror(errno));
 			}
 			break;
 		}
@@ -484,7 +490,7 @@ static void cleanup_container_disks(const char *directory)
 		}
 		if (unlinkat(directory_fd, entry->d_name, 0) < 0 && errno != ENOENT) {
 			saved_errno = errno;
-			LOG("failed to remove %s/%s: %s", directory, entry->d_name,
+			LOG_ERROR("failed to remove %s/%s: %s", directory, entry->d_name,
 			    strerror(saved_errno));
 		}
 	}
@@ -704,14 +710,14 @@ static void terminate_istio_proxy(void)
 				sleep_ms(retry_delay_ms(attempt));
 				continue;
 			}
-			LOG("all attempts to terminate istio-proxy failed");
+			LOG_ERROR("all attempts to terminate istio-proxy failed");
 			return;
 		}
 		if (err == 0) {
-			LOG("Istio quit request returned HTTP %d", status);
+			LOG_ERROR("Istio quit request returned HTTP %d", status);
 			return;
 		}
-		LOG("Istio quit request failed: %s", strerror(err < 0 ? -err : err));
+		LOG_ERROR("Istio quit request failed: %s", strerror(err < 0 ? -err : err));
 		return;
 	}
 }
@@ -765,12 +771,13 @@ static int run_launcher(int argc, char **argv)
 {
 	char *child_argv[argc + 1];
 	const char *launcher = DEFAULT_LAUNCHER;
-	sigset_t block_chld, old_mask, run_mask;
+	sigset_t block_chld, old_mask, run_mask, wait_signals, active_mask, suspend_mask;
 	int exec_error_pipe[2];
 	pid_t pid;
 	struct child_setup_error child_error;
 	size_t error_bytes = 0;
 	int read_error = 0;
+	int wait_failed = 0;
 
 #ifdef VIRT_LAUNCHER_MONITOR_TESTING
 	const char *test_launcher = getenv("VIRT_LAUNCHER");
@@ -780,7 +787,7 @@ static int run_launcher(int argc, char **argv)
 #endif
 
 	if (pipe2(exec_error_pipe, O_CLOEXEC) < 0) {
-		LOG("failed to create launcher exec status pipe: %s", strerror(errno));
+		LOG_ERROR("failed to create launcher exec status pipe: %s", strerror(errno));
 		return 1;
 	}
 
@@ -790,7 +797,7 @@ static int run_launcher(int argc, char **argv)
 	sigemptyset(&block_chld);
 	sigaddset(&block_chld, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &block_chld, &old_mask) < 0) {
-		LOG("failed to block SIGCHLD: %s", strerror(errno));
+		LOG_ERROR("failed to block SIGCHLD: %s", strerror(errno));
 		close(exec_error_pipe[0]);
 		close(exec_error_pipe[1]);
 		return 1;
@@ -800,7 +807,7 @@ static int run_launcher(int argc, char **argv)
 		sigprocmask(SIG_SETMASK, &old_mask, NULL);
 		close(exec_error_pipe[0]);
 		close(exec_error_pipe[1]);
-		LOG("failed to install SIGCHLD handler: %s", strerror(err));
+		LOG_ERROR("failed to install SIGCHLD handler: %s", strerror(err));
 		return 1;
 	}
 
@@ -810,7 +817,7 @@ static int run_launcher(int argc, char **argv)
 		sigprocmask(SIG_SETMASK, &old_mask, NULL);
 		close(exec_error_pipe[0]);
 		close(exec_error_pipe[1]);
-		LOG("failed to run %s: %s", launcher, strerror(err));
+		LOG_ERROR("failed to run %s: %s", launcher, strerror(err));
 		return 1;
 	}
 	if (pid == 0) {
@@ -836,7 +843,7 @@ static int run_launcher(int argc, char **argv)
 		int status;
 		pid_t waited;
 
-		LOG("failed to unblock SIGCHLD: %s", strerror(err));
+		LOG_ERROR("failed to unblock SIGCHLD: %s", strerror(err));
 		kill(pid, SIGTERM);
 		close(exec_error_pipe[0]);
 		do {
@@ -868,34 +875,63 @@ static int run_launcher(int argc, char **argv)
 	}
 	close(exec_error_pipe[0]);
 	if (read_error != 0) {
-		LOG("failed to read launcher exec status: %s", strerror(read_error));
+		LOG_ERROR("failed to read launcher exec status: %s", strerror(read_error));
 		kill(pid, SIGTERM);
 	} else if (error_bytes != 0) {
 		if (error_bytes != sizeof(child_error)) {
-			LOG("received an incomplete launcher exec status");
+			LOG_ERROR("received an incomplete launcher exec status");
 		} else {
-			LOG("failed to %s: %s", child_setup_stage_name(child_error.stage),
+			LOG_ERROR("failed to %s: %s", child_setup_stage_name(child_error.stage),
 			    strerror(child_error.error));
 		}
 		read_error = EIO;
 	}
 
+	sigemptyset(&wait_signals);
+	sigaddset(&wait_signals, SIGCHLD);
+	sigaddset(&wait_signals, SIGINT);
+	sigaddset(&wait_signals, SIGTERM);
+	sigaddset(&wait_signals, SIGQUIT);
+	if (sigprocmask(SIG_BLOCK, &wait_signals, &active_mask) < 0) {
+		LOG_ERROR("failed to block signals while waiting for virt-launcher: %s", strerror(errno));
+		kill(launcher_pid, SIGTERM);
+		return 1;
+	}
+	suspend_mask = active_mask;
+	sigdelset(&suspend_mask, SIGCHLD);
+	sigdelset(&suspend_mask, SIGINT);
+	sigdelset(&suspend_mask, SIGTERM);
+	sigdelset(&suspend_mask, SIGQUIT);
+
 	while (launcher_exit_code < 0) {
 		if (wait_error) {
 			kill(launcher_pid, SIGTERM);
-			return 1;
+			wait_failed = 1;
+			break;
 		}
-		if (shutdown_requested && !termination_sent) {
+		if (termination_requests > 0) {
+			termination_requests--;
 			LOG("signalling virt-launcher to shut down");
 			if (kill(launcher_pid, SIGTERM) < 0) {
-				LOG("received signal but can't signal virt-launcher to shut down: %s",
+				LOG_ERROR("received signal but can't signal virt-launcher to shut down: %s",
 				    strerror(errno));
 			}
-			termination_sent = 1;
+			continue;
 		}
-		sleep_ms(10);
+		/* SIGCHLD cannot slip between the state check and this wait: all
+		 * handled signals stay blocked until sigsuspend atomically unblocks them. */
+		if (sigsuspend(&suspend_mask) < 0 && errno != EINTR) {
+			LOG_ERROR("failed to wait for virt-launcher signal: %s", strerror(errno));
+			kill(launcher_pid, SIGTERM);
+			wait_failed = 1;
+			break;
+		}
 	}
-	if (read_error != 0 || wait_error) {
+	if (sigprocmask(SIG_SETMASK, &active_mask, NULL) < 0) {
+		LOG_ERROR("failed to restore signal mask: %s", strerror(errno));
+		return 1;
+	}
+	if (read_error != 0 || wait_error || wait_failed) {
 		return 1;
 	}
 	return launcher_exit_code;
@@ -912,22 +948,22 @@ int main(int argc, char **argv)
 	/* Bazel's Go test process is not PID 1; emulate PID-1 orphan adoption so
 	 * the integration test can verify that the monitor reaps descendants. */
 	if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0) {
-		LOG("failed to enable test child subreaper: %s", strerror(errno));
+		LOG_ERROR("failed to enable test child subreaper: %s", strerror(errno));
 		return 1;
 	}
 #endif
 
 	if (install_termination_handlers() < 0) {
-		LOG("failed to install signal handlers: %s", strerror(errno));
+		LOG_ERROR("failed to install signal handlers: %s", strerror(errno));
 		return 1;
 	}
 
 	exit_code = run_launcher(argc, argv);
 	if (exit_code != 0) {
-		LOG("dirty virt-launcher shutdown: exit-code %d", exit_code);
+		LOG_ERROR("dirty virt-launcher shutdown: exit-code %d", exit_code);
 	}
 	if (wait_error) {
-		LOG("waitpid failed while reaping child processes");
+		LOG_ERROR("waitpid failed while reaping child processes");
 		monitor_error = 1;
 	}
 

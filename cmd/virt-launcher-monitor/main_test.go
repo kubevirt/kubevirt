@@ -108,7 +108,12 @@ var _ = Describe("virt-launcher-monitor", func() {
 	It("returns exit code 1 when virt-launcher cannot be exec'd", func() {
 		cmd := exec.Command(monitorPath(), "--uid", "vmi-uid")
 		cmd.Env = launcherEnv(filepath.Join(tmpDir, "does-not-exist"))
-		expectMonitorExitCode(cmd, 1)
+		output, err := cmd.CombinedOutput()
+		Expect(err).To(HaveOccurred())
+		var exitErr *exec.ExitError
+		Expect(errors.As(err, &exitErr)).To(BeTrue())
+		Expect(exitErr.ExitCode()).To(Equal(1))
+		Expect(string(output)).To(ContainSubstring("virt-launcher-monitor: error: failed to exec virt-launcher:"))
 	})
 
 	It("propagates the virt-launcher exit code", func() {
@@ -215,6 +220,43 @@ var _ = Describe("virt-launcher-monitor", func() {
 		Expect(cmd.Wait()).To(Succeed())
 		_, err := os.Stat(received)
 		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("forwards a second termination signal to virt-launcher", func() {
+		started := filepath.Join(tmpDir, "started")
+		received := filepath.Join(tmpDir, "received-term")
+		launcher := writeFakeLauncher(tmpDir, fmt.Sprintf(`#!/bin/sh
+touch %q
+count=0
+trap 'count=$((count + 1)); echo "$count" >> %q; if [ "$count" -eq 2 ]; then exit 0; fi' TERM
+while :; do :; done
+`, started, received))
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, monitorPath())
+		cmd.Env = launcherEnv(launcher)
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		Expect(cmd.Start()).To(Succeed())
+		DeferCleanup(func() {
+			if cmd.ProcessState == nil {
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				_ = cmd.Wait()
+			}
+		})
+		Eventually(func() bool {
+			_, err := os.Stat(started)
+			return err == nil
+		}, 5*time.Second).Should(BeTrue())
+		Expect(cmd.Process.Signal(syscall.SIGTERM)).To(Succeed())
+		Eventually(func() string {
+			body, _ := os.ReadFile(received)
+			return strings.TrimSpace(string(body))
+		}, 5*time.Second).Should(Equal("1"))
+		Expect(cmd.Process.Signal(syscall.SIGTERM)).To(Succeed())
+		Expect(cmd.Wait()).To(Succeed())
+		body, err := os.ReadFile(received)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.TrimSpace(string(body))).To(Equal("1\n2"))
 	})
 
 	It("reaps orphaned qemu-system and qemu-kvm children during cleanup", func() {

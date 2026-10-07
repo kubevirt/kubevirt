@@ -30,6 +30,7 @@ var _ = Describe("ClassifyLogLine", func() {
 		Entry("failed keyword", `{"level":"error","msg":"something totally unexpected failed"}`),
 		Entry("fatal keyword", `{"level":"error","msg":"fatal crash in component"}`),
 		Entry("panic keyword", `{"level":"error","msg":"panic in goroutine"}`),
+		Entry("C monitor error marker", `virt-launcher-monitor: error: QEMU did not exit within 10 seconds`),
 	)
 
 	It("should return AllowlistedError when line matches an allowlist pattern", func() {
@@ -44,13 +45,16 @@ var _ = Describe("ClassifyLogLine", func() {
 })
 
 var _ = Describe("IsErrorLevel", func() {
-	DescribeTable("should detect error-level JSON log lines",
+	DescribeTable("should detect error-level log lines",
 		func(line string, expected bool) {
 			Expect(vmlogchecker.IsErrorLevel(line)).To(Equal(expected))
 		},
 		Entry("error level", `{"level":"error","msg":"something failed"}`, true),
 		Entry("info level", `{"level":"info","msg":"all good"}`, false),
 		Entry("warning level", `{"level":"warning","msg":"be careful"}`, false),
+		Entry("C monitor error", `virt-launcher-monitor: error: QEMU did not exit within 10 seconds`, true),
+		Entry("C monitor info", `virt-launcher-monitor: signalling virt-launcher to shut down`, false),
+		Entry("unrelated plain error", `error: something failed`, false),
 		Entry("plain text", `just a plain line with no JSON`, false),
 		Entry("empty", ``, false),
 	)

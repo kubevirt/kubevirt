@@ -548,10 +548,12 @@ const (
 	UnexpectedError
 )
 
-// IsErrorLevel returns true if the log line contains a JSON "level":"error" field.
+const monitorErrorPrefix = "virt-launcher-monitor: error: "
+
+// IsErrorLevel recognizes JSON error logs and the C monitor's explicit error marker.
 // Use this to pre-filter lines before classification when only error-level lines matter.
 func IsErrorLevel(line string) bool {
-	return strings.Contains(line, `"level":"error"`)
+	return strings.Contains(line, `"level":"error"`) || strings.HasPrefix(line, monitorErrorPrefix)
 }
 
 func ClassifyLogLine(line string) ErrorClassification {
