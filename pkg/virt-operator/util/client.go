@@ -49,6 +49,9 @@ const (
 	ConditionReasonDeploying                = "DeploymentInProgress"
 	ConditionReasonUpdating                 = "UpdateInProgress"
 	ConditionReasonDeleting                 = "DeletionInProgress"
+
+	ConditionReasonSynchronizationEndpointFound         = "SynchronizationEndpointFound"
+	ConditionReasonSynchronizationEndpointMisconfigured = "SynchronizationEndpointMisconfigured"
 )
 
 func UpdateConditionsDeploying(kv *virtv1.KubeVirt) {
@@ -109,6 +112,17 @@ func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
 
 func UpdateConditionsDeletionFailed(kv *virtv1.KubeVirt, err error) {
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+}
+
+// SetSynchronizationEndpointCondition updates the SynchronizationEndpoint condition.
+func SetSynchronizationEndpointCondition(kv *virtv1.KubeVirt, status k8sv1.ConditionStatus, reason, message string) {
+	updateCondition(kv, virtv1.KubeVirtConditionSynchronizationEndpoint, status, reason, message)
+}
+
+// ClearSynchronizationEndpointCondition removes the SynchronizationEndpoint condition
+// when discovery is not active (proxy disabled, crossClusterNetwork set, etc.).
+func ClearSynchronizationEndpointCondition(kv *virtv1.KubeVirt) {
+	removeCondition(kv, virtv1.KubeVirtConditionSynchronizationEndpoint)
 }
 
 func updateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string) {
