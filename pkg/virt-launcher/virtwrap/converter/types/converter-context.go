@@ -55,7 +55,6 @@ type ConverterContext struct {
 	GPUHostDevices                  []api.HostDevice
 	EFIConfiguration                *EFIConfiguration
 	MemBalloonStatsPeriod           uint
-	UseVirtioTransitional           bool
 	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
