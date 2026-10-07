@@ -158,6 +158,7 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 	})
 
 	s.configurePodAffinity(pod)
+	s.configurePodTolerations(pod)
 	s.configurePodNBDVolume(pod)
 }
 
@@ -180,6 +181,10 @@ func (s *VMBackupSource) configurePodAffinity(pod *corev1.Pod) {
 			TopologyKey: corev1.LabelHostname,
 		},
 	)
+}
+
+func (s *VMBackupSource) configurePodTolerations(pod *corev1.Pod) {
+	pod.Spec.Tolerations = append(pod.Spec.Tolerations, s.vmi.Spec.Tolerations...)
 }
 
 func (s *VMBackupSource) configurePodNBDVolume(pod *corev1.Pod) {
