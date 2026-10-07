@@ -27,7 +27,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirt"
@@ -36,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -50,9 +53,6 @@ const (
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
 	operationCanceledMsg              = "Operation canceled"
-
-	pullBackupSocketDir  = "/var/run/kubevirt/sockets"
-	pullBackupSocketName = "backup-nbd-sock"
 )
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
@@ -154,7 +154,14 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			}
 		}(backupPath)
 	}
-	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath)
+	var nbdSocketPath string
+	if backupOptions.Mode == backupv1.PullMode {
+		if nbdSocketPath, err = preparePullBackupSocket(vmi); err != nil {
+			logger.Reason(err).Error("failed to prepare the pull backup socket")
+			return err
+		}
+	}
+	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath, nbdSocketPath)
 	backupXML, err := xml.Marshal(domainBackup)
 	if err != nil {
 		logger.Reason(err).Error("marshalling backup xml failed")
@@ -205,7 +212,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
@@ -216,7 +223,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 	if backupOptions.Mode == backupv1.PullMode {
 		domainBackup.Server = &api.DomainBackupServer{
 			Transport: api.BackupUnixTransport,
-			Socket:    filepath.Join(pullBackupSocketDir, pullBackupSocketName),
+			Socket:    nbdSocketPath,
 		}
 	}
 	backupTime := backupTimeFormatted(backupOptions.BackupStartTime)
@@ -401,19 +408,48 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 	return nil
 }
 
-func (m *StorageManager) ExportVirtualMachineBackup(backupOptions *backupv1.BackupOptions) error {
+var preparePullBackupSocket = preparePullBackupSocketFunc
+
+func preparePullBackupSocketFunc(vmi *v1.VirtualMachineInstance) (string, error) {
+	dir := cbt.PathForBackupNBDSocketDir(vmi)
+	if err := kutil.MkdirAllWithNosec(dir); err != nil {
+		return "", fmt.Errorf("failed to create %s: %w", dir, err)
+	}
+	if err := relabelWithoutCategories(dir); err != nil {
+		return "", fmt.Errorf("failed to relabel %s: %w", dir, err)
+	}
+	return filepath.Join(dir, cbt.NBDSocketName), nil
+}
+
+func relabelWithoutCategories(path string) error {
+	label, err := selinux.FileLabel(path)
+	if errors.Is(err, syscall.ENODATA) || errors.Is(err, syscall.ENOTSUP) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	ctx, err := selinux.NewContext(label)
+	if err != nil {
+		return err
+	}
+	ctx["level"] = "s0"
+	return selinux.SetFileLabel(path, ctx.Get())
+}
+
+func (m *StorageManager) ExportVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
 	backupMetadata, exists := m.metadataCache.Backup.Load()
 	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
 		return err
 	}
-	return m.initiateBackupTunnel(backupOptions)
+	return m.initiateBackupTunnel(vmi, backupOptions)
 }
 
-func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOptions) error {
+func (m *StorageManager) initiateBackupTunnel(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
 	m.backupTunnelMu.Lock()
 	defer m.backupTunnelMu.Unlock()
 
-	backupSock := filepath.Join(pullBackupSocketDir, pullBackupSocketName)
+	backupSock := filepath.Join(cbt.PathForBackupNBDSocketDir(vmi), cbt.NBDSocketName)
 
 	if m.activeBackupTunnel != nil {
 		if m.activeBackupTunnel.IsMatch(backupOptions.BackupName, backupOptions.BackupStartTime) {

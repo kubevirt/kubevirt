@@ -458,6 +458,11 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 				ReadOnly:  false,
 				MountPath: cbt.PathForCBT(vmi),
 				SubPath:   "cbt",
+			}, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: cbt.PathForBackupNBD(vmi),
+				SubPath:   cbt.BackupNBDSubPath,
 			})
 		}
 
