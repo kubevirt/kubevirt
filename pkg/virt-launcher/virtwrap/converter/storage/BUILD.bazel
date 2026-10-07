@@ -15,7 +15,6 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/os/disk:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/storage/container-disk:go_default_library",
         "//pkg/storage/emptydisk:go_default_library",
