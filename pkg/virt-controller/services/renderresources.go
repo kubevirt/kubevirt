@@ -260,7 +260,7 @@ func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) Resour
 	}
 }
 
-func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRendererOption {
+func WithMemoryRequests(vmi *v1.VirtualMachineInstance, overcommit int) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		limit, hasLimit := renderer.vmLimits[k8sv1.ResourceMemory]
 		request, hasRequest := renderer.vmRequests[k8sv1.ResourceMemory]
@@ -272,6 +272,7 @@ func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRender
 			return
 		}
 
+		vmiSpecMemory := vmi.Spec.Domain.Memory
 		var memory *resource.Quantity
 		if vmiSpecMemory != nil && vmiSpecMemory.Guest != nil {
 			memory = vmiSpecMemory.Guest
@@ -283,7 +284,8 @@ func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRender
 
 		if memory != nil && memory.Value() > 0 {
 			hugepages := vmiSpecMemory != nil && vmiSpecMemory.Hugepages != nil
-			if overcommit == 100 || hugepages {
+			dedicatedCPU := vmi.IsCPUDedicated()
+			if overcommit == 100 || hugepages || dedicatedCPU {
 				renderer.vmRequests[k8sv1.ResourceMemory] = *memory
 			} else {
 				value := (memory.Value() * int64(100)) / int64(overcommit)
