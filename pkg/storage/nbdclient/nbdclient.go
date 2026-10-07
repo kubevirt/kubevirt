@@ -22,25 +22,15 @@ package nbdclient
 import (
 	"context"
 	"fmt"
+	"io"
+	"iter"
 
-	"google.golang.org/grpc"
 	"libguestfs.org/libnbd"
 
 	"kubevirt.io/client-go/log"
-
-	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
 )
 
-// RegisterNBDServer registers an NBDClient as the NBD gRPC server
-// implementation on the given gRPC server for the specified socket path.
-func RegisterNBDServer(srv *grpc.Server, socketPath string) {
-	nbdv1.RegisterNBDServer(srv, NewNBDClient(socketPath))
-}
-
-const (
-	maxReadChunkSize     uint64 = 256 * 1024
-	mapResponseBatchSize        = 512
-)
+const maxReadChunkSize uint64 = 256 * 1024
 
 type NBDClient struct {
 	socketPath string
@@ -50,97 +40,80 @@ func NewNBDClient(socketPath string) *NBDClient {
 	return &NBDClient{socketPath: socketPath}
 }
 
-type sendFn func(*nbdv1.MapResponse) error
+type Extent struct {
+	Offset      uint64
+	Length      uint64
+	Flags       uint64
+	Description string
+}
+
 type descFn func(uint64) string
 
 // mapHandler consumes the extents of one BlockStatus64 call through
-// HandleExtents, then Merge emits them and returns the offset up to which
-// the map is now complete. The next call must resume from that offset.
+// HandleExtents, then Merge returns the extents completed so far and the
+// offset up to which the map is now complete. The next call must resume
+// from that offset.
 type mapHandler interface {
-	HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) error
-	Merge() (uint64, error)
-	Flush() error
+	HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent)
+	Merge() ([]Extent, uint64)
+	Flush() (Extent, bool)
 }
 
-type extentBatcher struct {
+type extentCoalescer struct {
 	endOffset uint64
-	batch     []*nbdv1.Extent
-	batchSize int
-	last      *nbdv1.Extent
-	send      sendFn
+	done      []Extent
+	last      *Extent
 	desc      descFn
 }
 
-func (b *extentBatcher) coalesce(offset, length, flags uint64) error {
-	if b.last != nil && b.last.Flags == flags && b.last.Offset+b.last.Length == offset {
-		b.last.Length += length
-		return nil
+func (c *extentCoalescer) coalesce(offset, length, flags uint64) {
+	if c.last != nil && c.last.Flags == flags && c.last.Offset+c.last.Length == offset {
+		c.last.Length += length
+		return
 	}
-	if err := b.flushLast(); err != nil {
-		return err
+	if c.last != nil {
+		c.done = append(c.done, *c.last)
 	}
-	b.last = &nbdv1.Extent{
+	c.last = &Extent{
 		Offset:      offset,
 		Length:      length,
 		Flags:       flags,
-		Description: b.desc(flags),
+		Description: c.desc(flags),
 	}
-	return nil
 }
 
-func (b *extentBatcher) flushLast() error {
-	if b.last == nil {
-		return nil
-	}
-	e := b.last
-	b.last = nil
-	b.batch = append(b.batch, e)
-	if len(b.batch) >= b.batchSize {
-		return b.sendBatch()
-	}
-	return nil
+func (c *extentCoalescer) takeDone() []Extent {
+	done := c.done
+	c.done = nil
+	return done
 }
 
-func (b *extentBatcher) sendBatch() error {
-	if len(b.batch) == 0 {
-		return nil
+func (c *extentCoalescer) Flush() (Extent, bool) {
+	if c.last == nil {
+		return Extent{}, false
 	}
-	last := b.batch[len(b.batch)-1]
-	err := b.send(&nbdv1.MapResponse{
-		Extents:    b.batch,
-		NextOffset: last.Offset + last.Length,
-	})
-	b.batch = b.batch[:0]
-	return err
+	last := *c.last
+	c.last = nil
+	return last, true
 }
 
-func (b *extentBatcher) Flush() error {
-	if err := b.flushLast(); err != nil {
-		return err
-	}
-	return b.sendBatch()
-}
-
-// singleContextMapper accumulates, coalesces, and batches extents from a single
-// base:allocation context (full backup path).
+// singleContextMapper coalesces extents from a single base:allocation
+// context (full backup path).
 type singleContextMapper struct {
-	extentBatcher
+	extentCoalescer
 	end uint64
 }
 
-func newSingleContextMapper(endOffset uint64, batchSize int, send sendFn) *singleContextMapper {
+func newSingleContextMapper(endOffset uint64) *singleContextMapper {
 	return &singleContextMapper{
-		extentBatcher: extentBatcher{
+		extentCoalescer: extentCoalescer{
 			endOffset: endOffset,
-			batch:     make([]*nbdv1.Extent, 0, batchSize),
-			batchSize: batchSize,
-			send:      send,
 			desc:      allocDescription,
 		},
 	}
 }
 
-func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []libnbd.LibnbdExtent) error {
+func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []libnbd.LibnbdExtent) {
 	localOffset := offset
 	for _, e := range entries {
 		if localOffset >= b.endOffset {
@@ -153,16 +126,13 @@ func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []l
 		if length == 0 {
 			continue
 		}
-		if err := b.coalesce(localOffset, length, e.Flags); err != nil {
-			return err
-		}
+		b.coalesce(localOffset, length, e.Flags)
 		localOffset += length
 	}
 	b.end = max(b.end, localOffset)
-	return nil
 }
 
-func (b *singleContextMapper) Merge() (uint64, error) { return b.end, nil }
+func (b *singleContextMapper) Merge() ([]Extent, uint64) { return b.takeDone(), b.end }
 
 // mergedContextMapper merges extents from base:allocation and qemu:dirty-bitmap
 // contexts into a single stream with combined flags, replicating client-side
@@ -182,25 +152,22 @@ func (b *singleContextMapper) Merge() (uint64, error) { return b.end, nil }
 // https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/nbdutil.py
 // https://gitlab.com/qemu-project/qemu/-/blob/master/block/backup.c
 type mergedContextMapper struct {
-	extentBatcher
-	allocExtents []nbdv1.Extent
-	dirtyExtents []nbdv1.Extent
+	extentCoalescer
+	allocExtents []Extent
+	dirtyExtents []Extent
 	end          uint64
 }
 
-func newMergedContextMapper(endOffset uint64, batchSize int, send sendFn) *mergedContextMapper {
+func newMergedContextMapper(endOffset uint64) *mergedContextMapper {
 	return &mergedContextMapper{
-		extentBatcher: extentBatcher{
+		extentCoalescer: extentCoalescer{
 			endOffset: endOffset,
-			batch:     make([]*nbdv1.Extent, 0, batchSize),
-			batchSize: batchSize,
-			send:      send,
 			desc:      mergedDescription,
 		},
 	}
 }
 
-func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) error {
+func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) {
 	localOffset := offset
 	for _, e := range entries {
 		if localOffset >= m.endOffset {
@@ -218,26 +185,25 @@ func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, e
 			if e.Flags&uint64(libnbd.STATE_ZERO) != 0 {
 				flags = uint64(libnbd.STATE_ZERO)
 			}
-			m.allocExtents = append(m.allocExtents, nbdv1.Extent{Offset: localOffset, Length: length, Flags: flags})
+			m.allocExtents = append(m.allocExtents, Extent{Offset: localOffset, Length: length, Flags: flags})
 		} else {
-			m.dirtyExtents = append(m.dirtyExtents, nbdv1.Extent{Offset: localOffset, Length: length, Flags: e.Flags})
+			m.dirtyExtents = append(m.dirtyExtents, Extent{Offset: localOffset, Length: length, Flags: e.Flags})
 		}
 		localOffset += length
 	}
-	return nil
 }
 
-// Merge emits the range described by both contexts and returns its end.
-// When a context returned no extents nothing is emitted and the previous
+// Merge merges the range described by both contexts and returns its end.
+// When a context returned no extents nothing is merged and the previous
 // end is returned.
-func (m *mergedContextMapper) Merge() (uint64, error) {
+func (m *mergedContextMapper) Merge() ([]Extent, uint64) {
 	defer func() {
 		m.allocExtents = m.allocExtents[:0]
 		m.dirtyExtents = m.dirtyExtents[:0]
 	}()
 
 	if len(m.allocExtents) == 0 || len(m.dirtyExtents) == 0 {
-		return m.end, nil
+		return nil, m.end
 	}
 
 	a, b := 0, 0
@@ -246,9 +212,7 @@ func (m *mergedContextMapper) Merge() (uint64, error) {
 		dirty := &m.dirtyExtents[b]
 		n := min(alloc.Length, dirty.Length)
 
-		if err := m.coalesce(alloc.Offset, n, alloc.Flags|dirty.Flags); err != nil {
-			return m.end, err
-		}
+		m.coalesce(alloc.Offset, n, alloc.Flags|dirty.Flags)
 		m.end = alloc.Offset + n
 
 		alloc.Offset += n
@@ -263,38 +227,37 @@ func (m *mergedContextMapper) Merge() (uint64, error) {
 		}
 	}
 
-	return m.end, nil
+	return m.takeDone(), m.end
 }
 
-func (c *NBDClient) connectForMap(req *nbdv1.MapRequest) (*libnbd.Libnbd, bool, error) {
+func (c *NBDClient) connectForMap(exportName, bitmapName string) (*libnbd.Libnbd, error) {
 	l, err := libnbd.Create()
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to create libnbd handle: %w", err)
+		return nil, fmt.Errorf("failed to create libnbd handle: %w", err)
 	}
 
 	if err := l.AddMetaContext(libnbd.CONTEXT_BASE_ALLOCATION); err != nil {
 		log.Log.Reason(err).Warningf("AddMetaContext(%s) failed", libnbd.CONTEXT_BASE_ALLOCATION)
 	}
 
-	incremental := req.BitmapName != ""
-	if incremental {
-		bitmapContext := libnbd.CONTEXT_QEMU_DIRTY_BITMAP + req.BitmapName
+	if bitmapName != "" {
+		bitmapContext := libnbd.CONTEXT_QEMU_DIRTY_BITMAP + bitmapName
 		if err := l.AddMetaContext(bitmapContext); err != nil {
 			log.Log.Reason(err).Warningf("AddMetaContext(%s) failed", bitmapContext)
 		}
 	}
 
-	if err := c.connect(l, req.ExportName); err != nil {
+	if err := c.connect(l, exportName); err != nil {
 		l.Close()
-		return nil, false, err
+		return nil, err
 	}
 
-	if err := verifyContexts(l, req.BitmapName); err != nil {
+	if err := verifyContexts(l, bitmapName); err != nil {
 		l.Close()
-		return nil, false, err
+		return nil, err
 	}
 
-	return l, incremental, nil
+	return l, nil
 }
 
 func verifyContexts(l *libnbd.Libnbd, bitmapName string) error {
@@ -310,69 +273,87 @@ func verifyContexts(l *libnbd.Libnbd, bitmapName string) error {
 	return nil
 }
 
+// Map yields the extents of the export in [offset, offset+length), merged
+// with the dirty bitmap when bitmapName is set. A zero length maps up to the
+// end of the export.
+//
 // based on https://gitlab.com/nbdkit/libnbd/-/blob/master/info/map.c
-func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error {
-	l, incremental, err := c.connectForMap(req)
-	if err != nil {
-		return err
-	}
-	defer l.Close()
+func (c *NBDClient) Map(ctx context.Context, exportName, bitmapName string, offset, length uint64) iter.Seq2[Extent, error] {
+	return func(yield func(Extent, error) bool) {
+		l, err := c.connectForMap(exportName, bitmapName)
+		if err != nil {
+			yield(Extent{}, err)
+			return
+		}
+		defer l.Close()
 
-	size, err := l.GetSize()
-	if err != nil {
-		return fmt.Errorf("failed to get export size: %w", err)
-	}
+		size, err := l.GetSize()
+		if err != nil {
+			yield(Extent{}, fmt.Errorf("failed to get export size: %w", err))
+			return
+		}
 
-	currentOffset, endOffset, err := resolveRange(req.Offset, req.Length, size)
-	if err != nil {
-		return err
-	}
+		startOffset, endOffset, err := resolveRange(offset, length, size)
+		if err != nil {
+			yield(Extent{}, err)
+			return
+		}
 
-	var handler mapHandler
-	if incremental {
-		handler = newMergedContextMapper(endOffset, mapResponseBatchSize, stream.Send)
-	} else {
-		handler = newSingleContextMapper(endOffset, mapResponseBatchSize, stream.Send)
-	}
+		var handler mapHandler
+		if bitmapName != "" {
+			handler = newMergedContextMapper(endOffset)
+		} else {
+			handler = newSingleContextMapper(endOffset)
+		}
 
-	blockStatus := func(count, offset uint64, cb libnbd.Extent64Callback) error {
-		return l.BlockStatus64(count, offset, cb, nil)
+		blockStatus := func(count, offset uint64, cb libnbd.Extent64Callback) error {
+			return l.BlockStatus64(count, offset, cb, nil)
+		}
+		for extent, err := range mapExtents(ctx, blockStatus, handler, startOffset, endOffset) {
+			if !yield(extent, err) {
+				return
+			}
+		}
 	}
-	return mapExtents(stream.Context(), blockStatus, handler, currentOffset, endOffset)
 }
 
 type blockStatusFn func(count, offset uint64, cb libnbd.Extent64Callback) error
 
-// mapExtents walks [currentOffset, endOffset) with blockStatus, resuming each
-// call where the handler's merged map ends.
-func mapExtents(ctx context.Context, blockStatus blockStatusFn, handler mapHandler, currentOffset, endOffset uint64) error {
-	for currentOffset < endOffset {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		prevOffset := currentOffset
-		if err := blockStatus(endOffset-currentOffset, currentOffset,
-			func(metacontext string, offset uint64, entries []libnbd.LibnbdExtent, nbdErr *int) int {
-				if err := handler.HandleExtents(metacontext, offset, entries); err != nil {
-					*nbdErr = 1
-					return -1
+// mapExtents walks [startOffset, endOffset) with blockStatus, resuming each
+// call where the handler's merged map ends. Extents are yielded between
+// calls, never from within the libnbd callback.
+func mapExtents(ctx context.Context, blockStatus blockStatusFn, handler mapHandler, startOffset, endOffset uint64) iter.Seq2[Extent, error] {
+	return func(yield func(Extent, error) bool) {
+		for currentOffset := startOffset; currentOffset < endOffset; {
+			if err := ctx.Err(); err != nil {
+				yield(Extent{}, err)
+				return
+			}
+			if err := blockStatus(endOffset-currentOffset, currentOffset,
+				func(metacontext string, offset uint64, entries []libnbd.LibnbdExtent, _ *int) int {
+					handler.HandleExtents(metacontext, offset, entries)
+					return 0
+				}); err != nil {
+				yield(Extent{}, fmt.Errorf("BlockStatus64 at offset %d: %w", currentOffset, err))
+				return
+			}
+			extents, mergedEnd := handler.Merge()
+			for _, extent := range extents {
+				if !yield(extent, nil) {
+					return
 				}
-				return 0
-			}); err != nil {
-			return fmt.Errorf("BlockStatus64 at offset %d: %w", prevOffset, err)
+			}
+			if mergedEnd <= currentOffset {
+				yield(Extent{}, fmt.Errorf("BlockStatus64 at offset %d did not advance the map, a metadata context returned no extents", currentOffset))
+				return
+			}
+			currentOffset = mergedEnd
 		}
-		var err error
-		if currentOffset, err = handler.Merge(); err != nil {
-			return err
-		}
-		if currentOffset <= prevOffset {
-			return fmt.Errorf("BlockStatus64 at offset %d did not advance the map, a metadata context returned no extents", prevOffset)
+
+		if last, ok := handler.Flush(); ok {
+			yield(last, nil)
 		}
 	}
-
-	return handler.Flush()
 }
 
 type readChunk struct {
@@ -394,32 +375,16 @@ func computeChunks(offset, length, chunkSize uint64) []readChunk {
 	return chunks
 }
 
-type readProcessor struct {
-	pread func(buf []byte, offset uint64) error
-	send  func(*nbdv1.DataChunk) error
-}
-
-func (p *readProcessor) Process(chunks []readChunk) error {
-	for _, c := range chunks {
-		buf := make([]byte, c.length)
-		if err := p.pread(buf, c.offset); err != nil {
-			return fmt.Errorf("pread failed at offset %d: %w", c.offset, err)
-		}
-		if err := p.send(&nbdv1.DataChunk{Offset: c.offset, Data: buf}); err != nil {
-			return fmt.Errorf("failed to send chunk at offset %d: %w", c.offset, err)
-		}
-	}
-	return nil
-}
-
-func (c *NBDClient) Read(req *nbdv1.ReadRequest, stream nbdv1.NBD_ReadServer) error {
+// Read copies [offset, offset+length) of the export into w, in chunks of at
+// most maxReadChunkSize. A zero length reads up to the end of the export.
+func (c *NBDClient) Read(ctx context.Context, exportName string, offset, length uint64, w io.Writer) error {
 	l, err := libnbd.Create()
 	if err != nil {
 		return fmt.Errorf("failed to create libnbd handle: %w", err)
 	}
 	defer l.Close()
 
-	if err := c.connect(l, req.ExportName); err != nil {
+	if err := c.connect(l, exportName); err != nil {
 		return err
 	}
 
@@ -427,31 +392,36 @@ func (c *NBDClient) Read(req *nbdv1.ReadRequest, stream nbdv1.NBD_ReadServer) er
 	if err != nil {
 		return fmt.Errorf("failed to get export size: %w", err)
 	}
-
-	length, err := clampLength(req.Offset, req.Length, size)
+	length, err = clampLength(offset, length, size)
 	if err != nil {
 		return err
 	}
 
-	chunks := computeChunks(req.Offset, length, maxReadChunkSize)
-
-	p := &readProcessor{
-		pread: func(buf []byte, offset uint64) error {
-			return l.Pread(buf, offset, nil)
-		},
-		send: stream.Send,
+	pread := func(buf []byte, offset uint64) error {
+		return l.Pread(buf, offset, nil)
 	}
 
+	return readChunks(ctx, pread, w, computeChunks(offset, length, maxReadChunkSize))
+}
+
+type preadFn func(buf []byte, offset uint64) error
+
+// readChunks copies the chunks into w, reusing one buffer across them.
+func readChunks(ctx context.Context, pread preadFn, w io.Writer, chunks []readChunk) error {
+	buf := make([]byte, maxReadChunkSize)
 	for _, chunk := range chunks {
-		select {
-		case <-stream.Context().Done():
-			return stream.Context().Err()
-		default:
-		}
-		if err := p.Process([]readChunk{chunk}); err != nil {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
+		b := buf[:chunk.length]
+		if err := pread(b, chunk.offset); err != nil {
+			return fmt.Errorf("pread failed at offset %d: %w", chunk.offset, err)
+		}
+		if _, err := w.Write(b); err != nil {
+			return fmt.Errorf("failed to write chunk at offset %d: %w", chunk.offset, err)
+		}
 	}
+
 	return nil
 }
 
