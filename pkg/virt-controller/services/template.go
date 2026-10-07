@@ -455,7 +455,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.ImageVolumeEnabled() {
 			args = append(args, "--image-volume")
 		}
-		if t.clusterConfig.VGPULiveMigrationEnabled() {
+		if t.clusterConfig.MDevVGPULiveMigrationEnabled() {
 			args = append(args, "--vgpu-dedicated-hook")
 		}
 		if t.clusterConfig.VMStatsCollectorEnabled() {

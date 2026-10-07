@@ -449,7 +449,7 @@ func main() {
 		network.UpgradeOrdinalNamingScheme,
 	}
 	if *vGPUDedicatedHookEnabled {
-		hookFuncs = append(hookFuncs, vgpuhook.VGPULiveMigration)
+		hookFuncs = append(hookFuncs, vgpuhook.MDevVGPULiveMigration)
 	}
 
 	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(

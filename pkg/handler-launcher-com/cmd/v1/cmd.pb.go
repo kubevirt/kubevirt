@@ -393,7 +393,7 @@ type ClusterConfig struct {
 	BochsDisplayForEFIGuests     bool `protobuf:"varint,3,opt,name=BochsDisplayForEFIGuests" json:"BochsDisplayForEFIGuests,omitempty"`
 	SerialConsoleLogDisabled     bool `protobuf:"varint,4,opt,name=SerialConsoleLogDisabled" json:"SerialConsoleLogDisabled,omitempty"`
 	PCINUMAAwareTopologyEnabled  bool `protobuf:"varint,5,opt,name=PCINUMAAwareTopologyEnabled" json:"PCINUMAAwareTopologyEnabled,omitempty"`
-	VGPULiveMigrationEnabled     bool `protobuf:"varint,6,opt,name=VGPULiveMigrationEnabled" json:"VGPULiveMigrationEnabled,omitempty"`
+	MDevVGPULiveMigrationEnabled bool `protobuf:"varint,6,opt,name=MDevVGPULiveMigrationEnabled" json:"MDevVGPULiveMigrationEnabled,omitempty"`
 	GraceIOVirtualizationEnabled bool `protobuf:"varint,7,opt,name=GraceIOVirtualizationEnabled" json:"GraceIOVirtualizationEnabled,omitempty"`
 }
 
@@ -437,9 +437,9 @@ func (m *ClusterConfig) GetPCINUMAAwareTopologyEnabled() bool {
 	return false
 }
 
-func (m *ClusterConfig) GetVGPULiveMigrationEnabled() bool {
+func (m *ClusterConfig) GetMDevVGPULiveMigrationEnabled() bool {
 	if m != nil {
-		return m.VGPULiveMigrationEnabled
+		return m.MDevVGPULiveMigrationEnabled
 	}
 	return false
 }

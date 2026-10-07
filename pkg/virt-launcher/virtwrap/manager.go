@@ -1390,7 +1390,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 			c.PCINUMAAwareTopologyEnabled = options.GetClusterConfig().GetPCINUMAAwareTopologyEnabled()
 			c.GraceIOVirtualizationEnabled = options.GetClusterConfig().GetGraceIOVirtualizationEnabled()
-			vGPULiveMigrationEnabled = options.GetClusterConfig().GetVGPULiveMigrationEnabled()
+			vGPULiveMigrationEnabled = options.GetClusterConfig().GetMDevVGPULiveMigrationEnabled()
 		}
 
 		c.GraceHostDeviceAliases = options.GetGraceHostDeviceAliases()
