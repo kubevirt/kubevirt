@@ -1932,15 +1932,12 @@ func verifyExportPodAffinity(virtClient kubecli.KubevirtClient, vmbackup *backup
 	// Verify affinity is set
 	Expect(exportPod.Spec.Affinity).ToNot(BeNil(), "Pod affinity should be set when CBT is enabled")
 	Expect(exportPod.Spec.Affinity.PodAffinity).ToNot(BeNil(), "Pod affinity should include PodAffinity")
-	Expect(exportPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(
+	Expect(exportPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(
 		HaveLen(1),
-		"Should have exactly one preferred pod affinity term",
+		"Should have exactly one required pod affinity term",
 	)
 
-	prefferedAffinityTerm := exportPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
-	Expect(prefferedAffinityTerm.Weight).To(Equal(int32(100)))
-	Expect(prefferedAffinityTerm.PodAffinityTerm).ToNot(BeNil())
-	affinityTerm := prefferedAffinityTerm.PodAffinityTerm
+	affinityTerm := exportPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
 
 	// Verify topology key
 	Expect(affinityTerm.TopologyKey).To(

@@ -133,32 +133,27 @@ func (s *VMBackupSource) ConfigurePod(pod *corev1.Pod) {
 				Name:  "BACKUP_CHECKPOINT",
 				Value: *s.vmBackup.Status.CheckpointName,
 			})
-
-			// Add pod affinity to co-locate with virt-launcher pod when CBT is enabled
-			// This enables local access to checkpoint data instead of network transfer
-			if pod.Spec.Affinity == nil {
-				pod.Spec.Affinity = &corev1.Affinity{}
-			}
-			if pod.Spec.Affinity.PodAffinity == nil {
-				pod.Spec.Affinity.PodAffinity = &corev1.PodAffinity{}
-			}
-			pod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-				pod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-				corev1.WeightedPodAffinityTerm{
-					Weight: 100,
-					PodAffinityTerm: corev1.PodAffinityTerm{
-						LabelSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								virtv1.AppLabel:                      "virt-launcher",
-								virtv1.VirtualMachineInstanceIDLabel: s.vmiID,
-							},
-						},
-						TopologyKey: "kubernetes.io/hostname",
-					},
-				},
-			)
 		}
 	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &corev1.Affinity{}
+	}
+	if pod.Spec.Affinity.PodAffinity == nil {
+		pod.Spec.Affinity.PodAffinity = &corev1.PodAffinity{}
+	}
+	pod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+		pod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+		corev1.PodAffinityTerm{
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					virtv1.AppLabel:                      "virt-launcher",
+					virtv1.VirtualMachineInstanceIDLabel: s.vmiID,
+				},
+			},
+			TopologyKey: "kubernetes.io/hostname",
+		},
+	)
 }
 
 func (s *VMBackupSource) ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string) {
