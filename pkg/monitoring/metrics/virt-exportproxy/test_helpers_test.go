@@ -18,20 +18,10 @@
 
 package virtexportproxy
 
-import (
-	"sync/atomic"
-
-	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
-)
-
 func resetTransferMetricsState() {
-	atomic.StoreInt64(&activeTransferCount, 0)
-	readinessShedding.Store(false)
-	activeTransfers.Set(0)
-	admission.ResetUtilizationReaderForTest()
+	ResetTransferMetricsForTest()
 }
 
 func setActiveTransferCountForTest(count int64) {
-	atomic.StoreInt64(&activeTransferCount, count)
-	activeTransfers.Set(float64(count))
+	SetActiveTransferCountForTest(count)
 }
