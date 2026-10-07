@@ -108,7 +108,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			},
 		}
 
-		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, nil, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -142,6 +142,73 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
 			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
 		)
+
+		It("should prefer KubeVirt CR synchronizationAddresses when proxy is enabled", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: virtv1.KubeVirtStatus{
+					SynchronizationAddresses: []string{"sync.example.com:443"},
+				},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  true,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("sync.example.com:443"))
+		})
+
+		It("should fall through to cross-cluster IP when proxy is enabled but CR has no addresses", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status:     virtv1.KubeVirtStatus{},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  true,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("10.0.0.3:9185"))
+		})
+
+		It("should ignore KubeVirt CR synchronizationAddresses when proxy is disabled", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: virtv1.KubeVirtStatus{
+					SynchronizationAddresses: []string{"sync.example.com:443"},
+				},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  false,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("10.0.0.3:9185"))
+		})
 	})
 
 	Context("migration proxy initialization", func() {
@@ -1105,7 +1172,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		BeforeEach(func() {
 			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, nil, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			remoteTCPConn, err := remoteController.createTcpListener()
