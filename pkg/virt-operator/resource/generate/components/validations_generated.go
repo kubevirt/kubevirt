@@ -10911,11 +10911,6 @@ var CRDsValidation map[string]string = map[string]string{
           x-kubernetes-list-map-keys:
           - type
           x-kubernetes-list-type: map
-        exportUID:
-          description: |-
-            ExportUID tracks the UID of the associated VMExport for pull-mode backups
-            used to detect VMExport recreation and re-initiate the export handshake
-          type: string
         includedVolumes:
           description: IncludedVolumes lists the volumes that were included in the
             backup

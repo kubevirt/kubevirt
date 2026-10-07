@@ -20549,28 +20549,13 @@
     "description": "BackupOptions are options used to configure virtual machine backup job",
     "type": "object",
     "properties": {
-     "backupCert": {
-      "type": "string"
-     },
-     "backupKey": {
-      "type": "string"
-     },
      "backupName": {
       "type": "string"
      },
      "backupStartTime": {
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      },
-     "caCert": {
-      "type": "string"
-     },
      "cmd": {
-      "type": "string"
-     },
-     "exportServerAddr": {
-      "type": "string"
-     },
-     "exportServerName": {
       "type": "string"
      },
      "incremental": {
@@ -20858,10 +20843,6 @@
        "type"
       ],
       "x-kubernetes-list-type": "map"
-     },
-     "exportUID": {
-      "description": "ExportUID tracks the UID of the associated VMExport for pull-mode backups used to detect VMExport recreation and re-initiate the export handshake",
-      "type": "string"
      },
      "includedVolumes": {
       "description": "IncludedVolumes lists the volumes that were included in the backup",
