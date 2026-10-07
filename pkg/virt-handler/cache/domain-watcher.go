@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const socketDialTimeout = 5
+const socketDialTimeoutSeconds = 5
 
 type runServerFunc func(ctx context.Context, c chan watch.Event) error
 
@@ -70,7 +70,7 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 	return d
 }
 
-func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, resyncPeriod time.Duration, watchdogTimeout int) {
+func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, resyncPeriod time.Duration, watchdogTimeoutSeconds int) {
 	defer d.wg.Done()
 	defer close(d.result)
 
@@ -80,7 +80,7 @@ func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, res
 	// Divide the watchdogTimeout by 3 for our ticker.
 	// This ensures we always have at least 2 response failures
 	// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
-	expiredWatchdogTicker := time.NewTicker(time.Duration((watchdogTimeout/3)+1) * time.Second)
+	expiredWatchdogTicker := time.NewTicker(time.Duration((watchdogTimeoutSeconds/3)+1) * time.Second)
 	defer expiredWatchdogTicker.Stop()
 
 	startedAt := time.Now()
@@ -95,7 +95,7 @@ func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, res
 		case <-resyncTicker.C:
 			d.handleResync(ctx)
 		case <-expiredWatchdogTicker.C:
-			d.handleStaleSocketConnections(ctx, watchdogTimeout)
+			d.handleStaleSocketConnections(ctx, watchdogTimeoutSeconds)
 		case err := <-srvErr:
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
@@ -183,13 +183,13 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 	}
 }
 
-func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeout int) error {
+func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeoutSeconds int) error {
 	var unresponsive []string
 
 	socketFiles := listSockets(GhostRecordGlobalStore.list())
 
 	for _, socket := range socketFiles {
-		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
+		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeoutSeconds)*time.Second)
 		if err == nil {
 			// socket is alive still
 			sock.Close()
@@ -216,7 +216,7 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 
 		diff := now - timeStamp
 
-		if diff > int64(watchdogTimeout) {
+		if diff > int64(watchdogTimeoutSeconds) {
 
 			record, exists := GhostRecordGlobalStore.findBySocket(key)
 
@@ -225,9 +225,7 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 				// this is possible with legacy VMIs that haven't
 				// been updated. The watchdog file will catch these.
 			} else {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				domain.Spec.Metadata.KubeVirt.UID = record.UID
+				domain := newDomainFromGhostRecord(record, api.DomainStatus{})
 				now := metav1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
