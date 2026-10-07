@@ -64,7 +64,7 @@ var _ = Describe("Backup", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 		metadataCache = metadata.NewCache()
-		manager = NewStorageManager(mockConn, metadataCache, nil)
+		manager = NewStorageManager(mockConn, metadataCache)
 
 		vmi = &v1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{

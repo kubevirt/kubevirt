@@ -99,7 +99,6 @@ var _ = Describe("Live migration source", func() {
 			false, // image volume enabled
 			nil,
 			v1.KvmHypervisorName,
-			nil,
 			"", false,
 			false, // firmware auto-selection
 			false,
@@ -241,7 +240,6 @@ var _ = Describe("Live migration source", func() {
 				false, // image volume enabled
 				nil,
 				v1.KvmHypervisorName,
-				nil,
 				"", false,
 				false, // firmware auto-selection
 				false,

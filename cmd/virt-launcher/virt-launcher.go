@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
-	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -470,7 +469,6 @@ func main() {
 		*imageVolumeEnabled,
 		preMigrationHookServer,
 		*hypervisor,
-		nbdclient.RegisterNBDServer,
 		domainName,
 		*vmStatsCollectorEnabled,
 		*firmwareAutoSelectionEnabled,
