@@ -594,6 +594,35 @@ var _ = Describe("exportserver", func() {
 			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume0"))
 		})
 
+		It("Should keep host port when volume URI is absolute", func() {
+			testVm := getTestVm()
+			getExpandedVM = func() *virtv1.VirtualMachine {
+				return testVm
+			}
+
+			getInternalHost := func() (string, error) {
+				return fmt.Sprintf("virt-export-test.default.svc:%d", export.ExportServerPort), nil
+			}
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			req.Header.Set("Accept", runtime.ContentTypeYAML)
+			resp := httptest.NewRecorder()
+			Expect(err).ToNot(HaveOccurred())
+			handler := vmHandler([]export.VolumeInfo{
+				{
+					RawGzURI: "/volumes/test-dv/disk.img.gz",
+				},
+			}, getInternalHost, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			out := strings.Split(resp.Body.String(), "---\n")
+			Expect(out).To(HaveLen(3))
+			resVm := &virtv1.VirtualMachine{}
+			err = yaml.Unmarshal([]byte(out[1]), resVm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal(fmt.Sprintf("https://virt-export-test.default.svc:%d/volumes/test-dv/disk.img.gz", export.ExportServerPort)))
+		})
+
 		It("Should override DVTemplates with new source URI, json", func() {
 			testVm := getTestVm()
 			getExpandedVM = func() *virtv1.VirtualMachine {
@@ -1175,7 +1204,7 @@ var _ = Describe("exportserver", func() {
 		})
 
 		It("should reject requests without a client certificate", func() {
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), nil)
 			rec := httptest.NewRecorder()
 
 			server.handleTunnel(rec, req)
@@ -1185,7 +1214,7 @@ var _ = Describe("exportserver", func() {
 		})
 
 		It("should reject requests with an invalid client CN", func() {
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), nil)
 			req.TLS = &tls.ConnectionState{
 				PeerCertificates: []*x509.Certificate{
 					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:wrong-uid"}},
@@ -1202,7 +1231,7 @@ var _ = Describe("exportserver", func() {
 		It("should reject if a tunnel is already active", func() {
 			server.nbdClient = nbdv1.NewMockNBDClient(ctrl)
 
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), nil)
 			req.TLS = &tls.ConnectionState{
 				PeerCertificates: []*x509.Certificate{
 					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:test-uid"}},
@@ -1218,7 +1247,7 @@ var _ = Describe("exportserver", func() {
 
 		It("should accept valid connections, flush headers, and clean up on context cancel", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", http.NoBody).WithContext(ctx)
+			req := httptest.NewRequest(http.MethodConnect, fmt.Sprintf("host.example.com:%d", export.ExportServerPort), http.NoBody).WithContext(ctx)
 			req.TLS = &tls.ConnectionState{
 				PeerCertificates: []*x509.Certificate{
 					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:test-uid"}},
@@ -1355,7 +1384,7 @@ var _ = Describe("exportserver", func() {
 			server = &exportServer{
 				handler: baseHandler,
 				ExportServerConfig: ExportServerConfig{
-					ListenAddr:    ":8443",
+					ListenAddr:    fmt.Sprintf(":%d", export.ExportServerPort),
 					TLSMinVersion: tls.VersionTLS12,
 				},
 			}
@@ -1364,7 +1393,7 @@ var _ = Describe("exportserver", func() {
 		It("should return standard TLS config and unmodified base handler when BackupUID is empty", func() {
 			srv := server.buildServer(context.Background())
 
-			Expect(srv.Addr).To(Equal(":8443"))
+			Expect(srv.Addr).To(Equal(fmt.Sprintf(":%d", export.ExportServerPort)))
 			Expect(srv.Handler).To(BeIdenticalTo(baseHandler))
 			Expect(srv.TLSConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(srv.TLSConfig.NextProtos).To(ConsistOf("h2", "http/1.1"))
@@ -1394,7 +1423,7 @@ var _ = Describe("exportserver", func() {
 			})
 
 			srv := server.buildServer(context.Background())
-			Expect(srv.Addr).To(Equal(":8443"))
+			Expect(srv.Addr).To(Equal(fmt.Sprintf(":%d", export.ExportServerPort)))
 			Expect(srv.Handler).ToNot(BeIdenticalTo(baseHandler))
 			Expect(srv.TLSConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(srv.TLSConfig.NextProtos).To(ConsistOf("h2", "http/1.1"))
