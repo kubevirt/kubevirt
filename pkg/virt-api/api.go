@@ -1055,7 +1055,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtClient)
+		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.PluginValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePlugins(w, r, app.clusterConfig)

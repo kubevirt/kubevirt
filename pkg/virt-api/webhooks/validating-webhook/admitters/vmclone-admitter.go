@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/network/link"
@@ -33,10 +34,8 @@ import (
 
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -44,17 +43,19 @@ const (
 	virtualMachineSnapshotKind = "VirtualMachineSnapshot"
 )
 
+type clusterConfigurer interface {
+	SnapshotEnabled() bool
+}
+
 // VirtualMachineCloneAdmitter validates VirtualMachineClones
 type VirtualMachineCloneAdmitter struct {
-	Config *virtconfig.ClusterConfig
-	Client kubecli.KubevirtClient
+	config clusterConfigurer
 }
 
 // NewVMCloneAdmitter creates a VM Clone Admitter
-func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
+func NewVMCloneAdmitter(config clusterConfigurer) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
-		Config: config,
-		Client: client,
+		config: config,
 	}
 }
 
@@ -67,7 +68,7 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clonebase.ResourceVMClonePlural))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
+	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate is not enabled"))
 	}
 
@@ -96,7 +97,7 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateSource(ctx, admitter.Client, vmClone); newCauses != nil {
+	if newCauses := validateSource(vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -166,7 +167,7 @@ func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.St
 	supportedSourceTypes := []string{virtualMachineKind, virtualMachineSnapshotKind}
 	supportedTargetTypes := []string{virtualMachineKind}
 
-	if !doesSliceContainStr(supportedSourceTypes, vmClone.Spec.Source.Kind) {
+	if !slices.Contains(supportedSourceTypes, vmClone.Spec.Source.Kind) {
 		causes = []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Source kind is not supported",
@@ -174,7 +175,7 @@ func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.St
 		}}
 	}
 
-	if vmClone.Spec.Target != nil && !doesSliceContainStr(supportedTargetTypes, vmClone.Spec.Target.Kind) {
+	if vmClone.Spec.Target != nil && !slices.Contains(supportedTargetTypes, vmClone.Spec.Target.Kind) {
 		if causes == nil {
 			causes = []metav1.StatusCause{}
 		}
@@ -188,7 +189,7 @@ func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.St
 	return causes
 }
 
-func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
+func validateSource(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 	source := vmClone.Spec.Source
@@ -278,15 +279,4 @@ func validatePatches(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	}
 
 	return causes
-}
-
-func doesSliceContainStr(slice []string, str string) (isFound bool) {
-	for _, curSliceStr := range slice {
-		if curSliceStr == str {
-			isFound = true
-			break
-		}
-	}
-
-	return isFound
 }
