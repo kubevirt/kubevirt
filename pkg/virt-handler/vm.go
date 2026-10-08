@@ -2045,6 +2045,13 @@ func (c *VirtualMachineController) handleStartingVMI(
 		}
 	}
 
+	// The scratch volume is hotplugged after the VMI is created, so without
+	// this the domain could start on base images the overlays still shadow.
+	if overlayRecoveryPending(vmi) {
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		return false, nil
+	}
+
 	if !c.hotplugVolumesReady(vmi) {
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return false, nil
@@ -2209,6 +2216,21 @@ func (c *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance)
 	}
 
 	return nil
+}
+
+// overlayRecoveryPending reports a VMI that expects a scratch volume it has not
+// been given yet. Clears itself once the volume lands in the spec.
+func overlayRecoveryPending(vmi *v1.VirtualMachineInstance) bool {
+	expected, pending := vmi.Annotations[v1.PendingOverlayRecoveryAnnotation]
+	if !pending {
+		return false
+	}
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Name == expected && volume.ClaimName == expected && volume.Type != nil && *volume.Type == v1.SnapshotOverlay {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {

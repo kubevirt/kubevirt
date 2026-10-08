@@ -26,7 +26,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -70,6 +69,7 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -2553,6 +2553,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Context("Filesystem Devices", func() {
 			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"
 
+			It("should wait for a scratch volume the VMI is still expecting", func() {
+				vmi := libvmi.New()
+				vmi.Annotations = map[string]string{v1.PendingOverlayRecoveryAnnotation: "snap-scratch-uid"}
+				Expect(overlayRecoveryPending(vmi)).To(BeTrue())
+
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{
+					Name:                              "snap-scratch-uid",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "snap-scratch-uid"},
+					Type:                              pointer.P(v1.SnapshotOverlay),
+				}}
+				Expect(overlayRecoveryPending(vmi)).To(BeFalse())
+			})
+
+			It("should not wait on a VMI that expects no overlays", func() {
+				Expect(overlayRecoveryPending(libvmi.New())).To(BeFalse())
+			})
+
 			It("should not be allowed to live-migrate while the disks are on snapshot overlays", func() {
 				vmi := libvmi.New()
 				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
@@ -4242,5 +4259,18 @@ var _ = Describe("detectDiskWriteLockError", func() {
 		msg, ok := controller.detectDiskWriteLockError(err, vmi)
 		Expect(ok).To(BeTrue())
 		Expect(msg).To(ContainSubstring(expectedSubstr))
+	})
+})
+
+var _ = Describe("Snapshot overlay recovery readiness", func() {
+	It("should require the expected recovery claim before startup", func() {
+		vmi := libvmi.New()
+		vmi.Annotations = map[string]string{v1.PendingOverlayRecoveryAnnotation: "scratch"}
+		vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "unrelated", Type: pointer.P(v1.SnapshotOverlay)}}
+		Expect(overlayRecoveryPending(vmi)).To(BeTrue())
+		vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "scratch", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "scratch"}, Type: pointer.P(v1.SnapshotOverlay)}}
+		Expect(overlayRecoveryPending(vmi)).To(BeFalse())
+		vmi.Spec.UtilityVolumes[0].ClaimName = "another-pvc"
+		Expect(overlayRecoveryPending(vmi)).To(BeTrue())
 	})
 })
