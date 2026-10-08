@@ -39,18 +39,18 @@ const (
 	VMStateDirSwtpmLocalca = "swtpm-localca"
 	VMStateEFIVarsFile     = "efi_vars.fd"
 
-	// Old layout directory names, migrated to the canonical layout on first boot. See VEP #312.
+	// Old layout directory names, migrated to the canonical layout on first boot.
 	VMStateDirNVRAMLegacy = "nvram" // holds <vmname>_VARS.fd, moved to efi/efi_vars.fd
 	VMStateDirSwtpmLegacy = "swtpm" // holds <uuid>/tpm2, moved to tpm/
 
-	// VMStateFileLayout is the file inside meta/ that records the PVC's canonical layout version
-	// (VMStateLayoutVersion). See VEP #312.
+	// VMStateFileLayout is the file inside meta/ recording the PVC's canonical layout version.
 	VMStateFileLayout = "layout"
 
-	// VMStateLayoutVersion is the current on-disk layout version of a declarative VirtualMachineState
-	// PVC in meta/layout. A PVC already at this version skips legacy normalization; bump it
-	// when the canonical layout changes and key migration off the recorded version. See VEP #312.
+	// VMStateLayoutVersion is the current layout version; bump it when the canonical layout changes.
 	VMStateLayoutVersion = 1
+
+	// VMStateFileCBTOwner records the UID of cbt/'s last owner, to detect adoption by another VM.
+	VMStateFileCBTOwner = "cbt-owner"
 )
 
 func HasDeclarativeVMState(vmi *v1.VirtualMachineInstance) bool {
