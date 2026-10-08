@@ -22,8 +22,6 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/tools/cache"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
@@ -47,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -729,6 +729,37 @@ var _ = Describe("Overlay scratch volume", func() {
 				_, err = k8sClient.CoreV1().PersistentVolumeClaims(testNamespace).
 					Get(context.Background(), scratchPVCName(content), metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("a second snapshot", func() {
+			sourced := func() *snapshotv1.VirtualMachineSnapshot {
+				second := overlaySnapshot(nil, nil)
+				second.Name = "snapshot-2"
+				second.Spec.Source = corev1.TypedLocalObjectReference{Kind: "VirtualMachine", Name: vmi.Name}
+				return second
+			}
+
+			It("should see a source that another snapshot still has on overlays", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				addVMI()
+
+				Expect(controller.sourceOnOverlays(sourced())).To(BeTrue())
+			})
+
+			It("should see nothing on a source with no overlays", func() {
+				addVMI()
+
+				Expect(controller.sourceOnOverlays(sourced())).To(BeFalse())
+			})
+
+			It("should see nothing when the source is not a VirtualMachine", func() {
+				reportPhase(corev1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady, "")
+				addVMI()
+
+				other := sourced()
+				other.Spec.Source.Kind = "VirtualMachineSnapshot"
+				Expect(controller.sourceOnOverlays(other)).To(BeFalse())
 			})
 		})
 

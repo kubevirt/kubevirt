@@ -2553,6 +2553,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Context("Filesystem Devices", func() {
 			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"
 
+			It("should not be allowed to live-migrate while the disks are on snapshot overlays", func() {
+				vmi := libvmi.New()
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+					Status: k8sv1.ConditionTrue,
+					Reason: v1.VirtualMachineInstanceReasonOverlaysReady,
+				})
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable))
+			})
+
 			It("should be allowed to live-migrate if the VMI uses virtiofs", func() {
 				vmi := libvmi.New(withFilesystemDevice("VIRTIOFS"))
 

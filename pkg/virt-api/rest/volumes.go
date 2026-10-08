@@ -26,6 +26,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -225,12 +227,21 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
 	}
 
+	// Unplugging a disk that is on an overlay strands the overlay.
+	if vmi.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] != "" || (volumeRequest.RemoveVolumeOptions != nil && controller.NewVirtualMachineInstanceConditionManager().
+		HasConditionWithStatus(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive, k8sv1.ConditionTrue)) {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name,
+			fmt.Errorf("VMI %s/%s has disks on snapshot overlays", vmi.Namespace, vmi.Name))
+	}
+
 	err := verifyVolumeOption(vmi.Spec.Volumes, volumeRequest)
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
 	}
 
-	patchBytes, err := generateVolumeRequestPatchVMI(&vmi.Spec, volumeRequest)
+	// Reject hotplug requests whose GET preceded snapshot preparation or VMI replacement.
+	patchBytes, err := generateVolumeRequestPatchVMI(&vmi.Spec, volumeRequest,
+		patch.WithTest("/metadata/uid", vmi.UID), patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
 	}
@@ -343,16 +354,17 @@ func generateVolumeRequestPatchVM(vmiSpec *v1.VirtualMachineInstanceSpec, volume
 	return generateVolumeRequestPatch("/spec/template", vmiSpec, volumeRequest)
 }
 
-func generateVolumeRequestPatchVMI(vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
-	return generateVolumeRequestPatch("", vmiSpec, volumeRequest)
+func generateVolumeRequestPatchVMI(vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest, guards ...patch.PatchOption) ([]byte, error) {
+	return generateVolumeRequestPatch("", vmiSpec, volumeRequest, guards...)
 }
 
-func generateVolumeRequestPatch(prefix string, vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
+func generateVolumeRequestPatch(prefix string, vmiSpec *v1.VirtualMachineInstanceSpec, volumeRequest *v1.VirtualMachineVolumeRequest, guards ...patch.PatchOption) ([]byte, error) {
 	volumePath := prefix + "/spec/volumes"
 	diskPath := prefix + "/spec/domain/devices/disks"
 	vmiSpecCopy := *controller.ApplyVolumeRequestOnVMISpec(vmiSpec.DeepCopy(), volumeRequest)
 
-	patchSet := patch.New(
+	patchSet := patch.New(guards...)
+	patchSet.AddOption(
 		patch.WithTest(volumePath, vmiSpec.Volumes),
 		patch.WithTest(diskPath, vmiSpec.Domain.Devices.Disks),
 	)

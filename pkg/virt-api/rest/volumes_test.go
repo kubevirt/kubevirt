@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -393,6 +394,35 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			Name: "hotpluggedPVC",
 		}, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
 	)
+
+	DescribeTable("should block ephemeral disk changes while an external transaction is prepared", func(volumeRequest *v1.VirtualMachineVolumeRequest) {
+		vmi := api.NewMinimalVMI(testVMName)
+		vmi.Namespace = metav1.NamespaceDefault
+		vmi.Status.Phase = v1.Running
+		vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: "prepared-transaction"}
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+		status := app.vmiVolumePatch(vmi.Name, vmi.Namespace, volumeRequest)
+		Expect(status).To(HaveOccurred())
+		Expect(status.ErrStatus.Code).To(Equal(int32(http.StatusConflict)))
+	},
+		Entry("remove before overlay condition arrives", &v1.VirtualMachineVolumeRequest{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "data"}}),
+		Entry("add during overlay recovery", &v1.VirtualMachineVolumeRequest{AddVolumeOptions: &v1.AddVolumeOptions{Name: "data"}}),
+	)
+	It("should guard an ephemeral disk patch against concurrent snapshot preparation", func() {
+		vmi := libvmi.New(libvmi.WithName(testVMName), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
+		vmi.UID, vmi.ResourceVersion = "vmi-uid", "42"
+		vmi.Status.Phase = v1.Running
+		vmi.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable = true
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+		vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ types.PatchType, payload []byte, _ metav1.PatchOptions, _ ...string) (*v1.VirtualMachineInstance, error) {
+			var operations []patch.PatchOperation
+			Expect(json.Unmarshal(payload, &operations)).To(Succeed())
+			Expect(operations[0]).To(Equal(patch.PatchOperation{Op: "test", Path: "/metadata/uid", Value: string(vmi.UID)}))
+			Expect(operations[1]).To(Equal(patch.PatchOperation{Op: "test", Path: "/metadata/resourceVersion", Value: vmi.ResourceVersion}))
+			return vmi, nil
+		})
+		Expect(app.vmiVolumePatch(vmi.Name, vmi.Namespace, &v1.VirtualMachineVolumeRequest{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "data"}})).To(Succeed())
+	})
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 

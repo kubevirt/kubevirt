@@ -327,6 +327,10 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(causes).To(BeEmpty())
 			}
 		},
+			Entry("reject disk target changes without a volume change", func(vm *v1.VirtualMachine) bool {
+				vm.Spec.Template.Spec.Domain.Devices.Disks[0].DiskDevice.Disk = &v1.DiskTarget{Bus: v1.DiskBusSATA}
+				return false
+			}),
 			Entry("reject update to disks", func(vm *v1.VirtualMachine) bool {
 				vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
 					{
