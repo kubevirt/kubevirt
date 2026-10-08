@@ -78,6 +78,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	})
 
 	DescribeTable("ContainerPath feature gate on VMI update", func(previouslyUsed, allowed bool) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.ContainerPathVolumesGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 		oldVMI := newBaseVmi()
 		volume := v1.Volume{Name: "containerpath", VolumeSource: v1.VolumeSource{
 			ContainerPath: &v1.ContainerPathVolumeSource{Path: "/run/secrets/test"},

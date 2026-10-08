@@ -77,10 +77,22 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
+	disableFeatureGate := func(featureGate string) {
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+		if kv.Spec.Configuration.DeveloperConfiguration == nil {
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+		}
+		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
+			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
+			featureGate,
+		)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+	}
 	disableFeatureGates := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		if kv.Spec.Configuration.DeveloperConfiguration != nil {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = make([]string, 0)
+			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = make([]string, 0)
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -132,6 +144,8 @@ var _ = Describe("Validating VM Admitter", func() {
 		DeferCleanup(disableFeatureGates)
 		if enabled {
 			enableFeatureGate(featuregate.ContainerPathVolumesGate)
+		} else {
+			disableFeatureGate(featuregate.ContainerPathVolumesGate)
 		}
 		vm := &v1.VirtualMachine{Spec: v1.VirtualMachineSpec{
 			RunStrategy: pointer.P(v1.RunStrategyHalted),

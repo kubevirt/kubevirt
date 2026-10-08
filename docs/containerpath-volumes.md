@@ -83,7 +83,11 @@ aws s3 ls
 
 ### Feature Gate
 
-ContainerPath volumes require the `ContainerPathVolumes` feature gate:
+ContainerPath volumes are beta and enabled by default starting in KubeVirt v1.10.
+In v1.8 and v1.9, explicitly enable `ContainerPathVolumes` using
+`spec.configuration.developerConfiguration.featureGates`.
+
+To disable ContainerPath volumes in v1.10, add the gate to `disabledFeatureGates`:
 
 ```yaml
 apiVersion: kubevirt.io/v1
@@ -94,7 +98,7 @@ metadata:
 spec:
   configuration:
     developerConfiguration:
-      featureGates:
+      disabledFeatureGates:
       - ContainerPathVolumes
 ```
 
@@ -182,7 +186,7 @@ Common issues:
 - Path typo in VM spec
 - Volume not injected by expected mechanism (check pod spec)
 - Timing issue: path populated after virtiofs initialization
-- Feature gate `ContainerPathVolumes` not enabled
+- Feature gate `ContainerPathVolumes` explicitly disabled (or not enabled on v1.8/v1.9)
 
 ## Implementation Details
 
