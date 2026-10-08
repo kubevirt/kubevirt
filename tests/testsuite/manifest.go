@@ -47,13 +47,13 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-// tryBinaryRelative returns _out/manifests/testing relative to the test binary’s directory, or "" if not present.
+// tryBinaryRelative returns _out/manifests/testing relative to the test binary's directory, or "" if not present.
 func tryBinaryRelative() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
 	}
-	candidate := filepath.Join(filepath.Dir(exe), "..", "_out", "manifests", "testing")
+	candidate := filepath.Join(filepath.Dir(exe), "..", "manifests", "testing")
 	if info, err := os.Stat(candidate); err == nil && info.IsDir() {
 		return candidate
 	}
@@ -75,8 +75,12 @@ func tryCwdRelative() string {
 
 // resolveManifestsDir returns a valid manifests dir, or "" if none found.
 func resolveManifestsDir(pathToManifestsDir string) string {
-	if info, err := os.Stat(pathToManifestsDir); err == nil && info.IsDir() {
-		return pathToManifestsDir
+	if pathToManifestsDir != "" {
+		if info, err := os.Stat(pathToManifestsDir); err == nil && info.IsDir() {
+			return pathToManifestsDir
+		}
+		fmt.Printf("ERROR: testing manifests directory %q does not exist.\n", pathToManifestsDir)
+		return ""
 	}
 	if p := tryBinaryRelative(); p != "" {
 		return p
@@ -88,8 +92,18 @@ func resolveManifestsDir(pathToManifestsDir string) string {
 	return ""
 }
 
+// TestingInfrastructureManifestsDir returns the directory used by suite setup
+// and by tests that need to reapply the same testing infrastructure.
+func TestingInfrastructureManifestsDir() string {
+	pathToManifestsDir := flags.PathToTestingInfrastrucureManifests
+	if pathToManifestsDir == "" {
+		pathToManifestsDir = flags.TestingManifestPath
+	}
+	return resolveManifestsDir(pathToManifestsDir)
+}
+
 func GetListOfManifests() []string {
-	pathToManifestsDir := resolveManifestsDir(flags.PathToTestingInfrastrucureManifests)
+	pathToManifestsDir := TestingInfrastructureManifestsDir()
 	if pathToManifestsDir == "" {
 		return nil
 	}
@@ -150,8 +164,7 @@ func ApplyRawManifest(object unstructured.Unstructured) error {
 	}
 	b, err := virtCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
 	if err != nil {
-		fmt.Printf(fmt.Sprintf("ERROR: Can not apply %s\n, err: %#v", object, err))
-		return err
+		return fmt.Errorf("apply testing manifest %s %q in namespace %q: %w", object.GetKind(), object.GetName(), object.GetNamespace(), err)
 	}
 	status := unstructured.Unstructured{}
 	return json.Unmarshal(b, &status)
