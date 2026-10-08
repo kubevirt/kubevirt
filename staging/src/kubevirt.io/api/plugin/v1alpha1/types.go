@@ -51,11 +51,10 @@ type PluginList struct {
 
 type PluginSpec struct {
 	// Condition is a CEL expression that determines whether this plugin applies to a given VM.
+	// The expression may reference only `vmi` and must evaluate to a bool.
 	// When set, this acts as a baseline filter for all hooks in the plugin.
 	// Individual hooks may further narrow the scope with their own Condition fields.
-	// Condition expressions are evaluated once per pipeline invocation, against the VMI/domain
-	// state as it existed before any hook in that invocation ran. They are not re-evaluated to
-	// reflect mutations made by other hooks applied earlier in the same invocation.
+	// An empty condition always matches.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 
@@ -134,6 +133,7 @@ type LauncherHook struct {
 	// +optional
 	Sidecar *SidecarLauncherHook `json:"sidecar,omitempty"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
+	// The expression may reference only `vmi` and must evaluate to a bool.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 	// FailureStrategy specifies how to handle hook failures (Fail or Ignore).
@@ -201,6 +201,7 @@ type NodeHook struct {
 	// +listType=atomic
 	PermittedHooks []NodeHookPoint `json:"permittedHooks"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
+	// The expression may reference only `vmi` and must evaluate to a bool.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 	// FailureStrategy specifies how to handle hook failures (Fail or Ignore).
