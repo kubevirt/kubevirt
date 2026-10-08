@@ -235,7 +235,7 @@ type DomainSpec struct {
 	MaxMemory      *MaxMemory      `xml:"maxMemory,omitempty"`
 	MemoryBacking  *MemoryBacking  `xml:"memoryBacking,omitempty"`
 	OS             OS              `xml:"os"`
-	SysInfo        *SysInfo        `xml:"sysinfo,omitempty"`
+	SysInfo        []SysInfo       `xml:"sysinfo,omitempty" json:"sysinfoList,omitempty"`
 	Devices        Devices         `xml:"devices"`
 	Clock          *Clock          `xml:"clock,omitempty"`
 	Resource       *Resource       `xml:"resource,omitempty"`
@@ -1241,12 +1241,30 @@ type BIOS struct {
 	UseSerial string `xml:"useserial,attr,omitempty"`
 }
 
+// SysInfo is one <sysinfo> block: smbios sub-elements for Type "smbios",
+// Entries for Type "fwcfg". DomainSpec.SysInfo uses a distinct JSON key so that
+// events from pre-upgrade virt-launchers, which encoded it as a single object,
+// still unmarshal.
 type SysInfo struct {
 	Type      string  `xml:"type,attr"`
 	System    []Entry `xml:"system>entry"`
 	BIOS      []Entry `xml:"bios>entry"`
 	BaseBoard []Entry `xml:"baseBoard>entry"`
 	Chassis   []Entry `xml:"chassis>entry"`
+	Entries   []Entry `xml:"entry"`
+}
+
+// MarshalXML emits only the entries of a fwcfg block, encoding/xml would
+// otherwise add empty smbios parent elements that fail libvirt's schema.
+func (s SysInfo) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if s.Type != "fwcfg" {
+		type plain SysInfo
+		return e.EncodeElement(plain(s), start)
+	}
+	return e.EncodeElement(struct {
+		Type    string  `xml:"type,attr"`
+		Entries []Entry `xml:"entry"`
+	}{s.Type, s.Entries}, start)
 }
 
 type Entry struct {
