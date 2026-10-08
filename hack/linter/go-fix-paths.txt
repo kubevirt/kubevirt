@@ -18,5 +18,6 @@ pkg/virt-launcher/virtwrap/converter/compute
 pkg/virt-launcher/virtwrap/converter/network
 pkg/virt-launcher/virtwrap/converter/storage
 pkg/virt-launcher/virtwrap/network
+tests/integration
 tests/libnet
 tests/network
