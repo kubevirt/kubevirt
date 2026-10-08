@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -60,8 +61,13 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
 		return
 	}
-	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, v1.VirtualMachineManualRecoveryRequired, k8sv1.ConditionTrue) {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
+	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
+	if condition != nil && condition.Status == k8sv1.ConditionTrue {
+		message := volumeMigrationManualRecoveryRequiredErr
+		if condition.Reason == storagetypes.UncommittedOverlaysReason && condition.Message != "" {
+			message = condition.Message
+		}
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%s", message)), response)
 		return
 	}
 

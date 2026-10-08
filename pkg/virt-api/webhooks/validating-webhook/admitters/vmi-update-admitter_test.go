@@ -38,6 +38,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -110,6 +112,61 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	},
 		Entry("allows metadata updates after disabling", true, true),
 		Entry("rejects introducing usage when disabled", false, false),
+	)
+
+	DescribeTable("should protect actual disks during an external snapshot", func(state string, detach, changeStorage, allowed bool) {
+		for _, externalEnabled := range []bool{false, true} {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.UtilityVolumesGate}
+			if externalEnabled {
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.ExternalVMSnapshotGate)
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+			vmi.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable = true
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "data", HotplugVolume: &v1.HotplugVolumeStatus{}}}
+			overlayType := v1.SnapshotOverlay
+			scratch := []v1.UtilityVolume{{Name: "scratch", Type: &overlayType, PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "scratch"}}}
+			switch state {
+			case "prepared":
+				vmi.Spec.UtilityVolumes = scratch
+			case "active":
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceOverlaySnapshotActive, Status: k8sv1.ConditionTrue}}
+			case "annotation":
+				vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: "copied"}
+			}
+			updated := vmi.DeepCopy()
+			if state == "starting" {
+				updated.Spec.UtilityVolumes = scratch
+			}
+			if detach {
+				updated.Spec.UtilityVolumes = nil
+			}
+			if changeStorage {
+				updated.Spec.Volumes = nil
+				updated.Spec.Domain.Devices.Disks = nil
+			}
+			oldJSON, err := json.Marshal(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			newJSON, err := json.Marshal(updated)
+			Expect(err).ToNot(HaveOccurred())
+			response := vmiUpdateAdmitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{
+				UserInfo: authv1.UserInfo{Username: "system:serviceaccount:kubevirt:kubevirt-controller"},
+				Resource: webhooks.VirtualMachineInstanceGroupVersionResource, Operation: admissionv1.Update,
+				Object: runtime.RawExtension{Raw: newJSON}, OldObject: runtime.RawExtension{Raw: oldJSON},
+			}})
+			Expect(response.Allowed).To(Equal(allowed), "ExternalVMSnapshot enabled: %t, response: %+v", externalEnabled, response.Result)
+		}
+	},
+		Entry("ordinary hotplug", "ordinary", false, true, true),
+		Entry("annotation alone", "annotation", false, true, true),
+		Entry("prepared overlays", "prepared", false, true, false),
+		Entry("active overlays", "active", false, true, false),
+		Entry("preparation and disk removal in one update", "starting", false, true, false),
+		Entry("detach and disk removal in one update", "prepared", true, true, false),
+		Entry("scratch attachment", "starting", false, false, true),
+		Entry("scratch detachment", "prepared", true, false, true),
 	)
 
 	Context("Node restriction", func() {
@@ -416,6 +473,36 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			map[string]string{v1.NodeNameLabel: "someNewValue"},
 			components.ControllerServiceAccountName,
 		),
+	)
+
+	DescribeTable("should let only KubeVirt change the snapshot overlay reference", func(oldReference, newReference, username string, allowed bool) {
+		vmi := api.NewMinimalVMI("testvmi")
+		updateVmi := vmi.DeepCopy()
+		if oldReference != "" {
+			vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: oldReference}
+		}
+		if newReference != "" {
+			updateVmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: newReference}
+		}
+		newVMIBytes, _ := json.Marshal(&updateVmi)
+		oldVMIBytes, _ := json.Marshal(&vmi)
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				UserInfo:  authv1.UserInfo{Username: username},
+				Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
+				Object:    runtime.RawExtension{Raw: newVMIBytes},
+				OldObject: runtime.RawExtension{Raw: oldVMIBytes},
+				Operation: admissionv1.Update,
+			},
+		}
+		resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(Equal(allowed))
+	},
+		Entry("removed by a user", `{"contentUID":"c","scratchPVCUID":"s"}`, "", "system:serviceaccount:someNamespace:someUser", false),
+		Entry("changed by a user", `{"contentUID":"c","scratchPVCUID":"s"}`, `{"contentUID":"c","scratchPVCUID":"t"}`, "system:serviceaccount:someNamespace:someUser", false),
+		Entry("added by a user", "", `{"contentUID":"c","scratchPVCUID":"s"}`, "system:serviceaccount:someNamespace:someUser", false),
+		Entry("removed by the controller", `{"contentUID":"c","scratchPVCUID":"s"}`, "", "system:serviceaccount:kubevirt:"+components.ControllerServiceAccountName, true),
+		Entry("kept by a user", `{"contentUID":"c","scratchPVCUID":"s"}`, `{"contentUID":"c","scratchPVCUID":"s"}`, "system:serviceaccount:someNamespace:someUser", true),
 	)
 
 	DescribeTable(

@@ -1187,6 +1187,13 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(blockErr.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
 	}
 
+	// Last, so a permanent reason is reported ahead of this transient one.
+	if controller.NewVirtualMachineInstanceConditionManager().
+		HasConditionWithStatus(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive, k8sv1.ConditionTrue) {
+		return newNonMigratableCondition("VMI disks are on snapshot overlays",
+			v1.VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable), isBlockMigration
+	}
+
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,

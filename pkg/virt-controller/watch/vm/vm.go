@@ -71,6 +71,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
+	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
@@ -1658,7 +1659,9 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		// Clean-up the volume change label when the volume set has been restored
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
-		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
+		if !snapshotoverlay.HasUncommittedOverlays(vm) {
+			vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
+		}
 		return
 	}
 	if vmi == nil || vmi.IsFinal() {
@@ -2486,6 +2489,10 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	// On a successful migration, the volume change condition is removed and we need to detect the removal before the synchronization of the VMI
 	// condition to the VM
 	syncVolumeMigration(vm, vmi)
+	cleanupPending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+	if err != nil {
+		return err
+	}
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 	cbt.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
@@ -2495,6 +2502,10 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 		if _, err := c.clientset.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, v1.UpdateOptions{}); err != nil {
 			return err
 		}
+	}
+	if cleanupPending {
+		c.Queue.AddAfter(key, time.Second)
+		return nil
 	}
 	syncVMIDeleted := vmi != nil && vmi.IsWaitingForSync() && vmi.DeletionTimestamp != nil
 	if vmi != nil && (vmi.IsFinal() || syncVMIDeleted) && len(vmi.Finalizers) > 0 {
@@ -2769,6 +2780,9 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 		string(virtv1.VirtualMachineReady):           nil,
 		string(virtv1.VirtualMachineFailure):         nil,
 		string(virtv1.VirtualMachineRestartRequired): nil,
+	}
+	if snapshotoverlay.HasUncommittedOverlays(vm) {
+		syncIgnoreMap[string(virtv1.VirtualMachineManualRecoveryRequired)] = nil
 	}
 	vmiCondMap := make(map[string]interface{})
 

@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -7286,6 +7288,100 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("startVMI", func() {
+			DescribeTable("should ignore an overlay annotation without controller-managed overlay state", func(reference string) {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.Status.Phase = v1.Failed
+				vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: reference}
+				pending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pending).To(BeFalse())
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+				Expect(virtFakeClient.Actions()).To(BeEmpty())
+			},
+				Entry("malformed reference", "invalid"),
+				Entry("unverified reference", `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`),
+			)
+			It("should wait for the removal of a scratch volume the launcher was never asked to use", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.Status.Phase = v1.Failed
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "scratch", Type: pointer.P(v1.SnapshotOverlay)}}
+				pending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pending).To(BeTrue())
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+			})
+			It("should not block the VM again from a final VMI it already recorded", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.Status.Phase, vmi.Finalizers = v1.Failed, nil
+				vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`}
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "snap-scratch-content-uid", Type: pointer.P(v1.SnapshotOverlay)}}
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceOverlaySnapshotActive, Status: k8sv1.ConditionTrue, Reason: v1.VirtualMachineInstanceReasonOverlaysReady}}
+				pending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pending).To(BeFalse())
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+			})
+			DescribeTable("should preserve interrupted snapshot writes before allowing restart", func(phase v1.VirtualMachineInstancePhase, reason string, referenced bool) {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.UID, vmi.Status.Phase = "old-vmi", phase
+				vmi.Finalizers = []string{v1.VirtualMachineControllerFinalizer}
+				vmi.Annotations = map[string]string{}
+				if referenced {
+					vmi.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] = `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`
+					vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "snap-scratch-content-uid", Type: pointer.P(v1.SnapshotOverlay)}}
+				}
+				setGenerationAnnotationOnVmi(vm.Generation, vmi)
+				if reason != "" {
+					vmi.Status.SnapshotOverlayPVCUID = "scratch-uid"
+					vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceOverlaySnapshotActive, Status: k8sv1.ConditionFalse, Reason: reason}}
+				}
+				Expect(virtFakeClient.Tracker().Add(vm)).To(Succeed())
+				Expect(virtFakeClient.Tracker().Add(vmi)).To(Succeed())
+				blocked := vmi.IsFinal() && referenced && reason == ""
+				virtFakeClient.PrependReactor("patch", "virtualmachineinstances", func(testing.Action) (bool, runtime.Object, error) {
+					if blocked {
+						persisted, err := virtFakeClient.Tracker().Get(v1.SchemeGroupVersion.WithResource("virtualmachines"), vm.Namespace, vm.Name)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(persisted.(*v1.VirtualMachine)).To(matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired))
+					}
+					return false, nil, nil
+				})
+				Expect(controller.updateStatus(vm.DeepCopy(), vm, vmi, nil, log.Log)).To(Succeed())
+				updated, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				condition := virtcontroller.NewVirtualMachineConditionManager().GetCondition(updated, v1.VirtualMachineManualRecoveryRequired)
+				if blocked {
+					Expect(condition).ToNot(BeNil())
+					Expect(condition.Message).To(Equal("Uncommitted writes remain on scratch PVC `snap-scratch-content-uid`. Startup is blocked. To keep the writes, commit the overlays manually, then annotate the VM with snapshot.kubevirt.io/overlays-committed=scratch-uid. Otherwise restore a completed snapshot and accept losing writes newer than that snapshot."))
+					_, err = controller.startVMI(updated)
+					Expect(err).ToNot(HaveOccurred())
+					for _, action := range virtFakeClient.Actions() {
+						Expect(action.Matches("create", "virtualmachineinstances")).To(BeFalse())
+					}
+				} else {
+					Expect(condition).To(BeNil())
+				}
+				if vmi.IsFinal() && referenced && reason != "" {
+					persisted, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(persisted.Finalizers).To(ContainElement(v1.VirtualMachineControllerFinalizer))
+					delete(vmi.Annotations, storagetypes.OverlaySnapshotReferenceAnnotation)
+					vmi.Spec.UtilityVolumes = nil
+					Expect(controller.updateStatus(updated.DeepCopy(), updated, vmi, nil, log.Log)).To(Succeed())
+					persisted, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(persisted.Finalizers).To(BeEmpty())
+				}
+				Expect(k8sClient.Actions()).To(BeEmpty())
+			},
+				Entry("failed launcher", v1.Failed, "", true),
+				Entry("stopped launcher", v1.Succeeded, "", true),
+				Entry("running launcher", v1.Running, "", true),
+				Entry("cleaned transaction", v1.Failed, "", false),
+				Entry("commit awaiting cleanup", v1.Succeeded, v1.VirtualMachineInstanceReasonOverlayCommitted, true),
+				Entry("preparation failed safely", v1.Failed, v1.VirtualMachineInstanceReasonOverlaySnapshotFailed, true),
+			)
+
 			It("should not start the VMI if the VM has the ManualRecoveryRequiredCondition set", func() {
 				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMCondition(v1.VirtualMachineCondition{
 					Type:   v1.VirtualMachineManualRecoveryRequired,
@@ -7348,6 +7444,12 @@ var _ = Describe("VirtualMachine", func() {
 
 		BeforeEach(func() {
 			vm, vmi = watchtesting.DefaultVirtualMachineWithNames(false, "test", "test")
+		})
+
+		It("should retain the VM-owned snapshot recovery condition", func() {
+			vm.Status.Conditions = []v1.VirtualMachineCondition{{Type: v1.VirtualMachineManualRecoveryRequired, Status: k8sv1.ConditionTrue, Reason: "UncommittedOverlays"}}
+			syncConditions(vm, vmi, nil)
+			Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired))
 		})
 
 		It("should set ready to false when VMI is nil", func() {

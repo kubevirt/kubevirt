@@ -2018,7 +2018,10 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 	}
 
-	l.expandDisksOnline(dom, domain, vmi)
+	// An overlaid disk expands against the scratch volume, not the base image.
+	if !storage.OverlaysActive(l.metadataCache) {
+		l.expandDisksOnline(dom, domain, vmi)
+	}
 
 	return nil
 }

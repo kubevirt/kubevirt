@@ -161,7 +161,12 @@ func (ctrl *VMSnapshotController) sourceOnOverlays(vmSnapshot *snapshotv1.Virtua
 		return false
 	}
 
-	return overlaysActive(obj.(*kubevirtv1.VirtualMachineInstance))
+	vmi := obj.(*kubevirtv1.VirtualMachineInstance)
+	if vmi.IsFinal() && !controller.HasFinalizer(vmi, kubevirtv1.VirtualMachineControllerFinalizer) {
+		// Recorded on the VM, where ManualRecoveryRequired guards what its overlays hold
+		return false
+	}
+	return overlaysActive(vmi)
 }
 
 // errCaptureLost means capture cannot complete. Cleanup still needs a verified report.

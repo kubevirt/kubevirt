@@ -679,12 +679,14 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
 
-		It("should fail when the volume migration in ongoing", func() {
+		DescribeTable("should explain why manual recovery blocks startup", func(reason, message, expected string) {
 			vmi := libvmi.New()
 			vm := libvmi.NewVirtualMachine(vmi)
 			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
-				Type:   v1.VirtualMachineManualRecoveryRequired,
-				Status: k8sv1.ConditionTrue,
+				Type:    v1.VirtualMachineManualRecoveryRequired,
+				Status:  k8sv1.ConditionTrue,
+				Reason:  reason,
+				Message: message,
 			})
 			request.PathParameters()["name"] = vm.Name
 			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -693,8 +695,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.StartVMRequestHandler(request, response)
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
-		})
+			Expect(statusErr.Error()).To(ContainSubstring(expected))
+		},
+			Entry("volume migration", "", "", "VM recovery required"),
+			Entry("snapshot overlays", "UncommittedOverlays", "Uncommitted writes remain on scratch PVC `scratch`. Startup is blocked. Wait for overlay recovery, commit the overlays manually to keep the writes, or restore a completed snapshot and accept losing writes newer than that snapshot.", "Uncommitted writes remain on scratch PVC `scratch`. Startup is blocked."),
+			Entry("another recovery reason", "OtherRecovery", "Recovery is required before starting this VM", "VM recovery required"),
+			Entry("snapshot overlays without a message", "UncommittedOverlays", "", "VM recovery required"),
+		)
 	})
 
 	Context("Subresource api - error handling for StopVMRequestHandler", func() {
