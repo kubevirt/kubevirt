@@ -239,6 +239,10 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
 }
 
+func (c *ClusterConfig) GetEvictionStrategy() *v1.EvictionStrategy {
+	return c.GetConfig().EvictionStrategy
+}
+
 func (c *ClusterConfig) GetDefaultArchitecture() string {
 	return c.GetConfig().ArchitectureConfiguration.DefaultArchitecture
 }
@@ -531,7 +535,7 @@ func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 	if mdevConfig != nil && mdevConfig.Enabled != nil {
 		return !*mdevConfig.Enabled
 	}
-	return c.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
+	return c.IsFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
 }
 
 func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {

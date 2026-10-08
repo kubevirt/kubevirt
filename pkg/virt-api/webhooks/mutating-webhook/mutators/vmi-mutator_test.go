@@ -602,6 +602,30 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("when isolateEmulatorThread is disabled on the VMI spec", featuregate.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
 	)
 
+	It("should not copy the EmulatorThreadCompleteToEvenParity annotation when no KubeVirt CR is available", func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Annotations: map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.AlignCPUsGate},
+					},
+				},
+			},
+		})
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(kvStore.Replace(nil, "")).To(Succeed())
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(mutator.ClusterConfig.EmulatorThreadCompleteToEvenParity()).To(BeFalse())
+
+		vmi.Spec.Domain.CPU = &v1.CPU{IsolateEmulatorThread: true}
+
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiMeta.Annotations).ToNot(HaveKey(v1.EmulatorThreadCompleteToEvenParity))
+	})
+
 	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			ObjectMeta: k8smetav1.ObjectMeta{

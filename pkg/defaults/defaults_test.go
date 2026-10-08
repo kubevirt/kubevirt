@@ -191,6 +191,22 @@ var _ = Describe("Defaults", func() {
 					return libvmi.NewVirtualMachine(libvmi.New())
 				}, runtime.GOARCH),
 			)
+
+			It("should skip DataSource lookup when virtClient is nil", func() {
+				ds := createDataSource()
+				vm := libvmi.NewVirtualMachine(
+					libvmi.New(),
+					libvmi.WithDataVolumeTemplate(
+						libdv.NewDataVolume(
+							libdv.WithDataVolumeSourceRef("DataSource", ds.Namespace, ds.Name),
+						),
+					),
+				)
+				Expect(func() {
+					defaults.SetVirtualMachineDefaults(vm, clusterConfig, nil)
+				}).NotTo(Panic())
+				Expect(vm.Spec.Template.Spec.Architecture).To(Equal(configProvidedArch))
+			})
 		})
 	})
 
