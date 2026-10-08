@@ -121,7 +121,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork.Name)
 	}
 
-	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
+	interfacesStatus = ifacesStatusFromSecondaryNetworks(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
 
 	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
 	vmi.Status.Interfaces = interfacesStatus
@@ -191,7 +191,7 @@ func movePrimaryIfaceStatusToFront(
 	)
 }
 
-func ifacesStatusFromMultus(
+func ifacesStatusFromSecondaryNetworks(
 	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
 	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
 	vmIfacesSpecByName map[string]v1.Interface,
