@@ -37,7 +37,6 @@ go_test(
     race = "on",
     deps = [
         "//pkg/checkpoint:go_default_library",
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/storage/container-disk:go_default_library",
         "//pkg/testutils:go_default_library",
