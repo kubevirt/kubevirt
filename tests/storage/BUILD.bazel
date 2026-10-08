@@ -19,6 +19,7 @@ go_library(
         "restore.go",
         "scsidisk.go",
         "snapshot.go",
+        "snapshot_external.go",
         "storage.go",
         "utility-volumes.go",
     ],
