@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"context"
+	"crypto/sha256"
 	_ "embed"
 	"fmt"
 	"time"
@@ -55,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
@@ -263,14 +265,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
-			DescribeTable("should update domain XML with SM BIOS properties", func(withImage bool) {
+			DescribeTable("should update domain XML with SM BIOS properties", func(renderAnnotation func(string, string) map[string]string) {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				if withImage {
-					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapPlusImage(hooksv1alpha2.Version, cm.Name)
-				} else {
-					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
-				}
+				vmi.ObjectMeta.Annotations = renderAnnotation(hooksv1alpha2.Version, cm.Name)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 				By("Logging in to the guest")
@@ -282,9 +280,33 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					&expect.BExp{R: "Radical Edward"},
 				}, 30)).To(Succeed(), "SMBIOS baseboard manufacturer should match the configured value")
 			},
-				Entry("when sidecar image is specified", true),
-				Entry("when sidecar image is not specified", false),
+				Entry("when sidecar image is specified", RenderSidecarWithConfigMapPlusImage),
+				Entry("when sidecar image is not specified", RenderSidecarWithConfigMapWithoutImage),
+				Entry("when the hook checksum matches", RenderSidecarWithConfigMapChecksum),
 			)
+
+			It("should prevent the VMI from running when the ConfigMap script is modified after its checksum was pinned", func() {
+				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(
+					context.Background(), RenderConfigMap(), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Pinning the checksum of the original hook script in the VMI annotation")
+				vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapChecksum(hooksv1alpha2.Version, cm.Name)
+
+				By("Modifying the hook script in the ConfigMap")
+				cm.Data[configMapKey] = configMapData + "\n# modified after the checksum was pinned\n"
+				_, err = virtClient.CoreV1().ConfigMaps(cm.Namespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting the VMI")
+				vmi = libvmops.RunVMIAndExpectScheduling(vmi, 90)
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				event := watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().
+					WaitFor(ctx, watcher.WarningEvent, v1.SyncFailed)
+				Expect(event.Message).To(ContainSubstring("checksum mismatch"))
+			})
 		})
 
 	})
@@ -333,6 +355,19 @@ func RenderSidecarWithConfigMapWithoutImage(version, name string) map[string]str
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
 			version, name, configMapKey),
+	}
+}
+
+func RenderSidecarWithConfigMapChecksum(version, name string) map[string]string {
+	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(configMapData)))
+	return renderSidecarWithConfigMapChecksum(version, name, checksum)
+}
+
+func renderSidecarWithConfigMapChecksum(version, name, checksum string) map[string]string {
+	return map[string]string{
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "configMap": {"name": "%s",`+
+			`"key": "%s", "hookPath": "/usr/bin/onDefineDomain", "checksum": {"algorithm": "sha256", "value": "%s"}}}]`,
+			version, name, configMapKey, checksum),
 	}
 }
 
