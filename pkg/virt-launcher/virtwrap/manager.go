@@ -1081,6 +1081,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if _, err := l.storageManager.RecoverOverlays(vmi, domain); err != nil {
+		return domain, err
+	}
+
 	return domain, err
 }
 
@@ -1692,6 +1696,8 @@ func (l *LibvirtDomainManager) startDomain(
 	if vmi.ShouldStartPaused() {
 		l.paused.add(vmi.UID)
 	}
+
+	l.storageManager.CommitRecoveredOverlays(vmi)
 	return nil
 }
 
