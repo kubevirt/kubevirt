@@ -519,11 +519,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		SIGs:  SIGCompute,
 	},
 	{
-		ID:    107,
-		Regex: regexp.MustCompile(`"level":"error","msg":".*QEMU unexpectedly closed the monitor.*Failed to get .*write.* lock.*"`),
-		SIGs:  SIGStorage,
-	},
-	{
 		ID:    110,
 		Regex: regexp.MustCompile(`"level":"error","msg":"checkpoint inconsistent: missing or broken bitmap '[^']+' for disk '[^']+'","pos":"qemuCheckpointRedefineValidateBitmaps`),
 		SIGs:  SIGStorage,
