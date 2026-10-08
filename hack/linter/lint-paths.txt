@@ -1,5 +1,6 @@
 cmd/cniplugins
 cmd/sidecars/network-passt-binding
+cmd/sidecars/test-network-vhostuser-dra-binding
 cmd/virt-api
 cmd/virt-controller
 cmd/virtctl
