@@ -95,3 +95,38 @@ func HasUncommittedOverlays(vm *v1.VirtualMachine) bool {
 	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
 	return condition != nil && condition.Status == k8sv1.ConditionTrue && condition.Reason == storagetypes.UncommittedOverlaysReason
 }
+
+// SyncUncommittedOverlays sets ManualRecoveryRequired on a VM whose launcher
+// stopped with overlays that may still hold writes. It reports cleanupPending
+// while a scratch volume the launcher never used is still being removed.
+func SyncUncommittedOverlays(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (cleanupPending bool, err error) {
+	if vm.DeletionTimestamp != nil || !storagetypes.HasSnapshotOverlayState(vmi) {
+		return false, nil
+	}
+	launcherGone := vmi.IsFinal() || (vmi.IsWaitingForSync() && vmi.DeletionTimestamp != nil)
+	if !launcherGone {
+		return false, nil
+	}
+	reference, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err != nil {
+		return false, err
+	}
+	if reference == nil {
+		return true, nil
+	}
+	condition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive)
+	if vmi.Status.SnapshotOverlayPVCUID == reference.ScratchPVCUID && condition != nil && condition.Status == k8sv1.ConditionFalse {
+		switch condition.Reason {
+		case v1.VirtualMachineInstanceReasonOverlayCommitted, v1.VirtualMachineInstanceReasonOverlaySnapshotFailed:
+			return true, nil
+		}
+	}
+	controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+		Type:               v1.VirtualMachineManualRecoveryRequired,
+		Status:             k8sv1.ConditionTrue,
+		Reason:             storagetypes.UncommittedOverlaysReason,
+		Message:            fmt.Sprintf("Uncommitted writes remain on scratch PVC `%s`. Startup is blocked. To keep the writes, commit the overlays manually, then annotate the VM with %s=%s. Otherwise restore a completed snapshot and accept losing writes newer than that snapshot.", storagetypes.ScratchPVCName(reference.ContentUID), storagetypes.OverlaysCommittedAnnotation, reference.ScratchPVCUID),
+		LastTransitionTime: metav1.Now(),
+	})
+	return false, nil
+}

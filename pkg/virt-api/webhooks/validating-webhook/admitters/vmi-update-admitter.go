@@ -185,6 +185,10 @@ func admitHotplug(
 		return response
 	}
 
+	if response := storageadmitters.AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI); response != nil {
+		return response
+	}
+
 	return storageadmitters.AdmitHotplugStorage(
 		newVMI.Spec.Volumes,
 		oldVMI.Spec.Volumes,

@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -223,6 +224,12 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 
 	if !vmi.IsRunning() {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
+	}
+
+	// Unplugging a disk that is on an overlay strands the overlay.
+	if storagetypes.HasSnapshotOverlayState(vmi) {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name,
+			fmt.Errorf("VMI %s/%s has disks on snapshot overlays", vmi.Namespace, vmi.Name))
 	}
 
 	err := verifyVolumeOption(vmi.Spec.Volumes, volumeRequest)

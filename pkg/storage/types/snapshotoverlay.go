@@ -23,9 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 // OverlayScratchPVCPrefix names the volume holding the qcow2 overlays of one
@@ -54,6 +57,20 @@ const OverlaysCommittedAnnotation = "snapshot.kubevirt.io/overlays-committed"
 type SnapshotOverlayReference struct {
 	ContentUID    types.UID `json:"contentUID"`
 	ScratchPVCUID types.UID `json:"scratchPVCUID"`
+}
+
+// HasSnapshotOverlayState recognizes prepared or active work independently of
+// the reference annotation, which can also be present on an ordinary VMI.
+func HasSnapshotOverlayState(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Type != nil && *volume.Type == virtv1.SnapshotOverlay {
+			return true
+		}
+	}
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceOverlaySnapshotActive, k8sv1.ConditionTrue)
 }
 
 // GetOverlaySnapshotReference returns nil when the VMI carries no reference.
