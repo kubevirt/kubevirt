@@ -566,6 +566,27 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
 				Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
 			})
+
+			It("should automatically obtain the default IPv6 route via cloud-init without manual route configuration", decorators.IPv6, func() {
+				libnet.SkipWhenClusterNotSupportIpv6()
+
+				vmi := newFedoraMasqueradeIPv6VMIWithoutNetworkData(cloudinit.DefaultIPv6CIDR)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+
+				gatewayIP := cloudinit.DefaultIPv6Gateway
+				expectedIP := cloudinit.DefaultIPv6Address
+
+				By("checking that guest receives the expected IPv6 address")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("ip -6 addr show dev eth0 | grep -q '%s'", expectedIP), 15*time.Second)).To(Succeed())
+
+				By("checking that default IPv6 route is automatically configured via masquerade gateway")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("ip -6 route show default | grep -q 'default via %s'", gatewayIP), 15*time.Second)).To(Succeed())
+
+				By("Checking ping (IPv6) from vmi to default IPv6 masquerade gateway")
+				Expect(libnet.PingFromVMConsole(vmi, gatewayIP)).To(Succeed())
+			})
 		})
 
 		When("performing migration", decorators.RequiresTwoSchedulableNodes, func() {
@@ -813,6 +834,19 @@ func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.Vi
 	)
 
 	return vmi, nil
+}
+
+func newFedoraMasqueradeIPv6VMIWithoutNetworkData(ipv6NetworkCIDR string) *v1.VirtualMachineInstance {
+	net := v1.DefaultPodNetwork()
+	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
+	return libvmifact.NewFedora(
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name,
+			libvmi.WithMasqueradeBinding(),
+		)),
+		libvmi.WithNetwork(net),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData("#!/bin/bash\necho ready\n")),
+	)
 }
 
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
