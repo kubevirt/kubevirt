@@ -202,11 +202,14 @@ func virtualMachineStateFromVM(vm *v1.VirtualMachine) *v1.VirtualMachineStateSpe
 	return vm.Spec.Template.Spec.VirtualMachineState
 }
 
-// validateVirtualMachineStateImmutability enforces that virtualMachineState is immutable after
-// VM creation, except that the volumeClaimTemplate's storage capacity and storageClassName may
-// change, and a source-adopted VM may add a volumeClaimTemplate to become live-migratable.
+// validateVirtualMachineStateImmutability enforces that virtualMachineState is immutable after creation.
 func validateVirtualMachineStateImmutability(field *k8sfield.Path, oldVM, newVM *v1.VirtualMachine) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+
+	if oldVM.Status.RestoreInProgress != nil {
+		// The restore controller repoints source at the PVC it just restored.
+		return causes
+	}
 
 	oldState := virtualMachineStateFromVM(oldVM)
 	newState := virtualMachineStateFromVM(newVM)
@@ -230,8 +233,7 @@ func validateVirtualMachineStateImmutability(field *k8sfield.Path, oldVM, newVM 
 	oldCopy := oldState.DeepCopy()
 	newCopy := newState.DeepCopy()
 
-	// A source-adopted VM may add a volumeClaimTemplate to become live-migratable, so drop a
-	// newly-added template before comparing. Removing a template or mutating source stays forbidden.
+	// A source-adopted VM may add a volumeClaimTemplate, so drop a newly-added one before comparing.
 	if oldCopy.VolumeClaimTemplate == nil && newCopy.VolumeClaimTemplate != nil {
 		newCopy.VolumeClaimTemplate = nil
 	}

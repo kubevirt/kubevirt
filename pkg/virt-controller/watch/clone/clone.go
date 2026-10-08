@@ -173,7 +173,7 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
-		if backendstorage.IsBackendStorageNeeded(sourceVM) {
+		if backendstorage.HasLegacyBackendStorage(sourceVM) {
 			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
 		}
 		cloneInfo.sourceVm = sourceVM
@@ -489,7 +489,7 @@ func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.Virtua
 		return nil
 	}
 
-	if backendstorage.IsBackendStorageNeeded(vm) {
+	if backendstorage.HasLegacyBackendStorage(vm) {
 		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
 	}
 

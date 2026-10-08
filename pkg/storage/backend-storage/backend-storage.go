@@ -53,11 +53,9 @@ const (
 	PVCSize    = "10Mi"
 	VolumeName = PVCPrefix + "-this-vm"
 
-	// VMStateOwnerLabel maps a VirtualMachineState PVC to its owning VM by UID,
-	// so the controller can re-find it after a crash or a migration renames it.
+	// VMStateOwnerLabel maps a VirtualMachineState PVC to its owning VM by UID.
 	VMStateOwnerLabel = "kubevirt.io/vmStateOwner"
-	// VMStateInUseByLabel records the UID of the VMI currently using the PVC, so two VMs don't write
-	// the same state at once.
+	// VMStateInUseByLabel records the UID of the VMI currently using the PVC.
 	VMStateInUseByLabel = "kubevirt.io/vmStateInUseBy"
 )
 
@@ -107,8 +105,7 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 	return legacyPVC
 }
 
-// declarativePVCForVMI resolves the live VirtualMachineState PVC for a VMI, preferring the
-// status volume name, then the owner-UID label, then source.name.
+// declarativePVCForVMI resolves the live VirtualMachineState PVC: status, then owner label, then source.name.
 func declarativePVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
 	getByName := func(name string) *v1.PersistentVolumeClaim {
 		if name == "" {
@@ -141,8 +138,7 @@ func declarativePVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstan
 		if pvc.Labels[VMStateOwnerLabel] != ownerUID {
 			continue
 		}
-		// Multiple PVCs can share the owner label after an interrupted migration; pick
-		// deterministically (newest, then name) so resolution doesn't depend on store order.
+		// Multiple PVCs can share the owner label after an interrupted migration; pick the newest.
 		if owned == nil ||
 			pvc.CreationTimestamp.After(owned.CreationTimestamp.Time) ||
 			(pvc.CreationTimestamp.Equal(&owned.CreationTimestamp) && pvc.Name > owned.Name) {
@@ -226,7 +222,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 		switch c.Type {
 		case batchv1.JobComplete:
 			if c.Status == v1.ConditionTrue {
-				err = MigrationHandoff(client, pvcStore, migration)
+				err = MigrationHandoff(client, pvcStore, migration, vmi)
 				if err == nil {
 					migration.Status.Phase = corev1.MigrationSucceeded
 				}
@@ -361,8 +357,7 @@ func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
 		return false
 	}
 	persistent := vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
-	// With the declarative virtualMachineState API, a state PVC implies EFI state is kept, so it's
-	// persistent unless explicitly opted out with persistent: false. See VEP #312.
+	// A declarative state PVC implies EFI state is kept unless explicitly opted out.
 	if HasDeclarativeVMState(vmiSpec) {
 		return persistent == nil || *persistent
 	}
@@ -398,9 +393,26 @@ func IsBackendStorageNeeded(obj interface{}) bool {
 	}
 }
 
+// HasLegacyBackendStorage reports whether obj needs the implicit API's VM-specific backend storage.
+func HasLegacyBackendStorage(obj interface{}) bool {
+	if !IsBackendStorageNeeded(obj) {
+		return false
+	}
+	switch obj := obj.(type) {
+	case *corev1.VirtualMachine:
+		return !HasDeclarativeVMState(&obj.Spec.Template.Spec)
+	case *snapshotv1.VirtualMachine:
+		return !HasDeclarativeVMState(&obj.Spec.Template.Spec)
+	case *corev1.VirtualMachineInstance:
+		return !HasDeclarativeVMState(&obj.Spec)
+	default:
+		return true
+	}
+}
+
 // MigrationHandoff runs at the end of a successful live migration.
 // It labels the target backend-storage PVC as current for the VM and deletes the source backend-storage PVC.
-func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration, vmi *corev1.VirtualMachineInstance) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		(migration.Status.MigrationState.SourcePersistentStatePVCName == "" && !migration.IsDecentralized()) ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
@@ -448,13 +460,38 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 	}
 
 	if sourcePVC != "" {
-		err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete PVC: %v", err)
+		controllerOwned, err := isControllerOwnedPVCByNameAndOwner(pvcStore, migration.Namespace, sourcePVC, vmi)
+		if err != nil {
+			return err
+		}
+		// A source-adopted PVC may not have been created by Kubevirt, so don't delete it.
+		if controllerOwned {
+			err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete PVC: %v", err)
+			}
 		}
 	}
 
 	return nil
+}
+
+// IsControllerOwnedPVC reports whether pvc carries a controller owner reference.
+func IsControllerOwnedPVC(pvc *v1.PersistentVolumeClaim) bool {
+	return metav1.GetControllerOf(pvc) != nil
+}
+
+func IsControllerOwnedPVCByObject(pvc *v1.PersistentVolumeClaim, owner metav1.Object) bool {
+	controllerRef := metav1.GetControllerOf(pvc)
+	return controllerRef != nil && controllerRef.UID == owner.GetUID()
+}
+
+func isControllerOwnedPVCByNameAndOwner(pvcStore cache.Store, namespace, name string, owner metav1.Object) (bool, error) {
+	obj, exists, err := pvcStore.GetByKey(controller.NamespacedKey(namespace, name))
+	if err != nil || !exists {
+		return false, err
+	}
+	return IsControllerOwnedPVCByObject(obj.(*v1.PersistentVolumeClaim), owner), nil
 }
 
 // MigrationAbort runs at the end of a failed live migration.
@@ -692,8 +729,7 @@ func (bs *BackendStorage) createPVCFromTemplate(vmi *corev1.VirtualMachineInstan
 			labels[k] = v
 		}
 	}
-	// Adding this label to allow the PVC to be processed by the CDI WebhookPvcRendering mutating webhook.
-	// See createPVC for details.
+	// Needed for the CDI WebhookPvcRendering mutating webhook; see createPVC for details.
 	labels[storagetypes.LabelApplyStorageProfile] = "true"
 
 	pvc := &v1.PersistentVolumeClaim{
@@ -724,8 +760,7 @@ func addLabelPatch(pvc *v1.PersistentVolumeClaim, key, value string) ([]byte, er
 	return labelPatch.GeneratePayload()
 }
 
-// ensureOwnerLabel stamps the owner-UID label on a resolved PVC the controller doesn't yet own the
-// mapping for (an adopted source or legacy PVC).
+// ensureOwnerLabel stamps the owner-UID label onto an adopted PVC that doesn't carry it yet.
 func (bs *BackendStorage) ensureOwnerLabel(vmi *corev1.VirtualMachineInstance, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
 	owner := ownerUIDForVMI(vmi)
 	if pvc.Labels[VMStateOwnerLabel] == owner {
