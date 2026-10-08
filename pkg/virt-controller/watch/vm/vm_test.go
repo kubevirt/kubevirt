@@ -342,6 +342,30 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(controller.overlayScratchPVC(vm)).To(BeNil())
 			})
 
+			It("should fail closed when the locked snapshot is already gone", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)))
+				vm.Status.SnapshotInProgress = pointer.P("snap")
+
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should find no scratch volume before the content exists", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)))
+				vm.Status.SnapshotInProgress = pointer.P("snap")
+				Expect(virtFakeClient.Tracker().Add(&snapshotv1.VirtualMachineSnapshot{
+					ObjectMeta: metav1.ObjectMeta{Name: "snap", Namespace: metav1.NamespaceDefault},
+				})).To(Succeed())
+
+				Expect(controller.overlayScratchPVC(vm)).To(BeNil())
+			})
+
+			It("should fail closed when expected scratch disappeared", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+
 			It("should not recover overlays whose protection was durably released", func() {
 				vm := inProgress(snapshotv1.SnapshotModeExternal)
 				pvc := addScratch()
@@ -396,6 +420,20 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(k8sClient.Tracker().Add(&k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "base", Namespace: vm.Namespace, UID: "recreated-pvc"}})).To(Succeed())
 				_, err = controller.overlayScratchPVC(vm)
 				Expect(err).To(MatchError(ContainSubstring("backing PVC")))
+			})
+
+			// H6: a scratch volume that cannot be read means overlays that will
+			// not be committed, so the VMI must not start as if all were well.
+			It("should not swallow an error reading the scratch volume", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				k8sClient.Fake.PrependReactor("get", "persistentvolumeclaims",
+					func(action testing.Action) (bool, runtime.Object, error) {
+						return true, nil, fmt.Errorf("etcd is having a day")
+					})
+
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(err).To(MatchError(ContainSubstring("etcd is having a day")))
 			})
 
 			It("should find no scratch volume when no snapshot is in progress", func() {
