@@ -5154,7 +5154,7 @@ var _ = Describe("Template", func() {
 				vmi = api.NewMinimalVMI("configmap-sidecar-test")
 				vmi.Annotations = map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "test:test", "configMap": {"name": "test-cm",
-"key": "script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+"key": "script.sh", "hookPath": "/usr/bin/onDefineDomain", "checksum": {"algorithm": "sha256", "value": "some-checksum"}}}]`,
 				}
 			})
 			When("ConfigMap exists on the cluster", func() {
@@ -5190,6 +5190,24 @@ var _ = Describe("Template", func() {
 						Name:      "test-cm",
 						SubPath:   "script.sh",
 					}))
+					Expect(pod.Spec.Containers[1].Env).To(ContainElements(
+						k8sv1.EnvVar{Name: hooks.HookChecksumAlgorithmEnvVar, Value: "sha256"},
+						k8sv1.EnvVar{Name: hooks.HookChecksumValueEnvVar, Value: "some-checksum"},
+					))
+				})
+				It("should not set checksum environment variables when no checksum is pinned", func() {
+					vmi.Annotations = map[string]string{
+						hooks.HookSidecarListAnnotationName: `[{"image": "test:test", "configMap": {"name": "test-cm",
+"key": "script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+					}
+					config, kvStore, svc = configFactory(defaultArch)
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					for _, envVar := range pod.Spec.Containers[1].Env {
+						Expect(envVar.Name).ToNot(Equal(hooks.HookChecksumAlgorithmEnvVar))
+						Expect(envVar.Name).ToNot(Equal(hooks.HookChecksumValueEnvVar))
+					}
 				})
 			})
 			When("ConfigMap does not exist on the cluster", func() {
