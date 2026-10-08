@@ -20,8 +20,13 @@
 package cache
 
 import (
+	"os"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Domain Watcher", func() {
@@ -42,6 +47,83 @@ var _ = Describe("Domain Watcher", func() {
 			Expect(socketFiles).To(HaveLen(1))
 			Expect(socketFiles[0]).To(Equal(socketPath))
 
+		})
+	})
+
+	Context("listAllKnownDomains", func() {
+		BeforeEach(func() {
+			Expect(InitializeGhostRecordCache(GinkgoT().TempDir())).To(Succeed())
+		})
+
+		It("should return domain with Unknown status when socket exists but connection fails", func() {
+			socketDir := GinkgoT().TempDir()
+			socketPath := filepath.Join(socketDir, "cmd.sock")
+
+			err := os.WriteFile(socketPath, []byte{}, 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = AddGhostRecord("test-ns", "test-vmi", socketPath, "uid-1234")
+			Expect(err).ToNot(HaveOccurred())
+
+			d := &domainWatcher{}
+			domains, err := d.listAllKnownDomains()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domains).To(HaveLen(1))
+			Expect(domains[0].ObjectMeta.Namespace).To(Equal("test-ns"))
+			Expect(domains[0].ObjectMeta.Name).To(Equal("test-vmi"))
+			Expect(domains[0].ObjectMeta.UID).To(BeEquivalentTo("uid-1234"))
+			Expect(domains[0].Status.Status).To(Equal(api.Unknown))
+			Expect(domains[0].ObjectMeta.DeletionTimestamp).To(BeNil())
+		})
+
+		It("should return domain with DeletionTimestamp when socket file does not exist", func() {
+			socketPath := "/nonexistent/path/cmd.sock"
+
+			err := AddGhostRecord("test-ns", "test-vmi", socketPath, "uid-1234")
+			Expect(err).ToNot(HaveOccurred())
+
+			d := &domainWatcher{}
+			domains, err := d.listAllKnownDomains()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domains).To(HaveLen(1))
+			Expect(domains[0].ObjectMeta.Namespace).To(Equal("test-ns"))
+			Expect(domains[0].ObjectMeta.Name).To(Equal("test-vmi"))
+			Expect(domains[0].ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+		})
+
+		It("should handle mix of reachable, unreachable, and missing sockets", func() {
+			socketDir := GinkgoT().TempDir()
+
+			unreachablePath := filepath.Join(socketDir, "unreachable.sock")
+			err := os.WriteFile(unreachablePath, []byte{}, 0600)
+			Expect(err).ToNot(HaveOccurred())
+			err = AddGhostRecord("ns1", "unreachable-vmi", unreachablePath, "uid-1")
+			Expect(err).ToNot(HaveOccurred())
+
+			missingPath := filepath.Join(socketDir, "missing.sock")
+			err = AddGhostRecord("ns2", "missing-vmi", missingPath, "uid-2")
+			Expect(err).ToNot(HaveOccurred())
+
+			d := &domainWatcher{}
+			domains, err := d.listAllKnownDomains()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domains).To(HaveLen(2))
+
+			var unknownDomain, deletedDomain *api.Domain
+			for _, d := range domains {
+				if d.Status.Status == api.Unknown {
+					unknownDomain = d
+				}
+				if d.ObjectMeta.DeletionTimestamp != nil {
+					deletedDomain = d
+				}
+			}
+
+			Expect(unknownDomain).ToNot(BeNil())
+			Expect(unknownDomain.ObjectMeta.Name).To(Equal("unreachable-vmi"))
+
+			Expect(deletedDomain).ToNot(BeNil())
+			Expect(deletedDomain.ObjectMeta.Name).To(Equal("missing-vmi"))
 		})
 	})
 })
