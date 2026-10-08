@@ -117,6 +117,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	if flags.KubeVirtInstallNamespace == "" {
 		detectInstallNamespace()
 	}
+	EnsureCDIReady(5 * time.Minute)
 
 	if flags.DeployTestingInfrastructureFlag {
 		objects := testingInfrastructureObjects()
