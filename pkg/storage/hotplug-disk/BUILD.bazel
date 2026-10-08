@@ -21,7 +21,6 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

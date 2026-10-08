@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 )
 
@@ -70,8 +69,7 @@ var _ = Describe("HotplugDisk", func() {
 		res, err := hotplug.GetFileSystemDirectoryTargetPathFromHostView(testUID, "testvolume", true)
 		Expect(err).ToNot(HaveOccurred())
 		testPath := filepath.Join(TargetPodBasePath(podsBaseDir, testUID), "testvolume")
-		exists, _ := diskutils.FileExists(testPath)
-		Expect(exists).To(BeTrue())
+		Expect(testPath).To(BeADirectory())
 		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(testPath))
 	})
 
@@ -97,8 +95,7 @@ var _ = Describe("HotplugDisk", func() {
 		res, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", true)
 		Expect(err).ToNot(HaveOccurred())
 		targetPath := filepath.Join(TargetPodBasePath(podsBaseDir, testUID), "testvolume.img")
-		exists, _ := diskutils.FileExists(targetPath)
-		Expect(exists).To(BeTrue())
+		Expect(targetPath).To(BeAnExistingFile())
 		Expect(unsafepath.UnsafeAbsolute(res.Raw())).To(Equal(targetPath))
 	})
 
