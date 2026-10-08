@@ -1114,13 +1114,16 @@ func (l *LibvirtDomainManager) prepareVMStateLayoutAt(logger *log.FilteredLogger
 		}
 	}
 
+	if err := ensureCBTOwnership(mountRoot, vmi); err != nil {
+		return fmt.Errorf("failed to reconcile VMState CBT ownership: %v", err)
+	}
+
 	if !tpm.HasPersistentDevice(&vmi.Spec) {
 		// Only a persistent TPM needs the symlinks below.
 		return nil
 	}
 
-	// libvirt looks up swtpm state at <swtpm-root>/<uuid>/tpm2, never from domain XML, so pin the
-	// domain UUID to the firmware UUID to match the symlink created below.
+	// libvirt derives the swtpm path from the domain UUID, so pin it to the firmware UUID.
 	if domain.Spec.UUID == "" && vmi.Spec.Domain.Firmware != nil {
 		domain.Spec.UUID = string(vmi.Spec.Domain.Firmware.UUID)
 	}
@@ -1148,8 +1151,49 @@ func (l *LibvirtDomainManager) prepareVMStateLayoutAt(logger *log.FilteredLogger
 	return nil
 }
 
-// ensureVMStateSymlink idempotently creates a symlink at link -> target. It replaces a pre-existing
-// empty directory but refuses a non-empty one, which would drop existing state.
+// Mirrors ownerUIDForVMI in backend-storage.go.
+func vmStateOwnerUID(vmi *v1.VirtualMachineInstance) string {
+	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
+		return string(controllerRef.UID)
+	}
+	return string(vmi.UID)
+}
+
+// A missing or different owner marker means cbt/ belongs to a different VM, so clear it.
+func ensureCBTOwnership(root string, vmi *v1.VirtualMachineInstance) error {
+	ownerFile := filepath.Join(root, kutil.VMStateDirMeta, kutil.VMStateFileCBTOwner)
+	owner := vmStateOwnerUID(vmi)
+
+	previous, err := os.ReadFile(ownerFile)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to read CBT owner marker: %v", err)
+	}
+	if err == nil && strings.TrimSpace(string(previous)) == owner {
+		return nil
+	}
+
+	cbtDir := filepath.Join(root, kutil.VMStateDirCBT)
+	entries, err := os.ReadDir(cbtDir)
+	if err != nil {
+		return fmt.Errorf("failed to read cbt directory: %v", err)
+	}
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(cbtDir, entry.Name())); err != nil {
+			return fmt.Errorf("failed to clear cbt directory: %v", err)
+		}
+	}
+
+	tmp := ownerFile + ".tmp"
+	if err := os.WriteFile(tmp, []byte(owner+"\n"), 0644); err != nil {
+		return fmt.Errorf("failed to write CBT owner marker: %v", err)
+	}
+	if err := os.Rename(tmp, ownerFile); err != nil {
+		return fmt.Errorf("failed to commit CBT owner marker: %v", err)
+	}
+	return nil
+}
+
+// ensureVMStateSymlink idempotently creates a symlink at link -> target, refusing a non-empty directory.
 func ensureVMStateSymlink(target, link string) error {
 	if fi, err := os.Lstat(link); err == nil {
 		if fi.Mode()&os.ModeSymlink != 0 {
@@ -1175,13 +1219,11 @@ func ensureVMStateSymlink(target, link string) error {
 	return nil
 }
 
-// legacyTPMUUIDDirRegex matches the per-VM TPM state directory names of the legacy VMState PVC
-// layout, where TPM state lives under <uuid>/tpm2/.
+// legacyTPMUUIDDirRegex matches the legacy per-VM TPM state directory name, <uuid>/tpm2/.
 var legacyTPMUUIDDirRegex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func (l *LibvirtDomainManager) normalizeLegacyVMStateLayoutAt(logger *log.FilteredLogger, root string) error {
-	// Nothing to do if the PVC is already at or ahead of the current version. A newer version was
-	// written by a newer launcher, so leave it alone.
+	// Nothing to do if the PVC is already at or ahead of the current layout version.
 	version, err := readVMStateLayoutVersion(root)
 	if err != nil {
 		return err
@@ -1201,8 +1243,7 @@ func (l *LibvirtDomainManager) normalizeLegacyVMStateLayoutAt(logger *log.Filter
 	return writeVMStateLayoutVersion(root, kutil.VMStateLayoutVersion)
 }
 
-// readVMStateLayoutVersion returns the layout version recorded in meta/layout, or 0 when the marker
-// is absent (a legacy or pre-marker PVC).
+// readVMStateLayoutVersion returns the layout version recorded in meta/layout, or 0 if absent.
 func readVMStateLayoutVersion(root string) (int, error) {
 	data, err := os.ReadFile(filepath.Join(root, kutil.VMStateDirMeta, kutil.VMStateFileLayout))
 	if errors.Is(err, os.ErrNotExist) {
@@ -1234,8 +1275,7 @@ func writeVMStateLayoutVersion(root string, version int) error {
 	return nil
 }
 
-// normalizeLegacyTPM moves a legacy swtpm/<uuid> TPM dir to tpm/, skipping if tpm/ already exists.
-// The rename goes through tpm.migrating so a crash mid-rename can be recovered.
+// normalizeLegacyTPM renames a legacy swtpm/<uuid> TPM dir to tpm/, via a crash-recoverable staged rename.
 func (l *LibvirtDomainManager) normalizeLegacyTPM(logger *log.FilteredLogger, root string) error {
 	tpmCanonical := filepath.Join(root, kutil.VMStateDirTPM)
 	if exists, err := pathExists(tpmCanonical); err != nil {
@@ -1281,8 +1321,7 @@ func (l *LibvirtDomainManager) normalizeLegacyTPM(logger *log.FilteredLogger, ro
 	}
 }
 
-// normalizeLegacyEFI moves a legacy nvram/<vmname>_VARS.fd file to efi/efi_vars.fd, skipping if it
-// already exists.
+// normalizeLegacyEFI moves a legacy nvram/<vmname>_VARS.fd file to efi/efi_vars.fd.
 func normalizeLegacyEFI(logger *log.FilteredLogger, root string) error {
 	efiCanonical := filepath.Join(root, kutil.VMStateDirEFI, kutil.VMStateEFIVarsFile)
 	if exists, err := pathExists(efiCanonical); err != nil {
@@ -1309,8 +1348,7 @@ func normalizeLegacyEFI(logger *log.FilteredLogger, root string) error {
 	return nil
 }
 
-// findLegacyTPMUUIDDirs returns the UUID-named subdirectories under the legacy swtpm/ directory,
-// which hold per-VM TPM state. Non-UUID entries and lost+found are ignored.
+// findLegacyTPMUUIDDirs returns the UUID-named subdirectories under the legacy swtpm/ directory.
 func findLegacyTPMUUIDDirs(root string) ([]string, error) {
 	swtpmDir := filepath.Join(root, kutil.VMStateDirSwtpmLegacy)
 	entries, err := os.ReadDir(swtpmDir)
