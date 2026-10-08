@@ -261,7 +261,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	c.cidsMap.Sync(vmis)
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -374,7 +374,7 @@ func (c *Controller) execute(key string) error {
 }
 
 // When a pod is created, enqueue the vmi that manages it and update its podExpectations.
-func (c *Controller) addPod(obj interface{}) {
+func (c *Controller) addPod(obj any) {
 	pod := obj.(*k8sv1.Pod)
 
 	if pod.DeletionTimestamp != nil {
@@ -401,7 +401,7 @@ func (c *Controller) addPod(obj interface{}) {
 // When a pod is updated, figure out what vmi/s manage it and wake them
 // up. If the labels of the pod have changed we need to awaken both the old
 // and new vmi. old and cur must be *v1.Pod types.
-func (c *Controller) updatePod(old, cur interface{}) {
+func (c *Controller) updatePod(old, cur any) {
 	curPod := cur.(*k8sv1.Pod)
 	oldPod := old.(*k8sv1.Pod)
 	if curPod.ResourceVersion == oldPod.ResourceVersion {
@@ -441,7 +441,7 @@ func (c *Controller) updatePod(old, cur interface{}) {
 
 // When a pod is deleted, enqueue the vmi that manages the pod and update its podExpectations.
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
-func (c *Controller) onPodDelete(obj interface{}) {
+func (c *Controller) onPodDelete(obj any) {
 	pod, ok := obj.(*k8sv1.Pod)
 
 	// When a delete is dropped, the relist will notice a pod in the store not
@@ -504,12 +504,12 @@ func (c *Controller) recoverVMIFromPodAnnotations(pod *k8sv1.Pod) *virtv1.Virtua
 	return vmi
 }
 
-func (c *Controller) addVirtualMachineInstance(obj interface{}) {
+func (c *Controller) addVirtualMachineInstance(obj any) {
 	c.lowerVMIExpectation(obj)
 	c.enqueueVirtualMachine(obj)
 }
 
-func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
+func (c *Controller) deleteVirtualMachineInstance(obj any) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -531,12 +531,12 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 	c.enqueueVirtualMachine(vmi)
 }
 
-func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
+func (c *Controller) updateVirtualMachineInstance(_, curr any) {
 	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
 }
 
-func (c *Controller) updateKubeVirt(old, curr interface{}) {
+func (c *Controller) updateKubeVirt(old, curr any) {
 	oldKV := old.(*virtv1.KubeVirt)
 	currKV := curr.(*virtv1.KubeVirt)
 
@@ -551,7 +551,7 @@ func (c *Controller) updateKubeVirt(old, curr interface{}) {
 	}
 }
 
-func (c *Controller) lowerVMIExpectation(curr interface{}) {
+func (c *Controller) lowerVMIExpectation(curr any) {
 	key, err := controller.KeyFunc(curr)
 	if err != nil {
 		return
@@ -559,7 +559,7 @@ func (c *Controller) lowerVMIExpectation(curr interface{}) {
 	c.vmiExpectations.SetExpectations(key, 0, 0)
 }
 
-func (c *Controller) enqueueVirtualMachine(obj interface{}) {
+func (c *Controller) enqueueVirtualMachine(obj any) {
 	logger := log.Log
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	key, err := controller.KeyFunc(vmi)
