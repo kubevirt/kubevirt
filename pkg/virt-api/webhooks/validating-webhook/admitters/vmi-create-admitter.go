@@ -1319,13 +1319,45 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	}
 
 	// Validate sidecar feature gate if set when the corresponding annotation is found
-	if annotations[hooks.HookSidecarListAnnotationName] != "" && !config.SidecarEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
-				field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
-			Field: field.Child("annotations").String(),
-		})
+	if rawHookSidecarList := annotations[hooks.HookSidecarListAnnotationName]; rawHookSidecarList != "" {
+		if !config.SidecarEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
+					field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
+				Field: field.Child("annotations").String(),
+			})
+		} else {
+			causes = append(causes, validateHookSidecarChecksums(field, rawHookSidecarList)...)
+		}
+	}
+
+	return causes
+}
+
+func validateHookSidecarChecksums(field *k8sfield.Path, rawHookSidecarList string) []metav1.StatusCause {
+	hookSidecars, err := hooks.UnmarshalHookSidecarListAnnotation(rawHookSidecarList)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("invalid hook sidecar annotation: %v", err),
+			Field:   field.Child("annotations", hooks.HookSidecarListAnnotationName).String(),
+		}}
+	}
+
+	var causes []metav1.StatusCause
+	for index, sidecar := range hookSidecars {
+		if sidecar.ConfigMap == nil || sidecar.ConfigMap.Checksum == nil {
+			continue
+		}
+
+		if err := hooks.ValidateConfigMapChecksum(*sidecar.ConfigMap); err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("invalid checksum for hook sidecar %d: %v", index, err),
+				Field:   field.Child("annotations", hooks.HookSidecarListAnnotationName).String(),
+			})
+		}
 	}
 
 	return causes
