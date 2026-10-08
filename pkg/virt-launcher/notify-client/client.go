@@ -489,6 +489,14 @@ func (n *Notifier) StartDomainNotifier(
 			qemuAgentFSFreezeStatusInterval,
 		), agentStore, nonRoot, n, domainName)
 
+	err := registerLibvirtCallbacks(eventChan, metadataCache, domainName, domainConn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainName string, domainConn cli.Connection) error {
 	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 
 		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
