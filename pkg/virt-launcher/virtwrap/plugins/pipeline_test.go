@@ -167,35 +167,6 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 		})
 	})
 
-	Context("condition evaluation timing", func() {
-		It("should not let a hook's condition observe mutations made by an earlier hook in the same invocation", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "sequential"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "hook1-ran"}`},
-						},
-						{
-							// If conditions were evaluated progressively against a domain mutated by
-							// earlier hooks in the same invocation, this would evaluate to true (since
-							// the first hook above sets Title to "hook1-ran"). Conditions are instead
-							// evaluated once upfront, against the pristine pre-mutation domain, so this
-							// hook must be skipped.
-							Condition: `domainSpec.Title == "hook1-ran"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Description: "hook2-ran"}`},
-						},
-					},
-				},
-			}
-
-			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("hook1-ran"))
-			Expect(xmlStr).NotTo(ContainSubstring("hook2-ran"))
-		})
-	})
-
 	Context("no-op hooks", func() {
 		It("should preserve all domain fields through a no-op pipeline round-trip", func() {
 			spec.Devices.Inputs = []virtwrapApi.Input{{Type: v1.InputTypeTablet, Bus: "usb"}}

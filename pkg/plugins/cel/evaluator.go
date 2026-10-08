@@ -150,8 +150,25 @@ func NewEvaluator(opts ...Option) (*Evaluator, error) {
 	}, nil
 }
 
+var (
+	evaluatorOnce sync.Once
+	evaluator     *Evaluator
+	evaluatorErr  error
+)
+
+// GetEvaluator returns the process-wide VMI-condition evaluator, shared so that
+// compiled programs are reused across requests instead of being recompiled per
+// admission. Unlike the launcher-side evaluator, an error is returned rather
+// than panicked: a webhook must not crash the API server if construction fails.
+func GetEvaluator() (*Evaluator, error) {
+	evaluatorOnce.Do(func() {
+		evaluator, evaluatorErr = NewEvaluator()
+	})
+	return evaluator, evaluatorErr
+}
+
 func (e *Evaluator) CompileCondition(expr string) error {
-	_, err := e.compile(expr)
+	_, err := e.getOrCompile(expr)
 	return err
 }
 

@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
+	plugincel "kubevirt.io/kubevirt/pkg/plugins/cel"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/translate"
 	celutil "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins/cel"
@@ -104,8 +105,12 @@ func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualM
 	}
 
 	evaluator := celutil.GetEvaluator()
+	conditionEvaluator, err := plugincel.NewEvaluator()
+	if err != nil {
+		return nil, "", fmt.Errorf("creating VMI condition evaluator: %w", err)
+	}
 	evalCondition := func(expr string) (bool, error) {
-		return evaluator.EvaluateCondition(expr, vmi, domain)
+		return conditionEvaluator.EvaluateCondition(expr, map[string]any{"vmi": vmi})
 	}
 
 	resolvedHooks, err := selectHooks(plugins, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)

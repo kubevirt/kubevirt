@@ -91,6 +91,15 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	It("rejects a shared domain condition when node hooks require a VMI-only condition", func() {
+		p := newValidPluginWithLauncherHook()
+		p.Spec.Condition = `domainSpec.Name != ""`
+		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart}}}
+		Expect(admit(p).Allowed).To(BeFalse())
+		p.Spec.Condition = `vmi.Name != ""`
+		Expect(admit(p).Allowed).To(BeTrue())
+	})
+
 	It("should accept an empty spec with no hooks or admission references", func() {
 		p := newMinimalPlugin()
 		resp := admit(p)
@@ -160,6 +169,45 @@ var _ = Describe("Validating Plugin Admitter", func() {
 	It("should accept valid plugin-level condition", func() {
 		p := newMinimalPlugin()
 		p.Spec.Condition = `vmi.Name == "test"`
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	DescribeTable("should reject domainSpec in condition expressions", func(setCondition func(*pluginv1alpha1.Plugin)) {
+		p := newMinimalPlugin()
+		setCondition(p)
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(
+			WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("domainSpec")),
+		))
+	},
+		Entry("plugin condition", func(p *pluginv1alpha1.Plugin) {
+			p.Spec.Condition = `domainSpec.Name != ""`
+		}),
+		Entry("launcher hook condition", func(p *pluginv1alpha1.Plugin) {
+			p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+				CEL:       &pluginv1alpha1.CELLauncherHook{Expression: `Domain{}`},
+				Condition: `domainSpec.Name != ""`,
+			}}
+		}),
+		Entry("node hook condition", func(p *pluginv1alpha1.Plugin) {
+			p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
+				Socket:         "/var/run/kubevirt/plugins/test.sock",
+				PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
+				Condition:      `domainSpec.Name != ""`,
+			}}
+		}),
+	)
+
+	It("should allow domainSpec in a CEL mutation expression", func() {
+		p := newMinimalPlugin()
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{{
+			CEL: &pluginv1alpha1.CELLauncherHook{
+				HookPoint:  pluginv1alpha1.LauncherHookGuestDefinition,
+				Expression: `Domain{Title: domainSpec.Name}`,
+			},
+		}}
 		resp := admit(p)
 		Expect(resp.Allowed).To(BeTrue())
 	})
