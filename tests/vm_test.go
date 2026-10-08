@@ -166,8 +166,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verify VM will run")
 			libvmops.StartVirtualMachine(vm)
 		},
-			Entry("int type", "2", "2222222"),
-			Entry("float type", "2.2", "2222222.2"),
+			Entry("int type", "2", "22222222"),
+			Entry("float type", "2.2", "22222222.2"),
 		)
 
 		It("[test_id:3161]should carry vm.template.spec.annotations to VMI and ignore vm ones", decorators.Conformance, func() {
