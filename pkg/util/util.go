@@ -79,7 +79,8 @@ var (
 // machine reads the real capacity, while a node that is itself a container,
 // like a KinD node, has only the limit on its own cgroup to go by. There a key
 // being present is the whole signal: the limit is that node's share, not a
-// count of how many guests the machine can run, so report one.
+// count of how many guests the machine can run, so report one. A limit of
+// zero means the resource is disabled, so report zero.
 func GetMiscCapacity() (map[string]int, error) {
 	const defaultLimit = 1
 
@@ -87,7 +88,12 @@ func GetMiscCapacity() (map[string]int, error) {
 	parseValue := strconv.Atoi
 	if errors.Is(err, fs.ErrNotExist) {
 		content, err = os.ReadFile(miscMaxPath)
-		parseValue = func(string) (int, error) { return defaultLimit, nil }
+		parseValue = func(value string) (int, error) {
+			if value == "0" {
+				return 0, nil
+			}
+			return defaultLimit, nil
+		}
 	}
 	if err != nil {
 		return nil, err

@@ -98,12 +98,20 @@ var _ = Describe("Misc Capacity", func() {
 			Expect(caps["sev_es"]).To(Equal(1))
 		})
 
-		It("should report one regardless of what the limit is set to", func() {
+		It("should report one for a positive limit", func() {
 			Expect(os.WriteFile(miscMaxPath, []byte("sev_es 100\n"), 0644)).To(Succeed())
 			caps, err := GetMiscCapacity()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(caps).To(HaveLen(1))
 			Expect(caps["sev_es"]).To(Equal(1))
+		})
+
+		It("should report zero when the limit is zero", func() {
+			Expect(os.WriteFile(miscMaxPath, []byte("sev_es 0\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(1))
+			Expect(caps["sev_es"]).To(Equal(0))
 		})
 
 		It("should prefer the capacity where the kernel provided one", func() {
