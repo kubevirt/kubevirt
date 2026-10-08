@@ -678,10 +678,8 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 }
 
 func removeFilesIfExist(paths ...string) error {
-	var err error
 	for _, path := range paths {
-		err = os.Remove(path)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
