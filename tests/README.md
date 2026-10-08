@@ -115,7 +115,7 @@ docker run \
         --test.timeout 180m \
         --junit-output=data/results/junit.xml \
         --deploy-testing-infra \
-        --path-to-testing-infra-manifests=data/manifests
+        --testing-manifest-path=data/manifests
 ```
 
 ## Skipping tests when cluster requirements aren't met

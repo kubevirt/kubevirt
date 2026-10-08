@@ -114,8 +114,8 @@ func SynchronizedBeforeTestSetup() []byte {
 	if flags.DeployTestingInfrastructureFlag {
 		manifests := GetListOfManifests()
 		Expect(manifests).NotTo(BeEmpty(),
-			fmt.Sprintf("-deploy-testing-infra: no *.yaml found (resolved from -path-to-testing-infra-manifests=%q; see testsuite/manifest.go)",
-				flags.PathToTestingInfrastrucureManifests))
+			fmt.Sprintf("-deploy-testing-infra: no *.yaml found (selected -testing-manifest-path=%q; fallback _out/manifests/testing if unavailable)",
+				flags.TestingManifestPath))
 		WipeTestingInfrastructure()
 		DeployTestingInfrastructure()
 	}
