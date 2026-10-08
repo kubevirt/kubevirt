@@ -181,7 +181,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			for k, v := range vmiAnnotations {
 				options = append(options, libvmi.WithAnnotation(k, v))
 			}
-			vmi := libvmi.New(options...)
+			vmi := libvmifact.NewGuestless(options...)
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
