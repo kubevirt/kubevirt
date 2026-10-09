@@ -5,10 +5,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -203,6 +205,46 @@ var _ = Describe("render", func() {
 
 			_, err := render.PodFromVM(vm, opts())
 			Expect(err).To(MatchError(ContainSubstring("preference matchers")))
+		})
+
+		It("applies a supplied instancetype spec", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("itvm")),
+				libvmi.WithInstancetype("u1.small"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Instancetype: &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU:    instancetypev1beta1.CPUInstancetype{Guest: 2},
+					Memory: instancetypev1beta1.MemoryInstancetype{Guest: resource.MustParse("2Gi")},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.CPU).NotTo(BeNil())
+			Expect(result.VMI.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+			Expect(result.VMI.Spec.Domain.Memory).NotTo(BeNil())
+			Expect(result.VMI.Spec.Domain.Memory.Guest.String()).To(Equal("2Gi"))
+			Expect(result.VMI.Annotations).To(HaveKey(v1.InstancetypeAnnotation))
+		})
+
+		It("applies a supplied preference auto-attach input", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
+				libvmi.WithPreference("fedora"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredAutoattachInputDevice: pointer.P(true),
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.Devices.Inputs).To(HaveLen(1))
+			Expect(result.VMI.Spec.Domain.Devices.Inputs[0].Type).NotTo(BeEmpty())
 		})
 	})
 

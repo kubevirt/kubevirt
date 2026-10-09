@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -83,6 +84,14 @@ type Options struct {
 	// claim. Claims are matched by namespace/name. Referenced claims
 	// missing here are stubbed as Filesystem RWO in the VMI namespace.
 	PVCs []*k8sv1.PersistentVolumeClaim
+
+	// Instancetype is applied to the VMI when the VM references an
+	// instancetype matcher. Required when Spec.Instancetype is set.
+	Instancetype *v1beta1.VirtualMachineInstancetypeSpec
+
+	// Preference is applied to the VMI when the VM references a
+	// preference matcher. Required when Spec.Preference is set.
+	Preference *v1beta1.VirtualMachinePreferenceSpec
 }
 
 func (o Options) withDefaults() (Options, error) {
@@ -137,8 +146,9 @@ func prepareVMI(vmi *virtv1.VirtualMachineInstance, cfg *offlineConfig) error {
 // applying VM defaults and VMI mutations. It is an offline
 // transformation: no cluster client or informers are required. The
 // returned VMI is the same object PodFromVM would render a Pod from.
-// Instancetype and preference matchers are not applied; VMs that
-// reference them are rejected.
+// Instancetype and preference matchers are applied when the matching
+// spec is supplied in Options; otherwise VMs that reference them are
+// rejected.
 func VMIFromVM(vm *virtv1.VirtualMachine, opts Options) (*virtv1.VirtualMachineInstance, error) {
 	opts, err := opts.withDefaults()
 	if err != nil {
@@ -147,7 +157,7 @@ func VMIFromVM(vm *virtv1.VirtualMachine, opts Options) (*virtv1.VirtualMachineI
 	if vm.Spec.Template == nil {
 		return nil, fmt.Errorf("VM %q has no template spec", vm.Name)
 	}
-	if err := rejectUnsupportedVM(vm); err != nil {
+	if err := rejectUnsupportedVM(vm, opts); err != nil {
 		return nil, err
 	}
 
@@ -159,8 +169,13 @@ func VMIFromVM(vm *virtv1.VirtualMachine, opts Options) (*virtv1.VirtualMachineI
 	defaults.SetVirtualMachineDefaults(vmCopy, cfg, nil)
 
 	vmi := NewVMI(vmCopy)
-	if err := prepareVMI(vmi, cfg); err != nil {
+	applyPreferenceAutoAttach(vmi, opts.Preference)
+	AutoAttachInputDevice(vmi)
+	if err := applyInstancetypeToVMI(vmCopy, vmi, opts); err != nil {
 		return nil, err
+	}
+	if err := mutators.ApplyNewVMIMutations(vmi, cfg); err != nil {
+		return nil, fmt.Errorf("failed to apply VMI mutations: %w", err)
 	}
 	return vmi, nil
 }
@@ -307,16 +322,6 @@ func claimNameForVolume(vol virtv1.Volume) string {
 	default:
 		return ""
 	}
-}
-
-func rejectUnsupportedVM(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype != nil {
-		return fmt.Errorf("offline render does not apply instancetype matchers")
-	}
-	if vm.Spec.Preference != nil {
-		return fmt.Errorf("offline render does not apply preference matchers")
-	}
-	return nil
 }
 
 func offlineHookSidecars(vmi *virtv1.VirtualMachineInstance, _ *virtv1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
