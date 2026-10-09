@@ -51,6 +51,7 @@ var _ = Describe("Annotations Generator", func() {
 		"post.hook.backup.velero.io/container": "compute",
 		"post.hook.backup.velero.io/command":   expectedPostHookBackupCommand,
 		"pre.hook.backup.velero.io/timeout":    "60s",
+		"post.hook.backup.velero.io/timeout":   "60s",
 	}
 
 	It("Should generate storage annotations", func() {
