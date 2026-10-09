@@ -22,7 +22,6 @@ go_library(
         "//pkg/ignition:go_default_library",
         "//pkg/storage/container-disk:go_default_library",
         "//pkg/storage/hotplug-disk:go_default_library",
-        "//pkg/storage/nbdclient:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher:go_default_library",

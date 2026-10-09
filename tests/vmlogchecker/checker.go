@@ -319,11 +319,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		SIGs:  SIGCompute,
 	},
 	{
-		ID:    62,
-		Regex: regexp.MustCompile(`"level":"error","msg":"backup tunnel stopped with terminal error","pos":"backup_tunnel\.go`),
-		SIGs:  SIGStorage,
-	},
-	{
 		ID:    63,
 		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to run backup job|failed to abort backup, error calling abort job on domain)".*"pos":"(server|backup)\.go.*".*"reason":"(failed to abort backup: backup already completed|cannot abort backup, wrong operation or type: [0-9]+, [0-9]+|virError\(Code=.*, Domain=.*, Message='Requested operation is not valid: no job is active on the domain'\))"`),
 		SIGs:  SIGCompute | SIGStorage,

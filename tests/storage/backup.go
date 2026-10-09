@@ -55,7 +55,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
-	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
+	exportapi "kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -1827,7 +1827,7 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 		return nil
 	}, 3*time.Minute, 2*time.Second).Should(Succeed(), "Failed to curl map endpoint after retries")
 
-	var mapResp exportServer.ExportMapResponse
+	var mapResp exportapi.ExportMapResponse
 	err = json.Unmarshal([]byte(out), &mapResp)
 	Expect(err).ToNot(HaveOccurred(), "Failed to unmarshal Map endpoint JSON response: %s", out)
 
@@ -1932,15 +1932,12 @@ func verifyExportPodAffinity(virtClient kubecli.KubevirtClient, vmbackup *backup
 	// Verify affinity is set
 	Expect(exportPod.Spec.Affinity).ToNot(BeNil(), "Pod affinity should be set when CBT is enabled")
 	Expect(exportPod.Spec.Affinity.PodAffinity).ToNot(BeNil(), "Pod affinity should include PodAffinity")
-	Expect(exportPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(
+	Expect(exportPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(
 		HaveLen(1),
-		"Should have exactly one preferred pod affinity term",
+		"Should have exactly one required pod affinity term",
 	)
 
-	prefferedAffinityTerm := exportPod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
-	Expect(prefferedAffinityTerm.Weight).To(Equal(int32(100)))
-	Expect(prefferedAffinityTerm.PodAffinityTerm).ToNot(BeNil())
-	affinityTerm := prefferedAffinityTerm.PodAffinityTerm
+	affinityTerm := exportPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
 
 	// Verify topology key
 	Expect(affinityTerm.TopologyKey).To(
