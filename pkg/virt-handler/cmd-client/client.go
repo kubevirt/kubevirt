@@ -58,7 +58,7 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
-	baseDir              = "/var/run/kubevirt"
+	baseDir              = "/run/kubevirt"
 	podsBaseDir          = "/pods"
 )
 
