@@ -20306,7 +20306,7 @@
       "$ref": "#/definitions/v1.ConfigMapVolumeSource"
      },
      "containerDisk": {
-      "description": "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+      "description": "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
       "$ref": "#/definitions/v1.ContainerDiskSource"
      },
      "containerPath": {
@@ -20326,7 +20326,7 @@
       "$ref": "#/definitions/v1.DownwardMetricsVolumeSource"
      },
      "emptyDisk": {
-      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk",
       "$ref": "#/definitions/v1.EmptyDiskSource"
      },
      "ephemeral": {
