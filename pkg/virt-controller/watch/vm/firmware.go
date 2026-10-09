@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -28,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/render"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
@@ -80,10 +80,6 @@ func (fc *FirmwareController) vmFirmwarePatch(updatedFirmware *v1.Firmware, vm *
 		Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 }
 
-const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
-
-var firmwareUUIDns = uuid.MustParse(magicUUID)
-
 func CalculateLegacyUUID(name string) types.UID {
-	return types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(name)).String())
+	return render.FirmwareUUID(name)
 }
