@@ -13967,6 +13967,7 @@ rpm(
     sha256 = "f071d63ecd99c731a8ad23a36c12fa175097428bb4ee4d475d7d1ddcc4d4b784",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/seabios-1.16.3-6.el9.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f071d63ecd99c731a8ad23a36c12fa175097428bb4ee4d475d7d1ddcc4d4b784",
     ],
 )
 
@@ -13993,6 +13994,7 @@ rpm(
     sha256 = "83067da3a463fcf495f4c277ca6aa1f18289e1f55b07fc519023abb0fda41ff4",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/seabios-bin-1.16.3-6.el9.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/83067da3a463fcf495f4c277ca6aa1f18289e1f55b07fc519023abb0fda41ff4",
     ],
 )
 
@@ -14019,6 +14021,7 @@ rpm(
     sha256 = "cdb0e583b739898c99463edd6296ffad6f75a34814dfce8e4b2b089567b9ab00",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/seavgabios-bin-1.16.3-6.el9.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/cdb0e583b739898c99463edd6296ffad6f75a34814dfce8e4b2b089567b9ab00",
     ],
 )
 
