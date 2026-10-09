@@ -191,7 +191,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 
 	l.metadataCache.UID.Set(vmi.UID)
 	l.metadataCache.GracePeriod.Set(
-		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
+		api.GracePeriodMetadata{DeletionGracePeriodSeconds: gracePeriodSeconds(vmi)},
 	)
 	// inProgress is intentionally ignored: unlike the source side, target
 	// preparation must fully re-run on retries (sockets, hooks, etc.).

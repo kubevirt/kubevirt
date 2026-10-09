@@ -215,14 +215,6 @@ func GetVolumeNameByTarget(domain *api.Domain, target string) string {
 	return ""
 }
 
-func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
-	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
-	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
-	}
-	return gracePeriodSeconds
-}
-
 func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
 	if input == nil {
 		return nil
