@@ -27,11 +27,10 @@ func GetDiskInfo(imagePath string) (*DiskInfo, error) {
 		return nil, err
 	}
 	info := &DiskInfo{}
-	err = json.Unmarshal(out, info)
-	if err != nil {
+	if err = json.Unmarshal(out, info); err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
-	return info, err
+	return info, nil
 }
 
 func QEMUImg(ctx context.Context, extraFiles []*os.File, subcmd string, args ...string) ([]byte, error) {

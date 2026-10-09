@@ -28,16 +28,25 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 var _ = Describe("Hook", func() {
-	It("should create CBT overlays against the rewritten disk paths", func() {
-		var dataPaths []string
+	It("should rewrite disk paths then create CBT overlays sized from DestXML metadata", func() {
+		const (
+			volumeName = "disk0"
+			sourceSize = int64(2028994560)
+		)
+		var (
+			dataPaths []string
+			sizes     []int64
+		)
 		originalCreate := storage.CreateQCOW2Overlay
-		storage.CreateQCOW2Overlay = func(_, data string) error {
+		storage.CreateQCOW2Overlay = func(_, data string, size int64) error {
 			dataPaths = append(dataPaths, data)
+			sizes = append(sizes, size)
 			return nil
 		}
 		DeferCleanup(func() { storage.CreateQCOW2Overlay = originalCreate })
@@ -45,7 +54,11 @@ var _ = Describe("Hook", func() {
 		sourceNs, targetNs := sourceNamespace, targetNamespace
 		vmi := libvmi.New(
 			libvmi.WithNamespace(sourceNamespace),
+			libvmi.WithPersistentVolumeClaim(volumeName, "test-pvc"),
 			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithChangedBlockTracking(&v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+				}),
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
 						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{DomainNamespace: &sourceNs},
@@ -57,16 +70,20 @@ var _ = Describe("Hook", func() {
 			)),
 		)
 		domain := &libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Disks: []libvirtxml.DomainDisk{{
-			Alias: &libvirtxml.DomainAlias{Name: "ua-disk0"},
+			Alias: &libvirtxml.DomainAlias{Name: "ua-" + volumeName},
 			Source: &libvirtxml.DomainDiskSource{
-				File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/disk0.qcow2"},
+				File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"},
 				DataStore: &libvirtxml.DomainDiskDataStore{Source: &libvirtxml.DomainDiskSource{
 					File: &libvirtxml.DomainDiskSourceFile{File: "/data/" + sourceNamespace + "/disk.img"},
 				}},
 			},
 		}}}}
+		Expect(storage.SetMigrationDiskSizes(domain, map[string]int64{volumeName: sourceSize})).To(Succeed())
 
 		Expect(disk.Hook(nil, vmi, domain)).To(Succeed())
 		Expect(dataPaths).To(ConsistOf("/data/" + targetNamespace + "/disk.img"))
+		Expect(sizes).To(ConsistOf(sourceSize))
+		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
+		Expect(domain.Metadata).To(BeNil())
 	})
 })

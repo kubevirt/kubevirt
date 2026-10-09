@@ -181,7 +181,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 
 	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
 		if err := storage.ApplyChangedBlockTrackingForMigration(vmi, c); err != nil {
-			return fmt.Errorf("failed to apply CBT for migration: %v", err)
+			return fmt.Errorf("failed to prepare CBT for migration: %v", err)
 		}
 	}
 
