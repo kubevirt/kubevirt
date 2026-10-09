@@ -618,7 +618,7 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsedNs int64, logger *log.Fil
 }
 
 func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64, logger *log.FilteredLogger) bool {
-	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs, logger) && !m.stallDetectionEnabled
+	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs, logger) && !m.stallDetectionEnabled && m.iterationRecord.iterationNumber > 1
 }
 
 func (m *migrationMonitor) scaledCompletionDeadlineSeconds(baseSeconds int64) int64 {
@@ -665,7 +665,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 
 	elapsedSeconds := elapsedNs / int64(time.Second)
 
-	if !m.stallDetector.switchoverInitiated {
+	if !m.stallDetector.switchoverInitiated && m.iterationRecord.iterationNumber > 1 {
 
 		// safety guard that protects against triggering a switch-over during a network drop
 		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
@@ -800,14 +800,17 @@ func (m *migrationMonitor) handleStallDetection(dom cli.VirDomain, stats *libvir
 			// the value in m.iterationRecord is accurate only when (1) we are the start an iteration or (2) if the
 			//  VM is paused or (3) if the VM is in post-copy.
 			if isIterationBoundary {
-				logger.V(4).Info("processing migration iteration boundary for stall detection")
 				m.iterationRecord.remainingBytes = stats.DataRemaining
 				m.iterationRecord.elapsedMs = stats.TimeElapsed
 				m.iterationRecord.iterationNumber = stats.MemIteration
-				if stalled := sd.processStallDetectionIteration(m.iterationRecord, logger); stalled {
-					estimatedDowntimeMs := sd.estimateDowntimeMs(m.iterationRecord, logger)
-					action, reason := sd.decideAction(m.iterationRecord, estimatedDowntimeMs, m.start, m.acceptableCompletionTime, logger)
-					m.triggerConvergenceAction(dom, action, reason, logger)
+				// Iteration 0/1 are setup and first bulk copy. Defer stall actions until dirty-rate data exists.
+				if stats.MemIteration > 1 {
+					logger.V(4).Info("processing migration iteration boundary for stall detection")
+					if stalled := sd.processStallDetectionIteration(m.iterationRecord, logger); stalled {
+						estimatedDowntimeMs := sd.estimateDowntimeMs(m.iterationRecord, logger)
+						action, reason := sd.decideAction(m.iterationRecord, estimatedDowntimeMs, m.start, m.acceptableCompletionTime, logger)
+						m.triggerConvergenceAction(dom, action, reason, logger)
+					}
 				}
 			} else if m.isPausedMigration() || m.isMigrationPostCopy() {
 				m.iterationRecord.remainingBytes = stats.DataRemaining
@@ -928,6 +931,9 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			m.lastProgressUpdate = now
 		}
 		m.progressWatermark = m.remainingData
+		if stats.MemIterationSet {
+			m.iterationRecord.iterationNumber = stats.MemIteration
+		}
 	}
 
 	if m.stallDetectionEnabled {

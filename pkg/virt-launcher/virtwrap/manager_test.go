@@ -2279,6 +2279,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2328,6 +2330,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2390,6 +2394,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2441,6 +2447,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2494,6 +2502,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2540,6 +2550,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
