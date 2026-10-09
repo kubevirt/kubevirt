@@ -120,8 +120,8 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 				if diskDevice.Cache == "" {
 					diskDevice.Cache = v1.CacheNone
 				}
-				if diskDevice.Cache != v1.CacheNone {
-					return fmt.Errorf("a sharable disk requires cache = none got: %v", diskDevice.Cache)
+				if diskDevice.Cache != v1.CacheNone && diskDevice.Cache != v1.CacheDirectSync {
+					return fmt.Errorf("a sharable disk requires cache mode none or directsync, got: %v", diskDevice.Cache)
 				}
 				disk.Shareable = &api.Shareable{}
 			}
@@ -415,7 +415,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	supportDirectIO := true
 	mode := v1.DriverCache(disk.Driver.Cache)
 
-	if mode == "" || mode == v1.CacheNone {
+	if mode == "" || mode == v1.CacheNone || mode == v1.CacheDirectSync {
 		if t.BackendIsBlock() {
 			supportDirectIO, err = directIOChecker.CheckBlockDevice(t.BackendPath())
 		} else {
@@ -440,8 +440,8 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 		}
 	}
 
-	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
-	if mode == v1.CacheNone && !supportDirectIO {
+	// if user set a cache mode that requires direct I/O and fs does not support it, return an error
+	if (mode == v1.CacheNone || mode == v1.CacheDirectSync) && !supportDirectIO {
 		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, t.BackendPath())
 	}
 
@@ -486,7 +486,8 @@ func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
 	}
 
 	// O_DIRECT is needed for io="native"
-	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
+	cacheMode := v1.DriverCache(disk.Driver.Cache)
+	if cacheMode == v1.CacheNone || cacheMode == v1.CacheDirectSync {
 		// set native for block device or pre-allocateed image file
 		if ds.BackendIsBlock() || isPreAllocated(ds.BackendPath()) {
 			disk.Driver.IO = v1.IONative
