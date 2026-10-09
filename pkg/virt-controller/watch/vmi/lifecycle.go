@@ -1039,6 +1039,9 @@ func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.
 			continue
 		}
 		count++
+		if controller.PodIsDown(pod) {
+			continue
+		}
 		activePods[pod.UID] = pod.Spec.NodeName
 	}
 	if count == 0 && vmi.Status.ActivePods == nil {
