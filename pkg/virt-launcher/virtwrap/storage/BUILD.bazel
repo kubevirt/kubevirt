@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "backup.go",
         "cbt.go",
+        "cbt_migration_metadata.go",
         "external_snapshot.go",
         "fsfreeze.go",
         "manager.go",
@@ -38,6 +39,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
 
@@ -45,6 +47,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "backup_test.go",
+        "cbt_migration_metadata_test.go",
         "cbt_test.go",
         "external_snapshot_test.go",
         "fsfreeze_test.go",
@@ -78,5 +81,6 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
