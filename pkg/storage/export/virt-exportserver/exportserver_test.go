@@ -57,6 +57,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	exportserverapis "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver/apis"
 )
 
 const (
@@ -892,11 +893,11 @@ var _ = Describe("exportserver", func() {
 			server.backupMapHandler("disk0").ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
-			var resp ExportMapResponse
+			var resp exportserverapis.ExportMapResponse
 			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
 			Expect(resp.Extents).To(HaveLen(2))
-			Expect(resp.Extents[0]).To(Equal(ExportMapExtent{Offset: 0, Length: 512, Type: 0, Description: "data"}))
-			Expect(resp.Extents[1]).To(Equal(ExportMapExtent{Offset: 512, Length: 512, Type: 1, Description: "hole"}))
+			Expect(resp.Extents[0]).To(Equal(exportserverapis.ExportMapExtent{Offset: 0, Length: 512, Type: 0, Description: "data"}))
+			Expect(resp.Extents[1]).To(Equal(exportserverapis.ExportMapExtent{Offset: 512, Length: 512, Type: 1, Description: "hole"}))
 			Expect(resp.NextOffset).To(BeNil())
 		})
 
@@ -922,7 +923,7 @@ var _ = Describe("exportserver", func() {
 			server.backupMapHandler("disk0").ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
-			var resp ExportMapResponse
+			var resp exportserverapis.ExportMapResponse
 			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
 			Expect(resp.Extents).To(HaveLen(2))
 			Expect(resp.NextOffset).ToNot(BeNil())

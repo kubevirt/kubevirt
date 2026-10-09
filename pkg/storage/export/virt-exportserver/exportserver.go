@@ -59,11 +59,10 @@ import (
 
 	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
-
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	exportserverapis "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver/apis"
 	"kubevirt.io/kubevirt/pkg/storage/oci"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
@@ -111,6 +110,14 @@ type ExportServerConfig struct {
 	BackupType       string
 	BackupCheckpoint string
 
+	OfflineBackup        bool
+	BackupStatePath      string
+	SocketDir            string
+	BackupBaseCheckpoint string
+	BackupMode           string
+	BackupTargetDir      string
+	BackupName           string
+
 	Paths *export.ServerPaths
 
 	// unit testing helpers
@@ -144,6 +151,8 @@ type exportServer struct {
 	tunnelEstablished bool
 	nbdMu             sync.RWMutex
 	ociBuilder        *oci.Builder
+
+	offline *offlineDataPlane
 }
 
 func (er *execReader) Read(p []byte) (int, error) {
@@ -253,15 +262,42 @@ func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handl
 	return result
 }
 
-func (s *exportServer) Run() {
-	s.initHandler()
+const offlineTerminationLogPath = "/dev/termination-log"
 
+func (s *exportServer) handleOfflineError(err error) {
+	if errors.Is(err, errEmptyIncremental) {
+		log.Log.Info("Offline incremental backup has no changed blocks; reporting empty delta")
+		if werr := os.WriteFile(offlineTerminationLogPath, []byte(export.EmptyIncrementalTerminationMessage), 0o644); werr != nil {
+			log.Log.Reason(werr).Warning("failed to write termination log")
+		}
+		os.Exit(1)
+	}
+	panic(err)
+}
+
+func (s *exportServer) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	if !s.Deadline.IsZero() {
 		log.Log.Infof("Deadline set to %s", s.Deadline)
 		ctx, cancel = context.WithDeadline(ctx, s.Deadline)
 	}
 	defer cancel()
+
+	if s.OfflineBackup {
+		if s.isOfflinePush() {
+			if err := s.runOfflinePush(ctx); err != nil {
+				s.handleOfflineError(err)
+			}
+			log.Log.Info("Offline push backup completed")
+			return
+		}
+		if err := s.startOfflineDataPlane(ctx); err != nil {
+			s.handleOfflineError(err)
+		}
+		defer s.offline.stop()
+	}
+
+	s.initHandler()
 
 	srv := s.buildServer(ctx)
 
@@ -304,7 +340,7 @@ func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 	}
 
 	rootHandler := s.handler
-	if s.BackupUID != "" {
+	if s.BackupUID != "" && !s.OfflineBackup {
 		clientCAPool := x509.NewCertPool()
 		if ok := clientCAPool.AppendCertsFromPEM(s.BackupCACert); !ok {
 			panic("failed to parse Backup CA")
@@ -1054,18 +1090,6 @@ func (c *h2ServerConn) SetDeadline(_ time.Time) error      { return nil }
 func (c *h2ServerConn) SetReadDeadline(_ time.Time) error  { return nil }
 func (c *h2ServerConn) SetWriteDeadline(_ time.Time) error { return nil }
 
-type ExportMapExtent struct {
-	Offset      uint64 `json:"offset"`
-	Length      uint64 `json:"length"`
-	Type        uint64 `json:"type"`
-	Description string `json:"description"`
-}
-
-type ExportMapResponse struct {
-	Extents    []ExportMapExtent `json:"extents"`
-	NextOffset *uint64           `json:"next_offset"`
-}
-
 func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
@@ -1111,10 +1135,7 @@ func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 			pageSize = p
 		}
 
-		var bitmapName string
-		if s.BackupType == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
-			bitmapName = s.BackupCheckpoint
-		}
+		bitmapName := s.backupBitmapName(exportName)
 
 		streamCtx, streamCancel := context.WithCancel(req.Context())
 		defer streamCancel()
@@ -1140,7 +1161,7 @@ func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 			return
 		}
 
-		page := ExportMapResponse{
+		page := exportserverapis.ExportMapResponse{
 			Extents:    extents,
 			NextOffset: nextOffsetPtr,
 		}
@@ -1220,8 +1241,8 @@ func (s *exportServer) backupDataHandler(exportName string) http.Handler {
 	})
 }
 
-func collectMapPage(stream nbdv1.NBD_MapClient, pageSize int) ([]ExportMapExtent, *uint64, error) {
-	var extents []ExportMapExtent
+func collectMapPage(stream nbdv1.NBD_MapClient, pageSize int) ([]exportserverapis.ExportMapExtent, *uint64, error) {
+	var extents []exportserverapis.ExportMapExtent
 	for {
 		msg, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -1234,7 +1255,7 @@ func collectMapPage(stream nbdv1.NBD_MapClient, pageSize int) ([]ExportMapExtent
 			if len(extents) >= pageSize {
 				return extents, &e.Offset, nil
 			}
-			extents = append(extents, ExportMapExtent{
+			extents = append(extents, exportserverapis.ExportMapExtent{
 				Offset:      e.Offset,
 				Length:      e.Length,
 				Type:        e.Flags,
