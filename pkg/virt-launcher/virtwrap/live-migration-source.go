@@ -1180,18 +1180,10 @@ func getDiskPathFromSource(source *libvirtxml.DomainDiskSource) (string, error) 
 }
 
 func getDiskName(disk *libvirtxml.DomainDisk) string {
-	if disk == nil {
+	if disk == nil || disk.Alias == nil {
 		return ""
 	}
-	n := disk.Alias.Name
-	if len(n) < 3 {
-		return n
-	}
-	// Trim the ua- prefix
-	if strings.HasPrefix(n, "ua-") {
-		return n[3:]
-	}
-	return n
+	return api.UserAliasToName(disk.Alias.Name)
 }
 
 func getMigrateVolumeForCondition(vmi *v1.VirtualMachineInstance, condition func(info *v1.StorageMigratedVolumeInfo) bool) map[string]bool {
@@ -1272,13 +1264,30 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 		// Configure the slice to enable to migrate the volume to a destination with different size
 		// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
 		var source *libvirtxml.DomainDiskSource
+		hasDataStore := false
 		if dom.Devices.Disks[i].Source.DataStore != nil && dom.Devices.Disks[i].Source.DataStore.Source != nil {
 			source = dom.Devices.Disks[i].Source.DataStore.Source
+			hasDataStore = true
 		} else {
 			source = dom.Devices.Disks[i].Source
 		}
 
-		if source.Slices == nil {
+		// dataStore backends cannot carry slices (rejected by libvirt). For CBT,
+		// place the source virtual size on the overlay source instead so the
+		// target premigration hook can size the destination overlay to match.
+		if hasDataStore {
+			if dom.Devices.Disks[i].Source.Slices == nil {
+				dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{
+					Slices: []libvirtxml.DomainDiskSlice{
+						{
+							Type:   "storage",
+							Offset: 0,
+							Size:   uint(size),
+						},
+					},
+				}
+			}
+		} else if source.Slices == nil {
 			source.Slices = &libvirtxml.DomainDiskSlices{
 				Slices: []libvirtxml.DomainDiskSlice{
 					{

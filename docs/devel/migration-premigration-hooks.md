@@ -59,10 +59,11 @@ Source virt-launcher                          Target virt-launcher
 Prepare domain XML ──── send XML ──────────────▶  │
                                             Receive XML
                                             Apply hooks:
-                                              1. disk source path
-                                              2. CPU
-                                              3. vGPU
-                                              4. network naming
+                                              1. CPU
+                                              2. disk source path
+                                              3. CBT overlay (size + create)
+                                              4. vGPU
+                                              5. network naming
                                             Return modified XML
          ◀──────────── receive XML ────────────  │
 Continue migration

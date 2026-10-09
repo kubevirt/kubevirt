@@ -595,6 +595,11 @@ var _ = Describe("Live migration source", func() {
 			Expect(diskSrc.File.File).To(Equal(cbtOverlayPath))
 			Expect(diskSrc.DataStore).NotTo(BeNil())
 			Expect(diskSrc.DataStore.Source).NotTo(BeNil())
+			// dataStore cannot carry slices; source size is placed on the overlay for the target hook.
+			Expect(diskSrc.DataStore.Source.Slices).To(BeNil())
+			Expect(diskSrc.Slices).NotTo(BeNil())
+			Expect(diskSrc.Slices.Slices).To(HaveLen(1))
+			Expect(diskSrc.Slices.Slices[0].Size).To(Equal(uint(2028994560)))
 			if isDstBlock {
 				Expect(diskSrc.DataStore.Source.File).To(BeNil())
 				Expect(diskSrc.DataStore.Source.Block).NotTo(BeNil())

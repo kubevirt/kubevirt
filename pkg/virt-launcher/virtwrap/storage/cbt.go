@@ -68,12 +68,36 @@ func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, ho
 	return isHotplug && hotplugPhase == v1.HotplugVolumeMounted
 }
 
+// CreateQCOW2Overlay creates a qcow2 overlay with an optional explicit virtual size.
+// If size is <= 0, the size is taken from GetDiskInfo(imagePath).
 var CreateQCOW2Overlay = createQCOW2OverlayFunc
 
-func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error {
+func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool, size int64) error {
+	overlaySize := size
+	if overlaySize <= 0 {
+		info, infoErr := osdisk.GetDiskInfo(imagePath)
+		if infoErr != nil {
+			return fmt.Errorf("failed to get image info for image %q: %w", imagePath, infoErr)
+		}
+		overlaySize = info.VirtualSize
+	}
+	if overlaySize <= 0 {
+		return fmt.Errorf("invalid overlay size %d for image %q", overlaySize, imagePath)
+	}
+
 	if _, err := os.Stat(overlayPath); err == nil {
-		log.Log.V(3).Infof("overlay %s already exists", overlayPath)
-		return nil
+		existing, infoErr := osdisk.GetDiskInfo(overlayPath)
+		if infoErr != nil {
+			return fmt.Errorf("failed to get info for existing overlay %q: %w", overlayPath, infoErr)
+		}
+		if existing.VirtualSize == overlaySize {
+			log.Log.V(3).Infof("overlay %s already exists with size %d", overlayPath, overlaySize)
+			return nil
+		}
+		log.Log.Infof("Removing overlay %s with mismatched size %d (want %d)", overlayPath, existing.VirtualSize, overlaySize)
+		if rmErr := os.Remove(overlayPath); rmErr != nil {
+			return fmt.Errorf("failed to remove mismatched overlay %q: %w", overlayPath, rmErr)
+		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		log.Log.Reason(err).Errorf("Error checking QCOW2 overlay %s existence", overlayPath)
 		return err
@@ -92,13 +116,6 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 		}
 	}(overlayPath)
 
-	info, err := osdisk.GetDiskInfo(imagePath)
-	if err != nil {
-		err = fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
-		return err
-	}
-	overlaySize := info.VirtualSize
-
 	args := append([]string{},
 		"--chardev", "stdio,id=stdio", "--monitor", "stdio",
 		"--blockdev", fmt.Sprintf("file,node-name=file,filename=%s", overlayPath))
@@ -109,7 +126,7 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 		args = append(args, "--blockdev", fmt.Sprintf("file,node-name=data-file,filename=%s", imagePath))
 	}
 
-	log.Log.V(3).Infof("QCOW2 overlay execute %v", args)
+	log.Log.V(3).Infof("QCOW2 overlay execute %v size=%d", args, overlaySize)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -143,7 +160,7 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 		return err
 	}
 
-	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
+	log.Log.Infof("QCOW2 overlay %s created successfully with size %d", overlayPath, overlaySize)
 	return nil
 }
 
@@ -286,7 +303,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
 		imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
-		err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock)
+		err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock, 0)
 		if err != nil {
 			return err
 		}
@@ -297,15 +314,9 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	return nil
 }
 
-func isMigrationNewBackendStorage(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Status.MigrationState == nil {
-		return false
-	}
-	sourcePVC := vmi.Status.MigrationState.SourcePersistentStatePVCName
-	targetPVC := vmi.Status.MigrationState.TargetPersistentStatePVCName
-	return sourcePVC != "" && targetPVC != "" && sourcePVC != targetPVC
-}
-
+// ApplyChangedBlockTrackingForMigration populates ConverterContext.ApplyCBT for the
+// migration target prepare path. Overlay files are created later by the target
+// premigration DestXML hook once the migration domain XML is available.
 func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
 	logger := log.Log.Object(vmi)
 	applyCBTMap := make(map[string]string)
@@ -317,20 +328,7 @@ func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *co
 
 		volumeName := volume.Name
 		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-
-		if isMigrationNewBackendStorage(vmi) {
-			_, isHotplug := c.HotplugVolumes[volumeName]
-			isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
-			imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
-
-			logger.V(3).Infof("Creating CBT overlay for migration: %s -> %s (block=%v, hotplug=%v)", overlayPath, imagePath, isBlock, isHotplug)
-			if err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock); err != nil {
-				return fmt.Errorf("failed to create CBT overlay for volume %s: %v", volumeName, err)
-			}
-		} else {
-			logger.V(3).Infof("Using existing CBT overlay for migration (RWX backend): %s", overlayPath)
-		}
-
+		logger.V(3).Infof("Deferring CBT overlay creation to premigration hook for volume %s: %s", volumeName, overlayPath)
 		applyCBTMap[volumeName] = overlayPath
 	}
 
