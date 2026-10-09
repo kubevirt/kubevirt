@@ -579,9 +579,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sev.* ]]; then
-    # SEVSNP needs sev-esids capacity that kind SEV lanes do not provide yet.
-    # Keep it out of the SEV lane by label instead of a runtime Skip.
-    label_filter='(SEV) && !(SEVSNP)'
+    label_filter='(SEV)'
   elif [[ $TARGET =~ secure-execution ]]; then
     label_filter='(secure-execution)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
