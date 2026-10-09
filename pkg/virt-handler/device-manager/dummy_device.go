@@ -58,7 +58,7 @@ func NewDummyDevicePlugin(deviceName string, capacity int) *DummyDevicePlugin {
 		},
 	}
 
-	for i := 0; i < capacity; i++ {
+	for i := range capacity {
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceName + strconv.Itoa(i),
 			Health: pluginapi.Healthy,
