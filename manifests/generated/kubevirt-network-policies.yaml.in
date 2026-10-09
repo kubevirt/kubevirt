@@ -311,7 +311,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.4
+    template.kubevirt.io/virt-template-version: v0.3.0
   labels:
     app.kubernetes.io/name: virt-template
     kubevirt.io: virt-template-allow-apiserver-ingress
@@ -333,7 +333,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.4
+    template.kubevirt.io/virt-template-version: v0.3.0
   labels:
     app.kubernetes.io/name: virt-template
     kubevirt.io: virt-template-allow-metrics-traffic
@@ -355,7 +355,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-    template.kubevirt.io/virt-template-version: v0.2.4
+    template.kubevirt.io/virt-template-version: v0.3.0
   labels:
     app.kubernetes.io/name: virt-template
     kubevirt.io: virt-template-allow-webhook-traffic
