@@ -65,8 +65,9 @@ type expandHandler interface {
 	Expand(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
 }
 
-type storeHandler interface {
+type revisionHandler interface {
 	Store(*virtv1.VirtualMachine) error
+	Clear(*virtv1.VirtualMachine) error
 }
 
 type upgradeHandler interface {
@@ -75,7 +76,7 @@ type upgradeHandler interface {
 
 type controller struct {
 	applyVMHandler
-	storeHandler
+	revisionHandler
 	expandHandler
 	upgradeHandler
 	instancetypeFindHandler
@@ -96,7 +97,7 @@ func New(
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
-		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		revisionHandler:         revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
 		upgradeHandler:          upgrade.New(revisionStore, virtClient),
 		clientset:               virtClient,
@@ -109,11 +110,13 @@ const (
 	storeControllerRevisionErrFmt   = "error encountered while storing instancetype.kubevirt.io controllerRevisions: %v"
 	upgradeControllerRevisionErrFmt = "error encountered while upgrading instancetype.kubevirt.io controllerRevisions: %v"
 	cleanControllerRevisionErrFmt   = "error encountered cleaning controllerRevision %s after successfully expanding VirtualMachine %s: %v"
+	clearInstancetypeRefErrFmt      = "error encountered clearing instancetype and preference references from status: %v"
 )
 
 func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
-	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-		return vm, nil
+	// Start by clearing any status references if the matchers are now nil in the spec
+	if err := c.Clear(vm); err != nil {
+		return vm, common.NewSyncError(err, clearInstancetypeRefErrFmt)
 	}
 
 	// Before we sync ensure any referenced resources exist
