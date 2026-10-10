@@ -79,6 +79,7 @@ var _ = Describe("Generic HostDevice", func() {
 			Alias:   api.NewUserDefinedAlias(generic.AliasPrefix + hostdevName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 

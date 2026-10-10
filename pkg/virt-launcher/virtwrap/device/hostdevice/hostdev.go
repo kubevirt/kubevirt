@@ -146,6 +146,7 @@ func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress strin
 		Alias:   api.NewUserDefinedAlias(hostDeviceData.AliasPrefix + hostDeviceData.Name),
 		Source:  api.HostDeviceSource{Address: hostAddr},
 		Type:    api.HostDevicePCI,
+		Mode:    "subsystem",
 		Managed: "no",
 	}
 
