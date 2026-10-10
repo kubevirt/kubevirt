@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -38,8 +37,8 @@ var _ = Describe("applyMigrationPolicySpec", func() {
 	// test catches new fields automatically. Assumes matching fields share the same
 	// JSON tag name; update this test to explicitly acknowledge any divergence.
 	It("maps every MigrationPolicySpec field without mutating base", func() {
-		src := testutils.WithAllFieldsSet(reflect.TypeOf(migrationsv1.MigrationPolicySpec{})).(*migrationsv1.MigrationPolicySpec)
-		oracle := testutils.CopyByJSONTag(src, reflect.TypeOf(v1.VMIMConfigurationOptions{})).(*v1.VMIMConfigurationOptions)
+		src := testutils.WithAllFieldsSet(reflect.TypeFor[migrationsv1.MigrationPolicySpec]()).(*migrationsv1.MigrationPolicySpec)
+		oracle := testutils.CopyByJSONTag(src, reflect.TypeFor[v1.VMIMConfigurationOptions]()).(*v1.VMIMConfigurationOptions)
 
 		base := &v1.VMIMConfigurationOptions{}
 		baseBefore := *base
@@ -51,7 +50,7 @@ var _ = Describe("applyMigrationPolicySpec", func() {
 
 	DescribeTable("backward compatibility shim for AllowWorkloadDisruption", func(allowPostCopy bool, wantDisrupt bool) {
 		spec := &migrationsv1.MigrationPolicySpec{
-			AllowPostCopy: pointer.P(allowPostCopy),
+			AllowPostCopy: new(allowPostCopy),
 		}
 		got := applyMigrationPolicySpec(&v1.VMIMConfigurationOptions{}, spec)
 
