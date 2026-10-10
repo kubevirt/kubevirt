@@ -257,7 +257,7 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 			},
 		}
 		client = http.Client{
-			Timeout:   5 * time.Second,
+			Timeout:   15 * time.Second,
 			Transport: tr,
 		}
 		results = v1.ClusterProfilerResults{
