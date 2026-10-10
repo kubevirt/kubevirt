@@ -33,7 +33,7 @@ import (
 
 var _ = Describe("Pod Interface", func() {
 
-	const UID = "123"
+	const fakePID = 123
 	var cacheCreator tempCacheCreator
 	var podIfaceCache netcache.PodInterfaceCache
 	var cacheData netcache.PodIfaceCacheData
@@ -41,7 +41,7 @@ var _ = Describe("Pod Interface", func() {
 	BeforeEach(dutils.MockDefaultOwnershipManager)
 
 	BeforeEach(func() {
-		podCache := netcache.NewPodInterfaceCache(&cacheCreator, UID)
+		podCache := netcache.NewPodInterfaceCache(&cacheCreator, fakePID)
 
 		var err error
 		podIfaceCache, err = podCache.IfaceEntry("net0")
