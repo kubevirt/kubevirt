@@ -886,6 +886,12 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 			Value: requestedHookSidecar.NetworkBindingPluginName,
 		})
 	}
+	if requestedHookSidecar.ConfigMap != nil && requestedHookSidecar.ConfigMap.Checksum != nil {
+		envVars = append(envVars,
+			k8sv1.EnvVar{Name: hooks.HookChecksumAlgorithmEnvVar, Value: requestedHookSidecar.ConfigMap.Checksum.Algorithm},
+			k8sv1.EnvVar{Name: hooks.HookChecksumValueEnvVar, Value: requestedHookSidecar.ConfigMap.Checksum.Value},
+		)
+	}
 
 	// resources already contains the CPU and memory spec of the sidecar container
 	// add the DRA ResourceClaims as well
