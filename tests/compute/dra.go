@@ -58,15 +58,21 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 
 	It("should create four VMIs backed by the ResourceClaimTemplate", func() {
 		By("creating the shared ResourceClaimTemplate")
-		createVFIOGPUResourceClaimTemplate()
+		createResourceClaimTemplate(vfioGPUResourceClaimTemplate())
 
 		By("creating four VMIs backed by the ResourceClaimTemplate")
 		vmiNames := make([]string, 0, draVfioVMICount)
 		for range draVfioVMICount {
-			createdVMI := createVFIOGPUVMI(
-				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
-				WithVfioGPUDevice(),
+			createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmifact.NewAlpine(
+					libvmi.WithMemoryRequest("32Mi"),
+					WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+					WithVfioGPUDevice(),
+				),
+				metav1.CreateOptions{},
 			)
+			Expect(err).ToNot(HaveOccurred())
 			vmiNames = append(vmiNames, createdVMI.Name)
 		}
 
@@ -84,11 +90,17 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 		By("creating four ResourceClaims and VMIs")
 		vmiNames := make([]string, 0, draVfioVMICount)
 		for range draVfioVMICount {
-			createdClaim := createVFIOGPUResourceClaim()
-			createdVMI := createVFIOGPUVMI(
-				WithVfioGPUResourceClaim(createdClaim.Name),
-				WithVfioGPUDevice(WithVfioGPUClaimRequest(createdClaim.Name, draVfioRequestName)),
+			createdClaim := createResourceClaim(vfioGPUResourceClaim())
+			createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmifact.NewAlpine(
+					libvmi.WithMemoryRequest("32Mi"),
+					WithVfioGPUResourceClaim(createdClaim.Name),
+					WithVfioGPUDevice(WithVfioGPUClaimRequest(createdClaim.Name, draVfioRequestName)),
+				),
+				metav1.CreateOptions{},
 			)
+			Expect(err).ToNot(HaveOccurred())
 			vmiNames = append(vmiNames, createdVMI.Name)
 		}
 
@@ -101,15 +113,21 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 
 	It("should allocate a vfio-gpu device matching the vendorID", func() {
 		By("creating the ResourceClaimTemplate with a strict CEL based selector")
-		createVFIOGPUResourceClaimTemplate(
+		createResourceClaimTemplate(vfioGPUResourceClaimTemplate(
 			WithVfioGPUSelectors(vfioGPUVendorIDSelector("e1a5")),
-		)
+		))
 
 		By("creating the VMI")
-		createdVMI := createVFIOGPUVMI(
-			WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
-			WithVfioGPUDevice(),
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUDevice(),
+			),
+			metav1.CreateOptions{},
 		)
+		Expect(err).ToNot(HaveOccurred())
 		By("Waiting for the ResourceClaim to be created")
 		waitForResourceClaimsToBeCreated(1)
 
@@ -122,13 +140,19 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 
 	It("should create a VMI with a pre-created ResourceClaim and allocate a vfio-gpu device matching the vendorID", func() {
 		By("creating the ResourceClaim")
-		createdClaim := createVFIOGPUResourceClaim()
+		createdClaim := createResourceClaim(vfioGPUResourceClaim())
 
 		By("creating the VMI")
-		createdVMI := createVFIOGPUVMI(
-			WithVfioGPUResourceClaim(createdClaim.Name),
-			WithVfioGPUDevice(WithVfioGPUClaimRequest(createdClaim.Name, draVfioRequestName)),
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaim(createdClaim.Name),
+				WithVfioGPUDevice(WithVfioGPUClaimRequest(createdClaim.Name, draVfioRequestName)),
+			),
+			metav1.CreateOptions{},
 		)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Fetch the ResourceClaim and check that it is bound")
 		waitForBoundResourceClaimsForVMIs(1, createdVMI.Name)
@@ -139,15 +163,21 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 
 	It("should allocate a vfio-gpu device matching the standardized pciBusId attribute", func() {
 		By("creating the ResourceClaimTemplate with a CEL based selector")
-		createVFIOGPUResourceClaimTemplate(
+		createResourceClaimTemplate(vfioGPUResourceClaimTemplate(
 			WithVfioGPUSelectors(vfioGPUPCIBusIDSelector("faca:00:05.0")),
-		)
+		))
 
 		By("creating the VMI")
-		createdVMI := createVFIOGPUVMI(
-			WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
-			WithVfioGPUDevice(),
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUDevice(),
+			),
+			metav1.CreateOptions{},
 		)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the ResourceClaim to be created")
 		waitForResourceClaimsToBeCreated(1)
@@ -162,20 +192,26 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 	// TODO: Add a test that is matching two devices from different drivers. However it requires a fake network device driver. Until then, this test simulates the match attribute scenario by matching two devices with the same vendorID.
 	It("should allocate vfio-gpu devices sharing vendorID via matchAttribute", func() {
 		By("creating the ResourceClaimTemplate with matchAttribute on vendorID across two requests")
-		createVFIOGPUResourceClaimTemplate(
+		createResourceClaimTemplate(vfioGPUResourceClaimTemplate(
 			WithVfioGPUMultipleRequests(draVfioMatchAttributeRequestCount),
 			WithVfioGPURequestMatchAttribute(
 				"vfio-gpu.example.com/vendorID",
 				vfioGPUIndexedRequestName(0),
 				vfioGPUIndexedRequestName(1),
 			),
-		)
+		))
 
 		By("creating the VMI with two GPUs backed by the matched requests")
-		createdVMI := createVFIOGPUVMI(
-			WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
-			WithVfioGPUMultipleGPUs(draVfioMatchAttributeRequestCount),
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUMultipleGPUs(draVfioMatchAttributeRequestCount),
+			),
+			metav1.CreateOptions{},
 		)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the ResourceClaim to be created")
 		waitForResourceClaimsToBeCreated(1)
@@ -192,16 +228,22 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 		const multiDeviceRequestCount = 3
 		const draVfioMultiDevicePCIOffset = 3
 		By("creating the ResourceClaimTemplate with multiple device requests")
-		createVFIOGPUResourceClaimTemplate(
+		createResourceClaimTemplate(vfioGPUResourceClaimTemplate(
 			WithVfioGPUMultipleRequestsFromIndex(multiDeviceRequestCount, draVfioMultiDevicePCIOffset),
-		)
+		))
 
 		By("creating the VMI with multiple device requests")
-		createdVMI := createVFIOGPUVMI(
-			WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
-			WithVfioGPUMultipleGPUs(multiDeviceRequestCount),
-			withVfioGPUMultiDeviceMemory(),
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUMultipleGPUs(multiDeviceRequestCount),
+				withVfioGPUMultiDeviceMemory(),
+			),
+			metav1.CreateOptions{},
 		)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the ResourceClaim to be created")
 		waitForResourceClaimsToBeCreated(1)
@@ -215,30 +257,10 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 	})
 })
 
-func createVFIOGPUResourceClaimTemplate(opts ...vfioGPUResourceClaimTemplateOption) {
-	resourceClaimTemplate := vfioGPUResourceClaimTemplate(opts...)
-	_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
-		context.Background(), resourceClaimTemplate, metav1.CreateOptions{},
-	)
-	Expect(err).ToNot(HaveOccurred())
-}
-
 type vfioGPUResourceClaimTemplateOption func(*resourcev1.ResourceClaimTemplate)
 
 func vfioGPUResourceClaimTemplate(opts ...vfioGPUResourceClaimTemplateOption) *resourcev1.ResourceClaimTemplate {
-	rct := &resourcev1.ResourceClaimTemplate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      draVfioClaimTemplateName,
-			Namespace: testsuite.GetTestNamespace(nil),
-		},
-		Spec: resourcev1.ResourceClaimTemplateSpec{
-			Spec: resourcev1.ResourceClaimSpec{
-				Devices: resourcev1.DeviceClaim{
-					Requests: []resourcev1.DeviceRequest{vfioGPUDeviceRequest(draVfioRequestName)},
-				},
-			},
-		},
-	}
+	rct := resourceClaimTemplate(draVfioClaimTemplateName, vfioGPUDeviceRequest(draVfioRequestName))
 	for _, opt := range opts {
 		opt(rct)
 	}
@@ -262,15 +284,7 @@ func vfioGPUDeviceRequest(name string) resourcev1.DeviceRequest {
 }
 
 func vfioGPUDeviceRequestWithSelector(name, celExpression string) resourcev1.DeviceRequest {
-	return resourcev1.DeviceRequest{
-		Name: name,
-		Exactly: &resourcev1.ExactDeviceRequest{
-			DeviceClassName: "vfio-gpu.example.com",
-			Selectors: []resourcev1.DeviceSelector{{
-				CEL: &resourcev1.CELDeviceSelector{Expression: celExpression},
-			}},
-		},
-	}
+	return exactDeviceRequest(name, "vfio-gpu.example.com", celExpression)
 }
 
 func vfioGPUIndexedPCIBusID(index int) string {
@@ -326,20 +340,7 @@ func vfioGPUIndexedName(index int) string {
 	return fmt.Sprintf("gpu%d", index)
 }
 
-type vfioGPUVMIOption func(*v1.VirtualMachineInstance)
-
-func createVFIOGPUVMI(opts ...vfioGPUVMIOption) *v1.VirtualMachineInstance {
-	vmi := libvmifact.NewAlpine(libvmi.WithMemoryRequest("32Mi"))
-	for _, opt := range opts {
-		opt(vmi)
-	}
-
-	createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return createdVMI
-}
-
-func WithVfioGPUResourceClaimTemplate(templateName string) vfioGPUVMIOption {
+func WithVfioGPUResourceClaimTemplate(templateName string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
 			Name:                      draVfioResourceClaimName,
@@ -348,7 +349,7 @@ func WithVfioGPUResourceClaimTemplate(templateName string) vfioGPUVMIOption {
 	}
 }
 
-func WithVfioGPUResourceClaim(claimName string) vfioGPUVMIOption {
+func WithVfioGPUResourceClaim(claimName string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
 			Name:              claimName,
@@ -357,13 +358,13 @@ func WithVfioGPUResourceClaim(claimName string) vfioGPUVMIOption {
 	}
 }
 
-func WithVfioGPUDevice(opts ...vfioGPUOption) vfioGPUVMIOption {
+func WithVfioGPUDevice(opts ...vfioGPUOption) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		libvmi.WithGPU(vfioGPU(opts...))(vmi)
 	}
 }
 
-func WithVfioGPUMultipleGPUs(count int) vfioGPUVMIOption {
+func WithVfioGPUMultipleGPUs(count int) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		for i := range count {
 			libvmi.WithGPU(vfioGPU(
@@ -404,10 +405,54 @@ func WithVfioGPUClaimRequest(claimName, requestName string) vfioGPUOption {
 		}
 	}
 }
-func withVfioGPUMultiDeviceMemory() vfioGPUVMIOption {
+
+func withVfioGPUMultiDeviceMemory() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		libvmi.WithMemoryRequest("128Mi")(vmi)
 	}
+}
+
+func exactDeviceRequest(name, deviceClassName, celExpression string) resourcev1.DeviceRequest {
+	return resourcev1.DeviceRequest{
+		Name: name,
+		Exactly: &resourcev1.ExactDeviceRequest{
+			DeviceClassName: deviceClassName,
+			Selectors: []resourcev1.DeviceSelector{{
+				CEL: &resourcev1.CELDeviceSelector{Expression: celExpression},
+			}},
+		},
+	}
+}
+
+func resourceClaimTemplate(name string, requests ...resourcev1.DeviceRequest) *resourcev1.ResourceClaimTemplate {
+	return &resourcev1.ResourceClaimTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testsuite.GetTestNamespace(nil),
+		},
+		Spec: resourcev1.ResourceClaimTemplateSpec{
+			Spec: resourcev1.ResourceClaimSpec{
+				Devices: resourcev1.DeviceClaim{
+					Requests: requests,
+				},
+			},
+		},
+	}
+}
+
+func createResourceClaimTemplate(template *resourcev1.ResourceClaimTemplate) {
+	_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+		context.Background(), template, metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func createResourceClaim(claim *resourcev1.ResourceClaim) *resourcev1.ResourceClaim {
+	createdClaim, err := kubevirt.Client().ResourceV1().ResourceClaims(testsuite.GetTestNamespace(nil)).Create(
+		context.Background(), claim, metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	return createdClaim
 }
 
 func waitForVMIToBeRunning(vmi *v1.VirtualMachineInstance) {
@@ -497,12 +542,11 @@ func waitForBoundResourceClaimsForVMIs(expectedCount int, vmiNames ...string) {
 	}, timeout, pollingInterval).Should(Succeed())
 }
 
-func createVFIOGPUResourceClaim() *resourcev1.ResourceClaim {
-	namespace := testsuite.GetTestNamespace(nil)
-	resourceClaim := &resourcev1.ResourceClaim{
+func vfioGPUResourceClaim() *resourcev1.ResourceClaim {
+	return &resourcev1.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "dra-vfio-claim-",
-			Namespace:    namespace,
+			Namespace:    testsuite.GetTestNamespace(nil),
 		},
 		Spec: resourcev1.ResourceClaimSpec{
 			Devices: resourcev1.DeviceClaim{
@@ -510,9 +554,6 @@ func createVFIOGPUResourceClaim() *resourcev1.ResourceClaim {
 			},
 		},
 	}
-	createdClaim, err := kubevirt.Client().ResourceV1().ResourceClaims(namespace).Create(context.Background(), resourceClaim, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return createdClaim
 }
 
 func waitForResourceClaimsToBeCreated(count int) {
