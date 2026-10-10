@@ -1655,6 +1655,33 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in scheduling state", v1.MigrationScheduling),
 			Entry("in target ready state", v1.MigrationTargetReady),
 		)
+
+		DescribeTable("the target pod was scheduled onto the source node", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, "node01")
+			migration := newMigration("testmigration", vmi.Name, phase)
+			// MigrationState is left nil to exercise the pre-handoff path; a non-nil
+			// value makes handleTargetPodHandoff() early-return and hides whether the
+			// handoff was skipped.
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01" // same node as the source
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(targetPod)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+			// never handed off: the target-node label (set only during handoff) is absent
+			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, Not(HaveKey(v1.MigrationTargetNodeNameLabel)))
+		},
+			Entry("in pending state", v1.MigrationPending),
+			Entry("in scheduling state", v1.MigrationScheduling),
+			Entry("in scheduled state", v1.MigrationScheduled),
+		)
 	})
 
 	Context("Migration object ", func() {
