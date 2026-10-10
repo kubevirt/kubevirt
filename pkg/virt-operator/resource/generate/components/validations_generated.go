@@ -8117,6 +8117,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                 type: string
+                              mtu:
+                                description: |-
+                                  MTU specifies the Maximum Transmission Unit size in bytes for the interface.
+                                  When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.
+                                  Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+                                type: integer
                               name:
                                 description: |-
                                   Logical name of the interface as well as a reference to the associated networks.
@@ -14390,6 +14396,12 @@ var CRDsValidation map[string]string = map[string]string{
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                         type: string
+                      mtu:
+                        description: |-
+                          MTU specifies the Maximum Transmission Unit size in bytes for the interface.
+                          When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.
+                          Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+                        type: integer
                       name:
                         description: |-
                           Logical name of the interface as well as a reference to the associated networks.
@@ -18606,6 +18618,12 @@ var CRDsValidation map[string]string = map[string]string{
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                         type: string
+                      mtu:
+                        description: |-
+                          MTU specifies the Maximum Transmission Unit size in bytes for the interface.
+                          When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.
+                          Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+                        type: integer
                       name:
                         description: |-
                           Logical name of the interface as well as a reference to the associated networks.
@@ -21203,6 +21221,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                 type: string
+                              mtu:
+                                description: |-
+                                  MTU specifies the Maximum Transmission Unit size in bytes for the interface.
+                                  When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.
+                                  Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+                                type: integer
                               name:
                                 description: |-
                                   Logical name of the interface as well as a reference to the associated networks.
@@ -26385,6 +26409,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                           Defaults to virtio.
                                         type: string
+                                      mtu:
+                                        description: |-
+                                          MTU specifies the Maximum Transmission Unit size in bytes for the interface.
+                                          When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.
+                                          Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+                                        type: integer
                                       name:
                                         description: |-
                                           Logical name of the interface as well as a reference to the associated networks.
@@ -32070,6 +32100,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                               Defaults to virtio.
                                             type: string
+                                          mtu:
+                                            description: |-
+                                              MTU specifies the Maximum Transmission Unit size in bytes for the interface.
+                                              When set, this value overrides the MTU inherited from the pod network or NetworkAttachmentDefinition.
+                                              Valid values are between 576 and 65535. If not set, the MTU is inherited from the underlying network configuration.
+                                            type: integer
                                           name:
                                             description: |-
                                               Logical name of the interface as well as a reference to the associated networks.

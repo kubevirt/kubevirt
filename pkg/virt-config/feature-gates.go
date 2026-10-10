@@ -184,6 +184,10 @@ func (config *ClusterConfig) PortRangesSpecGateEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.PortRangesSpec)
 }
 
+func (config *ClusterConfig) InterfaceMTUOverrideGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.InterfaceMTUOverride)
+}
+
 func (config *ClusterConfig) PCINUMAAwareTopologyEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.PCINUMAAwareTopologyEnabled)
 }
