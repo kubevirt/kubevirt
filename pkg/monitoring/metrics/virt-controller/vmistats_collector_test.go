@@ -694,52 +694,52 @@ func createMigrationVMI(nodeName, targetPod string, completed, failed bool) *k6t
 
 func newVNICTestInterfaces() ([]k6tv1.Interface, []k6tv1.Network) {
 	return []k6tv1.Interface{
-			{
-				Name: "iface1",
-				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-					Bridge: &k6tv1.InterfaceBridge{},
-				},
-				Model: "virtio",
+		{
+			Name: "iface1",
+			InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+				Bridge: &k6tv1.InterfaceBridge{},
 			},
-			{
-				Name: "iface2",
-				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-					Masquerade: &k6tv1.InterfaceMasquerade{},
-				},
-				Model: "e1000e",
+			Model: "virtio",
+		},
+		{
+			Name: "iface2",
+			InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+				Masquerade: &k6tv1.InterfaceMasquerade{},
 			},
-			{
-				Name: "iface3",
-				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-					SRIOV: &k6tv1.InterfaceSRIOV{},
-				},
+			Model: "e1000e",
+		},
+		{
+			Name: "iface3",
+			InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+				SRIOV: &k6tv1.InterfaceSRIOV{},
 			},
-			{
-				Name:    "iface4",
-				Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
+		},
+		{
+			Name:    "iface4",
+			Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
+		},
+	}, []k6tv1.Network{
+		{
+			Name:          "iface1",
+			NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+		},
+		{
+			Name:          "iface2",
+			NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+		},
+		{
+			Name: "iface3",
+			NetworkSource: k6tv1.NetworkSource{
+				Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"},
 			},
-		}, []k6tv1.Network{
-			{
-				Name:          "iface1",
-				NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+		},
+		{
+			Name: "iface4",
+			NetworkSource: k6tv1.NetworkSource{
+				Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"},
 			},
-			{
-				Name:          "iface2",
-				NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
-			},
-			{
-				Name: "iface3",
-				NetworkSource: k6tv1.NetworkSource{
-					Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"},
-				},
-			},
-			{
-				Name: "iface4",
-				NetworkSource: k6tv1.NetworkSource{
-					Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"},
-				},
-			},
-		}
+		},
+	}
 }
 
 func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
