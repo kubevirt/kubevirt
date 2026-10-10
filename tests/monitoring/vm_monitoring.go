@@ -98,6 +98,21 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 		})
 
+		It("should have kubevirt_vmi_phase_transition_time_from_creation_seconds buckets correctly configured", func() {
+			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
+				GinkgoLogr.Info("Checking bucket", "le", bucket)
+				libmonitoring.WaitForHistogramBucketValueToBe(
+					virtClient, "kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket", bucket, 0, ">=", 0,
+				)
+			}
+		})
+
+		It("should have kubevirt_vmi_phase_transition_time_from_creation_seconds_sum populated", func() {
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_phase_transition_time_from_creation_seconds_sum", nil, 0, ">", 0,
+			)
+		})
+
 		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
 			labels := map[string]string{"resource": "virtualmachineinstances"}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
@@ -460,6 +475,31 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			const vmiDisappearTimeout = 240 * time.Second
 			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(
 				vmi, vmiDisappearTimeout,
+			)).To(Succeed())
+		})
+
+		It("should have kubevirt_vmi_migration_phase_transition_time_from_creation_seconds_sum populated after migration", func() {
+			By("Creating VMI")
+			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Migrating VMI")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying the migration phase transition time from creation sum metric is populated")
+			labels := map[string]string{"phase": "Succeeded"}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_phase_transition_time_from_creation_seconds_sum", labels, 0, ">", 0,
+			)
+
+			By("Delete VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			const migrationVMIDisappearTimeout = 240 * time.Second
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(
+				vmi, migrationVMIDisappearTimeout,
 			)).To(Succeed())
 		})
 
