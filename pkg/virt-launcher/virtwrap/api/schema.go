@@ -113,6 +113,14 @@ const (
 	ControllerModelPCIeExpanderBus = "pcie-expander-bus"
 )
 
+// UserAliasToName strips the ua- prefix from a libvirt user-defined alias, if present.
+func UserAliasToName(alias string) string {
+	if strings.HasPrefix(alias, UserAliasPrefix) {
+		return alias[len(UserAliasPrefix):]
+	}
+	return alias
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Domain struct {
 	metav1.TypeMeta
@@ -1148,7 +1156,7 @@ func (alias *Alias) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	*alias = Alias{name: userAlias.Name}
 	if strings.HasPrefix(alias.name, UserAliasPrefix) {
 		alias.userDefined = true
-		alias.name = alias.name[len(UserAliasPrefix):]
+		alias.name = UserAliasToName(alias.name)
 	}
 	return nil
 }

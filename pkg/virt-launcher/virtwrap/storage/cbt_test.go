@@ -61,7 +61,7 @@ var _ = Describe("Changed Block Tracking", func() {
 		}
 		createQCOW2OverlayCalled = 0
 		blockDevCalled = 0
-		CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+		CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool, size int64) error {
 			createQCOW2OverlayCalled++
 			if blockDev {
 				blockDevCalled++
@@ -87,23 +87,6 @@ var _ = Describe("Changed Block Tracking", func() {
 			Entry("when state is Enabled and hotplug ready", v1.ChangedBlockTrackingEnabled, true, v1.VolumeReady, false),
 			Entry("when state is Disabled and hotplug mounted", v1.ChangedBlockTrackingDisabled, true, v1.HotplugVolumeMounted, false),
 			Entry("when state is Undefined and hotplug mounted", v1.ChangedBlockTrackingUndefined, true, v1.HotplugVolumeMounted, false),
-		)
-	})
-
-	Context("isMigrationNewBackendStorage", func() {
-		DescribeTable("should return correct value based on migration state",
-			func(sourcePVC, targetPVC string, expected bool) {
-				vmi := newVMI(testNamespace, testVmName)
-				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-					SourcePersistentStatePVCName: sourcePVC,
-					TargetPersistentStatePVCName: targetPVC,
-				}
-
-				result := isMigrationNewBackendStorage(vmi)
-				Expect(result).To(Equal(expected))
-			},
-			Entry("RWX backend storage", "shared-pvc", "shared-pvc", false),
-			Entry("RWO backend storage", "source-pvc", "target-pvc", true),
 		)
 	})
 
@@ -177,7 +160,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			var capturedPaths []string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool, size int64) error {
 				createQCOW2OverlayCalled++
 				capturedPaths = append(capturedPaths, imagePath)
 				return nil
@@ -203,7 +186,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			var capturedPath string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool, size int64) error {
 				createQCOW2OverlayCalled++
 				capturedPath = imagePath
 				Expect(blockDev).To(BeTrue())
@@ -271,7 +254,7 @@ var _ = Describe("Changed Block Tracking", func() {
 
 			errMsg := "failed to create overlay"
 			// Mock createQCOW2Overlay to return error
-			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool, size int64) error {
 				createQCOW2OverlayCalled++
 				return fmt.Errorf("%s", errMsg)
 			}
@@ -477,12 +460,12 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
 		})
 
-		It("should use existing overlay for RWX backend storage (no overlay creation)", func() {
+		It("should populate ApplyCBT without creating overlays", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				newPVCVolume("pvc-volume", "test-pvc", false),
 				newDVVolume("dv-volume", "test-dv", false),
 			}
-			setRWXMigrationState(vmi)
+			setRWOMigrationState(vmi)
 
 			err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
@@ -493,66 +476,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
 		})
 
-		DescribeTable("should create overlays for RWO backend storage",
-			func(isBlock bool, expectedPathFunc func(string) string) {
-				vmi.Spec.Volumes = []v1.Volume{
-					newPVCVolume("pvc-volume", "test-pvc", false),
-					newDVVolume("dv-volume", "test-dv", false),
-				}
-				converterContext.IsBlockPVC["pvc-volume"] = isBlock
-				converterContext.IsBlockDV["dv-volume"] = isBlock
-				setRWOMigrationState(vmi)
-
-				var capturedPaths []string
-				CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
-					createQCOW2OverlayCalled++
-					capturedPaths = append(capturedPaths, imagePath)
-					Expect(blockDev).To(Equal(isBlock))
-					return nil
-				}
-
-				err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(createQCOW2OverlayCalled).To(Equal(2))
-				Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-				Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-				Expect(capturedPaths).To(ContainElement(expectedPathFunc("pvc-volume")))
-				Expect(capturedPaths).To(ContainElement(expectedPathFunc("dv-volume")))
-			},
-			Entry("filesystem volumes", false, volumepath.Filesystem),
-			Entry("block volumes", true, volumepath.BlockDevice),
-		)
-
-		DescribeTable("should create overlays for hotplug volumes with RWO backend",
-			func(volumeName string, isBlock bool, expectedPathFunc func(string) string) {
-				vmi.Spec.Volumes = []v1.Volume{
-					newPVCVolume(volumeName, "test-hotplug-pvc", true),
-				}
-				converterContext.IsBlockPVC[volumeName] = isBlock
-				converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
-					volumeName: {Name: volumeName, Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
-				}
-				setRWOMigrationState(vmi)
-
-				var capturedPath string
-				CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
-					createQCOW2OverlayCalled++
-					capturedPath = imagePath
-					Expect(blockDev).To(Equal(isBlock))
-					return nil
-				}
-
-				err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(createQCOW2OverlayCalled).To(Equal(1))
-				Expect(converterContext.ApplyCBT).To(HaveKey(volumeName))
-				Expect(capturedPath).To(Equal(expectedPathFunc(volumeName)))
-			},
-			Entry("filesystem volume", "hotplug-fs-volume", false, volumepath.HotplugFilesystem),
-			Entry("block volume", "hotplug-block-volume", true, volumepath.HotplugBlockDevice),
-		)
-
-		It("should use existing overlay for hotplug volumes with RWX backend (no overlay creation)", func() {
+		It("should populate ApplyCBT for hotplug volumes without creating overlays", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				newPVCVolume("hotplug-pvc-volume", "test-hotplug-pvc", true),
 			}
