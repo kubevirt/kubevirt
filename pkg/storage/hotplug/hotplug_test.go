@@ -43,6 +43,21 @@ var _ = Describe("Volume Hotplug", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var virtFakeClient *fake.Clientset
 
+	handle := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, applier DiskPreferenceApplier) *v1.VirtualMachineInstance {
+		vm, err := virtFakeClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.TODO(), vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(HandleDeclarativeVolumes(virtClient, vm, vmi, applier)).To(Succeed())
+
+		vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		return vmi
+	}
+
 	BeforeEach(func() {
 		virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtFakeClient = fake.NewSimpleClientset()
@@ -57,21 +72,6 @@ var _ = Describe("Volume Hotplug", func() {
 	})
 
 	Context("declarative volume hotplug", func() {
-		handle := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(HandleDeclarativeVolumes(virtClient, vm, vmi)).To(Succeed())
-
-			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			return vmi
-		}
-
 		It("should do nothing if VMI not running", func() {
 			opts := []libvmi.Option{
 				libvmi.WithDataVolume("perm", "perm"),
@@ -80,7 +80,7 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
@@ -95,7 +95,7 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
@@ -113,7 +113,7 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(postVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(numDisks + 1)) // +1 for the existing disk
 			Expect(result.Spec.Volumes).To(HaveLen(numDisks + 1))              // +1 for the existing volume
@@ -137,7 +137,7 @@ var _ = Describe("Volume Hotplug", func() {
 			postVMI.Spec.Domain.Devices.Disks = slices.Delete(postVMI.Spec.Domain.Devices.Disks, index+1, index+2)
 			postVMI.Spec.Volumes = slices.Delete(postVMI.Spec.Volumes, index+1, index+2)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(postVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(numDisks))
 			Expect(result.Spec.Volumes).To(HaveLen(numDisks))
@@ -164,7 +164,7 @@ var _ = Describe("Volume Hotplug", func() {
 			postVMI.Spec.Volumes = slices.Delete(postVMI.Spec.Volumes, 1, 2)
 			postVMI.Spec.Domain.Devices.Disks = slices.Delete(postVMI.Spec.Domain.Devices.Disks, 1, 2)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(3))
 			Expect(result.Spec.Volumes).To(HaveLen(3))
@@ -188,7 +188,7 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
@@ -204,7 +204,7 @@ var _ = Describe("Volume Hotplug", func() {
 			postVMI := origVMI.DeepCopy()
 			postVMI.Spec.Volumes[1].VolumeSource.DataVolume.Name = "changed"
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(result.Spec.Domain.Devices.Disks[0].Name).To(Equal("perm"))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
@@ -220,7 +220,7 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(opts...)
 			postVMI := libvmi.New(append(allOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI, libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(1))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
@@ -250,7 +250,7 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(origOpts...)
 			postVMI := libvmi.New(append(postOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(postVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(numDisks + 1)) // +1 for the existing disk
 			Expect(result.Spec.Volumes).To(HaveLen(numDisks + 1))              // +1 for the existing volume
@@ -280,7 +280,7 @@ var _ = Describe("Volume Hotplug", func() {
 			postVMI := origVMI.DeepCopy()
 			postVMI.Spec.Volumes = slices.Delete(postVMI.Spec.Volumes, index+1, index+2)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(postVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(numDisks + 1))
 			Expect(result.Spec.Volumes).To(HaveLen(numDisks))
@@ -310,10 +310,77 @@ var _ = Describe("Volume Hotplug", func() {
 			origVMI := libvmi.New(origOpts...)
 			postVMI := libvmi.New(append(postOpts, libvmi.WithName(origVMI.Name))...)
 			vm := libvmi.NewVirtualMachine(postVMI)
-			result := handle(vm, origVMI)
+			result := handle(vm, origVMI, nil)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(2))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
 		})
 	})
+
+	Context("declarative volume hotplug with disk preferences", func() {
+		vmWithHotplugDataVolumeNoBus := func(diskName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+			opts := []libvmi.Option{
+				libvmi.WithDataVolume("perm", "perm"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			}
+			origVMI := libvmi.New(opts...)
+
+			postVMI := libvmi.New(append(opts, libvmi.WithName(origVMI.Name))...)
+			postVMI.Spec.Domain.Devices.Disks = append(postVMI.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "hotplugdisk_1",
+				DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}},
+			})
+			postVMI.Spec.Volumes = append(postVMI.Spec.Volumes, v1.Volume{
+				Name: "hotplugdisk_1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{Name: "hotplugvolume_1", Hotpluggable: true},
+				},
+			})
+			vm := libvmi.NewVirtualMachine(postVMI)
+			return vm, origVMI
+		}
+
+		It("should apply disk preferences to hotplugged volumes", func() {
+			const preferredBus = v1.DiskBusVirtio
+
+			applier := &stubDiskPreferenceApplier{bus: preferredBus}
+
+			vm, origVMI := vmWithHotplugDataVolumeNoBus("hotplugdisk_1")
+
+			result := handle(vm, origVMI, applier)
+
+			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(2))
+			for _, d := range result.Spec.Domain.Devices.Disks {
+				Expect(d.DiskDevice.Disk.Bus).To(Equal(preferredBus), "disk %q should have the preferred bus from preferences", d.Name)
+			}
+		})
+
+		It("should not fail when disk preference applier returns an error", func() {
+			applier := &stubDiskPreferenceApplier{err: fmt.Errorf("preference not found")}
+
+			vm, origVMI := vmWithHotplugDataVolumeNoBus("hotplugdisk_1")
+
+			result := handle(vm, origVMI, applier)
+
+			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(2),
+				"hotplug should succeed even when preference applier fails")
+		})
+	})
 })
+
+type stubDiskPreferenceApplier struct {
+	bus v1.DiskBus
+	err error
+}
+
+func (s *stubDiskPreferenceApplier) ApplyDiskPreferences(_ *v1.VirtualMachine, vmiSpec *v1.VirtualMachineInstanceSpec) error {
+	if s.err != nil {
+		return s.err
+	}
+	for i := range vmiSpec.Domain.Devices.Disks {
+		if vmiSpec.Domain.Devices.Disks[i].DiskDevice.Disk != nil && vmiSpec.Domain.Devices.Disks[i].DiskDevice.Disk.Bus == "" {
+			vmiSpec.Domain.Devices.Disks[i].DiskDevice.Disk.Bus = s.bus
+		}
+	}
+	return nil
+}

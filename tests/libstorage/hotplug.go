@@ -174,6 +174,10 @@ func WaitForHotplugToComplete(virtClient kubecli.KubevirtClient, vm *v1.VirtualM
 }
 
 func AddHotplugDiskAndVolume(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeName, dvName string) *v1.VirtualMachine {
+	return AddHotplugDiskAndVolumeWithBus(virtClient, vm, volumeName, dvName, v1.DiskBusSCSI)
+}
+
+func AddHotplugDiskAndVolumeWithBus(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeName, dvName string, bus v1.DiskBus) *v1.VirtualMachine {
 	vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	vmCpy := vm.DeepCopy()
@@ -183,7 +187,7 @@ func AddHotplugDiskAndVolume(virtClient kubecli.KubevirtClient, vm *v1.VirtualMa
 		Name: volumeName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusSCSI,
+				Bus: bus,
 			},
 		},
 	})
