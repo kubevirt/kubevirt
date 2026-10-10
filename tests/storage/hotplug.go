@@ -48,6 +48,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
@@ -847,6 +848,39 @@ var _ = Describe(SIG("Hotplug", func() {
 			},
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem),
 			)
+
+			It("should attach a volume while another hotplugged volume has no claim", func() {
+				const (
+					missingVolume = "missing-volume"
+					readyVolume   = "ready-volume"
+				)
+				dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+
+				By("Hotplugging a volume whose claim does not exist")
+				addPVCVolumeVMI(vmi.Name, vmi.Namespace, missingVolume, "claim-that-does-not-exist", v1.DiskBusSCSI, false, "")
+				volumeStatuses := func(g Gomega) []v1.VolumeStatus {
+					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					return updatedVMI.Status.VolumeStatus
+				}
+				Eventually(volumeStatuses).WithTimeout(60*time.Second).WithPolling(time.Second).Should(ContainElement(And(
+					HaveField("Name", missingVolume),
+					HaveField("Phase", v1.VolumePending),
+					HaveField("Reason", controller.FailedPvcNotFoundReason),
+				)), "volume %s should wait for its claim", missingVolume)
+
+				By("Hotplugging a volume whose claim exists")
+				addPVCVolumeVMI(vmi.Name, vmi.Namespace, readyVolume, dv.Name, v1.DiskBusSCSI, false, "")
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, readyVolume)
+				verifySingleAttachmentPod(virtClient, vmi)
+
+				By("Removing the volume whose claim does not exist")
+				removeVolumeVMI(vmi.Name, vmi.Namespace, missingVolume, false)
+				verifyVolumeAndDiskVMIRemoved(vmi, missingVolume)
+				Eventually(volumeStatuses).WithTimeout(60*time.Second).WithPolling(time.Second).ShouldNot(
+					ContainElement(HaveField("Name", missingVolume)), "status of volume %s should be dropped", missingVolume)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, readyVolume)
+			})
 		})
 
 		Context("Online VM", func() {
