@@ -174,11 +174,9 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 	}
 
 	pvc := &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      claimName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
+		Name:      claimName,
+		Namespace: namespace,
+		Labels:    labels,
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{

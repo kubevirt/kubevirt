@@ -81,9 +81,9 @@ func WaitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance, ifaceNam
 			*v1.DefaultPodNetwork(),
 			v1.Network{
 				Name: ifaceName,
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+				Multus: &v1.MultusNetwork{
 					NetworkName: nadName,
-				}},
+				},
 			},
 		),
 	)

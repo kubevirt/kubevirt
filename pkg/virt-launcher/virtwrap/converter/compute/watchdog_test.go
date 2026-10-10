@@ -67,10 +67,8 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 			"amd64",
 			v1.Watchdog{
 				Name: "mywatchdog",
-				WatchdogDevice: v1.WatchdogDevice{
-					I6300ESB: &v1.I6300ESBWatchdog{
-						Action: v1.WatchdogActionPoweroff,
-					},
+				I6300ESB: &v1.I6300ESBWatchdog{
+					Action: v1.WatchdogActionPoweroff,
 				},
 			},
 			api.Watchdog{
@@ -83,10 +81,8 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 			"s390x",
 			v1.Watchdog{
 				Name: "diagwatchdog",
-				WatchdogDevice: v1.WatchdogDevice{
-					Diag288: &v1.Diag288Watchdog{
-						Action: v1.WatchdogActionReset,
-					},
+				Diag288: &v1.Diag288Watchdog{
+					Action: v1.WatchdogActionReset,
 				},
 			},
 			api.Watchdog{

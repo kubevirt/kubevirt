@@ -61,11 +61,9 @@ var _ = Describe("ContainerPathVolumeSource CEL validation", func() {
 		})
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "share",
-			VolumeSource: v1.VolumeSource{
-				ContainerPath: &v1.ContainerPathVolumeSource{
-					Path:     "/data",
-					ReadOnly: new(false),
-				},
+			ContainerPath: &v1.ContainerPathVolumeSource{
+				Path:     "/data",
+				ReadOnly: new(false),
 			},
 		})
 

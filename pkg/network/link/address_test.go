@@ -34,11 +34,9 @@ import (
 var _ = Describe("Common Methods", func() {
 	createNetwork := func(cidr string, ipv6Cidr string) *v1.Network {
 		return &v1.Network{
-			NetworkSource: v1.NetworkSource{
-				Pod: &v1.PodNetwork{
-					VMNetworkCIDR:     cidr,
-					VMIPv6NetworkCIDR: ipv6Cidr,
-				},
+			Pod: &v1.PodNetwork{
+				VMNetworkCIDR:     cidr,
+				VMIPv6NetworkCIDR: ipv6Cidr,
 			},
 		}
 	}

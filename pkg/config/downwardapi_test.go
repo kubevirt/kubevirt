@@ -69,14 +69,12 @@ var _ = Describe("DownwardAPI", func() {
 		vmi := api.NewMinimalVMI("fake-vmi")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "downwardapi-volume",
-			VolumeSource: v1.VolumeSource{
-				DownwardAPI: &v1.DownwardAPIVolumeSource{
-					Fields: []k8sv1.DownwardAPIVolumeFile{
-						{
-							Path: "labels",
-							FieldRef: &k8sv1.ObjectFieldSelector{
-								FieldPath: "metadata.labels",
-							},
+			DownwardAPI: &v1.DownwardAPIVolumeSource{
+				Fields: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: "labels",
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: "metadata.labels",
 						},
 					},
 				},

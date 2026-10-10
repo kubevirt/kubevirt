@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -199,11 +198,9 @@ func writeCertsToSecret(name string, namespace string, revision string) *k8sv1.S
 	crt := cert.EncodeCertPEM(keyPair.Cert)
 	key := cert.EncodePrivateKeyPEM(keyPair.Key)
 	return &k8sv1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			ResourceVersion: revision,
-		},
+		Name:            name,
+		Namespace:       namespace,
+		ResourceVersion: revision,
 		Data: map[string][]byte{
 			CertBytesValue: crt,
 			KeyBytesValue:  key,

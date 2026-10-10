@@ -254,7 +254,7 @@ var _ = Describe("OCI export", func() {
 				libvmi.WithLabels(map[string]string{labelKey: labelValue}),
 				libvmi.WithAnnotations(map[string]string{annotationKey: annotationValue}),
 				libvmi.WithDataVolumeTemplate(&cdiv1.DataVolume{
-					ObjectMeta: metav1.ObjectMeta{Name: dvName},
+					Name: dvName,
 				}),
 			)
 			vm.UID = "abc-123"
@@ -327,10 +327,8 @@ var _ = Describe("OCI export", func() {
 			vmJSON, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return &v1beta1.VirtualMachineTemplate{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tplName,
-					Namespace: testNs,
-				},
+				Name:      tplName,
+				Namespace: testNs,
 				Spec: v1beta1.VirtualMachineTemplateSpec{
 					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
 					Parameters: []v1beta1.Parameter{

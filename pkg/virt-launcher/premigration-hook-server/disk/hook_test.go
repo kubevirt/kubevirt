@@ -49,10 +49,10 @@ var _ = Describe("Hook", func() {
 			libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{DomainNamespace: &sourceNs},
+						DomainNamespace: &sourceNs,
 					},
 					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{DomainNamespace: &targetNs},
+						DomainNamespace: &targetNs,
 					},
 				}),
 			)),

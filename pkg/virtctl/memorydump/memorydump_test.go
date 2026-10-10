@@ -102,9 +102,7 @@ var _ = Describe("MemoryDump", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 
 		cdiConfig := &cdiv1.CDIConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "config",
-			},
+			Name: "config",
 			Spec: cdiv1.CDIConfigSpec{
 				UploadProxyURLOverride: nil,
 			},
@@ -195,9 +193,7 @@ var _ = Describe("MemoryDump", func() {
 
 	It("should fail call memory dump subresource with create-claim and existing pvc", func() {
 		pvc := &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pvcName,
-			},
+			Name: pvcName,
 		}
 		_, err := kubeClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -365,9 +361,7 @@ var _ = Describe("MemoryDump", func() {
 			}
 
 			secret = &k8sv1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-secret",
-				},
+				Name: "test-secret",
 				Type: k8sv1.SecretTypeOpaque,
 				Data: map[string][]byte{
 					"token": []byte("test"),
@@ -377,9 +371,7 @@ var _ = Describe("MemoryDump", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			vme = &exportv1.VirtualMachineExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("export-%s-%s", vmName, pvcName),
-				},
+				Name: fmt.Sprintf("export-%s-%s", vmName, pvcName),
 				Spec: exportv1.VirtualMachineExportSpec{
 					TokenSecretRef: &secret.Name,
 					Source: k8sv1.TypedLocalObjectReference{
@@ -407,10 +399,8 @@ var _ = Describe("MemoryDump", func() {
 			}
 
 			service = &k8sv1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "virt-export-" + vme.Name,
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "virt-export-" + vme.Name,
+				Namespace: metav1.NamespaceDefault,
 				Spec: k8sv1.ServiceSpec{
 					ClusterIP: k8sv1.ClusterIPNone,
 					Ports: []k8sv1.ServicePort{{
@@ -421,9 +411,7 @@ var _ = Describe("MemoryDump", func() {
 			}
 
 			pod = &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "virt-export-pod-" + vme.Name,
-				},
+				Name: "virt-export-pod-" + vme.Name,
 			}
 		})
 

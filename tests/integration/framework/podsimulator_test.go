@@ -30,10 +30,8 @@ var _ = Describe("Pod simulator", func() {
 
 	BeforeEach(func() {
 		pod = &k8sv1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "launcher", Namespace: "test",
-				Labels: map[string]string{virtv1.AppLabel: "virt-launcher"},
-			},
+			Name: "launcher", Namespace: "test",
+			Labels: map[string]string{virtv1.AppLabel: "virt-launcher"},
 			Spec: k8sv1.PodSpec{
 				NodeName:   testNodeName,
 				Containers: []k8sv1.Container{{Name: "compute", Image: "virt-launcher:latest"}},

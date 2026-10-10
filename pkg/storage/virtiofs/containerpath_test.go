@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -79,46 +78,32 @@ var _ = Describe("ContainerPath helpers", func() {
 			},
 			Entry("nil volume", nil, false),
 			Entry("ConfigMap", &k8sv1.Volume{
-				Name: "cm",
-				VolumeSource: k8sv1.VolumeSource{
-					ConfigMap: &k8sv1.ConfigMapVolumeSource{},
-				},
+				Name:      "cm",
+				ConfigMap: &k8sv1.ConfigMapVolumeSource{},
 			}, true),
 			Entry("Secret", &k8sv1.Volume{
-				Name: "secret",
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{},
-				},
+				Name:   "secret",
+				Secret: &k8sv1.SecretVolumeSource{},
 			}, true),
 			Entry("Projected", &k8sv1.Volume{
-				Name: "projected",
-				VolumeSource: k8sv1.VolumeSource{
-					Projected: &k8sv1.ProjectedVolumeSource{},
-				},
+				Name:      "projected",
+				Projected: &k8sv1.ProjectedVolumeSource{},
 			}, true),
 			Entry("DownwardAPI", &k8sv1.Volume{
-				Name: "downward",
-				VolumeSource: k8sv1.VolumeSource{
-					DownwardAPI: &k8sv1.DownwardAPIVolumeSource{},
-				},
+				Name:        "downward",
+				DownwardAPI: &k8sv1.DownwardAPIVolumeSource{},
 			}, true),
 			Entry("EmptyDir", &k8sv1.Volume{
-				Name: "emptydir",
-				VolumeSource: k8sv1.VolumeSource{
-					EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-				},
+				Name:     "emptydir",
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			}, true),
 			Entry("HostPath (unsupported)", &k8sv1.Volume{
-				Name: "hostpath",
-				VolumeSource: k8sv1.VolumeSource{
-					HostPath: &k8sv1.HostPathVolumeSource{Path: "/host"},
-				},
+				Name:     "hostpath",
+				HostPath: &k8sv1.HostPathVolumeSource{Path: "/host"},
 			}, false),
 			Entry("PVC (unsupported)", &k8sv1.Volume{
-				Name: "pvc",
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "claim"},
-				},
+				Name:                  "pvc",
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "claim"},
 			}, false),
 		)
 	})
@@ -130,51 +115,41 @@ var _ = Describe("ContainerPath helpers", func() {
 			},
 			Entry("nil volume", nil, false),
 			Entry("non-projected volume", &k8sv1.Volume{
-				Name: "cm",
-				VolumeSource: k8sv1.VolumeSource{
-					ConfigMap: &k8sv1.ConfigMapVolumeSource{},
-				},
+				Name:      "cm",
+				ConfigMap: &k8sv1.ConfigMapVolumeSource{},
 			}, false),
 			Entry("projected without sources", &k8sv1.Volume{
-				Name: "projected",
-				VolumeSource: k8sv1.VolumeSource{
-					Projected: &k8sv1.ProjectedVolumeSource{},
-				},
+				Name:      "projected",
+				Projected: &k8sv1.ProjectedVolumeSource{},
 			}, false),
 			Entry("projected with only configmap source", &k8sv1.Volume{
 				Name: "projected",
-				VolumeSource: k8sv1.VolumeSource{
-					Projected: &k8sv1.ProjectedVolumeSource{
-						Sources: []k8sv1.VolumeProjection{
-							{ConfigMap: &k8sv1.ConfigMapProjection{}},
-						},
+				Projected: &k8sv1.ProjectedVolumeSource{
+					Sources: []k8sv1.VolumeProjection{
+						{ConfigMap: &k8sv1.ConfigMapProjection{}},
 					},
 				},
 			}, false),
 			Entry("projected with SA token source", &k8sv1.Volume{
 				Name: "aws-iam-token",
-				VolumeSource: k8sv1.VolumeSource{
-					Projected: &k8sv1.ProjectedVolumeSource{
-						Sources: []k8sv1.VolumeProjection{
-							{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
-								Audience:          "sts.amazonaws.com",
-								ExpirationSeconds: new(int64(3600)),
-								Path:              "token",
-							}},
-						},
+				Projected: &k8sv1.ProjectedVolumeSource{
+					Sources: []k8sv1.VolumeProjection{
+						{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+							Audience:          "sts.amazonaws.com",
+							ExpirationSeconds: new(int64(3600)),
+							Path:              "token",
+						}},
 					},
 				},
 			}, true),
 			Entry("projected with mixed sources including SA token", &k8sv1.Volume{
 				Name: "mixed-projected",
-				VolumeSource: k8sv1.VolumeSource{
-					Projected: &k8sv1.ProjectedVolumeSource{
-						Sources: []k8sv1.VolumeProjection{
-							{ConfigMap: &k8sv1.ConfigMapProjection{}},
-							{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
-								Path: "token",
-							}},
-						},
+				Projected: &k8sv1.ProjectedVolumeSource{
+					Sources: []k8sv1.VolumeProjection{
+						{ConfigMap: &k8sv1.ConfigMapProjection{}},
+						{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+							Path: "token",
+						}},
 					},
 				},
 			}, true),
@@ -242,10 +217,8 @@ var _ = Describe("ContainerPath helpers", func() {
 					Volumes: []v1.Volume{
 						{
 							Name: "fs1",
-							VolumeSource: v1.VolumeSource{
-								ContainerPath: &v1.ContainerPathVolumeSource{
-									Path: "/data",
-								},
+							ContainerPath: &v1.ContainerPathVolumeSource{
+								Path: "/data",
 							},
 						},
 					},
@@ -272,10 +245,8 @@ var _ = Describe("ContainerPath helpers", func() {
 					Volumes: []v1.Volume{
 						{
 							Name: "fs1",
-							VolumeSource: v1.VolumeSource{
-								ContainerPath: &v1.ContainerPathVolumeSource{
-									Path: "/data",
-								},
+							ContainerPath: &v1.ContainerPathVolumeSource{
+								Path: "/data",
 							},
 						},
 					},
@@ -291,10 +262,8 @@ var _ = Describe("ContainerPath helpers", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vmi",
-					Namespace: "default",
-				},
+				Name:      "test-vmi",
+				Namespace: "default",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
@@ -313,18 +282,14 @@ var _ = Describe("ContainerPath helpers", func() {
 					Volumes: []v1.Volume{
 						{
 							Name: "fs1",
-							VolumeSource: v1.VolumeSource{
-								ContainerPath: &v1.ContainerPathVolumeSource{
-									Path: "/data1",
-								},
+							ContainerPath: &v1.ContainerPathVolumeSource{
+								Path: "/data1",
 							},
 						},
 						{
 							Name: "fs2",
-							VolumeSource: v1.VolumeSource{
-								ContainerPath: &v1.ContainerPathVolumeSource{
-									Path: "/data2",
-								},
+							ContainerPath: &v1.ContainerPathVolumeSource{
+								Path: "/data2",
 							},
 						},
 					},

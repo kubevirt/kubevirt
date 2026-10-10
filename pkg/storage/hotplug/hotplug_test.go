@@ -239,11 +239,9 @@ var _ = Describe("Volume Hotplug", func() {
 				name := fmt.Sprintf("cdrom_%d", i)
 				postOpts = append(postOpts, libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
 					Name: name,
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name:         name,
-							Hotpluggable: true,
-						},
+					DataVolume: &v1.DataVolumeSource{
+						Name:         name,
+						Hotpluggable: true,
 					},
 				}))
 			}
@@ -268,11 +266,9 @@ var _ = Describe("Volume Hotplug", func() {
 				name := fmt.Sprintf("cdrom_%d", i)
 				origOpts = append(origOpts, libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
 					Name: name,
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name:         name,
-							Hotpluggable: true,
-						},
+					DataVolume: &v1.DataVolumeSource{
+						Name:         name,
+						Hotpluggable: true,
 					},
 				}))
 			}
@@ -300,10 +296,8 @@ var _ = Describe("Volume Hotplug", func() {
 			postOpts := append([]libvmi.Option{}, origOpts[0:2]...)
 			postOpts = append(postOpts, libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
 				Name: "cdrom_1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "cdrom_1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "cdrom_1",
 				},
 			}))
 

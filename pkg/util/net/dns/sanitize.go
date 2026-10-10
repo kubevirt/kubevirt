@@ -32,7 +32,7 @@ import (
 // then it already passed DNS label validations.
 func SanitizeHostname(vmi *v1.VirtualMachineInstance) string {
 
-	hostName := strings.Split(vmi.Name, ".")[0]
+	hostName, _, _ := strings.Cut(vmi.Name, ".")
 	if len(hostName) > validation.DNS1123LabelMaxLength {
 		hostName = hostName[:validation.DNS1123LabelMaxLength]
 	}

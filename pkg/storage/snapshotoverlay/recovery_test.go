@@ -23,8 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -46,10 +44,10 @@ var _ = Describe("Overlay recovery", func() {
 		Entry("nothing to recover", "", nil, false),
 		Entry("scratch not attached yet", "snap-scratch-content", nil, true),
 		Entry("scratch attached", "snap-scratch-content", &v1.UtilityVolume{
-			Name: "snap-scratch-content", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "snap-scratch-content"}, Type: pointer.P(v1.SnapshotOverlay),
+			Name: "snap-scratch-content", ClaimName: "snap-scratch-content", Type: pointer.P(v1.SnapshotOverlay),
 		}, false),
 		Entry("another volume under the scratch name", "snap-scratch-content", &v1.UtilityVolume{
-			Name: "snap-scratch-content", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "other"}, Type: pointer.P(v1.SnapshotOverlay),
+			Name: "snap-scratch-content", ClaimName: "other", Type: pointer.P(v1.SnapshotOverlay),
 		}, true),
 	)
 })

@@ -126,9 +126,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		BeforeEach(func() {
 			preferredCPUTopology := v1beta1.Cores
 			clusterPreference = &v1beta1.VirtualMachineClusterPreference{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-cluster-preference",
-				},
+				Name: "test-cluster-preference",
 				Spec: v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,
@@ -296,10 +294,8 @@ var _ = Describe("Preference SpecFinder", func() {
 		BeforeEach(func() {
 			preferredCPUTopology := v1beta1.Cores
 			preference = &v1beta1.VirtualMachinePreference{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-preference",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-preference",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,

@@ -65,16 +65,16 @@ var _ = Describe("VMI interfaces", func() {
 
 	vmiSpecIfaces = []v1.Interface{
 		{
-			Name:                   iface1,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			Name:       iface1,
+			Masquerade: &v1.InterfaceMasquerade{},
 		},
 		{
-			Name:                   iface2,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Name:   iface2,
+			Bridge: &v1.InterfaceBridge{},
 		},
 		{
-			Name:                   iface3,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+			Name:  iface3,
+			SRIOV: &v1.InterfaceSRIOV{},
 		},
 		{
 			Name:    iface4,

@@ -21,7 +21,6 @@ package preference
 
 import (
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
 
@@ -142,25 +141,17 @@ func (c *createPreference) usage() string {
 
 func (c *createPreference) newClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference {
 	return &instancetypev1beta1.VirtualMachineClusterPreference{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "VirtualMachineClusterPreference",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: c.name,
-		},
+		Kind:       "VirtualMachineClusterPreference",
+		APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+		Name:       c.name,
 	}
 }
 
 func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePreference {
 	preference := &instancetypev1beta1.VirtualMachinePreference{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "VirtualMachinePreference",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: c.name,
-		},
+		Kind:       "VirtualMachinePreference",
+		APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+		Name:       c.name,
 	}
 
 	if c.namespace != "" {

@@ -292,9 +292,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		It("should reject portRanges when feature gate is disabled", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-					PortRanges:             []v1.PortRange{{Start: 80, End: 90}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
+					PortRanges: []v1.PortRange{{Start: 80, End: 90}},
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
@@ -309,9 +309,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		It("should reject when binding method is not masquerade", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-					PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
+					Name:       "default",
+					Bridge:     &v1.InterfaceBridge{},
+					PortRanges: []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
@@ -330,10 +330,10 @@ var _ = Describe("Validating VMI network spec", func() {
 		It("should reject when portRanges and ports are both set", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-					Ports:                  []v1.Port{{Port: 22}},
-					PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
+					Ports:      []v1.Port{{Port: 22}},
+					PortRanges: []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
@@ -349,9 +349,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should reject portRanges with", func(portRanges []v1.PortRange, expectedCauses []metav1.StatusCause) {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-					PortRanges:             portRanges,
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
+					PortRanges: portRanges,
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
@@ -409,9 +409,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should accept portRanges with", func(portRanges []v1.PortRange) {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-					PortRanges:             portRanges,
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
+					PortRanges: portRanges,
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
@@ -433,9 +433,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should reject interface DHCP options with", func(dhcpOpts v1.DHCPOptions, expectedCauses []metav1.StatusCause) {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-					DHCPOptions:            &dhcpOpts,
+					Name:        "default",
+					Masquerade:  &v1.InterfaceMasquerade{},
+					DHCPOptions: &dhcpOpts,
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
@@ -484,9 +484,9 @@ var _ = Describe("Validating VMI network spec", func() {
 		DescribeTable("should accept interface DHCP options with", func(dhcpOpts v1.DHCPOptions) {
 			vmi := libvmi.New(
 				libvmi.WithInterface(v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-					DHCPOptions:            &dhcpOpts,
+					Name:        "default",
+					Masquerade:  &v1.InterfaceMasquerade{},
+					DHCPOptions: &dhcpOpts,
 				}),
 				libvmi.WithNetwork(libvmi.PodNetwork("default")),
 			)
