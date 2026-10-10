@@ -104,6 +104,7 @@ const (
 	podReadyReason            = "PodReady"
 	inUseReason               = "InUse"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
+	duplicatePVCReason        = "DuplicatePVC"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -2293,6 +2294,81 @@ var _ = Describe(SIG("Export", func() {
 			waitForDisksComplete(vm)
 			waitForExportPhase(export, exportv1.Ready)
 		}
+	})
+
+	It("should export a VM with claims differing only in dots", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when Filesystem storage is not present")
+		}
+		ns := testsuite.GetTestNamespace(nil)
+
+		// Both claims sanitize to the same exporter pod volume name.
+		claimNames := []string{"my.disk", "my-disk"}
+		var diskOpts []libvmi.Option
+		for i, claimName := range claimNames {
+			dv := createDataVolume(libdv.NewDataVolume(
+				libdv.WithName(claimName),
+				libdv.WithNamespace(ns),
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
+			))
+			Eventually(ThisPVCWith(ns, dv.Name), 160).Should(Exist())
+			diskOpts = append(diskOpts, libvmi.WithPersistentVolumeClaim(fmt.Sprintf("dotdisk%d", i), claimName))
+		}
+
+		vm := createVM(libvmi.NewVirtualMachine(libvmifact.NewAlpine(diskOpts...)))
+
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			vm = libvmops.StartVirtualMachine(vm)
+			libvmops.StopVirtualMachine(vm)
+		}
+		for _, claimName := range claimNames {
+			libstorage.EventuallyDVWith(ns, claimName, 240, HaveSucceeded())
+		}
+
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		export = waitForExportPhase(export, exportv1.Ready)
+
+		By("Both claims are exported as their own volume")
+		Expect(export.Status.Links.Internal.Volumes).To(ConsistOf(
+			HaveField("Name", claimNames[0]),
+			HaveField("Name", claimNames[1]),
+		))
+	})
+
+	It("should stay pending when two VM volumes reference the same PVC", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when Filesystem storage is not present")
+		}
+		dv := libdv.NewDataVolume(
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
+		)
+		dv = createDataVolume(dv)
+		Eventually(ThisPVCWith(dv.Namespace, dv.Name), 160).Should(Exist())
+
+		vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
+			libvmi.WithPersistentVolumeClaim("blank-disk", dv.Name),
+			libvmi.WithPersistentVolumeClaim("duplicate-disk", dv.Name),
+		))
+		vm, err = virtClient.VirtualMachine(dv.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		waitForExportPhase(export, exportv1.Pending)
+		waitForExportCondition(export, MatchConditionIgnoreTimeStamp(exportv1.Condition{
+			Type:    exportv1.ConditionReady,
+			Status:  k8sv1.ConditionFalse,
+			Reason:  duplicatePVCReason,
+			Message: fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s", dv.Name),
+		}), "export should report the duplicate PVC")
 	})
 
 	Context(" with potential KubeVirt CR update", Serial, func() {

@@ -71,7 +71,7 @@ func (s *VMSnapshotSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMSnapshotSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMSnapshotSource) ConfigurePod(pod *corev1.Pod) {
