@@ -32,14 +32,26 @@ import (
 )
 
 func (c *fakeVirtualMachineInstances) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
+	return c.SerialConsoleContext(context.Background(), name, options)
+}
+
+func (c *fakeVirtualMachineInstances) SerialConsoleContext(ctx context.Context, name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 
 func (c *fakeVirtualMachineInstances) USBRedir(vmiName string) (kvcorev1.StreamInterface, error) {
+	return c.USBRedirContext(context.Background(), vmiName)
+}
+
+func (c *fakeVirtualMachineInstances) USBRedirContext(ctx context.Context, vmiName string) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 
 func (c *fakeVirtualMachineInstances) VNC(name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
+	return c.VNCContext(context.Background(), name, preserveSession)
+}
+
+func (c *fakeVirtualMachineInstances) VNCContext(ctx context.Context, name string, preserveSession bool) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 
@@ -48,6 +60,10 @@ func (c *fakeVirtualMachineInstances) Screenshot(ctx context.Context, name strin
 }
 
 func (c *fakeVirtualMachineInstances) PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
+	return c.PortForwardContext(context.Background(), name, port, protocol)
+}
+
+func (c *fakeVirtualMachineInstances) PortForwardContext(ctx context.Context, name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 
@@ -130,6 +146,10 @@ func (c *fakeVirtualMachineInstances) RemoveVolume(ctx context.Context, name str
 }
 
 func (c *fakeVirtualMachineInstances) VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error) {
+	return c.VSOCKContext(context.Background(), name, options)
+}
+
+func (c *fakeVirtualMachineInstances) VSOCKContext(ctx context.Context, name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 

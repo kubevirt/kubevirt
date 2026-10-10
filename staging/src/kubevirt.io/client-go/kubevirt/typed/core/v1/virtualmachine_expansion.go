@@ -44,6 +44,7 @@ type VirtualMachineExpansion interface {
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
+	PortForwardContext(ctx context.Context, name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
 	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
@@ -167,6 +168,10 @@ func (c *virtualMachines) RemoveVolume(ctx context.Context, name string, removeV
 }
 
 func (c *virtualMachines) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+	return c.PortForwardContext(context.Background(), name, port, protocol)
+}
+
+func (c *virtualMachines) PortForwardContext(ctx context.Context, name string, port int, protocol string) (StreamInterface, error) {
 	// TODO not implemented yet
 	//  requires clientConfig
 	return nil, fmt.Errorf("PortForward is not implemented yet in generated client")
