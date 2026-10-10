@@ -17,6 +17,10 @@
  *
  */
 
+// TODO: Remove this suppression once the SMM and APIC feature tables are
+// deduplicated. go fix's embedlit rewrite made them token-identical.
+//
+//nolint:dupl
 package compute_test
 
 import (
