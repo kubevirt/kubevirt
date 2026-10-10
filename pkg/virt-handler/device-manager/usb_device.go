@@ -92,6 +92,8 @@ func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *Plu
 
 func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
 	plugin.stop = stop
+	plugin.done = make(chan struct{})
+	plugin.deregistered = make(chan struct{})
 
 	err := plugin.cleanup()
 	if err != nil {
