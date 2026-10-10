@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v12 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -50,6 +51,67 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 
 		cm = NewVirtualMachineInstanceConditionManager()
 	})
+
+	DescribeTable("should clear stale readiness for a final VMI", func(phase v1.VirtualMachineInstancePhase, status v12.ConditionStatus) {
+		vmi.Status.Phase = phase
+		if status != "" {
+			cm.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceReady, Status: status})
+		}
+		cm.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceSynchronized, Status: v12.ConditionTrue})
+
+		cm.SyncReadyConditionForFinalVMI(vmi)
+
+		condition := cm.GetCondition(vmi, v1.VirtualMachineInstanceReady)
+		Expect(condition).ToNot(BeNil())
+		Expect(condition.Status).To(Equal(v12.ConditionFalse))
+		Expect(condition.Reason).To(Equal(v1.GuestNotRunningReason))
+		Expect(condition.LastTransitionTime.IsZero()).To(BeFalse())
+		Expect(cm.HasConditionWithStatus(vmi, v1.VirtualMachineInstanceSynchronized, v12.ConditionTrue)).To(BeTrue())
+		conditions := vmi.DeepCopy().Status.Conditions
+		cm.SyncReadyConditionForFinalVMI(vmi)
+		Expect(vmi.Status.Conditions).To(Equal(conditions))
+	},
+		Entry("Succeeded with True readiness", v1.Succeeded, v12.ConditionTrue),
+		Entry("Succeeded with Unknown readiness", v1.Succeeded, v12.ConditionUnknown),
+		Entry("Succeeded with missing readiness", v1.Succeeded, v12.ConditionStatus("")),
+		Entry("Failed with True readiness", v1.Failed, v12.ConditionTrue),
+		Entry("Failed with Unknown readiness", v1.Failed, v12.ConditionUnknown),
+		Entry("Failed with missing readiness", v1.Failed, v12.ConditionStatus("")),
+	)
+
+	DescribeTable("should preserve an existing False Ready condition for a final VMI", func(phase v1.VirtualMachineInstancePhase) {
+		vmi.Status.Phase = phase
+		condition := &v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstanceReady,
+			Status:             v12.ConditionFalse,
+			Reason:             v1.PodTerminatingReason,
+			Message:            "virt-launcher pod is terminating",
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+		}
+		cm.UpdateCondition(vmi, condition)
+
+		cm.SyncReadyConditionForFinalVMI(vmi)
+
+		Expect(cm.GetCondition(vmi, v1.VirtualMachineInstanceReady)).To(Equal(condition))
+	},
+		Entry("Succeeded", v1.Succeeded),
+		Entry("Failed", v1.Failed),
+	)
+
+	DescribeTable("should leave readiness unchanged for a non-final VMI", func(phase v1.VirtualMachineInstancePhase) {
+		vmi.Status.Phase = phase
+		cm.SyncReadyConditionForFinalVMI(vmi)
+		Expect(vmi.Status.Conditions).To(BeEmpty())
+		condition := &v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceReady, Status: v12.ConditionTrue}
+		cm.UpdateCondition(vmi, condition)
+		cm.SyncReadyConditionForFinalVMI(vmi)
+		Expect(cm.GetCondition(vmi, v1.VirtualMachineInstanceReady)).To(Equal(condition))
+	},
+		Entry("Pending", v1.Pending),
+		Entry("Scheduled", v1.Scheduled),
+		Entry("Running", v1.Running),
+	)
 
 	When("Adding a condition", func() {
 

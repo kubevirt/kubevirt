@@ -1022,6 +1022,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 
 	// Handle sync error
 	c.handleSyncError(vmi, condManager, syncError)
+	condManager.SyncReadyConditionForFinalVMI(vmi)
 
 	controller.SetVMIPhaseTransitionTimestamp(oldStatus, &vmi.Status)
 

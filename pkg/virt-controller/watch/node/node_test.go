@@ -93,6 +93,7 @@ var _ = Describe("Node controller with", func() {
 	}
 
 	addVMI := func(vmi *v1.VirtualMachineInstance) {
+		vmi.ResourceVersion = "1"
 		_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -113,6 +114,10 @@ var _ = Describe("Node controller with", func() {
 		updatedVMI, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmiName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
+		Expect(updatedVMI.Status.Conditions).To(ContainElement(And(
+			HaveField("Type", v1.VirtualMachineInstanceReady),
+			HaveField("Status", k8sv1.ConditionFalse),
+		)))
 		Expect(updatedVMI.Status.Reason).To(Equal(NodeUnresponsiveReason))
 	}
 
@@ -181,6 +186,7 @@ var _ = Describe("Node controller with", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := watchtesting.NewRunningVirtualMachine("vmi1", node)
 			vmi.Status.Phase = phase
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady, Status: k8sv1.ConditionTrue}}
 			addVMI(vmi)
 			kubeClient.Fake.PrependReactor("list", "pods", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, &k8sv1.PodList{}, nil
@@ -193,6 +199,23 @@ var _ = Describe("Node controller with", func() {
 			Entry("running state", v1.Running),
 			Entry("scheduled state", v1.Scheduled),
 		)
+		It("should reject a node failure patch after a concurrent VMI update", func() {
+			vmi := watchtesting.NewRunningVirtualMachine("vmi", NewUnhealthyNode("testnode"))
+			addVMI(vmi)
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.ResourceVersion = "2"
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady, Status: k8sv1.ConditionTrue}}
+			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Update(context.Background(), updatedVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(controller.createAndApplyFailedVMINodeUnresponsivePatch(vmi, log.DefaultLogger())).ToNot(Succeed())
+			Expect(recorder.Events).To(BeEmpty())
+
+			currentVMI, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(currentVMI.Status).To(Equal(updatedVMI.Status))
+		})
+
 		It("should set multiple vmis to failed in one go, even if some updates fail", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := watchtesting.NewRunningVirtualMachine("vmi", node)
@@ -211,7 +234,6 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			Expect(controller.updateVMIWithFailedStatus([]*v1.VirtualMachineInstance{vmi, vmi1, vmi2}, log.DefaultLogger())).To(HaveOccurred())
-			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(3))

@@ -488,6 +488,8 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 	if !equality.Semantic.DeepEqual(*oldSpec, vmi.Spec) {
 		return fmt.Errorf("spec changes illegal in updateVMI, not updating VMI")
 	}
+	controller.NewVirtualMachineInstanceConditionManager().SyncReadyConditionForFinalVMI(vmi)
+
 	// update the VMI if necessary
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) || !equality.Semantic.DeepEqual(oldLabels, vmi.Labels) {
 		key := controller.VirtualMachineInstanceKey(vmi)

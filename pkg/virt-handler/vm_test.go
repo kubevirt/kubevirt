@@ -1321,6 +1321,35 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}),
 		)
 
+		DescribeTable("should persist terminal phase and False readiness together", func(domainState api.LifeCycle, reason api.StateChangeReason, syncErr error, phase v1.VirtualMachineInstancePhase) {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady, Status: k8sv1.ConditionTrue}}
+			createVMI(vmi)
+			oldStatus := vmi.Status.DeepCopy()
+			domain := api.NewMinimalDomainWithUUID(vmi.Name, vmi.UID)
+			domain.Status.Status = domainState
+			domain.Status.Reason = reason
+
+			Expect(controller.updateVMIStatus(oldStatus, vmi, domain, syncErr)).To(Succeed())
+			if phase == v1.Succeeded {
+				testutils.ExpectEvent(recorder, VMIShutdown)
+			} else {
+				testutils.ExpectEvent(recorder, VMICrashed)
+			}
+
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.Phase).To(Equal(phase))
+			Expect(virtcontroller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(updatedVMI,
+				v1.VirtualMachineInstanceReady, k8sv1.ConditionFalse, v1.GuestNotRunningReason)).To(BeTrue())
+		},
+			Entry("on guest shutdown", api.Shutoff, api.ReasonShutdown, nil, v1.Succeeded),
+			Entry("on guest crash", api.Crashed, api.ReasonCrashed, nil, v1.Failed),
+			Entry("on a launcher error", api.Running, api.ReasonUnknown, &vmiIrrecoverableError{msg: "launcher failed"}, v1.Failed),
+		)
+
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			Expect(cmdclient.MarkSocketUnresponsive(sockFile)).To(Succeed())
 			vmi := api2.NewMinimalVMI("testvmi")

@@ -148,6 +148,25 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}, Default)
 	}
 
+	DescribeTable("should clear readiness when persisting a final migration target VMI", func(phase v1.VirtualMachineInstancePhase) {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.Status.Phase = v1.Running
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady, Status: k8sv1.ConditionTrue}}
+		createVMI(vmi)
+		oldVMI := vmi.DeepCopy()
+		vmi.Status.Phase = phase
+
+		Expect(controller.updateVMI(vmi, &oldVMI.Spec, &oldVMI.Status, oldVMI.Labels, false)).To(Succeed())
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedVMI.Status.Phase).To(Equal(phase))
+		Expect(virtcontroller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(updatedVMI, v1.VirtualMachineInstanceReady, k8sv1.ConditionFalse)).To(BeTrue())
+	},
+		Entry("Succeeded", v1.Succeeded),
+		Entry("Failed", v1.Failed),
+	)
+
 	BeforeEach(func() {
 		networkBindingPluginMemoryCalculator = &stubMemoryOverheadCalculator{}
 		diskutils.MockDefaultOwnershipManager()
