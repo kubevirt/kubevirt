@@ -72,7 +72,8 @@ var _ = Describe("Multus annotations", func() {
 					vmi.Namespace,
 					vmi.Spec.Domain.Devices.Interfaces,
 					vmi.Spec.Networks,
-					registeredBindinPlugins)).To(MatchJSON(
+					registeredBindinPlugins,
+				)).To(MatchJSON(
 					`[
 						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},
 						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},

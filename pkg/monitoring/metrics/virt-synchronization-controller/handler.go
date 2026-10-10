@@ -34,6 +34,7 @@ func Handler(maxRequestsInFlight int) http.Handler {
 			prometheus.DefaultGatherer,
 			promhttp.HandlerOpts{
 				MaxRequestsInFlight: maxRequestsInFlight,
-			}),
+			},
+		),
 	)
 }

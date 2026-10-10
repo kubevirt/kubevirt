@@ -34,7 +34,8 @@ var gpuRecordingRules = []operatorrules.RecordingRule{
 		Expr: intstr.FromString(
 			"sum by(namespace, name, node, uuid, resource) (" +
 				"label_replace(max by (UUID) (DCGM_FI_DEV_MEM_COPY_UTIL), 'uuid', '$1', 'UUID', '(.*)') * " +
-				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) / 100"),
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) / 100",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -45,7 +46,8 @@ var gpuRecordingRules = []operatorrules.RecordingRule{
 		Expr: intstr.FromString(
 			"sum by(namespace, name, node, uuid, resource) (" +
 				"label_replace(max by (UUID) (DCGM_FI_DEV_GPU_UTIL), 'uuid', '$1', 'UUID', '(.*)') * " +
-				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) / 100"),
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) / 100",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -56,7 +58,8 @@ var gpuRecordingRules = []operatorrules.RecordingRule{
 		Expr: intstr.FromString(
 			"sum by(namespace, name, node, uuid, resource) (" +
 				"label_replace(max by (UUID) (DCGM_FI_PROF_GR_ENGINE_ACTIVE), 'uuid', '$1', 'UUID', '(.*)') * " +
-				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info)"),
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info)",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -67,7 +70,8 @@ var gpuRecordingRules = []operatorrules.RecordingRule{
 		Expr: intstr.FromString(
 			"sum by(namespace, name, node, uuid, resource) (" +
 				"label_replace(max by (UUID) (DCGM_FI_DEV_FB_FREE), 'uuid', '$1', 'UUID', '(.*)') * " +
-				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) * 1024 * 1024"),
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) * 1024 * 1024",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -78,6 +82,7 @@ var gpuRecordingRules = []operatorrules.RecordingRule{
 		Expr: intstr.FromString(
 			"sum by(namespace, name, node, uuid, resource) (" +
 				"label_replace(max by (UUID) (DCGM_FI_DEV_FB_USED), 'uuid', '$1', 'UUID', '(.*)') * " +
-				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) * 1024 * 1024"),
+				"on(uuid) group_left(namespace, name, node, resource) kubevirt_vmi_gpu_info) * 1024 * 1024",
+		),
 	},
 }

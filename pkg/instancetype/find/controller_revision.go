@@ -44,7 +44,8 @@ func NewControllerRevisionFinder(store cache.Store, virtClient kubecli.KubevirtC
 func (f *controllerRevisionFinder) Find(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
 	if f.store == nil {
 		return f.virtClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
-			context.Background(), namespacedName.Name, metav1.GetOptions{})
+			context.Background(), namespacedName.Name, metav1.GetOptions{},
+		)
 	}
 
 	obj, exists, err := f.store.GetByKey(namespacedName.String())
@@ -53,7 +54,8 @@ func (f *controllerRevisionFinder) Find(namespacedName types.NamespacedName) (*a
 	}
 	if !exists {
 		return f.virtClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
-			context.Background(), namespacedName.Name, metav1.GetOptions{})
+			context.Background(), namespacedName.Name, metav1.GetOptions{},
+		)
 	}
 	revision, ok := obj.(*appsv1.ControllerRevision)
 	if !ok {

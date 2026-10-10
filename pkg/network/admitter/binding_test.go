@@ -52,7 +52,8 @@ var _ = Describe("Validating network binding combinations", func() {
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface must have exactly one binding method or binding plugin",
 				Field:   "fake.domain.devices.interfaces[0]",
-			}))
+			}),
+		)
 	})
 
 	It("network interface has only plugin binding", func() {
@@ -86,7 +87,8 @@ var _ = Describe("Validating network binding combinations", func() {
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface must have exactly one binding method or binding plugin",
 				Field:   "fake.domain.devices.interfaces[0]",
-			}))
+			}),
+		)
 	})
 
 	It("network interface has more than one binding method", func() {
@@ -110,7 +112,8 @@ var _ = Describe("Validating network binding combinations", func() {
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface must have exactly one binding method or binding plugin",
 				Field:   "fake.domain.devices.interfaces[0]",
-			}))
+			}),
+		)
 	})
 
 	It("network interface has only binding method", func() {

@@ -124,7 +124,9 @@ func verifyTapDomain(domainIfaces []api.Interface, expectedTargetName, expectedM
 			&api.InterfaceTarget{
 				Device:  expectedTargetName,
 				Managed: "no",
-			}), "should have an unmanaged interface")
+			},
+		), "should have an unmanaged interface",
+	)
 	ExpectWithOffset(1, domainIfaces[0].MAC).To(Equal(&api.MAC{MAC: expectedMAC}), "should have the expected MAC address")
 	ExpectWithOffset(1, domainIfaces[0].MTU).To(Equal(&api.MTU{Size: expectedMTU}), "should have the expected MTU")
 }

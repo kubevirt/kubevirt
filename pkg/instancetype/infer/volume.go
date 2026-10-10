@@ -125,7 +125,8 @@ func (h *volumeHandler) fromVolumeSnapshot(
 	snapshotName, snapshotNamespace string,
 ) (defaultName, defaultKind string, err error) {
 	snapshot, err := h.virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(snapshotNamespace).Get(
-		context.Background(), snapshotName, metav1.GetOptions{})
+		context.Background(), snapshotName, metav1.GetOptions{},
+	)
 	if err != nil {
 		return "", "", err
 	}
@@ -169,7 +170,8 @@ func (h *volumeHandler) fromDataVolumeSpec(
 		}
 		if dataVolumeSpec.Source.Snapshot != nil {
 			return h.fromVolumeSnapshot(
-				dataVolumeSpec.Source.Snapshot.Name, dataVolumeSpec.Source.Snapshot.Namespace)
+				dataVolumeSpec.Source.Snapshot.Name, dataVolumeSpec.Source.Snapshot.Namespace,
+			)
 		}
 	}
 	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
@@ -182,7 +184,8 @@ func (h *volumeHandler) fromDataSource(
 	dataSourceName, dataSourceNamespace string,
 ) (defaultName, defaultKind string, err error) {
 	ds, err := h.virtClient.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(
-		context.Background(), dataSourceName, metav1.GetOptions{})
+		context.Background(), dataSourceName, metav1.GetOptions{},
+	)
 	if err != nil {
 		return "", "", err
 	}

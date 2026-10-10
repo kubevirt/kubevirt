@@ -160,7 +160,8 @@ var _ = Describe(SIGSerial("virt-handler", decorators.WgS390x, func() {
 				return found && value == trueStr, nil
 			}, 3*time.Minute, 2*time.Second).Should(BeFalse(), fmt.Sprintf(
 				"Annotation %s should be removed from the node %s",
-				v1.KSMHandlerManagedAnnotation, node))
+				v1.KSMHandlerManagedAnnotation, node,
+			))
 		}
 	})
 }))

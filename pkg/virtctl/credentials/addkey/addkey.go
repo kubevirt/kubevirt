@@ -115,7 +115,8 @@ func (a *addSSHKeyFlags) addSecretWithSSHKey(
 		if err == nil {
 			return fmt.Errorf(
 				"virtual machine %s is running. Use --force flag to update a running VM, it will take effect after restart",
-				vm.Name)
+				vm.Name,
+			)
 		}
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("error when getting virtual machine instance: %w", err)
@@ -205,7 +206,8 @@ func (a *addSSHKeyFlags) updateSecretWithSSHKey(
 		secretName,
 		types.JSONPatchType,
 		addKeyPatch,
-		metav1.PatchOptions{})
+		metav1.PatchOptions{},
+	)
 	if err != nil {
 		// If it fails, the /data may be nil. Try a patch that adds the /data field
 		fullPatch, err := patch.New(

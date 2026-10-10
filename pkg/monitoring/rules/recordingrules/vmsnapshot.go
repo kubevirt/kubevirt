@@ -55,6 +55,7 @@ var vmsnapshotRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr: intstr.FromString(
 			"sum by(vm_name, vm_namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes * " +
-				"on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) pvc:kubevirt_vmsnapshot_labels:info)"),
+				"on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) pvc:kubevirt_vmsnapshot_labels:info)",
+		),
 	},
 }

@@ -47,7 +47,8 @@ func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1
 	}
 	if f.store == nil {
 		return f.virtClient.VirtualMachineClusterPreference().Get(
-			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
+			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{},
+		)
 	}
 
 	obj, exists, err := f.store.GetByKey(vm.Spec.Preference.Name)
@@ -56,7 +57,8 @@ func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1
 	}
 	if !exists {
 		return f.virtClient.VirtualMachineClusterPreference().Get(
-			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
+			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{},
+		)
 	}
 	preference, ok := obj.(*v1beta1.VirtualMachineClusterPreference)
 	if !ok {
