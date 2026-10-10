@@ -66,7 +66,10 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
 	kubevirtv1.SupportedMachineTypeLabel,
 	kubevirtv1.VMArchLabel,
+	kubevirtv1.VGPUHostDriverVersionLabelPrefix,
 }
+
+const nvidiaVGPUHostDriverVersionLabel = kubevirtv1.VGPUHostDriverVersionLabelPrefix + "nvidia"
 
 // NodeLabeller struct holds information needed to run node-labeller
 type NodeLabeller struct {
@@ -91,6 +94,7 @@ type NodeLabeller struct {
 	TDX                     TDXConfiguration
 	arch                    archLabeller
 	supportedCrossArchs     []string
+	vgpuQuery               func() ([]byte, error)
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
@@ -115,6 +119,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		supportedMachines:       supportedMachines,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool)},
 		arch:                    newArchLabeller(runtime.GOARCH),
+		vgpuQuery:               readNVIDIADriverVersion,
 	}
 
 	err := n.loadAll()
@@ -322,6 +327,12 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		newLabels[kubevirtv1.VMArchLabel+nativeArch] = "true"
 		for _, crossArch := range n.supportedCrossArchs {
 			newLabels[kubevirtv1.VMArchLabel+crossArch] = "true"
+		}
+	}
+
+	if n.clusterConfig.VGPULiveMigrationEnabled() {
+		if version, ok := n.vgpuHostDriverVersion(); ok {
+			newLabels[nvidiaVGPUHostDriverVersionLabel] = version
 		}
 	}
 

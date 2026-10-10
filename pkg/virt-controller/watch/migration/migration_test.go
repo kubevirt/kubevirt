@@ -63,6 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -2667,6 +2668,214 @@ var _ = Describe("Migration watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 			Expect(pods.Items[0].Spec.NodeSelector).To(HaveKeyWithValue(intelVendorLabel, "true"))
+		})
+	})
+
+	Context("vGPU host driver version affinity", func() {
+		const (
+			nodeName                 = "testNode"
+			driverVersion            = "595.91.04"
+			nvidiaDriverVersionLabel = v1.VGPUHostDriverVersionLabelPrefix + "nvidia"
+		)
+
+		vgpuNodeLabels := map[string]string{
+			nvidiaDriverVersionLabel: driverVersion,
+		}
+
+		enableVGPULiveMigration := func() {
+			setConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.VGPULiveMigration},
+				},
+			})
+		}
+
+		withGPU := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{{
+				Name:       "gpu1",
+				DeviceName: "nvidia.com/GRID_A100-4C",
+			}}
+		}
+
+		expectDriverVersionAffinity := func(pod *k8sv1.Pod) {
+			Expect(pod.Spec.NodeSelector).NotTo(HaveKey(nvidiaDriverVersionLabel))
+			Expect(pod.Spec.Affinity).NotTo(BeNil())
+			Expect(pod.Spec.Affinity.NodeAffinity).NotTo(BeNil())
+
+			var sameVersion *k8sv1.PreferredSchedulingTerm
+			for i := range pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+				term := &pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution[i]
+				for _, expr := range term.Preference.MatchExpressions {
+					if expr.Key != nvidiaDriverVersionLabel {
+						continue
+					}
+					Expect(expr.Operator).To(Equal(k8sv1.NodeSelectorOpIn))
+					sameVersion = term
+				}
+			}
+
+			Expect(sameVersion).NotTo(BeNil())
+			Expect(sameVersion.Weight).To(Equal(vgpuSameHostDriverVersionWeight))
+			Expect(sameVersion.Preference.MatchExpressions).To(ConsistOf(k8sv1.NodeSelectorRequirement{
+				Key:      nvidiaDriverVersionLabel,
+				Operator: k8sv1.NodeSelectorOpIn,
+				Values:   []string{driverVersion},
+			}))
+		}
+
+		expectNoDriverVersionAffinity := func(pod *k8sv1.Pod) {
+			if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil {
+				return
+			}
+			for _, term := range pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+				for _, expr := range term.Preference.MatchExpressions {
+					Expect(expr.Key).NotTo(Equal(nvidiaDriverVersionLabel))
+				}
+			}
+		}
+
+		It("should prefer the source vGPU host driver version on the migration target", func() {
+			enableVGPULiveMigration()
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			withGPU(vmi)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			node.Labels = vgpuNodeLabels
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			expectDriverVersionAffinity(targetPod)
+		})
+
+		It("should not add vGPU driver affinity when live migration is disabled", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			withGPU(vmi)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			node.Labels = vgpuNodeLabels
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			expectNoDriverVersionAffinity(targetPod)
+		})
+
+		It("should not add vGPU driver affinity when the source node has no driver version", func() {
+			enableVGPULiveMigration()
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			withGPU(vmi)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(newNode(nodeName))
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			expectNoDriverVersionAffinity(targetPod)
+		})
+
+		It("should not add vGPU driver affinity when the VMI has no GPU", func() {
+			enableVGPULiveMigration()
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			node.Labels = vgpuNodeLabels
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			expectNoDriverVersionAffinity(targetPod)
+		})
+
+		It("should prefer the source vGPU host driver version for a decentralized migration", func() {
+			enableVGPULiveMigration()
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			withGPU(vmi)
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceNode: nodeName,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:           nodeName,
+						SelinuxContext: "none",
+					},
+					NodeSelectors: vgpuNodeLabels,
+				},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.MigrationJobLabel, string(migration.UID), v1.CreatedByLabel, string(vmi.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			expectDriverVersionAffinity(&pods.Items[0])
+		})
+
+		It("should copy vGPU host driver labels into decentralized source node selectors", func() {
+			enableVGPULiveMigration()
+			node := newNode(nodeName)
+			node.Labels = map[string]string{
+				nvidiaDriverVersionLabel: driverVersion,
+				"unrelated":              "keep-out",
+			}
+			addNode(node)
+
+			selectors, err := controller.getNodeSelectorsFromNodeName(nodeName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selectors).To(HaveKeyWithValue(nvidiaDriverVersionLabel, driverVersion))
+			Expect(selectors).NotTo(HaveKey("unrelated"))
+		})
+
+		It("should not copy vGPU host driver labels when live migration is disabled", func() {
+			node := newNode(nodeName)
+			node.Labels = vgpuNodeLabels
+			addNode(node)
+
+			selectors, err := controller.getNodeSelectorsFromNodeName(nodeName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selectors).NotTo(HaveKey(nvidiaDriverVersionLabel))
 		})
 	})
 
