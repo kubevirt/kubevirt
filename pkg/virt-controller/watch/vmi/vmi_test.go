@@ -1012,7 +1012,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		addVirtualMachine(vmi)
 
-		// Feature gate is disabled by default in tests
+		kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+		if kvCR.Spec.Configuration.DeveloperConfiguration == nil {
+			kvCR.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{}
+		}
+		kvCR.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
+			kvCR.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates, "ContainerPathVolumes")
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 		sanityExecute()
 
 		testutils.ExpectEvent(recorder, virtv1.ContainerPathVolumesDisabledReason)
