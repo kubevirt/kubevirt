@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
@@ -512,6 +513,13 @@ func validateConfig(config *v1.KubeVirtConfiguration) error {
 		break
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", config.NetworkConfiguration.NetworkInterface)
+	}
+
+	if config.EmulationPolicy != nil && !slices.Contains(v1.EmulationPolicies, *config.EmulationPolicy) {
+		return fmt.Errorf("invalid EmulationPolicy in config: %s", *config.EmulationPolicy)
+	}
+	if config.EmulationPolicy != nil && *config.EmulationPolicy == v1.EmulationPolicyHardware {
+		return fmt.Errorf("invalid EmulationPolicy: 'Hardware' is not yet implemented")
 	}
 
 	return nil

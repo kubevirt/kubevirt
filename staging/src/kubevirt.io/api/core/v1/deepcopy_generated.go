@@ -3047,6 +3047,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(RoleAggregationStrategy)
 		**out = **in
 	}
+	if in.EmulationPolicy != nil {
+		in, out := &in.EmulationPolicy, &out.EmulationPolicy
+		*out = new(EmulationPolicy)
+		**out = **in
+	}
 	return
 }
 
@@ -6795,6 +6800,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.EmulationPolicy != nil {
+		in, out := &in.EmulationPolicy, &out.EmulationPolicy
+		*out = new(EmulationPolicy)
+		**out = **in
 	}
 	return
 }
