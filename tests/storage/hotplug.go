@@ -2069,14 +2069,22 @@ var _ = Describe(SIG("Hotplug", func() {
 			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
 			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
 			getAlpineVmiConsoleAndLogin(vmi)
-			verifyVolumeAccessible(vmi, device)
-			verifyCreateData(vmi, device, "testvolume")
+
+			// device is the path on the host, it only matches the guest path when
+			// the node has no other scsi disks. Use the target from the volume
+			// status instead.
+			guestTargets := libstorage.GetVolumeTargetPaths(virtClient, vmi, true, "testvolume")
+			Expect(guestTargets).To(HaveLen(1))
+			guestDevice := guestTargets[0]
+
+			verifyVolumeAccessible(vmi, guestDevice)
+			verifyCreateData(vmi, guestDevice, "testvolume")
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
 			By(verifyingVolumeNotExist)
 			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
-			verifyVolumeNolongerAccessible(vmi, device)
+			verifyVolumeNolongerAccessible(vmi, guestDevice)
 		})
 	})
 
