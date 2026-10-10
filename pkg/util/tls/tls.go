@@ -9,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 
@@ -16,6 +17,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
@@ -46,11 +48,13 @@ func SetupPromTLS(certManager certificate.Manager, clusterConfig *virtconfig.Clu
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			curvePreferences := curvePreferencesIfEnabled(kv, tlsConfig.Groups)
 			config := &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				Certificates: []tls.Certificate{*crt},
-				ClientAuth:   tls.VerifyClientCertIfGiven,
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				Certificates:     []tls.Certificate{*crt},
+				ClientAuth:       tls.VerifyClientCertIfGiven,
 			}
 
 			config.BuildNameToCertificate()
@@ -81,10 +85,12 @@ func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtStore cache.St
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			curvePreferences := curvePreferencesIfEnabled(kv, tlsConfig.Groups)
 			config := &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				Certificates: []tls.Certificate{*crt},
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				Certificates:     []tls.Certificate{*crt},
 			}
 
 			config.BuildNameToCertificate()
@@ -119,12 +125,14 @@ func SetupTLSWithCertManager(caManager KubernetesCAManager, certManager certific
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			curvePreferences := curvePreferencesIfEnabled(kv, tlsConfig.Groups)
 			config := &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				Certificates: []tls.Certificate{*cert},
-				ClientCAs:    clientCAPool,
-				ClientAuth:   clientAuth,
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				Certificates:     []tls.Certificate{*cert},
+				ClientCAs:        clientCAPool,
+				ClientAuth:       clientAuth,
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 					if len(verifiedChains) == 0 || len(verifiedChains[0]) == 0 {
 						return nil
@@ -201,10 +209,12 @@ func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manage
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			curvePreferences := curvePreferencesIfEnabled(kv, tlsConfig.Groups)
 			config = &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				ClientCAs:    certPool,
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				ClientCAs:        certPool,
 				GetCertificate: func(info *tls.ClientHelloInfo) (i *tls.Certificate, e error) {
 					return cert, nil
 				},
@@ -297,6 +307,18 @@ func getTLSConfiguration(kubevirt *v1.KubeVirt) *v1.TLSConfiguration {
 	return tlsConfiguration
 }
 
+// curvePreferencesIfEnabled returns the CurvePreferences for the given groups
+// if the TLSGroupPreferences feature gate is enabled, nil otherwise.
+func curvePreferencesIfEnabled(kv *v1.KubeVirt, groups []string) []tls.CurveID {
+	if kv == nil {
+		return nil
+	}
+	if !featuregate.IsEnabled(featuregate.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) {
+		return nil
+	}
+	return CurvePreferenceIds(groups)
+}
+
 func resolveTLSConfiguration(kubevirt *v1.KubeVirt) (minVersion uint16, cipherSuites []uint16) {
 	tlsConfig := getTLSConfiguration(kubevirt)
 	return TLSVersion(tlsConfig.MinTLSVersion), CipherSuiteIds(tlsConfig.Ciphers)
@@ -305,10 +327,11 @@ func resolveTLSConfiguration(kubevirt *v1.KubeVirt) (minVersion uint16, cipherSu
 // ApplyTLSConfigurationFromKubeVirtStore applies the resolved TLS configuration from the
 // KubeVirt CR to the provided tls.Config.
 func ApplyTLSConfigurationFromKubeVirtStore(config *tls.Config, kubeVirtStore cache.Store) {
-	minVersion, cipherSuites := resolveTLSConfiguration(getKubevirt(kubeVirtStore))
+	kv := getKubevirt(kubeVirtStore)
+	minVersion, cipherSuites := resolveTLSConfiguration(kv)
 	config.MinVersion = minVersion
 	if len(cipherSuites) > 0 {
-		config.CipherSuites = cipherSuites
+		config.CipherSuites = slices.Clone(cipherSuites)
 	} else {
 		config.CipherSuites = nil
 	}
@@ -334,6 +357,49 @@ func CipherSuiteNameMap() map[string]uint16 {
 		idByName[cipherSuite.Name] = cipherSuite.ID
 	}
 	return idByName
+}
+
+// CurvePreferenceIds converts a list of IANA TLS Supported Groups registry
+// names (e.g. "X25519", "secp256r1", "X25519MLKEM768") to the corresponding
+// tls.CurveID values. Unrecognised names are silently skipped so that an older
+// component tolerates group names added in a newer release. Returns nil when
+// the input is empty, which leaves tls.Config.CurvePreferences unset and
+// preserves Go's default behaviour.
+func CurvePreferenceIds(names []string) []tls.CurveID {
+	if len(names) == 0 {
+		return nil
+	}
+	ids := sets.New[tls.CurveID]()
+	for _, name := range names {
+		if id, ok := curveIdByName(name); ok {
+			ids.Insert(id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return sets.List(ids)
+}
+
+func curveIdByName(name string) (tls.CurveID, bool) {
+	switch name {
+	case v1.TLSGroupX25519:
+		return tls.X25519, true
+	case v1.TLSGroupSecp256r1:
+		return tls.CurveP256, true
+	case v1.TLSGroupSecp384r1:
+		return tls.CurveP384, true
+	case v1.TLSGroupSecp521r1:
+		return tls.CurveP521, true
+	case v1.TLSGroupX25519MLKEM768:
+		return tls.X25519MLKEM768, true
+	case v1.TLSGroupSecP256r1MLKEM768:
+		return tls.SecP256r1MLKEM768, true
+	case v1.TLSGroupSecP384r1MLKEM1024:
+		return tls.SecP384r1MLKEM1024, true
+	default:
+		return 0, false
+	}
 }
 
 // TLSVersion converts from human-readable TLS version (for example "1.1")
