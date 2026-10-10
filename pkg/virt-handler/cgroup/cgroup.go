@@ -21,7 +21,9 @@ package cgroup
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -197,29 +199,58 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.Is
 	return isolationRes, nil
 }
 
-var miscCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")
+var (
+	miscCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")
+	miscMaxPath      = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.max")
+)
 
-func GetMiscCapacity(key string) (int, error) {
-	f, err := os.Open(miscCapacityPath)
+// readMiscKey returns the raw value a misc cgroup file lists for key. Both
+// misc.capacity and misc.max hold lines in the format: "key [value]"
+func readMiscKey(filePath, key string) (string, error) {
+	f, err := os.Open(filePath)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	defer f.Close()
-	// File has lines in the format: "key [capacity]"
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Fields(line)
+		parts := strings.Fields(scanner.Text())
 		if len(parts) != 2 {
 			continue
 		}
 		if parts[0] == key {
-			capacity, err := strconv.Atoi(parts[1])
-			if err != nil {
-				return 0, err
-			}
-			return capacity, nil
+			return parts[1], nil
 		}
 	}
-	return 0, fmt.Errorf("key %s not found in misc.capacity", key)
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("key %s not found in %s", key, filePath)
+}
+
+// GetMiscCapacity reports how many guests charging the given misc cgroup key
+// this node can run.
+//
+// The kernel never exposes both keys at one cgroup: misc.capacity is
+// CFTYPE_ONLY_ON_ROOT, misc.max is CFTYPE_NOT_ON_ROOT. A node owning the
+// machine reads the real capacity; a containerized node, like KinD, sees only
+// a limit on its own cgroup. If key is present only in misc.max, assume the
+// value is a share of misc.capacity, and report one.
+func GetMiscCapacity(key string) (int, error) {
+	capacity, err := readMiscKey(miscCapacityPath, key)
+	if err == nil {
+		return strconv.Atoi(capacity)
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return 0, err
+	}
+
+	const defaultLimit = 1
+	if _, limitErr := readMiscKey(miscMaxPath, key); limitErr != nil {
+		return 0, fmt.Errorf("misc resource %q not found: %w; %w", key, err, limitErr)
+	}
+	log.Log.Warningf("misc resource %q is found in %s and absent from %s, defaulting to %d",
+		key, miscMaxPath, miscCapacityPath, defaultLimit)
+	return defaultLimit, nil
 }
