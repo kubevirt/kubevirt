@@ -89,6 +89,7 @@ type SynchronizationController struct {
 
 	vmiInformer       cache.SharedIndexInformer
 	migrationInformer cache.SharedIndexInformer
+	kubeVirtStore     cache.Store
 
 	listener                 net.Listener
 	bindAddress              string
@@ -98,7 +99,10 @@ type SynchronizationController struct {
 	serverTLSConfig          *tls.Config
 	migrationClientTLSConfig *tls.Config
 	migrationServerTLSConfig *tls.Config
-	timeout                  int
+	// proxyEnabled gates use of kubevirt.status.synchronizationAddresses for
+	// advertising the Route/Ingress address to the peer cluster.
+	proxyEnabled bool
+	timeout      int
 
 	queue     workqueue.TypedRateLimitingInterface[string]
 	hasSynced func() bool
@@ -123,6 +127,7 @@ func NewSynchronizationController(
 	client kubecli.KubevirtClient,
 	vmiInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
+	kubeVirtStore cache.Store,
 	clientTLSConfig,
 	serverTLSConfig,
 	migrationClientTLSConfig,
@@ -132,13 +137,16 @@ func NewSynchronizationController(
 	ip string,
 	proxyConfig *ProxyInitConfig,
 ) (*SynchronizationController, error) {
+	proxyEnabled := proxyConfig != nil && proxyConfig.Enabled
 	syncController := &SynchronizationController{
 		vmiInformer:              vmiInformer,
 		migrationInformer:        migrationInformer,
+		kubeVirtStore:            kubeVirtStore,
 		clientTLSConfig:          clientTLSConfig,
 		serverTLSConfig:          serverTLSConfig,
 		migrationClientTLSConfig: migrationClientTLSConfig,
 		migrationServerTLSConfig: migrationServerTLSConfig,
+		proxyEnabled:             proxyEnabled,
 		timeout:                  defaultTimeout,
 		bindAddress:              bindAddress,
 		bindPort:                 bindPort,
@@ -1400,22 +1408,58 @@ func (s *SynchronizationController) getVMIFromMigration(migration *virtv1.Virtua
 }
 
 func (s *SynchronizationController) getLocalSynchronizationAddress() (string, error) {
-	// When tunnel is initialized, use crosscluster IP for gRPC synchronization
+	// Priority 1: kubevirt.status.synchronizationAddresses when proxy mode is
+	// enabled. The virt-operator populates this from a labeled Route/Ingress/Service
+	// only when the proxy datapath is enabled without crossClusterNetwork. When
+	// crossClusterNetwork is set, the operator advertises the cross-cluster IP
+	// instead, so reading status here stays consistent with that contract.
+	if s.proxyEnabled && s.kubeVirtStore != nil {
+		if addr, err := s.getSynchronizationAddressFromKubeVirt(); err == nil && addr != "" {
+			return addr, nil
+		} else if err != nil {
+			log.Log.V(3).Reason(err).Info("synchronizationAddresses unavailable from KubeVirt CR; trying cross-cluster IP or pod IP")
+		}
+	}
+
+	// Priority 2: cross-cluster network interface IP when the tunnel is initialized.
 	if s.IsTunnelInitialized() {
 		return net.JoinHostPort(s.tunnelManager.CrossClusterIP(), strconv.Itoa(s.bindPort)), nil
 	}
 
+	// Priority 3: pod IP fallback.
 	if s.ip != "" {
 		return net.JoinHostPort(s.ip, strconv.Itoa(s.bindPort)), nil
 	}
-	// TODO figure out how to get my URL with or without submariner (url changes based on export)
 	return s.listener.Addr().String(), nil
+}
+
+// getSynchronizationAddressFromKubeVirt returns the first entry from
+// kubevirt.status.synchronizationAddresses, which is the externally-reachable
+// address (Route/Ingress/Service) published by the virt-operator.
+func (s *SynchronizationController) getSynchronizationAddressFromKubeVirt() (string, error) {
+	objs := s.kubeVirtStore.List()
+	for _, obj := range objs {
+		kv, ok := obj.(*virtv1.KubeVirt)
+		if !ok || kv.DeletionTimestamp != nil {
+			continue
+		}
+		if len(kv.Status.SynchronizationAddresses) > 0 {
+			return kv.Status.SynchronizationAddresses[0], nil
+		}
+		return "", fmt.Errorf("KubeVirt CR %q has no synchronizationAddresses in status; "+
+			"ensure a Route, Ingress, or Service with label %q exists",
+			kv.Name, virtv1.SynchronizationEndpointLabel)
+	}
+	return "", fmt.Errorf("no KubeVirt CR found in store")
 }
 
 func (s *SynchronizationController) createOutboundConnection(connectionURL string) (*grpc.ClientConn, error) {
 	logger := log.Log.With("outbound", connectionURL)
 	logger.Info("creating new synchronization grpc connection")
-
+	// With passthrough Routes/Ingresses the peer presents a virt-synchronization-controller
+	// cert signed by its kubevirt-ca. Peer CAs are shared via kubevirt-external-ca
+	// (merged into kubevirt-ca by the operator), so the standard mTLS client
+	// config is sufficient for both direct and proxy paths.
 	client, err := grpc.NewClient(connectionURL, grpc.WithTransportCredentials(credentials.NewTLS(s.clientTLSConfig)))
 	return client, err
 }

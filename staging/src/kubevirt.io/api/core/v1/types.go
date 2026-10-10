@@ -1459,6 +1459,20 @@ const (
 	// CrossClusterMigrationInterfaceName is the name of the interface used for cross-cluster migration
 	CrossClusterMigrationInterfaceName string = "crosscluster0"
 
+	// SynchronizationEndpointLabel is applied by admins to exactly one Ingress,
+	// Route, or Service to designate it as the external endpoint for the
+	// virt-synchronization-controller peer gRPC traffic. When the proxy datapath
+	// is enabled without crossClusterNetwork, KubeVirt discovers the labeled
+	// resource and publishes its address in status.synchronizationAddresses.
+	// At most one resource of each type may carry this label; duplicates within
+	// a type are rejected. Priority: Route > Ingress > Service.
+	//
+	// The selector uses key-exists semantics: the label value is ignored, so
+	// any value (including an empty string) will match. Set the label to "true"
+	// by convention; note that setting it to "false" will NOT disable discovery.
+	// To stop discovery, remove the label entirely.
+	SynchronizationEndpointLabel = "kubevirt.io/synchronization-endpoint"
+
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
 
@@ -2782,6 +2796,11 @@ const (
 	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
 	// Whether KubeVirt is not functioning completely
 	KubeVirtConditionDegraded KubeVirtConditionType = "Degraded"
+
+	// Whether the synchronization endpoint for cross-cluster proxy migrations
+	// is correctly configured (exactly one labeled Route/Ingress/Service when
+	// the proxy datapath is enabled without crossClusterNetwork).
+	KubeVirtConditionSynchronizationEndpoint KubeVirtConditionType = "SynchronizationEndpoint"
 )
 
 const (
