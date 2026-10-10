@@ -13,20 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
-package main
+//go:build !coverage_e2e
 
-import (
-	"kubevirt.io/kubevirt/pkg/coveragehttp"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
-)
+package coveragehttp
 
-func main() {
-	// No-op unless built with the coverage_e2e tag (--build-cover).
-	coveragehttp.Start("virt-controller")
-
-	watch.Execute()
-}
+// Start is a no-op in production (non-coverage) builds. Daemons call it
+// unconditionally at startup; the coverage HTTP server only exists in binaries
+// built with the "coverage_e2e" tag (hack/bazel-build-images.sh --build-cover).
+func Start(component string) {}
