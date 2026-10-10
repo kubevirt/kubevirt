@@ -130,7 +130,7 @@ const (
 	secondaryNetworkName          = "secondarynet"
 )
 
-var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
+var _ = Describe("[sig-control-plane]Operator", Serial, decorators.SigControlPlane, func() {
 
 	var originalKv *v1.KubeVirt
 	var originalOperatorVersion string

@@ -17,7 +17,7 @@ Flaky test detected: {test_name} [1]
 
 <!-- sig assignment
      all tests contain a sig identifier, please assign the corresponding SIG to the issue, i.e.
-     for a test name containing [sig-compute] or [sig-operator]
+     for a test name containing [sig-compute] or [sig-control-plane]
 -->
 /sig compute
 
