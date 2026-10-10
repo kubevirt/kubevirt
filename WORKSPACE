@@ -108,6 +108,24 @@ http_file(
 )
 
 http_archive(
+    name = "platforms",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/1.1.0/platforms-1.1.0.tar.gz",
+        "https://github.com/bazelbuild/platforms/releases/download/1.1.0/platforms-1.1.0.tar.gz",
+    ],
+    sha256 = "dbad4a23abcca6171e47b79edc53bd6a41067a3b75f9e8b104656b459ff25046",
+)
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "51b5105a760b353773f904d2bbc5e664d0987fbaf22265164de65d43e910d8ac",
+    urls = [
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.8.1/bazel-skylib-1.8.1.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.8.1/bazel-skylib-1.8.1.tar.gz",
+    ],
+)
+
+http_archive(
     name = "rules_img",
     sha256 = "6ac03edbafc57f66dc267d649b1d4413001b53fa5c8c95ba4c5038a4575b0bb9",
     urls = [
@@ -154,22 +172,10 @@ buildifier_prebuilt_deps()
 # Additional bazel rules
 
 http_archive(
-    name = "platforms",
-    sha256 = "3384eb1c30762704fbe38e440204e114154086c8fc8a8c2e3e28441028c019a8",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/1.0.0/platforms-1.0.0.tar.gz",
-        "https://github.com/bazelbuild/platforms/releases/download/1.0.0/platforms-1.0.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/3384eb1c30762704fbe38e440204e114154086c8fc8a8c2e3e28441028c019a8",
-    ],
-)
-
-http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "86d3dc8f59d253524f933aaf2f3c05896cb0b605fc35b460c0b4b039996124c6",
+    sha256 = "d5c2c953bf24697b209c21f3ff4edf46fedea98514ec358b10c0e78fc35d363e",
     urls = [
-        "https://mirror.bazel.build/github.com/bazel-contrib/rules_go/releases/download/v0.60.0/rules_go-v0.60.0.zip",
-        "https://github.com/bazel-contrib/rules_go/releases/download/v0.60.0/rules_go-v0.60.0.zip",
-        "https://storage.googleapis.com/builddeps/86d3dc8f59d253524f933aaf2f3c05896cb0b605fc35b460c0b4b039996124c6",
+        "https://github.com/bazel-contrib/rules_go/releases/download/v0.64.2/rules_go-v0.64.2.zip",
     ],
 )
 
@@ -211,10 +217,9 @@ buildifier_prebuilt_register_toolchains(
 
 http_archive(
     name = "bazel_gazelle",
-    sha256 = "92329a7dbb26d0beacc43da669211546ea6627582793f4dd5f28837fde3a5c08",
+    sha256 = "49d9eba309b0b695824ff417d734242824ad9ab5edb56063b9d3400df1a61a56",
     urls = [
-        "https://github.com/bazel-contrib/bazel-gazelle/releases/download/v0.50.0/bazel-gazelle-v0.50.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/92329a7dbb26d0beacc43da669211546ea6627582793f4dd5f28837fde3a5c08",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.51.3/bazel-gazelle-v0.51.3.tar.gz",
     ],
 )
 
@@ -323,6 +328,18 @@ load(
     "bazeldnf_dependencies",
     "bazeldnf_register_toolchains",
 )
+load("@bazel_gazelle//:deps.bzl", "go_repository")
+
+# rules_go 0.64.2 pins x/tools to v0.30.0 (2025-02); its pkgbits decoder cannot
+# read Go 1.27's export data (version 5). Declare the latest x/tools first so
+# go_rules_dependencies()'s `maybe` keeps this version.
+go_repository(
+    name = "org_golang_x_tools",
+    importpath = "golang.org/x/tools",
+    version = "v0.51.0",
+    sum = "h1:k4Xc/1Om9jwkBJBo4NVLMSARBoWtK10mx+W5BnXCeAI=",
+)
+
 load(
     "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
