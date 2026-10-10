@@ -40,19 +40,21 @@ type OptimalBlockIODetectFunc func(disk *api.Disk) (*api.BlockIO, error)
 type diskOption func(*DiskConfigurator)
 
 type DiskConfigurator struct {
-	architecture         string
-	virtioModel          string
-	useLaunchSecuritySEV bool
-	useLaunchSecurityPV  bool
-	volumesDiscardIgnore []string
-	hotplugVolumes       map[string]v1.VolumeStatus
-	permanentVolumes     map[string]v1.VolumeStatus
-	isBlockPVC           map[string]bool
-	isBlockDV            map[string]bool
-	applyCBT             map[string]string
-	disksInfo            map[string]*disk.DiskInfo
-	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface
-	detectOptimalBlockIO OptimalBlockIODetectFunc
+	architecture                   string
+	virtioModel                    string
+	useLaunchSecuritySEV           bool
+	useLaunchSecurityPV            bool
+	volumesDiscardIgnore           []string
+	hotplugVolumes                 map[string]v1.VolumeStatus
+	permanentVolumes               map[string]v1.VolumeStatus
+	isBlockPVC                     map[string]bool
+	isBlockDV                      map[string]bool
+	applyCBT                       map[string]string
+	disksInfo                      map[string]*disk.DiskInfo
+	ephemeralDiskCreator           ephemeraldisk.EphemeralDiskCreatorInterface
+	detectOptimalBlockIO           OptimalBlockIODetectFunc
+	scsiMultiIOThreadEnabled       bool
+	multiIOThreadAutoPolicyEnabled bool
 }
 
 func NewDiskConfigurator(options ...diskOption) DiskConfigurator {
@@ -100,7 +102,23 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
 	currentDedicatedThread := uint(autoThreads + 1)
-	supplementalIOThreads := iothreads.BuildSupplementalPoolIOThreads(vmi)
+
+	var ioThreadPool *api.DiskIOThreads
+	// SCSIMultiIOThread feature gate and MultiIOThreadAutoPolicy kubevirt config
+	// must be both enabled to take advantage of allocating entire auto thread pool to each disk
+	useMultiIOAuto := d.scsiMultiIOThreadEnabled && d.multiIOThreadAutoPolicyEnabled
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
+		if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+			// vmi admitter requires SupplementalPoolThreadCount to be set when using this thread policy
+			ioThreadPool = iothreads.BuildIOThreadPool(int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount))
+		} else if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto && useMultiIOAuto {
+			// we don't want to allocate an auto thread pool larger than what a VM can utilize
+			// additionally, perf analysis have shown that a larger thread pool does not always yield better results
+			// so we will bound the thread pool size by a static maximum
+			autoPoolSize := min(autoThreads, int(vcpus), iothreads.AutoThreadPoolMax)
+			ioThreadPool = iothreads.BuildIOThreadPool(autoPoolSize)
+		}
+	}
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 		emptyCDRom := false
@@ -147,7 +165,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
+			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, ioThreadPool, autoThreads, currentDedicatedThread, currentAutoThread)
 		}
 	}
 
@@ -387,5 +405,17 @@ func DiskWithEphemeralDiskCreator(ephemeralDiskCreator ephemeraldisk.EphemeralDi
 func DiskWithOptimalBlockIODetector(f OptimalBlockIODetectFunc) diskOption {
 	return func(d *DiskConfigurator) {
 		d.detectOptimalBlockIO = f
+	}
+}
+
+func DiskWithScsiMultiIOThreadEnabled(enabled bool) diskOption {
+	return func(d *DiskConfigurator) {
+		d.scsiMultiIOThreadEnabled = enabled
+	}
+}
+
+func DiskWithMultiIOThreadAutoPolicyEnabled(enabled bool) diskOption {
+	return func(d *DiskConfigurator) {
+		d.multiIOThreadAutoPolicyEnabled = enabled
 	}
 }
