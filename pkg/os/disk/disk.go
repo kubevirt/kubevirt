@@ -12,6 +12,10 @@ type DiskInfo struct {
 	BackingFile string `json:"backing-filename"`
 	ActualSize  int64  `json:"actual-size"`
 	VirtualSize int64  `json:"virtual-size"`
+	// FileSize is the size of the image file as reported by stat. It differs
+	// from VirtualSize for raw images, where qemu-img rounds the size up to
+	// the next 512-byte sector boundary.
+	FileSize int64 `json:"-"`
 }
 
 const (
