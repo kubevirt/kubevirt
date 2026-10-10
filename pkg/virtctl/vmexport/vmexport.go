@@ -99,7 +99,7 @@ const (
 	RAW_FORMAT  = "raw"
 	OCI_FORMAT  = "oci"
 
-	ACCEPT           = "Accept"
+	ACCEPT           = "Accept" //nolint:domain-consts
 	APPLICATION_YAML = "application/yaml"
 	APPLICATION_JSON = "application/json"
 
