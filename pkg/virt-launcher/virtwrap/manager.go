@@ -1332,6 +1332,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 				UsesFirmwareAutoSelection: true,
 			}
 		} else {
+			if efiSpec := vmi.Spec.Domain.Firmware.Bootloader.EFI; efiSpec != nil && efiSpec.EnrolledKeys != nil && !*efiSpec.EnrolledKeys {
+				return nil, fmt.Errorf("EFI Secure Boot without enrolled keys requires the FirmwareAutoSelection feature gate")
+			}
 			if !efiEnv.Bootable(secureBoot, vmType) {
 				log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
 				return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
