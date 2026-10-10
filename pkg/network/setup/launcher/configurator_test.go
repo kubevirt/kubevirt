@@ -187,11 +187,10 @@ func domainWithDefaultInterface() *api.Domain {
 func newStubNetworkHandler(podIfaceName string) stubNetworkHandler {
 	return stubNetworkHandler{
 		links: map[string]netlink.Link{
-			podIfaceName: &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{
+			podIfaceName: &netlink.GenericLink{
 				Name:         podIfaceName,
 				MTU:          1500,
-				HardwareAddr: net.HardwareAddr{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
-			}},
+				HardwareAddr: net.HardwareAddr{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}},
 		},
 	}
 }

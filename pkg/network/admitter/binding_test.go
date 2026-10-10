@@ -41,8 +41,8 @@ var _ = Describe("Validating network binding combinations", func() {
 				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "boo"}),
 			)),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
@@ -63,8 +63,8 @@ var _ = Describe("Validating network binding combinations", func() {
 				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "boo"}),
 			)),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{}
@@ -76,8 +76,8 @@ var _ = Describe("Validating network binding combinations", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface("foo")),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{}
@@ -94,15 +94,13 @@ var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has more than one binding method", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name: "foo",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge:     &v1.InterfaceBridge{},
-					Masquerade: &v1.InterfaceMasquerade{},
-				},
+				Name:       "foo",
+				Bridge:     &v1.InterfaceBridge{},
+				Masquerade: &v1.InterfaceMasquerade{},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
@@ -123,8 +121,8 @@ var _ = Describe("Validating network binding combinations", func() {
 				libvmi.WithBridgeBinding(),
 			)),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}

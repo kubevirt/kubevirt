@@ -1492,40 +1492,33 @@ func newDomainStatusIface(IPs []string, mac, interfaceName string) api.Interface
 
 func newVMISpecIfaceWithMasqueradeBinding(name string) v1.Interface {
 	return v1.Interface{
-		Name: name,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Masquerade: &v1.InterfaceMasquerade{},
-		},
+		Name:       name,
+		Masquerade: &v1.InterfaceMasquerade{},
 	}
 }
 func newVMISpecIfaceWithBridgeBinding(name string) v1.Interface {
 	return v1.Interface{
-		Name: name,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Bridge: &v1.InterfaceBridge{},
-		},
+		Name:   name,
+		Bridge: &v1.InterfaceBridge{},
 	}
 }
 
 func newVMISpecIfaceWithSRIOVBinding(name string) v1.Interface {
 	return v1.Interface{
-		Name: name,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			SRIOV: &v1.InterfaceSRIOV{},
-		},
+		Name:  name,
+		SRIOV: &v1.InterfaceSRIOV{},
 	}
 }
 
 func newVMISpecPodNetwork(name string) v1.Network {
-	return v1.Network{Name: name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}
+	return v1.Network{Name: name, Pod: &v1.PodNetwork{}}
 }
 
 func newVMISpecMultusNetwork(name string) v1.Network {
 	return v1.Network{
 		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: "test.network",
-			}},
+		Multus: &v1.MultusNetwork{
+			NetworkName: "test.network",
+		},
 	}
 }

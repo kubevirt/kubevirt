@@ -124,11 +124,9 @@ var _ = Describe("KSM", func() {
 	When("ksmConfiguration is not provided", func() {
 		It("should set KSM label value to false", func() {
 			node := &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        testNodeName,
-					Labels:      nil,
-					Annotations: map[string]string{"unrelated-key": "unrelated-value"},
-				},
+				Name:        testNodeName,
+				Labels:      nil,
+				Annotations: map[string]string{"unrelated-key": "unrelated-value"},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			Expect(fakeNodeStore.Add(node)).To(Succeed())
@@ -168,10 +166,8 @@ var _ = Describe("KSM", func() {
 		}
 		BeforeEach(func() {
 			kv = &kubevirtv1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
 				Spec: kubevirtv1.KubeVirtSpec{
 					Configuration: kubevirtv1.KubeVirtConfiguration{
 						KSMConfiguration: &kubevirtv1.KSMConfiguration{
@@ -190,10 +186,8 @@ var _ = Describe("KSM", func() {
 
 		DescribeTable("independently from node pressure", func(nodeLabels map[string]string, expectedLabelValue string) {
 			node := &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   testNodeName,
-					Labels: nodeLabels,
-				},
+				Name:   testNodeName,
+				Labels: nodeLabels,
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			Expect(fakeNodeStore.Add(node)).To(Succeed())
@@ -222,11 +216,9 @@ var _ = Describe("KSM", func() {
 				kv.Spec.Configuration.KSMConfiguration.NodeLabelSelector = selectorOverride
 			}
 			node := &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        testNodeName,
-					Labels:      nodeLabels,
-					Annotations: nodeAnnotations,
-				},
+				Name:        testNodeName,
+				Labels:      nodeLabels,
+				Annotations: nodeAnnotations,
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			Expect(fakeNodeStore.Add(node)).To(Succeed())
@@ -281,10 +273,8 @@ var _ = Describe("KSM", func() {
 		It("should adapt to memory pressure", func() {
 			By("initializing with KSM enabled on the node and no memory pressure")
 			node := &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   testNodeName,
-					Labels: map[string]string{"test_label": "true"},
-				},
+				Name:   testNodeName,
+				Labels: map[string]string{"test_label": "true"},
 			}
 			expected := ksmState{
 				running: false,
@@ -340,18 +330,16 @@ var _ = Describe("KSM", func() {
 		It("should use override values if provided", func() {
 			By("initializing with KSM enabled on the node and override annotations")
 			node := &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   testNodeName,
-					Labels: map[string]string{"test_label": "true"},
-					Annotations: map[string]string{
-						kubevirtv1.KSMPagesBoostOverride:      "123",
-						kubevirtv1.KSMPagesDecayOverride:      "45", // Out of bounds, should use default: -50
-						kubevirtv1.KSMPagesMinOverride:        "166",
-						kubevirtv1.KSMPagesMaxOverride:        "789",
-						kubevirtv1.KSMPagesInitOverride:       "1011", // Out of bounds, can't use default, so should equal pagesMin
-						kubevirtv1.KSMSleepMsBaselineOverride: "1213",
-						kubevirtv1.KSMFreePercentOverride:     "1.0",
-					},
+				Name:   testNodeName,
+				Labels: map[string]string{"test_label": "true"},
+				Annotations: map[string]string{
+					kubevirtv1.KSMPagesBoostOverride:      "123",
+					kubevirtv1.KSMPagesDecayOverride:      "45", // Out of bounds, should use default: -50
+					kubevirtv1.KSMPagesMinOverride:        "166",
+					kubevirtv1.KSMPagesMaxOverride:        "789",
+					kubevirtv1.KSMPagesInitOverride:       "1011", // Out of bounds, can't use default, so should equal pagesMin
+					kubevirtv1.KSMSleepMsBaselineOverride: "1213",
+					kubevirtv1.KSMFreePercentOverride:     "1.0",
 				},
 			}
 			expected := ksmState{

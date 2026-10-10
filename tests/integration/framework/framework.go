@@ -148,7 +148,7 @@ func (f *Framework) CreateNamespace(ctx context.Context) string {
 	GinkgoHelper()
 	ns := fmt.Sprintf("test-%s", rand.String(namespaceSuffixLen))
 	_, err := f.virtClient.CoreV1().Namespaces().Create(ctx, &k8sv1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: ns},
+		Name: ns,
 	}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to create namespace %s", ns))
 	DeferCleanup(func(ctx SpecContext) {
@@ -372,7 +372,7 @@ func (f *Framework) createSeedData() {
 	GinkgoHelper()
 	for _, ns := range []string{"default", testNamespace} {
 		_, err := f.virtClient.CoreV1().Namespaces().Create(f.ctx, &k8sv1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{Name: ns},
+			Name: ns,
 		}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("failed to create namespace %s", ns))
@@ -380,7 +380,7 @@ func (f *Framework) createSeedData() {
 	}
 
 	_, err := f.virtClient.CoreV1().Nodes().Create(f.ctx, &k8sv1.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: testNodeName},
+		Name: testNodeName,
 		Status: k8sv1.NodeStatus{
 			Conditions: []k8sv1.NodeCondition{
 				{

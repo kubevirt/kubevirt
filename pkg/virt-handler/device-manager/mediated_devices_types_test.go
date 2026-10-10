@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kubev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -370,10 +369,8 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 			By("creating a cluster config")
 			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{},
 				},
@@ -421,13 +418,9 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			node := &kubev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "master",
-				},
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Node",
-					APIVersion: v1.GroupVersion.String(),
-				},
+				Name:       "master",
+				Kind:       "Node",
+				APIVersion: v1.GroupVersion.String(),
 			}
 			node.Status.Phase = kubev1.NodeRunning
 			node.ObjectMeta.Labels = sc.nodeLabels

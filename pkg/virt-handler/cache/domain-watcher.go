@@ -146,7 +146,7 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 		return
 	}
 	hostname, _ := os.Hostname()
-	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
+	node := &k8sv1.Node{Name: hostname}
 	d.recorder.Eventf(node, k8sv1.EventTypeWarning, "NotifyServerFailure",
 		"Domain notify server exited unexpectedly: %v", err)
 }
