@@ -92,7 +92,8 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 			Expr: intstr.FromString(
 				fmt.Sprintf("(%s - %s) != 0",
 					fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-handler'}", namespace),
-					fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", namespace))),
+					fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", namespace)),
+			),
 			For: ptr.To(promv1.Duration("15m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Some virt-handlers failed to roll out",

@@ -47,7 +47,8 @@ func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.Vi
 	}
 	if f.store == nil {
 		return f.virtClient.VirtualMachineClusterInstancetype().Get(
-			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
+			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{},
+		)
 	}
 
 	obj, exists, err := f.store.GetByKey(vm.Spec.Instancetype.Name)
@@ -56,7 +57,8 @@ func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.Vi
 	}
 	if !exists {
 		return f.virtClient.VirtualMachineClusterInstancetype().Get(
-			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
+			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{},
+		)
 	}
 	instancetype, ok := obj.(*v1beta1.VirtualMachineClusterInstancetype)
 	if !ok {

@@ -66,7 +66,8 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
 			const deleteTimeout = 180
 			err := virtClient.VirtualMachineInstance(
-				testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+				testsuite.NamespaceTestDefault,
+			).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 
 			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout*time.Second)).To(Succeed())

@@ -244,9 +244,11 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(
-							v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+							v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"},
+						),
 						libvmistatus.WithInterfaceStatus(
-							v1.VirtualMachineInstanceNetworkInterface{Name: multusSecondaryNetworkName, PodInterfaceName: "eth1"}),
+							v1.VirtualMachineInstanceNetworkInterface{Name: multusSecondaryNetworkName, PodInterfaceName: "eth1"},
+						),
 					),
 				),
 			)

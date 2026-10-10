@@ -102,7 +102,8 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			fakeVMClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			fakeVMClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		vm = libvmi.NewVirtualMachine(
 			libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault)),
@@ -155,11 +156,13 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
+			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{},
+		)
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
+			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgrade.IsObjectLatestVersion(newInstancetypeCR)).To(BeTrue())
@@ -170,11 +173,13 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(originalPreferenceCR.Name))
 
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-			context.Background(), originalPreferenceCR.Name, metav1.GetOptions{})
+			context.Background(), originalPreferenceCR.Name, metav1.GetOptions{},
+		)
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 		newPreferenceCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
+			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgrade.IsObjectLatestVersion(newPreferenceCR)).To(BeTrue())

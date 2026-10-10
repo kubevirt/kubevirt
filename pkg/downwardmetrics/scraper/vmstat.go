@@ -54,9 +54,9 @@ func readVMStat(path string) (*vmStat, error) {
 		var resultField *uint64
 		switch fields[0] {
 		case "pswpin":
-			resultField = &(result.pswpin)
+			resultField = &result.pswpin
 		case "pswpout":
-			resultField = &(result.pswpout)
+			resultField = &result.pswpout
 		default:
 			continue
 		}

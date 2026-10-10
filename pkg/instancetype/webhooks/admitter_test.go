@@ -103,7 +103,8 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(
-			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.",
+		)
 	})
 
 	It("should warn off deprecated launchSecurity field", func() {
@@ -164,7 +165,8 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(
-			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.",
+		)
 	})
 
 	It("should warn off deprecated launchSecurity field", func() {
