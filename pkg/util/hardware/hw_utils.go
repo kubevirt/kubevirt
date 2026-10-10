@@ -146,6 +146,45 @@ func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
 	return &numaNode, nil
 }
 
+var (
+	pciDomainBusPattern = regexp.MustCompile(`^pci([\da-fA-F]{4}:[\da-fA-F]{2})$`)
+	pciBDFPattern       = regexp.MustCompile(PCI_ADDRESS_PATTERN)
+)
+
+func GetDevicePCIeRoot(pciAddress string) (string, error) {
+	devicePath := filepath.Join(PciBasePath, pciAddress)
+	resolved, err := filepath.EvalSymlinks(devicePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve sysfs path for device %s: %w", pciAddress, err)
+	}
+
+	parts := strings.Split(resolved, string(filepath.Separator))
+
+	domainIdx := -1
+	for i, part := range parts {
+		if pciDomainBusPattern.MatchString(part) {
+			domainIdx = i
+			break
+		}
+	}
+	if domainIdx < 0 {
+		return "", fmt.Errorf("no PCI domain segment found in sysfs path %s", resolved)
+	}
+
+	// The first BDF-shaped component after the domain segment is the root port.
+	// If none exists (device is directly on the root bus), use the domain segment.
+	for i := domainIdx + 1; i < len(parts); i++ {
+		if pciBDFPattern.MatchString(parts[i]) {
+			if parts[i] == pciAddress {
+				break
+			}
+			return parts[i], nil
+		}
+	}
+
+	return parts[domainIdx], nil
+}
+
 func GetDeviceAlignedCPUs(pciAddress string) ([]int, error) {
 	numaNode, err := GetDeviceNumaNode(pciAddress)
 	if err != nil {
