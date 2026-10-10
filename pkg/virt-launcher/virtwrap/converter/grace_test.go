@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
@@ -499,7 +500,7 @@ var _ = Describe("Grace domain conversion", func() {
 	})
 
 	It("detects Grace pcihole64 sizing overflow before applying the controller value", func() {
-		Expect(calculateGracePCIHole64KiB(math.MaxUint64, math.MaxUint64)).To(Equal(uint64(0)))
+		Expect(hardware.PCIHole64KiB(math.MaxUint64, math.MaxUint64)).To(Equal(uint64(0)))
 	})
 
 	It("fails when Grace pcihole64 sizing exceeds the maximum aperture", func() {
