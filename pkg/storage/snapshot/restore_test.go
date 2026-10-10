@@ -33,6 +33,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -2065,6 +2066,227 @@ var _ = Describe("Restore controller", func() {
 					Expect(*stopCalled).To(Equal(1))
 				})
 
+				It("StopTarget - should not call stop again on subsequent reconciles while waiting for target to be ready", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
+							newReadyCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
+						},
+					}
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+					stopCalled := expectVMStop(kubevirtClient)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+
+					// First reconcile: issues stop and updates status
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(*stopCalled).To(Equal(1))
+
+					// Simulate status update being reflected in the informer and re-queueing for next reconcile
+					r.Status = rc.Status
+					Expect(controller.VMRestoreInformer.GetStore().Update(r)).To(Succeed())
+					controller.vmRestoreQueue.Add(cacheKeyFunc(r.Namespace, r.Name))
+
+					// Second reconcile: while target VMI is still terminating, should NOT call stop again
+					controller.processVMRestoreWorkItem()
+					Expect(*stopCalled).To(Equal(1))
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(recorder.Events).To(BeEmpty())
+				})
+
+				It("StopTarget - should call stop again if VM is restarted after stop was issued", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
+							newReadyCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
+						},
+					}
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+					stopCalled := expectVMStop(kubevirtClient)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+
+					// First reconcile: issues stop and updates status
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(*stopCalled).To(Equal(1))
+
+					// Simulate status update being reflected in the informer and re-queueing for next reconcile
+					r.Status = rc.Status
+					Expect(controller.VMRestoreInformer.GetStore().Update(r)).To(Succeed())
+					controller.vmRestoreQueue.Add(cacheKeyFunc(r.Namespace, r.Name))
+
+					// Second reconcile: while target VMI is still terminating, should NOT call stop again
+					controller.processVMRestoreWorkItem()
+					Expect(*stopCalled).To(Equal(1))
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(recorder.Events).To(BeEmpty())
+
+					// Simulate VM being restarted with a running VMI
+					restartedVM := vm.DeepCopy()
+					restartedVM.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyAlways)
+					restartedVM.Status.PrintableStatus = kubevirtv1.VirtualMachineStatusRunning
+					restartedVM.Status.StateChangeRequests = nil
+					Expect(controller.VMInformer.GetStore().Update(restartedVM)).To(Succeed())
+
+					controller.vmRestoreQueue.Add(cacheKeyFunc(r.Namespace, r.Name))
+
+					// Third reconcile: VM is restarted and running, so restore must issue stop again
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*stopCalled).To(Equal(2))
+					Expect(recorder.Events).To(BeEmpty())
+				})
+
+				DescribeTable("StopTarget - should handle conflict when target is already stopping or stopped", func(conflictReason string) {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
+							newReadyCondition(corev1.ConditionFalse, "Automatically stopping restore target for restore operation"),
+						},
+					}
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+					stopCalled := expectVMStopWithError(kubevirtClient, k8serrors.NewConflict(kubevirtv1.Resource("virtualmachine"), vm.Name, fmt.Errorf("%s", conflictReason)))
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(*stopCalled).To(Equal(1))
+					Expect(recorder.Events).To(BeEmpty())
+				},
+					Entry("when VM is already halted", "Halted only supports manual stop requests with a shorter graceperiod"),
+					Entry("when VM is not running", "VM is not running"),
+				)
+
+				DescribeTable("StopTarget - should report error when target VM has terminal VMI and stop returns conflict", func(terminalPhase kubevirtv1.VirtualMachineInstancePhase) {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vm.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyManual)
+					vmi := createVMI(vm)
+					vmi.Status.Phase = terminalPhase
+
+					conflictErr := k8serrors.NewConflict(
+						kubevirtv1.Resource("virtualmachine"),
+						vm.Name,
+						fmt.Errorf("VM is not running"),
+					)
+
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, conflictErr.Error()),
+							newReadyCondition(corev1.ConditionFalse, conflictErr.Error()),
+						},
+					}
+
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+					stopCalled := expectVMStopWithError(kubevirtClient, conflictErr)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(*stopCalled).To(Equal(1))
+				},
+					Entry("when VMI is Succeeded", kubevirtv1.Succeeded),
+					Entry("when VMI is Failed", kubevirtv1.Failed),
+				)
+
+				It("StopTarget - should still report unrelated conflict errors", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					conflictErr := k8serrors.NewConflict(
+						kubevirtv1.Resource("virtualmachine"),
+						vm.Name,
+						fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"),
+					)
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, conflictErr.Error()),
+							newReadyCondition(corev1.ConditionFalse, conflictErr.Error()),
+						},
+					}
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+					stopCalled := expectVMStopWithError(kubevirtClient, conflictErr)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(*stopCalled).To(Equal(1))
+				})
+
+				It("StopTarget - should still report genuine stop errors", func() {
+					r := createRestoreWithOwner()
+					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+					vm := createModifiedVM()
+					vmi := createVMI(vm)
+					rc := r.DeepCopy()
+					rc.ResourceVersion = "1"
+					internalErr := k8serrors.NewInternalError(fmt.Errorf("Internal server error"))
+					rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+						Complete: pointer.P(false),
+						Conditions: []snapshotv1.Condition{
+							newProgressingCondition(corev1.ConditionFalse, internalErr.Error()),
+							newReadyCondition(corev1.ConditionFalse, internalErr.Error()),
+						},
+					}
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+					stopCalled := expectVMStopWithError(kubevirtClient, internalErr)
+					updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc)
+					addVirtualMachineRestore(r)
+
+					controller.processVMRestoreWorkItem()
+					testutils.ExpectEvent(recorder, "RestoreTargetNotReady")
+					testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+					Expect(*updateStatusCalls).To(Equal(1))
+					Expect(*stopCalled).To(Equal(1))
+				})
+
 				It("default - GracePeriodAndFail - should fail when grace period passed", func() {
 					r := createRestoreWithOwner()
 					//change creation time such that it will make the default grace period pass
@@ -2647,13 +2869,17 @@ func expectVMUpdateStatus(client *kubevirtfake.Clientset, vm *kubevirtv1.Virtual
 }
 
 func expectVMStop(client *kubevirtfake.Clientset) *int {
+	return expectVMStopWithError(client, nil)
+}
+
+func expectVMStopWithError(client *kubevirtfake.Clientset, retErr error) *int {
 	stopCalled := 0
 	client.Fake.PrependReactor("put", "virtualmachines/stop", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		_, ok := action.(kvtesting.PutAction[*kubevirtv1.StopOptions])
 		Expect(ok).To(BeTrue())
 
 		stopCalled++
-		return true, nil, nil
+		return true, nil, retErr
 	})
 	return &stopCalled
 }
