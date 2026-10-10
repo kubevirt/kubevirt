@@ -661,6 +661,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			if updateOperator && flags.OperatorManifestPath == "" {
 				Fail("operator manifest path must be configured for update tests")
 			}
+			testingManifestsDir := ""
+			if updateOperator {
+				testingManifestsDir = testsuite.TestingInfrastructureManifestsDir()
+				Expect(testingManifestsDir).NotTo(BeEmpty(), "testing manifests directory must be configured for update tests")
+			}
 
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
@@ -719,7 +724,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			if updateOperator {
 				By("Deleting testing manifests")
-				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", flags.TestingManifestPath)
+				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", testingManifestsDir)
 				Expect(err).ToNot(HaveOccurred(), "failed to delete testing manifests: "+stderr)
 
 				By("Deleting virt-operator installation")
@@ -857,7 +862,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				installOperator(flags.OperatorManifestPath)
 
 				By("Re-installing testing manifests")
-				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", flags.TestingManifestPath)
+				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", testingManifestsDir)
 				Expect(err).ToNot(HaveOccurred(), "failed to re-install the testing manifests: "+stderr)
 			} else {
 				By("Updating KubeVirt object With current tag")
