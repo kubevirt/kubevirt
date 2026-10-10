@@ -20,7 +20,6 @@ go_library(
         "//vendor/github.com/cilium/ebpf/link:go_default_library",
         "//vendor/github.com/opencontainers/cgroups:go_default_library",
         "//vendor/github.com/opencontainers/cgroups/devices:go_default_library",
-        "//vendor/github.com/opencontainers/cgroups/fs:go_default_library",
         "//vendor/github.com/opencontainers/cgroups/fs2:go_default_library",
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
