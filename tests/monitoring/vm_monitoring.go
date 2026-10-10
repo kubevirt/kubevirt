@@ -401,10 +401,10 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			for i := 0; i < expectedVMCount; i++ {
 				vmi := libvmifact.NewGuestless()
 				vm := libvmi.NewVirtualMachine(vmi)
-				_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				_, createErr := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
 					context.Background(), vm, metav1.CreateOptions{},
 				)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(createErr).ToNot(HaveOccurred())
 			}
 
 			nsLabels := map[string]string{"namespace": testsuite.GetTestNamespace(nil)}
