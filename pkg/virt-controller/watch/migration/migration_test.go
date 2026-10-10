@@ -58,6 +58,7 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -630,6 +631,28 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
+		})
+
+		It("should fail the migration instead of retrying when the source pod holds the CPU DRA claim", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			sourcePod := newSourcePodForVirtualMachine(vmi)
+			sourcePod.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              dra.CPUClaimRefName,
+				ResourceClaimName: pointer.P(dra.CPUResourceClaimName(vmi.Name)),
+			}}
+
+			addNode(newNode(vmi.Status.NodeName))
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(sourcePod)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+			expectPodDoesNotExist(vmi.Namespace, string(vmi.UID), string(migration.UID))
 		})
 
 		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
