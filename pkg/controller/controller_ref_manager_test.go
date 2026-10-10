@@ -188,10 +188,12 @@ func newDataVolume(name string, owner metav1.Object) *cdiv1.DataVolume {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
+			Labels:    make(map[string]string),
 		},
 	}
 	if owner != nil {
 		dataVolume.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+		dataVolume.ObjectMeta.Labels[virtv1.CreatedByLabel] = string(owner.GetUID())
 	}
 
 	return dataVolume
@@ -203,6 +205,7 @@ func TestClaimDataVolume(t *testing.T) {
 		name        string
 		manager     *VirtualMachineControllerRefManager
 		datavolumes []*cdiv1.DataVolume
+		match       func(metav1.Object) bool
 		claimed     []*cdiv1.DataVolume
 		expectError bool
 	}
@@ -220,6 +223,7 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", nil), newDataVolume("datavolume2", nil)},
+				match:       func(obj metav1.Object) bool { return true },
 				claimed:     nil,
 			}
 		}(),
@@ -236,6 +240,7 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", nil)},
+				match:       func(obj metav1.Object) bool { return true },
 				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
 			}
 		}(),
@@ -252,6 +257,7 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", &controller2)},
+				match:       func(obj metav1.Object) bool { return true },
 				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
 			}
 		}(),
@@ -272,12 +278,34 @@ func TestClaimDataVolume(t *testing.T) {
 					controllerKind,
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{datavolumeToDelete1, datavolumeToDelete2},
+				match:       func(obj metav1.Object) bool { return true },
 				claimed:     []*cdiv1.DataVolume{datavolumeToDelete1},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			standaloneDV := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "datavolume1",
+					Namespace: metav1.NamespaceDefault,
+				},
+			}
+			return test{
+				name: "Controller does not claim orphaned datavolumes without unknown creator",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{standaloneDV},
+				match:       func(obj metav1.Object) bool { return false },
+				claimed:     nil,
 			}
 		}(),
 	}
 	for _, test := range tests {
-		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes)
+		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes, test.match)
 		if test.expectError && err == nil {
 			t.Errorf("Test case `%s`, expected error but got nil", test.name)
 		} else if !equality.Semantic.DeepEqual(test.claimed, claimed) {
