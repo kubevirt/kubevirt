@@ -9,6 +9,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -462,6 +463,7 @@ func vmiDiskPath(volumeName string) string {
 }
 
 func defaultVolumes() []k8sv1.Volume {
+	expirationSeconds := int64(3600)
 	return []k8sv1.Volume{
 		{
 			Name:         "private",
@@ -484,6 +486,22 @@ func defaultVolumes() []k8sv1.Volume {
 		}, {
 			Name:         "container-disks",
 			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		}, {
+			Name: "cmd-auth-token",
+			VolumeSource: k8sv1.VolumeSource{
+				Projected: &k8sv1.ProjectedVolumeSource{
+					DefaultMode: ptr.To[int32](0440),
+					Sources: []k8sv1.VolumeProjection{
+						{
+							ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+								Audience:          "kubevirt.io/cmd-auth",
+								ExpirationSeconds: &expirationSeconds,
+								Path:              "cmd-auth-token",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -498,6 +516,7 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
 		{Name: "container-disks", MountPath: "cdisk1", MountPropagation: &hostToContainerPropagation},
 		{Name: "libvirt-runtime", MountPath: "/var/run/libvirt"},
 		{Name: "sockets", MountPath: "dir1/sockets"},
+		{Name: "cmd-auth-token", MountPath: "/var/run/secrets/tokens", ReadOnly: true},
 	}
 }
 

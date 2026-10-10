@@ -23,17 +23,26 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	authv1 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	cmdauth "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/auth"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -54,9 +63,11 @@ type domainWatcher struct {
 	recorder            record.EventRecorder
 	consecutiveFails    *int
 	unresponsiveSockets map[string]int64
+	authClient          kubernetes.Interface
+	vmiStore            cache.Store
 }
 
-func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int) *domainWatcher {
+func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int, authClient kubernetes.Interface, vmiStore cache.Store) *domainWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	d := &domainWatcher{
 		recorder:            recorder,
@@ -64,6 +75,8 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 		consecutiveFails:    consecutiveFails,
 		result:              make(chan watch.Event, 100),
 		cancel:              cancel,
+		authClient:          authClient,
+		vmiStore:            vmiStore,
 	}
 	d.wg.Add(1)
 	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
@@ -156,6 +169,12 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 
 	log.Log.Infof("resyncing virt-launcher domains")
 	for _, socket := range socketFiles {
+		activePods := d.activePodsForSocket(socket)
+		if err := AuthenticateSocket(ctx, d.authClient, socket, activePods); err != nil {
+			log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during resync, skipping", socket)
+			continue
+		}
+
 		client, err := cmdclient.NewClient(socket)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to connect to cmd client socket during resync")
@@ -181,6 +200,111 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (d *domainWatcher) activePodsForSocket(socketPath string) map[types.UID]string {
+	if d.vmiStore == nil {
+		return nil
+	}
+	record, found := GhostRecordGlobalStore.findBySocket(socketPath)
+	if !found {
+		return nil
+	}
+	key := record.Namespace + "/" + record.Name
+	obj, exists, err := d.vmiStore.GetByKey(key)
+	if err != nil || !exists {
+		return nil
+	}
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok {
+		return nil
+	}
+	return vmi.Status.ActivePods
+}
+
+// AuthenticateSocket connects to a virt-launcher socket, requests its
+// projected ServiceAccount token via the CmdAuth gRPC service, and
+// validates it through the Kubernetes TokenReview API. If k8sClient is
+// nil, authentication is skipped (returns nil).
+//
+// activePods is the VMI.Status.ActivePods map; when non-nil, the
+// token's pod UID must appear in this map to prove the pod was created
+// by virt-controller as a legitimate launcher for this VMI.
+func AuthenticateSocket(ctx context.Context, k8sClient kubernetes.Interface, socketPath string, activePods map[types.UID]string) error {
+	if k8sClient == nil {
+		return nil
+	}
+
+	conn, err := grpcutil.DialSocket(socketPath)
+	if err != nil {
+		return fmt.Errorf("dialing socket for auth: %w", err)
+	}
+	defer conn.Close()
+
+	authClient := cmdauth.NewCmdAuthClient(conn)
+	resp, err := authClient.Authenticate(ctx, &cmdauth.AuthRequest{})
+	if err != nil {
+		return fmt.Errorf("calling Authenticate RPC: %w", err)
+	}
+
+	review := &authv1.TokenReview{
+		Spec: authv1.TokenReviewSpec{
+			Token:     resp.GetToken(),
+			Audiences: []string{cmdauth.Audience},
+		},
+	}
+	result, err := k8sClient.AuthenticationV1().TokenReviews().Create(ctx, review, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("TokenReview API call: %w", err)
+	}
+	if !result.Status.Authenticated {
+		return fmt.Errorf("token not authenticated: %s", result.Status.Error)
+	}
+
+	tokenPodUID, err := podUIDFromTokenReview(result)
+	if err != nil {
+		return fmt.Errorf("token missing pod identity: %w", err)
+	}
+	socketPodUID, err := podUIDFromSocketPath(socketPath)
+	if err != nil {
+		return fmt.Errorf("cannot extract pod UID from socket path %q: %w", socketPath, err)
+	}
+	if tokenPodUID != socketPodUID {
+		return fmt.Errorf("pod UID mismatch: token belongs to %q but socket belongs to %q", tokenPodUID, socketPodUID)
+	}
+
+	if activePods != nil {
+		if _, ok := activePods[types.UID(tokenPodUID)]; !ok {
+			return fmt.Errorf("pod %q is not in VMI ActivePods: not a legitimate virt-launcher", tokenPodUID)
+		}
+	}
+
+	log.Log.Infof("authenticated launcher at %s: user=%s pod=%s", socketPath, result.Status.User.Username, tokenPodUID)
+	return nil
+}
+
+const tokenReviewPodUIDKey = "authentication.kubernetes.io/pod-uid"
+
+func podUIDFromTokenReview(result *authv1.TokenReview) (string, error) {
+	values, ok := result.Status.User.Extra[tokenReviewPodUIDKey]
+	if !ok || len(values) == 0 {
+		return "", fmt.Errorf("%s not present in TokenReview response", tokenReviewPodUIDKey)
+	}
+	uid := string(values[0])
+	if uid == "" {
+		return "", fmt.Errorf("%s is empty in TokenReview response", tokenReviewPodUIDKey)
+	}
+	return uid, nil
+}
+
+// podUIDFromSocketPath extracts the pod UID from a launcher socket
+// path of the form .../<podUID>/volumes/.../launcher-sock.
+func podUIDFromSocketPath(socketPath string) (string, error) {
+	idx := strings.Index(socketPath, "/volumes/")
+	if idx <= 0 {
+		return "", fmt.Errorf("path does not contain /volumes/ segment")
+	}
+	return filepath.Base(socketPath[:idx]), nil
 }
 
 func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeoutSeconds int) error {
