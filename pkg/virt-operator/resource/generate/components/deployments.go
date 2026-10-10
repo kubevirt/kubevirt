@@ -52,7 +52,10 @@ const (
 
 	kubevirtLabelKey = "kubevirt.io"
 
-	portName = "--port"
+	portName        = "--port"
+	tmpDirName      = "tmp-dir"
+	tmpDirMountPath = "/tmp"
+	tmpDirSizeLimit = "1Gi"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -219,6 +222,22 @@ func attachProfileVolume(spec *corev1.PodSpec) {
 
 }
 
+func attachTmpVolume(spec *corev1.PodSpec) {
+	volume := corev1.Volume{
+		Name: tmpDirName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				SizeLimit: new(resource.MustParse(tmpDirSizeLimit))},
+		},
+	}
+	volumeMount := corev1.VolumeMount{
+		Name:      tmpDirName,
+		MountPath: tmpDirMountPath,
+	}
+	spec.Volumes = append(spec.Volumes, volume)
+	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, volumeMount)
+}
+
 func attachOptionalCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
 	attachCertificateSecretWithOptions(spec, secretName, mountPath, true)
 }
@@ -331,6 +350,7 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtApiCertSecretName, "/etc/virt-api/certificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
+	attachTmpVolume(&deployment.Spec.Template.Spec)
 
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ApiServiceAccountName
@@ -388,6 +408,7 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -490,6 +511,7 @@ func NewControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, prod
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -631,6 +653,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 							},
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: pointer.P(false),
+								ReadOnlyRootFilesystem:   pointer.P(true),
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
@@ -740,6 +763,7 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -856,6 +880,7 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
