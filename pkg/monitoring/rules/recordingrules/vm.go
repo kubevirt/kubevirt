@@ -36,7 +36,8 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 			"sum by(pod, container, namespace) " +
 				"(kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'} - " +
 				"on(pod,container, namespace) " +
-				"max by(pod, container, namespace) (container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}))"),
+				"max by(pod, container, namespace) (container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}))",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -49,7 +50,8 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 			"sum by(pod, container, namespace) " +
 				"(kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'} - " +
 				"on(pod,container, namespace) " +
-				"container_memory_rss{pod=~'virt-launcher-.*', container='compute'})"),
+				"container_memory_rss{pod=~'virt-launcher-.*', container='compute'})",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -58,6 +60,7 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 		},
 		MetricType: operatormetrics.GaugeType,
 		Expr: intstr.FromString(
-			"sum by (namespace) (count by (name, namespace) (kubevirt_vm_info))"),
+			"sum by (namespace) (count by (name, namespace) (kubevirt_vm_info))",
+		),
 	},
 }

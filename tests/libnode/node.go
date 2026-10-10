@@ -105,7 +105,8 @@ func CleanNodes() {
 		Expect(err).ToNot(HaveOccurred())
 
 		_, err = virtCli.CoreV1().Nodes().Patch(
-			context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
+			context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
@@ -155,7 +156,8 @@ func patchLabelAnnotationHelper(nodeName string, newMap, oldMap map[string]strin
 	Expect(err).ToNot(HaveOccurred())
 	client := kubevirt.Client()
 	patchedNode, err := client.CoreV1().Nodes().Patch(
-		context.Background(), nodeName, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{})
+		context.Background(), nodeName, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{},
+	)
 	return patchedNode, err
 }
 
@@ -265,7 +267,8 @@ func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	Expect(err).ToNot(HaveOccurred())
 
 	_, err = virtCli.CoreV1().Nodes().Patch(
-		context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{})
+		context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, k8smetav1.PatchOptions{},
+	)
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -334,7 +337,8 @@ func setNodeSchedualability(nodeName string, virtCli kubecli.KubevirtClient, set
 		return patchedNode.Spec.Unschedulable
 	}, 30*time.Second, time.Second).Should(
 		Equal(!setSchedulable),
-		fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable))
+		fmt.Sprintf("node %s is expected to set to Unschedulable=%t, but it's set to %t", nodeName, !setSchedulable, setSchedulable),
+	)
 }
 
 func SetNodeUnschedulable(nodeName string, virtCli kubecli.KubevirtClient) {

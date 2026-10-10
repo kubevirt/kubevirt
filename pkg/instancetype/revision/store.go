@@ -299,7 +299,8 @@ func (h *revisionHandler) storeControllerRevision(vm *virtv1.VirtualMachine, obj
 	}
 
 	createdRevision, err := h.virtClient.AppsV1().ControllerRevisions(revision.Namespace).Create(
-		context.Background(), revision, metav1.CreateOptions{})
+		context.Background(), revision, metav1.CreateOptions{},
+	)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create ControllerRevision: %w", err)
@@ -307,7 +308,8 @@ func (h *revisionHandler) storeControllerRevision(vm *virtv1.VirtualMachine, obj
 
 		// Grab the existing revision to check the data it contains
 		existingRevision, err := h.virtClient.AppsV1().ControllerRevisions(revision.Namespace).Get(
-			context.Background(), revision.Name, metav1.GetOptions{})
+			context.Background(), revision.Name, metav1.GetOptions{},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
 		}

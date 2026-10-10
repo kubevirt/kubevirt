@@ -71,7 +71,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 
 		namespace := testsuite.GetTestNamespace(nil)
 		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-			context.Background(), vmi, metav1.CreateOptions{})
+			context.Background(), vmi, metav1.CreateOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 		waitUntilVMIsReady(console.LoginToAlpine, vmi)
 
@@ -99,7 +100,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), clientVMI, metav1.CreateOptions{})
+				context.Background(), clientVMI, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
@@ -107,7 +109,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), serverVMI, metav1.CreateOptions{})
+				context.Background(), serverVMI, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
@@ -175,7 +178,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), serverVMI, metav1.CreateOptions{})
+				context.Background(), serverVMI, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting client VMI")
@@ -184,7 +188,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), clientVMI, metav1.CreateOptions{})
+				context.Background(), clientVMI, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
@@ -221,7 +226,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			)
 			namespace := testsuite.GetTestNamespace(nil)
 			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), vmi, metav1.CreateOptions{})
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			waitUntilVMIsReady(console.LoginToAlpine, vmi)
@@ -302,7 +308,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			Eventually(func() string {
 				vmiClient := kubevirt.Client().VirtualMachineInstance(migrateVMI.Namespace)
 				migrateVMI, err = vmiClient.Get(
-					context.Background(), migrateVMI.Name, metav1.GetOptions{})
+					context.Background(), migrateVMI.Name, metav1.GetOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
 				return migrateVmiAfterMigIP
@@ -350,7 +357,8 @@ func startPasstVMI() *v1.VirtualMachineInstance {
 	)
 	namespace := testsuite.GetTestNamespace(nil)
 	vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-		context.Background(), vmi, metav1.CreateOptions{})
+		context.Background(), vmi, metav1.CreateOptions{},
+	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi
 }
@@ -363,7 +371,8 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-		context.Background(), clientVMI, metav1.CreateOptions{})
+		context.Background(), clientVMI, metav1.CreateOptions{},
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -376,7 +385,8 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-		context.Background(), serverVMI, metav1.CreateOptions{})
+		context.Background(), serverVMI, metav1.CreateOptions{},
+	)
 	if err != nil {
 		return nil, nil, err
 	}

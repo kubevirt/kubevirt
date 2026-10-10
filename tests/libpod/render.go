@@ -51,7 +51,8 @@ func RenderPrivilegedPod(name string, cmd, args []string) *v1.Pod {
 					libregistry.GetUtilityImageFromRegistry("vm-killer"),
 					"container",
 					cmd,
-					args),
+					args,
+				),
 			},
 		},
 	}
@@ -74,7 +75,8 @@ func RenderPod(name string, cmd, args []string) *v1.Pod {
 					libregistry.GetUtilityImageFromRegistry("vm-killer"),
 					"container",
 					cmd,
-					args),
+					args,
+				),
 			},
 		},
 	}
@@ -146,7 +148,8 @@ func RenderTargetcliPod(name, disksPVC string) *v1.Pod {
 	hostPathDirectory := v1.HostPathDirectory
 	targetcliContainer := renderPrivilegedContainerSpec(
 		libregistry.GetUtilityImageFromRegistry("vm-killer"),
-		"targetcli", []string{"tail", "-f", "/dev/null"}, []string{})
+		"targetcli", []string{"tail", "-f", "/dev/null"}, []string{},
+	)
 	targetcliContainer.VolumeMounts = []v1.VolumeMount{
 		{
 			Name:      disks,

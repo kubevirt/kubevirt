@@ -118,7 +118,8 @@ var _ = Describe("Validating Preference Admitter", func() {
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(response.Result.Details.Causes[0].Message).To(Equal(
-				"only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"))
+				"only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads",
+			))
 			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "ratio").String()))
 		},
 		Entry("PreferSpreadSocketToCoreRatio with spread",
@@ -189,7 +190,8 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Warnings).To(HaveLen(1))
 		Expect(response.Warnings[0]).To(ContainSubstring(
 			fmt.Sprintf("PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead",
-				deprecatedTopology, expectedAlternativeTopology)))
+				deprecatedTopology, expectedAlternativeTopology),
+		))
 	},
 		Entry("DeprecatedPreferSockets and provide Sockets as an alternative",
 			instancetypev1beta1.DeprecatedPreferSockets,
@@ -266,7 +268,8 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(response.Result.Details.Causes[0].Message).To(Equal(
-				"only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"))
+				"only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads",
+			))
 			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "ratio").String()))
 		},
 		Entry("PreferSpreadSocketToCoreRatio with spread",

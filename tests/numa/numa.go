@@ -52,7 +52,8 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 
 			By("Starting a VirtualMachineInstance")
 			cpuVMI, err = virtClient.VirtualMachineInstance(
-				testsuite.NamespaceTestDefault).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
+				testsuite.NamespaceTestDefault,
+			).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
 			By("Fetching the numa memory mapping")

@@ -76,22 +76,28 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			fakeInstancetypeV1beta1 := fake.NewSimpleClientset().InstancetypeV1beta1()
 
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-				fakeKubevirtV1.VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+				fakeKubevirtV1.VirtualMachines(metav1.NamespaceDefault),
+			).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
-				fakeKubevirtV1.VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+				fakeKubevirtV1.VirtualMachineInstances(metav1.NamespaceDefault),
+			).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachineInstancetype(k8sv1.NamespaceDefault).Return(
-				fakeInstancetypeV1beta1.VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
+				fakeInstancetypeV1beta1.VirtualMachineInstancetypes(metav1.NamespaceDefault),
+			).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
-				fakeInstancetypeV1beta1.VirtualMachineClusterInstancetypes()).AnyTimes()
+				fakeInstancetypeV1beta1.VirtualMachineClusterInstancetypes(),
+			).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachinePreference(k8sv1.NamespaceDefault).Return(
-				fakeInstancetypeV1beta1.VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
+				fakeInstancetypeV1beta1.VirtualMachinePreferences(metav1.NamespaceDefault),
+			).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachineClusterPreference().Return(
-				fakeInstancetypeV1beta1.VirtualMachineClusterPreferences()).AnyTimes()
+				fakeInstancetypeV1beta1.VirtualMachineClusterPreferences(),
+			).AnyTimes()
 
 			// TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
 			testInstancetype := &v1beta1.VirtualMachineInstancetype{
@@ -109,7 +115,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 				},
 			}
 			_, err := virtClient.VirtualMachineInstancetype(
-				metav1.NamespaceDefault).Create(context.Background(), testInstancetype, metav1.CreateOptions{})
+				metav1.NamespaceDefault,
+			).Create(context.Background(), testInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
@@ -126,7 +133,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			}
 
 			_, err = virtClient.VirtualMachinePreference(
-				metav1.NamespaceDefault).Create(context.Background(), testPreference, metav1.CreateOptions{})
+				metav1.NamespaceDefault,
+			).Create(context.Background(), testPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = libvmi.NewVirtualMachine(
@@ -221,7 +229,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 
 		It("should reject if preference requirements are not met", func() {
 			testPreference, err := virtClient.VirtualMachinePreference(
-				metav1.NamespaceDefault).Get(context.Background(), preferenceName, metav1.GetOptions{})
+				metav1.NamespaceDefault,
+			).Get(context.Background(), preferenceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			testPreference.Spec.Requirements = &v1beta1.PreferenceRequirements{
@@ -247,7 +256,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 		DescribeTable("should reject if PreferSpread requested with",
 			func(vCPUs uint32, expectedPreferenceSpec v1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
 				testPreference, err := virtClient.VirtualMachinePreference(
-					metav1.NamespaceDefault).Get(context.Background(), preferenceName, metav1.GetOptions{})
+					metav1.NamespaceDefault,
+				).Get(context.Background(), preferenceName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				testPreference.Spec = expectedPreferenceSpec
@@ -256,7 +266,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 				Expect(err).ToNot(HaveOccurred())
 
 				testInstancetype, err := virtClient.VirtualMachineInstancetype(
-					metav1.NamespaceDefault).Get(context.Background(), instancetypeName, metav1.GetOptions{})
+					metav1.NamespaceDefault,
+				).Get(context.Background(), instancetypeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				testInstancetype.Spec.CPU.Guest = vCPUs
@@ -510,7 +521,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 				vm.Spec.Instancetype = nil
 
 				testPreference, err := virtClient.VirtualMachinePreference(
-					metav1.NamespaceDefault).Get(context.Background(), preferenceName, metav1.GetOptions{})
+					metav1.NamespaceDefault,
+				).Get(context.Background(), preferenceName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				testPreference.Spec.CPU.PreferredCPUTopology = pointer.P(preferredCPUTopology)

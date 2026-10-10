@@ -107,7 +107,8 @@ var _ = Describe("VM Network Controller", func() {
 			"virtualmachineinstances",
 			func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, injectedPatchError
-			})
+			},
+		)
 
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
@@ -440,7 +441,8 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(
-			Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces))
+			Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces),
+		)
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 	},

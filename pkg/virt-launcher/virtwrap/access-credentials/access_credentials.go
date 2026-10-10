@@ -526,7 +526,8 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
 			l.reportAccessCredentialResult(vmi, false, fmt.Sprintf(
 				"Error encountered writing ssh pub key access credentials for user [%s]: %v",
-				user, err), false)
+				user, err,
+			), false)
 		}
 		if deprecated {
 			usedDeprecatedFlow = true
