@@ -22,6 +22,7 @@ package cache
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -142,6 +143,91 @@ var _ = Describe("Domain informer", func() {
 			err = ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "")
 			Expect(err).To(HaveOccurred())
 
+		})
+	})
+
+	Context("with UID-safe operations", func() {
+		It("Should get a copy of an existing record", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+
+			record, exists := ghostRecordStore.Get("test1-namespace", "test1")
+			Expect(exists).To(BeTrue())
+			Expect(record.Namespace).To(Equal("test1-namespace"))
+			Expect(record.Name).To(Equal("test1"))
+			Expect(record.SocketFile).To(Equal("somefile1"))
+			Expect(string(record.UID)).To(Equal("1234-1"))
+
+			record.UID = "mutated"
+			recordAgain, _ := ghostRecordStore.Get("test1-namespace", "test1")
+			Expect(string(recordAgain.UID)).To(Equal("1234-1"))
+		})
+
+		It("Should report absence when getting an unknown record", func() {
+			_, exists := ghostRecordStore.Get("test1-namespace", "unknown")
+			Expect(exists).To(BeFalse())
+		})
+
+		It("Should treat DeleteIfUID of an absent record as success", func() {
+			Expect(ghostRecordStore.DeleteIfUID("test1-namespace", "unknown", "1234-1")).To(Succeed())
+		})
+
+		It("Should delete record and checkpoint when the UID matches", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+
+			Expect(ghostRecordStore.DeleteIfUID("test1-namespace", "test1", "1234-1")).To(Succeed())
+
+			Expect(ghostRecordStore.Exists("test1-namespace", "test1")).To(BeFalse())
+
+			exists, err := diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+
+		It("Should refuse to delete a record with a differing UID", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+
+			err := ghostRecordStore.DeleteIfUID("test1-namespace", "test1", "9999-9")
+			Expect(errors.Is(err, ErrGhostRecordUIDMismatch)).To(BeTrue())
+
+			record, exists := ghostRecordStore.Get("test1-namespace", "test1")
+			Expect(exists).To(BeTrue())
+			Expect(string(record.UID)).To(Equal("1234-1"))
+		})
+
+		It("Should refuse an empty expected UID", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+
+			Expect(ghostRecordStore.DeleteIfUID("test1-namespace", "test1", "")).To(HaveOccurred())
+			Expect(ghostRecordStore.Exists("test1-namespace", "test1")).To(BeTrue())
+		})
+	})
+
+	Context("with a missing checkpoint file", func() {
+		It("Should delete the record by UID when its checkpoint file is already gone", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+			Expect(os.Remove(filepath.Join(ghostCacheDir, "1234-1"))).To(Succeed())
+
+			Expect(ghostRecordStore.DeleteIfUID("test1-namespace", "test1", "1234-1")).To(Succeed())
+			Expect(ghostRecordStore.Exists("test1-namespace", "test1")).To(BeFalse())
+		})
+
+		It("Should delete the record by name when its checkpoint file is already gone", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+			Expect(os.Remove(filepath.Join(ghostCacheDir, "1234-1"))).To(Succeed())
+
+			Expect(ghostRecordStore.Delete("test1-namespace", "test1")).To(Succeed())
+			Expect(ghostRecordStore.Exists("test1-namespace", "test1")).To(BeFalse())
+		})
+
+		It("Should keep the record when deleting its checkpoint fails for another reason", func() {
+			Expect(ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")).To(Succeed())
+			checkpointPath := filepath.Join(ghostCacheDir, "1234-1")
+			Expect(os.Remove(checkpointPath)).To(Succeed())
+			// A non-empty directory makes os.Remove fail with an error other than ENOENT.
+			Expect(os.MkdirAll(filepath.Join(checkpointPath, "child"), 0755)).To(Succeed())
+
+			Expect(ghostRecordStore.DeleteIfUID("test1-namespace", "test1", "1234-1")).To(HaveOccurred())
+			Expect(ghostRecordStore.Exists("test1-namespace", "test1")).To(BeTrue())
 		})
 	})
 

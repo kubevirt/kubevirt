@@ -36,6 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
@@ -273,5 +274,64 @@ var _ = Describe("LauncherClientInfo Close", func() {
 		for range 5 {
 			<-done
 		}
+	})
+})
+
+var _ = Describe("CloseLauncherClient", func() {
+	var manager *launcherClientsManager
+
+	BeforeEach(func() {
+		virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()))
+		manager = NewLauncherClientsManager(GinkgoT().TempDir(), nil).(*launcherClientsManager)
+	})
+
+	It("should remove the ghost record and client entry of the closed incarnation", func() {
+		vmi := libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace("default"), libvmi.WithUID("uid-a"))
+		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, "/tmp/socket-a", vmi.UID)).To(Succeed())
+		stopChan := make(chan struct{})
+		manager.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{DomainPipeStopChan: stopChan})
+
+		Expect(manager.CloseLauncherClient(vmi)).To(Succeed())
+
+		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+		_, exists := manager.launcherClients.Load(vmi.UID)
+		Expect(exists).To(BeFalse())
+		Expect(stopChan).To(BeClosed())
+	})
+
+	It("should keep the ghost record of a newer incarnation with the same name", func() {
+		older := libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace("default"), libvmi.WithUID("uid-a"))
+		newer := libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace("default"), libvmi.WithUID("uid-b"))
+		Expect(virtcache.GhostRecordGlobalStore.Add(newer.Namespace, newer.Name, "/tmp/socket-b", newer.UID)).To(Succeed())
+
+		Expect(manager.CloseLauncherClient(older)).To(Succeed())
+
+		record, exists := virtcache.GhostRecordGlobalStore.Get(newer.Namespace, newer.Name)
+		Expect(exists).To(BeTrue())
+		Expect(record.UID).To(Equal(newer.UID))
+	})
+
+	It("should not touch ghost records when the VMI has no UID", func() {
+		vmi := libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace("default"))
+		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, "/tmp/socket-a", "uid-a")).To(Succeed())
+
+		Expect(manager.CloseLauncherClient(vmi)).To(Succeed())
+
+		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+	})
+
+	It("should return a checkpoint deletion error and keep the ghost record", func() {
+		checkpointDir := GinkgoT().TempDir()
+		virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointDir, GinkgoT().TempDir()))
+		vmi := libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace("default"), libvmi.WithUID("uid-a"))
+		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, "/tmp/socket-a", vmi.UID)).To(Succeed())
+		checkpointPath := filepath.Join(checkpointDir, "uid-a")
+		Expect(os.Remove(checkpointPath)).To(Succeed())
+		// A non-empty directory makes os.Remove fail with an error other than ENOENT.
+		Expect(os.MkdirAll(filepath.Join(checkpointPath, "child"), 0755)).To(Succeed())
+
+		Expect(manager.CloseLauncherClient(vmi)).To(HaveOccurred())
+
+		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
 	})
 })

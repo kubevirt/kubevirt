@@ -88,6 +88,15 @@ const (
 	VMIGracefulShutdown = "Signaled Graceful Shutdown"
 	//VMISignalDeletion is the reason set when the VMI has signal deletion
 	VMISignalDeletion = "Signaled Deletion"
+	// vmiIncarnationConflictReason is the reason set when a VMI is blocked by the
+	// ghost record of an older, possibly still running, VMI with the same name
+	vmiIncarnationConflictReason = "VMIIncarnationConflict"
+	// staleVMIIncarnationDetectedReason is the reason set when an older VMI ghost record is detected.
+	staleVMIIncarnationDetectedReason = "StaleVMIIncarnationDetected"
+	// staleVMIIncarnationCleanedReason is the reason set when an older VMI incarnation is cleaned up.
+	staleVMIIncarnationCleanedReason = "StaleVMIIncarnationCleaned"
+	// staleVMIIncarnationCleanupFailedReason is the reason set when cleaning up an older VMI incarnation fails.
+	staleVMIIncarnationCleanupFailedReason = "StaleVMIIncarnationCleanupFailed"
 
 	// MemoryHotplugFailedReason is the reason set when the VM cannot hotplug memory
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
