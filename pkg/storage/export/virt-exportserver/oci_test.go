@@ -362,4 +362,42 @@ var _ = Describe("OCI export", func() {
 			Expect(extractArchitectureFromVMTemplate(tpl)).To(BeEmpty())
 		})
 	})
+
+	Context("collectDiskInfo", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "disk.img"), []byte("data"), 0o600)).To(Succeed())
+		})
+
+		It("should name the disk after the PVC", func() {
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "my.disk"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: "my.disk",
+			}))
+		})
+
+		It("should fall back to the mount directory without a PVC name", func() {
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(ConsistOf(oci.DiskInfo{
+				FilePath:   filepath.Join(dir, "disk.img"),
+				VolumeName: filepath.Base(dir),
+			}))
+		})
+
+		It("should error when the volume path does not exist", func() {
+			_, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: filepath.Join(dir, "missing")}},
+			})
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
