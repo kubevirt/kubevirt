@@ -109,11 +109,11 @@ http_file(
 
 http_archive(
     name = "platforms",
+    sha256 = "dbad4a23abcca6171e47b79edc53bd6a41067a3b75f9e8b104656b459ff25046",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/1.1.0/platforms-1.1.0.tar.gz",
         "https://github.com/bazelbuild/platforms/releases/download/1.1.0/platforms-1.1.0.tar.gz",
     ],
-    sha256 = "dbad4a23abcca6171e47b79edc53bd6a41067a3b75f9e8b104656b459ff25046",
 )
 
 http_archive(
@@ -249,6 +249,7 @@ http_archive(
 
 http_archive(
     name = "com_github_ash2k_bazel_tools",
+    patch_cmds = ["sed -i 's/go\\.go/go.sdk.go/g' goimports/def.bzl"],
     sha256 = "46fdbc00930c8dc9d84690b5bd94db6b4683b061199967d2cda1cfbda8f02c49",
     strip_prefix = "bazel-tools-19b174803c0db1a01e77f10fa2079c35f54eed6e",
     urls = [
@@ -322,13 +323,13 @@ http_archive(
     ],
 )
 
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 load("@bazeldnf//bazeldnf:defs.bzl", "rpm")
 load(
     "@bazeldnf//bazeldnf:repositories.bzl",
     "bazeldnf_dependencies",
     "bazeldnf_register_toolchains",
 )
-load("@bazel_gazelle//:deps.bzl", "go_repository")
 
 # rules_go 0.64.2 pins x/tools to v0.30.0 (2025-02); its pkgbits decoder cannot
 # read Go 1.27's export data (version 5). Declare the latest x/tools first so
@@ -336,8 +337,16 @@ load("@bazel_gazelle//:deps.bzl", "go_repository")
 go_repository(
     name = "org_golang_x_tools",
     importpath = "golang.org/x/tools",
-    version = "v0.51.0",
     sum = "h1:k4Xc/1Om9jwkBJBo4NVLMSARBoWtK10mx+W5BnXCeAI=",
+    version = "v0.51.0",
+)
+
+# New dependency of x/tools >= v0.46.0 (cmd/goimports imports it).
+go_repository(
+    name = "org_golang_x_telemetry",
+    importpath = "golang.org/x/telemetry",
+    sum = "h1:DftxASHKl6JolFPqoN+2WrFO53JvkHwRXvFqf8gsivA=",
+    version = "v0.0.0-20260924152758-ed294f943157",
 )
 
 load(
@@ -362,12 +371,6 @@ go_register_toolchains(
 load("@com_github_ash2k_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
 
 goimports_dependencies()
-
-load(
-    "@bazel_gazelle//:deps.bzl",
-    "gazelle_dependencies",
-    "go_repository",
-)
 
 gazelle_dependencies(go_sdk = "go_sdk")
 
