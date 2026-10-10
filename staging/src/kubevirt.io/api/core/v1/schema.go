@@ -1457,11 +1457,10 @@ type Interface struct {
 	// version: 1alphav1
 	Binding *PluginBinding `json:"binding,omitempty"`
 	// List of ports to be forwarded to the virtual machine.
-	// Mutually exclusive with portRanges.
 	Ports []Port `json:"ports,omitempty"`
 	// List of port ranges to be forwarded to the virtual machine.
-	// Mutually exclusive with ports. Only supported on masquerade interfaces.
-	// This feature is in Alpha.
+	// Only supported on masquerade interfaces.
+	// This feature is in Beta.
 	// +optional
 	// +listType=atomic
 	PortRanges []PortRange `json:"portRanges,omitempty"`
