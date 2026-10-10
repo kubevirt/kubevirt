@@ -360,3 +360,37 @@ func (e *DVNotFoundError) Error() string {
 func (e *DVNotFoundError) Unwrap() error {
 	return e.Err
 }
+
+// ListDataVolumeClaimCandidates returns DVs that need ownerRef reconciliation:
+// owned DVs (to release stale ones no longer in templates) and orphan template DVs (to adopt).
+func ListDataVolumeClaimCandidates(vm *virtv1.VirtualMachine, dataVolumeStore cache.Store) ([]*cdiv1.DataVolume, error) {
+	seen := make(map[string]struct{})
+	var dataVolumes []*cdiv1.DataVolume
+
+	for _, obj := range dataVolumeStore.List() {
+		dv, ok := obj.(*cdiv1.DataVolume)
+		if !ok || dv.Namespace != vm.Namespace {
+			continue
+		}
+		if metav1.IsControlledBy(dv, vm) {
+			dataVolumes = append(dataVolumes, dv)
+			seen[dv.Name] = struct{}{}
+		}
+	}
+
+	for _, template := range vm.Spec.DataVolumeTemplates {
+		if _, exists := seen[template.Name]; exists {
+			continue
+		}
+		dv, err := GetDataVolumeFromCache(vm.Namespace, template.Name, dataVolumeStore)
+		if err != nil {
+			return nil, err
+		}
+		if dv == nil {
+			continue
+		}
+		dataVolumes = append(dataVolumes, dv)
+	}
+
+	return dataVolumes, nil
+}
