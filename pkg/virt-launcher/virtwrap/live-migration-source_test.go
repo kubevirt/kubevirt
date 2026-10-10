@@ -1208,10 +1208,10 @@ var _ = Describe("Live migration source", func() {
 				Expect(action).To(Equal(actionAbort))
 			})
 
-			It("should fall through to actionHardStopAndCopy for VFIO VMI even when AllowPostCopy is true", func() {
+			It("should fall through to actionHardStopAndCopy when post-copy is forbidden even if AllowPostCopy is true", func() {
 				sd.allowPostCopy = true
 				sd.allowWorkloadDisruption = true
-				sd.hasVFIO = true
+				sd.forbidsPostCopy = true
 				action, _ := sd.decideAction(iterationRecord{}, 500, monitor.start, testCompletionTimeSec, monitor.logger)
 				Expect(action).To(Equal(actionHardStopAndCopy))
 			})
@@ -1432,6 +1432,24 @@ var _ = Describe("Live migration source", func() {
 				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
 				Expect(monitor.isMigrationPostCopy()).To(BeTrue())
 				Expect(sd.switchoverInitiated).To(BeTrue())
+			})
+
+			It("should not start post-copy for guaranteed transparent hugepages", func() {
+				monitor.options.AllowPostCopy = true
+				sd.ewmaBandwidthBps = 1000
+				monitor.vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						Mode:   pointer.P(v1.HugepagesModeTransparent),
+						Policy: pointer.P(v1.HugepagesPolicyGuaranteed),
+					},
+				}
+
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
+				Expect(monitor.isMigrationPostCopy()).To(BeFalse())
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
 			})
 
 			It("should force switchover when AllowWorkloadDisruption is true and migration can finish by deadline", func() {

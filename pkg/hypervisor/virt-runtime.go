@@ -27,12 +27,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/mshv"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/thp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type VirtRuntime interface {
 	HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error
 	AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error
+	// CollapseTransparentHugepages collapses THPeligible guest RAM when needed
+	// and returns smaps-based THP coverage.
+	CollapseTransparentHugepages(isolationResult isolation.IsolationResult) (thp.CollapseResult, error)
 }
 
 func GetVirtRuntime(podIsolationDetector isolation.PodIsolationDetector, hypervisorName string) VirtRuntime {
