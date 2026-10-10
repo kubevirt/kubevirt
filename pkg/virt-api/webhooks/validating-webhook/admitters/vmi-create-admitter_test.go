@@ -4027,6 +4027,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("arm64 allows bochs", "arm64", "ramfb"),
 
 			Entry("s390x allows virtio", "s390x", "virtio"),
+
+			Entry("ppc64le allows virtio", "ppc64le", "virtio"),
 		)
 
 		DescribeTable("should reject unsupported video models per architecture", func(arch, videoType string) {
@@ -4060,6 +4062,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("s390x rejects xenfb", "s390x", "xenfb"),
 			Entry("s390x rejects none", "s390x", "none"),
 			Entry("s390x rejects invalid model", "s390x", "invalidmodel"),
+
+			Entry("ppc64le rejects bochs", "ppc64le", "bochs"),
+			Entry("ppc64le rejects vga", "ppc64le", "vga"),
+			Entry("ppc64le rejects cirrus", "ppc64le", "cirrus"),
+			Entry("ppc64le rejects ramfb", "ppc64le", "ramfb"),
+			Entry("ppc64le rejects qxl", "ppc64le", "qxl"),
+			Entry("ppc64le rejects invalid model", "ppc64le", "invalidmodel"),
 		)
 	})
 

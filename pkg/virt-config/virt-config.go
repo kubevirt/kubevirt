@@ -57,11 +57,13 @@ const (
 	StallDetectorFactorPrecision                    = 3
 	DefaultAMD64MachineType                         = "q35"
 	DefaultAARCH64MachineType                       = "virt"
+	DefaultPPC64LEMachineType                       = "pseries"
 	DefaultS390XMachineType                         = "s390-ccw-virtio"
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryOvercommit                         = 100
 	DefaultAMD64EmulatedMachines                    = "q35*,pc-q35*"
 	DefaultAARCH64EmulatedMachines                  = "virt*"
+	DefaultPPC64LEEmulatedMachines                  = "pseries*"
 	DefaultS390XEmulatedMachines                    = "s390-ccw-virtio*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultMinimumReservePVCBytes                   = 131072
@@ -79,6 +81,7 @@ const (
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
 	DefaultARCHOVMFPath                             = "/usr/share/edk2/ovmf"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
+	DefaultPPC64LEOVMFPath                          = ""
 	DefaultS390xOVMFPath                            = ""
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
@@ -186,6 +189,8 @@ func (c *ClusterConfig) GetMachineType(arch string) string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.MachineType
 	case "s390x":
 		return c.GetConfig().ArchitectureConfiguration.S390x.MachineType
+	case "ppc64le":
+		return c.GetConfig().ArchitectureConfiguration.Ppc64le.MachineType
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.MachineType
 	}
@@ -218,6 +223,8 @@ func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.EmulatedMachines
 	case "s390x":
 		return c.GetConfig().ArchitectureConfiguration.S390x.EmulatedMachines
+	case "ppc64le":
+		return c.GetConfig().ArchitectureConfiguration.Ppc64le.EmulatedMachines
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.EmulatedMachines
 	}
@@ -282,6 +289,8 @@ func (c *ClusterConfig) GetOVMFPath(arch string) string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.OVMFPath
 	case "s390x":
 		return c.GetConfig().ArchitectureConfiguration.S390x.OVMFPath
+	case "ppc64le":
+		return c.GetConfig().ArchitectureConfiguration.Ppc64le.OVMFPath
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.OVMFPath
 	}
